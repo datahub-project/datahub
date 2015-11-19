@@ -29,6 +29,7 @@ import wherehows.common.schemas.LineageRecord;
 /**
  * Created by zsun on 9/13/15.
  */
+@Test(groups = {"wherehows.common"})
 public class LineageCombinerTest {
   LineageCombiner lineageCombiner;
   @BeforeTest
@@ -45,7 +46,7 @@ public class LineageCombinerTest {
     PathAnalyzer.initialize(conn);
   }
 
-  @Test
+  @Test(groups = {"needConfig"})
   public void lineageCombinerTest() {
     LineageRecord lineageRecord = new LineageRecord(0, 111L, "some_job_name", 111001L);
     lineageRecord.setDatasetInfo(0,
@@ -75,7 +76,7 @@ public class LineageCombinerTest {
       "'some_app_name','0','111','0','111001','some_job_name','0','0','some_database_name','0','/data/hadoop/someDataSet','hdfs://eat1-nertznn01.grid.linkedin.com:9000/data/hadoop/someDataSet/daily/2015/09/01/part1','2015/09/01','2015/09/02','daily','1','','source','0','0','read','0','0','0','0',NULL,NULL");
   }
 
-  @Test
+  @Test(groups = {"needConfig"})
   public void analyzeTest() {
     String fullPath = "hdfs://lva1-warnn01.grid.linkedin.com:9000/jobs/siteflow/scoring/score/abook_decision/heathrowInactive/part-m-00004";
     DatasetPath datasetPath = PathAnalyzer.analyze(fullPath);

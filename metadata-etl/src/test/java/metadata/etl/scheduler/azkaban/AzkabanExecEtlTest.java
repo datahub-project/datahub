@@ -13,7 +13,6 @@
  */
 package metadata.etl.scheduler.azkaban;
 
-import junit.framework.TestCase;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -21,7 +20,7 @@ import org.testng.annotations.Test;
 /**
  * Created by zechen on 8/25/15.
  */
-public class AzkabanExecEtlTest extends TestCase {
+public class AzkabanExecEtlTest{
   AzkabanExecEtl az;
 
   @BeforeTest

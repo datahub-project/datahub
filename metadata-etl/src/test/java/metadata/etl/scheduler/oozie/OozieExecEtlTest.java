@@ -13,7 +13,6 @@
  */
 package metadata.etl.scheduler.oozie;
 
-import junit.framework.TestCase;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -21,7 +20,7 @@ import org.testng.annotations.Test;
 /**
  * Created by zechen on 10/1/15.
  */
-public class OozieExecEtlTest extends TestCase {
+public class OozieExecEtlTest {
   OozieExecEtl oz;
 
   @BeforeTest

@@ -35,7 +35,7 @@ public class DatasetPathTest {
   }
 
   @Test
-  public void seteratedDatasetTest2() {
+  public void seperatedDatasetTest2() {
     String sample2 = "/.{/jobs/snusm/online/modeling/train-data/slot-1,/jobs/snusm/online/modeling/test-data/slot-1}";
     List<String> result2 = DatasetPath.separatedDataset(sample2);
     Assert.assertEquals(result2.get(0), sample2);
