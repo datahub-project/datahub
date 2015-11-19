@@ -8,13 +8,3 @@ dependencies {
   testCompile externalDependency.testng
   testCompile project(":metadata-etl")
 }
-
-test {
-  useTestNG() {
-    excludeGroups 'ignore'
-  }
-
-  testLogging {
-    showStandardStreams = true
-  }
-}

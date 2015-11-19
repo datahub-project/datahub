@@ -58,12 +58,4 @@ jar {
   }
 }
 
-test {
-  useTestNG() {
-    excludeGroups 'needConfig'
-  }
 
-  testLogging {
-    showStandardStreams = true
-  }
-}
