@@ -1,0 +1,20 @@
+apply plugin: 'java'
+version = '1.0'
+
+dependencies {
+  compile externalDependency.slf4j_api
+  compile externalDependency.slf4j_log4j
+  compile externalDependency.spring_jdbc
+  testCompile externalDependency.testng
+  testCompile project(":metadata-etl")
+}
+
+test {
+  useTestNG() {
+    excludeGroups 'ignore'
+  }
+
+  testLogging {
+    showStandardStreams = true
+  }
+}

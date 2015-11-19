@@ -1,0 +1,95 @@
+apply plugin: 'scala'
+// For those using Eclipse or IntelliJ IDEA
+// apply plugin: 'eclipse'
+apply plugin: 'idea'
+
+def findPlay20(){
+    project.ext.playHome = "${System.env.PLAY_HOME}"
+    project.ext.playExec = "${playHome}/play"
+}
+
+findPlay20()
+
+repositories{
+    mavenCentral()
+
+    // Play framework manages its own dependencies in a local Ivy repo
+    jcenter()
+    maven {
+        name "typesafe-maven-release"
+        url "https://repo.typesafe.com/typesafe/maven-releases"
+    }
+    ivy {
+        name "typesafe-ivy-release"
+        url "https://repo.typesafe.com/typesafe/ivy-releases"
+        layout "ivy"
+    }
+}
+
+configurations{
+
+    //Libraries needed at compilation time but not to be
+    //exported as part of the distribution
+    provided
+}
+
+dependencies{
+    // User defined libraries (will be copied to lib/ before `play compile`)
+    // compile 'group:name:0.1'
+    compile project(":wherehows-common")
+    compile project(":metadata-etl")
+    compile externalDependency.play
+    compile externalDependency.play_java_jdbc
+    compile externalDependency.play_ebean
+    compile externalDependency.play_cache
+    compile externalDependency.spring_context
+    compile externalDependency.spring_jdbc
+    compile externalDependency.mockito
+    compile externalDependency.slf4j_api
+    compile externalDependency.jasypt
+
+    provided project(":wherehows-common")
+    provided project(":metadata-etl")
+}
+
+task copyPlayLibs(type: Copy){
+    from configurations.provided
+    into 'lib'
+}
+
+task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
+    commandLine playExec, 'compile'
+}
+
+task "playClean" (type: Exec) {
+    commandLine playExec, 'clean'
+}
+
+sourceSets.main{
+    java.srcDir 'app'
+    compileClasspath += configurations.provided
+}
+
+// optional: if using 'idea' plugin
+idea {
+    module{
+        scopes.PROVIDED.plus += [configurations.provided]
+    }
+}
+
+task "build" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'stage'
+}
+
+task "dist" (type: Exec) {
+    commandLine playExec, 'dist'
+}
+
+/*
+// optional: if using 'eclipse' plugin
+eclipse {
+    classpath {
+        plusConfigurations += configurations.provided
+    }
+}
+*/

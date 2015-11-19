@@ -1,0 +1,82 @@
+#
+# Copyright 2015 LinkedIn Corp. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#
+
+# Teradata properties
+teradata.databases=
+teradata.db.driver=
+teradata.db.jdbc.url=
+teradata.db.password=
+teradata.db.username=
+teradata.default_database=
+teradata.field_metadata=
+teradata.log=
+teradata.metadata=
+teradata.sample.skip.list=
+teradata.sample_output=
+teradata.schema_output=
+
+# HDFS properties
+hdfs.schema_location=
+hdfs.cluster=
+hdfs.private_key_location=
+hdfs.remote.raw_metadata=
+hdfs.remote.sample=
+hdfs.remote.user=
+hdfs.remote.machine=
+hdfs.remote.jar=
+hdfs.local.raw_metadata=
+hdfs.local.metadata=
+hdfs.local.field_metadata=
+hdfs.local.sample=
+hdfs.white_list=
+hdfs.num_of_thread=
+
+krb5.realm=
+krb5.kdc=
+
+# Azkaban Lineage ETL
+#az.db.driver=
+#az.db.jdbc.url=
+#az.db.password=
+#az.db.username=
+az.default.hadoop.database.id=
+az.hadoop.jobhistory.server.url=
+az.lineage.actor.timeout=
+az.lineage_etl.lookback_period.in.minutes=
+az.server.password=
+az.server.url=
+az.server.username=
+
+# Azkaban Metadata ETL
+az.db.driver=
+az.db.jdbc.url=
+az.db.password=
+az.db.username=
+az.exec_etl.lookback_period.in.minutes=
+
+# Oozie Metadata ETL
+oz.db.driver=
+oz.db.jdbc.url=
+oz.db.password=
+oz.db.username=
+oz.exec_etl.lookback_period.in.minutes=
+
+# ui
+wherehows.ui.tree.dataset.file=
+wherehows.ui.tree.flow.file=
+
+# WhereHows
+wherehows.db.jdbc.url=
+wherehows.db.username=
+wherehows.db.password=

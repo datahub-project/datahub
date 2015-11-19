@@ -1,0 +1,3 @@
+gradle build
+export _JAVA_OPTIONS="-Xms1024m -Xmx2048m"
+target/universal/stage/bin/backend-service -Dhttp.port=19001

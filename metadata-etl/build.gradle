@@ -1,0 +1,69 @@
+apply plugin: 'application'
+version = '1.0'
+mainClassName = 'metadata.etl.Launcher'
+
+
+configurations {
+  //Libraries needed at compilation time but not to be
+  //exported as part of the distribution
+  provided
+}
+
+dependencies {
+  compile project(':wherehows-common')
+  compile project(':hadoop-dataset-extractor-standalone')
+  compile externalDependency.jsch
+  compile externalDependency.http_client
+  compile externalDependency.http_core
+  compile externalDependency.jackson_databind
+  compile externalDependency.jackson_core
+  compile externalDependency.jackson_annotations
+  compile externalDependency.json_path
+  compile externalDependency.akka
+  compile externalDependency.slf4j_api
+  compile externalDependency.slf4j_log4j
+  compile files("extralibs/terajdbc4-15.00.00.20.jar")
+  compile files("extralibs/tdgssconfig-15.00.00.20.jar")
+  // compile externalDependency.jython
+  // compile externalDependency.mysql
+  compile files("extralibs/mysql-connector-java-5.1.36.jar") // externalDependency.mysql
+  compile files("extralibs/jython-standalone-2.7.0.jar") //externalDependency.jython
+  provided project(":hadoop-dataset-extractor-standalone")
+  testCompile externalDependency.testng
+}
+
+
+task copyFiles(type: Copy, dependsOn: compileJava) {
+  from configurations.provided
+  into 'src/main/resources/jar'
+  include 'schemaFetch.jar'
+}
+
+
+sourceSets {
+  main {
+    java {
+      srcDir 'src/java'
+    }
+    resources {
+      srcDir 'src/resources'
+    }
+  }
+}
+
+jar {
+  dependsOn 'copyFiles'
+  manifest {
+    attributes 'Main-Class': 'metadata.etl.Launcher'
+  }
+}
+
+test {
+  useTestNG() {
+    excludeGroups 'needConfig'
+  }
+
+  testLogging {
+    showStandardStreams = true
+  }
+}

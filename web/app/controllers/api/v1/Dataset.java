@@ -1,0 +1,664 @@
+/**
+ * Copyright 2015 LinkedIn Corp. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ */
+package controllers.api.v1;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import models.DatasetColumn;
+import models.ImpactDataset;
+import play.api.libs.json.JsValue;
+import play.libs.Json;
+import play.mvc.BodyParser;
+import play.mvc.Controller;
+import play.mvc.Result;
+import play.Logger;
+import org.apache.commons.lang3.StringUtils;
+import dao.DatasetsDAO;
+
+import java.util.List;
+import java.util.Map;
+
+public class Dataset extends Controller
+{
+    public static Result getPagedDatasets()
+    {
+        ObjectNode result = Json.newObject();
+        String urn = request().getQueryString("urn");
+
+        int page = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasets wrong page parameter. Error message: " + e.getMessage());
+                page = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasets wrong size parameter. Error message: " + e.getMessage());
+                size = 10;
+            }
+        }
+
+        result.put("status", "ok");
+        String username = session("user");
+        result.set("data", DatasetsDAO.getPagedDatasets(urn, page, size, username));
+        return ok(result);
+    }
+
+    public static Result getDatasetByID(int id)
+    {
+        String username = session("user");
+        models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
+
+        ObjectNode result = Json.newObject();
+
+        if (dataset != null)
+        {
+            result.put("status", "ok");
+            result.set("dataset", Json.toJson(dataset));
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getDatasetColumnByID(int datasetId, int columnId)
+    {
+        List<DatasetColumn> datasetColumnList = DatasetsDAO.getDatasetColumnByID(datasetId, columnId);
+
+        ObjectNode result = Json.newObject();
+
+        if (datasetColumnList != null && datasetColumnList.size() > 0)
+        {
+            result.put("status", "ok");
+            result.set("columns", Json.toJson(datasetColumnList));
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getDatasetColumnsByID(int id)
+    {
+        List<DatasetColumn> datasetColumnList = DatasetsDAO.getDatasetColumnsByID(id);
+
+        ObjectNode result = Json.newObject();
+
+        if (datasetColumnList != null && datasetColumnList.size() > 0)
+        {
+            result.put("status", "ok");
+            result.set("columns", Json.toJson(datasetColumnList));
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getDatasetPropertiesByID(int id)
+    {
+        JsonNode properties = DatasetsDAO.getDatasetPropertiesByID(id);
+
+        ObjectNode result = Json.newObject();
+
+        if (properties != null)
+        {
+            result.put("status", "ok");
+            result.set("properties", properties);
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getDatasetSampleDataByID(int id)
+    {
+        JsonNode sampleData = DatasetsDAO.getDatasetSampleDataByID(id);
+
+        ObjectNode result = Json.newObject();
+
+        if (sampleData != null)
+        {
+            result.put("status", "ok");
+            result.set("sampleData", sampleData);
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getDatasetImpactAnalysisByID(int id)
+    {
+        List<ImpactDataset> impactDatasetList = DatasetsDAO.getImpactAnalysisByID(id);
+
+        ObjectNode result = Json.newObject();
+
+        if (impactDatasetList != null)
+        {
+            result.put("status", "ok");
+            result.set("impacts", Json.toJson(impactDatasetList));
+        }
+        else
+        {
+            result.put("status", "error");
+            result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result favoriteDataset(int id)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        if (StringUtils.isNotBlank(username))
+        {
+            if (DatasetsDAO.favorite(id, username))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result unfavoriteDataset(int id)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        if (StringUtils.isNotBlank(username))
+        {
+            if (DatasetsDAO.unfavorite(id, username))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getFavorites()
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        result.put("status", "ok");
+        result.set("data", DatasetsDAO.getFavorites(username));
+        return ok(result);
+    }
+
+    public static Result getPagedDatasetComments(int id)
+    {
+        ObjectNode result = Json.newObject();
+
+        int page = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasetComments wrong page parameter. Error message: " +
+                        e.getMessage());
+                page = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasetComments wrong size parameter. Error message: " +
+                        e.getMessage());
+                size = 10;
+            }
+        }
+
+        result.put("status", "ok");
+        result.set("data", DatasetsDAO.getPagedDatasetComments(id, page, size));
+        return ok(result);
+    }
+
+    public static Result postDatasetComment(int id)
+    {
+        String body = request().body().asText();
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+
+        if (StringUtils.isNotBlank(username))
+        {
+            if (DatasetsDAO.postComment(id, params, username))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("error", "true");
+                result.put("msg", "Could not create comment.");
+                return badRequest(result);
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("error", "true");
+            result.put("msg", "Unauthorized User.");
+            return badRequest(result);
+        }
+
+        return ok(result);
+    }
+
+    public static Result putDatasetComment(int id, int commentId)
+    {
+      String body = request().body().asText();
+      ObjectNode result = Json.newObject();
+      String username = session("user");
+      Map<String, String[]> params = request().body().asFormUrlEncoded();
+
+      if(StringUtils.isNotBlank(username))
+      {
+        if(DatasetsDAO.postComment(id, params, username))
+        {
+          result.put("status", "success");
+          return ok(result);
+        }
+        else
+        {
+          result.put("status", "failed");
+          result.put("error", "true");
+          result.put("msg", "Could not create comment.");
+          return badRequest(result);
+        }
+      }
+      else
+      {
+        result.put("status", "failed");
+        result.put("error", "true");
+        result.put("msg", "Unauthorized User");
+        return badRequest(result);
+      }
+
+    }
+
+    public static Result deleteDatasetComment(int id, int commentId)
+    {
+        ObjectNode result = Json.newObject();
+        if (DatasetsDAO.deleteComment(commentId))
+        {
+            result.put("status", "success");
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result watchDataset(int id)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+        if (StringUtils.isNotBlank(username))
+        {
+            String message = DatasetsDAO.watchDataset(id, params, username);
+            if (StringUtils.isBlank(message))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("message", message);
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("message", "User is not authenticated");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getWatchedUrnId()
+    {
+        ObjectNode result = Json.newObject();
+        String urn = request().getQueryString("urn");
+        result.put("status", "success");
+        Long id = 0L;
+
+        if (StringUtils.isNotBlank(urn))
+        {
+            String username = session("user");
+            if (StringUtils.isNotBlank(username))
+            {
+                id = DatasetsDAO.getWatchId(urn, username);
+            }
+        }
+        result.put("id", id);
+
+        return ok(result);
+    }
+
+    public static Result watchURN()
+    {
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+        ObjectNode result = Json.newObject();
+
+        String username = session("user");
+        if (StringUtils.isNotBlank(username))
+        {
+            String message = DatasetsDAO.watchURN(params, username);
+            if (StringUtils.isBlank(message))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("message", message);
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("message", "User is not authenticated");
+        }
+        return ok(result);
+    }
+
+    public static Result unwatchDataset(int id, int watchId)
+    {
+        ObjectNode result = Json.newObject();
+        if (DatasetsDAO.unwatch(watchId))
+        {
+            result.put("status", "success");
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result unwatchURN(int watchId)
+    {
+        ObjectNode result = Json.newObject();
+        if (DatasetsDAO.unwatch(watchId))
+        {
+            result.put("status", "success");
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getPagedDatasetColumnComments(int datasetId, int columnId)
+    {
+        ObjectNode result = Json.newObject();
+
+        int page = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasetColumnComments wrong page parameter. Error message: " +
+                        e.getMessage());
+                page = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dataset Controller getPagedDatasetColumnComments wrong size parameter. Error message: " +
+                        e.getMessage());
+                size = 10;
+            }
+        }
+
+        result.put("status", "ok");
+        result.set("data", DatasetsDAO.getPagedDatasetColumnComments(datasetId, columnId, page, size));
+        return ok(result);
+    }
+
+    public static Result postDatasetColumnComment(int id, int columnId)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+        if (StringUtils.isNotBlank(username))
+        {
+            String errorMsg = DatasetsDAO.postColumnComment(id, columnId, params, username);
+            if (StringUtils.isBlank(errorMsg))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("msg", errorMsg);
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("msg", "Authentication Required");
+        }
+
+        return ok(result);
+    }
+
+    public static Result putDatasetColumnComment(int id, int columnId, int commentId)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+        if (StringUtils.isNotBlank(username))
+        {
+            String errorMsg = DatasetsDAO.postColumnComment(id, commentId, params, username);
+            if (StringUtils.isBlank(errorMsg))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("msg", errorMsg);
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("msg", "Authentication Required");
+        }
+
+        return ok(result);
+    }
+
+    public static Result assignCommentToColumn(int datasetId, int columnId)
+    {
+        ObjectNode json = Json.newObject();
+        ArrayNode res = json.arrayNode();
+        JsonNode req = request().body().asJson();
+        if(req == null) {
+            return badRequest("Expecting JSON data");
+        }
+        if(req.isArray()) {
+            for(int i = 0; i < req.size(); i++) {
+                JsonNode obj = req.get(i);
+                Boolean isSuccess = DatasetsDAO.assignColumnComment(datasetId, columnId, obj.get("commentId").asInt());
+                ObjectNode itemResponse = Json.newObject();
+                if(isSuccess) {
+                    itemResponse.put("success", "true");
+                } else {
+                    itemResponse.put("error", "true");
+                    itemResponse.put("datasetId", datasetId);
+                    itemResponse.put("columnId", columnId);
+                    itemResponse.put("commentId", obj.get("comment_id"));
+                }
+                res.add(itemResponse);
+            }
+        } else {
+            Logger.error("Comment ID: " + req.get("commentId"));
+            Boolean isSuccess = DatasetsDAO.assignColumnComment(datasetId, columnId, req.get("commentId").asInt());
+            ObjectNode itemResponse = Json.newObject();
+            if(isSuccess) {
+                itemResponse.put("success", "true");
+            } else {
+                itemResponse.put("error", "true");
+                itemResponse.put("datasetId", datasetId);
+                itemResponse.put("columnId", columnId);
+                itemResponse.put("commentId", req.get("commentId"));
+            }
+            res.add(itemResponse);
+        }
+        ObjectNode result = Json.newObject();
+        result.putArray("results").addAll(res);
+        return ok(result);
+    }
+
+    public static Result deleteDatasetColumnComment(int id, int columnId, int commentId)
+    {
+        ObjectNode result = Json.newObject();
+        if (DatasetsDAO.deleteColumnComment(id, columnId, commentId))
+        {
+            result.put("status", "success");
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result getSimilarColumnComments(int datasetId, int columnId) {
+        ObjectNode result = Json.newObject();
+        result.put("similar", Json.toJson(DatasetsDAO.similarColumnComments(datasetId, columnId)));
+        return ok(result);
+    }
+
+    public static Result getSimilarColumns(int datasetId, int columnId)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("similar", Json.toJson(DatasetsDAO.similarColumns(datasetId, columnId)));
+        return ok(result);
+    }
+}

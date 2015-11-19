@@ -1,0 +1,53 @@
+apply plugin: 'java'
+version = '1.0'
+
+configurations {
+  // configuration that holds jars to copy into lib
+  extraLibs
+}
+
+dependencies {
+  extraLibs project(":wherehows-common")
+  extraLibs files("extralibs/linkedin-pig-0.11.1.49.jar")
+  extraLibs files("extralibs/voldemort-0.91.li1.jar")
+  extraLibs externalDependency.joda
+  extraLibs externalDependency.avro_mapred
+  extraLibs externalDependency.hive
+  extraLibs externalDependency.pig
+
+  compile project(":wherehows-common")
+  compile files("extralibs/linkedin-pig-0.11.1.49.jar")
+  compile files("extralibs/voldemort-0.91.li1.jar")
+  compile externalDependency.hadoop_common
+  compile externalDependency.hadoop_client
+  compile externalDependency.pig
+  compile externalDependency.avro
+  compile externalDependency.avro_mapred
+  compile externalDependency.joda
+  compile externalDependency.hive
+
+  testCompile externalDependency.testng
+}
+
+jar {
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA', '*/antlr-runtime-3.4.jar'
+  archiveName = "schemaFetch.jar"
+
+  into('lib') {
+    from configurations.extraLibs
+  }
+
+  manifest {
+    attributes 'Main-Class': "wherehows.SchemaFetch"
+  }
+}
+
+test {
+  useTestNG() {
+    excludeGroups 'ignore'
+  }
+
+  testLogging {
+    showStandardStreams = true
+  }
+}

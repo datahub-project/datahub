@@ -1,0 +1,7 @@
+sourceSets {
+  main {
+    resources {
+      srcDir 'DDL'
+    }
+  }
+}
