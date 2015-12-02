@@ -90,7 +90,7 @@ public class AzLineageExtractorMaster {
     Connection conn = DriverManager.getConnection(connUrl);
     DatabaseWriter databaseWriter = new DatabaseWriter(connUrl, "stg_job_execution_data_lineage");
 
-    AzLogParser.initialize(conn, Integer.valueOf(prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY)));
+    AzLogParser.initialize(conn);
     PathAnalyzer.initialize(conn);
     int timeout = 30; // default 30 minutes for one job
     if (prop.containsKey(Constant.LINEAGE_ACTOR_TIMEOUT_KEY))

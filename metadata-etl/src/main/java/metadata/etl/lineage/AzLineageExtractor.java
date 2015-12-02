@@ -61,8 +61,8 @@ public class AzLineageExtractor {
     // normalize and combine the path
     LineageCombiner lineageCombiner = new LineageCombiner(message.connection);
     lineageCombiner.addAll(oneAzkabanJobLineage);
-
-    List<LineageRecord> lineageFromLog = AzLogParser.getLineageFromLog(log, message.azkabanJobExecution);
+    Integer defaultDatabaseId = Integer.valueOf(message.prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY));
+    List<LineageRecord> lineageFromLog = AzLogParser.getLineageFromLog(log, message.azkabanJobExecution, defaultDatabaseId);
     lineageCombiner.addAll(lineageFromLog);
 
     return lineageCombiner.getCombinedLineage();
