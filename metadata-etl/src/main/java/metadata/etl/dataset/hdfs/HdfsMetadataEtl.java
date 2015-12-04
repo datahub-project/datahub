@@ -82,6 +82,7 @@ public class HdfsMetadataEtl extends EtlJob {
 
       InputStream localJarStream = classLoader.getResourceAsStream("jar/schemaFetch.jar");
       channelSftp.put(localJarStream, remoteJarFile, ChannelSftp.OVERWRITE);
+      localJarStream.close();
 
       String localSchemaFile = prop.getProperty(Constant.HDFS_SCHEMA_LOCAL_PATH_KEY);
       new File(localSchemaFile).getParentFile().mkdirs();

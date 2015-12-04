@@ -25,6 +25,8 @@ dependencies {
   compile externalDependency.avro_mapred
   compile externalDependency.joda
   compile externalDependency.hive
+  compile externalDependency.http_client
+  compile externalDependency.http_core
 
   testCompile externalDependency.testng
 }
