@@ -41,6 +41,7 @@ hdfs.local.field_metadata=
 hdfs.local.sample=
 hdfs.white_list=
 hdfs.num_of_thread=
+hdfs.remote.working.dir=
 
 krb5.realm=
 krb5.kdc=
@@ -80,3 +81,6 @@ wherehows.ui.tree.flow.file=
 wherehows.db.jdbc.url=
 wherehows.db.username=
 wherehows.db.password=
+
+# owner
+hdfs.owner.hive.query=
