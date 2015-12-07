@@ -21,5 +21,6 @@ public enum EtlType {
   LINEAGE,
   DATASET,
   OWNER,
+  LDAP,
   ALL
 }

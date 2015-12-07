@@ -64,8 +64,8 @@ public class HiveJdbcClient {
             out.write(DATASET_URN_PREFIX + findUrn(d));
             out.write(SEPR);
             int idx = o.lastIndexOf(':');
-            String prefix = o.substring(0, idx);
-            String owner = o.substring(idx + 1);
+            String prefix = o.substring(0, idx).trim();
+            String owner = o.substring(idx + 1).trim();
             out.write(owner);
             out.write(SEPR);
             out.write(String.valueOf(sortId));

@@ -17,7 +17,7 @@ CREATE TABLE dataset_owner (
   `dataset_id` INT UNSIGNED NOT NULL,
   `dataset_urn` VARCHAR(200) NOT NULL,
   `owner_id` VARCHAR(127) NOT NULL,
-  `app_id` SMALLINT COMMENT 'application id of the namespace',
+  `app_id` SMALLINT NOT NULL COMMENT 'application id of the namespace',
   `namespace` VARCHAR(127) COMMENT 'the namespace of the user',
   `owner_type` VARCHAR(127) COMMENT 'Producer, Consumer, Stakeholder',
   `owner_sub_type` VARCHAR(127) COMMENT 'DWH, UMP, BA, etc',
@@ -30,8 +30,8 @@ CREATE TABLE dataset_owner (
   `created_time` INT UNSIGNED COMMENT 'the create time in epoch',
   `modified_time` INT UNSIGNED COMMENT 'the modified time in epoch',
   wh_etl_exec_id BIGINT COMMENT 'wherehows etl execution id that modified this record',
-  PRIMARY KEY (`dataset_id`, `owner_id`, `namespace`),
-  UNIQUE KEY (`dataset_urn`, `owner_id`, `namespace`)
+  PRIMARY KEY (`dataset_id`, `owner_id`, `app_id`),
+  UNIQUE KEY (`dataset_urn`, `owner_id`, `app_id`)
 );
 
 CREATE TABLE stg_dataset_owner (
@@ -49,9 +49,9 @@ CREATE TABLE stg_dataset_owner (
   `is_active` CHAR(1) COMMENT 'if owner is active',
   `source_time` INT UNSIGNED COMMENT 'the source event time in epoch',
   `is_parent_urn` CHAR(1) DEFAULT 'N' COMMENT 'if the urn is a directory for datasets',
-  PRIMARY KEY (dataset_urn, owner_id, namespace, db_name),
-  INDEX dataset_index (dataset_urn),
-  INDEX db_name_index (db_name)
+  KEY (dataset_urn, owner_id, namespace, db_name),
+  KEY dataset_index (dataset_urn),
+  KEY db_name_index (db_name)
 );
 
 
@@ -68,7 +68,7 @@ CREATE TABLE stg_dataset_owner_unmatched (
   `db_id` INT COMMENT 'database id',
   `is_active` CHAR(1) COMMENT 'if owner is active',
   `source_time` INT UNSIGNED COMMENT 'the source event time in epoch',
-  PRIMARY KEY (dataset_urn, owner_id, namespace, db_name),
-  INDEX dataset_index (dataset_urn),
-  INDEX db_name_index (db_name)
+  KEY (dataset_urn, owner_id, namespace, db_name),
+  KEY dataset_index (dataset_urn),
+  KEY db_name_index (db_name)
 );

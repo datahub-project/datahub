@@ -37,7 +37,7 @@ class OwnerLoad:
           INSERT INTO dataset_owner (dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id)
           SELECT * FROM (SELECT dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, group_concat(db_id ORDER BY db_id SEPARATOR ",") db_ids, is_group, is_active, source_time, unix_timestamp(NOW()) time_created, {wh_etl_exec_id}
           FROM stg_dataset_owner s
-          WHERE s.dataset_id is not null and s.owner_id is not null and s.owner_id != ''
+          WHERE s.dataset_id is not null and s.owner_id is not null and s.owner_id != '' and s.app_id is not null
           GROUP BY s.dataset_id, s.owner_id, s.sort_id, s.namespace, s.owner_type, s.owner_sub_type) sb
           ON DUPLICATE KEY UPDATE
           dataset_urn = sb.dataset_urn,
@@ -60,7 +60,7 @@ class OwnerLoad:
         INSERT INTO dataset_owner (dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id)
         select * FROM (select distinct d.id, d.urn, s.owner_id, s.sort_id, s.namespace, s.app_id, s.owner_type, owner_sub_type, group_concat(s.db_id ORDER BY db_id SEPARATOR ",") db_ids, s.is_group, s.is_active, s.source_time, unix_timestamp(NOW()) time_created, {wh_etl_exec_id}
         from stg_dataset_owner s join dict_dataset d on s.dataset_urn =  substring(d.urn, 1, char_length(d.urn) - char_length(substring_index(d.urn, '/', -{lvl})) - 1)
-        WHERE s.owner_id is not null and s.owner_id != ''
+        WHERE s.owner_id is not null and s.owner_id != '' and s.app_id is not null
         group by d.id, s.owner_id, s.sort_id, s.namespace, s.owner_type, s.owner_sub_type) sb
         ON DUPLICATE KEY UPDATE
         dataset_urn = sb.urn,
