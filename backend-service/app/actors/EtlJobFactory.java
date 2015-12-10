@@ -18,6 +18,7 @@ import metadata.etl.EtlJob;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
+import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
 import models.EtlJobName;
@@ -40,6 +41,8 @@ public class EtlJobFactory {
         return new TeradataMetadataEtl(refId, whExecId, properties);
       case AZKABAN_LINEAGE_METADATA_ETL:
         return new AzLineageMetadataEtl(refId, whExecId, properties);
+      case HADOOP_DATASET_OWNER_ETL:
+        return new DatasetOwnerEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

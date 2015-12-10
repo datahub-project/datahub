@@ -76,8 +76,13 @@ public class Constant {
   public static final String HDFS_REMOTE_MACHINE_KEY = "hdfs.remote.machine";
   public static final String HDFS_PRIVATE_KEY_LOCATION_KEY = "hdfs.private_key_location";
   public static final String HDFS_REMOTE_JAR_KEY = "hdfs.remote.jar";
+  public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";
 
   // ui
   public static final String DATASET_TREE_FILE_NAME_KEY = "wherehows.ui.tree.dataset.file";
   public static final String FLOW_TREE_FILE_NAME_KEY = "wherehows.ui.tree.flow.file";
+
+  // hdfs owner
+  public static final String HDFS_OWNER_HIVE_QUERY_KEY = "hdfs.owner.hive.query";
+
 }
