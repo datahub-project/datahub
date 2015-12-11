@@ -21,7 +21,7 @@ import sys
 
 class OwnerTransform:
     _tables = {"dataset_owner": {"columns": "dataset_urn, owner_id, sort_id, namespace, db_name, source_time",
-                                 "file": "hdfs_dataset_owner.csv",
+                                 "file": "dataset_owner.csv",
                                  "table": "stg_dataset_owner"}
                }
 

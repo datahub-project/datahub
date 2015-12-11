@@ -85,4 +85,21 @@ public class Constant {
   // hdfs owner
   public static final String HDFS_OWNER_HIVE_QUERY_KEY = "hdfs.owner.hive.query";
 
+  // ldap
+  public static final String LDAP_CEO_USER_ID_KEY = "ldap.ceo.user.id";
+  public static final String LDAP_CONTEXT_FACTORY_KEY = "ldap.context.factory";
+  public static final String LDAP_CONTEXT_PROVIDER_URL_KEY = "ldap.context.provider.url";
+  public static final String LDAP_CONTEXT_SECURITY_PRINCIPAL_KEY = "ldap.context.security.principal";
+  public static final String LDAP_CONTEXT_SECURITY_CREDENTIALS_KEY = "ldap.context.security.credentials";
+  public static final String LDAP_SEARCH_DOMAINS_KEY = "ldap.search.domains";
+  public static final String LDAP_INACTIVE_DOMAIN_KEY = "ldap.inactive.domain";
+  public static final String LDAP_SEARCH_RETURN_ATTRS_KEY = "ldap.search.return.attributes";
+  public static final String LDAP_GROUP_CONTEXT_FACTORY_KEY = "ldap.group.context.factory";
+  public static final String LDAP_GROUP_CONTEXT_PROVIDER_URL_KEY = "ldap.group.context.provider.url";
+  public static final String LDAP_GROUP_CONTEXT_SECURITY_PRINCIPAL_KEY = "ldap.group.context.security.principal";
+  public static final String LDAP_GROUP_CONTEXT_SECURITY_CREDENTIALS_KEY = "ldap.group.context.security.credentials";
+  public static final String LDAP_GROUP_APP_ID_KEY = "ldap.group.app.id";
+  public static final String LDAP_GROUP_SEARCH_DOMAINS_KEY = "ldap.group.search.domains";
+  public static final String LDAP_GROUP_SEARCH_RETURN_ATTRS_KEY = "ldap.group.search.return.attributes";
+
 }

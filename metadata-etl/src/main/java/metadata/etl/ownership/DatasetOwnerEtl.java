@@ -45,7 +45,7 @@ public class DatasetOwnerEtl extends EtlJob {
   private static final String JAVA_FILE_NAME = "HiveJdbcClient";
   private static final String JAVA_EXT = ".java";
   private static final String HIVE_SCRIPT_FILE = "fetch_owner.hql";
-  private static final String OUTPUT_FILE_NAME = "hdfs_dataset_owner.csv";
+  private static final String OUTPUT_FILE_NAME = "dataset_owner.csv";
   private static final String CLASSPATH = "${HIVE_HOME}/lib/*:${HIVE_CONF_DIR}:`hadoop classpath`:.";
 
   @Override

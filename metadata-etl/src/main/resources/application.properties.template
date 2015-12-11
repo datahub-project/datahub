@@ -84,3 +84,21 @@ wherehows.db.password=
 
 # owner
 hdfs.owner.hive.query=
+
+# ldap
+ldap.context.factory=
+ldap.context.provider.url=
+ldap.context.security.principal=
+ldap.context.security.credentials=
+ldap.search.domains=
+ldap.search.return.attributes=
+ldap.inactive.domain=
+ldap.ceo.user.id=
+ldap.group.app.id=
+ldap.group.context.factory=
+ldap.group.context.provider.url=
+ldap.group.context.security.principal=
+ldap.group.context.security.credentials=
+ldap.group.search.domains=
+ldap.group.search.return.attributes=
+
