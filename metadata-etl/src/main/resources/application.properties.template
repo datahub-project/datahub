@@ -102,3 +102,7 @@ ldap.group.context.security.credentials=
 ldap.group.search.domains=
 ldap.group.search.return.attributes=
 
+# git
+git.host=
+git.project.whitelist=
+

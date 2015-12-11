@@ -102,4 +102,8 @@ public class Constant {
   public static final String LDAP_GROUP_SEARCH_DOMAINS_KEY = "ldap.group.search.domains";
   public static final String LDAP_GROUP_SEARCH_RETURN_ATTRS_KEY = "ldap.group.search.return.attributes";
 
+  // git
+  public static final String GIT_HOST_KEY = "git.host";
+  public static final String GIT_PROJECT_WHITELIST_KEY = "git.project.whitelist";
+
 }
