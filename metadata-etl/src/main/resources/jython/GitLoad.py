@@ -36,7 +36,7 @@ class GitLoad:
 
     def load_from_stg(self):
         query = """
-        INSERT INTO source_code_commit_info
+        INSERT IGNORE INTO source_code_commit_info
         (
             app_id, repository_urn, commit_id, file_path, file_name, commit_time, committer_name, committer_email,
             author_name, author_email, message, created_time, wh_etl_exec_id
@@ -45,15 +45,6 @@ class GitLoad:
         author_name, author_email, message, unix_timestamp(NOW()), wh_etl_exec_id
         from stg_source_code_commit_info s
         where s.app_id = {app_id}
-        on duplicate key update
-          commit_time = s.commit_time,
-          committer_name = s.committer_name,
-          committer_email = s.committer_email,
-          author_name = s.author_name,
-          author_email = s.author_email,
-          message = s.message,
-          modified_time = unix_timestamp(NOW()),
-          wh_etl_exec_id = s.wh_etl_exec_id
         """.format(app_id=self.app_id)
         print query
         self.wh_cursor.execute(query)

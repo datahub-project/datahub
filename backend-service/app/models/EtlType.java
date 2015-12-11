@@ -22,5 +22,6 @@ public enum EtlType {
   DATASET,
   OWNER,
   LDAP,
+  VCS,
   ALL
 }

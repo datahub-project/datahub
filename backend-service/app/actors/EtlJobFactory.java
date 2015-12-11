@@ -17,6 +17,7 @@ import java.util.Properties;
 import metadata.etl.EtlJob;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
+import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
@@ -46,6 +47,8 @@ public class EtlJobFactory {
         return new DatasetOwnerEtl(refId, whExecId, properties);
       case LDAP_USER_ETL:
         return new LdapEtl(refId, whExecId, properties);
+      case GIT_MEDATA_ETL:
+        return new GitMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

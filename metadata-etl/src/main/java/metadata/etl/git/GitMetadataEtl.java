@@ -15,11 +15,8 @@ package metadata.etl.git;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.Set;
 import metadata.etl.EtlJob;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,9 +47,6 @@ public class GitMetadataEtl extends EtlJob {
     logger.info("git extract");
     String gitHost = this.prop.getProperty(Constant.GIT_HOST_KEY);
     String[] projects = (this.prop.getProperty(Constant.GIT_PROJECT_WHITELIST_KEY)).trim().split("\\s*,\\s*");
-    Set<String> blackCommitters = new HashSet<>(
-        Arrays.asList(this.prop.getProperty(Constant.GIT_COMMITTER_BLACKLIST_KEY).trim().split("\\s*,\\s*")));
-
     String localDir = this.prop.getProperty(Constant.WH_APP_FOLDER_KEY) + "/" + this.prop.getProperty(Constant.APP_ID_KEY);
     File dir = new File(localDir);
     if (!dir.exists()) {
@@ -80,7 +74,6 @@ public class GitMetadataEtl extends EtlJob {
   public void transform()
       throws Exception {
     logger.info("git transform");
-    // call a python script to do the transformation
     InputStream inputStream = classLoader.getResourceAsStream("jython/GitTransform.py");
     interpreter.execfile(inputStream);
     inputStream.close();
@@ -89,7 +82,7 @@ public class GitMetadataEtl extends EtlJob {
   @Override
   public void load()
       throws Exception {
-    logger.info("ldap db load");
+    logger.info("git load");
     InputStream inputStream = classLoader.getResourceAsStream("jython/GitLoad.py");
     interpreter.execfile(inputStream);
     inputStream.close();
