@@ -13,7 +13,12 @@
  */
 package metadata.etl.lineage;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Properties;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -108,6 +113,8 @@ public class AzJobCheckerTest {
     + "                 \"zsun\",\n" + "                 \"data_svc\"],\n" + " \"startTime\": 1442224810815,\n"
     + " \"status\": \"SUCCEEDED\",\n" + " \"submitTime\": 1442224810778,\n" + " \"submitUser\": \"zsun\",\n"
     + " \"type\": null,\n" + " \"updateTime\": 1442233069065,\n" + " \"version\": 301}";
+
+
   AzJobChecker ajc;
   Properties prop;
 
@@ -131,6 +138,18 @@ public class AzJobCheckerTest {
   }
 
   @Test(groups = {"needConfig"})
+  public void getRecentFinishedJobFromFlowTest2()
+      throws SQLException, IOException {
+    List<AzkabanJobExecRecord> results = ajc.getRecentFinishedJobFromFlow(2, 1448916456L);
+    for (AzkabanJobExecRecord a : results) {
+      System.out.print(a.getFlowExecId() + "\t");
+      System.out.print(a.getJobName() + "\t");
+      System.out.println(a.getJobExecId());
+    }
+    Assert.assertNotNull(results);
+  }
+
+  @Test(groups = {"needConfig"})
   public void parseJsonTest()
     throws IOException {
     List<AzkabanJobExecRecord> result = ajc.parseJson(jsonInput, 11111);
@@ -145,4 +164,27 @@ public class AzJobCheckerTest {
       Assert.assertEquals((long) aje.getJobExecId(), 11111 * 1000 + i);
     }
   }
+
+  @Test(groups = {"needConfig"})
+  public void parseNestedJsonTest()
+      throws IOException, URISyntaxException {
+
+    URL url = Thread.currentThread().getContextClassLoader().getResource("nestedJson");
+    byte[] encoded = Files.readAllBytes(Paths.get(url.getPath()));
+    String nestedJson = new String(encoded, "UTF-8");
+    List<AzkabanJobExecRecord> result = ajc.parseJson(nestedJson, 11111);
+    for (int i = 0; i < result.size(); i++) {
+      AzkabanJobExecRecord aje = result.get(i);
+      System.out.println(aje.getJobExecId());
+      System.out.println(aje.getJobName());
+      System.out.println(aje.getStartTime());
+      System.out.println(aje.getEndTime());
+      System.out.println(aje.getFlowPath());
+      System.out.println();
+      Assert.assertEquals((long) aje.getJobExecId(), 11111 * 1000 + i);
+    }
+  }
+
+
+
 }

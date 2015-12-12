@@ -35,7 +35,7 @@ import java.util.Properties;
  * Created by zsun on 7/29/15.
  */
 public abstract class EtlJob {
-  public final static String CONFIG_FILE = "application.properties";
+  private final static String CONFIG_FILE = "application.properties";
   public PythonInterpreter interpreter;
   public PySystemState sys;
   public Properties prop;
@@ -61,8 +61,8 @@ public abstract class EtlJob {
    */
   @Deprecated
   public EtlJob(Integer appId, Integer dbId, long whExecId, String configFile) {
-    configFromFile(appId, dbId, whExecId, configFile);
-    addJythonToPath();
+    PySystemState sys = configFromFile(appId, dbId, whExecId, configFile);
+    addJythonToPath(sys);
     interpreter = new PythonInterpreter(null, sys);
   }
 
@@ -75,11 +75,11 @@ public abstract class EtlJob {
    */
   public EtlJob(Integer appId, Integer dbId, Long whExecId, Properties properties) {
     configFromProperties(appId, dbId, whExecId, properties);
-    addJythonToPath();
+    addJythonToPath(sys);
     interpreter = new PythonInterpreter(null, sys);
   }
 
-  private void addJythonToPath() {
+  private void addJythonToPath(PySystemState pySystemState) {
     URL url = classLoader.getResource("jython");
     if (url != null) {
       File file = new File(url.getFile());
@@ -87,12 +87,12 @@ public abstract class EtlJob {
       if (path.startsWith("file:")) {
         path = path.substring(5);
       }
-      sys.path.append(new PyString(path.replace("!", "")));
+      pySystemState.path.append(new PyString(path.replace("!", "")));
     }
   }
 
   @Deprecated
-  private void configFromFile(Integer appId, Integer dbId, long whExecId, String configFile) {
+  private PySystemState configFromFile(Integer appId, Integer dbId, long whExecId, String configFile) {
 
     prop = new Properties();
     if (appId != null) {
@@ -117,8 +117,9 @@ public abstract class EtlJob {
       config.put(new PyString(key), new PyString(value));
     }
 
-    sys = new PySystemState();
+    PySystemState sys = new PySystemState();
     sys.argv.append(config);
+    return sys;
   }
 
   /**

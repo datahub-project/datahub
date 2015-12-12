@@ -4,16 +4,14 @@ gradle dist;
 rm -r target/universal/backend-service-1.0-SNAPSHOT;
 unzip target/universal/backend-service-1.0-SNAPSHOT.zip -d target/universal/;
 
-scp target/universal/backend-service-1.0-SNAPSHOT/lib/metadata-etl-1.0.jar dev_svc@lva1-rpt14:~/backendServer/lib/;
-scp target/universal/backend-service-1.0-SNAPSHOT/lib/wherehows-common-1.0.jar dev_svc@lva1-rpt14:~/backendServer/lib/;
+scp target/universal/backend-service-1.0-SNAPSHOT/lib/metadata-etl-1.0.jar ${TARGET_SERVER}:~/backendServer/lib/;
 
-scp target/universal/backend-service-1.0-SNAPSHOT/lib/default.backend-service-1.0-SNAPSHOT.jar dev_svc@lva1-rpt14:~/backendServer/lib/;
+scp target/universal/backend-service-1.0-SNAPSHOT/lib/default.backend-service-1.0-SNAPSHOT.jar ${TARGET_SERVER}:~/backendServer/lib/;
 
-scp target/universal/backend-service-1.0-SNAPSHOT/lib/schemaFetch.jar dev_svc@lva1-rpt14:~/backendServer/lib/;
+scp target/universal/backend-service-1.0-SNAPSHOT/lib/schemaFetch.jar ${TARGET_SERVER}:~/backendServer/lib/;
+
+scp target/universal/backend-service-1.0-SNAPSHOT/lib/wherehows-common-1.0.jar ${TARGET_SERVER}:~/backendServer/lib/;
+
+scp target/universal/backend-service-1.0-SNAPSHOT/bin/* ${TARGET_SERVER}:~/backendServer/bin/;
 
 
-
-scp target/universal/backend-service-1.0-SNAPSHOT/bin/* dev_svc@lva1-rpt14:~/backendServer/bin/;
-
-
-scp target/universal/backend-service-1.0-SNAPSHOT/lib/metadata-etl-1.0.jar cloudera@172.21.98.211:~/wherehows/backend-service-1.0-SNAPSHOT/lib/

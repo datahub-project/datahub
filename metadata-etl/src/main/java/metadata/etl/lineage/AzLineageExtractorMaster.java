@@ -60,17 +60,22 @@ public class AzLineageExtractorMaster {
     run(10);
   }
 
+  public void run(int timeFrame)
+    throws Exception {
+    run(timeFrame, System.currentTimeMillis());
+  }
+
   /**
    * Entry point.
    * All recent finished azkaban jobs' lineage. Will write to database stagging table
    * @param timeFrame in minutes
    * @throws Exception
    */
-  public void run(int timeFrame)
+  public void run(int timeFrame, long endTimeStamp)
     throws Exception {
     // get recent finished job
     AzJobChecker azJobChecker = new AzJobChecker(prop);
-    List<AzkabanJobExecRecord> jobExecList = azJobChecker.getRecentFinishedJobFromFlow(timeFrame);
+    List<AzkabanJobExecRecord> jobExecList = azJobChecker.getRecentFinishedJobFromFlow(timeFrame, endTimeStamp);
     azJobChecker.close();
     logger.info("Total number of azkaban jobs : {}", jobExecList.size());
 

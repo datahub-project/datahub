@@ -52,7 +52,7 @@ public class AzJobChecker {
 
   /**
    * Default 10 minutes
-   * @return
+   * @return A list of recent finished AzkabanJobExecRecord
    * @throws IOException
    * @throws SQLException
    */
@@ -72,23 +72,32 @@ public class AzJobChecker {
   public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(int timeFrameMinutes)
     throws IOException, SQLException {
     long currentTimeStamp = System.currentTimeMillis();
-    long oneHourAgo = currentTimeStamp - 1000 * 60 * timeFrameMinutes;
-    return getRecentFinishedJobFromFlow(oneHourAgo);
+    long beginTimeStamp = currentTimeStamp - 1000 * 60 * timeFrameMinutes;
+    return getRecentFinishedJobFromFlow(beginTimeStamp, currentTimeStamp);
+  }
+
+  public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(int timeFrameMinutes, long endTimeStamp)
+      throws IOException, SQLException {
+    long beginTimeStamp = endTimeStamp -  60 * timeFrameMinutes;
+    return getRecentFinishedJobFromFlow(beginTimeStamp * 1000, endTimeStamp * 1000); // convert to milli seconds
   }
 
   /**
    * Read the blob from "flow_data", do a topological sort on the nodes. Give them the sort id.
-   * @param timestamp the beginning timestamp
+   * @param startTimeStamp the begin timestamp
+   * @param endTimeStamp the end timestamp
    * @return
    */
-  public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(long timestamp)
+  public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(long startTimeStamp, long endTimeStamp)
     throws SQLException, IOException {
 
-    logger.info("Get the jobs from time : {}", timestamp);
+    logger.info("Get the jobs from time : {} to time : {}", startTimeStamp, endTimeStamp);
     List<AzkabanJobExecRecord> results = new ArrayList<>();
     Statement stmt = conn.createStatement();
     final String cmd =
-      "select exec_id, flow_id, status, submit_user, flow_data from execution_flows where end_time > " + timestamp;
+      "select exec_id, flow_id, status, submit_user, flow_data from execution_flows where end_time > " + startTimeStamp
+        + " and end_time < " + endTimeStamp ;
+    logger.info("Get recent flow sql : " + cmd);
     final ResultSet rs = stmt.executeQuery(cmd); // this sql take 3 second to execute
 
     while (rs.next()) {
@@ -101,24 +110,44 @@ public class AzJobChecker {
     return results;
   }
 
+  /**
+   *  Parse the json of flow_data field from execution_flows. Use recursion to handle the nested case.
+   * @param flowJson
+   * @param flowExecId
+   * @return
+   * @throws IOException
+   */
   public List<AzkabanJobExecRecord> parseJson(String flowJson, long flowExecId)
     throws IOException {
-    List<AzkabanJobExecRecord> results = new ArrayList<>();
+
     ObjectMapper mapper = new ObjectMapper();
     JsonNode wholeFlow = mapper.readTree(flowJson);
     JsonNode allJobs = wholeFlow.get("nodes");
     String flowPath = wholeFlow.get("projectName").asText() + ":" + wholeFlow.get("flowId").asText();
-    for (JsonNode oneJob : allJobs) {
-      String jobName = oneJob.get("id").asText();
-      long startTime = oneJob.get("startTime").asLong();
-      long endTime = oneJob.get("endTime").asLong();
-      String status = oneJob.get("status").asText();
-      AzkabanJobExecRecord azkabanJobExecRecord =
-        new AzkabanJobExecRecord(appId, jobName, flowExecId, (int) (startTime / 1000), (int) (endTime / 1000), status,
-          flowPath);
-      results.add(azkabanJobExecRecord);
-    }
+    List<AzkabanJobExecRecord> results = parseJsonHelper(allJobs, flowExecId, "", flowPath);
     AzkabanJobExecUtil.sortAndSet(results);
+    return results;
+  }
+
+  private List<AzkabanJobExecRecord> parseJsonHelper(JsonNode allJobs, long flowExecId, String jobPrefix, String flowPath) {
+    List<AzkabanJobExecRecord> results = new ArrayList<>();
+    for (JsonNode oneJob : allJobs) {
+      if (oneJob.has("nodes")) { // is a subflow
+        String subFlowName = oneJob.get("id").asText();
+        String newJobPrefix = jobPrefix.length() > 0 ? jobPrefix + subFlowName + ":" : subFlowName + ":";
+        results.addAll(parseJsonHelper(oneJob.get("nodes"), flowExecId, newJobPrefix, flowPath));
+      } else {
+        String jobName = oneJob.get("id").asText();
+        long startTime = oneJob.get("startTime").asLong();
+        long endTime = oneJob.get("endTime").asLong();
+        String status = oneJob.get("status").asText();
+        jobName = jobPrefix.length() > 0 ? jobPrefix + jobName : jobName;
+        AzkabanJobExecRecord azkabanJobExecRecord =
+            new AzkabanJobExecRecord(appId, jobName, flowExecId, (int) (startTime / 1000), (int) (endTime / 1000),
+                status, flowPath);
+        results.add(azkabanJobExecRecord);
+      }
+    }
     return results;
   }
 

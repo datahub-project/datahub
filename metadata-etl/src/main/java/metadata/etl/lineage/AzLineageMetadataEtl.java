@@ -27,7 +27,8 @@ import java.util.Properties;
  */
 public class AzLineageMetadataEtl extends EtlJob {
 
-  public int timeFrame = -1;
+  public Integer timeFrame = null;
+  public Long endTimeStamp = null;
   Connection conn;
 
   /**
@@ -53,6 +54,8 @@ public class AzLineageMetadataEtl extends EtlJob {
   public AzLineageMetadataEtl(int appId, long whExecId, Properties properties) {
     super(appId, null, whExecId, properties);
     this.timeFrame = Integer.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY));
+    if (this.prop.contains(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY))
+      this.endTimeStamp = Long.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY));
     try {
       setUp();
     } catch (SQLException e) {
@@ -78,7 +81,11 @@ public class AzLineageMetadataEtl extends EtlJob {
     conn.createStatement().execute(emptyStaggingTable);
     AzLineageExtractorMaster azLineageExtractorMaster = new AzLineageExtractorMaster(prop);
     // get lineage
-    if (timeFrame > 0) {
+    if (timeFrame != null && endTimeStamp != null && endTimeStamp != 0) {
+      azLineageExtractorMaster.run(timeFrame, endTimeStamp);
+    }
+
+    else if (timeFrame != null) {
       azLineageExtractorMaster.run(timeFrame);
     } else {
       azLineageExtractorMaster.run(10);
@@ -110,8 +117,8 @@ public class AzLineageMetadataEtl extends EtlJob {
     conn.createStatement().execute(insertIntoFinalTable);
 
     logger.info("Azkaban lineage metadata ETL completed");
-    if (prop.getProperty(Constant.APP_ID_KEY).equals("32")) {
-      logger.info("TEMPORARY load war's data into cmdb database");
+    if (prop.getProperty(Constant.APP_ID_KEY).equals("32") || prop.getProperty(Constant.APP_ID_KEY).equals("31") ) {
+      logger.info("TEMPORARY load war & nertz's data into cmdb database");
       loadIntoOthers();
     }
   }

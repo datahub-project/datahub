@@ -34,10 +34,8 @@ import wherehows.common.writers.DatabaseWriter;
  */
 public class LineageDao {
   public static final String FIND_JOBS_BY_DATASET =
-    " select distinct ca.short_connection_string, f.flow_group, f.flow_name, jedl.job_name "
+    " select distinct ca.short_connection_string, jedl.job_name, jedl.flow_path "
     + " from job_execution_data_lineage jedl "
-    + " join flow_execution fe on jedl.app_id = fe.app_id and jedl.flow_exec_id = fe.flow_exec_id "
-    + " join flow f on fe.app_id = f.app_id and fe.flow_id = f.flow_id "
     + " join cfg_application ca on ca.app_id = jedl.app_id "
     + " join cfg_database cd on cd.db_id = jedl.db_id "
     + " where source_target_type = :source_target_type "
