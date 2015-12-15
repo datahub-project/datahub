@@ -24,6 +24,7 @@ public enum EtlJobName {
   AZKABAN_LINEAGE_METADATA_ETL(EtlType.LINEAGE, RefIdType.APP),
   HADOOP_DATASET_OWNER_ETL(EtlType.OWNER, RefIdType.DB),
   LDAP_USER_ETL(EtlType.LDAP, RefIdType.APP),
+  GIT_MEDATA_ETL(EtlType.VCS, RefIdType.APP),
   ;
 
   EtlType etlType;

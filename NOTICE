@@ -54,3 +54,11 @@ License: Apache 2.0
 This product includes/uses JsonPath (http://goessner.net/articles/JsonPath/)
 Copyright (c) 2011 the original author or authors
 License: Apache 2.0
+
+This product includes/uses jsoup (http://jsoup.org/)
+Copyright © 2009 - 2013 Jonathan Hedley (jonathan@hedley.net)
+License: MIT
+
+This product includes/uses JGit (https://eclipse.org/jgit/)
+Copyright (c) 2007, Eclipse Foundation, Inc. and its licensors
+License: Eclipse Distribution License
