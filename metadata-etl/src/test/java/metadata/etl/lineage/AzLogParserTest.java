@@ -35,6 +35,8 @@ import wherehows.common.schemas.LineageRecord;
  */
 public class AzLogParserTest {
 
+  private final int TEST_APP_ID = -1;
+  private final int TEST_DATABASE_ID = -1;
   @BeforeTest
   public void setUp()
     throws SQLException {
@@ -45,7 +47,7 @@ public class AzLogParserTest {
     String wherehowsPassWord = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
     Connection conn =
       DriverManager.getConnection(wherehowsHost + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord);
-    AzLogParser.initialize(conn, -1);
+    AzLogParser.initialize(conn);
   }
 
   @Test(groups = {"needConfig"})
@@ -79,9 +81,9 @@ public class AzLogParserTest {
   @Test(groups = {"needConfig"})
   public void getLineageFromLogTest() {
     String logSample = "asfdasdfsadf Moving from staged path[asdf] to final resting place[/tm/b/c] sdaf dsfasdfasdf";
-    AzkabanJobExecRecord sampleExecution = new AzkabanJobExecRecord(-1, "someJobName", (long) 0, 0, 0, "S", "path");
+    AzkabanJobExecRecord sampleExecution = new AzkabanJobExecRecord(TEST_APP_ID, "someJobName", (long) 0, 0, 0, "S", "path");
     sampleExecution.setJobExecId((long) 11111);
-    List<LineageRecord> result = AzLogParser.getLineageFromLog(logSample, sampleExecution);
+    List<LineageRecord> result = AzLogParser.getLineageFromLog(logSample, sampleExecution, -1);
     System.out.println(result.get(0).toDatabaseValue());
 
     Assert.assertEquals(result.get(0).toDatabaseValue(),
@@ -104,8 +106,8 @@ public class AzLogParserTest {
       + "17-11-2015 01:32:27 PST endorsements_push-lva-endorsements-member-restrictions INFO - INFO tcp://lva1-voldemort-read-only-2-vip.prod.linkedin.com:10103 : Initiating swap of endorsements-member-restrictions with dataDir: /jobs/endorse/endorsements/master/tmp/endorsements-member-restrictions.store/lva1-voldemort-read-only-2-vip.prod.linkedin.com\n"
       + "17-11-2015 01:32:27 PST endorsements_push-lva-endorsements-member-restrictions INFO - INFO tcp://lva1-voldemort-read-only-2-vip.prod.linkedin.com:10103 : Invoking fetch for Node lva1-app0610.prod.linkedin.com [id 0] for webhdfs://lva1-warnn01.grid.linkedin.com:50070/jobs/endorse/endorsements/master/tmp/endorsements-member-restrictions.store/lva1-voldemort-read-only-2-vip.prod.linkedin.com/node-0\n"
       + "17-11-2015 01:32:27 PST endorsements_push-lva-endorsements-member-restrictions INFO - INFO tcp://lva1-voldemort-rea";
-    AzkabanJobExecRecord sampleExecution = new AzkabanJobExecRecord(-1, "someJobName", (long) 0, 0, 0, "S", "path");
-    List<LineageRecord> result = AzLogParser.getLineageFromLog(logSample, sampleExecution);
+    AzkabanJobExecRecord sampleExecution = new AzkabanJobExecRecord(TEST_APP_ID, "someJobName", (long) 0, 0, 0, "S", "path");
+    List<LineageRecord> result = AzLogParser.getLineageFromLog(logSample, sampleExecution, TEST_DATABASE_ID);
     System.out.println(result.get(0).toDatabaseValue());
     Assert.assertEquals(result.get(0).getFullObjectName(),
       "tcp://lva1-voldemort-read-only-2-vip.prod.linkedin.com:10103/endorsements-member-restrictions");

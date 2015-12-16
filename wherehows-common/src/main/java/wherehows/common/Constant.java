@@ -38,6 +38,7 @@ public class Constant {
   public static final String AZ_DEFAULT_HADOOP_DATABASE_ID_KEY = "az.default.hadoop.database.id";
   public static final String AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY = "az.lineage_etl.lookback_period.in.minutes";
   public static final String LINEAGE_ACTOR_TIMEOUT_KEY = "az.lineage.actor.timeout";
+  public static final String AZ_LINEAGE_ETL_END_TIMESTAMP_KEY = "az.lineage_etl.end_timestamp";
 
   public static final String AZ_SERVICE_URL_KEY = "az.server.url";
   public static final String AZ_SERVICE_USERNAME_KEY = "az.server.username";
@@ -105,5 +106,16 @@ public class Constant {
   // git
   public static final String GIT_HOST_KEY = "git.host";
   public static final String GIT_PROJECT_WHITELIST_KEY = "git.project.whitelist";
+
+  // hive
+  public static final String HIVE_METASTORE_JDBC_DRIVER = "hive.metastore.jdbc.driver";
+  public static final String HIVE_METASTORE_JDBC_URL = "hive.metastore.jdbc.url";
+  public static final String HIVE_METASTORE_USERNAME = "hive.metstore.username";
+  public static final String HIVE_METASTORE_PASSWORD = "hive.metastore.password";
+
+  public static final String HIVE_SCHEMA_JSON_FILE_KEY = "hive.schema_json_file";
+  // public static final String HIVE_SAMPLE_CSV_FILE_KEY = "hive.sample_csv";
+  public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
+  public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
 
 }

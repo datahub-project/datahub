@@ -129,29 +129,63 @@ class TeradataLoad:
            and (char_length(trim(description)) = 0
            or description in ('null', 'N/A', 'nothing', 'empty', 'none'));
 
-        UPDATE dict_field_detail t, (
-        select
-          f.field_id,
-          s.sort_id,
-          s.data_type,
-          s.data_size,
-          s.data_precision,
-          s.data_scale,
-          s.is_nullable
-        from stg_dict_field_detail s join dict_dataset d
-          on s.urn = d.urn
-             join dict_field_detail f
-          on d.id = f.dataset_id
-         and s.field_name = f.field_name
-         where s.db_id = {db_id}
-        ) x
-        set t.sort_id = x.sort_id
-          , t.data_type = x.data_type
-          , t.data_size = x.data_size
-          , t.data_precision = x.data_precision
-          , t.data_fraction = x.data_scale
-          , t.is_nullable = x.is_nullable
-        where t.field_id = x.field_id
+        -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
+        create temporary table if not exists t_deleted_fields (primary key (field_id))
+          select x.field_id
+            from stg_dict_field_detail s
+              join dict_dataset i
+                on s.urn = i.urn
+                and s.db_id = {db_id}
+              right join dict_field_detail x
+                on i.id = x.dataset_id
+                and s.field_name = x.field_name
+                and s.parent_path = x.parent_path
+          where s.field_name is null
+            and x.dataset_id in (
+                       select d.id dataset_id
+                       from stg_dict_field_detail k join dict_dataset d
+                         on k.urn = d.urn
+                        and k.db_id = {db_id}
+            )
+        ; -- run time : ~2min
+
+        delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
+    
+        -- update the old record if some thing changed
+        update dict_field_detail t join
+        (
+          select x.field_id, s.*
+          from stg_dict_field_detail s join dict_dataset d
+            on s.urn = d.urn
+               join dict_field_detail x
+           on s.field_name = x.field_name
+          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+          and d.id = x.dataset_id
+          where s.db_id = {db_id}
+            and (x.sort_id <> s.sort_id
+                or x.parent_sort_id <> s.parent_sort_id
+                or x.data_type <> s.data_type
+                or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
+                or x.data_precision <> s.data_precision or (x.data_precision is null XOR s.data_precision is null)
+                or x.is_nullable <> s.is_nullable or (x.is_nullable is null XOR s.is_nullable is null)
+                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null XOR s.is_partitioned is null)
+                or x.is_distributed <> s.is_distributed or (x.is_distributed is null XOR s.is_distributed is null)
+                or x.default_value <> s.default_value or (x.default_value is null XOR s.default_value is null)
+                or x.namespace <> s.namespace or (x.namespace is null XOR s.namespace is null)
+            )
+        ) p
+          on t.field_id = p.field_id
+        set t.sort_id = p.sort_id,
+            t.parent_sort_id = p.parent_sort_id,
+            t.data_type = p.data_type,
+            t.data_size = p.data_size,
+            t.data_precision = p.data_precision,
+            t.is_nullable = p.is_nullable,
+            t.is_partitioned = p.is_partitioned,
+            t.is_distributed = p.is_distributed,
+            t.default_value = p.default_value,
+            t.namespace = p.namespace,
+            t.modified = now()
         ;
 
         show warnings limit 10;

@@ -165,21 +165,30 @@ CREATE TABLE `dict_field_detail` (
   `field_label`        VARCHAR(100)                  DEFAULT NULL,
   `data_type`          VARCHAR(50)          NOT NULL,
   `data_size`          INT(10) UNSIGNED              DEFAULT NULL,
-  `data_precision`     TINYINT(4)                    DEFAULT NULL,
-  `data_fraction`      TINYINT(4)                    DEFAULT NULL,
+  `data_precision`     TINYINT(4)                    DEFAULT NULL
+  COMMENT 'only in decimal type',
+  `data_fraction`      TINYINT(4)                    DEFAULT NULL
+  COMMENT 'only in decimal type',
   `default_comment_id` INT(11) UNSIGNED              DEFAULT NULL
   COMMENT 'a list of comment_id',
   `comment_ids`        VARCHAR(500)                  DEFAULT NULL,
   `is_nullable`        CHAR(1)                       DEFAULT NULL,
-  `is_indexed`         CHAR(1)                       DEFAULT NULL,
-  `is_partitioned`     CHAR(1)                       DEFAULT NULL,
-  `is_distributed`     TINYINT(4)                    DEFAULT NULL,
+  `is_indexed`         CHAR(1)                       DEFAULT NULL
+  COMMENT 'only in RDBMS',
+  `is_partitioned`     CHAR(1)                       DEFAULT NULL
+  COMMENT 'only in RDBMS',
+  `is_distributed`     TINYINT(4)                    DEFAULT NULL
+  COMMENT 'only in RDBMS',
   `default_value`      VARCHAR(200)                  DEFAULT NULL,
   `namespace`          VARCHAR(200)                  DEFAULT NULL,
-  `java_data_type`     VARCHAR(50)                   DEFAULT NULL,
-  `jdbc_data_type`     VARCHAR(50)                   DEFAULT NULL,
-  `pig_data_type`      VARCHAR(50)                   DEFAULT NULL,
-  `hcatalog_data_type` VARCHAR(50)                   DEFAULT NULL,
+  `java_data_type`     VARCHAR(50)                   DEFAULT NULL
+  COMMENT 'correspond type in java',
+  `jdbc_data_type`     VARCHAR(50)                   DEFAULT NULL
+  COMMENT 'correspond type in jdbc',
+  `pig_data_type`      VARCHAR(50)                   DEFAULT NULL
+  COMMENT 'correspond type in pig',
+  `hcatalog_data_type` VARCHAR(50)                   DEFAULT NULL
+  COMMENT 'correspond type in hcatalog',
   `modified`           TIMESTAMP            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`field_id`),
   KEY `idx_dict_field__datasetid_fieldname` (`dataset_id`, `field_name`) USING BTREE,
