@@ -34,7 +34,6 @@ public class AzLogParser {
 
   static List<LogLineagePattern> logLineagePatterns;
   static List<String> logHadoopIdPatterns;
-  static int defaultDatabaseId;
 
   /**
    * Parse the hadoop job id from the log.
@@ -65,18 +64,17 @@ public class AzLogParser {
   /**
    * initialize, download the regex info into cache
    */
-  public synchronized static void initialize(Connection conn, int defaultDatabaseId)
+  public synchronized static void initialize(Connection conn)
     throws SQLException {
     if (logHadoopIdPatterns != null && logLineagePatterns != null) {
       return;
     }
-    loadLineagePatterns(conn, defaultDatabaseId);
-    loadHadoopIdPatterns(conn, defaultDatabaseId);
+    loadLineagePatterns(conn);
+    loadHadoopIdPatterns(conn);
   }
 
-  private static void loadLineagePatterns(Connection conn, int defaultDatabaseId)
+  private static void loadLineagePatterns(Connection conn)
     throws SQLException {
-    AzLogParser.defaultDatabaseId = defaultDatabaseId;
     logLineagePatterns = new ArrayList<>();
     String cmd = "SELECT regex, database_type, database_name_index, dataset_index, operation_type, source_target_type, "
       + "record_count_index, record_byte_index, insert_count_index, insert_byte_index, "
@@ -95,7 +93,7 @@ public class AzLogParser {
     }
   }
 
-  private static void loadHadoopIdPatterns(Connection conn, int defaultDatabaseId)
+  private static void loadHadoopIdPatterns(Connection conn)
     throws SQLException {
     logHadoopIdPatterns = new ArrayList<>();
     String cmd = "SELECT regex FROM log_reference_job_id_pattern WHERE is_active = 1";
@@ -111,7 +109,7 @@ public class AzLogParser {
    * @param azkabanJobExecRecord contain the job execution info to construct the result
    * @return
    */
-  public static List<LineageRecord> getLineageFromLog(String log, AzkabanJobExecRecord azkabanJobExecRecord) {
+  public static List<LineageRecord> getLineageFromLog(String log, AzkabanJobExecRecord azkabanJobExecRecord, Integer defaultDatabaseId) {
 
     List<LineageRecord> result = new ArrayList<>();
 

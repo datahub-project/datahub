@@ -29,8 +29,11 @@ public class DatasetFieldRecord implements Record {
   Integer parentSortId;
   String parentPath;
   String fieldName;
+  String fieldLabel;
   String dataType;
   String isNullable;
+  String isIndexed;
+  String isPartitioned;
   String defaultValue;
   Integer dataSize;
   String namespace;
@@ -39,18 +42,21 @@ public class DatasetFieldRecord implements Record {
   List<Object> allFields;
   char SEPR = 0x001A;
 
-  public DatasetFieldRecord(String urn, Integer sortId, Integer parentSortId, String parentPath, String fieldName,
-    String dataType, String isNullable, String defaultValue, Integer dataSize, String namespace, String description) {
+  public DatasetFieldRecord(String urn, Integer sortId, Integer parentSortId, String parentPath, String fieldName, String fieldLabel,
+    String dataType, String isNullable, String isIndexed, String isPartitioned, String defaultValue, Integer dataSize, String namespace, String description) {
 
     this.urn = urn;
     this.sortId = sortId;
     this.parentSortId = parentSortId;
     this.parentPath = parentPath;
     this.fieldName = fieldName;
+    this.fieldLabel = fieldLabel;
     this.dataType = dataType;
-    this.isNullable = isNullable;
-    this.defaultValue = defaultValue;
     this.dataSize = dataSize;
+    this.isNullable = isNullable;
+    this.isIndexed = isIndexed;
+    this.isPartitioned = isPartitioned;
+    this.defaultValue = defaultValue;
     this.namespace = namespace;
     this.description = description;
 
@@ -61,9 +67,11 @@ public class DatasetFieldRecord implements Record {
     this.allFields.add(parentPath);
     this.allFields.add(fieldName);
     this.allFields.add(dataType);
-    this.allFields.add(isNullable);
-    this.allFields.add(defaultValue);
     this.allFields.add(dataSize);
+    this.allFields.add(isNullable);
+    this.allFields.add(isIndexed);
+    this.allFields.add(isPartitioned);
+    this.allFields.add(defaultValue);
     this.allFields.add(namespace);
     this.allFields.add(description);
   }

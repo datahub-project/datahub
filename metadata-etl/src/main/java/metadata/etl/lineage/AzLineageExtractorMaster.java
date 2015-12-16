@@ -60,17 +60,22 @@ public class AzLineageExtractorMaster {
     run(10);
   }
 
+  public void run(int timeFrame)
+    throws Exception {
+    run(timeFrame, System.currentTimeMillis());
+  }
+
   /**
    * Entry point.
    * All recent finished azkaban jobs' lineage. Will write to database stagging table
    * @param timeFrame in minutes
    * @throws Exception
    */
-  public void run(int timeFrame)
+  public void run(int timeFrame, long endTimeStamp)
     throws Exception {
     // get recent finished job
     AzJobChecker azJobChecker = new AzJobChecker(prop);
-    List<AzkabanJobExecRecord> jobExecList = azJobChecker.getRecentFinishedJobFromFlow(timeFrame);
+    List<AzkabanJobExecRecord> jobExecList = azJobChecker.getRecentFinishedJobFromFlow(timeFrame, endTimeStamp);
     azJobChecker.close();
     logger.info("Total number of azkaban jobs : {}", jobExecList.size());
 
@@ -90,7 +95,7 @@ public class AzLineageExtractorMaster {
     Connection conn = DriverManager.getConnection(connUrl);
     DatabaseWriter databaseWriter = new DatabaseWriter(connUrl, "stg_job_execution_data_lineage");
 
-    AzLogParser.initialize(conn, Integer.valueOf(prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY)));
+    AzLogParser.initialize(conn);
     PathAnalyzer.initialize(conn);
     int timeout = 30; // default 30 minutes for one job
     if (prop.containsKey(Constant.LINEAGE_ACTOR_TIMEOUT_KEY))

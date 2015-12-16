@@ -61,15 +61,15 @@ public class HadoopNameNodeExtractor {
     String WH_HOME = System.getenv("WH_HOME");
     String USER_HOME = System.getenv("HOME") + "/.kerberos";
     String ETC = "/etc";
-    String TMP = "/tmp" + "/.kerberos";
+    String TMP = "/var/tmp" + "/.kerberos";
 
-    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, USER_HOME, TMP, ETC};
+    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, USER_HOME, TMP};
 
     for (String possition : allPositions) {
       String gssFileName = possition + "/gss-jaas.conf";
       File gssFile = new File(gssFileName);
       if (gssFile.exists()) {
-        logger.debug("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
+        logger.info("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
         System.setProperty("java.security.auth.login.config", gssFile.getAbsolutePath());
         break;
       } else {
@@ -80,7 +80,7 @@ public class HadoopNameNodeExtractor {
       String krb5FileName = possition + "/krb5.conf";
       File krb5File = new File(krb5FileName);
       if (krb5File.exists()) {
-        logger.debug("find krb5.conf file in : {}", krb5File.getAbsolutePath());
+        logger.info("find krb5.conf file in : {}", krb5File.getAbsolutePath());
         System.setProperty("java.security.krb5.conf", krb5File.getAbsolutePath());
         break;
       } else {
