@@ -29,7 +29,7 @@ public class GitUtilTest {
   @Test
   public void testGetRepoListFromProject()
       throws Exception {
-    //List<String> repos = GitUtil.getRepoListFromProject("git://git.example.com/project");
+    //Map<String, String> repos = GitUtil.getRepoListFromProject("git://git.example.com/project");
     //Assert.assertTrue(repos.size() > 0);
   }
 

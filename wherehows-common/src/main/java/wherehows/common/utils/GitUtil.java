@@ -17,8 +17,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -80,15 +82,18 @@ public class GitUtil {
    * @return List of path of repositories e.g. project/repo
    * @throws IOException
    */
-  public static List<String> getRepoListFromProject(String projectUrl) throws IOException {
+  public static Map<String, String> getRepoListFromProject(String projectUrl) throws IOException {
 
-    List<String> repoList = new LinkedList<>();
-    Document doc = Jsoup.connect(projectUrl).get();
-    Elements repos = doc.getElementsByClass("repository");
+    Map<String, String> repoList = new HashMap<>();
+    Document doc = Jsoup.connect(projectUrl).data("format", "xml").get();
+    Elements repos = doc.getElementsByTag("repositories");
+    Elements mainlines = repos.first().getElementsByTag("mainlines");
+    Elements repo = mainlines.first().getElementsByTag("repository");
 
-    for (Element e : repos) {
-      String repo = e.children().first().text();
-      repoList.add(repo.trim());
+    for (Element e : repo) {
+      String repoName = e.getElementsByTag("name").first().text();
+      String repoUrl = e.getElementsByTag("clone_url").first().text();
+      repoList.put(repoName.trim(), repoUrl.trim());
     }
 
     return repoList;

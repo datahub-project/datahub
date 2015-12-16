@@ -16,6 +16,7 @@ package metadata.etl.git;
 import java.io.File;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import metadata.etl.EtlJob;
 import org.slf4j.Logger;
@@ -56,13 +57,13 @@ public class GitMetadataEtl extends EtlJob {
     }
     FileWriter fw = new FileWriter(localDir + "/" + COMMIT_OUTPUT_FILE);
     for (String project : projects) {
-      List<String> repos = GitUtil.getRepoListFromProject(GitUtil.getHttpsUrl(gitHost, project));
-      for (String repo : repos) {
-        String repoUri = GitUtil.getGitUrl(gitHost, repo);
+      Map<String, String> repos = GitUtil.getRepoListFromProject(GitUtil.getHttpsUrl(gitHost, project));
+      for (String repo : repos.keySet()) {
+        String repoUri = repos.get(repo);
         String repoDir = localDir + "/" + repo;
         GitUtil.clone(repoUri, repoDir);
-        List<GitUtil.CommitMetadata> commitMetadatas = GitUtil.getRepoMetadata(repoDir);
-        for (GitUtil.CommitMetadata m : commitMetadatas) {
+        List<GitUtil.CommitMetadata> commitMetadataList = GitUtil.getRepoMetadata(repoDir);
+        for (GitUtil.CommitMetadata m : commitMetadataList) {
           fw.append(new GitCommitRecord(m, repoUri));
         }
       }

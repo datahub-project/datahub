@@ -63,15 +63,17 @@ class OozieExtract:
     print "Oozie version: ", self.oz_version[0]
 
   def run(self):
-    self.collect_flow_jobs(self.metadata_folder + "/flow.csv",
-                           self.metadata_folder + "/job.csv",
-                           self.metadata_folder + "/dag.csv")
-    self.collect_flow_owners(self.metadata_folder + "/owner.csv")
-    self.collect_flow_schedules(self.metadata_folder + "/schedule.csv")
-    self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.lookback_period)
-    self.collect_job_execs(self.metadata_folder + "/job_exec.csv", self.lookback_period)
-    self.oz_cursor.close()
-    self.oz_con.close()
+    try:
+      self.collect_flow_jobs(self.metadata_folder + "/flow.csv",
+                             self.metadata_folder + "/job.csv",
+                             self.metadata_folder + "/dag.csv")
+      self.collect_flow_owners(self.metadata_folder + "/owner.csv")
+      self.collect_flow_schedules(self.metadata_folder + "/schedule.csv")
+      self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.lookback_period)
+      self.collect_job_execs(self.metadata_folder + "/job_exec.csv", self.lookback_period)
+    finally:
+      self.oz_cursor.close()
+      self.oz_con.close()
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
     print "collect flow&jobs"

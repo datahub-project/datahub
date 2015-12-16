@@ -65,16 +65,18 @@ class AzkabanExtract:
         print e
 
   def run(self):
-    self.collect_flow_jobs(self.metadata_folder + "/flow.csv", self.metadata_folder + "/job.csv", self.metadata_folder + "/dag.csv")
-    self.collect_flow_owners(self.metadata_folder + "/owner.csv")
-    self.collect_flow_schedules(self.metadata_folder + "/schedule.csv")
-    self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.metadata_folder + "/job_exec.csv", self.lookback_period)
-    self.az_cursor.close()
-    self.az_con.close()
+    try:
+      self.collect_flow_jobs(self.metadata_folder + "/flow.csv", self.metadata_folder + "/job.csv", self.metadata_folder + "/dag.csv")
+      self.collect_flow_owners(self.metadata_folder + "/owner.csv")
+      self.collect_flow_schedules(self.metadata_folder + "/schedule.csv")
+      self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.metadata_folder + "/job_exec.csv", self.lookback_period)
+    finally:
+      self.az_cursor.close()
+      self.az_con.close()
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
     print "collect flow&jobs"
-    query = "SELECT f.*, p.name as project_name FROM  project_flows f inner join projects p on f.project_id = p.id and f.version = p.version where p.active = 1"
+    query = "SELECT distinct f.*, p.name as project_name FROM  project_flows f inner join projects p on f.project_id = p.id and f.version = p.version where p.active = 1"
     self.az_cursor.execute(query)
     rows = DbUtil.dict_cursor(self.az_cursor)
     flow_writer = FileWriter(flow_file)
@@ -89,7 +91,6 @@ class AzkabanExtract:
       unzipped_content = gzip.GzipFile(mode='r', fileobj=StringIO.StringIO(row[json_column].tostring())).read()
       try:
         row[json_column] = json.loads(unzipped_content)
-        #print json.dumps(row[json_column], indent=4)
       except:
         pass
 
