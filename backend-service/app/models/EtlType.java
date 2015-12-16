@@ -20,5 +20,8 @@ public enum EtlType {
   OPERATION,
   LINEAGE,
   DATASET,
+  OWNER,
+  LDAP,
+  VCS,
   ALL
 }

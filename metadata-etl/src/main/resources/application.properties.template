@@ -41,6 +41,7 @@ hdfs.local.field_metadata=
 hdfs.local.sample=
 hdfs.white_list=
 hdfs.num_of_thread=
+hdfs.remote.working.dir=
 
 krb5.realm=
 krb5.kdc=
@@ -80,3 +81,28 @@ wherehows.ui.tree.flow.file=
 wherehows.db.jdbc.url=
 wherehows.db.username=
 wherehows.db.password=
+
+# owner
+hdfs.owner.hive.query=
+
+# ldap
+ldap.context.factory=
+ldap.context.provider.url=
+ldap.context.security.principal=
+ldap.context.security.credentials=
+ldap.search.domains=
+ldap.search.return.attributes=
+ldap.inactive.domain=
+ldap.ceo.user.id=
+ldap.group.app.id=
+ldap.group.context.factory=
+ldap.group.context.provider.url=
+ldap.group.context.security.principal=
+ldap.group.context.security.credentials=
+ldap.group.search.domains=
+ldap.group.search.return.attributes=
+
+# git
+git.host=
+git.project.whitelist=
+

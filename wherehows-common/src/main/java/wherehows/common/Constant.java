@@ -77,10 +77,35 @@ public class Constant {
   public static final String HDFS_REMOTE_MACHINE_KEY = "hdfs.remote.machine";
   public static final String HDFS_PRIVATE_KEY_LOCATION_KEY = "hdfs.private_key_location";
   public static final String HDFS_REMOTE_JAR_KEY = "hdfs.remote.jar";
+  public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";
 
   // ui
   public static final String DATASET_TREE_FILE_NAME_KEY = "wherehows.ui.tree.dataset.file";
   public static final String FLOW_TREE_FILE_NAME_KEY = "wherehows.ui.tree.flow.file";
+
+  // hdfs owner
+  public static final String HDFS_OWNER_HIVE_QUERY_KEY = "hdfs.owner.hive.query";
+
+  // ldap
+  public static final String LDAP_CEO_USER_ID_KEY = "ldap.ceo.user.id";
+  public static final String LDAP_CONTEXT_FACTORY_KEY = "ldap.context.factory";
+  public static final String LDAP_CONTEXT_PROVIDER_URL_KEY = "ldap.context.provider.url";
+  public static final String LDAP_CONTEXT_SECURITY_PRINCIPAL_KEY = "ldap.context.security.principal";
+  public static final String LDAP_CONTEXT_SECURITY_CREDENTIALS_KEY = "ldap.context.security.credentials";
+  public static final String LDAP_SEARCH_DOMAINS_KEY = "ldap.search.domains";
+  public static final String LDAP_INACTIVE_DOMAIN_KEY = "ldap.inactive.domain";
+  public static final String LDAP_SEARCH_RETURN_ATTRS_KEY = "ldap.search.return.attributes";
+  public static final String LDAP_GROUP_CONTEXT_FACTORY_KEY = "ldap.group.context.factory";
+  public static final String LDAP_GROUP_CONTEXT_PROVIDER_URL_KEY = "ldap.group.context.provider.url";
+  public static final String LDAP_GROUP_CONTEXT_SECURITY_PRINCIPAL_KEY = "ldap.group.context.security.principal";
+  public static final String LDAP_GROUP_CONTEXT_SECURITY_CREDENTIALS_KEY = "ldap.group.context.security.credentials";
+  public static final String LDAP_GROUP_APP_ID_KEY = "ldap.group.app.id";
+  public static final String LDAP_GROUP_SEARCH_DOMAINS_KEY = "ldap.group.search.domains";
+  public static final String LDAP_GROUP_SEARCH_RETURN_ATTRS_KEY = "ldap.group.search.return.attributes";
+
+  // git
+  public static final String GIT_HOST_KEY = "git.host";
+  public static final String GIT_PROJECT_WHITELIST_KEY = "git.project.whitelist";
 
   // hive
   public static final String HIVE_METASTORE_JDBC_DRIVER = "hive.metastore.jdbc.driver";
@@ -92,4 +117,5 @@ public class Constant {
   // public static final String HIVE_SAMPLE_CSV_FILE_KEY = "hive.sample_csv";
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
+
 }

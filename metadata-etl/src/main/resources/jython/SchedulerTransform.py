@@ -84,6 +84,7 @@ class SchedulerTransform:
     self.metadata_folder = self.app_folder + "/" + str(scheduler_type) + "/" + str(self.app_id)
 
   def run(self):
+    try:
       self.read_flow_file_to_stg()
       self.read_job_file_to_stg()
       self.read_dag_file_to_stg()
@@ -91,6 +92,7 @@ class SchedulerTransform:
       self.read_flow_schedule_file_to_stg()
       self.read_flow_exec_file_to_stg()
       self.read_job_exec_file_to_stg()
+    finally:
       self.wh_cursor.close()
       self.wh_con.close()
 

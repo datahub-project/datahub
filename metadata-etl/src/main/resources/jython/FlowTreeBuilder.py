@@ -26,27 +26,29 @@ class FlowTreeBuilder:
     jdbc_driver = args[Constant.WH_DB_DRIVER_KEY]
     jdbc_url = args[Constant.WH_DB_URL_KEY]
     conn_mysql = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
-    query = "select distinct f.flow_id, f.flow_name, f.flow_group, ca.app_code from flow f join cfg_application ca on f.app_id = ca.app_id order by app_code, flow_name"
     cur = conn_mysql.cursor()
-    cur.execute(query)
-    flows = cur.fetchall()
-    self.flow_dict = dict()
-    for flow in flows:
-      current = self.flow_dict
-      # if needed, use flow[3].replace(' ', '.')
-      current = current.setdefault(flow[3], {})
-      if flow[2] is not None:
-        current = current.setdefault(flow[2], {})
-      # for oozie
-      else:
-        current = current.setdefault('NA', {})
+    try:
+      query = "select distinct f.flow_id, f.flow_name, f.flow_group, ca.app_code from flow f join cfg_application ca on f.app_id = ca.app_id order by app_code, flow_name"
+      cur.execute(query)
+      flows = cur.fetchall()
+      self.flow_dict = dict()
+      for flow in flows:
+        current = self.flow_dict
+        # if needed, use flow[3].replace(' ', '.')
+        current = current.setdefault(flow[3], {})
+        if flow[2] is not None:
+          current = current.setdefault(flow[2], {})
+        # for oozie
+        else:
+          current = current.setdefault('NA', {})
 
-      current = current.setdefault(flow[1], {})
-      current["__ID_OF_FLOW__"] = flow[0]
-    self.file_name = args[Constant.FLOW_TREE_FILE_NAME_KEY]
-    self.value = []
-    cur.close()
-    conn_mysql.close()
+        current = current.setdefault(flow[1], {})
+        current["__ID_OF_FLOW__"] = flow[0]
+      self.file_name = args[Constant.FLOW_TREE_FILE_NAME_KEY]
+      self.value = []
+    finally:
+      cur.close()
+      conn_mysql.close()
 
   def build_trie_helper(self, depth, current, current_dict):
     nodes = []

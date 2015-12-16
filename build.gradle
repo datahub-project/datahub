@@ -50,6 +50,8 @@ subprojects {
                             "hadoop_auth"        : "org.apache.hadoop:hadoop-auth:2.7.1",
                             "json_path"          : "com.jayway.jsonpath:json-path:2.0.0",
                             "akka"               : "com.typesafe.akka:akka-actor_2.10:2.2.0",
+                            "jgit"               : "org.eclipse.jgit:org.eclipse.jgit:4.1.1.201511131810-r",
+                            "jsoup"              : "org.jsoup:jsoup:1.8.3",
 
                             "jackson_databind"   : "com.fasterxml.jackson.core:jackson-databind:2.6.1",
                             "jackson_core"       : "com.fasterxml.jackson.core:jackson-core:2.6.1",
