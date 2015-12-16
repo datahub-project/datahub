@@ -165,13 +165,13 @@ class TeradataLoad:
             and (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
                 or x.data_type <> s.data_type
-                or x.data_size <> s.data_size or (x.data_size is null) ^ (s.data_size is null)
-                or x.data_precision <> s.data_precision or (x.data_precision is null) ^ (s.data_precision is null)
-                or x.is_nullable <> s.is_nullable or (x.is_nullable is null) ^ (s.is_nullable is null)
-                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null) ^ (s.is_partitioned is null)
-                or x.is_distributed <> s.is_distributed or (x.is_distributed is null) ^ (s.is_distributed is null)
-                or x.default_value <> s.default_value or (x.default_value is null) ^ (s.default_value is null)
-                or x.namespace <> s.namespace or (x.namespace is null) ^ (s.namespace is null)
+                or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
+                or x.data_precision <> s.data_precision or (x.data_precision is null XOR s.data_precision is null)
+                or x.is_nullable <> s.is_nullable or (x.is_nullable is null XOR s.is_nullable is null)
+                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null XOR s.is_partitioned is null)
+                or x.is_distributed <> s.is_distributed or (x.is_distributed is null XOR s.is_distributed is null)
+                or x.default_value <> s.default_value or (x.default_value is null XOR s.default_value is null)
+                or x.namespace <> s.namespace or (x.namespace is null XOR s.namespace is null)
             )
         ) p
           on t.field_id = p.field_id
