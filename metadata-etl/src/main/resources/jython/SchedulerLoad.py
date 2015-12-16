@@ -32,15 +32,17 @@ class SchedulerLoad:
     self.wh_cursor = self.wh_con.cursor()
 
   def run(self):
-    self.load_flows()
-    self.load_jobs()
-    self.load_flow_dags()
-    self.load_flow_schedules()
-    self.load_flow_owner_permissions()
-    self.load_flow_executions()
-    self.load_job_executions()
-    self.wh_cursor.close()
-    self.wh_con.close()
+    try:
+      self.load_flows()
+      self.load_jobs()
+      self.load_flow_dags()
+      self.load_flow_schedules()
+      self.load_flow_owner_permissions()
+      self.load_flow_executions()
+      self.load_job_executions()
+    finally:
+      self.wh_cursor.close()
+      self.wh_con.close()
 
   def load_flows(self):
     cmd = """

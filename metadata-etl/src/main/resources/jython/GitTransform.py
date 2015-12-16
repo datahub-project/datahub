@@ -20,16 +20,16 @@ import sys
 
 
 class OwnerTransform:
-    _tables = {"source_code_commit": {"columns": "repository_urn, commit_id, file_path, file_name, commit_time, committer_name, committer_email, author_name, author_email, message",
-                                 "file": "commit.csv",
-                                 "table": "stg_source_code_commit_info"}
-               }
+  _tables = {"source_code_commit": {"columns": "repository_urn, commit_id, file_path, file_name, commit_time, committer_name, committer_email, author_name, author_email, message",
+                                    "file": "commit.csv",
+                                    "table": "stg_source_code_commit_info"}
+             }
 
-    _clear_staging_tempalte = """
+  _clear_staging_tempalte = """
                             DELETE FROM {table}
                             """
 
-    _read_file_template = """
+  _read_file_template = """
                         LOAD DATA LOCAL INFILE '{folder}/{file}'
                         INTO TABLE {table}
                         FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
@@ -39,43 +39,46 @@ class OwnerTransform:
                         wh_etl_exec_id = {wh_etl_exec_id};
                         """
 
-    def __init__(self, args):
-        self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
-                                     args[Constant.WH_DB_USERNAME_KEY],
-                                     args[Constant.WH_DB_PASSWORD_KEY],
-                                     args[Constant.WH_DB_DRIVER_KEY])
-        self.wh_cursor = self.wh_con.cursor()
-        self.app_id = int(args[Constant.APP_ID_KEY])
-        self.wh_etl_exec_id = int(args[Constant.WH_EXEC_ID_KEY])
-        self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
-        self.metadata_folder = self.app_folder + "/" + str(self.app_id)
+  def __init__(self, args):
+    self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
+                                 args[Constant.WH_DB_USERNAME_KEY],
+                                 args[Constant.WH_DB_PASSWORD_KEY],
+                                 args[Constant.WH_DB_DRIVER_KEY])
+    self.wh_cursor = self.wh_con.cursor()
+    self.app_id = int(args[Constant.APP_ID_KEY])
+    self.wh_etl_exec_id = int(args[Constant.WH_EXEC_ID_KEY])
+    self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
+    self.metadata_folder = self.app_folder + "/" + str(self.app_id)
 
-    def run(self):
-        self.read_file_to_stg()
-        self.wh_cursor.close()
-        self.wh_con.close()
+  def run(self):
+    try:
+      self.read_file_to_stg()
+    finally:
+      self.wh_cursor.close()
+      self.wh_con.close()
 
-    def read_file_to_stg(self):
-        t = self._tables["source_code_commit"]
+  def read_file_to_stg(self):
+    t = self._tables["source_code_commit"]
 
-        # Clear stagging table
-        query = self._clear_staging_tempalte.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    # Clear stagging table
+    query = self._clear_staging_tempalte.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-        # Load file into stagging table
-        query = self._read_file_template.format(folder=self.metadata_folder,
-                                                file=t.get("file"),
-                                                table=t.get("table"),
-                                                columns=t.get("columns"),
-                                                app_id=self.app_id,
-                                                wh_etl_exec_id=self.wh_etl_exec_id)
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    # Load file into stagging table
+    query = self._read_file_template.format(folder=self.metadata_folder,
+                                            file=t.get("file"),
+                                            table=t.get("table"),
+                                            columns=t.get("columns"),
+                                            app_id=self.app_id,
+                                            wh_etl_exec_id=self.wh_etl_exec_id)
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
+
 
 if __name__ == "__main__":
-    props = sys.argv[1]
-    ot = OwnerTransform(props)
-    ot.run()
+  props = sys.argv[1]
+  ot = OwnerTransform(props)
+  ot.run()

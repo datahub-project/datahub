@@ -20,16 +20,16 @@ import sys
 
 
 class OwnerTransform:
-    _tables = {"dataset_owner": {"columns": "dataset_urn, owner_id, sort_id, namespace, db_name, source_time",
-                                 "file": "dataset_owner.csv",
-                                 "table": "stg_dataset_owner"}
-               }
+  _tables = {"dataset_owner": {"columns": "dataset_urn, owner_id, sort_id, namespace, db_name, source_time",
+                               "file": "dataset_owner.csv",
+                               "table": "stg_dataset_owner"}
+             }
 
-    _clear_staging_tempalte = """
+  _clear_staging_tempalte = """
                             DELETE FROM {table}
                             """
 
-    _read_file_template = """
+  _read_file_template = """
                         LOAD DATA LOCAL INFILE '{folder}/{file}'
                         INTO TABLE {table}
                         FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
@@ -37,21 +37,21 @@ class OwnerTransform:
                         ({columns});
                         """
 
-    _update_dataset_id_template = """
+  _update_dataset_id_template = """
                           UPDATE {table} stg
                           JOIN dict_dataset dd
                           ON stg.dataset_urn = dd.urn
                           SET stg.dataset_id = dd.id
                           """
 
-    _update_database_id_template = """
+  _update_database_id_template = """
                           UPDATE {table} stg
                           JOIN cfg_database cd
                           ON stg.db_name = cd.db_code
                           SET stg.db_id = cd.db_id
                           """
 
-    _update_app_id_template = """
+  _update_app_id_template = """
                           UPDATE {table} stg
                           join dir_external_user_info ldap
                           on stg.owner_id = ldap.user_id
@@ -60,7 +60,7 @@ class OwnerTransform:
                           stg.is_active = ldap.is_active
                           """
 
-    _update_group_app_id_template = """
+  _update_group_app_id_template = """
                           UPDATE {table} stg
                           join dir_external_group_user_map ldap
                           on stg.owner_id = ldap.group_id
@@ -69,7 +69,7 @@ class OwnerTransform:
                           stg.is_active = 'Y'
                           """
 
-    _update_owner_type_template = """
+  _update_owner_type_template = """
                           UPDATE {table} stg
                           join dir_external_user_info ldap
                           on stg.owner_id = ldap.user_id
@@ -77,88 +77,91 @@ class OwnerTransform:
                           stg.owner_sub_type = CASE WHEN ldap.department_id = 4020 THEN 'DWH' ELSE 'BA' END
                           """
 
-    _update_parent_flag = """
+  _update_parent_flag = """
                           update {table} s
                           join dict_dataset d on s.dataset_urn = substring(d.urn, 1, char_length(d.urn) - char_length(substring_index(d.urn, '/', -{lvl})) - 1)
                           set s.is_parent_urn = 'Y'
                           """
 
-    def __init__(self, args):
-        self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
-                                     args[Constant.WH_DB_USERNAME_KEY],
-                                     args[Constant.WH_DB_PASSWORD_KEY],
-                                     args[Constant.WH_DB_DRIVER_KEY])
-        self.wh_cursor = self.wh_con.cursor()
-        self.db_id = int(args[Constant.DB_ID_KEY])
-        self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
-        self.metadata_folder = self.app_folder + "/" + str(self.db_id)
+  def __init__(self, args):
+    self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
+                                 args[Constant.WH_DB_USERNAME_KEY],
+                                 args[Constant.WH_DB_PASSWORD_KEY],
+                                 args[Constant.WH_DB_DRIVER_KEY])
+    self.wh_cursor = self.wh_con.cursor()
+    self.db_id = int(args[Constant.DB_ID_KEY])
+    self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
+    self.metadata_folder = self.app_folder + "/" + str(self.db_id)
 
-    def run(self):
-        self.read_file_to_stg()
-        self.update_dataset_id()
-        self.update_database_id()
-        self.update_app_id()
-        self.update_owner_type()
-        self.wh_cursor.close()
-        self.wh_con.close()
+  def run(self):
+    try:
+      self.read_file_to_stg()
+      self.update_dataset_id()
+      self.update_database_id()
+      self.update_app_id()
+      self.update_owner_type()
+    finally:
+      self.wh_cursor.close()
+      self.wh_con.close()
 
-    def read_file_to_stg(self):
-        t = self._tables["dataset_owner"]
+  def read_file_to_stg(self):
+    t = self._tables["dataset_owner"]
 
-        # Clear stagging table
-        query = self._clear_staging_tempalte.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    # Clear stagging table
+    query = self._clear_staging_tempalte.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-        # Load file into stagging table
-        query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    # Load file into stagging table
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-    def update_dataset_id(self):
-        t = self._tables["dataset_owner"]
-        query = self._update_dataset_id_template.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+  def update_dataset_id(self):
+    t = self._tables["dataset_owner"]
+    query = self._update_dataset_id_template.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-    def update_database_id(self):
-        t = self._tables["dataset_owner"]
-        query = self._update_database_id_template.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+  def update_database_id(self):
+    t = self._tables["dataset_owner"]
+    query = self._update_database_id_template.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-    def update_app_id(self):
-        t = self._tables["dataset_owner"]
-        query = self._update_app_id_template.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+  def update_app_id(self):
+    t = self._tables["dataset_owner"]
+    query = self._update_app_id_template.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-        query = self._update_group_app_id_template.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    query = self._update_group_app_id_template.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-    def update_owner_type(self):
-        t = self._tables["dataset_owner"]
-        query = self._update_owner_type_template.format(table=t.get("table"))
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+  def update_owner_type(self):
+    t = self._tables["dataset_owner"]
+    query = self._update_owner_type_template.format(table=t.get("table"))
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-    def update_parent_flag(self):
-        t = self._tables["dataset_owner"]
-        for l in range(1, 6):
-            query = self._update_parent_flag.format(table=t.get("table"), lvl=l)
-            print query
-            self.wh_cursor.execute(query)
-            self.wh_con.commit()
+  def update_parent_flag(self):
+    t = self._tables["dataset_owner"]
+    for l in range(1, 6):
+      query = self._update_parent_flag.format(table=t.get("table"), lvl=l)
+      print query
+      self.wh_cursor.execute(query)
+      self.wh_con.commit()
+
 
 if __name__ == "__main__":
-    props = sys.argv[1]
-    ot = OwnerTransform(props)
-    ot.run()
+  props = sys.argv[1]
+  ot = OwnerTransform(props)
+  ot.run()

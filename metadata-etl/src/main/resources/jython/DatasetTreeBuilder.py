@@ -26,21 +26,23 @@ class DatasetTreeBuilder:
     jdbc_driver = args[Constant.WH_DB_DRIVER_KEY]
     jdbc_url = args[Constant.WH_DB_URL_KEY]
     conn_mysql = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
-    query = "select distinct id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p from dict_dataset order by urn"
     cur = conn_mysql.cursor()
-    cur.execute(query)
-    datasets = cur.fetchall()
-    self.dataset_dict = dict()
-    for dataset in datasets:
-      current = self.dataset_dict
-      path_arr = dataset[1].split('/')
-      for name in path_arr:
-        current = current.setdefault(name, {})
-      current["__ID_OF_DATASET__"] = dataset[0]
-    self.file_name = args[Constant.DATASET_TREE_FILE_NAME_KEY]
-    self.value = []
-    cur.close()
-    conn_mysql.close()
+    try:
+      query = "select distinct id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p from dict_dataset order by urn"
+      cur.execute(query)
+      datasets = cur.fetchall()
+      self.dataset_dict = dict()
+      for dataset in datasets:
+        current = self.dataset_dict
+        path_arr = dataset[1].split('/')
+        for name in path_arr:
+          current = current.setdefault(name, {})
+        current["__ID_OF_DATASET__"] = dataset[0]
+      self.file_name = args[Constant.DATASET_TREE_FILE_NAME_KEY]
+      self.value = []
+    finally:
+      cur.close()
+      conn_mysql.close()
 
   def build_trie_helper(self, depth, path, current, current_dict):
     nodes = []

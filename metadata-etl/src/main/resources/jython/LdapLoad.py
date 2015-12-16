@@ -20,24 +20,25 @@ import sys
 
 
 class LdapLoad:
+  def __init__(self, args):
+    self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
+                                 args[Constant.WH_DB_USERNAME_KEY],
+                                 args[Constant.WH_DB_PASSWORD_KEY],
+                                 args[Constant.WH_DB_DRIVER_KEY])
+    self.wh_cursor = self.wh_con.cursor()
+    self.app_id = int(args[Constant.APP_ID_KEY])
+    self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
+    self.metadata_folder = self.app_folder + "/" + str(self.app_id)
 
-    def __init__(self, args):
-        self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
-                                     args[Constant.WH_DB_USERNAME_KEY],
-                                     args[Constant.WH_DB_PASSWORD_KEY],
-                                     args[Constant.WH_DB_DRIVER_KEY])
-        self.wh_cursor = self.wh_con.cursor()
-        self.app_id = int(args[Constant.APP_ID_KEY])
-        self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
-        self.metadata_folder = self.app_folder + "/" + str(self.app_id)
+  def run(self):
+    try:
+      self.load_from_stg()
+    finally:
+      self.wh_cursor.close()
+      self.wh_con.close()
 
-    def run(self):
-        self.load_from_stg()
-        self.wh_cursor.close()
-        self.wh_con.close()
-
-    def load_from_stg(self):
-        query = """
+  def load_from_stg(self):
+    query = """
         INSERT INTO dir_external_user_info
         (
           app_id, user_id, urn, full_name, display_name, title, employee_number,
@@ -69,11 +70,11 @@ class LdapLoad:
           modified_time = unix_timestamp(NOW()),
           wh_etl_exec_id = s.wh_etl_exec_id
         """
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-        query = """
+    query = """
         INSERT INTO dir_external_group_user_map
         (app_id, group_id, sort_id, user_app_id, user_id, created_time, wh_etl_exec_id)
         SELECT app_id, group_id, sort_id, user_app_id, user_id, unix_timestamp(NOW()), wh_etl_exec_id
@@ -82,11 +83,11 @@ class LdapLoad:
         modified_time = unix_timestamp(NOW()),
         wh_etl_exec_id = s.wh_etl_exec_id
         """
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
 
-        query = """
+    query = """
         INSERT INTO dir_external_group_user_map_flatten
         (app_id, group_id, sort_id, user_app_id, user_id, created_time, wh_etl_exec_id)
         SELECT app_id, group_id, sort_id, user_app_id, user_id, unix_timestamp(NOW()), wh_etl_exec_id
@@ -95,11 +96,12 @@ class LdapLoad:
         modified_time = unix_timestamp(NOW()),
         wh_etl_exec_id = s.wh_etl_exec_id
         """
-        print query
-        self.wh_cursor.execute(query)
-        self.wh_con.commit()
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
+
 
 if __name__ == "__main__":
-    props = sys.argv[1]
-    lt = LdapLoad(props)
-    lt.run()
+  props = sys.argv[1]
+  lt = LdapLoad(props)
+  lt.run()
