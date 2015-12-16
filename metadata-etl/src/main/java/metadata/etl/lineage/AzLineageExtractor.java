@@ -43,9 +43,16 @@ public class AzLineageExtractor {
     throws Exception {
 
     List<LineageRecord> oneAzkabanJobLineage = new ArrayList<>();
+
+    // azkaban job name should have subflow name append in front
+    String flowSequence[] = message.azkabanJobExecution.getFlowPath().split(":")[1].split("/");
+    String jobPrefix = "";
+    for (int i = 1; i < flowSequence.length; i ++) {
+      jobPrefix += flowSequence[i] + ":";
+    }
     //String log = asc.getExecLog(azJobExec.execId, azJobExec.jobName);
     String log =
-      message.adc.getExecLog(message.azkabanJobExecution.getFlowExecId(), message.azkabanJobExecution.getJobName());
+      message.adc.getExecLog(message.azkabanJobExecution.getFlowExecId(), jobPrefix + message.azkabanJobExecution.getJobName());
     Set<String> hadoopJobIds = AzLogParser.getHadoopJobIdFromLog(log);
 
     for (String hadoopJobId : hadoopJobIds) {

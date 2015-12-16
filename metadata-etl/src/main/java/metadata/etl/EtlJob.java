@@ -37,7 +37,6 @@ import java.util.Properties;
 public abstract class EtlJob {
   private final static String CONFIG_FILE = "application.properties";
   public PythonInterpreter interpreter;
-  public PySystemState sys;
   public Properties prop;
   public ClassLoader classLoader = getClass().getClassLoader();
   protected final Logger logger = LoggerFactory.getLogger(getClass());
@@ -74,7 +73,7 @@ public abstract class EtlJob {
    * @param properties
    */
   public EtlJob(Integer appId, Integer dbId, Long whExecId, Properties properties) {
-    configFromProperties(appId, dbId, whExecId, properties);
+    PySystemState sys = configFromProperties(appId, dbId, whExecId, properties);
     addJythonToPath(sys);
     interpreter = new PythonInterpreter(null, sys);
   }
@@ -127,8 +126,9 @@ public abstract class EtlJob {
    * @param appId
    * @param whExecId
    * @param properties
+   * @return PySystemState A PySystemState that contain all the arguments.
    */
-  private void configFromProperties(Integer appId, Integer dbId, Long whExecId, Properties properties) {
+  private PySystemState configFromProperties(Integer appId, Integer dbId, Long whExecId, Properties properties) {
     this.prop = properties;
     if (appId != null)
       prop.setProperty(Constant.APP_ID_KEY, String.valueOf(appId));
@@ -140,8 +140,9 @@ public abstract class EtlJob {
       String value = prop.getProperty(key);
       config.put(new PyString(key), new PyString(value));
     }
-    sys = new PySystemState();
+    PySystemState sys = new PySystemState();
     sys.argv.append(config);
+    return sys;
   }
   /**
    * Extract data from source

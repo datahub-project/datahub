@@ -152,7 +152,7 @@ class TeradataLoad:
         delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
     
         -- update the old record if some thing changed
-        update dict_dict_field_detail t join
+        update dict_field_detail t join
         (
           select x.field_id, s.*
           from stg_dict_field_detail s join dict_dataset d
@@ -165,26 +165,27 @@ class TeradataLoad:
             and (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
                 or x.data_type <> s.data_type
-                or x.data_size <> s.data_size
-                or x.data_precision <> s.data_precision
-                or x.is_nullable <> s.is_nullable
-                or x.is_partitioned <> s.is_partitioned
-                or x.is_distributed <> s.is_distributed
-                or x.default_value <> s.default_value
-                or x.namespace <> s.namespace
+                or x.data_size <> s.data_size or (x.data_size is null) ^ (s.data_size is null)
+                or x.data_precision <> s.data_precision or (x.data_precision is null) ^ (s.data_precision is null)
+                or x.is_nullable <> s.is_nullable or (x.is_nullable is null) ^ (s.is_nullable is null)
+                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null) ^ (s.is_partitioned is null)
+                or x.is_distributed <> s.is_distributed or (x.is_distributed is null) ^ (s.is_distributed is null)
+                or x.default_value <> s.default_value or (x.default_value is null) ^ (s.default_value is null)
+                or x.namespace <> s.namespace or (x.namespace is null) ^ (s.namespace is null)
             )
         ) p
           on t.field_id = p.field_id
         set t.sort_id = p.sort_id,
+            t.parent_sort_id = p.parent_sort_id,
             t.data_type = p.data_type,
             t.data_size = p.data_size,
             t.data_precision = p.data_precision,
             t.is_nullable = p.is_nullable,
             t.is_partitioned = p.is_partitioned,
-            t.is_distributed = p.is_distributed
-            t.default_value = p.default_value
-            t.namespace = p.namespace
-            t.last_modified = now()
+            t.is_distributed = p.is_distributed,
+            t.default_value = p.default_value,
+            t.namespace = p.namespace,
+            t.modified = now()
         ;
 
         show warnings limit 10;

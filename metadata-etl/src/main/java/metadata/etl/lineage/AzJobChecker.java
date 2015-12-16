@@ -124,24 +124,30 @@ public class AzJobChecker {
     JsonNode wholeFlow = mapper.readTree(flowJson);
     JsonNode allJobs = wholeFlow.get("nodes");
     String flowPath = wholeFlow.get("projectName").asText() + ":" + wholeFlow.get("flowId").asText();
-    List<AzkabanJobExecRecord> results = parseJsonHelper(allJobs, flowExecId, "", flowPath);
+    List<AzkabanJobExecRecord> results = parseJsonHelper(allJobs, flowExecId, flowPath);
     AzkabanJobExecUtil.sortAndSet(results);
     return results;
   }
 
-  private List<AzkabanJobExecRecord> parseJsonHelper(JsonNode allJobs, long flowExecId, String jobPrefix, String flowPath) {
+  /**
+   * Recursively process the execution info to get {@AzkabanJobExecRecord}
+   * @param allJobs JsonNode in "nodes" field
+   * @param flowExecId
+   * @param flowPath Format : project_name:first_level_flow/sub_flow/sub_flow
+   * @return
+   */
+  private List<AzkabanJobExecRecord> parseJsonHelper(JsonNode allJobs, long flowExecId, String flowPath) {
     List<AzkabanJobExecRecord> results = new ArrayList<>();
     for (JsonNode oneJob : allJobs) {
       if (oneJob.has("nodes")) { // is a subflow
         String subFlowName = oneJob.get("id").asText();
-        String newJobPrefix = jobPrefix.length() > 0 ? jobPrefix + subFlowName + ":" : subFlowName + ":";
-        results.addAll(parseJsonHelper(oneJob.get("nodes"), flowExecId, newJobPrefix, flowPath));
+        flowPath += "/" + subFlowName;
+        results.addAll(parseJsonHelper(oneJob.get("nodes"), flowExecId, flowPath));
       } else {
         String jobName = oneJob.get("id").asText();
         long startTime = oneJob.get("startTime").asLong();
         long endTime = oneJob.get("endTime").asLong();
         String status = oneJob.get("status").asText();
-        jobName = jobPrefix.length() > 0 ? jobPrefix + jobName : jobName;
         AzkabanJobExecRecord azkabanJobExecRecord =
             new AzkabanJobExecRecord(appId, jobName, flowExecId, (int) (startTime / 1000), (int) (endTime / 1000),
                 status, flowPath);
