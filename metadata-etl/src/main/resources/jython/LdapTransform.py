@@ -182,6 +182,11 @@ class LdapTransform:
           user_ids = []
           org_hierarchy_long_string = ""
           org_hierarchy_depth_long_string = ""
+
+    query = self._update_hierarchy_info.format(table=t.get("table"), app_id=self.app_id, user_ids=",".join(user_ids), org_hierarchy_long_string=org_hierarchy_long_string,
+                                               org_hierarchy_depth_long_string=org_hierarchy_depth_long_string)
+    # print query
+    self.wh_cursor.executemany(query)
     self.wh_con.commit()
 
   def find_path_for_user(self, start, pair, hierarchy):

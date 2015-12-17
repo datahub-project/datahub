@@ -22,6 +22,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Constants;
@@ -134,6 +135,7 @@ public class GitUtil {
       for (RevCommit r : commitLog) {
         CommitMetadata metadata = new CommitMetadata(r.getName());
         metadata.setFilePath(filePath);
+        metadata.setFileName(FilenameUtils.getName(filePath));
         metadata.setMessage(r.getShortMessage().trim());
         // Difference between committer and author
         // refer to: http://git-scm.com/book/ch2-3.html
@@ -172,6 +174,7 @@ public class GitUtil {
     String committerEmail;
     String authorEmail;
     String filePath;
+    String fileName;
 
     public CommitMetadata() {
     }
@@ -181,7 +184,7 @@ public class GitUtil {
     }
 
     public CommitMetadata(String commitId, String author, String committer, Date commitTime, String message,
-        String committerEmail, String authorEmail, String filePath) {
+        String committerEmail, String authorEmail, String filePath, String fileName) {
       this.commitId = commitId;
       this.author = author;
       this.committer = committer;
@@ -190,6 +193,7 @@ public class GitUtil {
       this.committerEmail = committerEmail;
       this.authorEmail = authorEmail;
       this.filePath = filePath;
+      this.fileName = fileName;
     }
 
     public String getCommitId() {
@@ -254,6 +258,14 @@ public class GitUtil {
 
     public void setFilePath(String filePath) {
       this.filePath = filePath;
+    }
+
+    public String getFileName() {
+      return fileName;
+    }
+
+    public void setFileName(String fileName) {
+      this.fileName = fileName;
     }
   }
 
