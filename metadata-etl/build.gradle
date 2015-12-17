@@ -22,6 +22,7 @@ dependencies {
   compile externalDependency.akka
   compile externalDependency.slf4j_api
   compile externalDependency.slf4j_log4j
+  compile externalDependency.hive_exec
   compile files("extralibs/terajdbc4-15.00.00.20.jar")
   compile files("extralibs/tdgssconfig-15.00.00.20.jar")
   // compile externalDependency.jython

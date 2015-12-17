@@ -16,6 +16,7 @@ package actors;
 import java.util.Properties;
 import metadata.etl.EtlJob;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
+import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
@@ -49,6 +50,8 @@ public class EtlJobFactory {
         return new LdapEtl(refId, whExecId, properties);
       case GIT_MEDATA_ETL:
         return new GitMetadataEtl(refId, whExecId, properties);
+      case HIVE_DATASET_METADATA_ETL:
+        return new HiveMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

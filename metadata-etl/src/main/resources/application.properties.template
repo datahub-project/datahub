@@ -106,3 +106,13 @@ ldap.group.search.return.attributes=
 git.host=
 git.project.whitelist=
 
+# hive metastore
+hive.metastore.jdbc.url=
+hive.metastore.jdbc.driver=
+hive.metstore.username=
+hive.metastore.password=
+
+hive.schema_json_file=
+#hive.sample_csv=
+hive.schema_csv_file=
+hive.field_metadata=
