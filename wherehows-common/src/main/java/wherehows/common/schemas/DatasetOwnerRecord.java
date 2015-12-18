@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -44,7 +45,14 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   @Override
   public List<Object> fillAllFields() {
-    return null;
+    List<Object> allFields = new ArrayList<>();
+    allFields.add(datasetUrn);
+    allFields.add(owner);
+    allFields.add(sortId);
+    allFields.add(namespace);
+    allFields.add(dbIds);
+    allFields.add(sourceTime);
+    return allFields;
   }
 
   public String[] getDbColumnForUnmatchedOwner() {
@@ -58,6 +66,16 @@ public class DatasetOwnerRecord extends AbstractRecord {
   }
 
   public DatasetOwnerRecord() {
+  }
+
+  public DatasetOwnerRecord(String datasetUrn, String ownerId, Integer sortId, String namespace, String dbName,
+      Long sourceTime) {
+    this.datasetUrn = datasetUrn;
+    this.owner = ownerId;
+    this.sortId = sortId;
+    this.namespace = namespace;
+    this.dbIds = dbName;
+    this.sourceTime = sourceTime;
   }
 
   public Integer getDatasetId() {
