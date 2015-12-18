@@ -159,3 +159,7 @@ product.repo.owner=
 # Database scm owner
 database.scm.repo=
 base.url.key=
+
+# dali
+dali.git.urn=
+git.committer.blacklist=
