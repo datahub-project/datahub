@@ -154,3 +154,7 @@ svn.url.prefix=
 git.project.metadata=
 product.repo.metadata=
 product.repo.owner=
+
+# dali
+dali.git.urn=
+git.committer.blacklist=
