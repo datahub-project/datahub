@@ -220,4 +220,7 @@ public class Constant {
   public static final String DATABASE_SCM_REPO_OUTPUT_KEY = "database.scm.repo";
   public static final String BASE_URL_KEY = "base.url.key";
 
+  // dali
+  public static final String DALI_GIT_URN_KEY = "dali.git.urn";
+  public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
 }
