@@ -27,6 +27,7 @@ public class AzkabanJobRecord extends AbstractRecord {
   String jobName;
   String jobPath;
   String jobType;
+  String refFlowPath;
   Character isCurrent;
   Long whExecId;
 
@@ -51,9 +52,81 @@ public class AzkabanJobRecord extends AbstractRecord {
     allFields.add(jobName);
     allFields.add(jobPath);
     allFields.add(jobType);
+    allFields.add(refFlowPath);
     allFields.add(isCurrent);
     allFields.add(whExecId);
     return allFields;
   }
 
+  public Integer getAppId() {
+    return appId;
+  }
+
+  public void setAppId(Integer appId) {
+    this.appId = appId;
+  }
+
+  public String getFlowPath() {
+    return flowPath;
+  }
+
+  public void setFlowPath(String flowPath) {
+    this.flowPath = flowPath;
+  }
+
+  public Integer getSourceVersion() {
+    return sourceVersion;
+  }
+
+  public void setSourceVersion(Integer sourceVersion) {
+    this.sourceVersion = sourceVersion;
+  }
+
+  public String getJobName() {
+    return jobName;
+  }
+
+  public void setJobName(String jobName) {
+    this.jobName = jobName;
+  }
+
+  public String getJobPath() {
+    return jobPath;
+  }
+
+  public void setJobPath(String jobPath) {
+    this.jobPath = jobPath;
+  }
+
+  public String getJobType() {
+    return jobType;
+  }
+
+  public void setJobType(String jobType) {
+    this.jobType = jobType;
+  }
+
+  public String getRefFlowPath() {
+    return refFlowPath;
+  }
+
+  public void setRefFlowPath(String refFlowPath) {
+    this.refFlowPath = refFlowPath;
+  }
+
+  public Character getIsCurrent() {
+    return isCurrent;
+  }
+
+  public void setIsCurrent(Character isCurrent) {
+    this.isCurrent = isCurrent;
+  }
+
+  public Long getWhExecId() {
+    return whExecId;
+  }
+
+  public void setWhExecId(Long whExecId) {
+    this.whExecId = whExecId;
+  }
 }

@@ -41,7 +41,7 @@ public class GitCommitRecord extends AbstractRecord {
     this.gitRepoUrn = gitRepoUrn;
     this.commitId = commitMetadata.getCommitId();
     this.filePath = commitMetadata.getFilePath();
-    this.fileName = FilenameUtils.getName(this.filePath);
+    this.fileName = commitMetadata.getFileName();
     this.commitTime = commitMetadata.getCommitTime().getTime() / 1000;
     this.committerName = commitMetadata.getCommitter();
     this.committerEmail = commitMetadata.getCommitterEmail();
