@@ -123,3 +123,7 @@ hive.schema_json_file=
 #hive.sample_csv=
 hive.schema_csv_file=
 hive.field_metadata=
+
+# dali
+dali.git.urn=
+git.committer.blacklist=
