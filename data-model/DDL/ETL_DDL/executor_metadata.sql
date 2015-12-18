@@ -94,6 +94,7 @@ CREATE TABLE flow_job (
   job_path             VARCHAR(1024) COMMENT 'job path from top level',
   job_type_id          SMALLINT COMMENT 'type id of the job',
   job_type             VARCHAR(63) COMMENT 'type of the job',
+  ref_flow_id          INT UNSIGNED DEFAULT NULL COMMENT 'the reference flow id of the job if the job is a subflow',
   pre_jobs             VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
   post_jobs            VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
   is_current           CHAR(1) COMMENT 'determine if it is a current job',
@@ -104,6 +105,7 @@ CREATE TABLE flow_job (
   wh_etl_exec_id       BIGINT COMMENT 'wherehows etl execution id that create this record',
   PRIMARY KEY (app_id, job_id, dag_version),
   INDEX flow_id_idx (app_id, flow_id),
+  INDEX ref_flow_id_idx (app_id, ref_flow_id),
   INDEX job_path_idx (app_id, job_path(255))
 )
   ENGINE = InnoDB
@@ -122,6 +124,8 @@ CREATE TABLE stg_flow_job (
   job_path       VARCHAR(1024) COMMENT 'job path from top level',
   job_type_id    SMALLINT COMMENT 'type id of the job',
   job_type       VARCHAR(63) COMMENT 'type of the job',
+  ref_flow_id    INT UNSIGNED  DEFAULT NULL COMMENT 'the reference flow id of the job if the job is a subflow',
+  ref_flow_path  VARCHAR(1024) COMMENT 'the reference flow path of the job if the job is a subflow',
   pre_jobs       VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
   post_jobs      VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
   is_current     CHAR(1) COMMENT 'determine if it is a current job',
@@ -131,6 +135,7 @@ CREATE TABLE stg_flow_job (
   INDEX (app_id, job_id, dag_version),
   INDEX flow_id_idx (app_id, flow_id),
   INDEX flow_path_idx (app_id, flow_path(255)),
+  INDEX ref_flow_path_idx (app_id, ref_flow_path(255)),
   INDEX job_path_idx (app_id, job_path(255)),
   INDEX job_type_idx (job_type)
 )

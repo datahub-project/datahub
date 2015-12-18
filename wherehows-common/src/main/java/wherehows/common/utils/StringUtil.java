@@ -20,9 +20,17 @@ public class StringUtil {
 
   public static String toDbString(Object object) {
     if (object != null) {
-      return "'" + object.toString().replace("\'", "\\\'").replace("\"", "\\\"") + "'";
+      return "'" + object.toString().replace("\\", "\\\\").replace("\'", "\\\'").replace("\"", "\\\"") + "'";
     } else {
       return "null";
+    }
+  }
+
+  public static String toCsvString(Object object) {
+    if (object != null) {
+      return "\"" + object.toString().replace("\\", "\\\\").replace("\'", "\\\'").replace("\"", "\\\"") + "\"";
+    } else {
+      return "\\N";
     }
   }
 

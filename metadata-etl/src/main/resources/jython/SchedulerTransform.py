@@ -149,6 +149,27 @@ class SchedulerTransform:
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
+    # ad hoc fix for null values, need better solution by changing the load script
+    query = """
+            UPDATE {table} stg
+            SET stg.ref_flow_path = null
+            WHERE stg.ref_flow_path = 'null' and stg.app_id = {app_id}
+            """.format(table=t.get("table"), app_id=self.app_id)
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
+
+    # Update sub flow id from mapping table
+    query = """
+            UPDATE {table} stg
+            JOIN flow_source_id_map fm
+            ON stg.app_id = fm.app_id AND stg.ref_flow_path = fm.source_id_string
+            SET stg.ref_flow_id = fm.flow_id WHERE stg.app_id = {app_id}
+            """.format(table=t.get("table"), app_id=self.app_id)
+    print query
+    self.wh_cursor.execute(query)
+    self.wh_con.commit()
+
     # Insert new job into job map to generate job id
     query = """
             INSERT INTO job_source_id_map (app_id, source_id_string)

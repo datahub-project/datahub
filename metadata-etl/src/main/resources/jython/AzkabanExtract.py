@@ -118,6 +118,8 @@ class AzkabanExtract:
                                       node['jobType'],
                                       'Y',
                                       self.wh_exec_id)
+        if node['jobType'] == 'flow':
+          job_record.setRefFlowPath(row['project_name'] + ":" + node['embeddedFlowId'])
         job_writer.append(job_record)
 
       # job dag

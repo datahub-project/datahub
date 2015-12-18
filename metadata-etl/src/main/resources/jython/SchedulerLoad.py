@@ -81,9 +81,9 @@ class SchedulerLoad:
     self.wh_con.commit()
 
     cmd = """
-          INSERT INTO flow_job (app_id, flow_id, first_source_version, dag_version, job_id, job_name, job_path, job_type_id, job_type, pre_jobs, post_jobs,
+          INSERT INTO flow_job (app_id, flow_id, first_source_version, dag_version, job_id, job_name, job_path, job_type_id, job_type, ref_flow_id, pre_jobs, post_jobs,
           is_current, is_first, is_last, created_time, modified_time, wh_etl_exec_id)
-          SELECT app_id, flow_id, source_version first_source_version, dag_version, job_id, job_name, job_path, job_type_id, job_type, pre_jobs, post_jobs,
+          SELECT app_id, flow_id, source_version first_source_version, dag_version, job_id, job_name, job_path, job_type_id, job_type, ref_flow_id, pre_jobs, post_jobs,
           'Y', is_first, is_last, unix_timestamp(NOW()) created_time, NULL, wh_etl_exec_id
           FROM stg_flow_job s
           WHERE s.app_id = {app_id}
@@ -94,6 +94,7 @@ class SchedulerLoad:
           job_path = s.job_path,
           job_type_id = s.job_type_id,
           job_type = s.job_type,
+          ref_flow_id = s.ref_flow_id,
           pre_jobs = s.pre_jobs,
           post_jobs = s.post_jobs,
           is_current = 'Y',
