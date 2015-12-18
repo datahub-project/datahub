@@ -174,6 +174,7 @@ public class Constant {
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
 
+
   /** Property name of app id. For ETL process. ETL process will use this to identify the application */
   public static final String APP_ID_KEY = "app.id";
   /** Property name of database id. ETL process will use this to identify the database */
@@ -183,4 +184,9 @@ public class Constant {
 
   public static final String WH_ELASTICSEARCH_URL_KEY = "wh.elasticsearch.url";
   public static final String WH_ELASTICSEARCH_PORT_KEY = "wh.elasticsearch.port";
+  // dali
+  public static final String DALI_GIT_URN_KEY = "dali.git.urn";
+  public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
+
+
 }
