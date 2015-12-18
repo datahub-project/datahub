@@ -20,6 +20,7 @@ import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
+import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
@@ -52,6 +53,8 @@ public class EtlJobFactory {
         return new GitMetadataEtl(refId, whExecId, properties);
       case HIVE_DATASET_METADATA_ETL:
         return new HiveMetadataEtl(refId, whExecId, properties);
+      case DALI_VIEW_OWNER_ETL:
+        return new DaliViewOwnerEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
