@@ -31,6 +31,7 @@ public enum EtlJobName {
   ORACLE_DATASET_METADATA_ETL(EtlType.DATASET, RefIdType.DB),
   PRODUCT_REPO_METADATA_ETL(EtlType.OPERATION, RefIdType.APP),
   KAFKA_CONSUMER_ETL(EtlType.OPERATION, RefIdType.DB),
+  DALI_VIEW_OWNER_ETL(EtlType.OWNER, RefIdType.DB),
   ;
 
   EtlType etlType;
