@@ -146,3 +146,7 @@ oracle.field_metadata=
 oracle.sample_data=
 oracle.load_sample=
 oracle.exclude_db=
+
+# dali
+dali.git.urn=
+git.committer.blacklist=
