@@ -170,10 +170,17 @@ public class Constant {
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
 
+
   /** Property name of app id. For ETL process. ETL process will use this to identify the application */
   public static final String APP_ID_KEY = "app.id";
   /** Property name of database id. ETL process will use this to identify the database */
   public static final String DB_ID_KEY = "db.id";
   /** Property name of wherehows execution id for ETL process. */
   public static final String WH_EXEC_ID_KEY = "wh.exec.id";
+
+  // dali
+  public static final String DALI_GIT_URN_KEY = "dali.git.urn";
+  public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
+
+
 }
