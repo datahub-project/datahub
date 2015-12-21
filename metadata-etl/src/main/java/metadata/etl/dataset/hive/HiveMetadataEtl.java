@@ -26,7 +26,7 @@ public class HiveMetadataEtl extends EtlJob {
     logger.info("In Hive metadata ETL, launch extract jython scripts");
     InputStream inputStream = classLoader.getResourceAsStream("jython/HiveExtract.py");
     //logger.info("before call scripts " + interpreter.getSystemState().argv);
-    super.interpreter.execfile(inputStream);
+    interpreter.execfile(inputStream);
     inputStream.close();
   }
 

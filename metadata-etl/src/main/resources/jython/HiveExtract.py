@@ -301,10 +301,10 @@ if __name__ == "__main__":
   e = HiveExtract()
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
-  e.databases = e.get_all_databases()
-  print 'Process databases : '
-  print e.databases
-
-
-  e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
-  e.conn_hms.close()
+  try:
+    e.databases = e.get_all_databases()
+    print 'Process databases : '
+    print e.databases
+    e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
+  finally:
+    e.conn_hms.close()

@@ -158,6 +158,8 @@ if __name__ == "__main__":
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
-  l.load_metadata()
-  # l.load_field()
-  l.conn_mysql.close()
+  try:
+    l.load_metadata()
+    # l.load_field()
+  finally:
+    l.conn_mysql.close()

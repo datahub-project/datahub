@@ -30,7 +30,7 @@ class HdfsLoad:
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_dataset
-        FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
+        FIELDS TERMINATED BY '\Z' ESCAPED BY '\\'
         (`name`, `schema`, properties, fields, urn, source, sample_partition_full_path, source_created_time, source_modified_time)
         SET db_id = {db_id},
         -- TODO storage_type = 'Avro',
