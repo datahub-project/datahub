@@ -25,6 +25,7 @@ public enum EtlJobName {
   HADOOP_DATASET_OWNER_ETL(EtlType.OWNER, RefIdType.DB),
   LDAP_USER_ETL(EtlType.LDAP, RefIdType.APP),
   GIT_MEDATA_ETL(EtlType.VCS, RefIdType.APP),
+  HIVE_DATASET_METADATA_ETL(EtlType.DATASET, RefIdType.DB),
   ;
 
   EtlType etlType;

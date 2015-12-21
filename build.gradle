@@ -69,5 +69,7 @@ subprojects {
                             "play"               : "com.typesafe.play:play_2.10:2.2.4",
                             "play_ebean"         : "com.typesafe.play:play-java-ebean_2.10:2.2.4",
                             "play_java_jdbc"     : "com.typesafe.play:play-java-jdbc_2.10:2.2.4",
-                            "play_cache"         : "com.typesafe.play:play-cache_2.10:2.2.4"]
+                            "play_cache"         : "com.typesafe.play:play-cache_2.10:2.2.4",
+                            "hive_exec"          : "org.apache.hive:hive-exec:1.2.1"
+  ]
 }
