@@ -3,110 +3,143 @@
 # ~~~~
 
 # Home page
-GET         /                             controllers.Application.index()
+GET         /                                controllers.Application.index()
 
 # Map static resources from the /public folder to the /assets URL path
-GET         /assets/*file                 controllers.Assets.at(path="/public", file)
+GET         /assets/*file                    controllers.Assets.at(path="/public", file)
 
 # Find a dataset's schema, field and all datasets level information.
-GET         /dataset                      controllers.DatasetController.getDatasetInfo()
+GET         /dataset                         controllers.DatasetController.getDatasetInfo()
 
 # Insert new job data lineage
-POST        /dataset                      controllers.DatasetController.addDataset()
+POST        /dataset                         controllers.DatasetController.addDataset()
 
 # For recent x day, which job use the target dataset as a source, or which job produce this datasets.
-GET         /lineage/dataset              controllers.LineageController.getJobsByDataset(urn: String)
+GET         /lineage/dataset                 controllers.LineageController.getJobsByDataset(urn: String)
 
 # Given the flow path and job name, will find the upstream/downstream datasets of most recent execution of this job
-GET         /lineage/job                  controllers.LineageController.getDatasetsByJob(flowPath: String, jobName: String)
+GET         /lineage/job                     controllers.LineageController.getDatasetsByJob(flowPath: String, jobName: String)
 
 # Given the flow path and job name, will find the upstream/downstream datasets of most recent execution of this job
-GET         /lineage/job/exec/flow        controllers.LineageController.getDatasetsByFlowExec(flowExecId: Long, jobName: String)
+GET         /lineage/job/exec/flow           controllers.LineageController.getDatasetsByFlowExec(flowExecId: Long, jobName: String)
 
 # Given the flow path and job name, will find the upstream/downstream datasets of most recent execution of this job
-GET         /lineage/job/exec/job         controllers.LineageController.getDatasetsByJobExec(jobExecId: Long)
+GET         /lineage/job/exec/job            controllers.LineageController.getDatasetsByJobExec(jobExecId: Long)
 
 # Insert new job data lineage
-POST        /lineage                      controllers.LineageController.addJobLineage()
+POST        /lineage                         controllers.LineageController.addJobLineage()
 
 #param: instance
 #param: flowPath
 #get flow owner
-GET         /flow/owner                   controllers.FlowController.getFlowOwners(flowPath:String)
+GET         /flow/owner                      controllers.FlowController.getFlowOwners(flowPath:String)
 
 #param: instance
 #param: flowPath
 # Get flow schedules
-GET         /flow/schedule                controllers.FlowController.getFlowSchedules(flowPath:String)
+GET         /flow/schedule                   controllers.FlowController.getFlowSchedules(flowPath:String)
 
 # Add new etl job
-POST        /etl                          controllers.EtlJobController.addEtlJob()
+POST        /etl                             controllers.EtlJobController.addEtlJob()
 
 # Get etl job
-GET         /etl                          controllers.EtlJobController.getEtlJobById(id:Int)
+GET         /etl                             controllers.EtlJobController.getEtlJobById(id:Int)
 
 # Get etl job
-GET         /etls                         controllers.EtlJobController.getAllJobs()
+GET         /etls                            controllers.EtlJobController.getAllJobs()
 
 # Update etl job property
-PUT         /etl/property                 controllers.EtlJobPropertyController.updateJobProperty()
+PUT         /etl/property                    controllers.EtlJobPropertyController.updateJobProperty()
 
 # Update etl job status
-PUT         /etl/control                  controllers.EtlJobController.updateEtlJobStatus()
+PUT         /etl/control                     controllers.EtlJobController.updateEtlJobStatus()
 
 # Update etl job schedule
-PUT         /etl/schedule                 controllers.EtlJobController.updateEtlJobSchedule()
+PUT         /etl/schedule                    controllers.EtlJobController.updateEtlJobSchedule()
 
 # Get all applications
-GET         /cfg/apps                     controllers.CfgController.getAllApps
+GET         /cfg/apps                        controllers.CfgController.getAllApps
 
 # Get application by id
-GET         /cfg/app/id                   controllers.CfgController.getAppById(id: Int)
+GET         /cfg/app/id                      controllers.CfgController.getAppById(id: Int)
 
 # Get application by name
-GET         /cfg/app/name                 controllers.CfgController.getAppByName(name: String)
+GET         /cfg/app/name                    controllers.CfgController.getAppByName(name: String)
 
 # Get all databases
-GET         /cfg/dbs                      controllers.CfgController.getAllDbs
+GET         /cfg/dbs                         controllers.CfgController.getAllDbs
 
 # Get application by id
-GET         /cfg/db/id                    controllers.CfgController.getDbById(id: Int)
+GET         /cfg/db/id                       controllers.CfgController.getDbById(id: Int)
 
 # Get application by name
-GET         /cfg/db/name                  controllers.CfgController.getDbByName(name: String)
+GET         /cfg/db/name                     controllers.CfgController.getDbByName(name: String)
 
 # Add new application
-POST        /cfg/app                      controllers.CfgController.addApp()
+POST        /cfg/app                         controllers.CfgController.addApp()
 
 # Add new database
-POST        /cfg/db                       controllers.CfgController.addDb()
+POST        /cfg/db                          controllers.CfgController.addDb()
 
 # Add new application
-PUT         /cfg/app                      controllers.CfgController.updateApp()
+PUT         /cfg/app                         controllers.CfgController.updateApp()
 
 # Add new database
-PUT         /cfg/db                       controllers.CfgController.updateDb()
+PUT         /cfg/db                          controllers.CfgController.updateDb()
 
 # Get all filename patterns
-GET         /pattern/filename             controllers.PatternController.getAllFilenamePatterns()
+GET         /pattern/filename                controllers.PatternController.getAllFilenamePatterns()
 
 # Insert a new filename pattern
-POST        /pattern/filename             controllers.PatternController.addFilenamePattern()
+POST        /pattern/filename                controllers.PatternController.addFilenamePattern()
 
 # Get all filename patterns
-GET         /pattern/partition             controllers.PatternController.getAllDatasetPartitionPatterns()
+GET         /pattern/partition               controllers.PatternController.getAllDatasetPartitionPatterns()
 
 # Insert a new filename pattern
-POST        /pattern/partition             controllers.PatternController.addDatasetPartitionPattern()
+POST        /pattern/partition               controllers.PatternController.addDatasetPartitionPattern()
 
 # Get all filename patterns
-GET         /pattern/lineage             controllers.PatternController.getAllLineagePattern()
+GET         /pattern/lineage                 controllers.PatternController.getAllLineagePattern()
 
 # Insert a new filename pattern
-POST        /pattern/lineage             controllers.PatternController.addLineagePattern()
+POST        /pattern/lineage                 controllers.PatternController.addLineagePattern()
 
 # Get all filename patterns
-GET         /pattern/jobid             controllers.PatternController.getAllJobIdPattern
+GET         /pattern/jobid                   controllers.PatternController.getAllJobIdPattern
 
 # Insert a new filename pattern
-POST        /pattern/jobid             controllers.PatternController.addJobIdPattern()
+POST        /pattern/jobid                   controllers.PatternController.addJobIdPattern()
+
+# Preview data quality aggregation
+POST        /dataquality/previewAgg          dataquality.controllers.AggregationController.previewAggregation()
+
+# Insert data quality aggregation
+POST        /dataquality/createAgg           dataquality.controllers.AggregationController.createAggregation()
+
+# Find aggregation definiton by id
+GET         /dataquality/findAgg             dataquality.controllers.AggregationController.findById(aggDefId: Int)
+
+# Find aggregation combinations by definition id
+GET         /dataquality/findCombs           dataquality.controllers.AggregationController.findCombsByAggDefId(aggDefId: Int)
+
+# Find aggregation combination by combination id
+GET         /dataquality/findComb            dataquality.controllers.AggregationController.findCombById(id: Int)
+
+# Trigger aggregation based on aggregation id
+POST         /dataquality/runAgg              dataquality.controllers.AggregationController.runAggregation(id: Int)
+
+# Create rule metric for aggregation value
+POST        /dataquality/createRule          dataquality.controllers.MetricController.createRule()
+
+# Check a rule metric by metric id
+GET         /dataquality/checkMetric         dataquality.controllers.MetricController.checkMetric(metricId: Int)
+
+# Check a list of metrics
+GET         /dataquality/checkMetrics        dataquality.controllers.MetricController.checkMetrics(metricIds: java.util.List[Integer])
+
+# Find metrics by dataset name
+GET         /dataquality/findMetrics         dataquality.controllers.MetricController.findMetrics(dataset: String)
+
+# Find metric by metric id
+GET         /dataquality/findMetric          dataquality.controllers.MetricController.findById(metricId: Int)

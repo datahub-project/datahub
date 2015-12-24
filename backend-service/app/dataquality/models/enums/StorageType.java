@@ -11,21 +11,32 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
-
+package dataquality.models.enums;
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 5/21/15.
  */
-public class Global extends GlobalSettings {
+public enum StorageType {
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  HDFS,
+  TERADATA,
+  KAFKA;
+
+  public String getFullDatasetName(String datasetName) {
+    String fullName = null;
+    switch (this) {
+      case TERADATA:
+        fullName =  "DIM_STG." + datasetName;
+        break;
+      case HDFS:
+        fullName = "hdfs:///" + datasetName;
+        break;
+      case KAFKA:
+        fullName = "kafka:///" + datasetName;
+        break;
+      default:
+    }
+
+    return fullName;
   }
 }

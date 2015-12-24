@@ -23,6 +23,9 @@ subprojects {
     maven {
       url 'https://repo.typesafe.com/typesafe/maven-releases/'
     }
+    maven {
+      url 'https://repository.jboss.org/nexus/content/repositories/releases/'
+    }
   }
   task excludegroup(type: Test) {
     useTestNG() {
@@ -54,6 +57,12 @@ subprojects {
                             "jsoup"              : "org.jsoup:jsoup:1.8.3",
                             "commons_io"         : "commons-io:commons-io:2.4",
 
+
+                            "drools_core"        : "org.drools:drools-core:6.3.0.Final",
+                            "drools_compiler"    : "org.drools:drools-compiler:6.3.0.Final",
+
+                            "javax_mail_api"     : "javax.mail:javax.mail-api:1.5.5",
+                            "javax_mail"         : "com.sun.mail:javax.mail:1.5.5",
 
                             "jackson_databind"   : "com.fasterxml.jackson.core:jackson-databind:2.6.1",
                             "jackson_core"       : "com.fasterxml.jackson.core:jackson-core:2.6.1",

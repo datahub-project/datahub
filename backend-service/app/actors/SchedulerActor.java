@@ -30,7 +30,7 @@ import models.daos.EtlJobDao;
  * Created by zechen on 9/3/15.
  */
 public class SchedulerActor extends UntypedActor {
-
+  public static final String MESSAGE = "checking-etl";
 
   /**
    * Search for etl jobs that are ready to run and update the time for next run
@@ -40,7 +40,7 @@ public class SchedulerActor extends UntypedActor {
   @Override
   public void onReceive(Object message)
     throws Exception {
-    if (message.equals("checking")) {
+    if (MESSAGE.equals(message)) {
       List<Map<String, Object>> dueJobs = EtlJobDao.getDueJobs();
       Logger.info("running " + dueJobs.size() + " jobs");
       for (Map<String, Object> dueJob : dueJobs) {

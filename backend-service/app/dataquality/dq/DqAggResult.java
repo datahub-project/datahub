@@ -11,21 +11,34 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
+package dataquality.dq;
+
+import java.util.List;
 
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/12/15.
  */
-public class Global extends GlobalSettings {
+public class DqAggResult {
+  DqStatus status;
+  List<DqMetricResult> metricResults;
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  public DqAggResult() {
+  }
+
+  public DqStatus getStatus() {
+    return status;
+  }
+
+  public void setStatus(DqStatus status) {
+    this.status = status;
+  }
+
+  public List<DqMetricResult> getMetricResults() {
+    return metricResults;
+  }
+
+  public void setMetricResults(List<DqMetricResult> metricResults) {
+    this.metricResults = metricResults;
   }
 }

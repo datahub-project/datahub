@@ -11,21 +11,36 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
-
+package dataquality.models;
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 6/16/15.
  */
-public class Global extends GlobalSettings {
+public class AggQuery {
+  private int id;
+  private String query;
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  public AggQuery() {
+  }
+
+  public AggQuery(int id, String query) {
+    this.id = id;
+    this.query = query;
+  }
+
+  public int getId() {
+    return id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
+  }
+
+  public String getQuery() {
+    return query;
+  }
+
+  public void setQuery(String query) {
+    this.query = query;
   }
 }

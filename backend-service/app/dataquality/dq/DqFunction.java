@@ -11,21 +11,20 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
+package dataquality.dq;
+
+import dataquality.models.MetricValue;
+import dataquality.models.TimeRange;
+import java.util.List;
 
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/6/15.
  */
-public class Global extends GlobalSettings {
+public interface DqFunction {
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
-  }
+  List<TimeRange> getTimeRanges(List<TimeRange> lastTwoRun);
+
+  DqRuleResult computeAndValidate(List<MetricValue> values, DqCriteria criteria);
+
 }

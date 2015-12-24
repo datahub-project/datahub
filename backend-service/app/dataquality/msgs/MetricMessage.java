@@ -11,21 +11,23 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
-
+package dataquality.msgs;
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/5/15.
  */
-public class Global extends GlobalSettings {
+public class MetricMessage {
+  int aggDefId;
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  public MetricMessage(int aggDefId) {
+    this.aggDefId = aggDefId;
+  }
+
+  public int getAggDefId() {
+    return aggDefId;
+  }
+
+  public void setAggDefId(int aggDefId) {
+    this.aggDefId = aggDefId;
   }
 }

@@ -41,4 +41,18 @@ public class JdbcUtil {
     wherehowsNamedJdbcTemplate.update(sql, parameterSource, keyHolder);
     return keyHolder;
   }
+
+
+  public static KeyHolder insertRow(String sql, Map<String, ?> params, NamedParameterJdbcTemplate namedParameterJdbcTemplate) {
+    KeyHolder keyHolder = new GeneratedKeyHolder();
+    SqlParameterSource parameterSource = new MapSqlParameterSource(params);
+    namedParameterJdbcTemplate.update(sql, parameterSource, keyHolder);
+    return keyHolder;
+  }
+
+  public static KeyHolder insertRow(String sql, JdbcTemplate jdbcTemplate) {
+    KeyHolder keyHolder = new GeneratedKeyHolder();
+    jdbcTemplate.update(sql, keyHolder);
+    return keyHolder;
+  }
 }

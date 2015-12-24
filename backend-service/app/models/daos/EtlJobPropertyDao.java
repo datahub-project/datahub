@@ -53,6 +53,8 @@ public class EtlJobPropertyDao {
 
   public static final String GET_WHEREHOWS_PROPERTY = "SELECT * FROM wh_property WHERE property_name = :propertyName";
 
+  public static final String GET_WHEREHOWS_PROPERTY_BY_GROUP = "SELECT * FROM wh_property WHERE group_name = :groupName";
+
   public static final String DEFAULT_MASTER_KEY_LOC = System.getProperty("user.home") + "/.wherehows/master_key";
 
   public static int insertJobProperty(EtlJobName etlJobName, Integer refId, String propertyName, String propertyValue,
@@ -176,6 +178,24 @@ public class EtlJobPropertyDao {
     } else {
       return decrypt((String) row.get("property_value"));
     }
+  }
+
+  public static Map<String, String> getWherehowsPropertiesByGroup(String groupName) throws Exception {
+    Map<String, Object> params = new HashMap<>();
+    params.put("groupName", groupName);
+    List<Map<String, Object>> rows = JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_WHEREHOWS_PROPERTY_BY_GROUP,
+        params);
+    Map<String, String> ret = new HashMap<>();
+    for (Map<String, Object> row : rows) {
+      if ((row.get("is_encrypted")).equals("N")) {
+        ret.put((String) row.get("property_name"), (String) row.get("property_value"));
+      } else {
+        ret.put((String) row.get("property_name"), decrypt((String) row.get("property_value")));
+      }
+    }
+
+    return ret;
+
   }
 
   public static String encrypt(String value)

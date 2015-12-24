@@ -11,21 +11,12 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
-
+package dataquality.dq;
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/7/15.
  */
-public class Global extends GlobalSettings {
+public class DqThreshold {
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
-  }
+
 }

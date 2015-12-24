@@ -11,21 +11,28 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
+package dataquality.dq;
+
+import dataquality.models.MetricValue;
+import java.util.Map;
 
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/7/15.
  */
-public class Global extends GlobalSettings {
+public class DqDiffPct extends DqDiff{
+
+  public DqDiffPct(Map<String, Object> params) {
+    super(params);
+    description = "Difference in percentage between " + compare.toString();
+  }
 
   @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  public Double computeDiff(MetricValue newValue, MetricValue oldValue) {
+    if (oldValue.getValue().equals(0.0)) {
+      return 0.0;
+    }
+
+    return (newValue.getValue() - oldValue.getValue()) * 100.0 / oldValue.getValue();
   }
 }

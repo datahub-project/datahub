@@ -32,7 +32,9 @@ dependencies {
 }
 
 jar {
-  exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA', '*/antlr-runtime-3.4.jar'
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA', '*/antlr-runtime-3.4.jar', '*/core-3.1.1.jar',
+      '*/jetty-6.1.26.jar', '*/servlet-api-2.5-20081211.jar', '*/servlet-api-2.5-6.1.14.jar', '*/jsp-2.1-6.1.14.jar',
+      '*/jsp-api-2.1-6.1.14.jar'
   archiveName = "schemaFetch.jar"
 
   into('lib') {

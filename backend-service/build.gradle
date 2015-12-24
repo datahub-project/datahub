@@ -12,7 +12,9 @@ findPlay20()
 
 repositories{
     mavenCentral()
-
+    maven {
+        url 'https://repository.jboss.org/nexus/content/repositories/releases/'
+    }
     // Play framework manages its own dependencies in a local Ivy repo
     jcenter()
     maven {
@@ -24,6 +26,7 @@ repositories{
         url "https://repo.typesafe.com/typesafe/ivy-releases"
         layout "ivy"
     }
+
 }
 
 configurations{
@@ -47,6 +50,10 @@ dependencies{
     compile externalDependency.mockito
     compile externalDependency.slf4j_api
     compile externalDependency.jasypt
+    compile externalDependency.drools_core
+    compile externalDependency.drools_compiler
+    compile externalDependency.javax_mail_api
+    compile externalDependency.javax_mail
 
     provided project(":wherehows-common")
     provided project(":metadata-etl")

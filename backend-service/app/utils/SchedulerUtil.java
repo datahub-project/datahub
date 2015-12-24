@@ -14,7 +14,10 @@
 package utils;
 
 import actors.ActorRegistry;
+import actors.SchedulerActor;
 import akka.actor.Cancellable;
+import dataquality.actors.DqActorRegistry;
+import dataquality.actors.DqSchedulerActor;
 import java.util.concurrent.TimeUnit;
 import play.Play;
 import scala.concurrent.duration.Duration;
@@ -25,30 +28,61 @@ import scala.concurrent.duration.Duration;
  */
 public class SchedulerUtil {
 
-  public static Cancellable schedulerRef;
-
-  public static synchronized void start() {
-    start(Play.application().configuration().getLong("scheduler.check.interval"));
+  private static Cancellable etlSchedulerRef;
+  private static Cancellable dqSchedulerRef;
+  /**
+   * Start Metadata Etl's scheduler
+   */
+  public static synchronized void startEtl() {
+    startEtl(Play.application().configuration().getLong("etl.check.interval"));
   }
 
   /**
-   * Start system's scheduler
+   * Start Metadata Etl's scheduler
    * @param mins
    */
-  public static synchronized void start(Long mins) {
-    if (schedulerRef != null) {
-      schedulerRef.cancel();
+  public static synchronized void startEtl(Long mins) {
+    if (etlSchedulerRef != null) {
+      etlSchedulerRef.cancel();
     }
 
-    schedulerRef = ActorRegistry.scheduler
+    etlSchedulerRef = ActorRegistry.scheduler
       .schedule(Duration.create(0, TimeUnit.MILLISECONDS), Duration.create(mins, TimeUnit.MINUTES),
-        ActorRegistry.schedulerActor, "checking", ActorRegistry.dispatcher, null);
+        ActorRegistry.schedulerActor, SchedulerActor.MESSAGE, ActorRegistry.dispatcher, null);
   }
 
   /**
-   * Cancel system's scheduler
+   * Cancel Metadata Etl's scheduler
    */
-  public static synchronized void cancel() {
-    schedulerRef.cancel();
+  public static synchronized void cancelEtl() {
+    etlSchedulerRef.cancel();
+  }
+
+  /**
+   * Start DQ system's scheduler
+   */
+  public static synchronized void startDq() {
+    startDq(Play.application().configuration().getLong("dq.check.interval"));
+  }
+
+  /**
+   * Start DQ system's scheduler
+   * @param mins
+   */
+  public static synchronized void startDq(Long mins) {
+    if (dqSchedulerRef != null) {
+      dqSchedulerRef.cancel();
+    }
+
+    dqSchedulerRef = DqActorRegistry.scheduler
+        .schedule(Duration.create(0, TimeUnit.MILLISECONDS), Duration.create(mins, TimeUnit.MINUTES),
+            DqActorRegistry.schedulerActor, DqSchedulerActor.MESSAGE, DqActorRegistry.dispatcher, null);
+  }
+
+  /**
+   * Cancel DQ system's scheduler
+   */
+  public static synchronized void cancelDq() {
+    dqSchedulerRef.cancel();
   }
 }

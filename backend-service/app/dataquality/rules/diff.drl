@@ -1,0 +1,42 @@
+//import models.DqRule;
+import play.Logger
+import dataquality.utils.EmailService
+
+
+
+rule "always true rule"
+when
+then
+  Logger.info("Rule fired");
+  EmailService.sendMail("zechen@linkedin.com", "rule violation", "Rule fired");
+end
+
+//rule "diff"
+//when
+//  $rule: DqRule(func == "DIFF")
+//  $v1: MetricValue()
+//  $v2: MetricValue(dataTime == TimeUtil.adjust($v1.dataTime, $rule.timeOption))
+//  eval($rule.violate($v1.getValue() - $v2.getValue()))
+//then
+//  Logger.info("Rule diff violate");
+//end
+//
+//rule "diff_pct match"
+//when
+//  $rule: DqRule(func == "DIFF_PCT")
+//  $v1: MetricValue()
+//  $v2: MetricValue(dataTime == TimeUtil.adjust($v1.dataTime, $rule.timeOption))
+//then
+//  Logger.info("Rule diff pct match found");
+//end
+//
+//
+//rule "diff_pct"
+//when
+//  $rule: DqRule(func == "DIFF_PCT")
+//  $v1: MetricValue()
+//  $v2: MetricValue(dataTime == TimeUtil.adjust($v1.dataTime, $rule.timeOption))
+//  eval($rule.violate(($v1.getValue() - $v2.getValue()) * 100.0 / $v2.getValue()))
+//then
+//  Logger.info("Rule diff pct violate");
+//end

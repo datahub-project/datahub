@@ -16,3 +16,4 @@ tmp/
 /RUNNING_PID
 backend-service/lib
 metadata-etl/src/main/resources/application.properties
+/backend-service/RUNNING_PID

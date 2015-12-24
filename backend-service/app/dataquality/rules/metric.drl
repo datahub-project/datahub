@@ -1,0 +1,121 @@
+
+import play.Logger
+import dataquality.utils.EmailService
+import dataquality.models.MetricValue
+import dataquality.models.AggValue
+import dataquality.utils.TimeUtil
+
+
+
+rule "always true rule"
+when
+then
+  Logger.info("Rule fired");
+  EmailService.sendMail("user@host.com", "rule violation", "Rule fired");
+  EmailService.sendMail("user@host.com", "rule violation", "Rule fired");
+end
+
+rule "is final company flag check"
+when
+  $v1: AggValue(aggCombId == 7)
+  $v2: AggValue(aggCombId == 8, createTs == $v1.createTs, value != $v1.getValue())
+then
+  Logger.info("IS_FINAL_COMPANY flag check failed");
+end
+
+rule "is final position flag check"
+when
+  $v1: AggValue(aggCombId == 9)
+  $v2: AggValue(aggCombId == 10, createTs == $v1.createTs, value != $v1.getValue())
+then
+  Logger.info("IS_FINAL_POSITION flag check failed");
+end
+
+rule "function distribution check"
+when
+  $v1: AggValue(aggCombId == 12)
+  $v2: AggValue(aggCombId == 11, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("function " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "function distribution check in agg table"
+when
+  $v1: AggValue(aggCombId == 25)
+  $v2: AggValue(aggCombId == 24, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("function " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "seniority distribution check"
+when
+  $v1: AggValue(aggCombId == 12)
+  $v2: AggValue(aggCombId == 13, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("seniority " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "seniority distribution check in agg table"
+when
+  $v1: AggValue(aggCombId == 23)
+  $v2: AggValue(aggCombId == 22, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("seniority " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "industry distribution check"
+when
+  $v1: AggValue(aggCombId == 12)
+  $v2: AggValue(aggCombId == 15, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("industry " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "industry distribution check in agg table"
+when
+  $v1: AggValue(aggCombId == 21)
+  $v2: AggValue(aggCombId == 20, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  Logger.info("industry " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "country distribution check"
+when
+  $v1: AggValue(aggCombId == 12)
+  $v2: AggValue(aggCombId == 15, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  EmailService.sendMail("user@host.com", "rule vialation", "country " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "country distribution check in agg table"
+when
+  $v1: AggValue(aggCombId == 27)
+  $v2: AggValue(aggCombId == 26, createTs == $v1.createTs)
+  eval(((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) < (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) - 0.01) &&
+       ((Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())) > (Double.valueOf($v2.getOldValue()) * 100.0 / Double.valueOf($v1.getOldValue())) + 0.01))
+then
+  EmailService.sendMail("user@host.com", "rule vialation", "country " + $v2.getDimension() + " percentage significantly different from last month: now " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end
+
+rule "major industries 2"
+when
+  $v1: AggValue(aggCombId == 45)
+  $v2: AggValue(aggCombId == 44, createTs == $v1.createTs, (Double.valueOf(value) * 100.0 / Double.valueOf($v1.getValue())) >= 10.0)
+then
+   Logger.info("Major industry: "+ $v2.getDimension() + " with percentage " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+   EmailService.sendMail("user@host.com", "rule violation", "Major industry: "+ $v2.getDimension() + " with percentage " + (Double.valueOf($v2.getValue()) * 100.0 / Double.valueOf($v1.getValue())));
+end

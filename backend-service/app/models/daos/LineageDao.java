@@ -16,6 +16,7 @@ package models.daos;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,10 @@ public class LineageDao {
       + " where jedl.job_exec_id = :job_exec_id "
       + " and jedl.source_target_type = :source_target_type "
       + " and ca.short_connection_string like :instance ";
+
+  public static final String FIND_RECENT_UPDATE_DATASET =
+      " SELECT abstracted_object_name as dataset_name, MAX(job_finished_unixtime) as refresh_time "
+          + " FROM job_execution_data_lineage WHERE source_target_type = 'target' and job_finished_unixtime >= :cutOffTime GROUP BY abstracted_object_name ";
 
 
   public static List<Map<String, Object>> getJobsByDataset(String urn, String period, String cluster, String instance, String sourceTargetType)
@@ -251,6 +256,19 @@ public class LineageDao {
         e.printStackTrace();
       }
     }
+  }
 
+  public static Map<String, Long> getRecentUpdatedDataset(Long cutOffTime) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("cutOffTime", cutOffTime);
+    List<Map<String, Object>> datasets = JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(FIND_RECENT_UPDATE_DATASET, params);
+    Map<String, Long> ret = new HashMap<>();
+    for (Map<String, Object> dataset : datasets) {
+      String datasetName = (String) dataset.get("dataset_name");
+      Long refreshTime = (Long) dataset.get("refresh_time");
+      ret.put(datasetName, refreshTime);
+    }
+
+    return ret;
   }
 }

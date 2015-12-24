@@ -11,21 +11,34 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
+package dataquality.utils;
+
+import java.util.Arrays;
 
 
 /**
- * Created by zechen on 9/3/15.
+ * Created by zechen on 8/4/15.
  */
-public class Global extends GlobalSettings {
+public class StringUtil {
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+  /**
+   * s1 and s2 are comma separated strings
+   * check if s1 contains all elements in s2
+   * @param s1
+   * @param s2
+   */
+  public static boolean containsAll(String s1, String s2) {
+    if (s2 == null) {
+      return true;
+    }
+
+    if (s1 == null) {
+      return false;
+    }
+
+    String[] a1 = s1.split(",");
+    String[] a2 = s2.split(",");
+
+    return Arrays.asList(a1).containsAll(Arrays.asList(a2));
   }
 }

@@ -11,21 +11,34 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import play.Application;
-import play.GlobalSettings;
-import play.Logger;
-import utils.SchedulerUtil;
-
+package dataquality.models.enums;
 
 /**
- * Created by zechen on 9/3/15.
+ * Enum for data type of user input and its corresponding mysql data type
+ *
+ * Created by zechen on 6/5/15.
  */
-public class Global extends GlobalSettings {
 
-  @Override
-  public void onStart(Application arg0) {
-    SchedulerUtil.startEtl();
-    SchedulerUtil.startDq();
-    Logger.info("App started");
+
+public enum DataType {
+
+  INT("INT"),
+  INTEGER("INT"),
+  LONG("BIGINT"),
+  DOUBLE("DOUBLE"),
+  STRING("VARCHAR(255)"),
+  DATE("DATE"),
+  DATETIME("DATETIME"),
+  TIMESTAMP("TIMESTAMP"),
+  ;
+
+  private String myType;
+
+  DataType(String myType) {
+    this.myType = myType;
+  }
+
+  public String getMyType() {
+    return myType;
   }
 }
