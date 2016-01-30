@@ -1,0 +1,67 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JQuery JSONView</title>
+  <link rel="stylesheet" href="jquery.jsonview.css" />
+  <script type="text/javascript" src="http://code.jquery.com/jquery.min.js"></script>
+  <script type="text/javascript" src="jquery.jsonview.js"></script>
+  <script type="text/javascript">
+    var json = {
+      "hey": "guy",
+      "anumber": 243,
+      "anobject": {
+        "whoa": "nuts",
+        "anarray": [1, 2, "thr<h1>ee"],
+        "more":"stuff"
+      },
+      "awesome": true,
+      "bogus": false,
+      "meaning": null,
+      "japanese":"明日がある。",
+      "link": "http://jsonview.com",
+      "notLink": "http://jsonview.com is great",
+      "multiline": ['Much like me, you make your way forward,',
+        'Walking with downturned eyes.',
+        'Well, I too kept mine lowered.',
+        'Passer-by, stop here, please.'].join("\n")
+    };
+    $(function() {
+      $("#json").JSONView(json);
+
+      $("#json-collapsed").JSONView(json, { collapsed: true, nl2br: true, recursive_collapser: true });
+
+      $('#collapse-btn').on('click', function() {
+        $('#json').JSONView('collapse');
+      });
+
+      $('#expand-btn').on('click', function() {
+        $('#json').JSONView('expand');
+      });
+
+      $('#toggle-btn').on('click', function() {
+        $('#json').JSONView('toggle');
+      });
+
+      $('#toggle-level1-btn').on('click', function() {
+        $('#json').JSONView('toggle', 1);
+      });
+
+      $('#toggle-level2-btn').on('click', function() {
+        $('#json').JSONView('toggle', 2);
+      });
+    });
+  </script>
+</head>
+<body>
+  <h2>Data</h2>
+  <button id="collapse-btn">Collapse</button>
+  <button id="expand-btn">Expand</button>
+  <button id="toggle-btn">Toggle</button>
+  <button id="toggle-level1-btn">Toggle level1</button>
+  <button id="toggle-level2-btn">Toggle level2</button>
+  <div id="json"></div>
+  <h2>Data Collapsed</h2>
+  <div id="json-collapsed"></div>
+</body>
+</html>
