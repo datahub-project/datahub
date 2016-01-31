@@ -79,8 +79,9 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
 			"WHERE jedl.app_id = ? and jedl.flow_exec_id = ? ORDER BY jedl.partition_end DESC";
 
-    private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT storage_type, " +
-            "abstracted_object_name FROM job_execution_data_lineage " +
+	private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT j.storage_type, " +
+			"j.abstracted_object_name, d.id FROM job_execution_data_lineage j " +
+			"Left join dict_dataset d on substring_index(d.urn, '://', -1) = j.abstracted_object_name " +
             "WHERE (app_id, job_exec_id) in ( " +
             "SELECT app_id, job_exec_id FROM job_execution_data_lineage " +
             "WHERE abstracted_object_name in (:pathlist) and source_target_type = 'source' and " +

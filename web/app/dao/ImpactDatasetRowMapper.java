@@ -26,12 +26,14 @@ public class ImpactDatasetRowMapper implements RowMapper<ImpactDataset>
 {
     public static String STORAGE_TYPE_COLUMN = "storage_type";
     public static String OBJECT_NAME_COLUMN = "abstracted_object_name";
+    public static String DATASET_ID_COLUMN = "id";
 
     @Override
     public ImpactDataset mapRow(ResultSet rs, int rowNum) throws SQLException
     {
         String storageType = rs.getString(STORAGE_TYPE_COLUMN);
         String filePath = rs.getString(OBJECT_NAME_COLUMN);
+        Long id = rs.getLong(DATASET_ID_COLUMN);
 
         LineagePathInfo lineagePathInfo = new LineagePathInfo();
         lineagePathInfo.storageType = storageType;
@@ -39,6 +41,16 @@ public class ImpactDatasetRowMapper implements RowMapper<ImpactDataset>
 
         ImpactDataset impactDataset = new ImpactDataset();
         impactDataset.urn = Lineage.convertToURN(lineagePathInfo);
+        impactDataset.id = id;
+        if (impactDataset.id != null && impactDataset.id > 0)
+        {
+            impactDataset.isValidDataset = true;
+            impactDataset.datasetUrl = "#/datasets/" + Long.toString(impactDataset.id);
+        }
+        else
+        {
+            impactDataset.isValidDataset = false;
+        }
         if (StringUtils.isNotBlank(impactDataset.urn))
         {
             int index = impactDataset.urn.lastIndexOf('/');
