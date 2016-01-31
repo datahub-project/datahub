@@ -858,7 +858,15 @@
           {{#each impact in impacts}}
             <tr>
               <td>{{impact.level}}</td>
-              <td>{{impact.name}}</td>
+              <td>
+                {{#if impact.isValidDataset}}
+                  <a {{bind-attr href=impact.datasetUrl}}>
+                    {{impact.name}}
+                  </a>
+                {{else}}
+                  {{impact.name}}
+                {{/if}}
+              </td>
               <td>{{impact.urn}}</td>
             </tr>
             {{/each}}
