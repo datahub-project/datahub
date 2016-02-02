@@ -34,15 +34,25 @@ public class SchemaHistoryDAO extends AbstractMySQLOpenSourceDAO{
 			"MAX(DATE_FORMAT(modified_date,'%Y-%m-%d')) as modified_date FROM dict_dataset_schema_history " +
 			"WHERE dataset_id is not null GROUP BY 1 ORDER BY urn LIMIT ?, ?";
 
+	private final static String GET_SPECIFIED_SCHEMA_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
+			"DISTINCT dataset_id, urn, " +
+			"MAX(DATE_FORMAT(modified_date,'%Y-%m-%d')) as modified_date FROM dict_dataset_schema_history " +
+			"WHERE dataset_id = ? GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+
 	private final static String GET_PAGED_SCHEMA_DATASET_WITH_FILTER  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"DISTINCT dataset_id, urn, DATE_FORMAT(modified_date,'%Y-%m-%d') as modified_date " +
 			"FROM dict_dataset_schema_history WHERE dataset_id is not null and urn LIKE ? " +
             "GROUP BY 1 ORDER BY urn LIMIT ?, ?";
 
+	private final static String GET_SPECIFIED_SCHEMA_DATASET_WITH_FILTER  = "SELECT SQL_CALC_FOUND_ROWS " +
+			"DISTINCT dataset_id, urn, DATE_FORMAT(modified_date,'%Y-%m-%d') as modified_date " +
+			"FROM dict_dataset_schema_history WHERE dataset_id = ? and urn LIKE ? " +
+			"GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+
 	private final static String GET_SCHEMA_HISTORY_BY_DATASET_ID = "SELECT DATE_FORMAT(modified_date,'%Y-%m-%d') " +
             "as modified_date, `schema` FROM dict_dataset_schema_history WHERE dataset_id = ? ORDER BY 1";
 
-	public static ObjectNode getPagedSchemaDataset(String name, int page, int size)
+	public static ObjectNode getPagedSchemaDataset(String name, Long datasetId, int page, int size)
 	{
 		ObjectNode result = Json.newObject();
 
@@ -56,20 +66,43 @@ public class SchemaHistoryDAO extends AbstractMySQLOpenSourceDAO{
 				List<SchemaDataset> pagedScripts = null;
 				if (StringUtils.isNotBlank(name))
 				{
-					pagedScripts = getJdbcTemplate().query(
-							GET_PAGED_SCHEMA_DATASET_WITH_FILTER,
-							new SchemaDatasetRowMapper(),
-							"%" + name + "%",
-							(page - 1) * size, size);
+					if (datasetId != null && datasetId > 0)
+					{
+						pagedScripts = getJdbcTemplate().query(
+								GET_SPECIFIED_SCHEMA_DATASET_WITH_FILTER,
+								new SchemaDatasetRowMapper(),
+								datasetId,
+								"%" + name + "%",
+								(page - 1) * size, size);
+
+					}
+					else
+					{
+						pagedScripts = getJdbcTemplate().query(
+								GET_PAGED_SCHEMA_DATASET_WITH_FILTER,
+								new SchemaDatasetRowMapper(),
+								"%" + name + "%",
+								(page - 1) * size, size);
+					}
 				}
 				else
 				{
-					pagedScripts = getJdbcTemplate().query(
-							GET_PAGED_SCHEMA_DATASET,
-							new SchemaDatasetRowMapper(),
-							(page - 1) * size, size);
-
+					if (datasetId != null && datasetId > 0)
+					{
+						pagedScripts = getJdbcTemplate().query(
+								GET_SPECIFIED_SCHEMA_DATASET,
+								new SchemaDatasetRowMapper(),
+								datasetId, (page - 1) * size, size);
+					}
+					else
+					{
+						pagedScripts = getJdbcTemplate().query(
+								GET_PAGED_SCHEMA_DATASET,
+								new SchemaDatasetRowMapper(),
+								(page - 1) * size, size);
+					}
 				}
+
 				long count = 0;
 				try {
 					count = getJdbcTemplate().queryForObject(

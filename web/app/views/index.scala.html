@@ -1156,6 +1156,16 @@
                   </span>
                 </a>
               </li>
+              {{#if model.hasSchemaHistory}}
+                <li>
+                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}>
+                    <i class="fa fa-history"></i>
+                    <span class="hidden-sm hidden-xs">
+                      Schema History
+                    </span>
+                  </a>
+                </li>
+              {{/if}}
               <li>
                 {{#dataset-watch dataset=model getDatasets="getDataset"}}
                 {{/dataset-watch}}

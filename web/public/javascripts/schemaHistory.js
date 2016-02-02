@@ -13,6 +13,7 @@
         App.Router.map(function() {
             this.resource('schemas', function(){
                 this.resource('page', {path: '/page/:page'});
+                this.resource('schema', {path: '/:id'});
             });
         });
 
@@ -39,7 +40,7 @@
         var schemaData = [];
         var skipChangeEvent = false;
 
-        function updateSchemas(page)
+        function updateSchemas(page, datasetId)
         {
             var url;
             if (!schemaName)
@@ -49,6 +50,11 @@
             else
             {
                 url = '/api/v1/schemaHistory/datasets?name=' + schemaName + '&size=10&page=' + page;
+            }
+
+            if (datasetId && datasetId > 0)
+            {
+                url += '&datasetId=' + datasetId;
             }
 
             $.get(url, function(data) {
@@ -67,7 +73,7 @@
 
         $("#name").bind("paste keyup", function() {
             schemaName = $("#name").val();
-            updateSchemas(1);
+            updateSchemas(1, 0);
         });
 
         function updateDiffView()
@@ -301,7 +307,7 @@
 
         $("#name").bind("paste keyup", function() {
             schemaName = $("#name").val();
-            updateSchemas(1);
+            updateSchemas(1, 0);
         });
 
         App.Router.reopen({
@@ -324,7 +330,13 @@
 
         App.PageRoute = Ember.Route.extend({
             setupController: function(controller, params) {
-                updateSchemas(params.page);
+                updateSchemas(params.page, 0);
+            }
+        });
+
+        App.SchemaRoute = Ember.Route.extend({
+            setupController: function(controller, params) {
+                updateSchemas(1, params.id);
             }
         });
 
@@ -398,6 +410,81 @@
                 }
             }.property('model.data.page')
         });
+
+        App.SchemaController = Ember.Controller.extend({
+            actions: {
+                onSelect: function(dataset, data) {
+                    highlightRow(dataset, data, false);
+                    if (dataset && (dataset.id != 0))
+                    {
+                        updateTimeLine(dataset.id, false);
+                    }
+                }
+            },
+            previousPage: function(){
+                var model = this.get("model");
+                if (model && model.data && model.data.page) {
+                    var currentPage = model.data.page;
+                    if (currentPage <= 1) {
+                        return currentPage;
+                    }
+                    else {
+                        return currentPage - 1;
+                    }
+                }
+                else {
+                    return 1;
+                }
+            }.property('model.data.page'),
+            nextPage: function(){
+                var model = this.get("model");
+                if (model && model.data && model.data.page) {
+                    var currentPage = model.data.page;
+                    var totalPages = model.data.totalPages;
+                    if (currentPage >= totalPages) {
+                        return totalPages;
+                    }
+                    else {
+                        return currentPage + 1;
+                    }
+                }
+                else {
+                    return 1;
+                }
+            }.property('model.data.page'),
+            first: function(){
+                var model = this.get("model");
+                if (model && model.data && model.data.page) {
+                    var currentPage = model.data.page;
+                    if (currentPage <= 1) {
+                        return true;
+                    }
+                    else {
+                        return false;
+                    }
+                }
+                else {
+                    return false;
+                }
+            }.property('model.data.page'),
+            last: function(){
+                var model = this.get("model");
+                if (model && model.data && model.data.page) {
+                    var currentPage = model.data.page;
+                    var totalPages = model.data.totalPages;
+                    if (currentPage >= totalPages) {
+                        return true;
+                    }
+                    else {
+                        return false;
+                    }
+                }
+                else {
+                    return false;
+                }
+            }.property('model.data.page')
+        });
     });
+
 
 })(jQuery)
