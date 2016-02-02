@@ -186,6 +186,17 @@ App.DatasetController = Ember.Controller.extend({
         return '';
 
     }.property('model.id'),
+    schemaHistoryUrl: function(){
+        var model = this.get("model");
+        if (model)
+        {
+            if (model.id)
+            {
+                return '/schemaHistory#/schemas/' + model.id;
+            }
+        }
+        return '';
+    }.property('model.id'),
     adjustPanes: function() {
         var hasProperty = this.get('hasProperty')
         var isHDFS = this.get('isHDFS')

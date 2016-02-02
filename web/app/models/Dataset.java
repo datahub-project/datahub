@@ -30,6 +30,7 @@ public class Dataset {
     public boolean isFavorite;
     public long watchId;
     public boolean isWatched;
+    public boolean hasSchemaHistory;
     public JsonNode properties;
 
 }

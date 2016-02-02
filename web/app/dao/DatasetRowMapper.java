@@ -32,6 +32,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
     public static String DATASET_MODIFIED_TIME_COLUMN = "modified";
     public static String DATASET_PROPERTIES_COLUMN = "properties";
     public static String DATASET_SCHEMA_COLUMN = "schema";
+    public static String SCHEMA_HISTORY_ID_COLUMN = "schema_history_id";
     public static String HDFS_PREFIX = "hdfs";
 
 
@@ -44,6 +45,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
         String source = rs.getString(DATASET_SOURCE_COLUMN);
         Time created = rs.getTime(DATASET_CREATED_TIME_COLUMN);
         Time modified = rs.getTime(DATASET_MODIFIED_TIME_COLUMN);
+        Integer schemaHistoryId = rs.getInt(SCHEMA_HISTORY_ID_COLUMN);
         Dataset dataset = new Dataset();
         dataset.id = id;
         dataset.name = name;
@@ -66,6 +68,15 @@ public class DatasetRowMapper implements RowMapper<Dataset>
             dataset.created = new java.util.Date(created.getTime());
         } else if (modified != null) {
             dataset.created = new java.util.Date(modified.getTime());
+        }
+
+        if (schemaHistoryId != null && schemaHistoryId > 0)
+        {
+            dataset.hasSchemaHistory = true;
+        }
+        else
+        {
+            dataset.hasSchemaHistory = false;
         }
 
         return dataset;

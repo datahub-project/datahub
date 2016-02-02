@@ -68,14 +68,21 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"LEFT JOIN watch w ON (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
 			"WHERE d.urn LIKE ? ORDER BY urn LIMIT ?, ?";
 
-	private final static String GET_DATASET_BY_ID = "SELECT id, name, urn, source, `schema`, " +
+	private final static String CHECK_SCHEMA_HISTORY  = "SELECT COUNT(*) FROM dict_dataset_schema_history " +
+			"WHERE dataset_id = ? ";
+
+	private final static String GET_DATASET_BY_ID = "SELECT id, max(s.id) as schema_history_id, " +
+			"name, urn, source, `schema`, " +
 			"FROM_UNIXTIME(source_created_time) as created, FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset WHERE id = ?";
+			"FROM dict_dataset d " +
+			"LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) WHERE d.id = ?";
 
 	private final static String GET_DATASET_BY_ID_CURRENT_USER  = "SELECT DISTINCT d.id, " +
+			"max(s.id) as schema_history_id, " +
 			"d.name, d.urn, d.source, d.schema, FROM_UNIXTIME(d.source_created_time) as created, " +
 			"FROM_UNIXTIME(d.source_modified_time) as modified, f.dataset_id, w.id as watch_id FROM dict_dataset d " +
 			"LEFT JOIN favorites f ON (d.id = f.dataset_id and f.user_id = ?) " +
+			"LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) " +
 			"LEFT JOIN watch w ON (w.item_id = d.id and w.item_type = 'dataset' and w.user_id = ?) " +
 			"WHERE d.id = ?";
 
@@ -295,6 +302,20 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 					Integer favoriteId = (Integer)row.get(DatasetWithUserRowMapper.FAVORITE_DATASET_ID_COLUMN);
 					Long watchId = (Long)row.get(DatasetWithUserRowMapper.DATASET_WATCH_ID_COLUMN);
+
+					Long schemaHistoryRecordCount = 0L;
+					try
+					{
+						schemaHistoryRecordCount = getJdbcTemplate().queryForObject(
+								CHECK_SCHEMA_HISTORY,
+								Long.class,
+								ds.id);
+					}
+					catch (EmptyResultDataAccessException e)
+					{
+						Logger.error("Exception = " + e.getMessage());
+					}
+
 					if (StringUtils.isNotBlank(ds.urn))
 					{
 						if (ds.urn.substring(0, 4).equalsIgnoreCase(DatasetRowMapper.HDFS_PREFIX))
@@ -319,6 +340,14 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					{
 						ds.isWatched = false;
 						ds.watchId = 0L;
+					}
+					if (schemaHistoryRecordCount != null && schemaHistoryRecordCount > 0)
+					{
+						ds.hasSchemaHistory = true;
+					}
+					else
+					{
+						ds.hasSchemaHistory = false;
 					}
 					pagedDatasets.add(ds);
 				}
@@ -358,7 +387,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			if (userId != null && userId > 0)
 			{
 				dataset = (Dataset)getJdbcTemplate().queryForObject(
-          GET_DATASET_BY_ID_CURRENT_USER,
+          				GET_DATASET_BY_ID_CURRENT_USER,
 						new DatasetWithUserRowMapper(),
 						userId,
 						userId,
