@@ -323,12 +323,20 @@
                               {{ dataset.name }}
                             {{/link-to}}
                           </div>
+                          {{#if dataset.owners}}
                           <div class="col-xs-12">
-                            {{ dataset.properties.owner }}
+                            <span class="prop-label">owner:</span>
+                            {{#each owner in dataset.owners}}
+                              <p style="display:inline" title={{owner.name}}>{{ owner.userName }} </p>
+                            {{/each}}
                           </div>
+                          {{/if}}
+                          {{#if dataset.formatedModified}}
                           <div class="col-xs-12">
-                            {{ dataset.properties.lastAlterTime }}
+                            <span class="prop-label">last modified:</span>
+                            {{ dataset.formatedModified }}
                           </div>
+                          {{/if}}
                         </div>
                         <div class="col-md-4 text-right">
                           <ul class="datasetTableLinks">

@@ -49,42 +49,91 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 
 	private final static String SELECT_PAGED_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"id, name, urn, source, properties, `schema` FROM dict_dataset ORDER BY urn LIMIT ?, ?";
+			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
+			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
+			"FROM_UNIXTIME(source_modified_time) as modified " +
+			"FROM dict_dataset d " +
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
+			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
+			"created, d.source_modified_time, modified ORDER BY d.urn LIMIT ?, ?";
 
 	private final static String SELECT_PAGED_DATASET_BY_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, w.id as watch_id " +
+			"d.id, d.name, d.urn, d.source, d.schema, d.properties, " +
+			"f.dataset_id, w.id as watch_id, " +
+			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
+			"FROM_UNIXTIME(source_modified_time) as modified " +
 			"FROM dict_dataset d LEFT JOIN favorites f ON (" +
 			"d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN watch w on (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
-			"ORDER BY d.urn LIMIT ?, ?";
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
+			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
+			"watch_id, created, d.source_modified_time, modified ORDER BY d.urn LIMIT ?, ?";
 
 	private final static String SELECT_PAGED_DATASET_BY_URN  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"id, name, urn, source, properties, `schema` FROM dict_dataset WHERE urn LIKE ? ORDER BY urn limit ?, ?";
+			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
+			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
+			"FROM_UNIXTIME(source_modified_time) as modified " +
+			"FROM dict_dataset d " +
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
+			"WHERE d.urn LIKE ? " +
+			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, created, " +
+			"d.source_modified_time, modified " +
+			"ORDER BY d.urn limit ?, ?";
 
 	private final static String SELECT_PAGED_DATASET_BY_URN_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, w.id as watch_id " +
+			"d.id, d.name, d.urn, d.source, d.schema, " +
+			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"d.properties, f.dataset_id, w.id as watch_id, " +
+			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
+			"FROM_UNIXTIME(source_modified_time) as modified " +
 			"FROM dict_dataset d LEFT JOIN favorites f ON (" +
 			"d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN watch w ON (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
-			"WHERE d.urn LIKE ? ORDER BY urn LIMIT ?, ?";
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
+			"WHERE d.urn LIKE ? " +
+			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
+			"watch_id, created, d.source_modified_time, modified ORDER BY urn LIMIT ?, ?";
 
 	private final static String CHECK_SCHEMA_HISTORY  = "SELECT COUNT(*) FROM dict_dataset_schema_history " +
 			"WHERE dataset_id = ? ";
 
-	private final static String GET_DATASET_BY_ID = "SELECT id, max(s.id) as schema_history_id, " +
-			"name, urn, source, `schema`, " +
-			"FROM_UNIXTIME(source_created_time) as created, FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset d " +
-			"LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) WHERE d.id = ?";
+	private final static String GET_DATASET_BY_ID = "SELECT d.id, max(s.id) as schema_history_id, d.name, " +
+			"d.urn, d.source, d.schema, GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
+			"FROM_UNIXTIME(source_modified_time) as modified " +
+			"FROM dict_dataset d LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) " +
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id) " +
+			"WHERE d.id = ? GROUP BY d.id, d.name, d.urn, d.source, d.schema, " +
+			"created, d.source_modified_time, modified";
 
 	private final static String GET_DATASET_BY_ID_CURRENT_USER  = "SELECT DISTINCT d.id, " +
 			"max(s.id) as schema_history_id, " +
-			"d.name, d.urn, d.source, d.schema, FROM_UNIXTIME(d.source_created_time) as created, " +
+			"d.name, d.urn, d.source, d.schema, " +
+			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
+			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"FROM_UNIXTIME(d.source_created_time) as created, " +
+			"d.source_modified_time, " +
 			"FROM_UNIXTIME(d.source_modified_time) as modified, f.dataset_id, w.id as watch_id FROM dict_dataset d " +
 			"LEFT JOIN favorites f ON (d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) " +
 			"LEFT JOIN watch w ON (w.item_id = d.id and w.item_type = 'dataset' and w.user_id = ?) " +
-			"WHERE d.id = ?";
+			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id) " +
+			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id) " +
+			"WHERE d.id = ? GROUP BY d.id, d.name, d.urn, d.source, d.schema, created, " +
+			"d.source_modified_time, modified, f.dataset_id, watch_id";
 
 	private final static String GET_DATASET_COLUMNS_BY_DATASET_ID = "select dfd.field_id, dfd.sort_id, " +
 			"dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, " +
@@ -94,7 +143,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count " +
 			"FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON " +
 			"(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN field_comments c ON " +
-			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? ORDER BY 1";
+			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? ORDER BY dfd.sort_id";
 
 	private final static String GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID = "SELECT dfd.field_id, " +
 			"dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, " +
@@ -104,7 +153,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count " +
 			"FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON " +
 			"(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON " +
-			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY 1";
+			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
 	private final static String GET_DATASET_PROPERTIES_BY_DATASET_ID =
 			"SELECT source, `properties` FROM dict_dataset WHERE id=?";
@@ -289,15 +338,63 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				for (Map row : rows) {
 
 					Dataset ds = new Dataset();
+					Timestamp modified = (Timestamp)row.get(DatasetWithUserRowMapper.DATASET_MODIFIED_TIME_COLUMN);
 					ds.id = (Long)row.get(DatasetWithUserRowMapper.DATASET_ID_COLUMN);
 					ds.name = (String)row.get(DatasetWithUserRowMapper.DATASET_NAME_COLUMN);
 					ds.source = (String)row.get(DatasetWithUserRowMapper.DATASET_SOURCE_COLUMN);
 					ds.urn = (String)row.get(DatasetWithUserRowMapper.DATASET_URN_COLUMN);
-          ds.schema = (String)row.get(DatasetWithUserRowMapper.DATASET_SCHEMA_COLUMN);
+					ds.schema = (String)row.get(DatasetWithUserRowMapper.DATASET_SCHEMA_COLUMN);
+					String strOwner = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_ID_COLUMN);
+					String strOwnerName = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_NAME_COLUMN);
+					Long sourceModifiedTime =
+							(Long)row.get(DatasetWithUserRowMapper.DATASET_SOURCE_MODIFIED_TIME_COLUMN);
 					String properties = (String)row.get(DatasetWithUserRowMapper.DATASET_PROPERTIES_COLUMN);
 					if (StringUtils.isNotBlank(properties))
 					{
 						ds.properties = Json.parse(properties);
+					}
+
+					if (modified != null && sourceModifiedTime != null && sourceModifiedTime > 0)
+					{
+						ds.modified = modified;
+						ds.formatedModified = modified.toString();
+					}
+
+					String[] owners = null;
+					if (StringUtils.isNotBlank(strOwner))
+					{
+						owners = strOwner.split(",");
+					}
+					String[] ownerNames = null;
+					if (StringUtils.isNotBlank(strOwnerName))
+					{
+						ownerNames = strOwnerName.split(",");
+					}
+					ds.owners = new ArrayList<User>();
+					if (owners != null && ownerNames != null)
+					{
+						if (owners.length == ownerNames.length)
+						{
+							for (int i = 0; i < owners.length; i++)
+							{
+								User user = new User();
+								user.userName = owners[i];
+								if (StringUtils.isBlank(ownerNames[i]) || ownerNames[i].equalsIgnoreCase("*"))
+								{
+									user.name = owners[i];
+								}
+								else
+								{
+									user.name = ownerNames[i];
+								}
+								ds.owners.add(user);
+							}
+						}
+						else
+						{
+							Logger.error("getPagedDatasets get wrong owner and names. Dataset ID: "
+									+ Long.toString(ds.id) + " Owner: " + owners + " Owner names: " + ownerNames);
+						}
 					}
 
 					Integer favoriteId = (Integer)row.get(DatasetWithUserRowMapper.FAVORITE_DATASET_ID_COLUMN);

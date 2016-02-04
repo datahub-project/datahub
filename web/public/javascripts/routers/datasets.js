@@ -311,6 +311,8 @@ App.DatasetRoute = Ember.Route.extend({
       var controller = this.get('controller')
       var id = this.get('controller.model.id')
       var columnUrl = 'api/v1/datasets/' + id + "/columns";
+      controller.set("isTable", true);
+      controller.set("isJSON", false);
       $.get(columnUrl, function(data) {
         if (data && data.status == "ok")
           {
