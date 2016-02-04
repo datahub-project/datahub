@@ -12,16 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zsun'
 import json
 import csv, sys
-
+from org.slf4j import LoggerFactory
 from wherehows.common.writers import FileWriter
 from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord
 from wherehows.common import Constant
 
 
 class HdfsTransform:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def transform(self, raw_metadata, metadata_output, field_metadata_output):
     # sys.setdefaultencoding("UTF-8")
 
@@ -109,7 +111,7 @@ class HdfsTransform:
 
         if effective_type_index_in_type >= 0 and type(f['type'][effective_type_index_in_type]) == dict:
           if f['type'][effective_type_index_in_type].has_key('items') and type(
-            f['type'][effective_type_index_in_type]['items']) == list:
+              f['type'][effective_type_index_in_type]['items']) == list:
 
             for item in f['type'][effective_type_index_in_type]['items']:
               if type(item) == dict and item.has_key('fields'):
@@ -117,7 +119,7 @@ class HdfsTransform:
                 fields_json_to_csv(output_list_, current_field_path, item['fields'])
           elif f['type'][effective_type_index_in_type].has_key('fields'):
             # if f['type'][effective_type_index_in_type].has_key('namespace'):
-            #  o_field_namespace = f['type'][effective_type_index_in_type]['namespace']
+            # o_field_namespace = f['type'][effective_type_index_in_type]['namespace']
             current_field_path = o_field_name if parent_field_path == '' else parent_field_path + '.' + o_field_name
             fields_json_to_csv(output_list_, current_field_path, f['type'][effective_type_index_in_type]['fields'])
 
@@ -127,7 +129,7 @@ class HdfsTransform:
       try:
         j = json.loads(line)
       except:
-        print "    Invalid JSON:\n%s" % line
+        self.logger.error("    Invalid JSON:\n%s" % line)
         continue
 
       i += 1
@@ -151,7 +153,7 @@ class HdfsTransform:
       elif o_properties.has_key('uri'):
         o_urn = o_properties['uri']
       else:
-        print '*** Warning: "uri" is not found in %s' % j['name']
+        self.logger.info('*** Warning: "uri" is not found in %s' % j['name'])
         o_urn = ''
 
       if o_urn.find('hdfs://') == 0:
@@ -196,14 +198,15 @@ class HdfsTransform:
         o_properties['source'] = j['attributes']['source']
 
       if o_properties.has_key('source') and (
-          not o_properties.has_key('instance') or o_properties['instance'] != 'Espresso'):
+            not o_properties.has_key('instance') or o_properties['instance'] != 'Espresso'):
         o_source = o_properties['source']
       elif o_properties.has_key('instance'):
         o_source = o_properties['instance']
       else:
         o_source = 'HDFS'
 
-      print "%4i (%6i): %4i fields found in [%s]@%s within %s" % (i, len(j), len(o_fields), o_name, o_urn, o_source)
+      self.logger.info(
+        "%4i (%6i): %4i fields found in [%s]@%s within %s" % (i, len(j), len(o_fields), o_name, o_urn, o_source))
 
       dataset_schema_record = DatasetSchemaRecord(o_name, json.dumps(j, sort_keys=True),
                                                   json.dumps(o_properties, sort_keys=True), json.dumps(o_fields), o_urn,
@@ -224,6 +227,7 @@ if __name__ == "__main__":
 
   t = HdfsTransform()
 
-  t.transform(args[Constant.HDFS_SCHEMA_LOCAL_PATH_KEY], args[Constant.HDFS_SCHEMA_RESULT_KEY], args[Constant.HDFS_FIELD_RESULT_KEY])
+  t.transform(args[Constant.HDFS_SCHEMA_LOCAL_PATH_KEY], args[Constant.HDFS_SCHEMA_RESULT_KEY],
+              args[Constant.HDFS_FIELD_RESULT_KEY])
 
 

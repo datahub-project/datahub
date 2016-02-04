@@ -69,6 +69,7 @@ public class AzLineageExtractorMaster {
    * Entry point.
    * All recent finished azkaban jobs' lineage. Will write to database stagging table
    * @param timeFrame in minutes
+   * @param endTimeStamp in millisecond
    * @throws Exception
    */
   public void run(int timeFrame, long endTimeStamp)

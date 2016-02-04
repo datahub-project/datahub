@@ -12,8 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zechen'
-
 
 def dict_cursor(cursor):
   description = [x[0] for x in cursor.description]

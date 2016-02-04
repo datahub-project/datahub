@@ -14,11 +14,7 @@
 
 from jython.SchedulerTransform import SchedulerTransform
 from wherehows.common.enums import SchedulerType
-
-__author__ = 'zechen'
-
 import sys
-
 
 class AzkabanTransform(SchedulerTransform):
   SchedulerTransform._tables["flows"]["columns"] = "app_id, flow_name, flow_group, flow_path, flow_level, source_modified_time, source_version, is_active, wh_etl_exec_id"

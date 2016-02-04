@@ -13,22 +13,17 @@
 #
 
 from wherehows.common import Constant
-
-
-__author__ = 'zechen'
-
 from com.ziclix.python.sql import zxJDBC
 import sys
+from org.slf4j import LoggerFactory
 
 
 class SchedulerLoad:
-
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.app_id = int(args[Constant.APP_ID_KEY])
-    self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
-                                 args[Constant.WH_DB_USERNAME_KEY],
-                                 args[Constant.WH_DB_PASSWORD_KEY],
-                                 args[Constant.WH_DB_DRIVER_KEY])
+    self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY], args[Constant.WH_DB_USERNAME_KEY],
+                                 args[Constant.WH_DB_PASSWORD_KEY], args[Constant.WH_DB_DRIVER_KEY])
     self.wh_cursor = self.wh_con.cursor()
 
   def run(self):
@@ -64,7 +59,7 @@ class SchedulerLoad:
           modified_time = unix_timestamp(NOW()),
           wh_etl_exec_id = s.wh_etl_exec_id
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -76,7 +71,7 @@ class SchedulerLoad:
             SET j.is_current = 'N'
             WHERE (s.job_id IS NULL OR s.dag_version > j.dag_version) AND j.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -103,7 +98,7 @@ class SchedulerLoad:
           modified_time = unix_timestamp(NOW()),
           wh_etl_exec_id = s.wh_etl_exec_id
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -113,7 +108,7 @@ class SchedulerLoad:
           SET is_current = 'N'
           WHERE f.app_id = {app_id}
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
 
     cmd = """
@@ -127,7 +122,7 @@ class SchedulerLoad:
           is_current = 'Y',
           wh_etl_exec_id = s.wh_etl_exec_id
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -159,7 +154,7 @@ class SchedulerLoad:
           modified_time = unix_timestamp(NOW()),
           wh_etl_exec_id = s.wh_etl_exec_id
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -177,7 +172,7 @@ class SchedulerLoad:
           modified_time = unix_timestamp(NOW()),
           wh_etl_exec_id = s.wh_etl_exec_id
           """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -198,7 +193,7 @@ class SchedulerLoad:
                modified_time = unix_timestamp(NOW()),
                wh_etl_exec_id = s.wh_etl_exec_id
                """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 
@@ -221,7 +216,7 @@ class SchedulerLoad:
                modified_time = unix_timestamp(NOW()),
                wh_etl_exec_id = s.wh_etl_exec_id
                """.format(app_id=self.app_id)
-    print cmd
+    self.logger.debug(cmd)
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
 

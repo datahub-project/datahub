@@ -19,9 +19,13 @@ import commands
 from wherehows.common.schemas import SampleDataRecord
 from wherehows.common.writers import FileWriter
 from wherehows.common import Constant
+from org.slf4j import LoggerFactory
 
 
 class TeradataExtract:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def get_view_info(self, database_name, view_name):
     '''
     :param database_name:
@@ -342,7 +346,8 @@ class TeradataExtract:
       if full_name not in table_dict:
         schema[db_idx]['views'].append(
           {'name': row[1], 'type': 'View', 'createTime': row[3], 'lastAlterTime': row[4], 'accessCount': row[5],
-           'referenceTables': ref_table_list, 'viewSqlText': row[2].replace("\r", "\n"), 'columns': [], 'original_name' : full_name})
+           'referenceTables': ref_table_list, 'viewSqlText': row[2].replace("\r", "\n"), 'columns': [],
+           'original_name': full_name})
         table_dict[full_name] = len(schema[db_idx]['views']) - 1
       table_idx = table_dict[full_name]
       schema[db_idx]['views'][table_idx]['columns'].append(
@@ -352,8 +357,8 @@ class TeradataExtract:
       if row[7]:
         schema[db_idx]['views'][table_idx]['columns'][column_idx]['columnFormat'] = row[7].strip()
 
-    print "%s %6d  views with %6d columns processed for %12s" % (
-      datetime.datetime.now(), table_idx + 1, len(rows), row[0])
+    self.logger.info("%s %6d  views with %6d columns processed for %12s" % (
+      datetime.datetime.now(), table_idx + 1, len(rows), row[0]))
 
   def format_table_metadata(self, rows, schema):
     '''
@@ -382,14 +387,14 @@ class TeradataExtract:
       # full_name = row[0] + '.' + row[1]
       original_name = row[0] + '.' + row[20]
       if original_name not in extra_table_info:
-        print 'ERROR : {0} not in extra_table_info!'.format(original_name)
+        self.logger.error('ERROR : {0} not in extra_table_info!'.format(original_name))
         continue
       if full_name not in table_dict:
         schema[db_idx]['tables'].append(
           {'name': row[1], 'type': 'Table', 'createTime': row[2], 'lastAlterTime': row[3], 'lastAccessTime': row[4],
            'accessCount': row[5], 'owner': row[19], 'sizeInMbytes': extra_table_info[original_name]['size_in_mb'],
            'partitions': extra_table_info[original_name]['partitions'],
-           'indices': extra_table_info[original_name]['indices'], 'columns': [], 'original_name' : original_name})
+           'indices': extra_table_info[original_name]['indices'], 'columns': [], 'original_name': original_name})
         table_idx += 1
         table_dict[full_name] = table_idx
         # print "%6d: %s: %s" % (table_idx, full_name, str(schema[db_idx]['tables'][table_idx]))
@@ -408,8 +413,8 @@ class TeradataExtract:
         schema[db_idx]['tables'][table_idx]['columns'][column_idx]['statistics'] = {
           'uniqueValueCount': row[12] & 0xffff, 'lastStatsCollectTime': str(row[13])}
 
-    print "%s %6d tables with %6d columns processed for %12s" % (
-      datetime.datetime.now(), table_idx + 1, len(rows), row[0])
+    self.logger.info("%s %6d tables with %6d columns processed for %12s" % (
+      datetime.datetime.now(), table_idx + 1, len(rows), row[0]))
 
   def get_sample_data(self, database_name, table_name):
     """
@@ -445,13 +450,13 @@ class TeradataExtract:
           row_data.append(new_value)
         rows_data.append(row_data)
     except Exception, e:
-      print 'sql : ' + sql
+      self.logger.error('sql : ' + sql)
       if len(rows) == 0:
-        print "dataset {0} is empty".format(fullname)
+        self.logger.error("dataset {0} is empty".format(fullname))
       else:
-        print "dataset {0} is not accessible.".format(fullname)
-        print 'result : ' + str(rows)
-        print e
+        self.logger.error("dataset {0} is not accessible.".format(fullname))
+        self.logger.error('result : ' + str(rows))
+        self.logger.error(e)
       pass
 
     ref_urn = 'teradata:///' + fullname.replace('.', '/').replace('"', '')
@@ -480,7 +485,7 @@ class TeradataExtract:
 
     if database_name is None and table_name is None:  # default route: process everything
       for database_name in self.databases:
-        print "Collecting tables in database : " + database_name
+        self.logger.info("Collecting tables in database : " + database_name)
         # table info
         rows = []
         begin = datetime.datetime.now().strftime("%H:%M:%S")
@@ -539,7 +544,8 @@ if __name__ == "__main__":
   e = TeradataExtract()
   e.conn_td = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   try:
-    e.conn_td.cursor().execute("SET QUERY_BAND = 'script=%s; pid=%d; ' FOR SESSION;" % ('TeradataExtract.py', os.getpid()))
+    e.conn_td.cursor().execute(
+      "SET QUERY_BAND = 'script=%s; pid=%d; ' FOR SESSION;" % ('TeradataExtract.py', os.getpid()))
     e.conn_td.commit()
     e.log_file = args[Constant.TD_LOG_KEY]
     e.databases = args[Constant.TD_TARGET_DATABASES_KEY].split(',')

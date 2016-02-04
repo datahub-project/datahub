@@ -13,11 +13,15 @@
 #
 
 import sys
+from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 
 
 class HiveLoad:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def load_metadata(self):
     cursor = self.conn_mysql.cursor()
     load_cmd = """
@@ -96,7 +100,7 @@ class HiveLoad:
         """.format(source_file=self.input_schema_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
     for state in load_cmd.split(";"):
-      print state
+      self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
@@ -108,7 +112,7 @@ class HiveLoad:
     """
     cursor = self.conn_mysql.cursor()
     load_cmd = """
-        DELETE FROM stg_dict_field_detail where db_id = {db_id};
+        DELETE FROM stg_dict_field_detail WHERE db_id = {db_id};
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_field_detail
@@ -117,7 +121,7 @@ class HiveLoad:
          @data_size, @precision, @scale, @is_nullable, @is_indexed, @is_partitioned, @default_value, @namespace, description,
          @dummy
         )
-        set
+        SET
           parent_path=nullif(@parent_path,'null')
         , data_size=nullif(@data_size,'null')
         , data_precision=nullif(@precision,'null')
@@ -130,17 +134,18 @@ class HiveLoad:
         , db_id = {db_id}
         ;
 
-        analyze table stg_dict_field_detail;
+        ANALYZE TABLE stg_dict_field_detail;
 
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 
     # didn't load into final table for now
 
     for state in load_cmd.split(";"):
-      print state
+      self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+
 
 if __name__ == "__main__":
   args = sys.argv[1]

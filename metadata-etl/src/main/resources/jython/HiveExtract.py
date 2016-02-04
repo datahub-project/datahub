@@ -12,10 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
 import sys, os, re, json
 import datetime
 from wherehows.common import Constant
+
 
 class TableInfo:
   """ Class to define the variable name  """
@@ -44,6 +46,7 @@ class TableInfo:
                    table_type, location, view_expended_text, input_format, output_format, is_compressed,
                    is_storedassubdirectories, etl_source]
 
+
 class HiveExtract:
   """
   Extract hive metadata from hive metastore. store it in a json file
@@ -52,6 +55,9 @@ class HiveExtract:
   db_dict = {}  # name : index
   table_dict = {}  # fullname : index
   serde_param_columns = []
+
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
 
   def get_table_info_from_v2(self, database_name):
     """
@@ -186,8 +192,8 @@ class HiveExtract:
       previous_db_name = row_value[0]
       previous_tb_name = row_value[1]
 
-    print "%s %6d tables processed for database %12s from COLUMN_V2" % (
-      datetime.datetime.now(), table_idx + 1, row_value[0])
+    self.logger.info("%s %6d tables processed for database %12s from COLUMN_V2" % (
+      datetime.datetime.now(), table_idx + 1, row_value[0]))
 
   def format_table_metadata_serde(self, rows, schema):
     """
@@ -231,8 +237,8 @@ class HiveExtract:
         table_idx += 1
         self.table_dict[full_name] = table_idx
 
-    print "%s %6d tables processed for database %12s from SERDE_PARAM" % (
-      datetime.datetime.now(), table_idx + 1, row_value[0])
+    self.logger.info("%s %6d tables processed for database %12s from SERDE_PARAM" % (
+      datetime.datetime.now(), table_idx + 1, row_value[0]))
 
   def run(self, schema_output_file, sample_output_file):
     """
@@ -252,7 +258,7 @@ class HiveExtract:
     # sample_file_writer = FileWriter(sample_output_file)
 
     for database_name in self.databases:
-      print "Collecting hive tables in database : " + database_name
+      self.logger.info("Collecting hive tables in database : " + database_name)
       # tables from schemaLiteral
       rows = []
       begin = datetime.datetime.now().strftime("%H:%M:%S")
@@ -260,7 +266,7 @@ class HiveExtract:
       if len(rows) > 0:
         self.format_table_metadata_serde(rows, schema)
       end = datetime.datetime.now().strftime("%H:%M:%S")
-      print "Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end))
+      self.logger.info("Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
       # tables from Column V2
       rows = []
@@ -269,7 +275,7 @@ class HiveExtract:
       if len(rows) > 0:
         self.format_table_metadata_v2(rows, schema)
       end = datetime.datetime.now().strftime("%H:%M:%S")
-      print "Get table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end))
+      self.logger.info("Get table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
     schema_json_file.write(json.dumps(schema, indent=None) + '\n')
 
@@ -303,8 +309,6 @@ if __name__ == "__main__":
 
   try:
     e.databases = e.get_all_databases()
-    print 'Process databases : '
-    print e.databases
     e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
   finally:
     e.conn_hms.close()

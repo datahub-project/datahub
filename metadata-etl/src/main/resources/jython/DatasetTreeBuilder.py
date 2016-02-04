@@ -75,6 +75,7 @@ class DatasetTreeBuilder:
     self.build_trie()
     self.write_to_file()
 
+
 if __name__ == "__main__":
   d = DatasetTreeBuilder(sys.argv[1])
   d.run()

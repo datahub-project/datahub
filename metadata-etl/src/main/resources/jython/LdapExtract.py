@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+from org.slf4j import LoggerFactory
 from javax.naming.directory import InitialDirContext
 from javax.naming import Context
 from javax.naming.directory import SearchControls
@@ -25,6 +26,7 @@ from java.io import FileWriter
 
 class LdapExtract:
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.args = args
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.group_app_id = int(args[Constant.LDAP_GROUP_APP_ID_KEY])
@@ -35,7 +37,7 @@ class LdapExtract:
       try:
         os.makedirs(self.metadata_folder)
       except Exception as e:
-        print e
+        self.logger.error(e)
 
     self.ldap_user = set()
     self.group_map = dict()
@@ -63,7 +65,8 @@ class LdapExtract:
     # load the java Hashtable out of the ldap server
     # Query starting point and query target
     search_target = '(objectClass=person)'
-    return_attributes_standard = ['user_id', 'distinct_name', 'name', 'display_name', 'title', 'employee_number', 'manager', 'mail', 'department_number', 'department', 'start_date', 'mobile']
+    return_attributes_standard = ['user_id', 'distinct_name', 'name', 'display_name', 'title', 'employee_number',
+                                  'manager', 'mail', 'department_number', 'department', 'start_date', 'mobile']
     return_attributes_actual = self.split_property(self.args[Constant.LDAP_SEARCH_RETURN_ATTRS_KEY])
     return_attributes_map = dict(zip(return_attributes_standard, return_attributes_actual))
 
@@ -104,7 +107,7 @@ class LdapExtract:
         ldap_user_tuple.append(self.wh_exec_id)
         ldap_records.append(ldap_user_tuple)
 
-    print "%d records found in ldap search" % (len(self.ldap_user))
+    self.logger.info("%d records found in ldap search" % (len(self.ldap_user)))
 
     csv_writer = csv.writer(open(file, "w"), delimiter='\x1a', quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
     csv_writer.writerows(ldap_records)
@@ -159,7 +162,7 @@ class LdapExtract:
             sort_id += 1
         else:
           pass
-    print "%d records found in group accounts" % (len(self.group_map))
+    self.logger.info("%d records found in group accounts" % (len(self.group_map)))
 
     csv_writer = csv.writer(open(file, "w"), delimiter='\x1a', quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
     csv_writer.writerows(ldap_records)

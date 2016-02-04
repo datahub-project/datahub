@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zechen'
-
+from org.slf4j import LoggerFactory
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
 import sys
@@ -40,6 +39,7 @@ class OwnerTransform:
                         """
 
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY],
@@ -62,7 +62,7 @@ class OwnerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -73,7 +73,7 @@ class OwnerTransform:
                                             columns=t.get("columns"),
                                             app_id=self.app_id,
                                             wh_etl_exec_id=self.wh_etl_exec_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 

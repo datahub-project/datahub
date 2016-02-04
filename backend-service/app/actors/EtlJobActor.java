@@ -54,13 +54,14 @@ public class EtlJobActor extends UntypedActor {
         if (msg.getEtlJobName().affectFlow()) {
           ActorRegistry.treeBuilderActor.tell("flow", getSelf());
         }
-      } catch (Exception e) {
+      } catch (Throwable e) { // catch all throwable at the highest level.
+        Logger.error("ETL job {} got a problem", msg.toDebugString());
         StringWriter sw = new StringWriter();
         PrintWriter pw = new PrintWriter(sw);
         e.printStackTrace(pw);
         Logger.error(sw.toString());
         e.printStackTrace();
-        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
+        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, sw.toString().substring(0,500));
       }
     }
   }

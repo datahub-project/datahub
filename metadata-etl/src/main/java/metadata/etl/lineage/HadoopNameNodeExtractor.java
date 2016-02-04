@@ -69,7 +69,7 @@ public class HadoopNameNodeExtractor {
       String gssFileName = possition + "/gss-jaas.conf";
       File gssFile = new File(gssFileName);
       if (gssFile.exists()) {
-        logger.info("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
+        logger.debug("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
         System.setProperty("java.security.auth.login.config", gssFile.getAbsolutePath());
         break;
       } else {
@@ -80,7 +80,7 @@ public class HadoopNameNodeExtractor {
       String krb5FileName = possition + "/krb5.conf";
       File krb5File = new File(krb5FileName);
       if (krb5File.exists()) {
-        logger.info("find krb5.conf file in : {}", krb5File.getAbsolutePath());
+        logger.debug("find krb5.conf file in : {}", krb5File.getAbsolutePath());
         System.setProperty("java.security.krb5.conf", krb5File.getAbsolutePath());
         break;
       } else {

@@ -15,7 +15,6 @@ package metadata.etl.lineage;
 
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
-import java.util.Arrays;
 import org.codehaus.jettison.json.JSONException;
 import wherehows.common.DatasetPath;
 import wherehows.common.schemas.AzkabanJobExecRecord;
