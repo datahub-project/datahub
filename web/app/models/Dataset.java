@@ -30,6 +30,7 @@ public class Dataset {
     public String schema;
     public String nertzLink;
     public boolean isFavorite;
+    public boolean isOwned;
     public long watchId;
     public boolean isWatched;
     public boolean hasSchemaHistory;

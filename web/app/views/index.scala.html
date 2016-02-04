@@ -33,6 +33,14 @@
       </i>
     </script>
 
+    <script type="text/x-handlebars" id="components/dataset-owner">
+      <i
+        {{bind-attr class=":fa dataset.isOwned:fa-bookmark:fa-bookmark-o"}}
+        {{action "owned" dataset}}
+      >
+      </i>
+    </script>
+
     <script type="text/x-handlebars" id="components/dataset-watch">
       <i
         {{bind-attr class=":fa dataset.watchId:fa-eye-slash:fa-eye"}}
@@ -346,6 +354,10 @@
                               <span class="source">
                                 {{ dataset.source }}
                               </span>
+                            </li>
+                            <li class="text-center">
+                              {{#dataset-owner dataset=dataset action="owned"}}
+                              {{/dataset-owner}}
                             </li>
                             <li
                               class="text-center"
