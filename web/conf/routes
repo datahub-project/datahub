@@ -83,6 +83,10 @@ POST    /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.f
 
 DELETE  /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
 
+POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.ownDataset(id:Int)
+
+DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
+
 GET     /api/v1/search/:keyword                     controllers.api.v1.Search.searchByKeyword(keyword:String)
 
 GET     /api/v1/metrics                             controllers.api.v1.Metric.getPagedMetrics()

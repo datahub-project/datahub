@@ -248,6 +248,38 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result ownDataset(int id)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        if (StringUtils.isNotBlank(username))
+        {
+            result = DatasetsDAO.ownDataset(id, username);
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
+    public static Result unownDataset(int id)
+    {
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        if (StringUtils.isNotBlank(username))
+        {
+            result = DatasetsDAO.unownDataset(id, username);
+        }
+        else
+        {
+            result.put("status", "failed");
+        }
+
+        return ok(result);
+    }
+
     public static Result getFavorites()
     {
         ObjectNode result = Json.newObject();
