@@ -214,10 +214,10 @@ App.DatasetController = Ember.Controller.extend({
     }.observes('hasProperty', 'isHDFS').on('init'),
     buildJsonView: function(){
         var model = this.get("model");
-        var schema = JSON.parse(JSON.stringify(model.schema))
+        var schema = JSON.parse(model.schema)
         setTimeout(function() {
             $("#json-viewer").JSONView(schema)
-        }, 300)
+        }, 500);
     },
     actions: {
         setView: function(view) {

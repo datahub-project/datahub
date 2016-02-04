@@ -46,25 +46,25 @@ public class DatasetColumnRowMapper implements RowMapper<DatasetColumn>
         String strPartitioned = rs.getString(PARTITIONED_COLUMN);
         Long commentCount = rs.getLong(COMMENT_COUNT_COLUMN);
         boolean partitioned = false;
-        if (StringUtils.isNotBlank(strPartitioned) && strPartitioned == "Y")
+        if (StringUtils.isNotBlank(strPartitioned) && strPartitioned.equalsIgnoreCase("y"))
         {
             partitioned = true;
         }
         String strIndexed = rs.getString(INDEXED_COLUMN);
         boolean indexed = false;
-        if (StringUtils.isNotBlank(strIndexed) && strIndexed == "Y")
+        if (StringUtils.isNotBlank(strIndexed) && strIndexed.equalsIgnoreCase("y"))
         {
             indexed = true;
         }
         String strNullable = rs.getString(NULLABLE_COLUMN);
         boolean nullable = false;
-        if (StringUtils.isNotBlank(strNullable) && strNullable == "Y")
+        if (StringUtils.isNotBlank(strNullable) && strNullable.equalsIgnoreCase("y"))
         {
             nullable = true;
         }
         String strDistributed = rs.getString(DISTRIBUTED_COLUMN);
         boolean distributed = false;
-        if (StringUtils.isNotBlank(strDistributed) && strDistributed == "Y")
+        if (StringUtils.isNotBlank(strDistributed) && strDistributed.equalsIgnoreCase("y"))
         {
             distributed = true;
         }
