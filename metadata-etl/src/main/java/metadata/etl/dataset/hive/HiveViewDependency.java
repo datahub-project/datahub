@@ -23,13 +23,10 @@ import org.slf4j.LoggerFactory;
  * Created by zsun on 12/14/15.
  */
 public class HiveViewDependency {
-  final Logger logger = LoggerFactory.getLogger(getClass());
-  LineageInfo lineageInfoTool;
+  final static Logger logger = LoggerFactory.getLogger(HiveViewDependency.class);
+  static LineageInfo lineageInfoTool =  new LineageInfo();
 
-  public HiveViewDependency() {
-    lineageInfoTool = new LineageInfo();
-  }
-  public String[] getViewDependency(String hiveQl) {
+  public static String[] getViewDependency(String hiveQl) {
     try {
       lineageInfoTool.getLineageInfo(hiveQl);
       TreeSet<String> inputs = lineageInfoTool.getInputTableList();

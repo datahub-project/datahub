@@ -13,14 +13,10 @@
 #
 
 from jython.SchedulerLoad import SchedulerLoad
-
-__author__ = 'zechen'
-
 import sys
 
 
 class AzkabanLoad(SchedulerLoad):
-
   def __init__(self, args):
     SchedulerLoad.__init__(self, args)
 
@@ -33,10 +29,10 @@ class AzkabanLoad(SchedulerLoad):
           SET f.is_active = 'N'
           WHERE s.flow_id IS NULL AND f.app_id = {app_id}
           """.format(app_id=self.app_id)
-    print cmd
     self.wh_cursor.execute(cmd)
     self.wh_con.commit()
     SchedulerLoad.load_flows(self)
+
 
 if __name__ == "__main__":
   props = sys.argv[1]

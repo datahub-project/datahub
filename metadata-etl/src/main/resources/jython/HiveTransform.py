@@ -13,9 +13,10 @@
 #
 
 import json
-import pprint, datetime
+import datetime
 import sys, os
 import time
+from org.slf4j import LoggerFactory
 from wherehows.common.writers import FileWriter
 from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord
 from wherehows.common import Constant
@@ -23,7 +24,11 @@ from HiveExtract import TableInfo
 from org.apache.hadoop.hive.ql.tools import LineageInfo
 from metadata.etl.dataset.hive import HiveViewDependency
 
+
 class HiveTransform:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def transform(self, input, hive_metadata, hive_field_metadata):
     """
     convert from json to csv
@@ -32,8 +37,6 @@ class HiveTransform:
     :param hive_field_metadata: output data file for hive field metadata
     :return:
     """
-    pp = pprint.PrettyPrinter(indent=1)
-
     f_json = open(input)
     all_data = json.load(f_json)
     f_json.close()
@@ -73,8 +76,7 @@ class HiveTransform:
           try:
             schema_data = json.loads(table[TableInfo.schema_literal])
           except ValueError:
-            print "Schema json error for table : "
-            print table
+            self.logger.error("Schema json error for table : \n" + str(table))
           schema_json = schema_data
 
           # process each field
@@ -128,7 +130,7 @@ class HiveTransform:
 
       schema_file_writer.flush()
       field_file_writer.flush()
-      print "%20s contains %6d tables" % (one_db_info['database'], i)
+      self.logger.info("%20s contains %6d tables" % (one_db_info['database'], i))
 
     schema_file_writer.close()
     field_file_writer.close()

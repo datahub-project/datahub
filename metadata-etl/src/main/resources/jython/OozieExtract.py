@@ -22,21 +22,16 @@ from wherehows.common.schemas import OozieJobExecRecord
 from wherehows.common.schemas import OozieFlowScheduleRecord
 from wherehows.common.schemas import OozieFlowDagRecord
 from wherehows.common.enums import SchedulerType
-
-
-__author__ = 'zechen'
-
 from com.ziclix.python.sql import zxJDBC
+from org.slf4j import LoggerFactory
 import os
 import DbUtil
 import sys
 
 
-
-
 class OozieExtract:
-
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
     self.oz_con = zxJDBC.connect(args[Constant.OZ_DB_URL_KEY],
@@ -52,7 +47,7 @@ class OozieExtract:
       try:
         os.makedirs(self.metadata_folder)
       except Exception as e:
-        print e
+        self.logger.error(e)
 
     self.get_oozie_version()
 
@@ -60,7 +55,7 @@ class OozieExtract:
     query = "select data from OOZIE_SYS where name = 'oozie.version'"
     self.oz_cursor.execute(query)
     self.oz_version = self.oz_cursor.fetchone()
-    print "Oozie version: ", self.oz_version[0]
+    self.logger.info("Oozie version: ", self.oz_version[0])
 
   def run(self):
     try:
@@ -76,7 +71,7 @@ class OozieExtract:
       self.oz_con.close()
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
-    print "collect flow&jobs"
+    self.logger.info("collect flow&jobs")
     flow_writer = FileWriter(flow_file)
     job_writer = FileWriter(job_file)
     dag_writer = FileWriter(dag_file)
@@ -136,7 +131,7 @@ class OozieExtract:
     flow_writer.close()
 
   def collect_flow_owners(self, owner_file):
-    print "collect owners"
+    self.logger.info("collect owners")
     owner_writer = FileWriter(owner_file)
     query = "SELECT DISTINCT app_name, app_path, user_name from WF_JOBS"
     self.oz_cursor.execute(query)
@@ -151,7 +146,7 @@ class OozieExtract:
     owner_writer.close()
 
   def collect_flow_schedules(self, schedule_file):
-    print "collect flow schedule"
+    self.logger.info("collect flow schedule")
     schedule_writer = FileWriter(schedule_file)
     query = """
             SELECT DISTINCT cj.id as ref_id, cj.frequency, cj.time_unit,
@@ -177,7 +172,7 @@ class OozieExtract:
     schedule_writer.close()
 
   def collect_flow_execs(self, flow_exec_file, lookback_period):
-    print "collect flow execs"
+    self.logger.info("collect flow execs")
     flow_exec_writer = FileWriter(flow_exec_file)
     query = "select id, app_name, app_path, unix_timestamp(start_time) as start_time, unix_timestamp(end_time) as end_time, run, status, user_name from WF_JOBS where end_time > now() - INTERVAL %d MINUTE" % (int(lookback_period))
     self.oz_cursor.execute(query)
@@ -200,7 +195,7 @@ class OozieExtract:
     flow_exec_writer.close()
 
   def collect_job_execs(self, job_exec_file, lookback_period):
-    print "collect job execs"
+    self.logger.info("collect job execs")
     job_exec_writer = FileWriter(job_exec_file)
     query = """
             select  a.id as job_exec_id, a.name as job_name, j.id as flow_exec_id, a.status, a.user_retry_count,

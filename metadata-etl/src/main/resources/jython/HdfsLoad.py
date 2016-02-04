@@ -12,13 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zsun'
 import sys
+from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 
 
 class HdfsLoad:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def load_metadata(self):
     """
     Load dataset metadata into final table
@@ -30,15 +33,10 @@ class HdfsLoad:
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_dataset
-        FIELDS TERMINATED BY '\Z' ESCAPED BY '\\'
+        FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
         (`name`, `schema`, properties, fields, urn, source, sample_partition_full_path, source_created_time, source_modified_time)
         SET db_id = {db_id},
-        -- TODO storage_type = 'Avro',
         wh_etl_exec_id = {wh_etl_exec_id};
-
-        -- SHOW WARNINGS LIMIT 20;
-
-        -- SELECT COUNT(*) FROM stg_dict_dataset;
 
         -- clear
         DELETE FROM stg_dict_dataset
@@ -125,7 +123,7 @@ class HdfsLoad:
         analyze table dict_dataset;
         '''.format(source_file=self.input_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
     for state in load_cmd.split(";"):
-      print state
+      self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
@@ -256,7 +254,7 @@ class HdfsLoad:
         analyze table dict_field_detail;
         '''.format(source_file=self.input_field_file, db_id=self.db_id)
     for state in load_field_cmd.split(";"):
-      print state
+      self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
@@ -299,7 +297,7 @@ class HdfsLoad:
     WHERE s.db_id = {db_id} AND d.ref_id = 0;
     '''.format(source_file=self.input_sample_file, db_id=self.db_id)
     for state in load_sample_cmd.split(";"):
-      print state
+      self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()

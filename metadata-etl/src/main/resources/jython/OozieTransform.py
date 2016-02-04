@@ -14,14 +14,10 @@
 
 from jython.SchedulerTransform import SchedulerTransform
 from wherehows.common.enums import SchedulerType
-
-__author__ = 'zechen'
-
 import sys
 
 
 class OozieTransform(SchedulerTransform):
-
   def __init__(self, args):
     SchedulerTransform.__init__(self, args, SchedulerType.OOZIE)
 
@@ -32,7 +28,7 @@ class OozieTransform(SchedulerTransform):
             SET sj.is_last = 'N'
             WHERE sj.job_type = ':FORK:' AND sj.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -45,7 +41,7 @@ class OozieTransform(SchedulerTransform):
             WHERE sf.app_id = {app_id}
             AND NOT EXISTS (SELECT * FROM flow_execution_id_map where app_id = sf.app_id AND source_exec_uuid = sf.flow_exec_uuid)
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -55,7 +51,7 @@ class OozieTransform(SchedulerTransform):
             ON stg.app_id = fm.app_id AND stg.flow_exec_uuid = fm.source_exec_uuid
             SET stg.flow_exec_id = fm.flow_exec_id WHERE stg.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -68,7 +64,7 @@ class OozieTransform(SchedulerTransform):
             WHERE sj.app_id = {app_id}
             AND NOT EXISTS (SELECT * FROM job_execution_id_map where app_id = sj.app_id AND source_exec_uuid = sj.job_exec_uuid)
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -78,7 +74,7 @@ class OozieTransform(SchedulerTransform):
             ON stg.app_id = jm.app_id AND stg.job_exec_uuid = jm.source_exec_uuid
             SET stg.job_exec_id = jm.job_exec_id WHERE stg.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -88,9 +84,10 @@ class OozieTransform(SchedulerTransform):
             ON stg.app_id = fm.app_id AND stg.flow_exec_uuid = fm.source_exec_uuid
             SET stg.flow_exec_id = fm.flow_exec_id WHERE stg.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
+
 
 if __name__ == "__main__":
   props = sys.argv[1]

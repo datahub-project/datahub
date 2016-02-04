@@ -78,6 +78,7 @@ class FlowTreeBuilder:
     self.build_trie()
     self.write_to_file()
 
+
 if __name__ == "__main__":
   ftb = FlowTreeBuilder(sys.argv[1])
   ftb.run()

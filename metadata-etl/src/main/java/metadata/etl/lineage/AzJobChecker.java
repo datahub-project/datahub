@@ -76,16 +76,24 @@ public class AzJobChecker {
     return getRecentFinishedJobFromFlow(beginTimeStamp, currentTimeStamp);
   }
 
+  /**
+   * Overload function getRecentFinishedJobFromFlow
+   * @param timeFrameMinutes
+   * @param endTimeStamp in milli second
+   * @return
+   * @throws IOException
+   * @throws SQLException
+   */
   public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(int timeFrameMinutes, long endTimeStamp)
       throws IOException, SQLException {
-    long beginTimeStamp = endTimeStamp -  60 * timeFrameMinutes;
-    return getRecentFinishedJobFromFlow(beginTimeStamp * 1000, endTimeStamp * 1000); // convert to milli seconds
+    long beginTimeStamp = endTimeStamp -  60 * timeFrameMinutes * 1000; // convert minutes to milli seconds
+    return getRecentFinishedJobFromFlow(beginTimeStamp, endTimeStamp);
   }
 
   /**
    * Read the blob from "flow_data", do a topological sort on the nodes. Give them the sort id.
-   * @param startTimeStamp the begin timestamp
-   * @param endTimeStamp the end timestamp
+   * @param startTimeStamp the begin timestamp in milli seconds
+   * @param endTimeStamp the end timestamp in milli seconds
    * @return
    */
   public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(long startTimeStamp, long endTimeStamp)

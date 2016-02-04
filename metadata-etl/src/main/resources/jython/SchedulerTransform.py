@@ -13,13 +13,10 @@
 #
 
 from wherehows.common.enums import SchedulerType
-
-
-__author__ = 'zechen'
-
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
 import sys
+from org.slf4j import LoggerFactory
 
 
 class SchedulerTransform:
@@ -74,6 +71,7 @@ class SchedulerTransform:
                             """
 
   def __init__(self, args, scheduler_type):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
@@ -101,13 +99,14 @@ class SchedulerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -118,13 +117,13 @@ class SchedulerTransform:
             WHERE sf.app_id = {app_id}
             AND NOT EXISTS (SELECT * FROM flow_source_id_map where app_id = sf.app_id AND source_id_string = sf.flow_path)
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -133,19 +132,20 @@ class SchedulerTransform:
 
     # Clearing stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -155,7 +155,7 @@ class SchedulerTransform:
             SET stg.ref_flow_path = null
             WHERE stg.ref_flow_path = 'null' and stg.app_id = {app_id}
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -166,7 +166,7 @@ class SchedulerTransform:
             ON stg.app_id = fm.app_id AND stg.ref_flow_path = fm.source_id_string
             SET stg.ref_flow_id = fm.flow_id WHERE stg.app_id = {app_id}
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -177,13 +177,13 @@ class SchedulerTransform:
             WHERE sj.app_id = {app_id}
             AND NOT EXISTS (SELECT * FROM job_source_id_map where app_id = sj.app_id AND source_id_string = sj.job_path)
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update job id from mapping table
     query = self._get_job_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -195,7 +195,7 @@ class SchedulerTransform:
             SET sj.job_type_id = jtm.job_type_id
             WHERE sj.app_id = {app_id}
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -204,18 +204,19 @@ class SchedulerTransform:
 
     # Clearing staging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -225,7 +226,7 @@ class SchedulerTransform:
             SET sj.source_job_id = jm.job_id
             WHERE sj.app_id = {app_id}
             """.format(app_id=self.app_id, table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -235,14 +236,14 @@ class SchedulerTransform:
             SET sj.target_job_id = jm.job_id
             WHERE sj.app_id = {app_id}
             """.format(app_id=self.app_id, table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update pre_jobs and post_jobs in stg_flow_jobs table
     # need increase group concat max length to avoid overflow
     query = "SET group_concat_max_len=40960"
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -255,7 +256,7 @@ class SchedulerTransform:
             SET sj.post_jobs = d.post_jobs
             WHERE sj.app_id = {app_id};
             """.format(app_id=self.app_id, table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -268,7 +269,7 @@ class SchedulerTransform:
             SET sj.pre_jobs = d.pre_jobs
             WHERE sj.app_id = {app_id};
             """.format(app_id=self.app_id, table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -289,7 +290,7 @@ class SchedulerTransform:
     self.wh_con.commit()
 
     query = self._clear_staging_tempalte.format(table="stg_flow_dag", app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -303,7 +304,7 @@ class SchedulerTransform:
             FROM stg_flow sf
             WHERE sf.app_id = {app_id} AND NOT EXISTS (SELECT * FROM {table} t WHERE t.app_id = sf.app_id AND t.flow_id = sf.flow_id AND t.source_version = sf.source_version)
             """.format(app_id=self.app_id, table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -314,7 +315,7 @@ class SchedulerTransform:
             SET s.dag_version = CASE WHEN f.dag_md5 IS NULL THEN 0 WHEN s.dag_md5 != f.dag_md5 THEN f.dag_version + 1 ELSE f.dag_version END
             WHERE s.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -326,7 +327,7 @@ class SchedulerTransform:
             SET sj.dag_version = dag.dag_version
             WHERE sj.app_id = {app_id}
             """.format(app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
 
     self.wh_con.commit()
@@ -336,19 +337,20 @@ class SchedulerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -357,19 +359,20 @@ class SchedulerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -381,7 +384,7 @@ class SchedulerTransform:
             SET f.is_scheduled = CASE WHEN fs.flow_id IS NULL THEN 'N' ELSE 'Y' END
             WHERE f.app_id = {app_id}
             """.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -390,19 +393,20 @@ class SchedulerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -411,27 +415,29 @@ class SchedulerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update flow id from mapping table
     query = self._get_flow_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Update job id from mapping table
     query = self._get_job_id_template.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
+
 
 if __name__ == "__main__":
   props = sys.argv[1]

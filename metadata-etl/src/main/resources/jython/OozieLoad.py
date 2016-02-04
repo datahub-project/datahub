@@ -13,16 +13,13 @@
 #
 
 from jython.SchedulerLoad import SchedulerLoad
-
-__author__ = 'zechen'
-
 import sys
 
 
 class OozieLoad(SchedulerLoad):
-
   def __init__(self, args):
     SchedulerLoad.__init__(self, args)
+
 
 if __name__ == "__main__":
   props = sys.argv[1]

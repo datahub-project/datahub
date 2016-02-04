@@ -13,15 +13,19 @@
 #
 
 import json
-import pprint, datetime
+import datetime
 import sys, os
 import time
 from wherehows.common.writers import FileWriter
 from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord
 from wherehows.common import Constant
+from org.slf4j import LoggerFactory
 
 
 class TeradataTransform:
+  def __init__(self):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
   def transform(self, input, td_metadata, td_field_metadata):
     '''
     convert from json to csv
@@ -30,8 +34,6 @@ class TeradataTransform:
     :param td_field_metadata: output data file for teradata field metadata
     :return:
     '''
-    pp = pprint.PrettyPrinter(indent=1)
-
     f_json = open(input)
     data = json.load(f_json)
     f_json.close()
@@ -44,9 +46,9 @@ class TeradataTransform:
       for k in d.keys():
         if k not in ['tables', 'views']:
           continue
-        print "%s %4d %s" % (datetime.datetime.now().strftime("%H:%M:%S"), len(d[k]), k)
+        self.logger.info("%s %4d %s" % (datetime.datetime.now().strftime("%H:%M:%S"), len(d[k]), k))
         for t in d[k]:
-          print "%4d %s" % (i, t['name'])
+          self.logger.info("%4d %s" % (i, t['name']))
           if t['name'] == 'HDFStoTD_2464_ERR_1':
             continue
           i += 1
@@ -80,7 +82,6 @@ class TeradataTransform:
           field_detail_list = []
           sort_id = 0
           for c in t['columns']:
-            # pp.pprint(c)
             # output['fields'].append(
             #                    { 'name' : t['name'].encode('latin-1'),
             #                      'type' : None if c['data_type'] is None else c['data_type'].encode('latin-1'),
@@ -117,7 +118,7 @@ class TeradataTransform:
 
         schema_file_writer.flush()
         field_file_writer.flush()
-        print "%20s contains %6d %s" % (d['database'], i, k)
+        self.logger.info("%20s contains %6d %s" % (d['database'], i, k))
 
     schema_file_writer.close()
     field_file_writer.close()

@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zechen'
-
+from org.slf4j import LoggerFactory
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
 import sys
@@ -21,9 +20,7 @@ import sys
 
 class OwnerTransform:
   _tables = {"dataset_owner": {"columns": "dataset_urn, owner_id, sort_id, namespace, db_name, source_time",
-                               "file": "dataset_owner.csv",
-                               "table": "stg_dataset_owner"}
-             }
+                               "file": "dataset_owner.csv", "table": "stg_dataset_owner"}}
 
   _clear_staging_tempalte = """
                             DELETE FROM {table}
@@ -84,6 +81,7 @@ class OwnerTransform:
                           """
 
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY],
@@ -109,46 +107,47 @@ class OwnerTransform:
 
     # Clear stagging table
     query = self._clear_staging_tempalte.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     # Load file into stagging table
-    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-    print query
+    query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"),
+                                            columns=t.get("columns"))
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
   def update_dataset_id(self):
     t = self._tables["dataset_owner"]
     query = self._update_dataset_id_template.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
   def update_database_id(self):
     t = self._tables["dataset_owner"]
     query = self._update_database_id_template.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
   def update_app_id(self):
     t = self._tables["dataset_owner"]
     query = self._update_app_id_template.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
     query = self._update_group_app_id_template.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
   def update_owner_type(self):
     t = self._tables["dataset_owner"]
     query = self._update_owner_type_template.format(table=t.get("table"))
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
@@ -156,7 +155,7 @@ class OwnerTransform:
     t = self._tables["dataset_owner"]
     for l in range(1, 6):
       query = self._update_parent_flag.format(table=t.get("table"), lvl=l)
-      print query
+      self.logger.debug(query)
       self.wh_cursor.execute(query)
       self.wh_con.commit()
 

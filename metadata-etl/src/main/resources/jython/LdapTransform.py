@@ -12,8 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-__author__ = 'zechen'
-
+from org.slf4j import LoggerFactory
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
 import sys
@@ -94,6 +93,7 @@ class LdapTransform:
                             """
 
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY],
@@ -127,7 +127,7 @@ class LdapTransform:
 
       # Load file into stagging table
       query = self._read_file_template.format(folder=self.metadata_folder, file=t.get("file"), table=t.get("table"), columns=t.get("columns"))
-      print query
+      self.logger.debug(query)
       self.wh_cursor.execute(query)
       self.wh_con.commit()
 
@@ -137,21 +137,21 @@ class LdapTransform:
       if 'nullif_columns' in t:
         for column in t['nullif_columns']:
           query = self._update_column_to_null_template.format(table=t.get("table"), column=column, column_value=t['nullif_columns'][column], app_id=self.app_id)
-          print query
+          self.logger.debug(query)
           self.wh_cursor.execute(query)
           self.wh_con.commit()
 
   def update_manager_info(self):
     t = self._tables["ldap_user"]
     query = self._update_manager_info.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     self.wh_con.commit()
 
   def update_hierarchy_info(self):
     t = self._tables["ldap_user"]
     query = self._get_manager_edge.format(table=t.get("table"), app_id=self.app_id)
-    print query
+    self.logger.debug(query)
     self.wh_cursor.execute(query)
     pair = dict()
     hierarchy = dict()
@@ -177,7 +177,7 @@ class LdapTransform:
         if count % 1000 == 0:
           query = self._update_hierarchy_info.format(table=t.get("table"), app_id=self.app_id, user_ids=",".join(user_ids), org_hierarchy_long_string=org_hierarchy_long_string,
                                                      org_hierarchy_depth_long_string=org_hierarchy_depth_long_string)
-          # print query
+          # self.logger.debug(query)
           self.wh_cursor.executemany(query)
           user_ids = []
           org_hierarchy_long_string = ""
@@ -185,7 +185,7 @@ class LdapTransform:
 
     query = self._update_hierarchy_info.format(table=t.get("table"), app_id=self.app_id, user_ids=",".join(user_ids), org_hierarchy_long_string=org_hierarchy_long_string,
                                                org_hierarchy_depth_long_string=org_hierarchy_depth_long_string)
-    # print query
+    # self.logger.debug(query)
     self.wh_cursor.executemany(query)
     self.wh_con.commit()
 

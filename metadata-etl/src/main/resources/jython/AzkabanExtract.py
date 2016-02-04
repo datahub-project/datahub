@@ -24,10 +24,6 @@ from wherehows.common.enums import AzkabanPermission
 from wherehows.common.utils import AzkabanJobExecUtil
 from wherehows.common import Constant
 from wherehows.common.enums import SchedulerType
-
-
-__author__ = 'zechen'
-
 from com.ziclix.python.sql import zxJDBC
 import os
 import DbUtil
@@ -37,6 +33,7 @@ import StringIO
 import json
 import datetime
 import time
+from org.slf4j import LoggerFactory
 
 class AzkabanExtract:
 
@@ -47,6 +44,7 @@ class AzkabanExtract:
                         'w': 'WEEK'}
 
   def __init__(self, args):
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
     self.az_con = zxJDBC.connect(args[Constant.AZ_DB_URL_KEY],
@@ -62,9 +60,10 @@ class AzkabanExtract:
       try:
         os.makedirs(self.metadata_folder)
       except Exception as e:
-        print e
+        self.logger.error(e)
 
   def run(self):
+    self.logger.info("Begin Azkaban Extract")
     try:
       self.collect_flow_jobs(self.metadata_folder + "/flow.csv", self.metadata_folder + "/job.csv", self.metadata_folder + "/dag.csv")
       self.collect_flow_owners(self.metadata_folder + "/owner.csv")
@@ -75,7 +74,7 @@ class AzkabanExtract:
       self.az_con.close()
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
-    print "collect flow&jobs"
+    self.logger.info("collect flow&jobs")
     query = "SELECT distinct f.*, p.name as project_name FROM  project_flows f inner join projects p on f.project_id = p.id and f.version = p.version where p.active = 1"
     self.az_cursor.execute(query)
     rows = DbUtil.dict_cursor(self.az_cursor)
@@ -145,7 +144,7 @@ class AzkabanExtract:
     dag_writer.close()
 
   def collect_flow_execs(self, flow_exec_file, job_exec_file, look_back_period):
-    print "collect flow&job executions"
+    self.logger.info( "collect flow&job executions")
     flow_exec_writer = FileWriter(flow_exec_file)
     job_exec_writer = FileWriter(job_exec_file)
 
@@ -159,7 +158,7 @@ class AzkabanExtract:
       try:
         row[json_column] = json.loads(unzipped_content)
       except Exception as e:
-        print e
+        self.logger.error(e)
         pass
       flow_data = row[json_column]
       flow_path = flow_data['projectName'] + ":" + flow_data['flowId']
@@ -205,7 +204,7 @@ class AzkabanExtract:
 
   def collect_flow_schedules(self, schedule_file):
     # load flow scheduling info from table triggers
-    print "collect flow schedule"
+    self.logger.info("collect flow schedule")
     schedule_writer = FileWriter(schedule_file)
     query = "select * from triggers"
     self.az_cursor.execute(query)
@@ -217,7 +216,7 @@ class AzkabanExtract:
         try:
           row[json_column] = json.loads(unzipped_content)
         except Exception as e:
-          print e
+          self.logger.error(e)
           pass
 
         if not "projectId" in row[json_column]["actions"][0]["actionJson"]:
@@ -242,7 +241,7 @@ class AzkabanExtract:
 
   def collect_flow_owners(self, owner_file):
     # load user info from table project_permissions
-    print "collect owner&permissions"
+    self.logger.info("collect owner&permissions")
     user_writer = FileWriter(owner_file)
     query = "select f.flow_id, p.name as project_name, p.version as project_verison, pp.name as owner, pp.permissions, pp.isGroup " \
             "from project_flows f join project_permissions pp on f.project_id = pp.project_id join projects p on f.project_id = p.id where p.active = 1"
