@@ -151,7 +151,7 @@
           <span class="bs-docs-example">
             {{comment.type}}
           </span>
-          <div class="text wrap-all-word comment-text">
+          <div class="text comment-text">
             {{comment.html}}
           </div>
           <div class="meta">
@@ -235,6 +235,34 @@
                     id="datasetComment-write"
                   >
                     <div class="meldown_wrap" style="width: 787px;">
+                      <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
+                      </div>
                       <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
                       </div>
                     </div>
@@ -745,6 +773,34 @@
                     class="tab-pane active"
                     id="datasetSchemaComment-write">
                     <div class="meldown_wrap" style="width: 787px;">
+                      <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_delimiter">
+                      </div>
+                      <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
+                      </div>
+                      <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
+                      </div>
                       <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
                       </div>
                     </div>
