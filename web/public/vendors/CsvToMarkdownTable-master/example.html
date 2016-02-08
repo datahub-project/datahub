@@ -1,0 +1,104 @@
+<html>
+<style type="text/css">
+	textarea {
+		font-family: monospace;
+	}
+</style>
+<script src="//ajax.googleapis.com/ajax/libs/mootools/1.2.2/mootools-yui-compressed.js"></script>
+<script src="src/CsvToMarkdown.js"></script>
+<script>
+	"use strict";
+
+	window.addEvent('domready', function() {
+		var insertAtCursor = function( myField, myValue ) {
+			//IE support
+			if( document.selection ) {
+				myField.focus();
+				sel = document.selection.createRange();
+				sel.text = myValue;
+			}
+			//MOZILLA/NETSCAPE support
+			else if( myField.selectionStart || myField.selectionStart == '0' ) {
+				var startPos = myField.selectionStart;
+				var endPos = myField.selectionEnd;
+				myField.value = myField.value.substring(0, startPos) + myValue + myField.value.substring(endPos, myField.value.length);
+				myField.selectionEnd = myField.selectionStart = startPos + myValue.length;
+			} else {
+				myField.value += myValue;
+			}
+		};
+
+		var input = $('tsv-input');
+		var output = $('table-output');
+
+		var headerCheckbox = $('has-headers');
+		var delimiterMarker = $('delimiter-marker');
+
+		var getDelimiter = function() {
+			var delim = delimiterMarker.get('value');
+			if( delim == 'tab' ) {
+				delim = "\t";
+			}
+
+			return delim;
+		};
+
+		var populateData = $('populate-data');
+
+		input.addEvent('keydown', function( e ) {
+			if( e.key == 'tab' ) {
+				e.stop();
+				insertAtCursor(e.target, "\t");
+			}
+		});
+
+		var renderTable = function() {
+			var value = input.get('value').trim();
+			var hasHeader = headerCheckbox.get('checked');
+
+			output.set('value', csvToMarkdown(value, getDelimiter(), hasHeader));
+		};
+
+		input.addEvent('keyup', renderTable);
+		headerCheckbox.addEvent('change', renderTable);
+		delimiterMarker.addEvent('change', renderTable);
+
+		populateData.addEvent('change', function() {
+			input.set('value', populateData.get('value').split("|").join(getDelimiter()) + "\n");
+			headerCheckbox.set('checked', 'checked');
+			populateData.selectedIndex = 0;
+			renderTable();
+
+			if( typeof input.selectionStart != 'undefined' ) {
+				input.select();
+				input.selectionEnd = input.selectionStart = input.get('value').length;
+			}
+		});
+
+		output.addEvent('click', function( e ) {
+			e.target.select();
+		});
+
+		renderTable();
+	});
+</script>
+<body>
+<textarea style="width: 100%; height: 200px;" id="tsv-input"></textarea>
+<label><input type="checkbox" id="has-headers" /> Use first line as headers</label>
+<select id="delimiter-marker">
+	<option value="tab">Tab Separated</option>
+	<option value=",">Comma Separated</option>
+	<option value=";">Semicolon Separated</option>
+</select>
+<select id="populate-data">
+	<option>-- Populate With --</option>
+	<option value="id|select_type|table|type|possible_keys|key|key_len|ref|rows|extra">MySQL EXPLAIN Headers</option>
+	<option value="id|select_type|table|type|possible_keys|key|key_len|ref|rows|filtered|extra">MySQL EXPLAIN EXTENDED
+		Headers
+	</option>
+</select>
+
+<hr>
+<textarea style="width: 100%; height: 200px;" id="table-output" readonly></textarea>
+</body>
+</html>

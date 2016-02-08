@@ -551,3 +551,119 @@ table tr td {
 {
     position: absolute;
 }
+.markdown-toolbar-panel {
+    height:20px;
+    border:1px solid #aaa;
+    background:#fafafa;
+    margin-bottom:0;
+    border-bottom:0;
+    overflow:hidden
+}
+.markdown-upload-panel{
+    margin-top:0;
+    border-top:0;
+    padding:5px
+}
+.mdt_buttons{
+    width:auto;
+    display:inline-block;
+    margin-top:2px;
+    margin-bottom:2px;
+    height:20px;
+    overflow:hidden
+}
+.mdt_button{
+    width:16px;
+    height:16px;
+    cursor:pointer;
+    display:inline-block;
+    float:left;
+    margin-left:2px
+}
+.mdt_button_delimiter{
+    background:url(/assets/images/text_delimiter.png)
+}
+.mdt_button_delimiter:active{
+    background-position:1px 1px
+}
+.mdt_button_code{
+    background:url(/assets/images/text_code.png)
+}
+.mdt_button_code:active{
+    background-position:1px 1px
+}
+.mdt_button_blockquote{
+    background:url(/assets/images/text_blockquote.png)
+}
+.mdt_button_blockquote:active{
+    background-position:1px 1px
+}
+.mdt_button_bold{
+    background:url(/assets/images/text_bold.png)
+}
+.mdt_button_bold:active{
+    background-position:1px 1px
+}
+.mdt_button_italic{background:url(/assets/images/text_italic.png)
+}
+.mdt_button_italic:active{
+    background-position:1px 1px
+}
+.mdt_button_strike{
+    background:url(/assets/images/text_strike.png)
+}
+.mdt_button_strike:active{
+    background-position:1px 1px
+}
+.mdt_button_list_bullets{
+    background:url(/assets/images/text_list_bullets.png)
+}
+.mdt_button_list_bullets:active{
+    background-position:1px 1px
+}
+.mdt_button_list_numbers{
+    background:url(/assets/images/text_list_numbers.png)
+}
+.mdt_button_list_numbers:active{
+    background-position:1px 1px
+}
+.mdt_button_heading_1{
+    background:url(/assets/images/text_heading_1.png)
+}
+.mdt_button_heading_1:active{
+    background-position:1px 1px
+}
+.mdt_button_heading_2{
+    background:url(/assets/images/text_heading_2.png)
+}
+.mdt_button_heading_2:active{
+    background-position:1px 1px
+}
+.mdt_button_heading_3{
+    background:url(/assets/images/text_heading_3.png)
+}
+.mdt_button_heading_3:active{
+    background-position:1px 1px
+}
+.mdt_button_link{
+    background:url(/assets/images/text_link.png)
+}
+.mdt_button_link:active{
+    background-position:1px 1px
+}
+.mdt_button_image{
+    background:url(/assets/images/text_image.png)
+}
+.mdt_button_image:active{
+    background-position:1px 1px
+}
+.mdt_button_table{
+    background:url(/assets/images/import.png)
+}
+.mdt_button_table:active{
+    background-position:1px 1px
+}
+
+div.commentsArea td, div.commentsArea th, div.commentsArea table{
+    border: 1px solid black;
+}

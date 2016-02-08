@@ -107,7 +107,7 @@ App.DatasetCommentsComponent = Ember.Component.extend({
             cmnt.isAuthor = true
           }
         })
-        _this.set('comments', comments)
+        _this.set('comments', comments);
       }
     )
     .fail(function(){
@@ -124,6 +124,60 @@ App.DatasetCommentsComponent = Ember.Component.extend({
     this.set('comment.text', this.defaultCommentText());
   },
   actions: {
+    importCSVTable: function(){
+      var insertAtCursor = function( myField, myValue ) {
+        if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+          var startPos = myField[0].selectionStart;
+          var endPos = myField[0].selectionEnd;
+          var value = myField.val().substring(0, startPos) + '\n' +
+              myValue + myField.val().substring(endPos, myField.val().length);
+          myField.val(value);
+          myField[0].selectionEnd = myField.selectionStart = startPos + myValue.length;
+        }
+        else {
+          var value = myField.val() + '\n' + myValue;
+          myField.val(value);
+        }
+      };
+      var input = $('#tsv-input');
+      var output = $('#table-output');
+      var headerCheckbox = $('#has-headers');
+      var delimiterMarker = $('#delimiter-marker');
+      var getDelimiter = function() {
+        var delim = delimiterMarker.val();
+        if( delim == 'tab' ) {
+          delim = "\t";
+        }
+        return delim;
+      };
+
+      input.keydown(function( e ) {
+        if( e.key == 'tab' ) {
+          e.stop();
+          insertAtCursor(e.target, "\t");
+        }
+      });
+
+      var renderTable = function() {
+        var value = input.val().trim();
+        var hasHeader = headerCheckbox.is(":checked");
+        var t = csvToMarkdown(value, getDelimiter(), hasHeader);
+        output.val(csvToMarkdown(value, getDelimiter(), hasHeader));
+      };
+
+      input.keyup(renderTable);
+      headerCheckbox.change(renderTable);
+      delimiterMarker.change(renderTable);
+      $('#submitConvertForm').click(function(){
+        $("#convertTableModal").modal('hide');
+        var target = $('#datasetcomment');
+        insertAtCursor(target, output.val());
+        var text = $("#datasetComment-write > textarea").val();
+        $("#datasetComment-preview").html(marked(text));
+      });
+      renderTable();
+      $("#convertTableModal").modal('show');
+    },
     remove: function(comment) {
       var url = '/api/v1/datasets/' + comment.datasetId + '/comments/' + comment.id
       var token = $("#csrfToken").val().replace('/', '')

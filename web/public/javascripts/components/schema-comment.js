@@ -131,6 +131,50 @@ App.SchemaCommentComponent = Ember.Component.extend({
     }
   },
   actions: {
+    importCSVTable: function(){
+
+      var input = $('#tsv-input');
+      var output = $('#table-output');
+
+      var headerCheckbox = $('#has-headers');
+      var delimiterMarker = $('#delimiter-marker');
+
+      var getDelimiter = function() {
+        var delim = delimiterMarker.val();
+        if( delim == 'tab' ) {
+          delim = "\t";
+        }
+
+        return delim;
+      };
+
+      input.keydown(function( e ) {
+        if( e.key == 'tab' ) {
+          e.stop();
+          insertAtCursor(e.target, "\t");
+        }
+      });
+
+      var renderTable = function() {
+        var value = input.val().trim();
+        var hasHeader = headerCheckbox.is(":checked");
+
+        var t = csvToMarkdown(value, getDelimiter(), hasHeader);
+        output.val(csvToMarkdown(value, getDelimiter(), hasHeader));
+      };
+
+      input.keyup(renderTable);
+      headerCheckbox.change(renderTable);
+      delimiterMarker.change(renderTable);
+      $('#submitConvertForm').click(function(){
+        $("#convertTableModal").modal('hide')
+        var target = $('#datasetschemacomment');
+        insertAtCursor(target, output.val(), true);
+        updatePreview();
+      });
+      renderTable();
+      $("#convertTableModal").modal('show');
+    },
     create: function() {
       var _this = this;
       var token = $("#csrfToken").val().replace('/', '')
