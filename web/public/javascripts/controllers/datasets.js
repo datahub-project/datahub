@@ -275,6 +275,12 @@ App.DatasetController = Ember.Controller.extend({
             }
         },
         updateOwners: function(owners) {
+            _this = this;
+            var showMsg = this.get("showMsg");
+            if (showMsg)
+            {
+                return;
+            }
             var model = this.get("model");
             if (!model || !model.id)
             {
@@ -293,9 +299,23 @@ App.DatasetController = Ember.Controller.extend({
                     owners: JSON.stringify(owners)
                 }
             }).done(function(data, txt, xhr){
+                if (data.status == "success")
+                {
+                    _this.set('showMsg', true);
+                    _this.set('alertType', "alert-success");
+                    _this.set('ownerMessage', "Ownership successfully updated.");
+                }
+                else
+                {
+                    _this.set('showMsg', true);
+                    _this.set('alertType', "alert-danger");
+                    _this.set('ownerMessage', "Ownership update failed.");
+                }
 
             }).fail(function(xhr, txt, error){
-
+                _this.set('showMsg', true);
+                _this.set('alertType', "alert-danger");
+                _this.set('ownerMessage', "Ownership update failed.");
             })
         }
     }
