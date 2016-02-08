@@ -54,6 +54,184 @@ App.DatasetOwnerComponent = Ember.Component.extend({
   }
 })
 
+var insertAtCursor = function( myField, myValue, newline ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var value;
+    if (newline)
+    {
+      value = myField.val().substring(0, startPos) + '\n' +
+          myValue + myField.val().substring(endPos, myField.val().length);
+    }
+    else
+    {
+      value = myField.val().substring(0, startPos) +
+          myValue + myField.val().substring(endPos, myField.val().length);
+    }
+
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + myValue.length;
+  } else {
+    var value;
+    if (newline)
+    {
+      value = myField.val() + '\n' + myValue;
+    }
+    else
+    {
+      value = myField.val() + myValue;
+    }
+
+    myField.val(value);
+  }
+};
+
+var insertListAtCursor = function( myField, myValue, number ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "";
+    if (selection)
+    {
+      var lines = selection.split('\n');
+      for(var i = 0; i < lines.length; i++)
+      {
+        if (number == 'numbered')
+        {
+          insertvalue += (i+1) + ".";
+        }
+        else if(number == 'bulleted')
+        {
+          insertvalue += "-";
+        }
+        else if(number == 'blockquote')
+        {
+          insertvalue += "> ";
+        }
+        insertvalue += " " + lines[i];
+        if (i < lines.length)
+        {
+          insertvalue += "\n";
+        }
+      }
+      value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+      myField.val(value);
+      myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+      return;
+    }
+  }
+
+  var lines = myValue.split('\n');
+  for(var i = 0; i < lines.length; i++)
+  {
+    if (number == 'numbered')
+    {
+      insertvalue += (i+1) + ".";
+    }
+    else if(number == 'bulleted')
+    {
+      insertvalue += "-";
+    }
+    else if(number == 'blockquote')
+    {
+      insertvalue += ">";
+    }
+    insertvalue += " " + lines[i];
+    if (i < lines.length)
+    {
+      insertvalue += "\n";
+    }
+  }
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
+var insertSourcecodeAtCursor = function( myField ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "```\n";
+    if (selection) {
+      insertvalue += selection + '\n```';
+    }
+    else {
+      insertvalue += 'code text' + '\n```\n';
+    }
+    value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+    return;
+  }
+  var insertvalue = "```\n";
+  insertvalue += 'code text' + '\n```\n';
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
+var insertImageAtCursor = function( myField, param ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "";
+    if (selection && selection.length > 0 &&
+        (selection.substr(0,7) == 'http://' || selection.substr(0,7) == 'https:/')) {
+      if (param == 'image')
+      {
+        insertvalue = "[alt text]("+ selection +")";
+      }
+      else
+      {
+        insertvalue =  "["+ selection +"]("+ selection + ")";
+      }
+
+    }
+    else {
+      if (param == 'image')
+      {
+        insertvalue = "![alt text](http://path/to/img.jpg)";
+      }
+      else
+      {
+        insertvalue = "[example link](http://example.com/)";
+      }
+
+    }
+    value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+    return;
+  }
+  if (param == 'image')
+  {
+    insertvalue = "![alt text](http://path/to/img.jpg)";
+  }
+  else
+  {
+    insertvalue = "[example link](http://example.com/)";
+  }
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
 var datasetCommentsComponent = null;
 App.DatasetCommentsComponent = Ember.Component.extend({
   totalPages: null,
@@ -124,21 +302,66 @@ App.DatasetCommentsComponent = Ember.Component.extend({
     this.set('comment.text', this.defaultCommentText());
   },
   actions: {
+    insertImageOrLink: function(param) {
+      var target = $('#datasetcomment');
+      insertImageAtCursor(target, param);
+      var text = $("#datasetComment-write > textarea").val()
+      $("#datasetComment-preview").html(marked(text))
+    },
+    insertSourcecode: function() {
+      var target = $('#datasetcomment');
+      insertSourcecodeAtCursor(target);
+      var text = $("#datasetComment-write > textarea").val()
+      $("#datasetComment-preview").html(marked(text))
+    },
+    insertList: function(param) {
+      var target = $('#datasetcomment');
+      var value = "Apple\nBananna\nOrange";
+      insertListAtCursor(target, value, param);
+      var text = $("#datasetComment-write > textarea").val()
+      $("#datasetComment-preview").html(marked(text))
+    },
+    insertElement: function(param) {
+      var target = $('#datasetcomment');
+      var value;
+      var selectedValue;
+      if( target[0].selectionStart || target[0].selectionStart == '0' ) {
+        var startPos = target[0].selectionStart;
+        var endPos = target[0].selectionEnd;
+        selectedValue = target.val().substring(startPos, endPos);
+      }
+      var insertedValue;
+      if (selectedValue)
+      {
+        insertedValue = selectedValue;
+      }
+      else
+      {
+        insertedValue = param + " text";
+      }
+      switch(param)
+      {
+        case 'bold':
+          value = "**" + insertedValue + "**";
+          break;
+        case 'italic':
+          value = "*" + insertedValue + "*";
+          break;
+        case 'heading_1':
+          value = "#" + insertedValue + "#";
+          break;
+        case 'heading_2':
+          value = "##" + insertedValue + "##";
+          break;
+        case 'heading_3':
+          value = "###" + insertedValue + "###";
+          break;
+      }
+      insertAtCursor(target, value, false);
+      var text = $("#datasetComment-write > textarea").val()
+      $("#datasetComment-preview").html(marked(text))
+    },
     importCSVTable: function(){
-      var insertAtCursor = function( myField, myValue ) {
-        if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
-          var startPos = myField[0].selectionStart;
-          var endPos = myField[0].selectionEnd;
-          var value = myField.val().substring(0, startPos) + '\n' +
-              myValue + myField.val().substring(endPos, myField.val().length);
-          myField.val(value);
-          myField[0].selectionEnd = myField.selectionStart = startPos + myValue.length;
-        }
-        else {
-          var value = myField.val() + '\n' + myValue;
-          myField.val(value);
-        }
-      };
       var input = $('#tsv-input');
       var output = $('#table-output');
       var headerCheckbox = $('#has-headers');
@@ -171,7 +394,7 @@ App.DatasetCommentsComponent = Ember.Component.extend({
       $('#submitConvertForm').click(function(){
         $("#convertTableModal").modal('hide');
         var target = $('#datasetcomment');
-        insertAtCursor(target, output.val());
+        insertAtCursor(target, output.val(), true);
         var text = $("#datasetComment-write > textarea").val();
         $("#datasetComment-preview").html(marked(text));
       });
