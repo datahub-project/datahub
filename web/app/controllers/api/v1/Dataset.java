@@ -182,6 +182,16 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result getDatasetOwnersByID(int id)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("owners", Json.toJson(DatasetsDAO.getDatasetOwnersByID(id)));
+
+        return ok(result);
+    }
+
     public static Result getDatasetImpactAnalysisByID(int id)
     {
         List<ImpactDataset> impactDatasetList = DatasetsDAO.getImpactAnalysisByID(id);
@@ -197,6 +207,36 @@ public class Dataset extends Controller
         {
             result.put("status", "error");
             result.put("message", "record not found");
+        }
+
+        return ok(result);
+    }
+
+    public static Result updateDatasetOwners(int id)
+    {
+        String body = request().body().asText();
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
+
+        if (StringUtils.isNotBlank(username))
+        {
+            if (DatasetsDAO.updateDatasetOwners(id, params, username))
+            {
+                result.put("status", "success");
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("error", "true");
+                result.put("msg", "Could not update dataset owners.");
+            }
+        }
+        else
+        {
+            result.put("status", "failed");
+            result.put("error", "true");
+            result.put("msg", "Unauthorized User.");
         }
 
         return ok(result);

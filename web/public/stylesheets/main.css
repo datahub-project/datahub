@@ -529,5 +529,25 @@ table tr td {
     background: none;
 }
 .prop-label {
-  color: #a6a6a6;
+    color: #a6a6a6;
+}
+.ownertypeselector {
+    width: 100%;;
+}
+.ui-autocomplete-category
+{
+    font-weight: bold;
+    padding: .2em .4em;
+    margin: .8em 0 .2em;
+    line-height: 1.5;
+}
+#sortable
+{
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+#sortable li span
+{
+    position: absolute;
 }
