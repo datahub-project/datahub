@@ -138,6 +138,8 @@ App.DatasetController = Ember.Controller.extend({
     hasSamples: false,
     isTable: true,
     isJSON: false,
+    ownerTypes: ["", "Producer", "Consumer"],
+    userTypes: [{name:"Corporate User", value: "urn:li:corpuser"}, {name:"Group User", value: "urn:li:griduser"}],
     isPinot: function(){
         var model = this.get("model");
         if (model)
@@ -214,10 +216,10 @@ App.DatasetController = Ember.Controller.extend({
     }.observes('hasProperty', 'isHDFS').on('init'),
     buildJsonView: function(){
         var model = this.get("model");
-        var schema = JSON.parse(JSON.stringify(model.schema))
+        var schema = JSON.parse(model.schema)
         setTimeout(function() {
             $("#json-viewer").JSONView(schema)
-        }, 300)
+        }, 500);
     },
     actions: {
         setView: function(view) {
@@ -235,6 +237,66 @@ App.DatasetController = Ember.Controller.extend({
                     this.set('isTable', true)
                     this.set('isJSON', false)
             }
+        },
+        addOwner: function(data) {
+            var owners = data;
+            var currentUser = this.get("currentUser");
+            var addedOwner = {"userName":"Owner","email":null,"name":"","isGroup":false,
+                "namespace":"urn:li:griduser","type":"Producer","subType":null,"sortId":0};
+            var userEntitiesSource = this.get("userEntitiesSource");
+            var userEntitiesMaps = this.get("userEntitiesMaps");
+            var exist = false;
+            if (owners && owners.length > 0)
+            {
+                owners.forEach(function(owner){
+                    if(owner.userName == addedOwner.userName)
+                    {
+                        exist = true;
+                    }
+                });
+            }
+            var controller = this;
+            if (!exist)
+            {
+                owners.unshiftObject(addedOwner);
+                setTimeout(function(){
+                    setOwnerNameAutocomplete(controller)
+                }, 500);
+            }
+            else
+            {
+                console.log("The owner is already exist");
+            }
+        },
+        removeOwner: function(owners, owner) {
+            if (owners && owner)
+            {
+                owners.removeObject(owner);
+            }
+        },
+        updateOwners: function(owners) {
+            var model = this.get("model");
+            if (!model || !model.id)
+            {
+                return;
+            }
+            var url = "/api/v1/datasets/" + model.id + "/owners";
+            var token = $("#csrfToken").val().replace('/', '');
+            $.ajax({
+                url: url,
+                method: 'POST',
+                header: {
+                    'Csrf-Token': token
+                },
+                data: {
+                    csrfToken: token,
+                    owners: JSON.stringify(owners)
+                }
+            }).done(function(data, txt, xhr){
+
+            }).fail(function(xhr, txt, error){
+
+            })
         }
     }
 });

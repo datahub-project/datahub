@@ -33,6 +33,14 @@
       </i>
     </script>
 
+    <script type="text/x-handlebars" id="components/dataset-owner">
+      <i
+        {{bind-attr class=":fa dataset.isOwned:fa-bookmark:fa-bookmark-o"}}
+        {{action "owned" dataset}}
+      >
+      </i>
+    </script>
+
     <script type="text/x-handlebars" id="components/dataset-watch">
       <i
         {{bind-attr class=":fa dataset.watchId:fa-eye-slash:fa-eye"}}
@@ -323,12 +331,20 @@
                               {{ dataset.name }}
                             {{/link-to}}
                           </div>
+                          {{#if dataset.owners}}
                           <div class="col-xs-12">
-                            {{ dataset.properties.owner }}
+                            <span class="prop-label">owner:</span>
+                            {{#each owner in dataset.owners}}
+                              <p style="display:inline" title={{owner.name}}>{{ owner.userName }} </p>
+                            {{/each}}
                           </div>
+                          {{/if}}
+                          {{#if dataset.formatedModified}}
                           <div class="col-xs-12">
-                            {{ dataset.properties.lastAlterTime }}
+                            <span class="prop-label">last modified:</span>
+                            {{ dataset.formatedModified }}
                           </div>
+                          {{/if}}
                         </div>
                         <div class="col-md-4 text-right">
                           <ul class="datasetTableLinks">
@@ -338,6 +354,10 @@
                               <span class="source">
                                 {{ dataset.source }}
                               </span>
+                            </li>
+                            <li class="text-center">
+                              {{#dataset-owner dataset=dataset action="owned"}}
+                              {{/dataset-owner}}
                             </li>
                             <li
                               class="text-center"
@@ -815,6 +835,57 @@
       {{/if}}
     </script>
 
+    <script type="text/x-handlebars" data-template-name="owner">
+      <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
+        <div class="col-xs-12">
+          <div class="btn-group" role="group">
+            <button id="addownerbtn" type="button" class="btn btn-default" {{action "addOwner" owners}}>
+              <i class="fa fa-plus" title="add an owner">
+              </i>
+            </button>
+            <button type="button" class="btn btn-default" {{action "updateOwners" owners}}>
+              <i class="fa fa-save" title="save the change">
+              </i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <table class="table table-striped" style="word-break: break-all;">
+        <thead>
+          <tr>
+            <th class="col-xs-2">User Name</th>
+            <th class="col-xs-3">Full Name</th>
+            <th class="col-xs-1">Is Group</th>
+            <th class="col-xs-1">Owner Type</th>
+            <th class="col-xs-1">Owner Sub Type</th>
+            <th class="col-xs-1"></th>
+          </tr>
+        </thead>
+        <tbody id = "sortedownertable">
+          {{#each owner in owners}}
+          <tr>
+            <td>{{input class="userEntity" value=owner.userName}}</td>
+            <td>{{owner.name}}</td>
+            <td>
+              {{input type="checkbox" name="isGroup" checked=owner.isGroup disabled=true}}
+            </td>
+            <td>
+              {{view "select" content=ownerTypes classNames="ownertypeselector" value=owner.type}}
+            </td>
+            <td>
+              {{input value=owner.subType}}
+            </td>
+            <td>
+              <i class="fa fa-trash" title="remove this owner" {{action "removeOwner" owners owner}}>
+              </i>
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </script>
+
     <script type="text/x-handlebars" data-template-name="sample">
       {{#if hasSamples}}
         {{#if isHDFS}}
@@ -1195,6 +1266,7 @@
           </li>
           {{/unless}}
           <li id="schemas" class="active"><a data-toggle="tab" href="#schematab">Schema</a></li>
+          <li id="ownership"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
           {{#unless isSFDC}}
             <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
           {{/unless}}
@@ -1216,6 +1288,9 @@
           {{/unless}}
           <div id="schematab" class="tab-pane active">
             {{view "schema"}}
+          </div>
+          <div id="ownertab" class="tab-pane">
+            {{view "owner"}}
           </div>
           {{#unless isSFDC}}
             <div id="sampletab" class="tab-pane">
@@ -1266,6 +1341,22 @@
           <div id="schema" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="schemaHeading">
             <div class="panel-body">
               {{view "schema"}}
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="ownershipHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+                href="#ownership" aria-expanded="false" aria-controls="ownership">
+                Ownership
+              </a>
+            </h4>
+          </div>
+          <div id="ownership" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ownershipHeading">
+            <div class="panel-body">
+              {{view "owner"}}
             </div>
           </div>
         </div>
