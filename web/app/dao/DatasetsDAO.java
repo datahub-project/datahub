@@ -195,8 +195,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"owner_type, is_group, is_active, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn) " +
 			"VALUES(?, ?, 300, 'urn:li:corpuser', 'Producer', 'N', 'Y', 0, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?)";
 
-	private final static String UNOWN_A_DATASET = "DELETE FROM dataset_owner " +
-			"WHERE dataset_id = ? AND owner_id = ?  AND namespace = 'urn:li:corpuser'";
+	private final static String UNOWN_A_DATASET = "UPDATE dataset_owner " +
+			"set is_deleted = 'Y' WHERE dataset_id = ? AND owner_id = ?  AND app_id = 300";
 
 	private final static String UPDATE_DATASET_OWNERS = "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, " +
 			"namespace, owner_type, is_group, is_active, is_deleted, sort_id, created_time, " +
@@ -530,7 +530,21 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			Logger.error("Dataset ownDataset get urn failed, id = " + id);
 			Logger.error("Exception = " + e.getMessage());
 		}
-		int status = getJdbcTemplate().update(OWN_A_DATASET, id, user, urn);
+		int status = getJdbcTemplate().update(
+				UPDATE_DATASET_OWNERS,
+				id,
+				user,
+				300,
+				"urn:li:corpuser",
+				"Producer",
+				"N",
+				0,
+				urn,
+				"",
+				"Producer",
+				"N",
+				0,
+				"");
 		if (status > 0)
 		{
 			result = true;
