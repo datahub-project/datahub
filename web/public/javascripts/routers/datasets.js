@@ -44,6 +44,37 @@ function setOwnerNameAutocomplete(controller)
     return;
   }
 
+  $('.userEntity').blur(function(data){
+    var userEntitiesMaps = controller.get("userEntitiesMaps");
+    var value = this.value;
+    if (userEntitiesMaps[value])
+    {
+      controller.set("showMsg", false);
+      var owners = controller.get("owners");
+      for(var i = 0; i < owners.length; i++)
+      {
+        if (owners[i].userName == value)
+        {
+          Ember.set(owners[i], "name", userEntitiesMaps[value]);
+          if (userEntitiesMaps[value])
+          {
+            Ember.set(owners[i], "isGroup", false);
+          }
+          else
+          {
+            Ember.set(owners[i], "isGroup", true);
+          }
+        }
+      }
+    }
+    else
+    {
+      controller.set("showMsg", true);
+      controller.set("alertType", "alert-danger");
+      controller.set("ownerMessage", "The user name '" + value + "' is invalid");
+    }
+  });
+
   $('.userEntity').autocomplete({
     select: function( event, ui )
     {
@@ -56,6 +87,7 @@ function setOwnerNameAutocomplete(controller)
         {
           if (owners[i].userName == value)
           {
+            controller.set("showMsg", false);
             Ember.set(owners[i], "name", userEntitiesMaps[value]);
             if (userEntitiesMaps[value])
             {

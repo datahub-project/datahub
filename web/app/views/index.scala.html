@@ -944,6 +944,9 @@
               </i>
             </button>
           </div>
+          {{#if showMsg}}
+            <div {{bind-attr class=":alert alertType"}} role="alert">{{ownerMessage}}</div>
+          {{/if}}
         </div>
       </div>
 
