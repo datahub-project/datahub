@@ -2,9 +2,12 @@ build/
 target/
 repos/
 tmp/
+bin/
 .gradle/
 .settings
 .project
+.classpath
+*.swp
 *.jar
 *.idea
 *.iml
@@ -15,3 +18,4 @@ tmp/
 /RUNNING_PID
 backend-service/lib
 metadata-etl/src/main/resources/application.properties
+**/test/resources/*.properties

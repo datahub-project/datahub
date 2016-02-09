@@ -15,6 +15,7 @@ package metadata.etl.lineage;
 
 import java.io.IOException;
 import java.util.Properties;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -25,14 +26,17 @@ import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import wherehows.common.Constant;
 
 
@@ -90,7 +94,7 @@ public class AzServiceCommunicator {
 
     // trust self-signed certificates
     SSLContextBuilder sslBuilder = new SSLContextBuilder();
-    sslBuilder.loadTrustMaterial(null, new TrustSelfSignedStrategy());
+    sslBuilder.loadTrustMaterial(null, (TrustStrategy) new TrustSelfSignedStrategy());
     SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslBuilder.build());
     CloseableHttpClient httpclient = HttpClients.custom().setSSLSocketFactory(sslsf).build();
     HttpResponse response = httpclient.execute(request);

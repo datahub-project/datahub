@@ -6,8 +6,22 @@ apply plugin: 'idea'
 ext.licenseFile = file('.license_header.txt')
 
 subprojects {
+  apply plugin: 'eclipse'
   apply plugin: 'java'
   apply plugin: 'com.github.hierynomus.license'
+
+  eclipse {
+    classpath {
+      file {
+        // work around for eclipse plugin bug
+        whenMerged { classpath ->
+          classpath.entries.removeAll { it.path.endsWith('pom') }
+        }
+      }
+    }
+  }
+
+
   license {
     header licenseFile
     exclude "**/*.scala.html"

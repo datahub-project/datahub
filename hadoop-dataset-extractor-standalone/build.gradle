@@ -8,16 +8,16 @@ configurations {
 
 dependencies {
   extraLibs project(":wherehows-common")
-  extraLibs files("extralibs/linkedin-pig-0.11.1.49.jar")
-  extraLibs files("extralibs/voldemort-0.91.li1.jar")
+  //extraLibs files("extralibs/linkedin-pig-0.11.1.49.jar")
+  //extraLibs files("extralibs/voldemort-0.91.li1.jar")
   extraLibs externalDependency.joda
   extraLibs externalDependency.avro_mapred
   extraLibs externalDependency.hive
   extraLibs externalDependency.pig
 
   compile project(":wherehows-common")
-  compile files("extralibs/linkedin-pig-0.11.1.49.jar")
-  compile files("extralibs/voldemort-0.91.li1.jar")
+  //compile files("extralibs/linkedin-pig-0.11.1.49.jar")
+  //compile files("extralibs/voldemort-0.91.li1.jar")
   compile externalDependency.hadoop_common
   compile externalDependency.hadoop_client
   compile externalDependency.pig

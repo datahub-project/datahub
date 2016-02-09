@@ -9,5 +9,4 @@ dependencies {
   compile externalDependency.jsoup
   compile externalDependency.commons_io
   testCompile externalDependency.testng
-  testCompile project(":metadata-etl")
 }
