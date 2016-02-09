@@ -15,6 +15,7 @@ WhereHows serves as the single platform that:
 The detailed information can be found in the [Wiki][wiki]
 
 New to Wherehows? Check out the [Getting Started Guide][GS]
+
 Want to contribute? Check out the [Contributors Guide][CON]
 
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
