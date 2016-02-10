@@ -101,7 +101,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
         {
             if (dataset.urn.substring(0, 4).equalsIgnoreCase(HDFS_PREFIX))
             {
-                dataset.nertzLink = Play.application().configuration().getString(DatasetsDAO.NERTZ_URL_KEY) +
+                dataset.hdfsBrowserLink = Play.application().configuration().getString(DatasetsDAO.HDFS_BROWSER_URL_KEY) +
                         dataset.urn.substring(6);
             }
         }

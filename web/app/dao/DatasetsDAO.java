@@ -46,7 +46,7 @@ import utils.Lineage;
 
 public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 {
-	public final static String NERTZ_URL_KEY = "dataset.nertz.link";
+	public final static String HDFS_BROWSER_URL_KEY = "dataset.hdfs_browser.link";
 
 
 	private final static String SELECT_PAGED_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
@@ -454,7 +454,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					{
 						if (ds.urn.substring(0, 4).equalsIgnoreCase(DatasetRowMapper.HDFS_PREFIX))
 						{
-							ds.nertzLink = Play.application().configuration().getString(NERTZ_URL_KEY) + ds.urn.substring(7);
+							ds.hdfsBrowserLink = Play.application().configuration().getString(HDFS_BROWSER_URL_KEY) + ds.urn.substring(7);
 						}
 					}
 					if (favoriteId != null && favoriteId > 0)

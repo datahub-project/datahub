@@ -1,15 +1,11 @@
 #WhereHows
-Enterprise Data Warehouse Metadata Store
+Enterprise Metadata Platform for Big Data
 
 ##Dependencies
-* Java 8
+* Java 
 * Scala
-* Node
+* Play
 * Bower
 * NPM
-* Docker
+* Ember
 
-##Getting Started
-
-
-##Contributing
