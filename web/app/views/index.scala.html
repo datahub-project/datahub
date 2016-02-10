@@ -25,47 +25,10 @@
       </div>
     </div>
 
-    <div class="modal" tabindex="-1" role="dialog" aria-labelledby="convertTableModal" id="convertTableModal">
-      <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h3>Convert a CSV table to markdown table</h3>
-          </div>
-          <div class="modal-body">
-            <textarea style="width: 100%; height: 200px;" id="tsv-input"></textarea>
-            <label><input type="checkbox" id="has-headers"> Use first line as headers</label>
-            <select id="delimiter-marker">
-              <option value="tab">Tab Separated</option>
-              <option value=",">Comma Separated</option>
-              <option value=";">Semicolon Separated</option>
-            </select>
-            <hr>
-            <textarea style="width: 100%; height: 200px;" id="table-output" readonly=""></textarea>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-primary" data-dismiss="modal">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-default" id="submitConvertForm">
-              Insert
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <script type="text/x-handlebars" id="components/dataset-favorite">
       <i
       {{bind-attr class=":fa dataset.isFavorite:fa-heart:fa-heart-o"}}
       {{action "favorites" dataset}}
-      >
-      </i>
-    </script>
-
-    <script type="text/x-handlebars" id="components/dataset-owner">
-      <i
-        {{bind-attr class=":fa dataset.isOwned:fa-bookmark:fa-bookmark-o"}}
-        {{action "owned" dataset}}
       >
       </i>
     </script>
@@ -151,7 +114,7 @@
           <span class="bs-docs-example">
             {{comment.type}}
           </span>
-          <div class="text comment-text">
+          <div class="text wrap-all-word comment-text">
             {{comment.html}}
           </div>
           <div class="meta">
@@ -201,7 +164,7 @@
             </div>
             <div class="modal-body">
               <div class="row">
-                <div class="col-xs-3 pull-left text-right">
+                <div class="col-xs-3 pull-right text-right">
                   {{view "select" content=commentTypes value=comment.type class="form-control"}}
                 </div>
               </div>
@@ -234,44 +197,11 @@
                     class="tab-pane active"
                     id="datasetComment-write"
                   >
-                    <div class="meldown_wrap" style="width: 787px;">
-                      <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
-                      </div>
-                    </div>
-                    {{textarea id="datasetcomment" value=comment.text name="text"
-                        class="form-control" focus-out="updatePreview"}}
+                    {{textarea value=comment.text name="text" class="form-control" focus-out="updatePreview"}}
                   </div>
                   <div
                     role="tabpanel"
-                    class="tab-pane commentsArea"
+                    class="tab-pane"
                     id="datasetComment-preview"
                   >
                   </div>
@@ -393,20 +323,12 @@
                               {{ dataset.name }}
                             {{/link-to}}
                           </div>
-                          {{#if dataset.owners}}
                           <div class="col-xs-12">
-                            <span class="prop-label">owner:</span>
-                            {{#each owner in dataset.owners}}
-                              <p style="display:inline" title={{owner.name}}>{{ owner.userName }} </p>
-                            {{/each}}
+                            {{ dataset.properties.owner }}
                           </div>
-                          {{/if}}
-                          {{#if dataset.formatedModified}}
                           <div class="col-xs-12">
-                            <span class="prop-label">last modified:</span>
-                            {{ dataset.formatedModified }}
+                            {{ dataset.properties.lastAlterTime }}
                           </div>
-                          {{/if}}
                         </div>
                         <div class="col-md-4 text-right">
                           <ul class="datasetTableLinks">
@@ -416,10 +338,6 @@
                               <span class="source">
                                 {{ dataset.source }}
                               </span>
-                            </li>
-                            <li class="text-center">
-                              {{#dataset-owner dataset=dataset action="owned"}}
-                              {{/dataset-owner}}
                             </li>
                             <li
                               class="text-center"
@@ -519,11 +437,9 @@
                     <i class="glyphicon glyphicon-ok"></i>
                   {{/if}}
                 </td>
-                <td class="commentsArea">
-                  <div class="commentsArea">
-                    {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
-                    {{schema.commentHtml}}
-                  </div>
+                <td>
+                  {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
+                  {{schema.commentHtml}}
                 </td>
               </tr>
               {{/each}}
@@ -571,7 +487,7 @@
                           Default
                         </div>
                       {{/if}}
-                      <div class="text wrap-all-word comment-text commentsArea">
+                      <div class="text wrap-all-word comment-text">
                         {{comment.html}}
                       </div>
                       <div class="meta">
@@ -772,43 +688,11 @@
                     role="tabpanel"
                     class="tab-pane active"
                     id="datasetSchemaComment-write">
-                    <div class="meldown_wrap" style="width: 787px;">
-                      <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_delimiter">
-                      </div>
-                      <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
-                      </div>
-                      <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
-                      </div>
-                    </div>
-                    {{textarea id="datasetschemacomment" value=comment.text name="text" class="form-control" focus-out="updatePreview"}}
+                    {{textarea value=comment.text name="text" class="form-control" focus-out="updatePreview"}}
                   </div>
                   <div
                     role="tabpanel"
-                    class="tab-pane commentsArea"
+                    class="tab-pane"
                     id="datasetSchemaComment-preview">
                   </div>
                   <div
@@ -931,60 +815,6 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="owner">
-      <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
-        <div class="col-xs-12">
-          <div class="btn-group" role="group">
-            <button id="addownerbtn" type="button" class="btn btn-default" {{action "addOwner" owners}}>
-              <i class="fa fa-plus" title="add an owner">
-              </i>
-            </button>
-            <button type="button" class="btn btn-default" {{action "updateOwners" owners}}>
-              <i class="fa fa-save" title="save the change">
-              </i>
-            </button>
-          </div>
-          {{#if showMsg}}
-            <div {{bind-attr class=":alert alertType"}} role="alert">{{ownerMessage}}</div>
-          {{/if}}
-        </div>
-      </div>
-
-      <table class="table table-striped" style="word-break: break-all;">
-        <thead>
-          <tr>
-            <th class="col-xs-2">User Name</th>
-            <th class="col-xs-3">Full Name</th>
-            <th class="col-xs-1">Is Group</th>
-            <th class="col-xs-1">Owner Type</th>
-            <th class="col-xs-1">Owner Sub Type</th>
-            <th class="col-xs-1"></th>
-          </tr>
-        </thead>
-        <tbody id = "sortedownertable">
-          {{#each owner in owners}}
-          <tr>
-            <td>{{input class="userEntity" value=owner.userName}}</td>
-            <td>{{owner.name}}</td>
-            <td>
-              {{input type="checkbox" name="isGroup" checked=owner.isGroup disabled=true}}
-            </td>
-            <td>
-              {{view "select" content=ownerTypes classNames="ownertypeselector" value=owner.type}}
-            </td>
-            <td>
-              {{input value=owner.subType}}
-            </td>
-            <td>
-              <i class="fa fa-trash" title="remove this owner" {{action "removeOwner" owners owner}}>
-              </i>
-            </td>
-          </tr>
-          {{/each}}
-        </tbody>
-      </table>
-    </script>
-
     <script type="text/x-handlebars" data-template-name="sample">
       {{#if hasSamples}}
         {{#if isHDFS}}
@@ -1028,15 +858,7 @@
           {{#each impact in impacts}}
             <tr>
               <td>{{impact.level}}</td>
-              <td>
-                {{#if impact.isValidDataset}}
-                  <a {{bind-attr href=impact.datasetUrl}}>
-                    {{impact.name}}
-                  </a>
-                {{else}}
-                  {{impact.name}}
-                {{/if}}
-              </td>
+              <td>{{impact.name}}</td>
               <td>{{impact.urn}}</td>
             </tr>
             {{/each}}
@@ -1307,9 +1129,9 @@
                   {{/if}}
                 </span>
               </li>
-              {{#if model.nertzLink}}
+              {{#if model.hdfsBrowserLink}}
               <li>
-                <a target="_blank" {{bind-attr href=model.nertzLink}}
+                <a target="_blank" {{bind-attr href=model.hdfsBrowserLink}}
                   title="View on HDFS">
                   <i class="fa fa-database"></i>
                   <span class="hidden-sm hidden-xs">
@@ -1326,16 +1148,6 @@
                   </span>
                 </a>
               </li>
-              {{#if model.hasSchemaHistory}}
-                <li>
-                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}>
-                    <i class="fa fa-history"></i>
-                    <span class="hidden-sm hidden-xs">
-                      Schema History
-                    </span>
-                  </a>
-                </li>
-              {{/if}}
               <li>
                 {{#dataset-watch dataset=model getDatasets="getDataset"}}
                 {{/dataset-watch}}
@@ -1365,7 +1177,6 @@
           </li>
           {{/unless}}
           <li id="schemas" class="active"><a data-toggle="tab" href="#schematab">Schema</a></li>
-          <li id="ownership"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
           {{#unless isSFDC}}
             <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
           {{/unless}}
@@ -1387,9 +1198,6 @@
           {{/unless}}
           <div id="schematab" class="tab-pane active">
             {{view "schema"}}
-          </div>
-          <div id="ownertab" class="tab-pane">
-            {{view "owner"}}
           </div>
           {{#unless isSFDC}}
             <div id="sampletab" class="tab-pane">
@@ -1440,22 +1248,6 @@
           <div id="schema" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="schemaHeading">
             <div class="panel-body">
               {{view "schema"}}
-            </div>
-          </div>
-        </div>
-
-        <div class="panel panel-default">
-          <div class="panel-heading" role="tab" id="ownershipHeading">
-            <h4 class="panel-title">
-              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
-                href="#ownership" aria-expanded="false" aria-controls="ownership">
-                Ownership
-              </a>
-            </h4>
-          </div>
-          <div id="ownership" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ownershipHeading">
-            <div class="panel-body">
-              {{view "owner"}}
             </div>
           </div>
         </div>
