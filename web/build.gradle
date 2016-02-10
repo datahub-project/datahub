@@ -1,7 +1,5 @@
 apply plugin: 'java'
 apply plugin: 'scala'
-// For those using Eclipse or IntelliJ IDEA
-// apply plugin: 'eclipse'
 apply plugin: 'idea'
 
 def findPlay20(){
