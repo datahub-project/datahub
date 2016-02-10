@@ -28,7 +28,7 @@ public class Dataset {
     public Date modified;
     public String formatedModified;
     public String schema;
-    public String nertzLink;
+    public String hdfsBrowserLink;
     public boolean isFavorite;
     public boolean isOwned;
     public long watchId;
