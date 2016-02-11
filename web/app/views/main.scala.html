@@ -1,4 +1,4 @@
-@(user: String, csrfToken: String)(content: Html)
+@(user: String, csrfToken: String, isInternal:Boolean)(content: Html)
 @import helper._
 
 <!DOCTYPE html>
@@ -86,13 +86,15 @@
 										</span>
 									</a>
 								</li>
-								<li>
-									<a href="/idpc">
-										<span>
-											IDPC
-										</span>
-									</a>
-								</li>
+								@if(isInternal) {
+									<li>
+										<a href="/idpc">
+											<span>
+												IDPC
+											</span>
+										</a>
+									</li>
+								}
 							</ul>
 						</li>
 					</ul>
