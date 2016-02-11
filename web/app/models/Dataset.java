@@ -16,6 +16,7 @@ package models;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import java.util.Date;
+import java.util.List;
 
 public class Dataset {
 
@@ -25,11 +26,15 @@ public class Dataset {
     public String urn;
     public Date created;
     public Date modified;
+    public String formatedModified;
     public String schema;
-    public String nertzLink;
+    public String hdfsBrowserLink;
     public boolean isFavorite;
+    public boolean isOwned;
     public long watchId;
     public boolean isWatched;
+    public boolean hasSchemaHistory;
     public JsonNode properties;
+    public List<User> owners;
 
 }

@@ -61,5 +61,30 @@ public class User extends Controller
         return ok(result);
     }
 
+    public static Result getAllCompanyUsers()
+    {
+        ObjectNode result = Json.newObject();
 
+        result.put("status", "ok");
+        result.set("employees", Json.toJson(UserDAO.getAllCompanyUsers()));
+        return ok(result);
+    }
+
+    public static Result getAllGroups()
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("groups", Json.toJson(UserDAO.getAllGroups()));
+        return ok(result);
+    }
+
+    public static Result getAllUserEntities()
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("userEntities", Json.toJson(UserDAO.getAllUserEntities()));
+        return ok(result);
+    }
 }

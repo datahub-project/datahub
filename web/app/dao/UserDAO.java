@@ -41,6 +41,16 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_USER_INFO_BY_USERNAME = "SELECT id, password_digest, " +
 			"authentication_type FROM users WHERE username = ? and authentication_type = 'default'";
 
+	private final static String GET_ALL_COMPANY_USERS = "SELECT DISTINCT user_id as id, display_name as name " +
+			"FROM dir_external_user_info";
+
+	private final static String GET_ALL_GROUPS = "SELECT DISTINCT group_id as name FROM dir_external_group_user_map " +
+			"WHERE group_id is not null and group_id != ''";
+
+	private final static String GET_ALL_COMPANY_USERS_AND_GROUPS = "SELECT DISTINCT user_id as id, " +
+			"display_name as name, 'indiviual person' as category FROM dir_external_user_info " +
+			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category FROM dir_external_group_user_map";
+
 	private final static String PASSWORD_COLUMN = "password_digest";
 
 	private final static String DEFAULT_DETAIL_VIEW = "accordion";
@@ -228,5 +238,74 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			message = "User not found";
 		}
 		return message;
+	}
+
+	public static List<CompanyUser> getAllCompanyUsers()
+	{
+		List<CompanyUser> users = new ArrayList<CompanyUser>();
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_ALL_COMPANY_USERS);
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				String userName = (String)row.get(UserRowMapper.USER_ID_COLUMN);
+				String displayName = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+				if (StringUtils.isNotBlank(userName))
+				{
+					CompanyUser user = new CompanyUser();
+					user.userName = userName;
+					user.displayName = displayName;
+					users.add(user);
+				}
+			}
+		}
+		return users;
+	}
+
+	public static List<Group> getAllGroups()
+	{
+		List<Group> groups = new ArrayList<Group>();
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_ALL_GROUPS);
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				String name = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+				if (StringUtils.isNotBlank(name))
+				{
+					Group group = new Group();
+					group.name = name;
+					groups.add(group);
+				}
+			}
+		}
+		return groups;
+	}
+
+	public static List<UserEntity> getAllUserEntities()
+	{
+		List<UserEntity> userEntities = new ArrayList<UserEntity>();
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_ALL_COMPANY_USERS_AND_GROUPS);
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				String label = (String)row.get(UserRowMapper.USER_ID_COLUMN);
+				String displayName = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+				String category = (String)row.get(UserRowMapper.CATEGORY_COLUMN);
+				if (StringUtils.isNotBlank(label))
+				{
+					UserEntity user = new UserEntity();
+					user.label = label;
+					user.displayName = displayName;
+					user.category = category;
+					userEntities.add(user);
+				}
+			}
+		}
+		return userEntities;
 	}
 }

@@ -13,12 +13,9 @@
  */
 package models;
 
-public class ImpactDataset {
+public class UserEntity {
 
-    public Long id;
-    public String urn;
-    public String name;
-    public int level;
-    public Boolean isValidDataset;
-    public String datasetUrl;
+    public String label;
+    public String category;
+    public String displayName;
 }

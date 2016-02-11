@@ -29,6 +29,7 @@ public class UserRowMapper implements RowMapper<User>
     public static String USER_DEPARTMENT_NUMBER_COLUMN = "department_number";
     public static String USER_SETTING_DETAIL_DEFAULT_VIEW_COLUMN = "detail_default_view";
     public static String USER_SETTING_DEFAULT_WATCH_COLUMN = "default_watch";
+    public static String CATEGORY_COLUMN = "category";
 
     @Override
     public User mapRow(ResultSet rs, int rowNum) throws SQLException

@@ -29,11 +29,21 @@ GET     /lineage/flow/:application/:project/:flow   controllers.Application.flow
 
 GET     /schemaHistory                              controllers.Application.schemaHistory()
 
+GET     /api/v1/company/entities            controllers.api.v1.User.getAllUserEntities()
+
+GET     /api/v1/company/employees           controllers.api.v1.User.getAllCompanyUsers()
+
+GET     /api/v1/company/groups              controllers.api.v1.User.getAllGroups()
+
 GET     /api/v1/autocomplete/search         controllers.api.v1.Search.getSearchAutoComplete()
 
 GET     /api/v1/datasets                    controllers.api.v1.Dataset.getPagedDatasets()
 
 GET     /api/v1/datasets/:id                controllers.api.v1.Dataset.getDatasetByID(id:Int)
+
+GET     /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.getDatasetOwnersByID(id:Int)
+
+POST    /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
 
 GET     /api/v1/datasets/:id/columns        controllers.api.v1.Dataset.getDatasetColumnsByID(id:Int)
 
@@ -82,6 +92,10 @@ GET     /api/v1/favorites                           controllers.api.v1.Dataset.g
 POST    /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.favoriteDataset(id:Int)
 
 DELETE  /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
+
+POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.ownDataset(id:Int)
+
+DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
 
 GET     /api/v1/search/:keyword                     controllers.api.v1.Search.searchByKeyword(keyword:String)
 

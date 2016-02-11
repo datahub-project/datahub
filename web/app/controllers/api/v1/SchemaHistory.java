@@ -49,6 +49,20 @@ public class SchemaHistory extends Controller
             }
         }
 
+        Long datasetId = 0L;
+        String datasetIdStr = request().getQueryString("datasetId");
+        if (StringUtils.isNotBlank(datasetIdStr))
+        {
+            try
+            {
+                datasetId = Long.parseLong(datasetIdStr);
+            }
+            catch(NumberFormatException e)
+            {
+                datasetId = 0L;
+            }
+        }
+
         int size = 10;
         String sizeStr = request().getQueryString("size");
         if (StringUtils.isBlank(sizeStr))
@@ -70,7 +84,7 @@ public class SchemaHistory extends Controller
         }
 
         result.put("status", "ok");
-        result.set("data", SchemaHistoryDAO.getPagedSchemaDataset(name, page, size));
+        result.set("data", SchemaHistoryDAO.getPagedSchemaDataset(name, datasetId, page, size));
         return ok(result);
     }
 

@@ -13,12 +13,14 @@
  */
 package models;
 
-public class ImpactDataset {
+public class DatasetOwner {
 
-    public Long id;
-    public String urn;
+    public String userName;
+    public String email;
     public String name;
-    public int level;
-    public Boolean isValidDataset;
-    public String datasetUrl;
+    public Boolean isGroup;
+    public String namespace;
+    public String type;
+    public String subType;
+    public Integer sortId;
 }

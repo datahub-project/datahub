@@ -1,3 +1,185 @@
+var insertAtCursor = function( myField, myValue, newline ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var value;
+    if (newline)
+    {
+      value = myField.val().substring(0, startPos) + '\n' +
+          myValue + myField.val().substring(endPos, myField.val().length);
+    }
+    else
+    {
+      value = myField.val().substring(0, startPos) +
+          myValue + myField.val().substring(endPos, myField.val().length);
+    }
+
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + myValue.length;
+  } else {
+    var value;
+    if (newline)
+    {
+      value = myField.val() + '\n' + myValue;
+    }
+    else
+    {
+      value = myField.val() + myValue;
+    }
+
+    myField.val(value);
+  }
+};
+
+var insertListAtCursor = function( myField, myValue, number ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "";
+    if (selection)
+    {
+      var lines = selection.split('\n');
+      for(var i = 0; i < lines.length; i++)
+      {
+        if (number == 'numbered')
+        {
+          insertvalue += (i+1) + ".";
+        }
+        else if(number == 'bulleted')
+        {
+          insertvalue += "-";
+        }
+        else if(number == 'blockquote')
+        {
+          insertvalue += "> ";
+        }
+        insertvalue += " " + lines[i];
+        if (i < lines.length)
+        {
+          insertvalue += "\n";
+        }
+      }
+      value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+      myField.val(value);
+      myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+      return;
+    }
+  }
+
+  var lines = myValue.split('\n');
+  for(var i = 0; i < lines.length; i++)
+  {
+    if (number == 'numbered')
+    {
+      insertvalue += (i+1) + ".";
+    }
+    else if(number == 'bulleted')
+    {
+      insertvalue += "-";
+    }
+    else if(number == 'blockquote')
+    {
+      insertvalue += ">";
+    }
+    insertvalue += " " + lines[i];
+    if (i < lines.length)
+    {
+      insertvalue += "\n";
+    }
+  }
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
+var insertSourcecodeAtCursor = function( myField ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "```\n";
+    if (selection) {
+      insertvalue += selection + '\n```';
+    }
+    else {
+      insertvalue += 'code text' + '\n```\n';
+    }
+    value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+    return;
+  }
+  var insertvalue = "```\n";
+  insertvalue += 'code text' + '\n```\n';
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
+var insertImageAtCursor = function( myField, param ) {
+  if( myField[0].selectionStart || myField[0].selectionStart == '0' ) {
+    var startPos = myField[0].selectionStart;
+    var endPos = myField[0].selectionEnd;
+    var selection;
+    var value;
+    if (endPos > startPos)
+    {
+      selection = myField.val().substring(startPos, endPos);
+    }
+    var insertvalue = "";
+    if (selection && selection.length > 0 &&
+        (selection.substr(0,7) == 'http://' || selection.substr(0,7) == 'https:/')) {
+      if (param == 'image')
+      {
+        insertvalue = "[alt text]("+ selection +")";
+      }
+      else
+      {
+        insertvalue =  "["+ selection +"]("+ selection + ")";
+      }
+
+    }
+    else {
+      if (param == 'image')
+      {
+        insertvalue = "![alt text](http://path/to/img.jpg)";
+      }
+      else
+      {
+        insertvalue = "[example link](http://example.com/)";
+      }
+
+    }
+    value = myField.val().substring(0, startPos) + insertvalue + myField.val().substring(endPos, myField.val().length);
+    myField.val(value);
+    myField[0].selectionEnd = myField.selectionStart = startPos + insertvalue.length;
+    return;
+  }
+  if (param == 'image')
+  {
+    insertvalue = "![alt text](http://path/to/img.jpg)";
+  }
+  else
+  {
+    insertvalue = "[example link](http://example.com/)";
+  }
+  value = myField.val() + '\n' + insertvalue;
+  myField.val(value);
+};
+
+var updatePreview = function(){
+  var text = $("#datasetSchemaComment-write > textarea").val()
+  $("#datasetSchemaComment-preview").html(marked(text))
+}
 App.SchemaCommentComponent = Ember.Component.extend({
   comments: [],
   page: null,
@@ -131,6 +313,90 @@ App.SchemaCommentComponent = Ember.Component.extend({
     }
   },
   actions: {
+    insertImageOrLink: function(param) {
+      var target = $('#datasetschemacomment');
+      insertImageAtCursor(target, param);
+      updatePreview();
+    },
+    insertSourcecode: function() {
+      var target = $('#datasetschemacomment');
+      insertSourcecodeAtCursor(target);
+      updatePreview();
+    },
+    insertList: function(param) {
+      var target = $('#datasetschemacomment');
+      var value = "Apple\nBananna\nOrange";
+      insertListAtCursor(target, value, param);
+      updatePreview();
+    },
+    insertElement: function(param) {
+      var target = $('#datasetschemacomment');
+      var value;
+      switch(param)
+      {
+        case 'bold':
+          value = "**" + param + " text**";
+          break;
+        case 'italic':
+          value = "*" + param + " text*";
+          break;
+        case 'heading_1':
+          value = "#" + param + " text#";
+          break;
+        case 'heading_2':
+          value = "##" + param + " text##";
+          break;
+        case 'heading_3':
+          value = "###" + param + " text###";
+          break;
+      }
+      insertAtCursor(target, value, false);
+      updatePreview();
+    },
+    importCSVTable: function(){
+
+      var input = $('#tsv-input');
+      var output = $('#table-output');
+
+      var headerCheckbox = $('#has-headers');
+      var delimiterMarker = $('#delimiter-marker');
+
+      var getDelimiter = function() {
+        var delim = delimiterMarker.val();
+        if( delim == 'tab' ) {
+          delim = "\t";
+        }
+
+        return delim;
+      };
+
+      input.keydown(function( e ) {
+        if( e.key == 'tab' ) {
+          e.stop();
+          insertAtCursor(e.target, "\t");
+        }
+      });
+
+      var renderTable = function() {
+        var value = input.val().trim();
+        var hasHeader = headerCheckbox.is(":checked");
+
+        var t = csvToMarkdown(value, getDelimiter(), hasHeader);
+        output.val(csvToMarkdown(value, getDelimiter(), hasHeader));
+      };
+
+      input.keyup(renderTable);
+      headerCheckbox.change(renderTable);
+      delimiterMarker.change(renderTable);
+      $('#submitConvertForm').click(function(){
+        $("#convertTableModal").modal('hide')
+        var target = $('#datasetschemacomment');
+        insertAtCursor(target, output.val(), true);
+        updatePreview();
+      });
+      renderTable();
+      $("#convertTableModal").modal('show');
+    },
     create: function() {
       var _this = this;
       var token = $("#csrfToken").val().replace('/', '')

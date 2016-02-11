@@ -13,12 +13,8 @@
  */
 package models;
 
-public class ImpactDataset {
+public class CompanyUser {
 
-    public Long id;
-    public String urn;
-    public String name;
-    public int level;
-    public Boolean isValidDataset;
-    public String datasetUrl;
+    public String userName;
+    public String displayName;
 }
