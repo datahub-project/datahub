@@ -1,0 +1,387 @@
+@(user: String)
+  @main(user, "") {
+    <div id="content">
+      <script type="text/x-handlebars" id="jira">
+        <div id="schemaView" class="container-fluid">
+          <div class="col-xs-12">
+            <div class="row">
+              <div class="col-xs-12">
+                <h3>Jira - Closed Account Auto Purge</h3>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-xs-12 well well-sm">
+                <ul class="breadcrumbs">
+                  {{#each crumb in breadcrumbs}}
+                    <li>
+                      <a {{bind-attr href=crumb.idpcUrl title=crumb.title }}>
+                        {{ crumb.title }}
+                      </a>
+                    </li>
+                  {{/each}}
+                </ul>
+              </div>
+            </div>
+            <ul id="jiratabs" class="nav nav-tabs">
+              <li id="headlesspage">
+                <a id="headlesstablink" data-toggle="tab" href="#headlesstab">Headless</a>
+              </li>
+              <li id="userpage">
+                <a id="usertablink" data-toggle="tab" href="#usertab">User</a>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div id="headlesstab" class="tab-pane">
+                <div class="row">
+                  <div class="col-xs-12 col-md-4">
+                    <h4>Tickets for {{ selectedUser.displayName }}</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total</th>
+                          <th class="text-center">Open</th>
+                          <th class="text-center">Closed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <img {{bind-attr src=selectedUser.iconUrl title=selectedUser.displayName }}
+                              width="25px"
+                              height="25px"/>
+                            <a {{bind-attr href=selectedUser.orgHierarchy title=selectedUser.displayName }}>
+                              {{ selectedUser.displayName }}
+                            </a>
+                          </td>
+                          <td class="text-center">{{ selectedUser.headlessTicketsCompletion }}%</td>
+                          <td class="text-center">{{ selectedUser.totalHeadlessTickets }}</td>
+                          <td class="text-center">{{ selectedUser.openedHeadlessTickets }}</td>
+                          <td class="text-center">{{ selectedUser.closedHeadlessTickets }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <h4>Tickets Roll-Up for Headless Group</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total</th>
+                          <th class="text-center">Open</th>
+                          <th class="text-center">Closed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#if membersInProgress}}
+                          <tr>
+                            <td colspan="5" class="text-center">
+                              <div class="row">
+                                <div class="col-xs-12">
+                                  <i class="fa fa-spinner spinning fa-4x">
+                                  </i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{else}}
+                          {{#if userNoMembers}}
+                            <tr>
+                              <td colspan="5">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no one that reports to them.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each user in members}}
+                              <tr>
+                                <td>
+                                  <img {{bind-attr src=user.iconUrl title=user.displayName }}
+                                    width="25px"
+                                    height="25px"/>
+                                  <a {{bind-attr href=user.url title=user.displayName }}>
+                                    {{ user.displayName }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ user.headlessTicketsCompletion }}%</td>
+                                <td class="text-center">{{ user.totalHeadlessTickets }}</td>
+                                <td class="text-center">{{ user.openedHeadlessTickets }}</td>
+                                <td class="text-center">{{ user.closedHeadlessTickets }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                        {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="col-xs-12 col-md-8">
+                    <div class="row">
+                      <div class="col-xs-9">
+                        <h4>List of Headless Group Tickets</h4>
+                      </div>
+                      <div class="col-xs-3 headerBarFilter">
+                        <form class="form-inline">
+                          <div class="form-group">
+                            <label>Sort Options</label>
+                            <select class="form-control">
+                              {{#each option in sortOptions}}
+                                <option {{bind-attr value=option }}>{{option}}
+                                </option>
+                              {{/each}}
+                            </select>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                    <table class="table table-bordered table-condensed table-hover table-striped">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Assignee</th>
+                          <th class="text-center">Ticket</th>
+                          <th class="text-center">Status</th>
+                          <th class="text-center">HDFS Name</th>
+                          <th class="text-center">Directory Path</th>
+                          <th class="text-center">Total Size (MB)</th>
+                          <th class="text-center"># of Files</th>
+                          <th class="text-center">Last Update Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#if ticketsInProgress}}
+                          <tr>
+                            <td colspan="8" class="text-center">
+                              <div class="row">
+                                <div class="col-xs-12">
+                                  <i class="fa fa-spinner spinning fa-4x">
+                                  </i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{else}}
+                          {{#if headlessNoTickets}}
+                            <tr>
+                              <td colspan="8">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no tickets.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each ticket in headlessTickets}}
+                              <tr>
+                                <td>
+                                  <img {{bind-attr src=ticket.assigneeIconUrl title=ticket.assigneeDisplayName }}
+                                    width="25px"
+                                    height="25px"/>
+                                  {{ ticket.assigneeDisplayName }}
+                                </td>
+                                <td class="text-center">
+                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.jiraKey }} target="_blank">
+                                    {{ ticket.jiraKey }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ ticket.jiraStatus }}</td>
+                                <td class="text-center">{{ ticket.hdfsName }}</td>
+                                <td class="text-left">{{ ticket.directoryPath }}</td>
+                                <td class="text-right">{{ ticket.totalSizeMb }}</td>
+                                <td class="text-right">{{ ticket.numOfFiles}}</td>
+                                <td class="text-center">{{ ticket.jiraLastUpdatedTime }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                        {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <div id="usertab" class="tab-pane">
+                <div class="row">
+                  <div class="col-xs-12 col-md-4">
+                    <h4>Tickets for {{ selectedUser.displayName }}</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total</th>
+                          <th class="text-center">Open</th>
+                          <th class="text-center">Closed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <img {{bind-attr src=selectedUser.iconUrl title=selectedUser.displayName }}
+                              width="25px"
+                              height="25px"/>
+                            <a {{bind-attr href=selectedUser.orgHierarchyUrl title=selectedUser.displayName }}>
+                              {{ selectedUser.displayName }}
+                            </a>
+                          </td>
+                          <td class="text-center">{{ selectedUser.userCompletion }}%</td>
+                          <td class="text-center">{{ selectedUser.userTotalTickets  }}</td>
+                          <td class="text-center">{{ selectedUser.userOpenTickets }}</td>
+                          <td class="text-center">{{ selectedUser.userClosedTickets  }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <h4>Ticket Roll-Up for Individual User</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total</th>
+                          <th class="text-center">Open</th>
+                          <th class="text-center">Closed</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#if membersInProgress}}
+                          <tr>
+                            <td colspan="5" class="text-center">
+                              <div class="row">
+                                <div class="col-xs-12">
+                                  <i class="fa fa-spinner spinning fa-4x">
+                                  </i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{else}}
+                          {{#if userNoMembers}}
+                            <tr>
+                              <td colspan="5">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no one that reports to them.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each user in members}}
+                              <tr>
+                                <td>
+                                  <img {{bind-attr src=user.iconUrl title=user.displayName }}
+                                    width="25px"
+                                    height="25px"/>
+                                  <a {{bind-attr href=user.orgHierarchyUrl title=user.displayName }}>
+                                    {{ user.displayName }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ user.userCompletion }}%</td>
+                                <td class="text-center">{{ user.userTotalTickets }}</td>
+                                <td class="text-center">{{ user.userOpenTickets }}</td>
+                                <td class="text-center">{{ user.userClosedTickets }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                        {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="col-xs-12 col-md-8">
+                    <div class="row">
+                      <div class="col-xs-9">
+                        <h4>List of User Tickets</h4>
+                      </div>
+                      <div class="col-xs-3 headerBarFilter">
+                        <form class="form-inline">
+                          <div class="form-group">
+                            <label>Sort Options</label>
+                            <select class="form-control">
+                              {{#each option in sortOptions}}
+                                <option {{bind-attr value=option }}>{{option}}
+                                </option>
+                              {{/each}}
+                            </select>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                    <table class="table table-bordered table-condensed table-hover table-striped">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Assignee</th>
+                          <th class="text-center">Ticket</th>
+                          <th class="text-center">Status</th>
+                          <th class="text-center">HDFS Name</th>
+                          <th class="text-center">Directory Path</th>
+                          <th class="text-center">Total Size (Mb)</th>
+                          <th class="text-center"># of Files</th>
+                          <th class="text-center">Last Update Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#if ticketsInProgress}}
+                          <tr>
+                            <td colspan="8" class="text-center">
+                              <div class="row">
+                                <div class="col-xs-12">
+                                  <i class="fa fa-spinner spinning fa-4x">
+                                  </i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{else}}
+                          {{#if userNoTickets}}
+                            <tr>
+                              <td colspan="8">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no tickets.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each ticket in userTickets}}
+                              <tr>
+                                <td>
+                                  <img {{bind-attr src=ticket.currentAssigneeIconUrl
+                                    title=ticket.currentAssigneeDisplayName }}
+                                    width="25px"
+                                    height="25px"/>
+                                  {{ ticket.assigneeDisplayName }}
+                                </td>
+                                <td class="text-center">
+                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.jiraKey }} target="_blank">
+                                    {{ ticket.ticketKey }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ ticket.ticketStatus }}</td>
+                                <td class="text-center">{{ ticket.ticketHdfsName }}</td>
+                                <td class="text-left">{{ ticket.ticketDirectoryPath }}</td>
+                                <td class="text-right">{{ ticket.ticketTotalSize }}</td>
+                                <td class="text-right">{{ ticket.ticketNumOfFiles}}</td>
+                                <td class="text-center">{{ ticket.jiraLastUpdatedTime }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                        {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </script>
+    </div>
+
+    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember-template-compiler.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("javascripts/idpc.js")" type="text/javascript"></script>
+  }
