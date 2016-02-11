@@ -131,12 +131,13 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result idpc()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(idpc.render(username));
+        return ok(idpc.render(username, isInternal));
     }
 
     public static Result login()
