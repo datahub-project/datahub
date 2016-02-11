@@ -118,4 +118,8 @@ public class Constant {
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
 
+  // dali
+  public static final String DALI_GIT_URN_KEY = "dali.git.urn";
+  public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
+
 }
