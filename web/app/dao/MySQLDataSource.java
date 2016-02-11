@@ -23,6 +23,10 @@ public class MySQLDataSource extends DataSource
     public static String DATABASE_WHEREHOWS_OPENSOURCE_USER_NAME_KEY = "database.opensource.username";
     public static String DATABASE_WHEREHOWS_OPENSOURCE_USER_PASSWORD_KEY = "database.opensource.password";
     public static String DATABASE_WHEREHOWS_OPENSOURCE_URL_KEY = "database.opensource.url";
+    public static String DATABASE_WHEREHOWS_DB = "wherehows_mysql";
+    public static String DATABASE_WHEREHOWS_DB_USER_NAME_KEY = "database.wherehows.username";
+    public static String DATABASE_WHEREHOWS_DB_USER_PASSWORD_KEY = "database.wherehows.password";
+    public static String DATABASE_WHEREHOWS_DB_URL_KEY = "database.wherehows.url";
 
   @Override
   public String getType()
@@ -39,6 +43,13 @@ public class MySQLDataSource extends DataSource
           setPassword(Play.application().configuration().getString(DATABASE_WHEREHOWS_OPENSOURCE_USER_PASSWORD_KEY));
           setJdbcUrl(Play.application().configuration().getString(DATABASE_WHEREHOWS_OPENSOURCE_URL_KEY));
 	  }
+      else if (StringUtils.isNotBlank(identifier) && identifier.equalsIgnoreCase(DATABASE_WHEREHOWS_DB))
+      {
+          setUsername(Play.application().configuration().getString(DATABASE_WHEREHOWS_DB_USER_NAME_KEY));
+          setPassword(Play.application().configuration().getString(DATABASE_WHEREHOWS_DB_USER_PASSWORD_KEY));
+          setJdbcUrl(Play.application().configuration().getString(DATABASE_WHEREHOWS_DB_URL_KEY));
+      }
+
 	  setIdleConnectionTestPeriodInMinutes(1);
 	  setIdleMaxAgeInMinutes(1);
 	  setMaxConnectionsPerPartition(10);
