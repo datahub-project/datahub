@@ -1,5 +1,5 @@
-@(user: String)
-  @main(user, "") {
+@(user: String, isInternal:Boolean)
+  @main(user, "", isInternal) {
     <div id="content">
       <script type="text/x-handlebars" id="jira">
         <div id="schemaView" class="container-fluid">
