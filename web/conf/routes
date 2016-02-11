@@ -35,6 +35,8 @@ GET     /schemaHistory                              controllers.Application.sche
 
 GET     /api/v1/owner/types                 controllers.api.v1.Dataset.getDatasetOwnerTypes()
 
+GET     /idpc                               controllers.Application.idpc()
+
 GET     /api/v1/party/entities              controllers.api.v1.User.getAllUserEntities()
 
 GET     /api/v1/party/employees             controllers.api.v1.User.getAllCompanyUsers()
@@ -175,7 +177,13 @@ GET     /api/v1/lineage/flow/:application/:project/:flowId   controllers.api.v1.
 
 GET     /api/v1/schemaHistory/datasets              controllers.api.v1.SchemaHistory.getPagedDatasets()
 
+GET     /api/v1/jira/ldapinfo                       controllers.api.v1.Jira.getLdapInfo()
+
+GET     /api/v1/jira/members/:managerId             controllers.api.v1.Jira.getFirstLevelLdapInfo(managerId :String)
+
 GET     /api/v1/schemaHistory/historyData/:id       controllers.api.v1.SchemaHistory.getSchemaHistory(id: Int)
+
+GET     /api/v1/jira/tickets/:managerId             controllers.api.v1.Jira.getJiraTickets(managerId :String)
 
 POST    /api/v1/tracking                            controllers.api.v1.Tracking.addTrackingEvent()
 
