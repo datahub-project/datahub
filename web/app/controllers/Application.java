@@ -25,6 +25,7 @@ import views.html.index;
 import views.html.login;
 import views.html.lineage;
 import views.html.schemaHistory;
+import views.html.idpc;
 import static play.data.Form.form;
 import org.apache.commons.lang3.StringUtils;
 import security.AuthenticationManager;
@@ -105,6 +106,17 @@ public class Application extends Controller
             username = "";
         }
         return ok(schemaHistory.render(username));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result idpc()
+    {
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+        return ok(idpc.render(username));
     }
 
     public static Result login()
