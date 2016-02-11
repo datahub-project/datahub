@@ -15,6 +15,7 @@ package controllers;
 
 import dao.FlowsDAO;
 import dao.UserDAO;
+import play.Play;
 import play.data.DynamicForm;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -33,10 +34,12 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
+    private static String LINKEDIN_INTERNAL_KEY = "linkedin.internal";
 
     @Security.Authenticated(Secured.class)
     public static Result index()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
@@ -44,45 +47,49 @@ public class Application extends Controller
         }
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(index.render(username, csrfToken));
+        return ok(index.render(username, csrfToken, isInternal));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result lineage()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "chains", 0, null, null, null));
+        return ok(lineage.render(username, isInternal, "chains", 0, null, null, null));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result datasetLineage(int id)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "dataset", id, null, null, null));
+        return ok(lineage.render(username, isInternal, "dataset", id, null, null, null));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result metricLineage(int id)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "metric", id, null, null, null));
+        return ok(lineage.render(username, isInternal, "metric", id, null, null, null));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result flowLineage(String application, String project, String flow)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
@@ -94,36 +101,39 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(lineage.render(username, type, 0, application.replace(" ", "."), project, flow));
+        return ok(lineage.render(username, isInternal, type, 0, application, project, flow));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result schemaHistory()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(schemaHistory.render(username));
+        return ok(schemaHistory.render(username, isInternal));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result idpc()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(idpc.render(username));
+        return ok(idpc.render(username, isInternal));
     }
 
     public static Result login()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(login.render(csrfToken));
+        return ok(login.render(csrfToken, isInternal));
     }
 
     public static Result authenticate()
