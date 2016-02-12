@@ -37,14 +37,14 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String GET_JOB = "SELECT ca.app_id, ca.app_code as cluster, je.flow_id, je.job_id, jedl.job_name, " +
 			"fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, " +
-			"jedl.job_exec_id, FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
+			"max(jedl.job_exec_id) as job_exec_id, FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
 			"FROM_UNIXTIME(jedl.job_finished_unixtime) as end_time FROM job_execution_data_lineage jedl " +
 			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
 			"JOIN job_execution je on jedl.app_id = je.app_id " +
 			"and jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
 			"JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
 			"WHERE abstracted_object_name = ? and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY";
+			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY GROUP BY ca.app_id, je.job_id, je.flow_id";
 
 	private final static String GET_DATA = "SELECT storage_type, operation, " +
 			"abstracted_object_name, source_target_type " +
@@ -79,9 +79,9 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
 			"WHERE jedl.app_id = ? and jedl.flow_exec_id = ? ORDER BY jedl.partition_end DESC";
 
-	private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT j.storage_type, " +
-			"j.abstracted_object_name, d.id FROM job_execution_data_lineage j " +
-			"Left join dict_dataset d on substring_index(d.urn, '://', -1) = j.abstracted_object_name " +
+    private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT j.storage_type, " +
+            "j.abstracted_object_name, d.id FROM job_execution_data_lineage j " +
+            "Left join dict_dataset d on substring_index(d.urn, '://', -1) = j.abstracted_object_name " +
             "WHERE (app_id, job_exec_id) in ( " +
             "SELECT app_id, job_exec_id FROM job_execution_data_lineage " +
             "WHERE abstracted_object_name in (:pathlist) and source_target_type = 'source' and " +
@@ -247,12 +247,12 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 							LineageNode relatedNode = new LineageNode();
 							relatedNode._sort_list = new ArrayList<String>();
 							relatedNode.node_type = "data";
-							LineagePathInfo info = new LineagePathInfo();
+              relatedNode.abstracted_path = (String)relatedDataRow.get("abstracted_object_name");
+              relatedNode.storage_type = ((String)relatedDataRow.get("storage_type")).toLowerCase();
+              LineagePathInfo info = new LineagePathInfo();
 							info.filePath = relatedNode.abstracted_path;
 							info.storageType = relatedNode.storage_type;
 							relatedNode.urn = utils.Lineage.convertToURN(info);
-							relatedNode.abstracted_path = (String)relatedDataRow.get("abstracted_object_name");
-							relatedNode.storage_type = (String)relatedDataRow.get("storage_type");
 							relatedNode._sort_list.add("abstracted_path");
 							relatedNode._sort_list.add("storage_type");
 							if (dataNodeId != null && dataNodeId > 0)
@@ -299,7 +299,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 							relatedNode._sort_list = new ArrayList<String>();
 							relatedNode.node_type = "data";
 							relatedNode.abstracted_path = (String)relatedDataRow.get("abstracted_object_name");
-							relatedNode.storage_type = (String)relatedDataRow.get("storage_type");
+							relatedNode.storage_type = ((String)relatedDataRow.get("storage_type")).toLowerCase();
 							LineagePathInfo info = new LineagePathInfo();
 							info.filePath = relatedNode.abstracted_path;
 							info.storageType = relatedNode.storage_type;
@@ -478,7 +478,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 					node.full_object_name = (String)row.get("full_object_name");
 					node.job_start_time = row.get("start_time").toString();
 					node.job_end_time = row.get("end_time").toString();
-					node.storage_type = (String)row.get("storage_type");
+					node.storage_type = ((String)row.get("storage_type")).toLowerCase();
 					node.node_type = "data";
 					node._sort_list = new ArrayList<String>();
 					node._sort_list.add("cluster");

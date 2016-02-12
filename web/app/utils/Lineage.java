@@ -112,7 +112,7 @@ public class Lineage
         }
         else
         {
-            return pathInfo.storageType + ":///" + filePath;
+            return pathInfo.storageType.toLowerCase() + ":///" + filePath;
         }
     }
 }

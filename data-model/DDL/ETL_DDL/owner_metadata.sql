@@ -98,4 +98,17 @@ CREATE TABLE `dir_external_user_info` (
   `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`user_id`,`app_id`),
   KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `dir_external_group_user_map` (
+  `app_id` smallint(5) unsigned NOT NULL,
+  `group_id` varchar(50) NOT NULL,
+  `sort_id` smallint(6) NOT NULL,
+  `user_app_id` smallint(5) unsigned NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `created_time` int(10) unsigned DEFAULT NULL COMMENT 'the create time in epoch',
+  `modified_time` int(10) unsigned DEFAULT NULL COMMENT 'the modified time in epoch',
+  `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
+  PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
