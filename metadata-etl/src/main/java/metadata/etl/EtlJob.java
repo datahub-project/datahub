@@ -29,9 +29,9 @@ import java.util.Properties;
 
 
 /**
- * This is the interface of all ETL job.
- * It can run as a standalone jar.
- * Also can trigger by executor service.
+ * {@code EtlJob} is the interface of all ETL job.
+ * It handle the Jython classpath and all configuration process.
+ * Each ETL process that implement this interface will have their own extract, transform, load function.
  * Created by zsun on 7/29/15.
  */
 public abstract class EtlJob {

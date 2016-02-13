@@ -33,6 +33,21 @@ import wherehows.common.schemas.SampleDataRecord;
 import wherehows.common.writers.FileWriter;
 
 
+/**
+ * Fetch hdfs datasets schema, sample data and other metadata.
+ * <p>
+ * This is a standalone program that should build to a jar file, copy to hadoop gateway and run from there.
+ * The parameter contains :
+ * <ul>
+ * <li> {@value wherehows.common.Constant#HDFS_SCHEMA_REMOTE_PATH_KEY} : The hfds metadata file location store on remote hadoop gateway </li>
+ * <li> {@value wherehows.common.Constant#HDFS_SAMPLE_REMOTE_PATH_KEY} : The hfds sample data file location store on remote hadoop gateway </li>
+ * <li> {@value wherehows.common.Constant#HDFS_WHITE_LIST_KEY} : The list of directories as a start point to fetch metadata. (include all of their sub directories) </li>
+ * <li> {@value wherehows.common.Constant#HDFS_NUM_OF_THREAD_KEY} : Number of thread to do the metadata collecting </li>
+ * </ul>
+ *
+ * This program could be scheduled through the internal AKKA scheduler, also could run as a independent program.
+ *
+ */
 public class SchemaFetch {
   private static FileWriter schemaFileWriter;
   private static FileWriter sampleFileWriter;
@@ -46,10 +61,11 @@ public class SchemaFetch {
     schemaFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SCHEMA_REMOTE_PATH_KEY));
     sampleFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SAMPLE_REMOTE_PATH_KEY));
     FileSystem writefs = FileSystem.get(new Configuration()); // create a new filesystem use current user
+
+    // TODO Write to hdfs
     // String sampleDataFolder = "/projects/wherehows/hdfs/sample_data";
     // String cluster = this.conf.get("hdfs.cluster");
     // sampleDataAvroWriter = new AvroWriter(this.fs, sampleDataFolder + "/" + cluster, SampleDataRecord.class);
-
     // String schemaFolder = this.conf.get("hdfs.schema_location");
 
     fileAnalyzerFactory = new FileAnalyzerFactory(writefs);
@@ -297,27 +313,8 @@ public class SchemaFetch {
    * @throws Exception
    */
   public void run()
-    throws Exception {
+      throws Exception {
     // read the white list
-    // TODO configure from database
-    // InputStream in = getClass().getResourceAsStream("/dir-white-list.txt");
-
-    // BufferedReader inputStream = new BufferedReader(new InputStreamReader(in));
-
-    // for each folder, call scanPath()
-    // multi threading
-    /*
-    String line;
-
-    while ((line = inputStream.readLine()) != null) {
-      line = line.trim();
-      if (line.length() < 2 || line.matches("(#|-| |\\.).*")) {
-        continue;
-      }
-      Path p = new Path(line);
-      folders.add(p);
-    }
-    */
     final List<Path> folders = new ArrayList<>();
     String whiteList = this.conf.get(Constant.HDFS_WHITE_LIST_KEY);
     for (String s : whiteList.split(",")) {

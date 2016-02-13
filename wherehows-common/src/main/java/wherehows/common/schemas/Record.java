@@ -14,14 +14,23 @@
 package wherehows.common.schemas;
 
 /**
- * Created by zsun on 2/4/15.
+ * The {@code Record} define the data interface of metadata ETL.
+ * <p>
+ * The Extract and Transform process are very flexible and will be highly customized,
+ * but the Load process will be similar as we have the predefined data model (in mysql database).
+ * A Record object will hold one record (correspond to record in database).
+ * <p>
+ * {@link wherehows.common.writers.DatabaseWriter} & {@link wherehows.common.writers.FileWriter} contain Record objects, then they can either directly insert this record in database or
+ * write this record into csv file and batch load into mysql.
  */
 public interface Record {
   /**
-   * TODO separate to two interface, to avoid dummy function
-   * Convert to string
+   * Convert to csv string that will write to csv file
    */
   public String toCsvString();
 
+  /**
+   * Convert to database value that will append into sql
+   */
   public String toDatabaseValue();
 }
