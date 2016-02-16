@@ -31,10 +31,12 @@ CREATE TABLE users (
   AUTO_INCREMENT = 0
   DEFAULT CHARSET = utf8;
 
+CREATE INDEX idx_users__username USING BTREE ON users(username);
+
 CREATE TABLE user_settings (
-  user_id             BIGINT(20)                        NOT NULL,
+  user_id             INT(11)                           NOT NULL,
   detail_default_view VARCHAR(20)                       NULL,
-  default_watch       ENUM('weekly', 'hourly', 'daily') NULL DEFAULT 'weekly',
+  default_watch       ENUM('monthly', 'weekly', 'daily', 'hourly') NULL DEFAULT 'weekly',
   PRIMARY KEY (user_id)
 )
   ENGINE = InnoDB
@@ -46,7 +48,7 @@ CREATE TABLE watch (
   item_id           INT(11)                                                   NULL,
   urn               VARCHAR(200)                                              NULL,
   item_type         ENUM('dataset', 'dataset_field', 'metric', 'flow', 'urn') NOT NULL DEFAULT 'dataset',
-  notification_type ENUM('weekly', 'hourly', 'daily')                         NULL     DEFAULT 'daily',
+  notification_type ENUM('monthly', 'weekly', 'hourly', 'daily')              NULL     DEFAULT 'weekly',
   created           TIMESTAMP                                                 NULL     DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 )
@@ -55,12 +57,10 @@ CREATE TABLE watch (
   DEFAULT CHARSET = utf8;
 
 CREATE TABLE favorites (
-  user_id    INT(11)   NULL,
-  dataset_id INT(11)   NULL,
+  user_id    INT(11)   NOT NULL,
+  dataset_id INT(11)   NOT NULL,
   created    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  KEY `user_id` (`user_id`) USING BTREE,
-  KEY `dataset_id` (`dataset_id`) USING BTREE
+  PRIMARY KEY (user_id, dataset_id)
 )
-  ENGINE = MyISAM
-  CHARACTER SET latin1
-  AUTO_INCREMENT = 0
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
