@@ -14,6 +14,7 @@
 
 import json
 import csv, sys
+import re
 from org.slf4j import LoggerFactory
 from wherehows.common.writers import FileWriter
 from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord
@@ -25,6 +26,7 @@ class HdfsTransform:
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
 
   def transform(self, raw_metadata, metadata_output, field_metadata_output):
+
     # sys.setdefaultencoding("UTF-8")
 
     input_json_file = open(raw_metadata, 'r')
@@ -197,16 +199,15 @@ class HdfsTransform:
       if j.has_key('attributes') and not o_properties.has_key('source'):
         o_properties['source'] = j['attributes']['source']
 
-      if o_properties.has_key('source') and (
-            not o_properties.has_key('instance') or o_properties['instance'] != 'Espresso'):
-        o_source = o_properties['source']
-      elif o_properties.has_key('instance'):
-        o_source = o_properties['instance']
+      if o_urn.startswith('hdfs:///') and self.file_regex_source_map is not None:
+        o_source = self.get_source(o_urn[7:])
       else:
-        o_source = 'HDFS'
+        self.logger.warn("property : " + Constant.HDFS_FILE_SOURCE_MAP_KEY +
+                         " is None, will use default source for all dataset")
+        o_source = 'Hdfs'
 
       self.logger.info(
-        "%4i (%6i): %4i fields found in [%s]@%s within %s" % (i, len(j), len(o_fields), o_name, o_urn, o_source))
+        "%4i (%6i): %4i fields found in [%s]@%s with source %s" % (i, len(j), len(o_fields), o_name, o_urn, o_source))
 
       dataset_schema_record = DatasetSchemaRecord(o_name, json.dumps(j, sort_keys=True),
                                                   json.dumps(o_properties, sort_keys=True), json.dumps(o_fields), o_urn,
@@ -221,12 +222,26 @@ class HdfsTransform:
     field_file_writer.close()
     input_json_file.close()
 
+  def get_source(self, file_location):
+    # derived the source from o_name
+    source = 'Hdfs'  # default Hdfs
+    for entry in self.file_regex_source_map:
+      key, value = list(entry.items())[0]
+      if re.match(key, file_location):
+        source = value
+        break
+    return source
+
 
 if __name__ == "__main__":
   args = sys.argv[1]
 
   t = HdfsTransform()
-
+  if args.has_key(Constant.HDFS_FILE_SOURCE_MAP_KEY):
+    file_regex_source_map = json.loads(args[Constant.HDFS_FILE_SOURCE_MAP_KEY])
+  else:
+    file_regex_source_map = None
+  t.file_regex_source_map = file_regex_source_map
   t.transform(args[Constant.HDFS_SCHEMA_LOCAL_PATH_KEY], args[Constant.HDFS_SCHEMA_RESULT_KEY],
               args[Constant.HDFS_FIELD_RESULT_KEY])
 

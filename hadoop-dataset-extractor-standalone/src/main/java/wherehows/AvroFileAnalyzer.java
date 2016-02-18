@@ -54,12 +54,11 @@ public class AvroFileAnalyzer extends FileAnalyzer {
     String schemaString = reader.getSchema().toString();
     String storage = STORAGE_TYPE;
     String abstractPath = targetFilePath.toUri().getPath();
-    String dataSource = checkDataSource(abstractPath);
 
     FileStatus fstat = fs.getFileStatus(targetFilePath);
     DatasetJsonRecord datasetJsonRecord =
       new DatasetJsonRecord(schemaString, abstractPath, fstat.getModificationTime(), fstat.getOwner(), fstat.getGroup(),
-        fstat.getPermission().toString(), codec, storage, dataSource);
+        fstat.getPermission().toString(), codec, storage, "");
     reader.close();
     sin.close();
     return datasetJsonRecord;
