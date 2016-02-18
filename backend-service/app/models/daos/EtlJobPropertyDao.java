@@ -40,8 +40,9 @@ public class EtlJobPropertyDao {
       + "VALUES(:propertyName, :propertyValue, :isEncrypted, :groupName)";
 
   public static final String UPDATE_JOB_PROPERTY =
-    " UPDATE wh_etl_job_property " + " SET property_value = :propertyValue, is_encrypted = :isEncrypted "
-      + " WHERE wh_etl_job_name = :etlJobName and ref_id = :refId and property_name = :propertyName ";
+      "INSERT INTO wh_etl_job_property(wh_etl_job_name, ref_id, ref_id_type, property_name, property_value, is_encrypted)"
+          + "VALUES(:etlJobName, :refId, :refIdType, :propertyName, :propertyValue, :isEncrypted)"
+        + "ON DUPLICATE KEY UPDATE property_value = :propertyValue, is_encrypted = :isEncrypted";
 
   public static final String GET_JOB_PROPERTIES =
     "SELECT * FROM wh_etl_job_property WHERE wh_etl_job_name = :etlJobName and ref_id = :refId";
