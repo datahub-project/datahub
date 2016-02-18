@@ -1,4 +1,4 @@
-Please get the extra library files, which are not available in Maven or TypeSafe repository, and put them here. For example:
+Please get the extra library files, which may not be available in Maven/TypeSafe repository or Artifactory, and put them here. For example:
 
 * https://downloads.teradata.com/download/connectivity/jdbc-driver
 * http://dev.mysql.com/downloads/connector/j
