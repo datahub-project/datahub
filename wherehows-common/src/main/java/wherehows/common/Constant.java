@@ -108,13 +108,10 @@ public class Constant {
   public static final String HDFS_WHITE_LIST_KEY = "hdfs.white_list";
   /** The property_name field in wh_etl_job_property table. Number of thread to do the metadata collecting */
   public static final String HDFS_NUM_OF_THREAD_KEY = "hdfs.num_of_thread";
-  /** The property_name field in wh_etl_job_property table.  The hfds metadata file (in csv format) location store on local machine */
+  /** The property_name field in wh_etl_job_property table.  The hfds metadata file (in csv format) location store on local machine*/
   public static final String HDFS_SCHEMA_RESULT_KEY = "hdfs.local.metadata";
-  /** The property_name field in wh_etl_job_property table.  The field metadata file (in csv format) location store on local machine */
+  /** The property_name field in wh_etl_job_property table.  The field metadata file (in csv format) location store on local machine*/
   public static final String HDFS_FIELD_RESULT_KEY = "hdfs.local.field_metadata";
-  /** The property_name field in wh_etl_job_property table.  The map of file path regex and dataset source
-   * e.g. [{"/data/tracking.*":"Kafka"},{"/data/retail.*":"Teradata"}] */
-  public static final String HDFS_FILE_SOURCE_MAP_KEY = "hdfs.file_path_regex_source_map";
 
   /** The property_name field in wh_etl_job_property table. For dataset owner ETL. The hfds location to copy files */
   public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";

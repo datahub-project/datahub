@@ -33,6 +33,21 @@ public abstract class FileAnalyzer {
     this.fs = fs;
   }
 
+  /**
+   * Decide the data source by check the full url of the dataset
+   * @param fullPath
+   * @return
+   */
+  protected static String checkDataSource(String fullPath) {
+    String data_source = fullPath.matches("/(data|eidata)/tracking/.*") ? "Kafka"
+      : fullPath.matches("/(data|eidata)/databases/.*") ? "Oracle"
+        : fullPath.matches("/(data|eidata)/external/.*") ? "External"
+          : fullPath.matches("/projects/dwh/dwh_.*|/jobs/data_svc/dwh_.*") ? "Teradata"
+            : fullPath.matches("/projects/dwh/.*|/jobs/data_svc/.*") ? "Hdfs"
+              : fullPath.matches("/.*/.*\\.db/") ? "Hive" : "Hdfs";
+    return data_source;
+  }
+
   public abstract DatasetJsonRecord getSchema(Path path)
     throws IOException;
 
