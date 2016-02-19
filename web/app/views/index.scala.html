@@ -2111,7 +2111,13 @@
                 {{#each job in model.data.jobs}}
                   <tr>
                     <td class="dataset-info wrap-all-word">
-                      {{job.name}}
+                      {{#if job.refFlowId}}
+                        {{#link-to 'pagedflow' job.refFlowId 1}}
+                          {{job.name}}
+                        {{/link-to}}
+                      {{else}}
+                        {{job.name}}
+                      {{/if}}
                     </td>
                     <td class="wrap-all-word">{{ job.path }}</td>
                     <td>{{ job.type }}</td>

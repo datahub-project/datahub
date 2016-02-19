@@ -57,10 +57,12 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			"SELECT count(*) FROM flow_job WHERE app_id = ? and flow_id = ?";
 
 	private final static String GET_PAGED_JOBS_BY_APP_ID_AND_FLOW_ID = "select SQL_CALC_FOUND_ROWS " +
-			"j.job_id, MAX(j.last_source_version), j.job_name, j.job_path, j.job_type, FROM_UNIXTIME(j.created_time) as created_time, " +
+			"j.job_id, MAX(j.last_source_version), j.job_name, j.job_path, j.job_type, j.ref_flow_id, " +
+			"FROM_UNIXTIME(j.created_time) as created_time, " +
 			"FROM_UNIXTIME(j.modified_time) as modified_time, f.flow_name " +
 			"FROM flow_job j JOIN flow f on j.app_id = f.app_id and j.flow_id = f.flow_id " +
-			"WHERE j.app_id = ? and j.flow_id = ? GROUP BY j.job_id, j.job_name, j.job_path, j.job_type, " +
+			"WHERE j.app_id = ? and j.flow_id = ? GROUP BY j.job_id, j.job_name, " +
+			"j.job_path, j.job_type, j.ref_flow_id, " +
 			"f.flow_name ORDER BY j.job_id LIMIT ?, ?";
 
 	public static Integer getApplicationIDByName(String applicationName)
@@ -343,6 +345,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 						job.path = (String)row.get("job_path");
 						job.type = (String)row.get("job_type");
 						Object created = row.get("created_time");
+						job.refFlowId = (Long)row.get("ref_flow_id");
 						if (created != null)
 						{
 							job.created = created.toString();

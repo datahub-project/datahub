@@ -20,4 +20,5 @@ public class Job {
     public String type;
     public String created;
     public String modified;
+    public Long refFlowId;
 }
