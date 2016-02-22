@@ -128,6 +128,10 @@ App.PagedflowRoute = Ember.Route.extend({
                     controller.set('model', data);
                     controller.set('flowId', flow);
                     controller.set('urn', application + '/' + project + '/' + flow);
+                    var breadcrumbs = [{"title": application, "urn": application + "/page/1"},
+                        {"title": project, "urn": application + "/" + project + "/page/1"},
+                        {"title": data.data.flow, "urn": application + "/" + project + "/" + flow + "/page/1"}];
+                    controller.set('breadcrumbs', breadcrumbs);
                     flowsController.set('projectView', false);
                     flowsController.set('flowView', false);
                     flowsController.set('jobView', true);
@@ -135,7 +139,6 @@ App.PagedflowRoute = Ember.Route.extend({
                     {
                         findAndActiveFlowNode(application, project, flow, data.data.flow);
                     }
-
                 }
             });
             var watcherEndpoint = "/api/v1/urn/watch?urn=" + application + "/" + project + "/" + flow;
