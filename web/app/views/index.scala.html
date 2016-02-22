@@ -1350,6 +1350,21 @@
             </ul>
           </div>
         </div>
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-10">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    <a title="{{crumb.title}}" href="#/datasets/{{crumb.urn}}">
+                      {{crumb.title}}
+                    </a>
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       {{#if tabview}}

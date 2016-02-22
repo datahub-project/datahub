@@ -197,10 +197,35 @@ App.DatasetRoute = Ember.Route.extend({
           urn = urn.replace('<b>', '').replace('</b>', '');
           var index = urn.lastIndexOf("/");
           if (index != -1)
-            {
-              var name = urn.substring(index +1);
-              findAndActiveDatasetNode(name, urn);
+          {
+            var name = urn.substring(index +1);
+            findAndActiveDatasetNode(name, urn);
+          }
+          var breadcrumbs = [];
+          var updatedUrn = urn.replace("://", "");
+          var b = updatedUrn.split('/');
+          for(var i = 0; i < b.length; i++) {
+            if( i === 0) {
+              breadcrumbs.push({
+                title: b[i],
+                urn: "name/" + b[i] + "/page/1?urn=" + b[i]
+              })
             }
+            else if (i === (b.length -1))
+            {
+              breadcrumbs.push({
+                title: b[i],
+                urn: id
+              })
+            }
+            else {
+              breadcrumbs.push({
+                title: b[i],
+                urn: "name/" + b[i] + "/page/1?urn=" + urn.split('/').splice(0, i+3).join('/')
+              })
+            }
+          }
+          controller.set("breadcrumbs", breadcrumbs);
         }
 
         var userSettingsUrl = 'api/v1/user/me';
