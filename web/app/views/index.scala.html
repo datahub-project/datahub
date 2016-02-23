@@ -417,26 +417,22 @@
                                 {{ dataset.source }}
                               </span>
                             </li>
-                            <li class="text-center">
+                            <li class="text-center" title="ownership">
                               {{#dataset-owner dataset=dataset action="owned"}}
                               {{/dataset-owner}}
                             </li>
-                            <li
-                              class="text-center"
-                            >
+                            <li class="text-center" title="favorite">
                               {{#dataset-favorite dataset=dataset action="didFavorite"}}
                               {{/dataset-favorite}}
                             </li>
-                            <li class="text-center">
+                            <li class="text-center" title="watch">
                               {{#dataset-watch dataset=dataset getDatasets='getDatasets'}}
                               {{/dataset-watch}}
                             </li>
-                            <li
-                              class="text-center"
-                            >
+                            <li class="text-center">
                               <a
                                 href="/lineage/dataset/{{dataset.id}}"
-                                title="{{dataset.name}}"
+                                title="lineage for {{dataset.name}}"
                               >
                                 <i class="fa fa-sitemap"></i>
                               </a>
@@ -956,8 +952,8 @@
             <th class="col-xs-2">User Name</th>
             <th class="col-xs-3">Full Name</th>
             <th class="col-xs-1">Is Group</th>
-            <th class="col-xs-1">Owner Type</th>
-            <th class="col-xs-1">Owner Sub Type</th>
+            <th class="col-xs-2">Owner Type</th>
+            <th class="col-xs-2">Owner Sub Type</th>
             <th class="col-xs-1"></th>
           </tr>
         </thead>
@@ -1710,12 +1706,6 @@
             </li>
           </ul>
         </div>
-        <button
-          type="button"
-          class="btn btn-default"
-          {{action 'switchSearchToMetric' keyword}}>
-           Metrics
-        </button>
         <button
           type="button"
           class="btn btn-default"
