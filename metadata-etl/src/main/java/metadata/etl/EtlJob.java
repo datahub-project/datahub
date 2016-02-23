@@ -165,7 +165,8 @@ public abstract class EtlJob {
 
   public void close()
     throws Exception {
-
+    interpreter.cleanup();
+    interpreter.close();
   }
 
   public void run()
