@@ -417,26 +417,22 @@
                                 {{ dataset.source }}
                               </span>
                             </li>
-                            <li class="text-center">
+                            <li class="text-center" title="ownership">
                               {{#dataset-owner dataset=dataset action="owned"}}
                               {{/dataset-owner}}
                             </li>
-                            <li
-                              class="text-center"
-                            >
+                            <li class="text-center" title="favorite">
                               {{#dataset-favorite dataset=dataset action="didFavorite"}}
                               {{/dataset-favorite}}
                             </li>
-                            <li class="text-center">
+                            <li class="text-center" title="watch">
                               {{#dataset-watch dataset=dataset getDatasets='getDatasets'}}
                               {{/dataset-watch}}
                             </li>
-                            <li
-                              class="text-center"
-                            >
+                            <li class="text-center">
                               <a
                                 href="/lineage/dataset/{{dataset.id}}"
-                                title="{{dataset.name}}"
+                                title="lineage for {{dataset.name}}"
                               >
                                 <i class="fa fa-sitemap"></i>
                               </a>
@@ -956,8 +952,8 @@
             <th class="col-xs-2">User Name</th>
             <th class="col-xs-3">Full Name</th>
             <th class="col-xs-1">Is Group</th>
-            <th class="col-xs-1">Owner Type</th>
-            <th class="col-xs-1">Owner Sub Type</th>
+            <th class="col-xs-2">Owner Type</th>
+            <th class="col-xs-2">Owner Sub Type</th>
             <th class="col-xs-1"></th>
           </tr>
         </thead>
@@ -1350,6 +1346,21 @@
             </ul>
           </div>
         </div>
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-12">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    <a title="{{crumb.title}}" href="#/datasets/{{crumb.urn}}">
+                      {{crumb.title}}
+                    </a>
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       {{#if tabview}}
@@ -1695,12 +1706,6 @@
             </li>
           </ul>
         </div>
-        <button
-          type="button"
-          class="btn btn-default"
-          {{action 'switchSearchToMetric' keyword}}>
-           Metrics
-        </button>
         <button
           type="button"
           class="btn btn-default"
@@ -2050,31 +2055,46 @@
         <div class="row-fluid">
           <div class="span9">
             <div class="row">
-            <div class="col-xs-7">
-              <h3> {{ model.data.flow }}</h3>
-            </div>
-            <div class="col-xs-5 text-right">
-              <ul class="datasetDetailsLinks">
-                <li {{action 'watchUrn' urn}}>
-                  <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
-                  <span class="hidden-sm hidden-xs">
-                    {{#if urnWatched}}
-                      Unwatch
-                    {{else}}
-                      Watch
-                    {{/if}}
-                  </span>
-                </li>
-                <li>
-                  <a target="_blank" {{bind-attr href=lineageUrl}}>
-                    <i class="fa fa-sitemap"></i>
+              <div class="col-xs-7">
+                <h3> {{ model.data.flow }}</h3>
+              </div>
+              <div class="col-xs-5 text-right">
+                <ul class="datasetDetailsLinks">
+                  <li {{action 'watchUrn' urn}}>
+                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
                     <span class="hidden-sm hidden-xs">
-                      View Lineage
+                      {{#if urnWatched}}
+                        Unwatch
+                      {{else}}
+                        Watch
+                      {{/if}}
                     </span>
-                  </a>
-                </li>
-              </ul>
+                  </li>
+                  <li>
+                    <a target="_blank" {{bind-attr href=lineageUrl}}>
+                      <i class="fa fa-sitemap"></i>
+                      <span class="hidden-sm hidden-xs">
+                        View Lineage
+                      </span>
+                    </a>
+                  </li>
+                </ul>
+              </div>
             </div>
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-12">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
             </div>
             <div class="search-pagination">
               <ul class="pager">
