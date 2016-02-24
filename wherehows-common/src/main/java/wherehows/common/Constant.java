@@ -47,6 +47,8 @@ public class Constant {
   public static final String AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY = "az.lineage_etl.lookback_period.in.minutes";
   /** The property_name field in wh_etl_job_property table. In lineage ETl, Akka actor time out time */
   public static final String LINEAGE_ACTOR_TIMEOUT_KEY = "az.lineage.actor.timeout";
+
+  public static final String LINEAGE_ACTOR_NUM = "az.lineage.actor.num";
   /** The property_name field in wh_etl_job_property table. Optional property used for debug. Default end timestamp is now */
   public static final String AZ_LINEAGE_ETL_END_TIMESTAMP_KEY = "az.lineage_etl.end_timestamp";
   /** The property_name field in wh_etl_job_property table. Azkaban Server URL (optional way to get azkaban execution log) */

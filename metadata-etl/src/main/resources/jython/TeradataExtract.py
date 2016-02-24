@@ -460,7 +460,8 @@ class TeradataExtract:
       pass
 
     ref_urn = 'teradata:///' + fullname.replace('.', '/').replace('"', '')
-    return (ref_urn, json.dumps({'sample': {'columnNames': columns, 'data': rows_data}}))
+    data_with_column = map(lambda x:dict(zip(columns, x)), rows_data)
+    return ref_urn, json.dumps({'sample': data_with_column})
 
   def run(self, database_name, table_name, schema_output_file, sample_output_file):
     """

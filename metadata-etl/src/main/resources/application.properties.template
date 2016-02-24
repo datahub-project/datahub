@@ -42,6 +42,7 @@ hdfs.local.sample=
 hdfs.white_list=
 hdfs.num_of_thread=
 hdfs.remote.working.dir=
+hdfs.file_path_regex_source_map=
 
 krb5.realm=
 krb5.kdc=
@@ -58,6 +59,7 @@ az.lineage_etl.lookback_period.in.minutes=
 az.server.password=
 az.server.url=
 az.server.username=
+az.lineage.actor.num=
 
 # Azkaban Metadata ETL
 az.db.driver=

@@ -81,8 +81,10 @@ public class AzLineageExtractorMaster {
     logger.info("Total number of azkaban jobs : {}", jobExecList.size());
 
     ActorSystem actorSystem = ActorSystem.create("LineageExtractor");
+    int numOfActor = Integer.valueOf(prop.getProperty(Constant.LINEAGE_ACTOR_NUM, "50"));
     ActorRef lineageExtractorActor = actorSystem
-      .actorOf(Props.create(AzLineageExtractorActor.class).withRouter(new SmallestMailboxRouter(50)), "lineageExtractorActor");
+      .actorOf(Props.create(AzLineageExtractorActor.class)
+          .withRouter(new SmallestMailboxRouter(numOfActor)), "lineageExtractorActor");
 
     // initialize
     //AzkabanServiceCommunicator asc = new AzkabanServiceCommunicator(prop);
