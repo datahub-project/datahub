@@ -18,16 +18,17 @@
         var genBreadcrumbs = function(urn) {
             var breadcrumbs = []
             var b = urn.split('/')
-            b.shift()
+            b.shift();
             for(var i = 0; i < b.length; i++) {
+                var updatedUrn = "/idpc#/jira/" + b[i]
                 if(i === 0)
                 {
-                    breadcrumbs.push({title: b[i], urn: b[i]})
+
+                    breadcrumbs.push({title: b[i], urn: updatedUrn})
                 }
                 else
                 {
-                    var urn = genUrn(b.slice(0, (i+1)))
-                    breadcrumbs.push({title: b[i], urn: urn})
+                    breadcrumbs.push({title: b[i], urn: updatedUrn})
                 }
             }
             return breadcrumbs
@@ -123,7 +124,8 @@
             'userCompletion': 0,
             'userTotalTickets': 0,
             'userOpenTickets': 0,
-            'userClosedTickets': 0};
+            'userClosedTickets': 0,
+            'url': '/idpc#/jira/jweiner'};
         setTimeout(setActiveTab, 500);
 
         App.JiraRoute = Ember.Route.extend({
@@ -173,9 +175,25 @@
                             var membersUrl = 'api/v1/jira/members/' + params.user;
                             $.get(membersUrl, function(data) {
                                 jiraController.set('membersInProgress', false);
-                                if (data && data.status == "ok") {
+                                if (data && data.status == "ok" && data.currentUser && data.currentUser[0]) {
                                     var currentUser = jiraController.get('selectedUser');
                                     Ember.set(currentUser, 'displayName', data.currentUser[0].displayName);
+                                    var org = data.currentUser[0].orgHierarchy;
+                                    var breadcrumbs;
+                                    if (org)
+                                    {
+                                        breadcrumbs = genBreadcrumbs(org);
+                                    }
+                                    else
+                                    {
+                                        var hierarchy = '/jweiner';
+                                        breadcrumbs = genBreadcrumbs(hierarchy);
+                                    }
+                                    jiraController.set('breadcrumbs', breadcrumbs);
+                                    if (breadcrumbs)
+                                    {
+                                        Ember.set(currentUser, 'url', breadcrumbs[breadcrumbs.length-1].urn);
+                                    }
 
                                     if (data.members && data.members.length > 0)
                                     {
