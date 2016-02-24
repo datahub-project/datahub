@@ -14,7 +14,7 @@
                 <ul class="breadcrumbs">
                   {{#each crumb in breadcrumbs}}
                     <li>
-                      <a {{bind-attr href=crumb.idpcUrl title=crumb.title }}>
+                      <a {{bind-attr href=crumb.urn title=crumb.title }}>
                         {{ crumb.title }}
                       </a>
                     </li>
@@ -51,7 +51,7 @@
                             <img {{bind-attr src=selectedUser.iconUrl title=selectedUser.displayName }}
                               width="25px"
                               height="25px"/>
-                            <a {{bind-attr href=selectedUser.orgHierarchy title=selectedUser.displayName }}>
+                            <a {{bind-attr href=selectedUser.url title=selectedUser.displayName }}>
                               {{ selectedUser.displayName }}
                             </a>
                           </td>
@@ -184,15 +184,15 @@
                                   {{ ticket.assigneeDisplayName }}
                                 </td>
                                 <td class="text-center">
-                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.jiraKey }} target="_blank">
-                                    {{ ticket.jiraKey }}
+                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.ticketKey }} target="_blank">
+                                    {{ ticket.ticketKey }}
                                   </a>
                                 </td>
-                                <td class="text-center">{{ ticket.jiraStatus }}</td>
-                                <td class="text-center">{{ ticket.hdfsName }}</td>
-                                <td class="text-left">{{ ticket.directoryPath }}</td>
-                                <td class="text-right">{{ ticket.totalSizeMb }}</td>
-                                <td class="text-right">{{ ticket.numOfFiles}}</td>
+                                <td class="text-center">{{ ticket.ticketStatus }}</td>
+                                <td class="text-center">{{ ticket.ticketHdfsName }}</td>
+                                <td class="text-left">{{ ticket.ticketDirectoryPath }}</td>
+                                <td class="text-right">{{ ticket.ticketTotalSize }}</td>
+                                <td class="text-right">{{ ticket.ticketNumOfFiles}}</td>
                                 <td class="text-center">{{ ticket.jiraLastUpdatedTime }}</td>
                               </tr>
                             {{/each}}
