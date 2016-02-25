@@ -48,7 +48,6 @@ sourceSets {
     }
     resources {
       srcDir 'src/resources'
-      exclude '**/application.properties'
     }
   }
 }
