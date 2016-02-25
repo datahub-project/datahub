@@ -329,32 +329,7 @@ App.DatasetRoute = Ember.Route.extend({
                     }
               });
             }
-            else if (source.toLowerCase() == 'teradata')
-              {
-                sampleUrl = 'api/v1/datasets/' + id + "/sample";
-                $.get(sampleUrl, function(data) {
-                  if (data && data.status == "ok")
-                    {
-
-                      if (data.sampleData && data.sampleData.sample && data.sampleData.sample.columnNames
-                          && (data.sampleData.sample.columnNames.length > 0))
-                        {
-                          controller.set("hasSamples", true);
-                          controller.set("samples", data.sampleData.sample.data);
-                          controller.set("columns", data.sampleData.sample.columnNames);
-                        }
-                        else
-                          {
-                            controller.set("hasSamples", false);
-                          }
-                    }
-                    else
-                      {
-                        controller.set("hasSamples", false);
-                      }
-                });
-              }
-              else if (urn && urn.substring(0,7) == 'hdfs://')
+              else
                 {
                   sampleUrl = 'api/v1/datasets/' + id + "/sample";
                   $.get(sampleUrl, function(data) {

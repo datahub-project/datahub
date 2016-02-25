@@ -983,9 +983,7 @@
 
     <script type="text/x-handlebars" data-template-name="sample">
       {{#if hasSamples}}
-        {{#if isHDFS}}
-          <div id="datasetSampleData-json-human" class="table-responsive"></div>
-        {{else}}
+        {{#if isPinot}}
           <table id="pinotsampletreegrid" class="tree table table-bordered dataset-detail-table">
             <thead>
               <tr class="results-header">
@@ -1004,6 +1002,8 @@
               {{/each}}
             </tbody>
           </table>
+        {{else}}
+          <div id="datasetSampleData-json-human" class="table-responsive"></div>
         {{/if}}
       {{else}}
         <p>Sample data is not available</p>
