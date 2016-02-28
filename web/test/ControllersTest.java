@@ -149,7 +149,7 @@ public class ControllersTest {
     @Ignore("need config") @Test
     public void testFlow()
     {
-        Result result = controllers.api.v1.Flow.getPagedProjects("AZKABAN.DEV.NERTZ");
+        Result result = controllers.api.v1.Flow.getPagedProjects("AZKABAN-SAMPLE");
         assertThat(status(result)).isEqualTo(OK);
         JsonNode node = Json.parse(contentAsString(result));
         assertThat(node.isContainerNode());
@@ -164,7 +164,7 @@ public class ControllersTest {
         assertThat(firstProjectNode.isContainerNode());
         String name = firstProjectNode.get("name").asText();
 
-        result = controllers.api.v1.Flow.getPagedFlows("AZKABAN.DEV.NERTZ", name);
+        result = controllers.api.v1.Flow.getPagedFlows("AZKABAN-SAMPLE", name);
         assertThat(status(result)).isEqualTo(OK);
     }
 

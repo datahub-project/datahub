@@ -475,6 +475,6 @@ $('.nav-tabs a').click(function (e) {
             node.setActive(false);
             node.setFocus(false);
         }
-        window.location = "#/flows/AZKABAN.DEV.NERTZ/page/1";
+        window.location = "#/flows/AZKABAN-SAMPLE/page/1";
     }
 });

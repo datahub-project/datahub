@@ -63,7 +63,7 @@
 							</a>
 						</li>
 						<li id="flowlink">
-							<a href="/#/flows/AZKABAN.DEV.NERTZ/page/1">
+							<a href="/#/flows/FLOWS_ROOT/page/1">
 								<span>Flow</span>
 							</a>
 						</li>
@@ -203,8 +203,8 @@
 														<input
 														id="scopeInInput"
 														class="scopeInput"
-														placeholder="DWH_BIZ, DIM_STT"
-														title="Scope can be database schema name (DWH_AGG, DWH_DIM, DWH_FACT, DWH) or top level HDFS directory (tracking, derived, gobblin) which is used to narrow down the search range"
+														placeholder="<db_name>, <top_level_dir>"
+														title="Scope can be database schema name or top level HDFS directory which is used to narrow down the search range"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -217,8 +217,8 @@
 														<input
 														id="scopeNotInInput"
 														class="scopeInput"
-														placeholder="ABOOK, AMS"
-														title="Scope can be database schema name (DWH_AGG, DWH_DIM, DWH_FACT, DWH) or top level HDFS directory (tracking, derived, gobblin) which is used to narrow down the search range"
+														placeholder="<db_name_to_exclude>"
+														title="Scope can be database schema name or top level HDFS directory which is used to narrow down the search range"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -238,7 +238,7 @@
 														<input
 														id="tableInInput"
 														class="tableInput"
-														placeholder="DIM_MEMBER_ANET, FACT_DETAIL_PAGE_TRACKING"
+														placeholder="<table_name>, <view_name>"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -251,7 +251,7 @@
 														<input
 														id="tableNotInInput"
 														class="tableInput"
-														placeholder="ABOOK_DATA, ABOOK_EMAILS"
+														placeholder="<table_name_to_exclude>"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -273,7 +273,7 @@
 														<input
 														id="fieldAnyInput"
 														class="fieldInput"
-														placeholder="COMPANY, DATE_SK"
+														placeholder="<partial_field_name>"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -286,7 +286,7 @@
 														<input
 														id="fieldAllInput"
 														class="fieldInput"
-														placeholder="FROM_COMPANY_SK, FROM_ADDRESS"
+														placeholder="<field_name_1>, <field_name_2>"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -299,7 +299,7 @@
 														<input
 														id="fieldNotInInput"
 														class="fieldInput"
-														placeholder="TOTAL_MEMBERS, ZERO_ID"
+														placeholder="<field_name_to_exclude>"
 														style="width: 100%;">
                             							</input>
 													</div>
@@ -319,7 +319,7 @@
 														<input
 														id="commentsInput"
 														type="text"
-														placeholder="links to abook via....."
+														placeholder="<phrase_in_comment>"
 														class="col-md-4 form-control"/>
 													</div>
 												</div>
@@ -426,10 +426,10 @@
 		<footer class="footer navbar-fixed-bottom">
 			<input id="csrfToken" type="text" style="visibility: hidden;" value=@csrfToken/>
 			<p class="pull-right">
-				WhereHows 0.1.1
+				WhereHows 0.1.8
 					&copy; LinkedIn 2016
 				|
-				<a href="https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/WhereHows">Help</a> | <a href="mailto:ask_wherehows@@linkedin.com">Contact us</a>
+				<a href="https://www.github.com/linkedin/WhereHows/wiki">Help</a> | <a href="mailto:wherehows@@googlegroups.com">Contact Us</a>
 			</p>
     </footer>
     <div class="modal" tabindex="-1" role="dialog" aria-labelledby="settingsModal" id="settingsModal">
