@@ -852,7 +852,10 @@ body .ui-tooltip {
 ----------------------------------*/
 .ui-state-default,
 .ui-widget-content .ui-state-default,
-
+.ui-widget-header .ui-state-default {
+	font-weight: bold;
+	color: grey;
+}
 .ui-state-default a,
 .ui-state-default a:link,
 .ui-state-default a:visited {
@@ -863,7 +866,9 @@ body .ui-tooltip {
 .ui-widget-header .ui-state-hover,
 .ui-state-focus,
 .ui-widget-content .ui-state-focus,
-
+.ui-widget-header .ui-state-focus {
+	background: lightgray;
+}
 .ui-state-hover a,
 .ui-state-hover a:hover,
 .ui-state-hover a:link,
@@ -876,6 +881,9 @@ body .ui-tooltip {
 }
 .ui-state-active,
 .ui-widget-content .ui-state-active,
+.ui-widget-header .ui-state-active {
+	background: lightgray;
+}
 .ui-state-active a,
 .ui-state-active a:link,
 .ui-state-active a:visited {
