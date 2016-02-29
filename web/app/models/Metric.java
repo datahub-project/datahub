@@ -23,6 +23,7 @@ public class Metric {
     public String description;
     public String dashboardName;
     public String category;
+    public String subCategory;
     public String group;
     public String sourceType;
     public String source;
@@ -31,6 +32,5 @@ public class Metric {
     public String formula;
     public String displayFactor;
     public String displayFactorSym;
-    public String productPageKeyGroupSK;
     public Long watchId;
 }

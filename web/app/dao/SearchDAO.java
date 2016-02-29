@@ -97,7 +97,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"CASE WHEN match(`dashboard_name`) against ('$keyword' IN BOOLEAN MODE) THEN 3 ELSE 0 END rank_18, " +
 			"CASE WHEN match(`dashboard_name`) against ('$keyword*' IN BOOLEAN MODE) THEN 2 ELSE 0 END rank_19, " +
 			"CASE WHEN match(`dashboard_name`) against ('*$keyword*' IN BOOLEAN MODE) THEN 1 ELSE 0 END rank_20 " +
-			"FROM bus_dashboard_metric WHERE " +
+			"FROM dict_business_metric WHERE " +
 			"MATCH(`metric_name`, `dashboard_name`,  `metric_group`, `metric_category`) " +
 			"AGAINST ('*$keyword*' IN BOOLEAN MODE) ) m ORDER BY " +
 			"rank DESC, `metric_name`, `metric_category`, `metric_group`, `dashboard_name` LIMIT ?, ?;";

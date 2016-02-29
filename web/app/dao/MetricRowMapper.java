@@ -35,7 +35,7 @@ public class MetricRowMapper implements RowMapper<Metric>
     public static String METRIC_FORMULA_COLUMN = "metric_formula";
     public static String METRIC_DISPLAY_FACTOR_COLUMN = "metric_display_factor";
     public static String METRIC_DISPLAY_FACTOR_SYM_COLUMN = "metric_display_factor_sym";
-    public static String METRIC_PRODUCT_PAGE_KEY_GROUP_SK_COLUMN = "product_page_key_group_sk";
+    public static String METRIC_SUB_CATEGORY_COLUMN = "metric_sub_category";
     public static String METRIC_WATCH_ID_COLUMN = "watch_id";
 
     public static String METRIC_MODULE_ID = "id";
@@ -52,7 +52,7 @@ public class MetricRowMapper implements RowMapper<Metric>
     public static String METRIC_MODULE_FORMULA = "formula";
     public static String METRIC_MODULE_DISPLAY_FACTOR = "displayFactor";
     public static String METRIC_MODULE_DISPLAY_FACTOR_SYM = "displayFactorSym";
-    public static String METRIC_MODULE_PRODUCT_PAGE_KEY_GROUP_SK = "productPageKeyGroupSK";
+    public static String METRIC_MODULE_SUB_CATEGORY = "subCategory";
 
     @Override
     public Metric mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -71,7 +71,7 @@ public class MetricRowMapper implements RowMapper<Metric>
         String formula = rs.getString(METRIC_FORMULA_COLUMN);
         String displayFactor = rs.getString(METRIC_DISPLAY_FACTOR_COLUMN);
         String displayFactorSym = rs.getString(METRIC_DISPLAY_FACTOR_SYM_COLUMN);
-        String productPageKeyGroupSK = rs.getString(METRIC_PRODUCT_PAGE_KEY_GROUP_SK_COLUMN);
+        String subCategory = rs.getString(METRIC_SUB_CATEGORY_COLUMN);
         Long watchId = rs.getLong(METRIC_WATCH_ID_COLUMN);
 
         Metric metric = new Metric();
@@ -82,6 +82,7 @@ public class MetricRowMapper implements RowMapper<Metric>
         metric.refIDType = refIdType;
         metric.dashboardName = dashboardName;
         metric.category = category;
+        metric.subCategory = subCategory;
         metric.group = group;
         metric.source = source;
         metric.sourceType = sourceType;
@@ -89,7 +90,6 @@ public class MetricRowMapper implements RowMapper<Metric>
         metric.formula = formula;
         metric.displayFactor = displayFactor;
         metric.displayFactorSym = displayFactorSym;
-        metric.productPageKeyGroupSK = productPageKeyGroupSK;
         metric.watchId = watchId;
 
         return metric;

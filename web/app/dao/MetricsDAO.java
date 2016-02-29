@@ -36,21 +36,21 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String SELECT_PAGED_METRICS  = "SELECT SQL_CALC_FOUND_ROWS m.metric_id, m.metric_name, " +
 			"m.metric_description, m.metric_ref_id_type, m.metric_ref_id, m.dashboard_name, m.metric_category, " +
 			"m.metric_group, IFNULL(w.id,0) as watch_id " +
-			"FROM bus_dashboard_metric m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"ORDER BY metric_name LIMIT ?, ?";
 
 	private final static String SELECT_PAGED_METRICS_BY_DASHBOARD_NAME =  "SELECT SQL_CALC_FOUND_ROWS " +
 			"m.metric_id, m.metric_name, m.metric_description, m.metric_ref_id_type, " +
 			"m.metric_ref_id, m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id " +
-			"FROM bus_dashboard_metric m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE dashboard_name $value ORDER BY m.metric_name limit ?, ?";
 
 	private final static String SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP = "SELECT SQL_CALC_FOUND_ROWS " +
 			"m.metric_id, m.metric_name, m.metric_description, m.metric_ref_id_type, m.metric_ref_id, " +
 			"m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id  " +
-			"FROM bus_dashboard_metric m " +
+			"FROM dict_busines_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.dashboard_name $dashboard and m.metric_group $group " +
 			"ORDER BY metric_name limit ?, ?";
@@ -58,9 +58,9 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_METRIC_BY_ID = "SELECT m.metric_id, m.metric_name, " +
 			"m.metric_description, m.dashboard_name, m.metric_category, m.metric_group, m.metric_ref_id_type, " +
 			"m.metric_ref_id, m.metric_grain, m.metric_formula, m.metric_display_factor, " +
-			"m.metric_display_factor_sym, m.product_page_key_group_sk, m.metric_source_type, m.metric_source, " +
+			"m.metric_display_factor_sym, m.metric_sub_category, m.metric_source_type, m.metric_source, " +
       		"IFNULL(w.id, 0) as watch_id " +
-			"FROM bus_dashboard_metric m " +
+			"FROM dict_busines_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.metric_id = ?";
 
@@ -74,7 +74,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
   	private final static String GET_USER_ID = "SELECT id FROM users WHERE username = ?";
 
-	private final static String UPDATE_METRIC = "UPDATE bus_dashboard_metric SET $SET_CLAUSE WHERE metric_id = ?";
+	private final static String UPDATE_METRIC = "UPDATE dict_busines_metric SET $SET_CLAUSE WHERE metric_id = ?";
 
 	public static ObjectNode getPagedMetrics(
 			String dashboardName,
@@ -446,13 +446,13 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
         String groupSkString = "";
         Integer groupSk = 0;
         String[] groupSkArray = null;
-        if (params.containsKey(MetricRowMapper.METRIC_PRODUCT_PAGE_KEY_GROUP_SK_COLUMN))
+        if (params.containsKey(MetricRowMapper.METRIC_SUB_CATEGORY_COLUMN))
         {
-            groupSkArray = params.get(MetricRowMapper.METRIC_PRODUCT_PAGE_KEY_GROUP_SK_COLUMN);
+            groupSkArray = params.get(MetricRowMapper.METRIC_SUB_CATEGORY_COLUMN);
         }
-        else if (params.containsKey(MetricRowMapper.METRIC_MODULE_PRODUCT_PAGE_KEY_GROUP_SK))
+        else if (params.containsKey(MetricRowMapper.METRIC_MODULE_SUB_CATEGORY))
         {
-            groupSkArray = params.get(MetricRowMapper.METRIC_MODULE_PRODUCT_PAGE_KEY_GROUP_SK);
+            groupSkArray = params.get(MetricRowMapper.METRIC_MODULE_SUB_CATEGORY);
         }
 
         if (groupSkArray != null && groupSkArray.length > 0)
@@ -465,7 +465,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
                 {
                     setClause += ", ";
                 }
-                setClause += MetricRowMapper.METRIC_PRODUCT_PAGE_KEY_GROUP_SK_COLUMN + " = ? ";
+                setClause += MetricRowMapper.METRIC_SUB_CATEGORY_COLUMN + " = ? ";
                 needAnd = true;
                 args.add(groupSk);
                 argTypes.add(Types.INTEGER);
