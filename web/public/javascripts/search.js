@@ -32,6 +32,19 @@
             return split( term ).pop();
         }
 
+        $("#searchInput").on( "keydown", function(event) {
+            if(event.which == 13)
+            {
+                var inputObj = $('#searchInput');
+                if (inputObj) {
+                    var keyword = inputObj.val();
+                    if (keyword) {
+                        window.location = '/#/search?keywords=' + keyword + '&category=Dataset&source=all&page=1';
+                    }
+                }
+            }
+        });
+
         $.get('/api/v1/autocomplete/search', function(data){
             $('#searchInput').autocomplete({
                 source: function(request, response) {
