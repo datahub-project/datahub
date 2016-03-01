@@ -53,6 +53,10 @@ var g_downLevel = 1;
         var type = $('#lineageType').val();
         var id = $('#lineageID').val();
         var application = $('#application').val();
+        if (application)
+        {
+            application = application.replace(/\./g, " ");
+        }
         var project = $('#project').val();
         var flow = $('#flow').val();
         var url = '';
@@ -99,6 +103,11 @@ var g_downLevel = 1;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     $("#loading").hide();
+                    var titleObj = $('#title');
+                    if (titleObj && data.data && data.data.urn)
+                    {
+                        titleObj.text("Lineage for: " + data.data.urn);
+                    }
                     renderTables(data.data);
                     g_currentData = data.data;
                     setupDagreGraph(data.data, rotation, type);
@@ -127,6 +136,11 @@ var g_downLevel = 1;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     $("#loading").hide();
+                    var titleObj = $('#title');
+                    if (titleObj && data.data && data.data.flowName)
+                    {
+                        titleObj.text("Lineage for: " + application + '/' + project + '/' + data.data.flowName);
+                    }
                     renderTables(data.data);
                     g_currentData = data.data;
                     setupDagreGraph(data.data, rotation, type);
