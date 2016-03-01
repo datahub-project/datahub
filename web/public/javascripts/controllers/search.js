@@ -96,6 +96,18 @@ App.SearchController = Ember.Controller.extend({
                 }
             )
         },
+        switchSearchToJob: function(keyword){
+            this.transitionToRoute
+            ( 'search'
+                , { queryParams:
+                { category: 'Job'
+                    , keywords: this.get('keywords')
+                    , page: 1
+                    , source: null
+                }
+                }
+            )
+        },
         switchSearchToComments: function(keyword){
             this.transitionToRoute
             ( 'search'

@@ -1715,6 +1715,12 @@
         <button
           type="button"
           class="btn btn-default"
+          {{action 'switchSearchToJob' keyword}}>
+          Job
+        </button>
+        <button
+          type="button"
+          class="btn btn-default"
           {{action 'switchSearchToComments' keyword}}>
           Comments
         </button>
@@ -1761,22 +1767,22 @@
               </div>
             {{/if}}
             {{#if model.count}}
-              {{#if model.isFlow}}
+              {{#if model.isFlowJob}}
               <table id="searchresults" class="search-results searchtable">
                 <tbody>
-                  {{#each flow in model.data}}
+                  {{#each flowJob in model.data}}
                   <tr class="result">
                     <td class="col-xs-12">
                       <div class="dataset-name">
                         <td class="dataset-info">
-                          <a href="#/flows/{{flow.appCode}}/{{flow.group}}/{{flow.id}}/page/1">
-                            {{flow.name}}
+                          <a href="{{flowJob.link}}">
+                            {{flowJob.displayName}}
                           </a>
                         </td>
                         <p>
-                          {{{ flow.appCode }}}/{{{ flow.path }}}
+                          {{{ flowJob.path }}}
                         </p>
-                        <p>source: {{{ flow.appCode }}}</p>
+                        <p>source: {{{ flowJob.appCode }}}</p>
                       </div>
                     </td>
                   </tr>
