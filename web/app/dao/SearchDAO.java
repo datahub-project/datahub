@@ -70,6 +70,18 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			" AGAINST ('*$keyword* *v_$keyword*' IN BOOLEAN MODE) and source = ? ) t " +
 			"ORDER BY rank desc, `name`, `urn` LIMIT ?, ?;";
 
+	public final static String SEARCH_FLOW_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+			"a.app_code, f.app_id, f.flow_id, f.flow_name, f.flow_group, f.flow_path, f.flow_level, " +
+			"rank_01 + rank_02 + rank_03 + rank_04 as rank " +
+			"FROM (SELECT app_id, flow_id, flow_name, flow_group, flow_path, flow_level, " +
+			"CASE WHEN flow_name = '$keyword' THEN 3000 ELSE 0 END rank_01, " +
+			"CASE WHEN flow_name like '%$keyword' THEN 2000 ELSE 0 END rank_02, " +
+			"CASE WHEN flow_name like '$keyword%' THEN 1000 ELSE 0 END rank_03, " +
+			"CASE WHEN flow_name like '%$keyword%' THEN 100 ELSE 0 END rank_04 " +
+			"FROM flow WHERE flow_name like '%$keyword%' ) f " +
+			"JOIN cfg_application a on f.app_id = a.app_id ORDER BY " +
+			"rank DESC, flow_name, app_id, flow_id, flow_group, flow_path LIMIT ?, ?";
+
 	public final static String SEARCH_METRIC_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_ref_id_type`, " +
 			"`metric_ref_id`, `metric_category`, `metric_group`, " +
@@ -118,12 +130,17 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public final static String GET_DATASET_AUTO_COMPLETE_LIST = "SELECT DISTINCT name FROM dict_dataset";
 
+	public final static String GET_FLOW_AUTO_COMPLETE_LIST = "SELECT DISTINCT flow_name FROM flow";
+
+	public final static String GET_JOB_AUTO_COMPLETE_LIST = "SELECT DISTINCT job_name FROM flow_job";
+
 	public static List<String> getAutoCompleteList()
 	{
-		List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
+		//List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
+		List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
 		List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
 		List<String> autoCompleteList =
-				Stream.concat(metricList.stream(), datasetList.stream()).collect(Collectors.toList());
+				Stream.concat(flowList.stream(), datasetList.stream()).collect(Collectors.toList());
 		Collections.sort(autoCompleteList);
 
 		return autoCompleteList;
@@ -260,6 +277,63 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedMetrics));
+
+				return resultNode;
+			}
+		});
+
+		return result;
+	}
+
+	public static ObjectNode getPagedFlowByKeyword(String keyword, int page, int size)
+	{
+		final List<Flow> pagedFlows = new ArrayList<Flow>();
+		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
+		javax.sql.DataSource ds = jdbcTemplate.getDataSource();
+		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+
+		TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
+		ObjectNode result;
+		result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+		{
+			public ObjectNode doInTransaction(TransactionStatus status)
+			{
+				String query = SEARCH_FLOW_WITH_PAGINATION.replace("$keyword", keyword);
+				List<Map<String, Object>> rows = null;
+
+				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
+				for (Map row : rows) {
+
+					Flow flow = new Flow();
+					flow.id = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+					flow.name = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+					flow.path = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
+					flow.group = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+					flow.level = (Integer)row.get(FlowRowMapper.FLOW_LEVEL_COLUMN);
+					flow.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
+					flow.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
+
+					pagedFlows.add(flow);
+				}
+				long count = 0;
+				try {
+					count = jdbcTemplate.queryForObject(
+							"SELECT FOUND_ROWS()",
+							Long.class);
+				}
+				catch(EmptyResultDataAccessException e)
+				{
+					Logger.error("Exception = " + e.getMessage());
+				}
+
+				ObjectNode resultNode = Json.newObject();
+				resultNode.put("count", count);
+				resultNode.put("isFlow", true);
+				resultNode.put("page", page);
+				resultNode.put("itemsPerPage", size);
+				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+				resultNode.set("data", Json.toJson(pagedFlows));
 
 				return resultNode;
 			}
