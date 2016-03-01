@@ -153,22 +153,19 @@ class HiveExtract:
     previous_tb_name = ''
     field_list = []
     for row_index, row_value in enumerate(rows):
-      if row_index != len(rows) - 1 and (row_index == 0 or (
-                row_index != len(rows) - 1 and row_value[0] == previous_db_name and row_value[1] == previous_tb_name)):
-        field_list.append(
-          {'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16], 'Comment': row_value[17]})
-      else:  # add new record into result
-        if row_index == len(rows) - 1:  # edge case for last row
-          field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
-                             'Comment': row_value[17]})
+      if row_index == 0 or (row_value[0] == previous_db_name and row_value[1] == previous_tb_name):
+        field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
+                           'Comment': row_value[17]})
 
+      if row_index == len(rows) - 1 or (row_value[0] != previous_db_name or row_value[1] != previous_tb_name):
+        # add new record into result
         table_record = {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
                         TableInfo.create_time: row_value[3],  TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
                         TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
                         TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
                         TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
                         TableInfo.etl_source: 'COLUMN_V2',
-                        TableInfo.field_list: field_list}
+                        TableInfo.field_list: field_list[:]}
         field_list = []
 
         if row_value[0] not in self.db_dict:
@@ -188,7 +185,7 @@ class HiveExtract:
           schema[db_idx]['tables'].append(table_record)
           table_idx += 1
           self.table_dict[full_name] = table_idx
-          # print "%6d: %s: %s" % (table_idx, full_name, str(schema[db_idx]['tables'][table_idx]))
+
       previous_db_name = row_value[0]
       previous_tb_name = row_value[1]
 

@@ -11,15 +11,12 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package models;
+package metadata.etl.models;
 
 /**
- * Created by zechen on 9/24/15.
+ * Created by zechen on 10/21/15.
  */
-public enum EtlJobStatus {
-  REQUESTED,
-  STARTED,
-  PROCESSING,
-  ERROR,
-  SUCCEEDED
+public enum RefIdType {
+  APP,
+  DB
 }

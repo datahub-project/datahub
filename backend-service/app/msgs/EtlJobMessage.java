@@ -14,9 +14,9 @@
 package msgs;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import models.EtlType;
-import models.EtlJobName;
-import models.RefIdType;
+import metadata.etl.models.EtlType;
+import metadata.etl.models.EtlJobName;
+import metadata.etl.models.RefIdType;
 
 
 /**
@@ -30,19 +30,15 @@ public class EtlJobMessage {
   RefIdType refIdType;
   JsonNode inputParams;
   Integer whEtlJobId;
+  String cmdParam;
 
-  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId) {
-    this.etlJobName = etlJobName;
-    this.etlType = etlType;
-    this.whEtlJobId = whEtlJobId;
-  }
-
-  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId, Integer refId, RefIdType refIdType) {
+  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId, Integer refId, RefIdType refIdType, String cmdParam) {
     this.etlJobName = etlJobName;
     this.etlType = etlType;
     this.refId = refId;
     this.refIdType = refIdType;
     this.whEtlJobId = whEtlJobId;
+    this.cmdParam = cmdParam;
   }
 
   public Long getWhEtlExecId() {
@@ -87,6 +83,14 @@ public class EtlJobMessage {
 
   public void setRefIdType(RefIdType refIdType) {
     this.refIdType = refIdType;
+  }
+
+  public String getCmdParam() {
+    return cmdParam;
+  }
+
+  public void setCmdParam(String cmdParam) {
+    this.cmdParam = cmdParam;
   }
 
   /**

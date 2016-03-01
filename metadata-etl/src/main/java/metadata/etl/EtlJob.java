@@ -13,6 +13,7 @@
  */
 package metadata.etl;
 
+import java.io.FileInputStream;
 import org.python.core.PyDictionary;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -35,11 +36,14 @@ import java.util.Properties;
  * Created by zsun on 7/29/15.
  */
 public abstract class EtlJob {
-  private final static String CONFIG_FILE = "application.properties";
+
   public PythonInterpreter interpreter;
   public Properties prop;
   public ClassLoader classLoader = getClass().getClassLoader();
   protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+  // default location of local test configuration file
+  private final static String DEFAULT_CONFIG_FILE_LOCATION = System.getProperty("user.home") + "/.wherehows/local_test.properties";
 
   /**
    * Constructor for using config file
@@ -48,7 +52,7 @@ public abstract class EtlJob {
    */
   @Deprecated
   public EtlJob(Integer appId, Integer dbId, long whExecId) {
-    this(appId, dbId, whExecId, CONFIG_FILE);
+    this(appId, dbId, whExecId, DEFAULT_CONFIG_FILE_LOCATION);
   }
 
   /**
@@ -102,10 +106,10 @@ public abstract class EtlJob {
     }
     prop.setProperty(Constant.WH_EXEC_ID_KEY, String.valueOf(whExecId));
 
-    try (InputStream propFile = classLoader.getResourceAsStream(configFile)) {
+    try (InputStream propFile = new FileInputStream(configFile)) {
       prop.load(propFile);
     } catch (IOException e) {
-      logger.error("property file '{}' not found in the classpath" , configFile);
+      logger.error("property file '{}' not found" , configFile);
       e.printStackTrace();
     }
 

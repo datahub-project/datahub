@@ -83,11 +83,3 @@ task "dist" (type: Exec) {
     commandLine playExec, 'dist'
 }
 
-/*
-// optional: if using 'eclipse' plugin
-eclipse {
-    classpath {
-        plusConfigurations += configurations.provided
-    }
-}
-*/

@@ -11,12 +11,17 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package models;
+package metadata.etl.models;
 
 /**
- * Created by zechen on 10/21/15.
+ * Created by zsun on 9/30/15.
  */
-public enum RefIdType {
-  APP,
-  DB
+public enum EtlType {
+  OPERATION,
+  LINEAGE,
+  DATASET,
+  OWNER,
+  LDAP,
+  VCS,
+  ALL
 }

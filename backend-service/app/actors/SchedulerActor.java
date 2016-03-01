@@ -17,9 +17,9 @@ import akka.actor.UntypedActor;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import models.EtlType;
-import models.EtlJobName;
-import models.RefIdType;
+import metadata.etl.models.EtlType;
+import metadata.etl.models.EtlJobName;
+import metadata.etl.models.RefIdType;
 import msgs.EtlJobMessage;
 import play.Logger;
 import play.libs.Json;
@@ -49,7 +49,8 @@ public class SchedulerActor extends UntypedActor {
         EtlType etlType = EtlType.valueOf((String) dueJob.get("wh_etl_type"));
         Integer refId = (Integer) dueJob.get("ref_id");
         RefIdType refIdType = RefIdType.valueOf((String) dueJob.get("ref_id_type"));
-        EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, etlType, whEtlJobId, refId, refIdType);
+        String cmdParam = (String)dueJob.get("cmd_param");
+        EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, etlType, whEtlJobId, refId, refIdType, cmdParam);
         if (dueJob.get("input_params") != null) {
           etlMsg.setInputParams(Json.parse((String) dueJob.get("input_params")));
         }

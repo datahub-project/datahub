@@ -14,7 +14,7 @@
 package models.daos;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import models.EtlJobName;
+import metadata.etl.models.EtlJobName;
 import org.springframework.jdbc.support.KeyHolder;
 import play.Logger;
 import utils.JdbcUtil;
