@@ -14,17 +14,17 @@
 package actors;
 
 import akka.actor.UntypedActor;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.Date;
+import java.lang.reflect.Field;
 import java.util.Properties;
-import metadata.etl.EtlJob;
-import models.EtlJobStatus;
+import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
 import msgs.EtlJobMessage;
 import play.Logger;
-
 
 
 /**
@@ -32,6 +32,7 @@ import play.Logger;
  */
 public class EtlJobActor extends UntypedActor {
 
+  private Process process;
   @Override
   public void onReceive(Object message)
     throws Exception {
@@ -42,11 +43,32 @@ public class EtlJobActor extends UntypedActor {
         Properties props = EtlJobPropertyDao.getJobProperties(msg.getEtlJobName(), msg.getRefId());
         Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
         props.putAll(whProps);
-        EtlJob etlJob = EtlJobFactory.getEtlJob(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
-        etlJob.run();
+
+        // start a new process here
+        String cmd = CmdUtil.generateCMD(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props, msg.getCmdParam());
+        // Logger.debug("run command : " + cmd);
+
+        process = Runtime.getRuntime().exec(cmd);
+
+        // wait until this process finished.
+        int execResult = process.waitFor();
+
+        // if the process failed, log the error and throw exception
+        if (execResult > 0) {
+          BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+          String errString = "Error Details:\n";
+          String line;
+          while((line = br.readLine()) != null)
+            errString = errString.concat(line).concat("\n");
+          Logger.error("*** Process + " + getPid(process) + " failed, status: " + execResult);
+          Logger.error(errString);
+          throw new Exception("Process + " + getPid(process) + " failed");
+        }
+
         EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.SUCCEEDED, "Job succeed!");
         Logger.info("ETL job {} finished", msg.toDebugString());
+
         if (msg.getEtlJobName().affectDataset()) {
           ActorRegistry.treeBuilderActor.tell("dataset", getSelf());
         }
@@ -56,13 +78,31 @@ public class EtlJobActor extends UntypedActor {
         }
       } catch (Throwable e) { // catch all throwable at the highest level.
         Logger.error("ETL job {} got a problem", msg.toDebugString());
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        e.printStackTrace(pw);
-        Logger.error(sw.toString());
-        e.printStackTrace();
-        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, sw.toString().substring(0,500));
+        if (process.isAlive()) {
+          process.destroy();
+        }
+        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
       }
     }
   }
+
+  /**
+   * Reflection to get the pid
+   * @param process {@code Process}
+   * @return pid, -1 if not found
+   */
+  private static int getPid(Process process) {
+    try {
+      Class<?> cProcessImpl = process.getClass();
+      Field fPid = cProcessImpl.getDeclaredField("pid");
+      if (!fPid.isAccessible()) {
+        fPid.setAccessible(true);
+      }
+      return fPid.getInt(process);
+    } catch (Exception e) {
+      return -1;
+    }
+  }
+
+
 }

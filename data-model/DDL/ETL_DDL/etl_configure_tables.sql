@@ -31,6 +31,8 @@ CREATE TABLE `wh_etl_job` (
   `comments`        VARCHAR(200)               DEFAULT NULL,
   `ref_id_type`     ENUM('APP', 'DB') NOT NULL
   COMMENT 'flag the ref_id is an application or a database',
+  `cmd_param`       VARCHAR(500)               DEFAULT ''
+  COMMENT 'command line parameters for launch the job',
   `is_active`       CHAR(1)                    DEFAULT 'Y'
   COMMENT 'determine if this job is active or not',
   PRIMARY KEY (`wh_etl_job_id`),

@@ -53,7 +53,7 @@ public class AzLineageMetadataEtl extends EtlJob {
    */
   public AzLineageMetadataEtl(int appId, long whExecId, Properties properties) {
     super(appId, null, whExecId, properties);
-    this.timeFrame = Integer.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY));
+    this.timeFrame = Integer.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY, "90")); //default lookback 90 mins
     if (this.prop.contains(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY))
       this.endTimeStamp = Long.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY));
     try {

@@ -15,19 +15,14 @@ package models.daos;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import models.EtlJobName;
-import models.EtlJobStatus;
-import org.springframework.jdbc.core.PreparedStatementCreator;
-import org.springframework.jdbc.support.GeneratedKeyHolder;
+import metadata.etl.models.EtlJobName;
+import metadata.etl.models.EtlJobStatus;
 import org.springframework.jdbc.support.KeyHolder;
 import play.libs.Time;
 import utils.JdbcUtil;
 import utils.JsonUtil;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.*;
 
 

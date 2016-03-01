@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package actors;
+package metadata.etl.models;
 
 import java.util.Properties;
 import metadata.etl.EtlJob;
@@ -24,7 +24,7 @@ import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
-import models.EtlJobName;
+import metadata.etl.models.EtlJobName;
 
 
 /**

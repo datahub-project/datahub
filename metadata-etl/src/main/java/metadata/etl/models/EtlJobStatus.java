@@ -11,17 +11,15 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package models;
+package metadata.etl.models;
 
 /**
- * Created by zsun on 9/30/15.
+ * Created by zechen on 9/24/15.
  */
-public enum EtlType {
-  OPERATION,
-  LINEAGE,
-  DATASET,
-  OWNER,
-  LDAP,
-  VCS,
-  ALL
+public enum EtlJobStatus {
+  REQUESTED,
+  STARTED,
+  PROCESSING,
+  ERROR,
+  SUCCEEDED
 }

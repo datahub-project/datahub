@@ -96,7 +96,7 @@ public class HdfsMetadataEtl extends EtlJob {
       String wherehowsExecFolder = remoteJarFile.split("/")[0];
       String cluster = prop.getProperty(Constant.HDFS_CLUSTER_KEY);
       String whiteList = prop.getProperty(Constant.HDFS_WHITE_LIST_KEY);
-      String numOfThread = prop.getProperty(Constant.HDFS_NUM_OF_THREAD_KEY);
+      String numOfThread = prop.getProperty(Constant.HDFS_NUM_OF_THREAD_KEY, String.valueOf(1));
       String execCmd =
         "cd " + wherehowsExecFolder + ";"
           + "export HADOOP_CLIENT_OPTS=\"-Xmx2048m $HADOOP_CLIENT_OPTS\";"

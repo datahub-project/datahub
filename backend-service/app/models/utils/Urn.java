@@ -12,12 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
 package models.utils;
-
-/**
- * Urn class used for urn convertion
- * Created by zsun on 1/15/15.
- */
-
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
