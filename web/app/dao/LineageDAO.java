@@ -35,6 +35,9 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_APPLICATION_ID = "SELECT DISTINCT app_id FROM " +
 			"job_execution_data_lineage WHERE abstracted_object_name = ?";
 
+	private final static String GET_FLOW_NAME = "SELECT flow_name FROM " +
+			"flow WHERE app_id = ? and flow_id = ?";
+
 	private final static String GET_JOB = "SELECT ca.app_id, ca.app_code as cluster, je.flow_id, je.job_id, jedl.job_name, " +
 			"fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, " +
 			"max(jedl.job_exec_id) as job_exec_id, FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
@@ -135,6 +138,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		}
 		resultNode.set("nodes", Json.toJson(nodes));
 		resultNode.set("links", Json.toJson(edges));
+		resultNode.put("urn", urn);
 		resultNode.put("message", message);
 		return resultNode;
 	}
@@ -404,6 +408,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		ObjectNode resultNode = Json.newObject();
 		List<LineageNode> nodes = new ArrayList<LineageNode>();
 		List<LineageEdge> edges = new ArrayList<LineageEdge>();
+		String flowName = null;
 
 		Map<Long, Integer> addedJobNodes = new HashMap<Long, Integer>();
 		Map<Pair, Integer> addedDataNodes = new HashMap<Pair, Integer>();
@@ -436,6 +441,20 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 
 		if (appID != 0)
 		{
+			try
+			{
+				flowName = getJdbcTemplate().queryForObject(
+						GET_FLOW_NAME,
+						new Object[] {appID, flowId},
+						String.class);
+			}
+			catch(EmptyResultDataAccessException e)
+			{
+				Logger.error("getFlowLineage get flow name failed, application name = " + application +
+						" flowId " + Long.toString(flowId));
+				Logger.error("Exception = " + e.getMessage());
+			}
+
 			Long flowExecId = 0L;
 			try
 			{
@@ -782,6 +801,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		}
 		resultNode.set("nodes", Json.toJson(nodes));
 		resultNode.set("links", Json.toJson(edges));
+		resultNode.put("flowName", flowName);
 		return resultNode;
 	}
 

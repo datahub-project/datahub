@@ -92,7 +92,7 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(lineage.render(username, type, 0, application, project, flow));
+        return ok(lineage.render(username, type, 0, application.replace(" ", "."), project, flow));
     }
 
     @Security.Authenticated(Secured.class)
