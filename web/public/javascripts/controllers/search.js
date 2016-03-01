@@ -84,6 +84,18 @@ App.SearchController = Ember.Controller.extend({
                 }
             )
         },
+        switchSearchToFlow: function(keyword){
+            this.transitionToRoute
+            ( 'search'
+                , { queryParams:
+                { category: 'Flow'
+                    , keywords: this.get('keywords')
+                    , page: 1
+                    , source: null
+                }
+                }
+            )
+        },
         switchSearchToComments: function(keyword){
             this.transitionToRoute
             ( 'search'

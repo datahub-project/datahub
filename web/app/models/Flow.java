@@ -22,4 +22,7 @@ public class Flow {
     public int jobCount;
     public String created;
     public String modified;
+    public String appCode;
+    public String group;
+    public Integer appId;
 }
