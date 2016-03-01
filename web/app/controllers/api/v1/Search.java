@@ -102,6 +102,10 @@ public class Search extends Controller
         {
             result.set("result", SearchDAO.getPagedFlowByKeyword(keyword, page, size));
         }
+        else if (category.toLowerCase().equalsIgnoreCase("job"))
+        {
+            result.set("result", SearchDAO.getPagedJobByKeyword(keyword, page, size));
+        }
         else if (category.toLowerCase().equalsIgnoreCase("comments"))
         {
             result.set("result", SearchDAO.getPagedCommentsByKeyword(keyword, page, size));

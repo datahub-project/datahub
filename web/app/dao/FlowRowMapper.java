@@ -22,6 +22,10 @@ import java.sql.SQLException;
 public class FlowRowMapper implements RowMapper<Flow>
 {
     public static String FLOW_ID_COLUMN = "flow_id";
+    public static String JOB_ID_COLUMN = "job_id";
+    public static String JOB_NAME_COLUMN = "job_name";
+    public static String JOB_PATH_COLUMN = "job_path";
+    public static String JOB_TYPE_COLUMN = "job_type";
     public static String FLOW_NAME_COLUMN = "flow_name";
     public static String APP_CODE_COLUMN = "app_code";
     public static String APP_ID_COLUMN = "app_id";

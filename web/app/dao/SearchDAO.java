@@ -82,6 +82,20 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN cfg_application a on f.app_id = a.app_id ORDER BY " +
 			"rank DESC, flow_name, app_id, flow_id, flow_group, flow_path LIMIT ?, ?";
 
+	public final static String SEARCH_JOB_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+			"a.app_code, f.flow_name, f.flow_group, f.flow_path, f.flow_level, " +
+			"j.app_id, j.flow_id, j.job_id, j.job_name, j.job_path, j.job_type, " +
+			"rank_01+rank_02+rank_03+rank_04 as rank " +
+			"FROM (SELECT app_id, flow_id, job_id, job_name, job_path, job_type, " +
+			"CASE WHEN job_name = '$keyword' THEN 3000 ELSE 0 END rank_01, " +
+			"CASE WHEN job_name like '%$keyword' THEN 2000 ELSE 0 END rank_02, " +
+			"CASE WHEN job_name like '$keyword%' THEN 1000 ELSE 0 END rank_03, " +
+			"CASE WHEN job_name like '%$keyword%' THEN 100 ELSE 0 END rank_04 " +
+			"FROM flow_job WHERE job_name like '%$keyword%' ) j " +
+			"JOIN cfg_application a on a.app_id = j.app_id " +
+			"JOIN flow f on f.app_id = j.app_id AND f.flow_id = j.flow_id " +
+			"ORDER BY rank DESC, j.job_name, j.app_id, j.flow_id, j.job_id, j.job_path LIMIT ?, ?";
+
 	public final static String SEARCH_METRIC_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_ref_id_type`, " +
 			"`metric_ref_id`, `metric_category`, `metric_group`, " +
@@ -138,9 +152,11 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 	{
 		//List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
 		List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
+		List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
 		List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
 		List<String> autoCompleteList =
-				Stream.concat(flowList.stream(), datasetList.stream()).collect(Collectors.toList());
+				Stream.concat(datasetList.stream(),
+						Stream.concat(flowList.stream(), jobList.stream())).collect(Collectors.toList());
 		Collections.sort(autoCompleteList);
 
 		return autoCompleteList;
@@ -287,7 +303,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public static ObjectNode getPagedFlowByKeyword(String keyword, int page, int size)
 	{
-		final List<Flow> pagedFlows = new ArrayList<Flow>();
+		final List<FlowJob> pagedFlows = new ArrayList<FlowJob>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
 		javax.sql.DataSource ds = jdbcTemplate.getDataSource();
 		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
@@ -305,15 +321,17 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
 				for (Map row : rows) {
 
-					Flow flow = new Flow();
-					flow.id = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
-					flow.name = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
-					flow.path = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
-					flow.group = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
-					flow.level = (Integer)row.get(FlowRowMapper.FLOW_LEVEL_COLUMN);
+					FlowJob flow = new FlowJob();
+					flow.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+					flow.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+					flow.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
+					flow.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
 					flow.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
 					flow.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
-
+					flow.displayName = flow.flowName;
+					flow.link = "#/flows/" + flow.appCode + "/" +
+							flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
+					flow.path = flow.appCode + "/" + flow.flowPath;
 					pagedFlows.add(flow);
 				}
 				long count = 0;
@@ -329,11 +347,75 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 				ObjectNode resultNode = Json.newObject();
 				resultNode.put("count", count);
-				resultNode.put("isFlow", true);
+				resultNode.put("isFlowJob", true);
 				resultNode.put("page", page);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedFlows));
+
+				return resultNode;
+			}
+		});
+
+		return result;
+	}
+
+	public static ObjectNode getPagedJobByKeyword(String keyword, int page, int size)
+	{
+		final List<FlowJob> pagedFlowJobs = new ArrayList<FlowJob>();
+		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
+		javax.sql.DataSource ds = jdbcTemplate.getDataSource();
+		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+
+		TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
+		ObjectNode result;
+		result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+		{
+			public ObjectNode doInTransaction(TransactionStatus status)
+			{
+				String query = SEARCH_JOB_WITH_PAGINATION.replace("$keyword", keyword);
+				List<Map<String, Object>> rows = null;
+
+				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
+				for (Map row : rows) {
+
+					FlowJob flowJob = new FlowJob();
+					flowJob.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+					flowJob.jobId = (Long)row.get(FlowRowMapper.JOB_ID_COLUMN);
+					flowJob.jobName = (String)row.get(FlowRowMapper.JOB_NAME_COLUMN);
+					flowJob.jobPath = (String)row.get(FlowRowMapper.JOB_PATH_COLUMN);
+					flowJob.jobType = (String)row.get(FlowRowMapper.JOB_TYPE_COLUMN);
+					flowJob.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+					flowJob.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
+					flowJob.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+					flowJob.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
+					flowJob.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
+					flowJob.displayName = flowJob.jobName;
+					flowJob.link =  "#/flows/" + flowJob.appCode + "/" +
+							flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+					flowJob.path = flowJob.appCode + "/" + flowJob.jobPath;
+
+					pagedFlowJobs.add(flowJob);
+				}
+				long count = 0;
+				try {
+					count = jdbcTemplate.queryForObject(
+							"SELECT FOUND_ROWS()",
+							Long.class);
+				}
+				catch(EmptyResultDataAccessException e)
+				{
+					Logger.error("Exception = " + e.getMessage());
+				}
+
+				ObjectNode resultNode = Json.newObject();
+				resultNode.put("count", count);
+				resultNode.put("isFlowJob", true);
+				resultNode.put("page", page);
+				resultNode.put("itemsPerPage", size);
+				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+				resultNode.set("data", Json.toJson(pagedFlowJobs));
 
 				return resultNode;
 			}
