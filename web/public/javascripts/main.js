@@ -72,7 +72,7 @@
       })
     })
 
-    var currentTab = 'Dataset';
+    var currentTab = 'Datasets';
     $('#advsearchtabs a:first').tab("show");
     $('#datasetAdvSearchLink').addClass("active");
 

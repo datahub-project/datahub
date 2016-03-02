@@ -88,7 +88,7 @@ public class Search extends Controller
         result.put("status", "ok");
         if (StringUtils.isBlank(category))
         {
-            category = "dataset";
+            category = "datasets";
         }
         if (StringUtils.isBlank(source))
         {
@@ -98,11 +98,11 @@ public class Search extends Controller
         {
             result.set("result", SearchDAO.getPagedMetricByKeyword(keyword, page, size));
         }
-        else if (category.toLowerCase().equalsIgnoreCase("flow"))
+        else if (category.toLowerCase().equalsIgnoreCase("flows"))
         {
             result.set("result", SearchDAO.getPagedFlowByKeyword(keyword, page, size));
         }
-        else if (category.toLowerCase().equalsIgnoreCase("job"))
+        else if (category.toLowerCase().equalsIgnoreCase("jobs"))
         {
             result.set("result", SearchDAO.getPagedJobByKeyword(keyword, page, size));
         }

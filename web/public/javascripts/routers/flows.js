@@ -7,7 +7,7 @@ App.FlowsRoute = Ember.Route.extend({
 
 App.PagedapplicationRoute = Ember.Route.extend({
     setupController: function(controller, params, transition) {
-        currentTab = 'Flow';
+        currentTab = 'Flows';
         updateActiveTab();
         if (transition
             && transition.resolvedModels
@@ -55,7 +55,7 @@ App.PagedapplicationRoute = Ember.Route.extend({
 
 App.PagedprojectRoute = Ember.Route.extend({
     setupController: function(controller, params, transition) {
-        currentTab = 'Flow';
+        currentTab = 'Flows';
         updateActiveTab();
         if (transition
             && transition.resolvedModels
@@ -104,7 +104,7 @@ App.PagedprojectRoute = Ember.Route.extend({
 
 App.PagedflowRoute = Ember.Route.extend({
     setupController: function(controller, params, transition) {
-        currentTab = 'Flow';
+        currentTab = 'Flows';
         updateActiveTab();
         if (transition
             && transition.resolvedModels
