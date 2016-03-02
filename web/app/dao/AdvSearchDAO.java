@@ -1123,16 +1123,17 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				boolean flowNeedAndKeyword = false;
 				if (flowInList.size() > 0)
 				{
+					query += "( ";
 					int indexForFlowInList = 0;
 					for (String flow : flowInList)
 					{
 						if (indexForFlowInList == 0)
 						{
-							query += "f.flow_name in ('" + flow + "'";
+							query += "f.flow_name LIKE '%" + flow + "%'";
 						}
 						else
 						{
-							query += ", '" + flow + "'";
+							query += " or f.flow_name LIKE '%" + flow + "%'";
 						}
 						indexForFlowInList++;
 					}
@@ -1145,16 +1146,17 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					{
 						query += " AND ";
 					}
+					query += "( ";
 					int indexForFlowNotInList = 0;
 					for (String flow : flowNotInList)
 					{
 						if (indexForFlowNotInList == 0)
 						{
-							query += "f.flow_name not in ('" + flow + "'";
+							query += "f.flow_name NOT LIKE '%" + flow + "%'";
 						}
 						else
 						{
-							query += ", '" + flow + "'";
+							query += " and f.flow_name NOT LIKE '%" + flow + "%'";
 						}
 						indexForFlowNotInList++;
 					}
@@ -1173,6 +1175,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				{
 					query += " WHERE ";
 				}
+				query += "( ";
 				boolean jobNeedAndKeyword = false;
 				if (jobInList.size() > 0)
 				{
@@ -1181,11 +1184,11 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					{
 						if (indexForJobInList == 0)
 						{
-							query += "j.job_name in ('" + job + "'";
+							query += "j.job_name LIKE '%" + job + "%'";
 						}
 						else
 						{
-							query += ", '" + job + "'";
+							query += " or j.job_name LIKE '%" + job + "%'";
 						}
 						indexForJobInList++;
 					}
@@ -1198,16 +1201,17 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					{
 						query += " AND ";
 					}
+					query += "( ";
 					int indexForJobNotInList = 0;
 					for (String job : jobNotInList)
 					{
 						if (indexForJobNotInList == 0)
 						{
-							query += "j.job_name not in ('" + job + "'";
+							query += "j.job_name NOT LIKE '%" + job + "%'";
 						}
 						else
 						{
-							query += ", '" + job + "'";
+							query += " and j.job_name NOT LIKE '%" + job + "%'";
 						}
 						indexForJobNotInList++;
 					}
