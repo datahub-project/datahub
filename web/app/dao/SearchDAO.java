@@ -162,7 +162,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return autoCompleteList;
 	}
 
-	public static ObjectNode getPagedDatasetByKeyword(String keyword, String source, int page, int size)
+	public static ObjectNode getPagedDatasetByKeyword(String category, String keyword, String source, int page, int size)
 	{
     	List<Dataset> pagedDatasets = new ArrayList<Dataset>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
@@ -212,6 +212,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				ObjectNode resultNode = Json.newObject();
 				resultNode.put("count", count);
 				resultNode.put("page", page);
+				resultNode.put("category", category);
+				resultNode.put("source", source);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedDatasets));
@@ -223,7 +225,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static ObjectNode getPagedMetricByKeyword(String keyword, int page, int size)
+	public static ObjectNode getPagedMetricByKeyword(final String category, String keyword, int page, int size)
 	{
 		List<Metric> pagedMetrics = new ArrayList<Metric>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
@@ -290,6 +292,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				ObjectNode resultNode = Json.newObject();
 				resultNode.put("count", count);
 				resultNode.put("page", page);
+				resultNode.put("category", category);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedMetrics));
@@ -301,7 +304,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static ObjectNode getPagedFlowByKeyword(String keyword, int page, int size)
+	public static ObjectNode getPagedFlowByKeyword(String category, String keyword, int page, int size)
 	{
 		final List<FlowJob> pagedFlows = new ArrayList<FlowJob>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
@@ -349,6 +352,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				resultNode.put("count", count);
 				resultNode.put("isFlowJob", true);
 				resultNode.put("page", page);
+				resultNode.put("category", category);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedFlows));
@@ -360,7 +364,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static ObjectNode getPagedJobByKeyword(String keyword, int page, int size)
+	public static ObjectNode getPagedJobByKeyword(String category, String keyword, int page, int size)
 	{
 		final List<FlowJob> pagedFlowJobs = new ArrayList<FlowJob>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
@@ -413,6 +417,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				resultNode.put("count", count);
 				resultNode.put("isFlowJob", true);
 				resultNode.put("page", page);
+				resultNode.put("category", category);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedFlowJobs));
@@ -424,7 +429,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static ObjectNode getPagedCommentsByKeyword(String keyword, int page, int size)
+	public static ObjectNode getPagedCommentsByKeyword(String category, String keyword, int page, int size)
 	{
 		List<Dataset> pagedDatasets = new ArrayList<Dataset>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
@@ -466,6 +471,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				ObjectNode resultNode = Json.newObject();
 				resultNode.put("count", count);
 				resultNode.put("page", page);
+				resultNode.put("category", category);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 				resultNode.set("data", Json.toJson(pagedDatasets));
