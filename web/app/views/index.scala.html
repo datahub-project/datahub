@@ -1648,60 +1648,60 @@
         <div class="btn-group" role="group">
           <button
             type="button"
-            {{bind-attr class=":btn :dropdown-toggle :btn-default"}}
+            {{bind-attr class=":btn :dropdown-toggle isDatasets:btn-primary:btn-default"}}
             data-toggle="dropdown"
             aria-expanded="false">
-            Datasets
+            {{datasetTitle}}
             <span class="caret"></span>
           </button>
           <ul class="dropdown-menu" role="menu">
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="all" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="all" page=1)}}
                 All
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="hdfs" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="HDFS" page=1)}}
                 HDFS
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="oracle" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Oracle" page=1)}}
                 Oracle
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="teradata" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Teradata" page=1)}}
                 Teradata
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="espresso" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Espresso" page=1)}}
                 Espresso
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="salesforce" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Salesforce" page=1)}}
                 Salesforce
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="kafka" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Kafka" page=1)}}
                 Kafka
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="pinot" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Pinot" page=1)}}
                 Pinot
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="hive" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="Hive" page=1)}}
                 Hive
             {{/link-to}}
             </li>
             <li>
-            {{#link-to 'search' (query-params category="Dataset" source="external" page=1)}}
+            {{#link-to 'search' (query-params category="Datasets" source="External" page=1)}}
                 External
             {{/link-to}}
             </li>
@@ -1709,19 +1709,19 @@
         </div>
         <button
           type="button"
-          class="btn btn-default"
+          {{bind-attr class=":btn isComments:btn-primary:btn-default"}}
           {{action 'switchSearchToComments' keyword}}>
           Comments
         </button>
         <button
           type="button"
-          class="btn btn-default"
+          {{bind-attr class=":btn isFlows:btn-primary:btn-default"}}
           {{action 'switchSearchToFlow' keyword}}>
           Flows
         </button>
         <button
           type="button"
-          class="btn btn-default"
+          {{bind-attr class=":btn isJobs:btn-primary:btn-default"}}
           {{action 'switchSearchToJob' keyword}}>
           Jobs
         </button>

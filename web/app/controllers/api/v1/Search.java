@@ -59,7 +59,7 @@ public class Search extends Controller
             }
             catch(NumberFormatException e)
             {
-                Logger.error("Dataset Controller getPagedDatasets wrong page parameter. Error message: " +
+                Logger.error("Dataset Controller searchByKeyword wrong page parameter. Error message: " +
                         e.getMessage());
                 page = 1;
             }
@@ -79,13 +79,14 @@ public class Search extends Controller
             }
             catch(NumberFormatException e)
             {
-                Logger.error("Dataset Controller getPagedDatasets wrong page parameter. Error message: " +
+                Logger.error("Dataset Controller searchByKeyword wrong page parameter. Error message: " +
                         e.getMessage());
                 size = 10;
             }
         }
 
         result.put("status", "ok");
+        Boolean isDefault = false;
         if (StringUtils.isBlank(category))
         {
             category = "datasets";
@@ -94,25 +95,47 @@ public class Search extends Controller
         {
             source = "all";
         }
+        else if (source.equalsIgnoreCase("default"))
+        {
+            source = "all";
+            isDefault = true;
+        }
         if (category.toLowerCase().equalsIgnoreCase("metric"))
         {
-            result.set("result", SearchDAO.getPagedMetricByKeyword(keyword, page, size));
+            result.set("result", SearchDAO.getPagedMetricByKeyword(category, keyword, page, size));
         }
         else if (category.toLowerCase().equalsIgnoreCase("flows"))
         {
-            result.set("result", SearchDAO.getPagedFlowByKeyword(keyword, page, size));
+            result.set("result", SearchDAO.getPagedFlowByKeyword(category, keyword, page, size));
         }
         else if (category.toLowerCase().equalsIgnoreCase("jobs"))
         {
-            result.set("result", SearchDAO.getPagedJobByKeyword(keyword, page, size));
+            result.set("result", SearchDAO.getPagedJobByKeyword(category, keyword, page, size));
         }
         else if (category.toLowerCase().equalsIgnoreCase("comments"))
         {
-            result.set("result", SearchDAO.getPagedCommentsByKeyword(keyword, page, size));
+            result.set("result", SearchDAO.getPagedCommentsByKeyword(category, keyword, page, size));
         }
         else
         {
-            result.set("result", SearchDAO.getPagedDatasetByKeyword(keyword, source, page, size));
+            ObjectNode node = SearchDAO.getPagedDatasetByKeyword(category, keyword, source, page, size);
+            if (isDefault && node != null && node.has("count"))
+            {
+                Long count = node.get("count").asLong();
+                if (count != null && count == 0)
+                {
+                    node = SearchDAO.getPagedFlowByKeyword("flows", keyword, page, size);
+                    if (node!= null && node.has("count"))
+                    {
+                        Long flowCount = node.get("count").asLong();
+                        if (flowCount != null && flowCount == 0)
+                        {
+                            node = SearchDAO.getPagedJobByKeyword("jobs", keyword, page, size);
+                        }
+                    }
+                }
+            }
+            result.set("result", node);
         }
 
         return ok(result);

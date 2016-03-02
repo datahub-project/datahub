@@ -40,7 +40,8 @@
                 if (inputObj) {
                     var keyword = inputObj.val();
                     if (keyword) {
-                        window.location = '/#/search?keywords=' + keyword + '&category=Dataset&source=all&page=1';
+                        window.location = '/#/search?keywords=' + keyword +
+                            '&category=Datasets&source=default&page=1';
                     }
                 }
             }
@@ -235,7 +236,8 @@
                 var keyword = inputObj.val();
                 if (keyword)
                 {
-                    window.location = '/#/search?keywords=' + keyword + '&category=Datasets&source=all&page=1';
+                    window.location = '/#/search?keywords=' + keyword +
+                        '&category=Datasets&source=default&page=1';
                 }
             }
         });

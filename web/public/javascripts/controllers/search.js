@@ -7,6 +7,56 @@ App.SearchController = Ember.Controller.extend({
     ],
     keywords: null,
     category: null,
+    datasetTitle: function(){
+        var model = this.get("model");
+        if (model && model.source) {
+            if (model.source.toLocaleLowerCase() != 'all')
+            {
+                return model.source;
+            }
+        }
+        return "Datasets";
+    }.property('model.source'),
+    isDatasets: function(){
+        var model = this.get("model");
+        if (model && model.category) {
+            if (model.category.toLocaleLowerCase() === 'datasets')
+            {
+                return true;
+            }
+        }
+        return false;
+    }.property('model.category'),
+    isComments: function(){
+        var model = this.get("model");
+        if (model && model.category) {
+            if (model.category.toLocaleLowerCase() === 'comments')
+            {
+                return true;
+            }
+        }
+        return false;
+    }.property('model.category'),
+    isFlows: function(){
+        var model = this.get("model");
+        if (model && model.category) {
+            if (model.category.toLocaleLowerCase() === 'flows')
+            {
+                return true;
+            }
+        }
+        return false;
+    }.property('model.category'),
+    isJobs: function(){
+        var model = this.get("model");
+        if (model && model.category) {
+            if (model.category.toLocaleLowerCase() === 'jobs')
+            {
+                return true;
+            }
+        }
+        return false;
+    }.property('model.category'),
     source: null,
     page: null,
     loading: true,
