@@ -118,6 +118,69 @@
             });
         });
 
+        $.get('/api/v1/advsearch/appcodes', function(data){
+            $(".appcodeInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.appcodes, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
+        $.get('/api/v1/advsearch/flowNames', function(data){
+            $(".flowInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.flowNames, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
+        $.get('/api/v1/advsearch/jobNames', function(data){
+            $(".jobInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.jobNames, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
         $( "#scopeInInput" ).blur(function() {
             $.get('/api/v1/advsearch/tables', {scopes: $( "#scopeInInput").val()}, function(data){
                 $(".tableInput").autocomplete({
@@ -176,7 +239,8 @@
             }
         });
 
-        $('#advSearchBtn').click(function(){
+        function advSearchForDataset()
+        {
             var empty = true;
             var scopeInInputObj = $('#scopeInInput');
             var scopeIn = '';
@@ -185,7 +249,7 @@
                 scopeIn = scopeInInputObj.val();
                 if (scopeIn)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var scopeNotInInputObj = $('#scopeNotInInput');
@@ -195,7 +259,7 @@
                 scopeNotIn = scopeNotInInputObj.val();
                 if (scopeNotIn)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var tableInInputObj = $('#tableInInput');
@@ -205,7 +269,7 @@
                 tableIn = tableInInputObj.val();
                 if (tableIn)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var tableNotInInputObj = $('#tableNotInInput');
@@ -215,7 +279,7 @@
                 tableNotIn = tableNotInInputObj.val();
                 if (tableNotIn)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var fieldAnyInputObj = $('#fieldAnyInput');
@@ -225,7 +289,7 @@
                 fieldAny = fieldAnyInputObj.val();
                 if (fieldAny)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var fieldAllInputObj = $('#fieldAllInput');
@@ -235,7 +299,7 @@
                 fieldAll = fieldAllInputObj.val();
                 if (fieldAll)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var fieldNotInInputObj = $('#fieldNotInInput');
@@ -245,7 +309,7 @@
                 fieldNotIn = fieldNotInInputObj.val();
                 if (fieldNotIn)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var commentsInputObj = $('#commentsInput');
@@ -255,7 +319,7 @@
                 comments = commentsInputObj.val();
                 if (comments)
                 {
-                  empty = false;
+                    empty = false;
                 }
             }
             var sources = '';
@@ -265,20 +329,114 @@
             sources = sources.substring(0, sources.length-1);
             if (sources)
             {
-              empty = false;
+                empty = false;
             }
             if (empty)
             {
-              return;
+                return;
             }
 
             var advSearchOpts = {};
+            advSearchOpts.category = 'Dataset';
             advSearchOpts.scope = {'in': scopeIn, 'not': scopeNotIn};
             advSearchOpts.table = {'in': tableIn, 'not': tableNotIn};
             advSearchOpts.fields = {'any': fieldAny, 'all': fieldAll, 'not': fieldNotIn};
             advSearchOpts.comments = comments;
             advSearchOpts.sources = sources;
             window.location.hash = "#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+        }
+
+        function advSearchForFlow()
+        {
+            var empty = true;
+            var appcodeInInputObj = $('#appcodeInInput');
+            var appcodeIn = '';
+            if (appcodeInInputObj)
+            {
+                appcodeIn = appcodeInInputObj.val();
+                if (appcodeIn)
+                {
+                    empty = false;
+                }
+            }
+            var appcodeNotInInputObj = $('#appcodeNotInInput');
+            var appcodeNotIn = '';
+            if (appcodeNotInInputObj)
+            {
+                appcodeNotIn = appcodeNotInInputObj.val();
+                if (appcodeNotIn)
+                {
+                    empty = false;
+                }
+            }
+            var flowInInputObj = $('#flowInInput');
+            var flowIn = '';
+            if (flowInInputObj)
+            {
+                flowIn = flowInInputObj.val();
+                if (flowIn)
+                {
+                    empty = false;
+                }
+            }
+            var flowNotInInputObj = $('#flowNotInInput');
+            var flowNotIn = '';
+            if (flowNotInInputObj)
+            {
+                flowNotIn = flowNotInInputObj.val();
+                if (flowNotIn)
+                {
+                    empty = false;
+                }
+            }
+            var jobInInputObj = $('#jobInInput');
+            var jobIn = '';
+            if (jobInInputObj)
+            {
+                jobIn = jobInInputObj.val();
+                if (jobIn)
+                {
+                    empty = false;
+                }
+            }
+            var jobNotInInputObj = $('#jobNotInInput');
+            var jobNotIn = '';
+            if (jobNotInInputObj)
+            {
+                jobNotIn = jobNotInInputObj.val();
+                if (jobNotIn)
+                {
+                    empty = false;
+                }
+            }
+
+            if (empty)
+            {
+                return;
+            }
+
+            var advSearchOpts = {};
+            advSearchOpts.category = 'Flow';
+            advSearchOpts.appcode = {'in': appcodeIn, 'not': appcodeNotIn};
+            advSearchOpts.flow = {'in': flowIn, 'not': flowNotIn};
+            advSearchOpts.job = {'in': jobIn, 'not': jobNotIn};
+            window.location.hash = "#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+        }
+
+        $('#advSearchBtn').click(function(){
+            var obj = $("#advsearchtabs").find(".active")
+            if (obj)
+            {
+                var text = obj.text();
+                if (text == 'Datasets')
+                {
+                    advSearchForDataset();
+                }
+                else
+                {
+                    advSearchForFlow();
+                }
+            }
         });
 
         $('#advSearchResetBtn').click(function(){
@@ -325,6 +483,36 @@
             $('input[name="sourceCheckbox"]:checked').each(function() {
                 this.checked = false;
             });
+            var appcodeInInputObj = $('#appcodeInInput');
+            if (appcodeInInputObj)
+            {
+                appcodeInInputObj.val('');
+            }
+            var appcodeNotInInputObj = $('#appcodeNotInInput');
+            if (appcodeNotInInputObj)
+            {
+                appcodeNotInInputObj.val('');
+            }
+            var flowInInputObj = $('#flowInInput');
+            if (flowInInputObj)
+            {
+                flowInInputObj.val('');
+            }
+            var flowNotInInputObj = $('#flowNotInInput');
+            if (flowNotInInputObj)
+            {
+                flowNotInInputObj.val('');
+            }
+            var jobInInputObj = $('#jobInInput');
+            if (jobInInputObj)
+            {
+                jobInInputObj.val('');
+            }
+            var jobNotInInputObj = $('#jobNotInInput');
+            if (jobNotInInputObj)
+            {
+                jobNotInInputObj.val('');
+            }
         });
 
 })(jQuery)

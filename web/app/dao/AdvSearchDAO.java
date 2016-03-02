@@ -16,6 +16,7 @@ package dao;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Dataset;
+import models.FlowJob;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,7 +35,11 @@ import java.util.Map;
 
 public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 {
-	public final static String GET_DATASET_SOURCES = "SELECT source FROM dict_dataset GROUP BY 1 ORDER BY count(*) DESC";
+	public final static String GET_DATASET_SOURCES = "SELECT source " +
+			"FROM dict_dataset GROUP BY 1 ORDER BY count(*) DESC";
+
+	public final static String GET_FLOW_APPCODES = "SELECT DISTINCT app_code " +
+			"FROM cfg_application GROUP BY 1 ORDER BY 1";
 
 	public final static String GET_DATASET_SCOPES = "SELECT DISTINCT parent_name " +
 			"FROM dict_dataset WHERE parent_name is not null order by 1;";
@@ -42,7 +47,15 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	public final static String GET_DATASET_TABLE_NAMES_BY_SCOPE = "SELECT DISTINCT name " +
 			"FROM dict_dataset WHERE parent_name in (:scopes)";
 
+	public final static String GET_FLOW_NAMES_BY_APP = "SELECT DISTINCT f.flow_name " +
+			"FROM flow f JOIN cfg_application a on f.app_id = a.app_id WHERE app in (:apps)";
+
 	public final static String GET_DATASET_TABLE_NAMES = "SELECT DISTINCT name FROM dict_dataset ORDER BY 1";
+
+	public final static String GET_FLOW_NAMES = "SELECT DISTINCT flow_name FROM flow ORDER BY 1";
+
+	public final static String GET_JOB_NAMES = "SELECT DISTINCT job_name " +
+			"FROM flow_job GROUP BY 1 ORDER BY 1";
 
 	public final static String GET_DATASET_FIELDS = "SELECT DISTINCT field_name " +
 			"FROM dict_field_detail ORDER BY 1";
@@ -75,6 +88,19 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"dict_dataset_field_comment WHERE comment_id in " +
 			"(SELECT id FROM field_comments where MATCH(comment) against ('*$keyword*' in BOOLEAN MODE)) ) " +
 			"ORDER BY 2 LIMIT ?, ?;";
+
+	public final static String ADV_SEARCH_FLOW = "SELECT SQL_CALC_FOUND_ROWS " +
+			"a.app_code, f.flow_id, f.flow_name, f.flow_path, f.flow_group FROM flow f " +
+			"JOIN cfg_application a on f.app_id = a.app_id ";
+
+
+	public final static String ADV_SEARCH_JOB = "SELECT SQL_CALC_FOUND_ROWS " +
+			"a.app_code, f.flow_name, f.flow_path, f.flow_group, j.flow_id, j.job_id, " +
+			"j.job_name, j.job_path, j.job_type " +
+			"FROM flow_job j JOIN flow f on j.app_id = f.app_id  AND j.flow_id = f.flow_id " +
+			"JOIN cfg_application a on j.app_id = a.app_id ";
+
+
 
 	public static List<String> getDatasetSources()
 	{
@@ -134,6 +160,37 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return getJdbcTemplate().queryForList(query, String.class);
+	}
+
+	public static List<String> getFlowApplicationCodes()
+	{
+		return getJdbcTemplate().queryForList(GET_FLOW_APPCODES, String.class);
+	}
+
+	public static List<String> getFlowNames(String applications)
+	{
+		List<String> flowNames = null;
+		if (StringUtils.isNotBlank(applications))
+		{
+			String[] appArray = applications.split(",");
+			List<String> appList = Arrays.asList(appArray);
+			Map<String, List> param = Collections.singletonMap("apps", appList);
+			NamedParameterJdbcTemplate namedParameterJdbcTemplate = new
+					NamedParameterJdbcTemplate(getJdbcTemplate().getDataSource());
+			flowNames = namedParameterJdbcTemplate.queryForList(
+					GET_FLOW_NAMES_BY_APP, param, String.class);
+		}
+		else
+		{
+			flowNames = getJdbcTemplate().queryForList(GET_FLOW_NAMES, String.class);
+		}
+
+		return flowNames;
+	}
+
+	public static List<String> getFlowJobNames()
+	{
+		return getJdbcTemplate().queryForList(GET_JOB_NAMES, String.class);
 	}
 
 	public static ObjectNode search(JsonNode searchOpt, int page, int size)
@@ -809,6 +866,411 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				});
 				return result;
 			}
+		}
+		resultNode.put("count", 0);
+		resultNode.put("page", page);
+		resultNode.put("itemsPerPage", size);
+		resultNode.put("totalPages", 0);
+		resultNode.set("data", Json.toJson(""));
+		return resultNode;
+	}
+
+	public static ObjectNode searchFlows(JsonNode searchOpt, int page, int size)
+	{
+		ObjectNode resultNode = Json.newObject();
+		int count = 0;
+		List<String> appcodeInList = new ArrayList<String>();
+		List<String> appcodeNotInList = new ArrayList<String>();
+		List<String> flowInList = new ArrayList<String>();
+		List<String> flowNotInList = new ArrayList<String>();
+		List<String> jobInList = new ArrayList<String>();
+		List<String> jobNotInList = new ArrayList<String>();
+
+		if (searchOpt != null && (searchOpt.isContainerNode()))
+		{
+			if (searchOpt.has("appcode")) {
+				JsonNode appcodeNode = searchOpt.get("appcode");
+				if (appcodeNode != null && appcodeNode.isContainerNode())
+				{
+					if (appcodeNode.has("in"))
+					{
+						JsonNode appcodeInNode = appcodeNode.get("in");
+						if (appcodeInNode != null)
+						{
+							String appcodeInStr = appcodeInNode.asText();
+							if (StringUtils.isNotBlank(appcodeInStr))
+							{
+								String[] appcodeInArray = appcodeInStr.split(",");
+								if (appcodeInArray != null)
+								{
+									for(String value : appcodeInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											appcodeInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (appcodeNode.has("not"))
+					{
+						JsonNode appcodeNotInNode = appcodeNode.get("not");
+						if (appcodeNotInNode != null)
+						{
+							String appcodeNotInStr = appcodeNotInNode.asText();
+							if (StringUtils.isNotBlank(appcodeNotInStr))
+							{
+								String[] appcodeNotInArray = appcodeNotInStr.split(",");
+								if (appcodeNotInArray != null)
+								{
+									for(String value : appcodeNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											appcodeNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (searchOpt.has("flow")) {
+				JsonNode flowNode = searchOpt.get("flow");
+				if (flowNode != null && flowNode.isContainerNode())
+				{
+					if (flowNode.has("in"))
+					{
+						JsonNode flowInNode = flowNode.get("in");
+						if (flowInNode != null)
+						{
+							String flowInStr = flowInNode.asText();
+							if (StringUtils.isNotBlank(flowInStr))
+							{
+								String[] flowInArray = flowInStr.split(",");
+								if (flowInArray != null)
+								{
+									for(String value : flowInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											flowInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (flowNode.has("not"))
+					{
+						JsonNode flowNotInNode = flowNode.get("not");
+						if (flowNotInNode != null)
+						{
+							String flowNotInStr = flowNotInNode.asText();
+							if (StringUtils.isNotBlank(flowNotInStr))
+							{
+								String[] flowNotInArray = flowNotInStr.split(",");
+								if (flowNotInArray != null)
+								{
+									for(String value : flowNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											flowNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (searchOpt.has("job")) {
+				JsonNode jobNode = searchOpt.get("job");
+				if (jobNode != null && jobNode.isContainerNode())
+				{
+					if (jobNode.has("in"))
+					{
+						JsonNode jobInNode = jobNode.get("in");
+						if (jobInNode != null)
+						{
+							String jobInStr = jobInNode.asText();
+							if (StringUtils.isNotBlank(jobInStr))
+							{
+								String[] jobInArray = jobInStr.split(",");
+								if (jobInArray != null)
+								{
+									for(String value : jobInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											jobInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (jobNode.has("not"))
+					{
+						JsonNode jobNotInNode = jobNode.get("not");
+						if (jobNotInNode != null)
+						{
+							String jobNotInStr = jobNotInNode.asText();
+							if (StringUtils.isNotBlank(jobNotInStr))
+							{
+								String[] jobNotInArray = jobNotInStr.split(",");
+								if (jobNotInArray != null)
+								{
+									for(String value : jobNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											jobNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			boolean needAndKeyword = false;
+
+			final List<FlowJob> pagedFlows = new ArrayList<FlowJob>();
+			final JdbcTemplate jdbcTemplate = getJdbcTemplate();
+			javax.sql.DataSource ds = jdbcTemplate.getDataSource();
+			DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+
+			TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
+			ObjectNode result;
+			String query = null;
+			if (jobInList.size() > 0 || jobNotInList.size() > 0)
+			{
+				query = ADV_SEARCH_JOB;
+			}
+			else
+			{
+				query = ADV_SEARCH_FLOW;
+			}
+
+			if (appcodeInList.size() > 0 || appcodeNotInList.size() > 0)
+			{
+				boolean appcodeNeedAndKeyword = false;
+				if (appcodeInList.size() > 0)
+				{
+					int indexForAppcodeInList = 0;
+					for (String appcode : appcodeInList)
+					{
+						if (indexForAppcodeInList == 0)
+						{
+							query += "WHERE a.app_code in ('" + appcode + "'";
+						}
+						else
+						{
+							query += ", '" + appcode + "'";
+						}
+						indexForAppcodeInList++;
+					}
+					query += ") ";
+					appcodeNeedAndKeyword = true;
+				}
+				if (appcodeNotInList.size() > 0)
+				{
+					if (appcodeNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					else
+					{
+						query += " WHERE ";
+					}
+					int indexForAppcodeNotInList = 0;
+					for (String appcode : appcodeNotInList)
+					{
+						if (indexForAppcodeNotInList == 0)
+						{
+							query += "a.app_code not in ('" + appcode + "'";
+						}
+						else
+						{
+							query += ", '" + appcode + "'";
+						}
+						indexForAppcodeNotInList++;
+					}
+					query += ") ";
+				}
+				needAndKeyword = true;
+			}
+
+			if (flowInList.size() > 0 || flowNotInList.size() > 0)
+			{
+				if (needAndKeyword)
+				{
+					query += " AND ";
+				}
+				else
+				{
+					query += " WHERE ";
+				}
+				boolean flowNeedAndKeyword = false;
+				if (flowInList.size() > 0)
+				{
+					int indexForFlowInList = 0;
+					for (String flow : flowInList)
+					{
+						if (indexForFlowInList == 0)
+						{
+							query += "f.flow_name in ('" + flow + "'";
+						}
+						else
+						{
+							query += ", '" + flow + "'";
+						}
+						indexForFlowInList++;
+					}
+					query += ") ";
+					flowNeedAndKeyword = true;
+				}
+				if (flowNotInList.size() > 0)
+				{
+					if (flowNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					int indexForFlowNotInList = 0;
+					for (String flow : flowNotInList)
+					{
+						if (indexForFlowNotInList == 0)
+						{
+							query += "f.flow_name not in ('" + flow + "'";
+						}
+						else
+						{
+							query += ", '" + flow + "'";
+						}
+						indexForFlowNotInList++;
+					}
+					query += ") ";
+				}
+				needAndKeyword = true;
+			}
+
+			if (jobInList.size() > 0 || jobNotInList.size() > 0)
+			{
+				if (needAndKeyword)
+				{
+					query += " AND ";
+				}
+				else
+				{
+					query += " WHERE ";
+				}
+				boolean jobNeedAndKeyword = false;
+				if (jobInList.size() > 0)
+				{
+					int indexForJobInList = 0;
+					for (String job : jobInList)
+					{
+						if (indexForJobInList == 0)
+						{
+							query += "j.job_name in ('" + job + "'";
+						}
+						else
+						{
+							query += ", '" + job + "'";
+						}
+						indexForJobInList++;
+					}
+					query += ") ";
+					jobNeedAndKeyword = true;
+				}
+				if (jobNotInList.size() > 0)
+				{
+					if (jobNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					int indexForJobNotInList = 0;
+					for (String job : jobNotInList)
+					{
+						if (indexForJobNotInList == 0)
+						{
+							query += "j.job_name not in ('" + job + "'";
+						}
+						else
+						{
+							query += ", '" + job + "'";
+						}
+						indexForJobNotInList++;
+					}
+					query += ") ";
+				}
+			}
+
+			query += " LIMIT " + (page-1)*size + ", " + size;
+			final String queryString = query;
+
+			result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+			{
+				public ObjectNode doInTransaction(TransactionStatus status)
+				{
+					List<Map<String, Object>> rows = null;
+					rows = jdbcTemplate.queryForList(queryString);
+
+					for (Map row : rows) {
+
+						FlowJob flow = new FlowJob();
+						flow.appCode = (String)row.get("app_code");
+						flow.flowName = (String)row.get("flow_name");
+						flow.flowPath = (String)row.get("flow_path");
+						flow.flowGroup = (String)row.get("flow_group");
+						flow.jobName = (String)row.get("job_name");
+						flow.jobPath = (String)row.get("job_path");
+						flow.flowId = (Long)row.get("flow_id");
+						if (StringUtils.isNotBlank(flow.jobName))
+						{
+							flow.displayName = flow.jobName;
+						}
+						else
+						{
+							flow.displayName = flow.flowName;
+						}
+						flow.link = "#/flows/" + flow.appCode + "/" +
+								flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
+						flow.path = flow.appCode + "/" + flow.flowPath;
+						pagedFlows.add(flow);
+					}
+					long count = 0;
+					try {
+						count = jdbcTemplate.queryForObject(
+								"SELECT FOUND_ROWS()",
+								Long.class);
+					}
+					catch(EmptyResultDataAccessException e)
+					{
+						Logger.error("Exception = " + e.getMessage());
+					}
+
+					ObjectNode resultNode = Json.newObject();
+					resultNode.put("count", count);
+					resultNode.put("page", page);
+					resultNode.put("isFlowJob", true);
+					resultNode.put("itemsPerPage", size);
+					resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+					resultNode.set("data", Json.toJson(pagedFlows));
+
+					return resultNode;
+				}
+			});
+			return result;
 		}
 		resultNode.put("count", 0);
 		resultNode.put("page", page);

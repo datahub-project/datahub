@@ -73,6 +73,8 @@
     })
 
     var currentTab = 'Dataset';
+    $('#advsearchtabs a:first').tab("show");
+    $('#datasetAdvSearchLink').addClass("active");
 
     var width = $(window).width()*0.99;
     var height = ($(window).height() * 0.99) - 82;

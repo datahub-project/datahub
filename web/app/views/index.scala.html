@@ -1871,6 +1871,29 @@
               </div>
             {{/if}}
             {{#if model.count}}
+            {{#if model.isFlowJob}}
+              <table id="searchresults" class="search-results searchtable">
+                <tbody>
+                  {{#each flowJob in model.data}}
+                  <tr class="result">
+                    <td class="col-xs-12">
+                      <div class="dataset-name">
+                        <td class="dataset-info">
+                          <a href="{{flowJob.link}}">
+                            {{flowJob.displayName}}
+                          </a>
+                        </td>
+                        <p>
+                          {{{ flowJob.path }}}
+                        </p>
+                        <p>source: {{{ flowJob.appCode }}}</p>
+                      </div>
+                    </td>
+                  </tr>
+                  {{/each}}
+                </tbody>
+              </table>
+            {{else}}
             <table id="searchresults" class="search-results searchtable">
               <tbody>
                 {{#each dataset in model.data}}
@@ -1893,6 +1916,7 @@
                 {{/each}}
               </tbody>
             </table>
+            {{/if}}
             {{else}}
             {{#if showNoResult}}
             <h4>No items found</h4>
