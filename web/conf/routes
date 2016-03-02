@@ -127,6 +127,12 @@ GET     /api/v1/advsearch/tables                    controllers.api.v1.AdvSearch
 
 GET     /api/v1/advsearch/fields                    controllers.api.v1.AdvSearch.getDatasetFields()
 
+GET     /api/v1/advsearch/appcodes                  controllers.api.v1.AdvSearch.getFlowApplicationCodes()
+
+GET     /api/v1/advsearch/flowNames                 controllers.api.v1.AdvSearch.getFlowNames()
+
+GET     /api/v1/advsearch/jobNames                  controllers.api.v1.AdvSearch.getJobNames()
+
 GET     /api/v1/advsearch/search                    controllers.api.v1.AdvSearch.search()
 
 GET     /api/v1/lineage/dataset/:id                 controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)

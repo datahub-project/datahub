@@ -64,6 +64,34 @@ public class AdvSearch extends Controller
         return ok(result);
     }
 
+    public static Result getFlowApplicationCodes()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("appcodes", Json.toJson(AdvSearchDAO.getFlowApplicationCodes()));
+
+        return ok(result);
+    }
+
+    public static Result getFlowNames()
+    {
+        ObjectNode result = Json.newObject();
+        String apps = request().getQueryString("apps");
+        result.put("status", "ok");
+        result.set("flowNames", Json.toJson(AdvSearchDAO.getFlowNames(apps)));
+
+        return ok(result);
+    }
+
+    public static Result getJobNames()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("jobNames", Json.toJson(AdvSearchDAO.getFlowJobNames()));
+
+        return ok(result);
+    }
+
     public static Result search()
     {
         ObjectNode result = Json.newObject();
@@ -109,6 +137,16 @@ public class AdvSearch extends Controller
             }
         }
         result.put("status", "ok");
+        if (searchOpt != null && searchOpt.has("category"))
+        {
+            String category = searchOpt.get("category").asText();
+            if(category.equalsIgnoreCase("flow"))
+            {
+                result.set("result", Json.toJson(AdvSearchDAO.searchFlows(searchOpt, page, size)));
+                return ok(result);
+            }
+        }
+
         result.set("result", Json.toJson(AdvSearchDAO.search(searchOpt, page, size)));
 
         return ok(result);
