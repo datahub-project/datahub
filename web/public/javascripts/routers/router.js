@@ -247,7 +247,7 @@ function updateActiveTab()
         $('#metriclink').addClass("active");
 
     }
-    else if (currentTab == 'Flow')
+    else if (currentTab == 'Flows')
     {
         $('#menutabs a:last').tab("show");
         $('#flowlink').addClass("active");
@@ -442,12 +442,12 @@ var scrollToTreeNode = function() {
     $("#tabSplitter").scrollTo($('.fancytree-focused'), 800)
 }
 
-$('.nav-tabs a').click(function (e) {
+$('.category-header a').click(function (e) {
     if (currentTab == this.text)
         return;
     currentTab = this.text;
     updateActiveTab();
-    if (this.text == 'Dataset')
+    if (this.text == 'Datasets')
     {
         var node = $("#tree2").fancytree("getActiveNode");
         if (node)
@@ -467,7 +467,7 @@ $('.nav-tabs a').click(function (e) {
         }
         window.location = "#/metrics/page/1";
     }
-    else if (this.text == 'Flow')
+    else if (this.text == 'Flows')
     {
         var node = $("#tree3").fancytree("getActiveNode");
         if (node)

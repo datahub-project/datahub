@@ -440,7 +440,6 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			{
 				List<Map<String, Object>> rows = null;
 				String query = SEARCH_DATASET_BY_COMMENTS_WITH_PAGINATION.replace("$keyword", keyword);
-				Logger.error(query);
 				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
 
 				for (Map row : rows) {

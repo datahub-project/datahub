@@ -3,11 +3,11 @@
     <div>
       <div id="mainSplitter">
         <div id="tabSplitter">
-          <ul id="menutabs" class="nav nav-tabs">
+          <ul id="menutabs" class="nav nav-tabs category-header">
             <li>
-              <a data-toggle="tab" href="#filtertab">Dataset</a>
+              <a data-toggle="tab" href="#filtertab">Datasets</a>
             </li>
-            <li><a data-toggle="tab" href="#flowtab">Flow</a></li>
+            <li><a data-toggle="tab" href="#flowtab">Flows</a></li>
           </ul>
           <div class="tab-content">
             <div id="filtertab" class="tab-pane">
@@ -1644,6 +1644,7 @@
 
     <script type="text/x-handlebars" id="search">
       <div class="btn-group" role="group">
+        <p style="display:inline;float:left;margin-right:5px;margin-top:6px;"><b>Filter By:</b></p>
         <div class="btn-group" role="group">
           <button
             type="button"
@@ -1709,20 +1710,20 @@
         <button
           type="button"
           class="btn btn-default"
+          {{action 'switchSearchToComments' keyword}}>
+          Comments
+        </button>
+        <button
+          type="button"
+          class="btn btn-default"
           {{action 'switchSearchToFlow' keyword}}>
-          Flow
+          Flows
         </button>
         <button
           type="button"
           class="btn btn-default"
           {{action 'switchSearchToJob' keyword}}>
-          Job
-        </button>
-        <button
-          type="button"
-          class="btn btn-default"
-          {{action 'switchSearchToComments' keyword}}>
-          Comments
+          Jobs
         </button>
       </div>
 

@@ -144,7 +144,7 @@ App.DatasetsRoute = Ember.Route.extend({
   actions: {
     getDatasets: function(){
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
-      currentTab = 'Dataset';
+      currentTab = 'Datasets';
       updateActiveTab();
       $.get(url, function(data) {
         if (data && data.status == "ok"){
@@ -161,7 +161,7 @@ App.DatasetRoute = Ember.Route.extend({
   setupController: function(controller, params) {
     var _this = this;
     detailController = controller;
-    currentTab = 'Dataset';
+    currentTab = 'Datasets';
     updateActiveTab();
     var id = 0;
     var source = '';
@@ -499,7 +499,7 @@ App.NameRoute = Ember.Route.extend({
   actions: {
     getDatasets: function(){
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
-      currentTab = 'Dataset';
+      currentTab = 'Datasets';
       updateActiveTab();
       $.get(url, function(data) {
         if (data && data.status == "ok"){
@@ -515,7 +515,7 @@ App.NameRoute = Ember.Route.extend({
 App.PageRoute = Ember.Route.extend({
   setupController: function(controller, param) {
     var url = 'api/v1/datasets?size=10&page=' + param.page;
-    currentTab = 'Dataset';
+    currentTab = 'Datasets';
     var breadcrumbs = [{"title":"DATASETS_ROOT", "urn":"page/1"}];
     updateActiveTab();
     $.get(url, function(data) {
@@ -540,7 +540,7 @@ App.PageRoute = Ember.Route.extend({
   actions: {
     getDatasets: function(){
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
-      currentTab = 'Dataset';
+      currentTab = 'Datasets';
       updateActiveTab();
       $.get(url, function(data) {
         if (data && data.status == "ok"){
@@ -558,7 +558,7 @@ App.SubpageRoute = Ember.Route.extend({
     if(!datasetController)
       return;
     var url = 'api/v1/datasets?size=10&page=' + param.page + '&urn=' + param.urn;
-    currentTab = 'Dataset';
+    currentTab = 'Datasets';
     updateActiveTab();
     var breadcrumbs = [];
     var urn = param.urn.replace("://", "");
@@ -608,7 +608,7 @@ App.SubpageRoute = Ember.Route.extend({
           datasetController.get('model.data.page') +
           '&urn=' +
           datasetController.get('urn');
-      currentTab = 'Dataset';
+      currentTab = 'Datasets';
       updateActiveTab();
       $.get(url, function(data) {
         if (data && data.status == "ok"){

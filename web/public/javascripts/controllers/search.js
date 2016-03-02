@@ -88,7 +88,7 @@ App.SearchController = Ember.Controller.extend({
             this.transitionToRoute
             ( 'search'
                 , { queryParams:
-                { category: 'Flow'
+                { category: 'Flows'
                     , keywords: this.get('keywords')
                     , page: 1
                     , source: null
@@ -100,7 +100,7 @@ App.SearchController = Ember.Controller.extend({
             this.transitionToRoute
             ( 'search'
                 , { queryParams:
-                { category: 'Job'
+                { category: 'Jobs'
                     , keywords: this.get('keywords')
                     , page: 1
                     , source: null
@@ -112,7 +112,7 @@ App.SearchController = Ember.Controller.extend({
             this.transitionToRoute
             ( 'search'
                 , { queryParams:
-                { category: 'Comment'
+                { category: 'Comments'
                     , keyword: this.get('keywords')
                     , page: 1
                     , source: null

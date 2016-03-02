@@ -35,6 +35,7 @@
         $("#searchInput").on( "keydown", function(event) {
             if(event.which == 13)
             {
+                event.preventDefault();
                 var inputObj = $('#searchInput');
                 if (inputObj) {
                     var keyword = inputObj.val();
@@ -234,7 +235,7 @@
                 var keyword = inputObj.val();
                 if (keyword)
                 {
-                    window.location = '/#/search?keywords=' + keyword + '&category=Dataset&source=all&page=1';
+                    window.location = '/#/search?keywords=' + keyword + '&category=Datasets&source=all&page=1';
                 }
             }
         });
