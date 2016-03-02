@@ -30,6 +30,7 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
+import play.cache.Cache;
 import models.*;
 
 public class SearchDAO extends AbstractMySQLOpenSourceDAO
@@ -138,6 +139,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"ON ( find_in_set(c.id, fd.comment_ids) or c.id = fd.default_comment_id )) " +
 			"ORDER BY 2 LIMIT ?, ?;";
 
+	public final static String SEARCH_AUTOCOMPLETE_LIST = "searchSource";
+
 	public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT CASE " +
 			"WHEN parent_path is null or parent_path = '' THEN field_name " +
 			"ELSE CONCAT_WS('.', parent_path,  field_name) END as full_name FROM dict_field_detail";
@@ -150,16 +153,22 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public static List<String> getAutoCompleteList()
 	{
-		//List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
-		List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
-		List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
-		List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
-		List<String> autoCompleteList =
-				Stream.concat(datasetList.stream(),
-						Stream.concat(flowList.stream(), jobList.stream())).collect(Collectors.toList());
-		Collections.sort(autoCompleteList);
+		List<String> cachedAutoCompleteList = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST);
+		if (cachedAutoCompleteList == null || cachedAutoCompleteList.size() == 0)
+		{
+			//List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
+			List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
+			List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
+			List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
+			cachedAutoCompleteList =
+					Stream.concat(datasetList.stream(),
+							Stream.concat(flowList.stream(), jobList.stream())).collect(Collectors.toList());
+			Collections.sort(cachedAutoCompleteList);
+			Cache.set(SEARCH_AUTOCOMPLETE_LIST, cachedAutoCompleteList, 60*60);
+		}
 
-		return autoCompleteList;
+
+		return cachedAutoCompleteList;
 	}
 
 	public static ObjectNode getPagedDatasetByKeyword(String category, String keyword, String source, int page, int size)
