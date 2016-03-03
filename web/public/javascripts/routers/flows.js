@@ -2,6 +2,11 @@ var flowsController = null;
 App.FlowsRoute = Ember.Route.extend({
     setupController: function(controller) {
         flowsController = controller;
+        var location = window.location.hash;
+        if (location != '#/flows/page/1')
+        {
+            return;
+        }
         currentTab = 'Flows';
         updateActiveTab();
         var url = 'api/v1/flows?size=10&page=1';
