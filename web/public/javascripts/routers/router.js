@@ -24,6 +24,7 @@ App.Router.map(function() {
     });
 
     this.resource('flows', function(){
+        this.resource('flowspage', {path: '/page/:page'});
         this.resource('applicationname', {path: '/:applicationname'}, function(){
             this.resource('pagedapplication', {path: '/page/:page'});
             this.resource('project', {path: '/:project'}, function(){
@@ -475,6 +476,6 @@ $('.category-header a').click(function (e) {
             node.setActive(false);
             node.setFocus(false);
         }
-        window.location = "#/flows/AZKABAN-SAMPLE/page/1";
+        window.location = "#/flows/page/1";
     }
 });

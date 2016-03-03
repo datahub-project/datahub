@@ -2,6 +2,30 @@ var flowsController = null;
 App.FlowsRoute = Ember.Route.extend({
     setupController: function(controller) {
         flowsController = controller;
+        currentTab = 'Flows';
+        updateActiveTab();
+        var url = 'api/v1/flows?size=10&page=1';
+        var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"}];
+        $.get(url, function(data) {
+            if (data && data.status == "ok"){
+                flowsController.set('model', data);
+                flowsController.set('projectView', true);
+                flowsController.set('flowView', false);
+                flowsController.set('breadcrumbs', breadcrumbs);
+                flowsController.set('urn', 'FLOWS_ROOT');
+                flowsController.set('jobView', false);
+            }
+        });
+        var watcherEndpoint = "/api/v1/urn/watch?urn=FLOWS_ROOT";
+        $.get(watcherEndpoint, function(data){
+            if(data.id && data.id !== 0) {
+                flowsController.set('urnWatched', true)
+                flowsController.set('urnWatchedId', data.id)
+            } else {
+                flowsController.set('urnWatched', false)
+                flowsController.set('urnWatchedId', 0)
+            }
+        });
     }
 });
 

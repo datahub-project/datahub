@@ -1996,7 +1996,7 @@
                 {{#each project in model.data.projects}}
                   <tr>
                     <td class="dataset-info">
-                      {{#link-to 'pagedproject' project.name 1}}
+                      {{#link-to 'pagedproject' project.appCode project.name 1}}
                         {{project.name}}
                       {{/link-to}}
                     </td>
