@@ -23,6 +23,54 @@ import org.apache.commons.lang3.StringUtils;
 
 public class Flow extends Controller
 {
+    public static Result getPagedRootProjects()
+    {
+        ObjectNode result = Json.newObject();
+        int page = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Flow Controller getPagedRootProjects wrong page parameter. Error message: " +
+                        e.getMessage());
+                page = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Flow Controller getPagedRootProjects wrong size parameter. Error message: " +
+                        e.getMessage());
+                size = 10;
+            }
+        }
+
+        result.put("status", "ok");
+        result.set("data", FlowsDAO.getPagedProjects(page, size));
+        return ok(result);
+    }
+
     public static Result getPagedProjects(String application)
     {
         ObjectNode result = Json.newObject();

@@ -113,6 +113,8 @@ POST    /api/v1/metrics/:id/watch                   controllers.api.v1.Metric.wa
 
 DELETE  /api/v1/metrics/:id/watch/:watchId          controllers.api.v1.Metric.unwatchMetric(id:Int, watchId:Int)
 
+GET     /api/v1/flows                               controllers.api.v1.Flow.getPagedRootProjects()
+
 GET     /api/v1/flows/:application                  controllers.api.v1.Flow.getPagedProjects(application: String)
 
 GET     /api/v1/flows/:application/:project         controllers.api.v1.Flow.getPagedFlows(application: String, project: String)

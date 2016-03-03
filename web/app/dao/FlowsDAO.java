@@ -33,9 +33,13 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_APP_ID  =
 			"SELECT app_id FROM cfg_application WHERE LOWER(app_code) = ?";
 
+	private final static String GET_PAGED_PROJECTS = "SELECT SQL_CALC_FOUND_ROWS " +
+			"DISTINCT IFNULL(f.flow_group, 'NA') as project_name, f.app_id, f.flow_group, a.app_code " +
+			"FROM flow f JOIN cfg_application a ON f.app_id = a.app_id GROUP BY 1 limit ?, ?";
+
 	private final static String GET_PAGED_PROJECTS_BY_APP_ID = "SELECT SQL_CALC_FOUND_ROWS " +
-			"distinct IFNULL(flow_group, 'NA') as project_name, flow_group " +
-			"from flow WHERE app_id = ? GROUP BY 1 limit ?, ?";
+			"distinct IFNULL(f.flow_group, 'NA') as project_name, f.app_id, f.flow_group, a.app_code " +
+			"FROM flow f JOIN cfg_application a ON f.app_id = a.app_id WHERE f.app_id = ? GROUP BY 1 limit ?, ?";
 
 	private final static String GET_FLOW_COUNT_BY_APP_ID_AND_PROJECT_NAME = "SELECT count(*) " +
 			"FROM flow WHERE app_id = ? and flow_group = ?";
@@ -82,17 +86,91 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 		return applicationId;
 	}
 
+	public static ObjectNode getPagedProjects(int page, int size)
+	{
+		ObjectNode result = Json.newObject();
+
+		javax.sql.DataSource ds = getJdbcTemplate().getDataSource();
+		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+		TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
+		result = txTemplate.execute(new TransactionCallback<ObjectNode>() {
+			public ObjectNode doInTransaction(TransactionStatus status) {
+
+				ObjectNode resultNode = Json.newObject();
+				List<Project> pagedProjects = getJdbcTemplate().query(
+						GET_PAGED_PROJECTS,
+						new ProjectRowMapper(),
+						(page - 1) * size, size);
+				long count = 0;
+				try {
+					count = getJdbcTemplate().queryForObject(
+							"SELECT FOUND_ROWS()",
+							Long.class);
+				} catch (EmptyResultDataAccessException e) {
+					Logger.error("Exception = " + e.getMessage());
+				}
+				if (pagedProjects != null && pagedProjects.size() > 0)
+				{
+					for(Project project : pagedProjects)
+					{
+						Long flowCount = 0L;
+						if (StringUtils.isNotBlank(project.flowGroup))
+						{
+							try {
+								flowCount = getJdbcTemplate().queryForObject(
+										GET_FLOW_COUNT_BY_APP_ID_AND_PROJECT_NAME,
+										new Object[] {project.appId, project.name},
+										Long.class);
+								project.flowCount = flowCount;
+							}
+							catch(EmptyResultDataAccessException e)
+							{
+								Logger.error("Exception = " + e.getMessage());
+							}
+						}
+						else
+						{
+							try {
+								flowCount = getJdbcTemplate().queryForObject(
+										GET_FLOW_COUNT_WITHOUT_PROJECT_BY_APP_ID,
+										new Object[] {project.appId},
+										Long.class);
+								project.flowCount = flowCount;
+							}
+							catch(EmptyResultDataAccessException e)
+							{
+								Logger.error("Exception = " + e.getMessage());
+							}
+						}
+					}
+				}
+				resultNode.set("projects", Json.toJson(pagedProjects));
+
+				resultNode.put("count", count);
+				resultNode.put("page", page);
+				resultNode.put("itemsPerPage", size);
+				resultNode.put("totalPages", (int) Math.ceil(count / ((double) size)));
+
+
+				return resultNode;
+			}
+		});
+		return result;
+	}
+
 	public static ObjectNode getPagedProjectsByApplication(String applicationName, int page, int size)
 	{
 		String application = applicationName.replace(".", " ");
 		ObjectNode result = Json.newObject();
 
-		Integer appID = getApplicationIDByName(applicationName);
+		javax.sql.DataSource ds = getJdbcTemplate().getDataSource();
+		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+		TransactionTemplate txTemplate = new TransactionTemplate(tm);
 
+		Integer appID = getApplicationIDByName(applicationName);
 		if (appID != 0) {
-			javax.sql.DataSource ds = getJdbcTemplate().getDataSource();
-			DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
-			TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
 			final int applicationID = appID;
 
 			result = txTemplate.execute(new TransactionCallback<ObjectNode>() {
@@ -160,6 +238,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			});
 			return result;
 		}
+
 		result = Json.newObject();
 		result.put("count", 0);
 		result.put("page", page);
