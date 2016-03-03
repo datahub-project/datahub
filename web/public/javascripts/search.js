@@ -23,13 +23,32 @@
                 .appendTo( ul );
         };
 
-        var maxReturnedResults = 50;
+        var maxReturnedResults = 20;
         function split( val ) {
             return val.split( /,\s*/ );
         }
 
         function extractLast( term ) {
             return split( term ).pop();
+        }
+
+        function sortAutocompleteResult(data, term)
+        {
+            var source = $.ui.autocomplete.filter(data, term);
+            var keyword = $.ui.autocomplete.escapeRegex(term);
+            var startsWithMatcher = new RegExp("^" + keyword, "i");
+            var startsWith = $.grep(source, function(value) {
+                return startsWithMatcher.test(value.label || value.value || value);
+            });
+            var containsMatcher = new RegExp(keyword, "i")
+            var contains = $.grep(source, function (value) {
+                return containsMatcher.test(value.label || value.value || value);
+            });
+            var result = startsWith.concat(contains);
+            var sorted = result.filter(function(elem, pos) {
+                return result.indexOf(elem) == pos;
+            });
+            return sorted.slice(0, maxReturnedResults);
         }
 
         $("#searchInput").on( "keydown", function(event) {
@@ -50,8 +69,12 @@
         $.get('/api/v1/autocomplete/search', function(data){
             $('#searchInput').autocomplete({
                 source: function(request, response) {
-                    var results = $.ui.autocomplete.filter(data.source, request.term);
-                    response(results.slice(0, 20));
+                    var result = [];
+                    if (data && data.source && request.term)
+                    {
+                        result = sortAutocompleteResult(data.source, request.term);
+                    }
+                    return response(result);
                 }
             });
 
