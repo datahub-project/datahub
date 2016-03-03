@@ -18,12 +18,17 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 
 import play.Application;
 import play.GlobalSettings;
-import play.Play;
+import play.api.mvc.EssentialFilter;
+import play.filters.gzip.GzipFilter;
 
 public class Global extends GlobalSettings{
 
       private ApplicationContext applicationContext;
-     
+
+      public <T extends EssentialFilter> Class<T>[] filters() {
+            return new Class[]{GzipFilter.class};
+      }
+
       @Override
       public void onStart(Application arg0) {
             applicationContext = new ClassPathXmlApplicationContext("components.xml");
