@@ -13,6 +13,8 @@ App.FlowsRoute = Ember.Route.extend({
                 flowsController.set('flowView', false);
                 flowsController.set('breadcrumbs', breadcrumbs);
                 flowsController.set('urn', 'FLOWS_ROOT');
+                flowsController.set('projectView', true);
+                flowsController.set('flowView', false);
                 flowsController.set('jobView', false);
             }
         });
@@ -57,6 +59,8 @@ App.PagedapplicationRoute = Ember.Route.extend({
                     flowsController.set('breadcrumbs', breadcrumbs);
                     flowsController.set('urn', application);
                     flowsController.set('jobView', false);
+                    flowsController.set('projectView', true);
+                    flowsController.set('flowView', false);
                 }
             });
             var watcherEndpoint = "/api/v1/urn/watch?urn=" + application;
