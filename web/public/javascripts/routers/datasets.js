@@ -261,6 +261,7 @@ App.DatasetRoute = Ember.Route.extend({
                     return item
                   })
                   controller.set("schemas", data.columns);
+                  controller.buildJsonView();
                   setTimeout(initializeColumnTreeGrid, 500);
                 }
                 else
