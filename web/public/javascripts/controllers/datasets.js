@@ -225,17 +225,23 @@ App.DatasetController = Ember.Controller.extend({
         setView: function(view) {
             switch(view) {
                 case "tabular":
-                    this.set('isTable', true)
-                    this.set('isJSON', false)
+                    this.set('isTable', true);
+                    this.set('isJSON', false);
+                    $('#json-viewer').hide();
+                    $('#json-table').show();
                     break;
                 case "json":
-                    this.set('isTable', false)
-                    this.set('isJSON', true)
-                    this.buildJsonView()
+                    this.set('isTable', false);
+                    this.set('isJSON', true);
+                    this.buildJsonView();
+                    $('#json-table').hide();
+                    $('#json-viewer').show();
                     break;
                 default:
-                    this.set('isTable', true)
-                    this.set('isJSON', false)
+                    this.set('isTable', true);
+                    this.set('isJSON', false);
+                    $('#json-viewer').hide();
+                    $('#json-table').show();
             }
         },
         addOwner: function(data) {

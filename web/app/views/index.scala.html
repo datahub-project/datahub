@@ -477,58 +477,54 @@
             </div>
           </div>
         </div>
-        {{#if isTable}}
-          <table class="columntreegrid tree table table-bordered dataset-detail-table">
-            <thead>
-              <tr class="results-header">
-                <th style="min-width: 200px;" class="col-xs-2 wrap-all-word">Column</th>
-                <th class="col-xs-1">Data Type</th>
-                <th title="Is nullable" style="width:15px;">N</th>
-                <th title="Is indexed" style="width:15px;">I</th>
-                <th title="Is partitioned" style="width:15px;">P</th>
-                <th title="Is distributed" style="width:15px;">D</th>
-                <th class="col-xs-8"> Default Comments</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{#each schema in schemas}}
-              <tr {{bind-attr class="schema.treeGridClass"}}>
-                <td>{{schema.fieldName}}</td>
-                <td>{{schema.dataType}}</td>
-                <td title="Is nullable" class="text-center">
-                  {{#if schema.nullable}}
-                    <i class="glyphicon glyphicon-ok"></i>
-                  {{/if}}
-                </td>
-                <td title="Is indexed" class="text-center">
-                  {{#if schema.indexed}}
-                    <i class="glyphicon glyphicon-ok"></i>
-                  {{/if}}
-                </td>
-                <td title="Is partitioned" class="text-center">
-                  {{#if schema.partitioned}}
-                    <i class="glyphicon glyphicon-ok"></i>
-                  {{/if}}
-                </td>
-                <td title="Is distributed" class="text-center">
-                  {{#if schema.distributed}}
-                    <i class="glyphicon glyphicon-ok"></i>
-                  {{/if}}
-                </td>
-                <td class="commentsArea">
-                  <div class="commentsArea">
-                    {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
-                    {{schema.commentHtml}}
-                  </div>
-                </td>
-              </tr>
-              {{/each}}
-            </tbody>
-          </table>
-        {{/if}}
-        {{#if isJSON}}
-          <div id="json-viewer"></div>
-        {{/if}}
+        <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+          <thead>
+            <tr class="results-header">
+              <th style="min-width: 200px;" class="col-xs-2 wrap-all-word">Column</th>
+              <th class="col-xs-1">Data Type</th>
+              <th title="Is nullable" style="width:15px;">N</th>
+              <th title="Is indexed" style="width:15px;">I</th>
+              <th title="Is partitioned" style="width:15px;">P</th>
+              <th title="Is distributed" style="width:15px;">D</th>
+              <th class="col-xs-8"> Default Comments</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each schema in schemas}}
+            <tr {{bind-attr class="schema.treeGridClass"}}>
+              <td>{{schema.fieldName}}</td>
+              <td>{{schema.dataType}}</td>
+              <td title="Is nullable" class="text-center">
+                {{#if schema.nullable}}
+                  <i class="glyphicon glyphicon-ok"></i>
+                {{/if}}
+              </td>
+              <td title="Is indexed" class="text-center">
+                {{#if schema.indexed}}
+                  <i class="glyphicon glyphicon-ok"></i>
+                {{/if}}
+              </td>
+              <td title="Is partitioned" class="text-center">
+                {{#if schema.partitioned}}
+                  <i class="glyphicon glyphicon-ok"></i>
+                {{/if}}
+              </td>
+              <td title="Is distributed" class="text-center">
+                {{#if schema.distributed}}
+                  <i class="glyphicon glyphicon-ok"></i>
+                {{/if}}
+              </td>
+              <td class="commentsArea">
+                <div class="commentsArea">
+                  {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
+                  {{schema.commentHtml}}
+                </div>
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+        <div id="json-viewer" style="display:none;"></div>
       {{else}}
         <div id="json-viewer"></div>
       {{/if}}
