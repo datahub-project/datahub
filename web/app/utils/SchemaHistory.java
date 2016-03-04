@@ -65,44 +65,49 @@ public class SchemaHistory
     public static int calculateFieldCount(JsonNode node)
     {
         int count = 0;
+        JsonNode schemaNode = null;
 
         if (node != null && node.has("schema")) {
-            JsonNode schemaNode = node.get("schema");
-            if (schemaNode.isArray()) {
+            schemaNode = node.get("schema");
+        }
+        else
+        {
+            schemaNode = node;
+        }
+        if (schemaNode.isArray()) {
 
-                Iterator<JsonNode> arrayIterator = schemaNode.elements();
-                while (arrayIterator.hasNext()) {
-                    JsonNode element = arrayIterator.next();
-                    if (element.isArray()) {
-                        count += calculateList(element);
-                    } else if (element.isContainerNode()) {
-                        count += calculateDict(element);
-                    }
+            Iterator<JsonNode> arrayIterator = schemaNode.elements();
+            while (arrayIterator.hasNext()) {
+                JsonNode element = arrayIterator.next();
+                if (element.isArray()) {
+                    count += calculateList(element);
+                } else if (element.isContainerNode()) {
+                    count += calculateDict(element);
                 }
             }
-            else if (schemaNode.isContainerNode())
+        }
+        else if (schemaNode.isContainerNode())
+        {
+            Iterator<Map.Entry<String, JsonNode>> iterator = schemaNode.fields();
+            while (iterator.hasNext())
             {
-                Iterator<Map.Entry<String, JsonNode>> iterator = schemaNode.fields();
-                while (iterator.hasNext())
-                {
-                    Map.Entry<String,JsonNode> element = iterator.next();
-                    if (element.getValue().isArray()) {
-                        if (element.getKey().toLowerCase() == "fields")
-                        {
-                            count += element.getValue().size();
-                        }
-                        count += calculateList(element.getValue());
-                    } else if (element.getValue().isContainerNode()) {
-                        if (element.getKey().toLowerCase() == "fields")
-                        {
-                            count += element.getValue().size();
-                        }
-                        count += calculateDict(element.getValue());
-                    }
-                    else if (element.getKey().toLowerCase() == "fields")
+                Map.Entry<String,JsonNode> element = iterator.next();
+                if (element.getValue().isArray()) {
+                    if (element.getKey().toLowerCase() == "fields")
                     {
-                        count += 1;
+                        count += element.getValue().size();
                     }
+                    count += calculateList(element.getValue());
+                } else if (element.getValue().isContainerNode()) {
+                    if (element.getKey().toLowerCase() == "fields")
+                    {
+                        count += element.getValue().size();
+                    }
+                    count += calculateDict(element.getValue());
+                }
+                else if (element.getKey().toLowerCase() == "fields")
+                {
+                    count += 1;
                 }
             }
         }
