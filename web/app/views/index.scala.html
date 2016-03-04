@@ -1735,11 +1735,9 @@
                 <ul class="pager">
                   {{#unless first}}
                     <li class="previous">
-                        {{#if source}}
                           {{#link-to 'search' (query-params categroy=category source=source page=previousPage)}}
                             &larr; Prev
                           {{/link-to}}
-                        {{/if}}
                     </li>
                   {{/unless}}
                   <li>
@@ -1747,12 +1745,9 @@
                   </li>
                   {{#unless last}}
                     <li class="next">
-                        {{#if source}}
                           {{#link-to 'search' (query-params categroy=category source=source page=nextPage)}}
                             Next &rarr;
                           {{/link-to}}
-                        {{/if}}
-
                     </li>
                   {{/unless}}
                 </ul>
