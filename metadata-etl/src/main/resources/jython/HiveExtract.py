@@ -142,43 +142,36 @@ class HiveExtract:
   def format_table_metadata_v2(self, rows, schema):
     """
     process info get from COLUMN_V2 into final table, several lines form one table info
-    :param rows: the info get from COLUMN_V2 table
+    :param rows: the info get from COLUMN_V2 table, order by table name, database name
     :param schema: {database : _, type : _, tables : [{}, {} ...] }
     :return:
     """
     db_idx = len(schema) - 1
     table_idx = -1
 
-    previous_db_name = ''
-    previous_tb_name = ''
     field_list = []
     for row_index, row_value in enumerate(rows):
-      if row_index == 0 or (row_value[0] == previous_db_name and row_value[1] == previous_tb_name):
-        field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
-                           'Comment': row_value[17]})
+      print row_index, row_value
+      print field_list
 
-      if row_index == len(rows) - 1 or (row_value[0] != previous_db_name or row_value[1] != previous_tb_name):
-        # add new record into result
+      field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16], # TODO the type name need to process
+                         'Comment': row_value[17]})
+      if row_index == len(rows) - 1 or (row_value[0] != rows[row_index+1][0] or row_value[1] != rows[row_index+1][1]): # if this is last record of current table
+        # process the record of table
         table_record = {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
-                        TableInfo.create_time: row_value[3],  TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
-                        TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
-                        TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
-                        TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
-                        TableInfo.etl_source: 'COLUMN_V2',
-                        TableInfo.field_list: field_list[:]}
-        field_list = []
+                      TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
+                      TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
+                      TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
+                      TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
+                      TableInfo.etl_source: 'COLUMN_V2', TableInfo.field_list: field_list[:]}
+        field_list = [] # empty it
 
         if row_value[0] not in self.db_dict:
           schema.append({'database': row_value[0], 'type': 'Hive', 'tables': []})
           db_idx += 1
           self.db_dict[row_value[0]] = db_idx
-        full_name = ''
-        if row_value[0]:
-          full_name = row_value[0]
-          if row_value[1]:
-            full_name += '.' + row_value[1]
-        elif row_value[1]:
-          full_name = row_value[1]
+
+        full_name = row_value[0] + '.' + row_value[1]
 
         # put in schema result
         if full_name not in self.table_dict:
@@ -186,8 +179,6 @@ class HiveExtract:
           table_idx += 1
           self.table_dict[full_name] = table_idx
 
-      previous_db_name = row_value[0]
-      previous_tb_name = row_value[1]
 
     self.logger.info("%s %6d tables processed for database %12s from COLUMN_V2" % (
       datetime.datetime.now(), table_idx + 1, row_value[0]))
@@ -222,15 +213,13 @@ class HiveExtract:
       if full_name not in self.table_dict:
         schema[db_idx]['tables'].append(
           {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
-           TableInfo.create_time: row_value[3],  TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
+           TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
            TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
            TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10],
            TableInfo.output_format: row_value[11], TableInfo.is_compressed: row_value[12],
-           TableInfo.is_storedassubdirectories: row_value[13],
-           TableInfo.etl_source: 'SERDE_PARAMS',
+           TableInfo.is_storedassubdirectories: row_value[13], TableInfo.etl_source: 'SERDE_PARAMS',
            TableInfo.schema_literal: row_value[14], TableInfo.schema_url: row_value[15],
-           TableInfo.field_delimiter: row_value[16]}
-        )
+           TableInfo.field_delimiter: row_value[16]})
         table_idx += 1
         self.table_dict[full_name] = table_idx
 
@@ -279,12 +268,15 @@ class HiveExtract:
     cur.close()
     schema_json_file.close()
 
-  def get_all_databases(self):
+  def get_all_databases(self, database_white_list):
     """
     Fetch all databases name from DBS table
     :return:
     """
-    fetch_all_database_names = "SELECT `NAME` FROM DBS WHERE NAME NOT LIKE 'u_%'"
+    database_white_list = ",".join(["'" + x + "'" for x in database_white_list.split(',')])
+    fetch_all_database_names = "SELECT `NAME` FROM DBS WHERE NAME NOT LIKE 'u\\_%' OR NAME IN ({white_list})"\
+      .format(white_list=database_white_list)
+    self.logger.info(fetch_all_database_names)
     curs = self.conn_hms.cursor()
     curs.execute(fetch_all_database_names)
     rows = [item[0] for item in curs.fetchall()]
@@ -301,11 +293,16 @@ if __name__ == "__main__":
   jdbc_driver = args[Constant.HIVE_METASTORE_JDBC_DRIVER]
   jdbc_url = args[Constant.HIVE_METASTORE_JDBC_URL]
 
+  if Constant.HIVE_DATABASE_WHITELIST_KEY in args:
+    database_white_list = args[Constant.HIVE_DATABASE_WHITELIST_KEY]
+  else:
+    database_white_list = ''
+
   e = HiveExtract()
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
   try:
-    e.databases = e.get_all_databases()
+    e.databases = e.get_all_databases(database_white_list)
     e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
   finally:
     e.conn_hms.close()
