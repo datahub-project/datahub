@@ -25,6 +25,7 @@ import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
 import msgs.EtlJobMessage;
 import play.Logger;
+import shared.Global;
 
 
 /**
@@ -82,6 +83,8 @@ public class EtlJobActor extends UntypedActor {
           process.destroy();
         }
         EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
+      } finally {
+        Global.removeRunningJob(((EtlJobMessage) message).getWhEtlJobId());
       }
     }
   }

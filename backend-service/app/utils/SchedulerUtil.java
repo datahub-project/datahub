@@ -28,7 +28,7 @@ public class SchedulerUtil {
   public static Cancellable schedulerRef;
 
   public static synchronized void start() {
-    start(Play.application().configuration().getLong("scheduler.check.interval"));
+    start(Play.application().configuration().getLong("scheduler.check.interval", 10L));
   }
 
   /**

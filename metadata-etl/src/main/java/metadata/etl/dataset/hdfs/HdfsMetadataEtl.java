@@ -58,6 +58,8 @@ public class HdfsMetadataEtl extends EtlJob {
     throws Exception {
     logger.info("Begin hdfs metadata extract!");
     JSch jsch = new JSch();
+    //jsch.setLogger(logger);
+    final Log4JOutputStream log4JOutputStream = new Log4JOutputStream();
     Session session = null;
     try {
       // set up session
@@ -110,15 +112,21 @@ public class HdfsMetadataEtl extends EtlJob {
       Channel execChannel = session.openChannel("exec");
       ((ChannelExec) execChannel).setCommand(execCmd);
 
-      execChannel.setInputStream(System.in);
-      ((ChannelExec) execChannel).setErrStream(System.err);
+      // Redirection of output stream to log4jOutputStream
+      execChannel.setExtOutputStream(log4JOutputStream);
+      ((ChannelExec) execChannel).setErrStream(log4JOutputStream);
+      execChannel.setOutputStream(log4JOutputStream);
+      //execChannel.setInputStream(System.in);
+      //((ChannelExec) execChannel).setErrStream(System.err);
 
       execChannel.connect();
-      logger.debug("Debug : execChannel exit-status: " + execChannel.getExitStatus());
 
       while (execChannel.getExitStatus() == -1){
-        try{Thread.sleep(1000);}catch(Exception e){System.out.println(e);}
+        try{Thread.sleep(1000);}catch(Exception e){logger.error(String.valueOf(e));}
       }
+
+      logger.info("Debug : execChannel exit-status: " + execChannel.getExitStatus());
+
 
       logger.debug("execute finished!");
       execChannel.disconnect();
