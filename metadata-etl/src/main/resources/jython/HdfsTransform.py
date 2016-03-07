@@ -100,16 +100,21 @@ class HdfsTransform:
             o_field_doc = json.dumps(f['attributes'])
           else:
             o_field_doc = f['doc']
+        elif f.has_key('comment'):
+          o_field_doc = f['comment']
 
         output_list_.append(
           [o_urn, self.sort_id, parent_id, parent_field_path, o_field_name, o_field_data_type, o_field_nullable,
            o_field_default, o_field_data_size, o_field_namespace,
            o_field_doc.replace("\n", ' ') if o_field_doc is not None else None])
 
-        # check if this filed is a nested record
+        # check if this field is a nested record
         if type(f['type']) == dict and f['type'].has_key('fields'):
           current_field_path = o_field_name if parent_field_path == '' else parent_field_path + '.' + o_field_name
           fields_json_to_csv(output_list_, current_field_path, f['type']['fields'])
+        elif type(f['type']) == dict and f['type'].has_key('items') and type(f['type']['items']) == dict and f['type']['items'].has_key('fields'):
+          current_field_path = o_field_name if parent_field_path == '' else parent_field_path + '.' + o_field_name
+          fields_json_to_csv(output_list_, current_field_path, f['type']['items']['fields'])
 
         if effective_type_index_in_type >= 0 and type(f['type'][effective_type_index_in_type]) == dict:
           if f['type'][effective_type_index_in_type].has_key('items') and type(
@@ -119,6 +124,10 @@ class HdfsTransform:
               if type(item) == dict and item.has_key('fields'):
                 current_field_path = o_field_name if parent_field_path == '' else parent_field_path + '.' + o_field_name
                 fields_json_to_csv(output_list_, current_field_path, item['fields'])
+          elif f['type'][effective_type_index_in_type].has_key('items') and f['type'][effective_type_index_in_type]['items'].has_key('fields'):
+            # type: [ null, { type: array, items: { name: xxx, type: record, fields: [] } } ]
+            current_field_path = o_field_name if parent_field_path == '' else parent_field_path + '.' + o_field_name
+            fields_json_to_csv(output_list_, current_field_path, f['type'][effective_type_index_in_type]['items']['fields'])
           elif f['type'][effective_type_index_in_type].has_key('fields'):
             # if f['type'][effective_type_index_in_type].has_key('namespace'):
             # o_field_namespace = f['type'][effective_type_index_in_type]['namespace']
@@ -207,7 +216,7 @@ class HdfsTransform:
         o_source = 'Hdfs'
 
       self.logger.info(
-        "%4i (%6i): %4i fields found in [%s]@%s with source %s" % (i, len(j), len(o_fields), o_name, o_urn, o_source))
+        "%4i (%6i): %4i fields, %4i total fields(including nested) found in [%s]@%s with source %s" % (i, len(j), len(o_fields), len(o_field_list_), o_name, o_urn, o_source))
 
       dataset_schema_record = DatasetSchemaRecord(o_name, json.dumps(j, sort_keys=True),
                                                   json.dumps(o_properties, sort_keys=True), json.dumps(o_fields), o_urn,

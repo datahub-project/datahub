@@ -1,4 +1,4 @@
-/**
+package shared; /**
  * Copyright 2015 LinkedIn Corp. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,6 +11,8 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
+import java.util.HashSet;
+import java.util.Set;
 import play.Application;
 import play.GlobalSettings;
 import play.Logger;
@@ -22,9 +24,26 @@ import utils.SchedulerUtil;
  */
 public class Global extends GlobalSettings {
 
+  private static Set<Integer> currentRunningJob;
   @Override
   public void onStart(Application arg0) {
     Logger.info("on start---===");
     SchedulerUtil.start();
+
+    currentRunningJob = new HashSet<>();
+  }
+
+  public static Set<Integer> getCurrentRunningJob() {
+    return currentRunningJob;
+  }
+
+  public static void setCurrentRunningJob(Set<Integer> currentRunningJob) {
+    Global.currentRunningJob = currentRunningJob;
+  }
+
+  public static void removeRunningJob(int jobId) {
+    if (currentRunningJob.contains(jobId)) {
+      currentRunningJob.remove(jobId);
+    }
   }
 }

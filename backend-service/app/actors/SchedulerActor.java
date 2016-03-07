@@ -14,6 +14,8 @@
 package actors;
 
 import akka.actor.UntypedActor;
+import metadata.etl.models.EtlJobStatus;
+import shared.Global;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -58,8 +60,21 @@ public class SchedulerActor extends UntypedActor {
         EtlJobDao.updateNextRun(whEtlJobId, (String) dueJob.get("cron_expr"), new Date());
         Long whExecId = EtlJobDao.insertNewRun(whEtlJobId);
         etlMsg.setWhEtlExecId(whExecId);
-        Logger.info("Send message : " + etlMsg.toDebugString());
-        ActorRegistry.etlJobActor.tell(etlMsg, getSelf());
+
+        StringBuilder s = new StringBuilder("Current running jobs : ");
+        for (int i : Global.getCurrentRunningJob() ) {
+          s.append(i).append("\t");
+        }
+        Logger.info(s.toString());
+
+        if (Global.getCurrentRunningJob().contains(etlMsg.getWhEtlJobId())) {
+          Logger.error("The previous job is still running! Abort this job : " + etlMsg.toDebugString());
+          EtlJobDao.endRun(etlMsg.getWhEtlExecId(), EtlJobStatus.ERROR, "Previous is still running, Aborted!");
+        } else {
+          Global.getCurrentRunningJob().add(etlMsg.getWhEtlJobId());
+          Logger.info("Send message : " + etlMsg.toDebugString());
+          ActorRegistry.etlJobActor.tell(etlMsg, getSelf());
+        }
       }
     }
   }
