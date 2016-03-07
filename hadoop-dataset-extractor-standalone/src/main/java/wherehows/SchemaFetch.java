@@ -27,6 +27,8 @@ import org.apache.hadoop.security.AccessControlException;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.pig.data.DataType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
 import wherehows.common.schemas.DatasetJsonRecord;
 import wherehows.common.schemas.SampleDataRecord;
@@ -53,9 +55,11 @@ public class SchemaFetch {
   private static FileWriter sampleFileWriter;
   private static FileAnalyzerFactory fileAnalyzerFactory;
   private Configuration conf;
+  static Logger logger;
 
   public SchemaFetch(Configuration conf)
     throws IOException, InterruptedException {
+    logger = LoggerFactory.getLogger(getClass());
     this.conf = conf;
 
     schemaFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SCHEMA_REMOTE_PATH_KEY));
@@ -142,7 +146,7 @@ public class SchemaFetch {
     //if (path.getName().matches("^(\\.|_|tmp|temp|test|\\*|archive|ARCHIVE|storkinternal).*"))
     //    return;
 
-    System.out.print("  -- scanPath(" + curPath + ")\n");
+    logger.info("  -- scanPath(" + curPath + ")\n");
     int x = isTable(path, scanFs);
     if (x > 0) {
       // System.err.println("  traceTable(" + path.toString() + ")");
@@ -187,9 +191,9 @@ public class SchemaFetch {
     throws IOException, InterruptedException, SQLException {
 
     FileSystem scanFs = FileSystem.newInstance(new Configuration()); // create a new filesystem use current user
-    System.out.println("Now reading data as:" + UserGroupInformation.getCurrentUser());
+    logger.info("Now reading data as:" + UserGroupInformation.getCurrentUser());
     if (!scanFs.exists(path)) {
-      System.out.println("path : " + path.getName() + " doesn't exist!");
+      logger.info("path : " + path.getName() + " doesn't exist!");
     }
     scanPathHelper(path, scanFs);
   }
@@ -202,7 +206,7 @@ public class SchemaFetch {
    */
   private static void traceTableInfo(Path path, FileSystem tranceFs)
     throws IOException, SQLException {
-    System.out.println("trace table : " + path.toUri().getPath());
+    logger.info("trace table : " + path.toUri().getPath());
     // analyze the pattern of the name
     String tbl_name = path.getName();
     if (tbl_name.matches("(_|\\.|tmp|temp|stg|test|\\*).*")) // skip _temporary _schema.avsc
@@ -225,7 +229,7 @@ public class SchemaFetch {
 
         fstat_lst = tranceFs.listStatus(fstat.getPath()); // list all children
         if (fstat_lst.length == 0) { // empty directory
-          System.out.println(fstat.getPath().toUri().getPath() + " is empty.");
+          logger.info(fstat.getPath().toUri().getPath() + " is empty.");
           return;
         }
 
@@ -267,7 +271,7 @@ public class SchemaFetch {
             break;
           }
         }
-        // System.out.println(fstat.getPath() + "is_fstat_visible : " + is_fstat_visible);
+        // logger.info(fstat.getPath() + "is_fstat_visible : " + is_fstat_visible);
         if (is_fstat_visible == 0) {
           return;
         }
@@ -295,7 +299,6 @@ public class SchemaFetch {
 
   public static void main(String[] args)
     throws Exception {
-    System.out.println("hadoop job begins");
 
     Configuration conf = new Configuration();
     // put extra config into conf
@@ -303,7 +306,6 @@ public class SchemaFetch {
 
     SchemaFetch s = new SchemaFetch(conf);
     s.run();
-    System.out.println("schemaFetch exit");
     System.exit(0);
   }
 
@@ -330,10 +332,10 @@ public class SchemaFetch {
       final int finalI = i;
       Thread thread = new Thread() {
         public void run() {
-          System.out.println("Thread " + finalI + " Running, size of record : " + size);
+          logger.info("Thread " + finalI + " Running, size of record : " + size);
           for (int j = finalI * (granularity); j < (finalI + 1) * (granularity) && j < size; j++) {
             Path p = folders.get(j);
-            System.out.println("begin processing " + p.toUri().getPath());
+            logger.info("begin processing " + p.toUri().getPath());
             try {
               scanPath(p);
             } catch (Exception e) {

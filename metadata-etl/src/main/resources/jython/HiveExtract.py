@@ -142,7 +142,7 @@ class HiveExtract:
   def format_table_metadata_v2(self, rows, schema):
     """
     process info get from COLUMN_V2 into final table, several lines form one table info
-    :param rows: the info get from COLUMN_V2 table, order by table name, database name
+    :param rows: the info get from COLUMN_V2 table, order by database name, table name
     :param schema: {database : _, type : _, tables : [{}, {} ...] }
     :return:
     """
@@ -151,8 +151,6 @@ class HiveExtract:
 
     field_list = []
     for row_index, row_value in enumerate(rows):
-      print row_index, row_value
-      print field_list
 
       field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16], # TODO the type name need to process
                          'Comment': row_value[17]})
