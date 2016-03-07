@@ -40,29 +40,6 @@ App.Router.map(function() {
 App.Router.reopen({
     rootURL: '/datasets/page/1',
     tracking: function(){
-        if(window.ga) {
-            var url = this.get('url');
-            if (url)
-            {
-                var username = $("#username").text();
-                var index = url.lastIndexOf("/");
-                var category = url.substring(1, index);
-                var value = url.substring(index+1);
-                window.ga(
-                    'send',
-                    'event',
-                    category,
-                    value,
-                    username);
-                window.ga(
-                    'newTracker.send',
-                    'event',
-                    category,
-                    value,
-                    username);
-            }
-        }
-
         var states = this.router.state.handlerInfos;
         var type = "dataset";
         var objectId = 0;
