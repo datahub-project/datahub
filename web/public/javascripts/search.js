@@ -1,4 +1,6 @@
 (function ($) {
+    $('#advsearchtabs a:first').tab("show");
+    $('#datasetAdvSearchLink').addClass("active");
     function renderAdvSearchDatasetSources(parent, sources)
         {
             if ((!parent) || (!sources) || sources.length == 0)
