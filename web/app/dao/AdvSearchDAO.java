@@ -441,53 +441,56 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				if (commentsNode != null)
 				{
 					comments = commentsNode.asText();
-				}
-				if (scopeInList.size() == 0 && scopeNotInList.size() == 0
-						&& tableInList.size() == 0 && tableNotInList.size() == 0
-						&& fieldAllList.size() == 0 && fieldAnyList.size() == 0 && fieldNotInList.size() == 0)
-				{
-					final String commentsQueryStr =
-							SEARCH_DATASETS_BY_COMMENTS_WITH_PAGINATION.replace("$keyword", comments);
-
-					result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+					if (StringUtils.isNotBlank(comments))
 					{
-						public ObjectNode doInTransaction(TransactionStatus status)
+						if (scopeInList.size() == 0 && scopeNotInList.size() == 0
+								&& tableInList.size() == 0 && tableNotInList.size() == 0
+								&& fieldAllList.size() == 0 && fieldAnyList.size() == 0 && fieldNotInList.size() == 0)
 						{
-							List<Map<String, Object>> rows = null;
-							rows = jdbcTemplate.queryForList(commentsQueryStr, (page-1)*size, size);
+							final String commentsQueryStr =
+									SEARCH_DATASETS_BY_COMMENTS_WITH_PAGINATION.replace("$keyword", comments);
 
-							for (Map row : rows) {
-
-								Dataset ds = new Dataset();
-								ds.id = (Long)row.get("id");
-								ds.name = (String)row.get("name");
-								ds.source = (String)row.get("source");
-								ds.urn = (String)row.get("urn");
-								ds.schema = (String)row.get("schema");
-								pagedDatasets.add(ds);
-							}
-							long count = 0;
-							try {
-								count = jdbcTemplate.queryForObject(
-										"SELECT FOUND_ROWS()",
-										Long.class);
-							}
-							catch(EmptyResultDataAccessException e)
+							result = txTemplate.execute(new TransactionCallback<ObjectNode>()
 							{
-								Logger.error("Exception = " + e.getMessage());
-							}
+								public ObjectNode doInTransaction(TransactionStatus status)
+								{
+									List<Map<String, Object>> rows = null;
+									rows = jdbcTemplate.queryForList(commentsQueryStr, (page-1)*size, size);
 
-							ObjectNode resultNode = Json.newObject();
-							resultNode.put("count", count);
-							resultNode.put("page", page);
-							resultNode.put("itemsPerPage", size);
-							resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
-							resultNode.set("data", Json.toJson(pagedDatasets));
+									for (Map row : rows) {
 
-							return resultNode;
+										Dataset ds = new Dataset();
+										ds.id = (Long)row.get("id");
+										ds.name = (String)row.get("name");
+										ds.source = (String)row.get("source");
+										ds.urn = (String)row.get("urn");
+										ds.schema = (String)row.get("schema");
+										pagedDatasets.add(ds);
+									}
+									long count = 0;
+									try {
+										count = jdbcTemplate.queryForObject(
+												"SELECT FOUND_ROWS()",
+												Long.class);
+									}
+									catch(EmptyResultDataAccessException e)
+									{
+										Logger.error("Exception = " + e.getMessage());
+									}
+
+									ObjectNode resultNode = Json.newObject();
+									resultNode.put("count", count);
+									resultNode.put("page", page);
+									resultNode.put("itemsPerPage", size);
+									resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+									resultNode.set("data", Json.toJson(pagedDatasets));
+
+									return resultNode;
+								}
+							});
+							return result;
 						}
-					});
-					return result;
+					}
 				}
 			}
 
