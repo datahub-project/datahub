@@ -33,10 +33,10 @@ public class CfgDao {
   public static final String FIND_DB_INFO_BY_ID = "SELECT * from cfg_database where db_id = :id";
   public static final String GET_ALL_APPS = "SELECT * FROM cfg_application order by app_id";
   public static final String GET_ALL_DBS = "SELECT * from cfg_database order by db_id";
-  public static final String INSERT_NEW_APP = "INSERT INTO cfg_application (app_id, app_code, description, uri, short_connection_string, parent_app_id, app_status, is_logical) "
-    + "VALUES (:appId, :appCode, :description, :uri, :shortConnectionString, :parentAppId, :appStatus, :isLogical)";
+  public static final String INSERT_NEW_APP = "INSERT INTO cfg_application (app_id, app_code, description, uri, short_connection_string, tech_matrix_id, parent_app_id, app_status, is_logical) "
+    + "VALUES (:appId, :appCode, :description, :uri, :shortConnectionString, :techMatrixId, :parentAppId, :appStatus, :isLogical)";
   public static final String UPDATE_APP = "UPDATE cfg_application SET app_code = :appCode, description = :description, uri = :uri, short_connection_string = :shortConnectionString, " +
-    " parent_app_id = :parentAppId, app_status = :appStatus, is_logical = :isLogical WHERE app_id = :appId";
+    " tech_matrix_id = :techMatrixId, parent_app_id = :parentAppId, app_status = :appStatus, is_logical = :isLogical WHERE app_id = :appId";
   public static final String INSERT_NEW_DB = "INSERT INTO cfg_database (db_id, db_code, db_type_id, description, cluster_size, associated_data_centers, replication_role, uri, short_connection_string, jdbc_url, is_logical) "
     + "VALUES (:dbId, :dbCode, :dbTypeId, :description, :clusterSize, :associatedDataCenters, :replicationRole, :uri, :shortConnectionString, :jdbcUrl, :isLogical)";
   public static final String UPDATE_DB = "UPDATE cfg_database SET db_code = :dbCode, db_type_id = :dbTypeId, description = :description, cluster_size = :clusterSize, associated_data_centers = :associatedDataCenters, " +
@@ -90,6 +90,7 @@ public class CfgDao {
     params.put("description", JsonUtil.getJsonValue(app, "description", String.class, null));
     params.put("uri", JsonUtil.getJsonValue(app, "uri", String.class, null));
     params.put("shortConnectionString", JsonUtil.getJsonValue(app, "short_connection_string", String.class));
+    params.put("techMatrixId", JsonUtil.getJsonValue(app, "techMatrixId", Integer.class, null));
     params.put("parentAppId", JsonUtil.getJsonValue(app, "parent_app_id", Integer.class, null));
     params.put("appStatus", JsonUtil.getJsonValue(app, "app_status", String.class, null));
     params.put("isLogical", ((boolean) JsonUtil.getJsonValue(app, "is_logical", Boolean.class, false) ? "Y" : "N"));

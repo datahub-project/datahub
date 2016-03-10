@@ -104,7 +104,7 @@ CREATE TABLE `cfg_application` (
   `app_id`                  SMALLINT    UNSIGNED NOT NULL,
   `app_code`                VARCHAR(128)         NOT NULL,
   `description`             VARCHAR(512)         NOT NULL,
-  `tech_matrix_id`          SMALLINT(5) UNSIGNED NOT NULL,
+  `tech_matrix_id`          SMALLINT(5) UNSIGNED DEFAULT '0',
   `doc_url`                 VARCHAR(512)                  DEFAULT NULL,
   `parent_app_id`           INT(11) UNSIGNED     NOT NULL,
   `app_status`              CHAR(1)              NOT NULL,

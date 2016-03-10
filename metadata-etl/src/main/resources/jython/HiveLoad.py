@@ -134,7 +134,61 @@ class HiveLoad:
         , db_id = {db_id}
         ;
 
-        ANALYZE TABLE stg_dict_field_detail;
+
+       ANALYZE TABLE stg_dict_field_detail;
+
+       insert into dict_field_detail (
+          dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
+          field_name, namespace, data_type, data_size, is_nullable, default_value,
+           modified
+        )
+        select
+          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
+          sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value, now()
+        from stg_dict_field_detail sf join dict_dataset d
+          on sf.urn = d.urn
+             left join dict_field_detail t
+          on d.id = t.dataset_id
+         and sf.field_name = t.field_name
+         and sf.parent_path = t.parent_path
+        where db_id = {db_id} and t.field_id is null
+        ;
+
+        analyze table dict_field_detail;
+
+
+        -- delete old record in stagging
+        delete from stg_dict_dataset_field_comment where db_id = {db_id};
+
+        -- insert
+        insert into stg_dict_dataset_field_comment
+        select t.field_id field_id, fc.id comment_id,  d.id dataset_id, {db_id}
+                from stg_dict_field_detail sf join dict_dataset d
+                  on sf.urn = d.urn
+                      join field_comments fc
+                  on sf.description = fc.comment
+                      join dict_field_detail t
+                  on d.id = t.dataset_id
+                 and sf.field_name = t.field_name
+                 and sf.parent_path = t.parent_path
+        where sf.db_id = {db_id};
+
+        -- have default comment, insert it set default to 0
+        insert ignore into dict_dataset_field_comment
+        select field_id, comment_id, dataset_id, 0 is_default from stg_dict_dataset_field_comment where field_id in (
+          select field_id from dict_dataset_field_comment
+          where field_id in (select field_id from stg_dict_dataset_field_comment)
+        and is_default = 1 ) and db_id = {db_id};
+
+
+        -- doesn't have this comment before, insert into it and set as default
+        insert ignore into dict_dataset_field_comment
+        select sd.field_id, sd.comment_id, sd.dataset_id, 1 from stg_dict_dataset_field_comment sd
+        left join dict_dataset_field_comment d
+        on d.field_id = sd.field_id
+         and d.comment_id = sd.comment_id
+        where d.comment_id is null
+        and sd.db_id = {db_id};
 
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 

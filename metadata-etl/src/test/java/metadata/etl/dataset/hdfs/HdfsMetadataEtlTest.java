@@ -26,7 +26,7 @@ public class HdfsMetadataEtlTest {
   @BeforeTest
   public void setUp()
     throws Exception {
-    ds = new HdfsMetadataEtl(21, 0L);
+    ds = new HdfsMetadataEtl(2, 0L);
   }
 
   @Test(groups = {"needConfig"})
