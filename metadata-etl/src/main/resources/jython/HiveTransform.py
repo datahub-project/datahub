@@ -24,6 +24,8 @@ from HiveExtract import TableInfo
 from org.apache.hadoop.hive.ql.tools import LineageInfo
 from metadata.etl.dataset.hive import HiveViewDependency
 
+from HiveColumnParser import HiveColumnParser
+from AvroColumnParser import AvroColumnParser
 
 class HiveTransform:
   def __init__(self):
@@ -71,6 +73,7 @@ class HiveTransform:
         # process either schema
         flds = {}
         field_detail_list = []
+
         if TableInfo.schema_literal in table and table[TableInfo.schema_literal] is not None:
           sort_id = 0
           try:
@@ -78,44 +81,18 @@ class HiveTransform:
           except ValueError:
             self.logger.error("Schema json error for table : \n" + str(table))
           schema_json = schema_data
+          # extract fields to field record
+          urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          acp = AvroColumnParser(schema_data, urn = urn)
+          result = acp.get_column_list_result()
+          field_detail_list += result
 
-          # process each field
-          for field in schema_data['fields']:
-            field_name = field['name']
-            type = field['type']  # could be a list
-            default_value = field['default'] if 'default' in field else None
-            doc = field['doc'] if 'doc' in field else None
-
-            attributes_json = json.loads(field['attributes_json']) if 'attributes_json' in field else None
-            pk = delta = is_nullable = is_indexed = is_partitioned = inside_type = format = data_size = None
-            if attributes_json:
-              pk = attributes_json['pk'] if 'pk' in attributes_json else None
-              delta = attributes_json['delta'] if 'delta' in attributes_json else None
-              is_nullable = attributes_json['nullable'] if 'nullable' in attributes_json else None
-              inside_type = attributes_json['type'] if 'type' in attributes_json else None
-              format = attributes_json['format'] if 'format' in attributes_json else None
-
-            flds[field_name] = {'type': type}
-            # String urn, Integer sortId, Integer parentSortId, String parentPath, String fieldName,
-            #String dataType, String isNullable, String defaultValue, Integer dataSize, String namespace, String description
-            sort_id += 1
-            field_detail_list.append(
-              ["hive:///%s/%s" % (one_db_info['database'], table['name']), str(sort_id), '0', None, field_name, '',
-               type, data_size, None, None, is_nullable, is_indexed, is_partitioned, default_value, None,
-               json.dumps(attributes_json)])
         elif TableInfo.field_list in table:
-          schema_json = {'type': 'record', 'name': table['name'],
-                         'fields': table[TableInfo.field_list]}  # construct a schema for data came from COLUMN_V2
-          for field in table[TableInfo.field_list]:
-            field_name = field['ColumnName']
-            type = field['TypeName']
-            # ColumnName, IntegerIndex, TypeName, Comment
-            flds[field_name] = {'type': type}
-            pk = delta = is_nullable = is_indexed = is_partitioned = inside_type = format = data_size = default_value = None  # TODO ingest
-            field_detail_list.append(
-              ["hive:///%s/%s" % (one_db_info['database'], table['name']), field['IntegerIndex'], '0', None, field_name,
-               '', field['TypeName'], None, None, None, is_nullable, is_indexed, is_partitioned, default_value, None,
-               None])
+          # Convert to avro
+          uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          hcp = HiveColumnParser(table, urn = uri)
+          schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
+          field_detail_list += hcp.column_type_list
 
         dataset_scehma_record = DatasetSchemaRecord(table['name'], json.dumps(schema_json), json.dumps(prop_json),
                                                     json.dumps(flds),

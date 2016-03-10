@@ -164,6 +164,8 @@ public abstract class EtlJob {
 
   public void setup()
     throws Exception {
+    // redirect error to out
+    System.setErr(System.out);
 
   }
 

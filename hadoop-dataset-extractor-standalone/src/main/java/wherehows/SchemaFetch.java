@@ -167,10 +167,10 @@ public class SchemaFetch {
           } else if (scanFs.listStatus(n).length > 0 || scanFs.getContentSummary(n).getLength() > 0) {
             scanPath(n);
           } else {
-            System.err.println("* scanPath() size = 0: " + curPath);
+            logger.info("* scanPath() size = 0: " + curPath);
           }
         } catch (AccessControlException e) {
-          System.err.println("* scanPath(e) Permission denied. Cannot access: " + curPath +
+          logger.error("* scanPath(e) Permission denied. Cannot access: " + curPath +
             " owner:" + fstat.getOwner() + " group: " + fstat.getGroup() + "with current user " +
             UserGroupInformation.getCurrentUser());
           // System.err.println(e);
@@ -277,7 +277,7 @@ public class SchemaFetch {
         }
       }
     } catch (AccessControlException e) {
-      System.err.println("* TblInfo() Cannot access " + fstat.getPath().toUri().getPath());
+      logger.error("* TblInfo() Cannot access " + fstat.getPath().toUri().getPath());
       return;
     }
 
@@ -286,7 +286,7 @@ public class SchemaFetch {
     if (datasetSchemaRecord != null) {
       schemaFileWriter.append(datasetSchemaRecord);
     } else {
-      System.err.println("* Cannot resolve the schema of " + fullPath);
+      logger.error("* Cannot resolve the schema of " + fullPath);
     }
 
     SampleDataRecord sampleDataRecord = fileAnalyzerFactory.getSampleData(fstat.getPath(), path.toUri().getPath());

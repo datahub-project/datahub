@@ -78,6 +78,7 @@ public class DatasetFieldRecord implements Record {
 
   public DatasetFieldRecord(Object[] allFields) {
     // TODO need to make a check
+    // sequence should be : uri, sort_id, parent_sort_id, prefix, column_name, data_type, is_nullable, default_value, data_size, namespace, description
     this.allFields = new ArrayList<Object>(Arrays.asList(allFields));
   }
 
@@ -85,6 +86,10 @@ public class DatasetFieldRecord implements Record {
   public String toCsvString() {
     StringBuilder sb = new StringBuilder();
     for (Object o : allFields) {
+      // comment have new line
+      if (o != null && o.toString().contains("\n")) {
+        o = o.toString().replace("\n", "\\n");
+      }
       sb.append(o);
       sb.append(SEPR);
     }

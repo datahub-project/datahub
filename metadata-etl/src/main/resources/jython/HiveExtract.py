@@ -39,7 +39,7 @@ class TableInfo:
   is_storedassubdirectories = 'is_storedassubdirectories'
   etl_source = 'etl_source'
 
-  field_list = 'field_list'
+  field_list = 'fields'
   schema_literal = 'schema_literal'
 
   optional_prop = [create_time, serialization_format, field_delimiter, schema_url, db_id, table_id, serde_id,
@@ -63,8 +63,9 @@ class HiveExtract:
     """
     get table, column info from table columns_v2
     :param database_name:
-    :return: (DB_NAME, TBL_NAME, SERDE_FORMAT, TBL_CREATE_TIME, INTEGER_IDX, COLUMN_NAME, TYPE_NAME, COMMENT
-    DB_ID, TBL_ID, SD_ID, LOCATION, VIEW_EXPANDED_TEXT, TBL_TYPE, INPUT_FORMAT)
+    :return: (0 DB_NAME, 1 TBL_NAME, 2 SERDE_FORMAT, 3 TBL_CREATE_TIME
+    4 DB_ID, 5 TBL_ID,6 SD_ID, 7 LOCATION, 8 VIEW_EXPANDED_TEXT, 9 TBL_TYPE, 10 VIEW_EXPENDED_TEXT, 11 INPUT_FORMAT,12  OUTPUT_FORMAT,
+    13IS_COMPRESSED, 14 IS_STOREDASSUBDIRECTORIES, 15 INTEGER_IDX, 16 COLUMN_NAME, 17 TYPE_NAME, 18 COMMENT)
     """
     curs = self.conn_hms.cursor()
     tbl_info_sql = """select d.NAME DB_NAME, t.TBL_NAME TBL_NAME,
@@ -151,8 +152,7 @@ class HiveExtract:
 
     field_list = []
     for row_index, row_value in enumerate(rows):
-
-      field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16], # TODO the type name need to process
+      field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
                          'Comment': row_value[17]})
       if row_index == len(rows) - 1 or (row_value[0] != rows[row_index+1][0] or row_value[1] != rows[row_index+1][1]): # if this is last record of current table
         # process the record of table

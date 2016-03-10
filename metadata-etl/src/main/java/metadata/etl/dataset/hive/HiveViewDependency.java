@@ -27,6 +27,9 @@ public class HiveViewDependency {
   static LineageInfo lineageInfoTool =  new LineageInfo();
 
   public static String[] getViewDependency(String hiveQl) {
+    if (hiveQl == null)
+      return new String[]{};
+
     try {
       lineageInfoTool.getLineageInfo(hiveQl);
       TreeSet<String> inputs = lineageInfoTool.getInputTableList();

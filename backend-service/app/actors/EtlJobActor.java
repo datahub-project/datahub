@@ -15,6 +15,7 @@ package actors;
 
 import akka.actor.UntypedActor;
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -52,14 +53,22 @@ public class EtlJobActor extends UntypedActor {
 
         process = Runtime.getRuntime().exec(cmd);
 
+
+        InputStream stdout = process.getInputStream();
+        InputStreamReader isr = new InputStreamReader(stdout);
+        BufferedReader br = new BufferedReader(isr);
+        String line = null;
+        while ( (line = br.readLine()) != null) {
+          Logger.info(line);
+        }
+
         // wait until this process finished.
         int execResult = process.waitFor();
 
         // if the process failed, log the error and throw exception
         if (execResult > 0) {
-          BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+          br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
           String errString = "Error Details:\n";
-          String line;
           while((line = br.readLine()) != null)
             errString = errString.concat(line).concat("\n");
           Logger.error("*** Process + " + getPid(process) + " failed, status: " + execResult);
@@ -78,6 +87,7 @@ public class EtlJobActor extends UntypedActor {
           ActorRegistry.treeBuilderActor.tell("flow", getSelf());
         }
       } catch (Throwable e) { // catch all throwable at the highest level.
+        e.printStackTrace();
         Logger.error("ETL job {} got a problem", msg.toDebugString());
         if (process.isAlive()) {
           process.destroy();
