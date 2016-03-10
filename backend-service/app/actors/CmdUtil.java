@@ -48,7 +48,7 @@ public class CmdUtil {
     }
 
     String classPath = System.getProperty("java.class.path");
-    sb.append("-cp").append(" \"").append(classPath).append("\" ");
+    sb.append("-cp").append(" '").append(classPath).append("' ");
     sb.append("metadata.etl.Launcher");
 
     return sb.toString();

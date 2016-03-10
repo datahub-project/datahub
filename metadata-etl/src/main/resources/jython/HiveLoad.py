@@ -107,7 +107,7 @@ class HiveLoad:
 
   def load_field(self):
     """
-    TODO: Load field is not used for now, as we need to open the nested structure type
+    Load fields
     :return:
     """
     cursor = self.conn_mysql.cursor()
@@ -117,22 +117,15 @@ class HiveLoad:
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_field_detail
         FIELDS TERMINATED BY '\Z'
-        (urn, sort_id, parent_sort_id, @parent_path, field_name, field_label, data_type,
-         @data_size, @precision, @scale, @is_nullable, @is_indexed, @is_partitioned, @default_value, @namespace, description,
-         @dummy
-        )
-        SET
-          parent_path=nullif(@parent_path,'null')
-        , data_size=nullif(@data_size,'null')
-        , data_precision=nullif(@precision,'null')
-        , data_scale=nullif(@scale,'null')
+        (urn, sort_id, parent_sort_id, parent_path, field_name, data_type,
+         @is_nullable, @default_value, @data_size, @namespace, @description)
+        SET db_id = {db_id}
         , is_nullable=nullif(@is_nullable,'null')
-        , is_indexed=nullif(@is_indexed,'null')
-        , is_partitioned=nullif(@is_partitioned,'null')
         , default_value=nullif(@default_value,'null')
+        , data_size=nullif(@data_size,'null')
         , namespace=nullif(@namespace,'null')
-        , db_id = {db_id}
-        ;
+        , description=nullif(@description,'null');
+
 
 
        ANALYZE TABLE stg_dict_field_detail;
@@ -190,6 +183,109 @@ class HiveLoad:
         where d.comment_id is null
         and sd.db_id = {db_id};
 
+
+        insert into field_comments (
+          user_id, comment, created, comment_crc32_checksum
+        )
+        select 0 user_id, description, now() created, crc32(description) from
+        (
+          select sf.description
+          from stg_dict_field_detail sf left join field_comments fc
+            on sf.description = fc.comment
+          where sf.description is not null
+            and fc.id is null
+            and sf.db_id = {db_id}
+          group by 1 order by 1
+        ) d;
+
+        analyze table field_comments;
+
+        -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
+        create temporary table if not exists t_deleted_fields (primary key (field_id))
+          select x.field_id
+            from stg_dict_field_detail s
+              join dict_dataset i
+                on s.urn = i.urn
+                and s.db_id = {db_id}
+              right join dict_field_detail x
+                on i.id = x.dataset_id
+                and s.field_name = x.field_name
+                and s.parent_path = x.parent_path
+          where s.field_name is null
+            and x.dataset_id in (
+                       select d.id dataset_id
+                       from stg_dict_field_detail k join dict_dataset d
+                         on k.urn = d.urn
+                        and k.db_id = {db_id}
+            )
+        ; -- run time : ~2min
+
+        delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
+
+        -- update the old record if some thing changed
+        update dict_field_detail t join
+        (
+          select x.field_id, s.*
+          from stg_dict_field_detail s join dict_dataset d
+            on s.urn = d.urn
+               join dict_field_detail x
+           on s.field_name = x.field_name
+          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+          and d.id = x.dataset_id
+          where s.db_id = {db_id}
+            and (x.sort_id <> s.sort_id
+                or x.parent_sort_id <> s.parent_sort_id
+                or x.data_type <> s.data_type
+                or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
+                or x.data_precision <> s.data_precision or (x.data_precision is null XOR s.data_precision is null)
+                or x.is_nullable <> s.is_nullable or (x.is_nullable is null XOR s.is_nullable is null)
+                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null XOR s.is_partitioned is null)
+                or x.is_distributed <> s.is_distributed or (x.is_distributed is null XOR s.is_distributed is null)
+                or x.default_value <> s.default_value or (x.default_value is null XOR s.default_value is null)
+                or x.namespace <> s.namespace or (x.namespace is null XOR s.namespace is null)
+            )
+        ) p
+          on t.field_id = p.field_id
+        set t.sort_id = p.sort_id,
+            t.parent_sort_id = p.parent_sort_id,
+            t.data_type = p.data_type,
+            t.data_size = p.data_size,
+            t.data_precision = p.data_precision,
+            t.is_nullable = p.is_nullable,
+            t.is_partitioned = p.is_partitioned,
+            t.is_distributed = p.is_distributed,
+            t.default_value = p.default_value,
+            t.namespace = p.namespace,
+            t.modified = now()
+        ;
+
+        insert into dict_field_detail (
+          dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
+          field_name, namespace, data_type, data_size, is_nullable, default_value,
+          default_comment_id, modified
+        )
+        select
+          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
+          sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value,
+          coalesce(fc.id, t.default_comment_id) fc_id, now()
+        from stg_dict_field_detail sf join dict_dataset d
+          on sf.urn = d.urn
+             left join field_comments fc
+          on sf.description = fc.comment
+             left join dict_field_detail t
+          on d.id = t.dataset_id
+         and sf.field_name = t.field_name
+         and sf.parent_path = t.parent_path
+        where db_id = {db_id} and t.field_id is null
+
+        on duplicate key update
+          data_type = sf.data_type, data_size = sf.data_size,
+          is_nullable = sf.is_nullable, default_value = sf.default_value,
+          namespace = sf.namespace,
+          default_comment_id = coalesce(fc.id, t.default_comment_id),
+          modified=now()
+        ;
+        analyze table dict_field_detail;
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 
     # didn't load into final table for now
@@ -219,6 +315,6 @@ if __name__ == "__main__":
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   try:
     l.load_metadata()
-    # l.load_field()
+    l.load_field()
   finally:
     l.conn_mysql.close()
