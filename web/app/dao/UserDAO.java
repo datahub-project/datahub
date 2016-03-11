@@ -84,11 +84,7 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			return "Password is required and must be at least 6 characters.";
 		}
 
-		Integer count = (Integer)getJdbcTemplate().queryForObject(
-				GET_USER_COUNT,
-				Integer.class,
-				userName);
-		if (count != null && count > 0)
+		if (userExist(userName))
 		{
 			message = "The username you input has been used. Please choose another.";
 		}
@@ -107,23 +103,32 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 		return message;
 	}
 
-	public static void addLdapUserIfNotExist(User user)
+	public static void addLdapUser(User user)
 	{
 		if (user != null && StringUtils.isNotBlank(user.userName))
+		{
+			getJdbcTemplate().update(CREATE_LDAP_USER,
+				user.name,
+				user.userName,
+				user.email,
+				user.departmentNum);
+		}
+	}
+
+	public static Boolean userExist(String userName)
+	{
+		if (StringUtils.isNotBlank(userName))
 		{
 			Integer count = (Integer)getJdbcTemplate().queryForObject(
 					GET_USER_COUNT,
 					Integer.class,
-					user.userName);
-			if (count == null || count == 0)
+					userName);
+			if (count != null && count > 0)
 			{
-				getJdbcTemplate().update(CREATE_LDAP_USER,
-						user.name,
-						user.userName,
-						user.email,
-						user.departmentNum);
+				return true;
 			}
 		}
+		return false;
 	}
 
 	public static Boolean authenticate(String userName, String password)

@@ -16,7 +16,6 @@ package security;
 import dao.UserDAO;
 import models.User;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
 import play.Play;
 
@@ -66,8 +65,11 @@ public class AuthenticationManager {
             {
                 Hashtable<String, String> env = buildEnvContext(userName, password);
                 ctx = new InitialDirContext(env);
-                User user = getAttributes(userName);
-                UserDAO.addLdapUserIfNotExist(user);
+                if (!UserDAO.userExist(userName))
+                {
+                    User user = getAttributes(userName);
+                    UserDAO.addLdapUser(user);
+                }
             }
             catch(NamingException e)
             {
@@ -123,7 +125,6 @@ public class AuthenticationManager {
                 new BasicAttribute("userPrincipalName", userName + "@linkedin.biz");
         matchAttr.put(basicAttr);
 
-        // Attributes to be returned from search
         NamingEnumeration<? extends SearchResult> searchResult =
                 ctx.search("ou=Staff Users,dc=linkedin,dc=biz", matchAttr, attributeNames);
 
@@ -144,7 +145,6 @@ public class AuthenticationManager {
                 Attribute attr = attributes.next();
                 String attrId = attr.getID();
                 String attrValue = (String) attr.get();
-                Logger.error(attrId);
 
                 result.put(attrId, attrValue);
             }
