@@ -480,13 +480,16 @@
         <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
           <thead>
             <tr class="results-header">
-              <th style="min-width: 200px;" class="col-xs-2 wrap-all-word">Column</th>
+              <th style="min-width: 200px;" class="col-xs-2">Column</th>
               <th class="col-xs-1">Data Type</th>
               <th title="Is nullable" style="width:15px;">N</th>
               <th title="Is indexed" style="width:15px;">I</th>
               <th title="Is partitioned" style="width:15px;">P</th>
               <th title="Is distributed" style="width:15px;">D</th>
-              <th class="col-xs-8"> Default Comments</th>
+              <th class="col-xs-7"> Default Comments</th>
+              <th title="Comment Count" style="width:15px;">
+                <i class="fa fa-comments" title="Comment Count"></i>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -519,6 +522,9 @@
                   {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
                   {{schema.commentHtml}}
                 </div>
+              </td>
+              <td class="text-center">
+                {{schema.commentCount}}
               </td>
             </tr>
             {{/each}}
@@ -1283,10 +1289,10 @@
     <script type="text/x-handlebars" id="dataset">
       <div id="dataset" >
         <div class="row">
-          <div class="col-xs-6">
+          <div class="col-xs-5">
             <h3>{{ model.name }}</h3>
           </div>
-          <div class="col-xs-6 text-right">
+          <div class="col-xs-7 text-right">
             <ul class="datasetDetailsLinks">
               <li>
                 {{#dataset-favorite dataset=model action="didFavorite"}}
@@ -1311,16 +1317,18 @@
               </li>
               {{/if}}
               <li>
-                <a target="_blank" {{bind-attr href=lineageUrl}}>
+                <a target="_blank" {{bind-attr href=lineageUrl}}
+                  title="View Lineage">
                   <i class="fa fa-sitemap"></i>
                   <span class="hidden-sm hidden-xs">
-                    View Lineage
+                    Lineage
                   </span>
                 </a>
               </li>
               {{#if model.hasSchemaHistory}}
                 <li>
-                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}>
+                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}
+                    title="View Schema History">
                     <i class="fa fa-history"></i>
                     <span class="hidden-sm hidden-xs">
                       Schema History
@@ -1376,7 +1384,13 @@
           {{#unless isSFDC}}
             <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
           {{/unless}}
-          <li id="impacts"><a data-toggle="tab" href="#impacttab">Down Stream Impact Analytics</a></li>
+          <li id="impacts">
+            <a data-toggle="tab"
+              title="Down Stream Impact Analysis"
+              href="#impacttab">
+              Down Stream Impact
+            </a>
+          </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
