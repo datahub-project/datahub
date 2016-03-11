@@ -36,6 +36,10 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"(name, username, password_digest, email, password_digest_type, authentication_type) " +
 			"VALUES(?, ?, SHA1(?), ? , 'SHA1', 'default')";
 
+	private final static String CREATE_LDAP_USER = "INSERT INTO users " +
+			"(name, username, email, department_number, password_digest_type) " +
+			"VALUES(?, ?, ?, ?, 'SHA1')";
+
 	private final static String GET_USER_COUNT = "SELECT COUNT(*) FROM users WHERE username = ?";
 
 	private final static String GET_USER_INFO_BY_USERNAME = "SELECT id, password_digest, " +
@@ -101,6 +105,25 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			}
 		}
 		return message;
+	}
+
+	public static void addLdapUserIfNotExist(User user)
+	{
+		if (user != null && StringUtils.isNotBlank(user.userName))
+		{
+			Integer count = (Integer)getJdbcTemplate().queryForObject(
+					GET_USER_COUNT,
+					Integer.class,
+					user.userName);
+			if (count == null || count == 0)
+			{
+				getJdbcTemplate().update(CREATE_LDAP_USER,
+						user.name,
+						user.userName,
+						user.email,
+						user.departmentNum);
+			}
+		}
 	}
 
 	public static Boolean authenticate(String userName, String password)
