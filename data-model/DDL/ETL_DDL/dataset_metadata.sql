@@ -148,6 +148,8 @@ CREATE TABLE `stg_dict_field_detail` (
   `namespace`      VARCHAR(200)                  DEFAULT NULL,
   `description`    VARCHAR(1000)                 DEFAULT NULL,
   `last_modified`  TIMESTAMP            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY `urn_idx` (`urn`),
+  KEY `stg_comment_key` (`description`(100)),
   PRIMARY KEY (`db_id`, `urn`, `sort_id`)
 )
   ENGINE = InnoDB
@@ -212,7 +214,17 @@ CREATE TABLE `dict_dataset_schema_history` (
   ENGINE = InnoDB
   AUTO_INCREMENT = 0;
 
--- field comments
+-- staging table table of fields to comments mapping
+CREATE TABLE `stg_dict_dataset_field_comment` (
+  `field_id` bigint(20) NOT NULL,
+  `comment_id` bigint(20) NOT NULL,
+  `dataset_id` bigint(20) NOT NULL,
+  `db_id` smallint(6) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`field_id`,`comment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+;
+
+-- fields to comments mapping
 CREATE TABLE `dict_dataset_field_comment` (
   `field_id`   BIGINT(20) NOT NULL,
   `comment_id` BIGINT(20) NOT NULL,
@@ -251,6 +263,7 @@ CREATE TABLE `field_comments` (
   `comment_crc32_checksum` INT(11) UNSIGNED          DEFAULT NULL
   COMMENT '4-byte CRC32',
   PRIMARY KEY (`id`),
+  KEY `comment_key` (`comment`(100)),
   FULLTEXT KEY `fti_comment` (`comment`)
 )
   ENGINE = InnoDB
