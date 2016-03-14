@@ -173,6 +173,10 @@ App.DatasetRoute = Ember.Route.extend({
         source = params.source;
         urn = params.urn;
         datasetController.set("detailview", true);
+        if (params.originalSchema)
+        {
+          Ember.set(params, 'schema', params.originalSchema);
+        }
         controller.set('model', params);
 
       }

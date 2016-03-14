@@ -68,6 +68,7 @@ App.SearchRoute = Ember.Route.extend({
                 for(var index = 0; index < result.data.length; index++) {
                     var schema = result.data[index].schema;
                     if (schema) {
+                        result.data[index].originalSchema = result.data[index].schema;
                         highlightResults(result.data, index, keyword);
                     }
                 }
