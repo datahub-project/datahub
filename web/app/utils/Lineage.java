@@ -71,6 +71,13 @@ public class Lineage
                         pathInfo.filePath = "/" + pathArray[1];
                     }
                 }
+                else if (storageType.equalsIgnoreCase("hive"))
+                {
+                  if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
+                  {
+                      pathInfo.filePath = "/" + pathArray[1];
+                  }
+                }
                 else
                 {
                     pathInfo.storageType = null;
