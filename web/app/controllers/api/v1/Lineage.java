@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.DatasetsDAO;
 import dao.FlowsDAO;
 import dao.LineageDAO;
+import play.Play;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -25,6 +26,7 @@ import org.apache.commons.lang3.StringUtils;
 
 public class Lineage extends Controller
 {
+    private static final String LINEAGE_LOOK_BACK_TIME_KEY = "lineage.look.back.time";
 
     public static Result getDatasetLineageGraphData(int id)
     {
@@ -89,8 +91,25 @@ public class Lineage extends Controller
         if (downLevel < 1)
             downLevel = 1;
 
+        int lookBackTimeDefault = Integer.valueOf(Play.application().configuration().getString(LINEAGE_LOOK_BACK_TIME_KEY, "30"));
+        int lookBackTime = lookBackTimeDefault;
+        String lookBackTimeStr = request().getQueryString("period");
+        if (!StringUtils.isBlank(lookBackTimeStr))
+        {
+          try
+          {
+            lookBackTime = Integer.parseInt(lookBackTimeStr);
+          }
+          catch(NumberFormatException e)
+          {
+            Logger.error("Lineage Controller getDatasetLineageGraphData wrong period parameter. Error message: "
+                + e.getMessage());
+            lookBackTime = lookBackTimeDefault;
+          }
+        }
+
         result.put("status", "ok");
-        result.set("data", Json.toJson(LineageDAO.getObjectAdjacnet(dataset.urn, upLevel, downLevel)));
+        result.set("data", Json.toJson(LineageDAO.getObjectAdjacnet(dataset.urn, upLevel, downLevel, lookBackTime)));
         return ok(result);
     }
 

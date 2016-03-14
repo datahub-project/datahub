@@ -94,7 +94,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL 60 DAY";
 
 
-	public static JsonNode getObjectAdjacnet(String urn, int upLevel, int downLevel)
+	public static JsonNode getObjectAdjacnet(String urn, int upLevel, int downLevel, int lookBackTime)
 	{
 		ObjectNode resultNode = Json.newObject();
 		LineagePathInfo pathInfo = utils.Lineage.convertFromURN(urn);
@@ -127,7 +127,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				nodes,
 				edges,
 				addedDataNodes,
-				addedJobNodes);
+				addedJobNodes,
+        lookBackTime);
 		if (nodes.size() > 0)
 		{
 			message = "Found lineage on azkaban";
@@ -153,7 +154,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			List<LineageNode> nodes,
 			List<LineageEdge> edges,
 			Map<String, Integer> addedDataNodes,
-			Map<Long, Integer> addedJobNodes)
+			Map<Long, Integer> addedJobNodes,
+      int lookBackTime)
 	{
 		if (upLevel < 1 && downLevel < 1)
 		{
@@ -164,7 +166,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		rows = getJdbcTemplate().queryForList(
 				GET_JOB,
 				pathInfo.filePath,
-				30);
+				lookBackTime);
 		if (rows != null)
 		{
 			for (Map row : rows)
@@ -293,7 +295,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 										nodes,
 										edges,
 										addedDataNodes,
-										addedJobNodes);
+										addedJobNodes,
+                    lookBackTime);
 							}
 							nodeIndex = nodes.size();
 						}
@@ -345,7 +348,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 										nodes,
 										edges,
 										addedDataNodes,
-										addedJobNodes);
+										addedJobNodes,
+                    lookBackTime);
 							}
 							nodeIndex = nodes.size();
 						}
@@ -366,7 +370,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			List<LineageNode> nodes,
 			List<LineageEdge> edges,
 			Map<String, Integer> addedDataNodes,
-			Map<Long, Integer> addedJobNodes)
+			Map<Long, Integer> addedJobNodes,
+      int lookBackTime)
 	{
 		if (upLevel < 1 && downLevel < 1)
 		{
@@ -397,7 +402,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						nodes,
 						edges,
 						addedDataNodes,
-						addedJobNodes);
+						addedJobNodes,
+            lookBackTime);
 				break;
 			}
 		}
