@@ -371,7 +371,7 @@
             advSearchOpts.fields = {'any': fieldAny, 'all': fieldAll, 'not': fieldNotIn};
             advSearchOpts.comments = comments;
             advSearchOpts.sources = sources;
-            window.location.hash = "#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+            window.location = "/#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
         }
 
         function advSearchForFlow()
@@ -448,7 +448,7 @@
             advSearchOpts.appcode = {'in': appcodeIn, 'not': appcodeNotIn};
             advSearchOpts.flow = {'in': flowIn, 'not': flowNotIn};
             advSearchOpts.job = {'in': jobIn, 'not': jobNotIn};
-            window.location.hash = "#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+            window.location = "/#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
         }
 
         $('#advSearchBtn').click(function(){

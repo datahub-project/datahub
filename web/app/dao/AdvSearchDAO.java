@@ -424,6 +424,11 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				{
 					fieldAllIDs = fieldAllIDs.substring(0, fieldAllIDs.length()-1);
 				}
+				if (StringUtils.isBlank(fieldAllIDs))
+				{
+					fieldAllIDs = Integer.toString(0);
+
+				}
 			}
 
 			List<Dataset> pagedDatasets = new ArrayList<Dataset>();
@@ -747,7 +752,6 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 						"WHEN urn LIKE 'hdfs://data/databases/%' THEN 4 " +
 						"WHEN urn LIKE 'hdfs://data/dervied/%' THEN 5 ELSE 99 end, urn";
 			}
-
 			if (StringUtils.isBlank(comments))
 			{
 				query += " LIMIT " + (page-1)*size + ", " + size;
@@ -803,13 +807,13 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					public String doInTransaction(TransactionStatus status)
 					{
 						List<Map<String, Object>> rows = null;
-						rows = jdbcTemplate.queryForList(queryString, (page-1)*size, size);
+						rows = jdbcTemplate.queryForList(queryString);
 						String idsString = "";
 
 						for (Map row : rows) {
 
-							int id = (int)row.get("id");
-							idsString += id + ",";
+							Long id = (Long)row.get("id");
+							idsString += Long.toString(id) + ",";
 						}
 						if (StringUtils.isNotBlank(idsString))
 						{

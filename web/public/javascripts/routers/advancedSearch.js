@@ -28,6 +28,7 @@ App.AdvsearchRoute = Ember.Route.extend({
         for(var index = 0; index < data.result.data.length; index++) {
           var schema = data.result.data[index].schema;
           if (schema) {
+            data.result.data[index].originalSchema = schema;
             highlightResultsforAdvSearch(data.result.data, index);
           }
         }
