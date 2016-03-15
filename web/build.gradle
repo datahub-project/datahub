@@ -86,15 +86,23 @@ idea {
     }
 }
 
-task "build" (type: Exec, dependsOn: playClean) {
+// delegate gradle java task to play command
+
+task "build" (type: Exec, dependsOn: playClean, overwrite: true) {
     commandLine playExec, 'stage'
 }
 
+task "assemble" (type: Exec, dependsOn: playClean, overwrite: true) {
+  commandLine playExec, 'stage'
+}
 
-task "dist" (type: Exec) {
+task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
+task "check" (overwrite: true) {
+  // skip gradle check of this repository
+}
 /*
 // optional: if using 'eclipse' plugin
 eclipse {
