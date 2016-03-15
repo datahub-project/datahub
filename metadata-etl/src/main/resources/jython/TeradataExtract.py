@@ -463,7 +463,7 @@ class TeradataExtract:
     data_with_column = map(lambda x:dict(zip(columns, x)), rows_data)
     return ref_urn, json.dumps({'sample': data_with_column})
 
-  def run(self, database_name, table_name, schema_output_file, sample_output_file):
+  def run(self, database_name, table_name, schema_output_file, sample_output_file, sample=True):
     """
     The entrance of the class, extract schema and sample data
     Notice the database need to have a order that the databases have more info (DWH_STG) should be scaned first.
@@ -480,9 +480,6 @@ class TeradataExtract:
     schema_json = open(schema_output_file, 'wb')
     os.chmod(schema_output_file, 0666)
 
-    open(sample_output_file, 'wb')
-    os.chmod(sample_output_file, 0666)
-    sample_file_writer = FileWriter(sample_output_file)
 
     if database_name is None and table_name is None:  # default route: process everything
       for database_name in self.databases:
@@ -506,25 +503,31 @@ class TeradataExtract:
         f_log.write("Get view  info %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
       scaned_dict = {}  # a cache of {name : {urn : _, data : _}} to avoid repeat computing
-      # collect sample data
-      for onedatabase in schema:
-        database_name = onedatabase['database']
-        if 'tables' in onedatabase:
-          alltables = onedatabase['tables']
-        else:
-          alltables = onedatabase['views']
 
-        for onetable in alltables:
-          table_name = onetable['original_name'].split('.')[1]
-          if table_name in scaned_dict:
-            sample_record = SampleDataRecord('teradata', '/' + database_name + '/' + table_name,
-                                             scaned_dict[table_name]['ref_urn'], scaned_dict[table_name]['data'])
+      if sample:
+        open(sample_output_file, 'wb')
+        os.chmod(sample_output_file, 0666)
+        sample_file_writer = FileWriter(sample_output_file)
+
+        # collect sample data
+        for onedatabase in schema:
+          database_name = onedatabase['database']
+          if 'tables' in onedatabase:
+            alltables = onedatabase['tables']
           else:
-            (ref_urn, sample_data) = self.get_sample_data(database_name, table_name)
-            sample_record = SampleDataRecord('teradata', '/' + database_name + '/' + table_name, '', sample_data)
-            scaned_dict[table_name] = {'ref_urn': ref_urn, 'data': sample_data}
-          sample_file_writer.append(sample_record)
-      sample_file_writer.close()
+            alltables = onedatabase['views']
+
+          for onetable in alltables:
+            table_name = onetable['original_name'].split('.')[1]
+            if table_name in scaned_dict:
+              sample_record = SampleDataRecord('teradata', '/' + database_name + '/' + table_name,
+                                               scaned_dict[table_name]['ref_urn'], scaned_dict[table_name]['data'])
+            else:
+              (ref_urn, sample_data) = self.get_sample_data(database_name, table_name)
+              sample_record = SampleDataRecord('teradata', '/' + database_name + '/' + table_name, '', sample_data)
+              scaned_dict[table_name] = {'ref_urn': ref_urn, 'data': sample_data}
+            sample_file_writer.append(sample_record)
+        sample_file_writer.close()
 
     # print 'byte size of schema : ' + str(sys.getsizeof(schema))
     schema_json.write(json.dumps(schema, indent=None) + '\n')
@@ -554,7 +557,7 @@ if __name__ == "__main__":
     index_type = {'P': 'Primary Index', 'K': 'Primary Key', 'S': 'Secondary Index', 'Q': 'Partitioned Primary Index',
                   'J': 'Join Index', 'U': 'Unique Index'}
 
-    e.run(None, None, args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_SAMPLE_OUTPUT_KEY])
+    e.run(None, None, args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_SAMPLE_OUTPUT_KEY], sample=False)
   finally:
     e.conn_td.close()
 

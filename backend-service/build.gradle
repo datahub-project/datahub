@@ -75,11 +75,11 @@ idea {
     }
 }
 
-task "build" (type: Exec, dependsOn: playCompile) {
+task "build" (type: Exec, dependsOn: playCompile, overwrite: true) {
     commandLine playExec, 'stage'
 }
 
-task "dist" (type: Exec) {
+task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
