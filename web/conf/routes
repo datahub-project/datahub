@@ -19,6 +19,10 @@ POST    /api/v1/usersettings/me             controllers.api.v1.User.updateSettin
 
 GET     /tree/:name                         controllers.Application.loadTree(name:String)
 
+GET     /tree/flow/:app                     controllers.Application.loadFlowProjects(app:String)
+
+GET     /tree/flow/:app/:project            controllers.Application.loadFlowNodes(app:String, project:String)
+
 GET     /lineage                                    controllers.Application.lineage()
 
 GET     /lineage/dataset/:id                        controllers.Application.datasetLineage(id: Int)

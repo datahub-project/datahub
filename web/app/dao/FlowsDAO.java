@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.*;
 import org.apache.commons.lang3.StringUtils;
@@ -34,11 +35,11 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			"SELECT app_id FROM cfg_application WHERE LOWER(app_code) = ?";
 
 	private final static String GET_PAGED_PROJECTS = "SELECT SQL_CALC_FOUND_ROWS " +
-			"DISTINCT IFNULL(f.flow_group, 'NA') as project_name, f.app_id, f.flow_group, a.app_code " +
+			"DISTINCT IFNULL(f.flow_group, 'ROOT') as project_name, f.app_id, f.flow_group, a.app_code " +
 			"FROM flow f JOIN cfg_application a ON f.app_id = a.app_id GROUP BY 1 limit ?, ?";
 
 	private final static String GET_PAGED_PROJECTS_BY_APP_ID = "SELECT SQL_CALC_FOUND_ROWS " +
-			"distinct IFNULL(f.flow_group, 'NA') as project_name, f.app_id, f.flow_group, a.app_code " +
+			"distinct IFNULL(f.flow_group, 'ROOT') as project_name, f.app_id, f.flow_group, a.app_code " +
 			"FROM flow f JOIN cfg_application a ON f.app_id = a.app_id WHERE f.app_id = ? GROUP BY 1 limit ?, ?";
 
 	private final static String GET_FLOW_COUNT_BY_APP_ID_AND_PROJECT_NAME = "SELECT count(*) " +
@@ -69,6 +70,24 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			"j.job_path, j.job_type, j.ref_flow_id, " +
 			"f.flow_name ORDER BY j.job_id LIMIT ?, ?";
 
+	private final static String GET_FLOW_TREE_APPLICATON_NODES = "SELECT DISTINCT ca.app_code " +
+			"From flow f JOIN cfg_application ca ON f.app_id = ca.app_id ORDER by app_code";
+
+	private final static String GET_FLOW_TREE_PROJECT_NODES = "SELECT DISTINCT IFNULL(f.flow_group, 'ROOT') " +
+			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE (is_active is null or is_active = 'Y') and ca.app_code = ? ORDER BY flow_group";
+
+	private final static String GET_FLOW_TREE_FLOW_NODES = "SELECT DISTINCT f.flow_id, f.flow_name FROM flow f " +
+			"JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE (f.is_active is null or f.is_active = 'Y') and ca.app_code = ? " +
+			"and f.flow_group = ? ORDER BY f.flow_name";
+
+	private final static String GET_FLOW_TREE_FLOW_NODES_WITHOUT_PROJECT = "SELECT DISTINCT " +
+			"f.flow_id, f.flow_name FROM flow f " +
+			"JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE (f.is_active is null or f.is_active = 'Y') and ca.app_code = ? " +
+			"and f.flow_group is null ORDER BY f.flow_name";
+
 	public static Integer getApplicationIDByName(String applicationName)
 	{
 		Integer applicationId = 0;
@@ -84,6 +103,76 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return applicationId;
+	}
+
+	public static JsonNode getFlowApplicationNodes()
+	{
+		List<String> appList = getJdbcTemplate().queryForList(GET_FLOW_TREE_APPLICATON_NODES, String.class);
+		List<TreeNode> nodes = new ArrayList<TreeNode>();
+		if (appList != null && appList.size() > 0)
+		{
+			for (String app : appList)
+			{
+				TreeNode node = new TreeNode();
+				node.folder = true;
+				node.lazy = true;
+				node.title = app;
+				node.level = 1;
+				nodes.add(node);
+			}
+		}
+		return Json.toJson(nodes);
+	}
+
+	public static JsonNode getFlowProjectNodes(String app)
+	{
+		List<String> projectList = getJdbcTemplate().queryForList(GET_FLOW_TREE_PROJECT_NODES, String.class, app);
+		List<TreeNode> nodes = new ArrayList<TreeNode>();
+		if (projectList != null && projectList.size() > 0)
+		{
+			for (String project : projectList)
+			{
+				TreeNode node = new TreeNode();
+				node.folder = true;
+				node.lazy = true;
+				node.title = project;
+				node.parent = app;
+				node.level = 2;
+				nodes.add(node);
+			}
+		}
+		return Json.toJson(nodes);
+	}
+
+	public static JsonNode getFlowNodes(String app, String project)
+	{
+		List<Map<String, Object>> rows = null;
+
+		if (StringUtils.isBlank(project) || project.equalsIgnoreCase("root"))
+		{
+			rows = getJdbcTemplate().queryForList(GET_FLOW_TREE_FLOW_NODES_WITHOUT_PROJECT, app);
+		}
+		else
+		{
+			rows = getJdbcTemplate().queryForList(GET_FLOW_TREE_FLOW_NODES, app, project);
+		}
+
+		List<TreeNode> nodes = new ArrayList<TreeNode>();
+		if (rows != null)
+		{
+			for (Map row : rows)
+			{
+				TreeNode node = new TreeNode();
+				node.folder = false;
+				node.lazy = false;
+				node.title = (String)row.get("flow_name");
+				node.parent = project;
+				node.id = (Long)row.get("flow_id");
+				node.level = 3;
+				nodes.add(node);
+			}
+		}
+		return Json.toJson(nodes);
 	}
 
 	public static ObjectNode getPagedProjects(int page, int size)
@@ -280,7 +369,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 					long count = 0;
 					List<Flow> pagedFlows = new ArrayList<Flow>();
 					List<Map<String, Object>> rows = null;
-					if (StringUtils.isNotBlank(project) && (!project.equalsIgnoreCase("na")))
+					if (StringUtils.isNotBlank(project) && (!project.equalsIgnoreCase("root")))
 					{
 						rows = getJdbcTemplate().queryForList(
 								GET_PAGED_FLOWS_BY_APP_ID_AND_PROJECT_NAME,
