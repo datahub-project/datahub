@@ -54,8 +54,9 @@ public class SchemaFetch {
   private static FileWriter schemaFileWriter;
   private static FileWriter sampleFileWriter;
   private static FileAnalyzerFactory fileAnalyzerFactory;
-  private Configuration conf;
   static Logger logger;
+  private static Configuration conf;
+  private static FileSystem fs;
 
   public SchemaFetch(Configuration conf)
     throws IOException, InterruptedException {
@@ -64,7 +65,30 @@ public class SchemaFetch {
 
     schemaFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SCHEMA_REMOTE_PATH_KEY));
     sampleFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SAMPLE_REMOTE_PATH_KEY));
-    FileSystem writefs = FileSystem.get(new Configuration()); // create a new filesystem use current user
+
+    // login from kerberos, get the file system
+    String principal = this.conf.get(Constant.HDFS_REMOTE_USER_KEY);
+    String keyLocation = this.conf.get(Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY, null);
+
+
+    if (keyLocation == null) {
+      System.out.println("No keytab file location specified, will ignore the kerberos login process");
+      fs = FileSystem.get(new Configuration());
+    } else {
+      try {
+        Configuration hdfs_conf = new Configuration();
+        hdfs_conf.set("hadoop.security.authentication", "Kerberos");
+        UserGroupInformation.setConfiguration(hdfs_conf);
+        UserGroupInformation.loginUserFromKeytab(principal, keyLocation);
+        fs = FileSystem.get(hdfs_conf);
+      } catch (IOException e) {
+        System.out
+            .println("Failed, Try to login through kerberos. Priciple: " + principal + " keytab location : " + keyLocation);
+        e.printStackTrace();
+        System.out.println("Use default, assume no kerbero needed");
+        fs = FileSystem.get(new Configuration());
+      }
+    }
 
     // TODO Write to hdfs
     // String sampleDataFolder = "/projects/wherehows/hdfs/sample_data";
@@ -72,7 +96,7 @@ public class SchemaFetch {
     // sampleDataAvroWriter = new AvroWriter(this.fs, sampleDataFolder + "/" + cluster, SampleDataRecord.class);
     // String schemaFolder = this.conf.get("hdfs.schema_location");
 
-    fileAnalyzerFactory = new FileAnalyzerFactory(writefs);
+    fileAnalyzerFactory = new FileAnalyzerFactory(this.fs);
   }
 
   /**
@@ -165,14 +189,14 @@ public class SchemaFetch {
           if (isTable(n, scanFs) > 0) {
             traceTableInfo(n, scanFs);
           } else if (scanFs.listStatus(n).length > 0 || scanFs.getContentSummary(n).getLength() > 0) {
-            scanPath(n);
+            scanPath(n, scanFs);
           } else {
             logger.info("* scanPath() size = 0: " + curPath);
           }
         } catch (AccessControlException e) {
           logger.error("* scanPath(e) Permission denied. Cannot access: " + curPath +
-            " owner:" + fstat.getOwner() + " group: " + fstat.getGroup() + "with current user " +
-            UserGroupInformation.getCurrentUser());
+              " owner:" + fstat.getOwner() + " group: " + fstat.getGroup() + "with current user " +
+              UserGroupInformation.getCurrentUser());
           // System.err.println(e);
           continue;
         } // catch
@@ -187,11 +211,13 @@ public class SchemaFetch {
    * @param path
    * @throws java.io.IOException
    */
-  private static void scanPath(Path path)
+  private static void scanPath(Path path, FileSystem fs)
     throws IOException, InterruptedException, SQLException {
 
-    FileSystem scanFs = FileSystem.newInstance(new Configuration()); // create a new filesystem use current user
-    logger.info("Now reading data as:" + UserGroupInformation.getCurrentUser());
+    // TODO create a new filesystem use current user
+    //FileSystem scanFs = FileSystem.newInstance(SchemaFetch.conf);
+    FileSystem scanFs = fs;
+    System.out.println("Now reading data as:" + UserGroupInformation.getCurrentUser());
     if (!scanFs.exists(path)) {
       logger.info("path : " + path.getName() + " doesn't exist!");
     }
@@ -299,6 +325,7 @@ public class SchemaFetch {
 
   public static void main(String[] args)
     throws Exception {
+    System.out.println("SchemaFetch begins");
 
     Configuration conf = new Configuration();
     // put extra config into conf
@@ -306,6 +333,7 @@ public class SchemaFetch {
 
     SchemaFetch s = new SchemaFetch(conf);
     s.run();
+    System.out.println("SchemaFetch exit");
     System.exit(0);
   }
 
@@ -330,6 +358,7 @@ public class SchemaFetch {
     final int granularity = (size / numOfThread == 0) ? 1 : size / numOfThread;
     for (int i = 0; i < numOfThread; i++) {
       final int finalI = i;
+      final FileSystem finalFs = fs;
       Thread thread = new Thread() {
         public void run() {
           logger.info("Thread " + finalI + " Running, size of record : " + size);
@@ -337,7 +366,7 @@ public class SchemaFetch {
             Path p = folders.get(j);
             logger.info("begin processing " + p.toUri().getPath());
             try {
-              scanPath(p);
+              scanPath(p, finalFs);
             } catch (Exception e) {
               e.printStackTrace();
             }

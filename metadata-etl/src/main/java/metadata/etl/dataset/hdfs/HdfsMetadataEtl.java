@@ -99,6 +99,8 @@ public class HdfsMetadataEtl extends EtlJob {
       String cluster = prop.getProperty(Constant.HDFS_CLUSTER_KEY);
       String whiteList = prop.getProperty(Constant.HDFS_WHITE_LIST_KEY);
       String numOfThread = prop.getProperty(Constant.HDFS_NUM_OF_THREAD_KEY, String.valueOf(1));
+      String remoteUser = this.prop.getProperty(Constant.HDFS_REMOTE_USER_KEY);
+      String remoteKeyTab = prop.getProperty(Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY, null);
       String execCmd =
         "cd " + wherehowsExecFolder + ";"
           + "export HADOOP_CLIENT_OPTS=\"-Xmx2048m $HADOOP_CLIENT_OPTS\";"
@@ -107,7 +109,10 @@ public class HdfsMetadataEtl extends EtlJob {
           + " -D " + Constant.HDFS_SAMPLE_REMOTE_PATH_KEY + "=" + sampleDataFile
           + " -D " + Constant.HDFS_CLUSTER_KEY + "=" + cluster
           + " -D " + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList
-          + " -D " + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread;
+          + " -D " + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread
+          + " -D " + Constant.HDFS_REMOTE_USER_KEY + "=" + remoteUser;
+      if (remoteKeyTab != null)
+        execCmd += " -D " + Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY + "=" + remoteKeyTab;
       logger.info("executue remote command : " + execCmd);
       Channel execChannel = session.openChannel("exec");
       ((ChannelExec) execChannel).setCommand(execCmd);
@@ -125,10 +130,8 @@ public class HdfsMetadataEtl extends EtlJob {
         try{Thread.sleep(1000);}catch(Exception e){logger.error(String.valueOf(e));}
       }
 
-      logger.info("Debug : execChannel exit-status: " + execChannel.getExitStatus());
-
-
-      logger.debug("execute finished!");
+      logger.info("ExecChannel exit-status: " + execChannel.getExitStatus());
+      
       execChannel.disconnect();
 
       // scp back the result

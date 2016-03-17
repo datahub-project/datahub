@@ -117,6 +117,8 @@ public class Constant {
   /** The property_name field in wh_etl_job_property table.  The map of file path regex and dataset source
    * e.g. [{"/data/tracking.*":"Kafka"},{"/data/retail.*":"Teradata"}] */
   public static final String HDFS_FILE_SOURCE_MAP_KEY = "hdfs.file_path_regex_source_map";
+  /** The property_name field in wh_etl_job_property table. Keytab file location */
+  public static final String HDFS_REMOTE_KEYTAB_LOCATION_KEY = "hdfs.remote.keytab.location";
 
   /** The property_name field in wh_etl_job_property table. For dataset owner ETL. The hfds location to copy files */
   public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";
