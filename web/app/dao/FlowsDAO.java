@@ -402,6 +402,14 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 						flow.level = (Integer)row.get("flow_level");
 						flow.name = (String)row.get("flow_name");
 						flow.path = (String)row.get("flow_path");
+						if (StringUtils.isNotBlank(flow.path))
+						{
+							int index = flow.path.indexOf(":");
+							if (index != -1)
+							{
+								flow.path = flow.path.substring(0, index);
+							}
+						}
 						Object created = row.get("created_time");
 						if (created != null)
 						{
@@ -511,6 +519,14 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 						job.id = (Long)row.get("job_id");
 						job.name = (String)row.get("job_name");
 						job.path = (String)row.get("job_path");
+						if (StringUtils.isNotBlank(job.path))
+						{
+							int index = job.path.indexOf("/");
+							if (index != -1)
+							{
+								job.path = job.path.substring(0, index);
+							}
+						}
 						job.type = (String)row.get("job_type");
 						Object created = row.get("created_time");
 						job.refFlowId = (Long)row.get("ref_flow_id");
