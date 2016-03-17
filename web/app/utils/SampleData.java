@@ -27,6 +27,7 @@ public class SampleData
     private final static String MEMBER_ID = "memberId";
     private final static String TREE_ID = "treeId";
     private final static String TRACKING_ID = "trackingId";
+    private final static String IP_AS_BYTES_1 = "ipAsBytes";
     private final static String IP_AS_BYTES = "ip_as_bytes";
     private final static String ATTACHMENTS = "attachments";
     private final static String PAYLOAD = "payload";
@@ -124,6 +125,12 @@ public class SampleData
                             String convertedValue = convertToHexString(ipNode);
                             ((ObjectNode) sampleRowNode).put(IP_AS_BYTES, new TextNode(convertedValue));
                         }
+                        if (sampleRowNode.has(IP_AS_BYTES_1))
+                        {
+                            JsonNode ipNode = sampleRowNode.get(IP_AS_BYTES_1);
+                            String convertedValue = convertToHexString(ipNode);
+                            ((ObjectNode) sampleRowNode).put(IP_AS_BYTES_1, new TextNode(convertedValue));
+                        }
                         if (sampleRowNode.has(ATTACHMENTS))
                         {
                             JsonNode attachmentNode = sampleRowNode.get(ATTACHMENTS);
@@ -197,6 +204,12 @@ public class SampleData
                                 JsonNode ipNode = requestHeaderNode.get(IP_AS_BYTES);
                                 String convertedValue = convertToHexString(ipNode);
                                 ((ObjectNode) requestHeaderNode).put(IP_AS_BYTES, new TextNode(convertedValue));
+                            }
+                            if (requestHeaderNode != null && requestHeaderNode.has(IP_AS_BYTES_1))
+                            {
+                                JsonNode ipNode = requestHeaderNode.get(IP_AS_BYTES_1);
+                                String convertedValue = convertToHexString(ipNode);
+                                ((ObjectNode) requestHeaderNode).put(IP_AS_BYTES_1, new TextNode(convertedValue));
                             }
                         }
                     }

@@ -16,6 +16,22 @@
         $("#tree3").fancytree({
             source: {
                 url: "/tree/flows"
+            },
+            lazyLoad: function(event, data){
+                var node = data.node;
+                var url = '#';
+                if (node.data.level == 1)
+                {
+                    url = "/tree/flow/" + node.title;
+                }
+                else if (node.data.level == 2)
+                {
+                    url = "/tree/flow/" + node.data.parent + '/' + node.title;
+                }
+                data.result = {
+                    url: url,
+                    cache: false
+                };
             }
         });
 

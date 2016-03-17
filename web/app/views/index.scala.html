@@ -2073,8 +2073,8 @@
             <table class="table table-bordered search-results">
               <thead>
                 <tr class="results-header">
-                  <th class="col-xs-2">Flow Name</th>
                   <th class="col-xs-3">Flow Path</th>
+                  <th class="col-xs-2">Flow Name</th>
                   <th class="col-xs-1">Flow Level</th>
                   <th class="col-xs-1">Job Count</th>
                   <th class="col-xs-2">Created Time</th>
@@ -2084,12 +2084,12 @@
               <tbody>
                 {{#each flow in model.data.flows}}
                   <tr>
+                    <td class="wrap-all-word">{{ flow.path }}</td>
                     <td class="dataset-info wrap-all-word">
                       {{#link-to 'pagedflow' flow.id 1}}
                         {{flow.name}}
                       {{/link-to}}
                     </td>
-                    <td class="wrap-all-word">{{ flow.path }}</td>
                     <td>{{ flow.level }}</td>
                     <td>{{ flow.jobCount }}</td>
                     <td>{{ flow.created }}</td>
@@ -2186,8 +2186,8 @@
             <table class="table table-bordered search-results">
               <thead>
                 <tr class="results-header">
-                  <th class="span2">Job Name</th>
                   <th class="span3">Job Path</th>
+                  <th class="span2">Job Name</th>
                   <th class="span1">Job Type</th>
                   <th class="span3">Created Time</th>
                   <th class="span3">Modified Time</th>
@@ -2196,6 +2196,7 @@
               <tbody>
                 {{#each job in model.data.jobs}}
                   <tr>
+                    <td class="wrap-all-word">{{ job.path }}</td>
                     <td class="dataset-info wrap-all-word">
                       {{#if job.refFlowId}}
                         {{#link-to 'pagedflow' job.refFlowId 1}}
@@ -2205,7 +2206,6 @@
                         {{job.name}}
                       {{/if}}
                     </td>
-                    <td class="wrap-all-word">{{ job.path }}</td>
                     <td>{{ job.type }}</td>
                     <td>{{ job.created }}</td>
                     <td>{{ job.modified }}</td>

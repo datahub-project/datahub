@@ -38,6 +38,11 @@
         {
             var source = $.ui.autocomplete.filter(data, term);
             var keyword = $.ui.autocomplete.escapeRegex(term);
+            if (keyword && keyword.length < 4)
+            {
+                return source.slice(0, maxReturnedResults);
+            }
+
             var startsWithMatcher = new RegExp("^" + keyword, "i");
             var startsWith = $.grep(source, function(value) {
                 return startsWithMatcher.test(value.label || value.value || value);
@@ -52,6 +57,35 @@
             });
             return sorted.slice(0, maxReturnedResults);
         }
+
+        function renderAdvSearchDatasetSources(parent, sources)
+        {
+            if ((!parent) || (!sources) || sources.length == 0)
+                return;
+
+            var content = '';
+            for (var i = 0; i < sources.length; i++)
+            {
+                content += '<label class="checkbox"><input type="checkbox" name="sourceCheckbox" value="';
+                content += sources[i] + '"/>' + sources[i] + '</label>';
+            }
+            parent.append(content);
+        }
+
+        var datasetSourcesUrl = '/api/v1/advsearch/sources';
+        $.get(datasetSourcesUrl, function(data) {
+            if (data && data.status == "ok")
+            {
+                var advSearchSourceObj = $("#advSearchSource");
+                if (advSearchSourceObj)
+                {
+                    if (data.sources)
+                    {
+                        renderAdvSearchDatasetSources(advSearchSourceObj, data.sources);
+                    }
+                }
+            }
+        });
 
         $("#searchInput").on( "keydown", function(event) {
             if(event.which == 13)

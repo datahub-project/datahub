@@ -1,34 +1,6 @@
 (function ($) {
   $(document).ready(function() {
     var token = $("#csrfToken").val();
-    function renderAdvSearchDatasetSources(parent, sources)
-    {
-        if ((!parent) || (!sources) || sources.length == 0)
-            return;
-
-        var content = '';
-        for (var i = 0; i < sources.length; i++)
-        {
-            content += '<label class="checkbox"><input type="checkbox" name="sourceCheckbox" value="';
-            content += sources[i] + '"/>' + sources[i] + '</label>';
-        }
-        parent.append(content);
-    }
-
-    var datasetSourcesUrl = 'api/v1/advsearch/sources';
-    $.get(datasetSourcesUrl, function(data) {
-        if (data && data.status == "ok")
-        {
-            var advSearchSourceObj = $("#advSearchSource");
-            if (advSearchSourceObj)
-            {
-                if (data.sources)
-                {
-                    renderAdvSearchDatasetSources(advSearchSourceObj, data.sources);
-                }
-            }
-        }
-    });
 
     $("#settingsbtn").click(function(){
       var url ='/api/v1/user/me'

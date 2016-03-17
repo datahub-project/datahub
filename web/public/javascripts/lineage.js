@@ -150,9 +150,16 @@ var g_downLevel = 1;
         }
         else if (type == 'appworx')
         {
-            var dataUrl = 'api/v1/lineage/appworxflow/' + flow;
-            $.get(dataUrl, function(data) {
+            url = '/api/v1/lineage/flow/' + application + '/' + project + '/' + flow;
+            $("#loading").show();
+            $.get(url, function(data) {
                 if (data && data.status == "ok"){
+                    $("#loading").hide();
+                    var titleObj = $('#title');
+                    if (titleObj && data.data && data.data.flowName)
+                    {
+                        titleObj.text("Lineage for: " + application + '/' + project + '/' + data.data.flowName);
+                    }
                     renderTables(data.data);
                     g_currentData = data.data;
                     setupDagreGraph(data.data, rotation, type);
@@ -197,9 +204,15 @@ var g_downLevel = 1;
 
                                     dataHeader += '<th >' + v + '</th>';
                                     dataHeaderNames.push(v);
-                                    dataBody += '<td class="wrap-all-word">' + nodes[i][v] + '</td>';
+                                    if (nodes[i][v])
+                                    {
+                                        dataBody += '<td class="wrap-all-word">' + nodes[i][v] + '</td>';
+                                    }
+                                    else
+                                    {
+                                        dataBody += '<td class="wrap-all-word">' + '</td>';
+                                    }
                                 });
-
                             }
                             firstDataNode = true;
                         }
@@ -207,7 +220,14 @@ var g_downLevel = 1;
                         {
                             for (var j = 0; j < dataHeaderNames.length; j++)
                             {
-                                dataBody += '<td class="wrap-all-word">' + nodes[i][dataHeaderNames[j]] + '</td>';
+                                if (nodes[i][dataHeaderNames[j]])
+                                {
+                                    dataBody += '<td class="wrap-all-word">' + nodes[i][dataHeaderNames[j]] + '</td>';
+                                }
+                                else
+                                {
+                                    dataBody += '<td class="wrap-all-word">' + '</td>';
+                                }
                             }
                         }
                     }
@@ -221,7 +241,14 @@ var g_downLevel = 1;
 
                                     jobHeader += '<th >' + v + '</th>';
                                     jobHeaderNames.push(v);
-                                    jobBody += '<td class="wrap-all-word">' + nodes[i][v] + '</td>';
+                                    if (nodes[i][v])
+                                    {
+                                        jobBody += '<td class="wrap-all-word">' + nodes[i][v] + '</td>';
+                                    }
+                                    else
+                                    {
+                                        jobBody += '<td class="wrap-all-word">' + '</td>';
+                                    }
                                 });
                             }
                             firstJobNode = true;
@@ -230,7 +257,14 @@ var g_downLevel = 1;
                         {
                             for (var j = 0; j < jobHeaderNames.length; j++)
                             {
-                                jobBody += '<td class="wrap-all-word">' + nodes[i][jobHeaderNames[j]] + '</td>';
+                                if (nodes[i][jobHeaderNames[j]])
+                                {
+                                    jobBody += '<td class="wrap-all-word">' + nodes[i][jobHeaderNames[j]] + '</td>';
+                                }
+                                else
+                                {
+                                    jobBody += '<td class="wrap-all-word">' + '</td>';
+                                }
                             }
                         }
 

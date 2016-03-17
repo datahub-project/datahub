@@ -38,8 +38,10 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_FLOW_NAME = "SELECT flow_name FROM " +
 			"flow WHERE app_id = ? and flow_id = ?";
 
-	private final static String GET_JOB = "SELECT ca.app_id, ca.app_code as cluster, je.flow_id, je.job_id, jedl.job_name, " +
-			"fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, " +
+	private final static String GET_JOB = "SELECT ca.app_id, ca.app_code as cluster, " +
+			"je.flow_id, je.job_id, jedl.job_name, " +
+			"fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, " +
+			"jedl.operation, jedl.source_srl_no, jedl.srl_no, " +
 			"max(jedl.job_exec_id) as job_exec_id, FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
 			"FROM_UNIXTIME(jedl.job_finished_unixtime) as end_time FROM job_execution_data_lineage jedl " +
 			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
@@ -47,11 +49,16 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"and jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
 			"JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
 			"WHERE abstracted_object_name = ? and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY GROUP BY ca.app_id, je.job_id, je.flow_id";
+			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
+			"COALESCE(jedl.source_srl_no, jedl.srl_no) = jedl.srl_no and " +
+			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY " +
+			"GROUP BY ca.app_id, je.job_id, je.flow_id";
 
 	private final static String GET_DATA = "SELECT storage_type, operation, " +
 			"abstracted_object_name, source_target_type " +
-			"FROM job_execution_data_lineage WHERE app_id = ? and job_exec_id = ?";
+			"FROM job_execution_data_lineage WHERE app_id = ? and job_exec_id = ? and " +
+			"flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
+			"COALESCE(source_srl_no, srl_no) = srl_no";
 
 
 	private final static String GET_APP_ID  = "SELECT app_id FROM cfg_application WHERE LOWER(app_code) = ?";
