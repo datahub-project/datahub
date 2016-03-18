@@ -41,6 +41,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
     public static String DATASET_OWNER_NAME_COLUMN = "owner_name";
     public static String SCHEMA_HISTORY_ID_COLUMN = "schema_history_id";
     public static String HDFS_PREFIX = "hdfs";
+    public static int URN_PREFIX_LEN = 7;
 
 
     @Override
@@ -102,7 +103,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
             if (dataset.urn.substring(0, 4).equalsIgnoreCase(HDFS_PREFIX))
             {
                 dataset.hdfsBrowserLink = Play.application().configuration().getString(DatasetsDAO.HDFS_BROWSER_URL_KEY) +
-                        dataset.urn.substring(6);
+                        dataset.urn.substring(URN_PREFIX_LEN);
             }
         }
         dataset.source = source;
