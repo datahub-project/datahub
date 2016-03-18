@@ -106,7 +106,7 @@ public class DatasetWithUserRowMapper implements RowMapper<Dataset>
             if (dataset.urn.substring(0, 4).equalsIgnoreCase(HDFS_PREFIX))
             {
                 dataset.hdfsBrowserLink = Play.application().configuration().getString(DatasetsDAO.HDFS_BROWSER_URL_KEY) +
-                        dataset.urn.substring(6);
+                        dataset.urn.substring(DatasetRowMapper.URN_PREFIX_LEN);
             }
         }
         dataset.source = source;

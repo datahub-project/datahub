@@ -454,7 +454,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					{
 						if (ds.urn.substring(0, 4).equalsIgnoreCase(DatasetRowMapper.HDFS_PREFIX))
 						{
-							ds.hdfsBrowserLink = Play.application().configuration().getString(HDFS_BROWSER_URL_KEY) + ds.urn.substring(7);
+							ds.hdfsBrowserLink = Play.application().configuration().getString(HDFS_BROWSER_URL_KEY) +
+									ds.urn.substring(DatasetRowMapper.URN_PREFIX_LEN);
 						}
 					}
 					if (favoriteId != null && favoriteId > 0)
