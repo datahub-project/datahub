@@ -151,9 +151,9 @@ class HdfsLoad:
            or description in ('null', 'N/A', 'nothing', 'empty', 'none'));
 
         insert into field_comments (
-          user_id, comment, created, comment_crc32_checksum
+          user_id, comment, created, modified, comment_crc32_checksum
         )
-        select 0 user_id, description, now() created, crc32(description) from
+        select 0 user_id, description, now() created, now() modified, crc32(description) from
         (
           select sf.description
           from stg_dict_field_detail sf left join field_comments fc
