@@ -198,7 +198,7 @@ table tr td {
 }
 
 .ace_editor {
-    min-height: 400px;
+    min-height: 200px;
     min-width: 600px;
     width: 100%;
 }
