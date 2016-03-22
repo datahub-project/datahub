@@ -16,21 +16,32 @@ package models;
 public class Metric {
 
     public Integer id;
-    public String refID;
     public String name;
-    public String urn;
-    public String refIDType;
     public String description;
     public String dashboardName;
+    public String group;
     public String category;
     public String subCategory;
-    public String group;
+    public String level;
     public String sourceType;
     public String source;
-    public String schema;
+    public Long sourceDatasetId;
+    public String refIDType;
+    public String refID;
+    public String type;
     public String grain;
-    public String formula;
     public String displayFactor;
     public String displayFactorSym;
+    public String goodDirection;
+    public String formula;
+    public String dimensions;
+    public String owners;
+    public String tags;
+    public String urn;
+    public String metricUrl;
+    public String wikiUrl;
+    public String scmUrl;
+    public String schema;
     public Long watchId;
+    public String sourceDatasetLink;
 }
