@@ -11,6 +11,9 @@
             <li>
               <a data-toggle="tab" href="#filtertab">Datasets</a>
             </li>
+            @if(isInternal) {
+              <li><a data-toggle="tab" href="#treetab">Metrics</a></li>
+            }
             <li><a data-toggle="tab" href="#flowtab">Flows</a></li>
           </ul>
           <div class="tab-content">
@@ -21,6 +24,12 @@
               <div id="datasetlist" class="list-group"></div>
               <div id="tree2" data-source="ajax" class="sampletree" style="display: none;"></div>
             </div>
+            @if(isInternal) {
+              <div id="treetab" class="tab-pane">
+                <div id="tree1" data-source="ajax" class="sampletree">
+                </div>
+              </div>
+            }
             <div id="flowtab" class="tab-pane">
               <div id="flowlist" class="list-group"></div>
               <div id="tree3" data-source="ajax" class="sampletree" style="display: none;"></div>
@@ -1517,6 +1526,11 @@
     <script src="@routes.Assets.at("javascripts/routers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/datasets.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/flows.js")" type="text/javascript"></script>
+    @if(isInternal) {
+      <script src="@routes.Assets.at("javascripts/routers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/controllers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/components/metric-watch.js")" type="text/javascript"></script>
+    }
     <script src="@routes.Assets.at("javascripts/controllers/search.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/datasets.js")" type="text/javascript"></script>
