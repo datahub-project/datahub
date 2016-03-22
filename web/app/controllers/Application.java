@@ -14,6 +14,7 @@
 package controllers;
 
 import dao.FlowsDAO;
+import dao.MetricsDAO;
 import dao.UserDAO;
 import play.Play;
 import play.data.DynamicForm;
@@ -101,7 +102,7 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(lineage.render(username, isInternal, type, 0, application, project, flow));
+        return ok(lineage.render(username, isInternal, type, 0, application.replace(" ", "."), project, flow));
     }
 
     @Security.Authenticated(Secured.class)
@@ -218,6 +219,10 @@ public class Application extends Controller
         {
             return ok(FlowsDAO.getFlowApplicationNodes());
         }
+        else if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("metrics"))
+        {
+            return ok(MetricsDAO.getMetricDashboardNodes());
+        }
         return ok(Tree.loadTreeJsonNode(key + TREE_NAME_SUBFIX));
     }
 
@@ -229,6 +234,16 @@ public class Application extends Controller
     public static Result loadFlowNodes(String app, String project)
     {
         return ok(FlowsDAO.getFlowNodes(app, project));
+    }
+
+    public static Result loadMetricGroups(String dashboard)
+    {
+        return ok(MetricsDAO.getMetricGroupNodes(dashboard));
+    }
+
+    public static Result loadMetricNodes(String dashboard, String group)
+    {
+        return ok(MetricsDAO.getMetricNodes(dashboard, group));
     }
 
 }

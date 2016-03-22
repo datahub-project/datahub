@@ -18,8 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.primitives.Ints;
+import models.TreeNode;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,33 +36,46 @@ import models.Metric;
 public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 {
 	private final static String SELECT_PAGED_METRICS  = "SELECT SQL_CALC_FOUND_ROWS m.metric_id, m.metric_name, " +
-			"m.metric_description, m.metric_ref_id_type, m.metric_ref_id, m.dashboard_name, m.metric_category, " +
-			"m.metric_group, IFNULL(w.id,0) as watch_id " +
-			"FROM dict_business_metric m " +
+            "m.metric_description, m.dashboard_name, m.metric_group, m.metric_category, m.metric_sub_category, " +
+            "m.metric_level, m.metric_source_type, m.metric_source, m.metric_source_dataset_id, " +
+            "m.metric_ref_id_type, m.metric_ref_id, m.metric_type, m.metric_grain, m.metric_display_factor, " +
+            "m.metric_display_factor_sym, m.metric_good_direction, m.metric_formula, m.dimensions, " +
+            "m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, IFNULL(w.id,0) as watch_id " +
+			"FROM dict_business_metric2 m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"ORDER BY metric_name LIMIT ?, ?";
 
 	private final static String SELECT_PAGED_METRICS_BY_DASHBOARD_NAME =  "SELECT SQL_CALC_FOUND_ROWS " +
-			"m.metric_id, m.metric_name, m.metric_description, m.metric_ref_id_type, " +
-			"m.metric_ref_id, m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id " +
-			"FROM dict_business_metric m " +
+			"m.metric_id, m.metric_name, m.metric_description, m.dashboard_name, m.metric_group, " +
+            "m.metric_category, m.metric_sub_category, m.metric_level, m.metric_source_type, m.metric_source, " +
+            "m.metric_source_dataset_id, m.metric_ref_id_type, m.metric_ref_id, m.metric_type, m.metric_grain, " +
+            "m.metric_display_factor, m.metric_display_factor_sym, m.metric_good_direction, " +
+            "m.metric_formula, m.dimensions, m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
+            "IFNULL(w.id,0) as watch_id " +
+			"FROM dict_business_metric2 m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE dashboard_name $value ORDER BY m.metric_name limit ?, ?";
 
 	private final static String SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP = "SELECT SQL_CALC_FOUND_ROWS " +
-			"m.metric_id, m.metric_name, m.metric_description, m.metric_ref_id_type, m.metric_ref_id, " +
-			"m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id  " +
-			"FROM dict_busines_metric m " +
+            "m.metric_id, m.metric_name, m.metric_description, m.dashboard_name, m.metric_group, " +
+            "m.metric_category, m.metric_sub_category, m.metric_level, m.metric_source_type, m.metric_source, " +
+            "m.metric_source_dataset_id, m.metric_ref_id_type, m.metric_ref_id, m.metric_type, m.metric_grain, " +
+            "m.metric_display_factor, m.metric_display_factor_sym, m.metric_good_direction, " +
+            "m.metric_formula, m.dimensions, m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
+            "IFNULL(w.id,0) as watch_id  " +
+			"FROM dict_business_metric2 m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.dashboard_name $dashboard and m.metric_group $group " +
 			"ORDER BY metric_name limit ?, ?";
 
 	private final static String GET_METRIC_BY_ID = "SELECT m.metric_id, m.metric_name, " +
-			"m.metric_description, m.dashboard_name, m.metric_category, m.metric_group, m.metric_ref_id_type, " +
-			"m.metric_ref_id, m.metric_grain, m.metric_formula, m.metric_display_factor, " +
-			"m.metric_display_factor_sym, m.metric_sub_category, m.metric_source_type, m.metric_source, " +
+			"m.metric_description, m.dashboard_name, m.metric_group, m.metric_category, m.metric_sub_category, " +
+            "m.metric_level, m.metric_source_type, m.metric_source, m.metric_source_dataset_id, " +
+            "m.metric_ref_id_type, m.metric_ref_id, m.metric_type, m.metric_grain, m.metric_display_factor, " +
+            "m.metric_display_factor_sym, m.metric_good_direction, m.metric_formula, m.dimensions, " +
+            "m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
       		"IFNULL(w.id, 0) as watch_id " +
-			"FROM dict_busines_metric m " +
+			"FROM dict_business_metric2 m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.metric_id = ?";
 
@@ -74,9 +89,147 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
   	private final static String GET_USER_ID = "SELECT id FROM users WHERE username = ?";
 
-	private final static String UPDATE_METRIC = "UPDATE dict_busines_metric SET $SET_CLAUSE WHERE metric_id = ?";
+	private final static String UPDATE_METRIC = "UPDATE dict_business_metric2 SET $SET_CLAUSE WHERE metric_id = ?";
 
-	public static ObjectNode getPagedMetrics(
+    private final static String GET_METRIC_TREE_DASHBOARD_NODES = "SELECT DISTINCT " +
+            "COALESCE(dashboard_name, '(Other)') FROM dict_business_metric2 order by 1";
+
+    private final static String GET_METRIC_TREE_OTHER_GROUP_NODES = "SELECT DISTINCT " +
+            "COALESCE(metric_group, '(Other)') FROM dict_business_metric2 WHERE dashboard_name is null order by 1";
+
+    private final static String GET_METRIC_TREE_GROUP_NODES = "SELECT DISTINCT " +
+            "COALESCE(metric_group, '(Other)') FROM dict_business_metric2 WHERE dashboard_name = ? order by 1";
+
+    private final static String GET_METRIC_TREE_NODES = "SELECT DISTINCT metric_category, " +
+            "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
+            "FROM dict_business_metric2 WHERE dashboard_name = ? and metric_group = ? order by 1";
+
+    private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD = "SELECT DISTINCT metric_category, " +
+            "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
+            "FROM dict_business_metric2 WHERE dashboard_name is null and metric_group = ? order by 1";
+
+    private final static String GET_METRIC_TREE_NODES_NO_GROUP = "SELECT DISTINCT metric_category, " +
+            "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
+            "FROM dict_business_metric2 WHERE dashboard_name = ? and metric_group is null order by 1";
+
+    private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD_AND_GROUP = "SELECT DISTINCT metric_category, " +
+            "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
+            "FROM dict_business_metric2 WHERE dashboard_name is null and metric_group is null order by 1";
+
+    public static JsonNode getMetricDashboardNodes()
+    {
+        List<String> dashboardList = getJdbcTemplate().queryForList(GET_METRIC_TREE_DASHBOARD_NODES, String.class);
+        List<TreeNode> nodes = new ArrayList<TreeNode>();
+        if (dashboardList != null && dashboardList.size() > 0)
+        {
+            for (String dashboard : dashboardList)
+            {
+                TreeNode node = new TreeNode();
+                node.folder = true;
+                node.lazy = true;
+                node.title = dashboard;
+                node.level = 1;
+                nodes.add(node);
+            }
+        }
+        return Json.toJson(nodes);
+    }
+
+    public static JsonNode getMetricGroupNodes(String dashboard)
+    {
+        List<TreeNode> nodes = new ArrayList<TreeNode>();
+        if (StringUtils.isBlank(dashboard))
+        {
+            return Json.toJson(nodes);
+        }
+        List<String> groupList = null;
+        if (dashboard.equalsIgnoreCase("(Other)"))
+        {
+            groupList = getJdbcTemplate().queryForList(GET_METRIC_TREE_OTHER_GROUP_NODES, String.class);
+        }
+        else
+        {
+            groupList = getJdbcTemplate().queryForList(GET_METRIC_TREE_GROUP_NODES, String.class, dashboard);
+        }
+
+        if (groupList != null && groupList.size() > 0)
+        {
+            for (String group : groupList)
+            {
+                TreeNode node = new TreeNode();
+                node.folder = true;
+                node.lazy = true;
+                node.title = group;
+                node.parent = dashboard;
+                node.level = 2;
+                nodes.add(node);
+            }
+        }
+        return Json.toJson(nodes);
+    }
+
+    public static JsonNode getMetricNodes(String dashboard, String group)
+    {
+        List<TreeNode> treeNodes = new ArrayList<TreeNode>();
+        if (StringUtils.isBlank(dashboard) || StringUtils.isBlank(group))
+        {
+            return Json.toJson(treeNodes);
+        }
+        List<Map<String, Object>> rows = null;
+        if (dashboard.equalsIgnoreCase("(Other)"))
+        {
+            if (group.equalsIgnoreCase("(Other)"))
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_DASHBOARD_AND_GROUP);
+            }
+            else
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_DASHBOARD, group);
+            }
+
+        }
+        else
+        {
+            if (group.equalsIgnoreCase("(Other)"))
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_GROUP, dashboard);
+            }
+            else
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES, dashboard, group);
+            }
+        }
+
+        if (rows != null)
+        {
+            for (Map row : rows)
+            {
+                String category = (String)row.get(MetricRowMapper.METRIC_CATEGORY_COLUMN);
+                String name = (String)row.get(MetricRowMapper.METRIC_NAME_COLUMN);
+                String title = "";
+                if (StringUtils.isBlank(category))
+                {
+                    title = name;
+                }
+                else
+                {
+                    title = "{" + category + "} " + name;
+                }
+
+                TreeNode treeNode = new TreeNode();
+                treeNode.folder = false;
+                treeNode.lazy = false;
+                treeNode.title = title;
+                treeNode.parent = group;
+                treeNode.level = 3;
+                treeNode.id = new Long((Integer)row.get(MetricRowMapper.METRIC_ID_COLUMN));
+                treeNodes.add(treeNode);
+            }
+        }
+        return Json.toJson(treeNodes);
+    }
+
+    public static ObjectNode getPagedMetrics(
 			String dashboardName,
 			String group,
 			Integer page,
@@ -105,7 +258,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 				else if (StringUtils.isBlank(group))
 				{
 					query = SELECT_PAGED_METRICS_BY_DASHBOARD_NAME;
-					if (dashboardName.equals("[Other]"))
+					if (dashboardName.equals("(Other)"))
 					{
 						query = query.replace("$value", "is null");
 					}
@@ -117,7 +270,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 				else
 				{
 					query = SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP;
-					if (dashboardName.equals("[Other]"))
+					if (dashboardName.equals("(Other)"))
 					{
 						query = query.replace("$dashboard", "is null");
 					}
@@ -125,7 +278,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 					{
 						query = query.replace("$dashboard", "= '" + dashboardName + "'");
 					}
-					if (group.equals("[Other]"))
+					if (group.equals("(Other)"))
 					{
 						query = query.replace("$group", "is null");
 					}
@@ -134,23 +287,11 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 						query = query.replace("$group", "= '" + group + "'");
 					}
 				}
-				List<Map<String, Object>> rows = null;
-				List<Metric> pagedMetrics = new ArrayList<Metric>();
-				rows = jdbcTemplate.queryForList(query, id, (page-1)*size, size);
-				for (Map row : rows) {
-
-					Metric metric = new Metric();
-					metric.id = (int)row.get("metric_id");
-					metric.name = (String)row.get("metric_name");
-					metric.description = (String)row.get("metric_description");
-					metric.refID = (String)row.get("metric_ref_id");
-					metric.refIDType = (String)row.get("metric_ref_id_type");
-					metric.dashboardName = (String)row.get("dashboard_name");
-					metric.category = (String)row.get("metric_category");
-					metric.group = (String)row.get("metric_group");
-          			metric.watchId = (Long)row.get("watch_id");
-					pagedMetrics.add(metric);
-				}
+				List<Metric> pagedMetrics = jdbcTemplate.query(
+                        query,
+                        new MetricRowMapper(),
+                        id,
+                        (page - 1) * size, size);
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
@@ -314,13 +455,13 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
         String type = "";
         String[] typeArray = null;
-        if (params.containsKey(MetricRowMapper.METRIC_REF_ID_TYPE_COLUMN))
+        if (params.containsKey(MetricRowMapper.METRIC_SOURCE_TYPE_COLUMN))
         {
-            typeArray = params.get(MetricRowMapper.METRIC_REF_ID_TYPE_COLUMN);
+            typeArray = params.get(MetricRowMapper.METRIC_SOURCE_TYPE_COLUMN);
         }
-        else if (params.containsKey(MetricRowMapper.METRIC_MODULE_REF_ID_TYPE))
+        else if (params.containsKey(MetricRowMapper.METRIC_MODULE_SOURCE_TYPE))
         {
-            typeArray = params.get(MetricRowMapper.METRIC_MODULE_REF_ID_TYPE);
+            typeArray = params.get(MetricRowMapper.METRIC_MODULE_SOURCE_TYPE);
         }
 
         if (typeArray != null && typeArray.length > 0)
@@ -330,11 +471,12 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
             {
                 setClause += ", ";
             }
-            setClause += MetricRowMapper.METRIC_REF_ID_TYPE_COLUMN + " = ? ";
+            setClause += MetricRowMapper.METRIC_SOURCE_TYPE_COLUMN + " = ? ";
             needAnd = true;
             args.add(type);
             argTypes.add(Types.VARCHAR);
         }
+
         String grain = "";
         String[] grainArray = null;
 
