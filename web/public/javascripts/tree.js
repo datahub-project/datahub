@@ -14,13 +14,29 @@
                 url: "/tree/datasets"
             }
         });
-        /*
+
         $("#tree1").fancytree({
             source: {
                 url: "/tree/metrics"
+            },
+            lazyLoad: function(event, data){
+                var node = data.node;
+                var url = '#';
+                if (node.data.level == 1)
+                {
+                    url = "/tree/metric/" + node.title;
+                }
+                else if (node.data.level == 2)
+                {
+                    url = "/tree/metric/" + node.data.parent + '/' + node.title;
+                }
+                data.result = {
+                    url: url,
+                    cache: false
+                };
             }
         });
-        */
+
         $("#tree3").fancytree({
             extensions: ["filter"],
             filter: {
@@ -154,7 +170,6 @@
             }
         });
 
-        /*
         $("#tree1").bind("fancytreeactivate", function(event, data){
             var node = data.node;
             if(node)
@@ -170,10 +185,10 @@
                         }
                         else if (level == 2)
                         {
-                            if (node.data.dashboard_name)
+                            if (node.parent && node.parent.title)
                             {
                                 window.location = "#/metrics/name/" +
-                                    node.data.dashboard_name + '/' +
+                                    node.parent.title + '/' +
                                     node.title +
                                     '/page/1';
                             }
@@ -181,9 +196,9 @@
                     }
                 }
                 else{
-                    if (node && node.data && node.data.metric_id)
+                    if (node && node.data && node.data.id)
                     {
-                        window.location = "#/metrics/" + node.data.metric_id;
+                        window.location = "#/metrics/" + node.data.id;
                     }
                 }
             }
@@ -210,7 +225,6 @@
             window.g_currentMetricDashboardName = null;
             window.g_currentMetricGroupName = null;
         });
-        */
     });
 
 })(window, jQuery)
