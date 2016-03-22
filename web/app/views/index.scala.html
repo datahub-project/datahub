@@ -11,6 +11,9 @@
             <li>
               <a data-toggle="tab" href="#filtertab">Datasets</a>
             </li>
+            @if(isInternal) {
+              <li><a data-toggle="tab" href="#treetab">Metrics</a></li>
+            }
             <li><a data-toggle="tab" href="#flowtab">Flows</a></li>
           </ul>
           <div class="tab-content">
@@ -21,6 +24,12 @@
               <div id="datasetlist" class="list-group"></div>
               <div id="tree2" data-source="ajax" class="sampletree" style="display: none;"></div>
             </div>
+            @if(isInternal) {
+              <div id="treetab" class="tab-pane">
+                <div id="tree1" data-source="ajax" class="sampletree">
+                </div>
+              </div>
+            }
             <div id="flowtab" class="tab-pane">
               <div id="flowlist" class="list-group"></div>
               <div id="tree3" data-source="ajax" class="sampletree" style="display: none;"></div>
@@ -617,126 +626,178 @@
           <div class="col-xs-12">
             Metric Description:
             <a
+              id="metricdesc"
               href="#"
               data-name="description"
-              data-pk="{{model.id}}"
               class="xeditable"
               data-type="text"
               data-placement="right"
               data-title="Enter description"
               data-emptytext="Please Input"
+              data-defaultValue="Please Input"
               data-placeholder="Please Input"
             >
-              {{model.description}}
             </a>
           </div>
         </div>
         <table class="tree table table-bordered">
           <tbody>
             <tr class="result">
-              <td class="span2" style="min-width:200px;">Dashboard Name</td>
-              <td>
+              <td class="col-xs-2">Dashboard Name</td>
+              <td class="col-xs-2">
                 <a
+                  id="dashboardname"
                   href="#"
                   data-name="dashboardName"
-                  data-pk="{{model.id}}"
                   class="xeditable"
                   data-type="text"
                   data-placement="right"
                   data-title="Enter dashboard name"
                   data-defaultValue="Please Input"
                   data-emptytext="Please Input"
-                  data-value="{{model.dashboardName}}"
                 >
-                  {{model.dashboardName}}
                 </a>
               </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Category</td>
-              <td>
-                <a
-                  href="#"
-                  data-name="category"
-                  data-pk="{{model.id}}"
-                  class="xeditable"
-                  data-type="text"
-                  data-placement="right"
-                  data-title="Enter metric category"
-                  data-placement="right"
-                  data-emptytext="Please Input"
-                >
+              <td class="col-xs-1">Group</td>
+              <td class="col-xs-3">
+                {{model.group}}
+              </td>
+              <td class="col-xs-2">Category</td>
+              <td class="col-xs-2">
                   {{model.category}}
-                </a>
               </td>
             </tr>
             <tr class="result">
-              <td>Metric Group</td>
-              <td>
+              <td class="col-xs-2">Sub Category</td>
+              <td class="col-xs-2">
+                  {{model.subCategory}}
+              </td>
+              <td class="col-xs-2">Level</td>
+              <td class="col-xs-2">
+                  {{model.level}}
+              </td>
+              <td class="col-xs-2">Type</td>
+              <td class="col-xs-2">
+                {{model.type}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Source Type</td>
+              <td class="col-xs-2">
                 <a
+                  id="sourcetype"
                   href="#"
-                  data-name="group"
-                  data-pk="{{model.id}}"
+                  data-name="sourceType"
                   class="xeditable"
                   data-type="text"
                   data-placement="right"
-                  data-title="Enter group"
+                  data-title="Enter source type"
                   data-placement="right"
                   data-emptytext="Please Input"
                 >
-                  {{model.group}}
                 </a>
+              </td>
+              <td class="col-xs-2">Source</td>
+              <td class="col-xs-6" colspan="3">
+                {{#if model.sourceDatasetLink}}
+                  <a href={{model.sourceDatasetLink}}>
+                    {{model.source}}
+                  </a>
+                {{else}}
+                  {{model.source}}
+                {{/if}}
+
               </td>
             </tr>
             <tr class="result">
-              <td>Metric Type</td>
-              <td>
-                <a
-                  href="#"
-                  data-name="refIDType"
-                  data-pk="{{model.id}}"
-                  class="xeditable"
-                  data-type="text"
-                  data-placement="right"
-                  data-title="Enter Type"
-                  data-placement="right"
-                  data-emptytext="Please Input"
-                  data-value={{model.refIDType}}
-                >
-                </a>
+              <td class="col-xs-2">Ref ID Type</td>
+              <td class="col-xs-2">
+                  {{model.refIDType}}
+              </td>
+              <td class="col-xs-2">Ref ID</td>
+              <td class="col-xs-2">
+                  {{model.refID}}
+              </td>
+              <td class="col-xs-2">Good Direction</td>
+              <td class="col-xs-2">
+                  {{model.goodDirection}}
               </td>
             </tr>
             <tr class="result">
-              <td>Metric Grain</td>
-              <td>
+              <td class="col-xs-2">Owners</td>
+              <td class="col-xs-10" colspan="5">
+                {{model.owners}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Dimensions</td>
+              <td class="col-xs-10" colspan="5">
+                {{model.dimensions}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Tags</td>
+              <td class="col-xs-10" colspan="5">
+                {{model.tags}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Metric Url</td>
+              <td class="col-xs-10" colspan="5">
+                {{#if model.url}}
+                  <a target="_blank" {{bind-attr href=model.url}}>
+                    {{model.url}}
+                  </a>
+                {{/if}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Wiki Url</td>
+              <td class="col-xs-10" colspan="5">
+                {{#if model.wikiUrl}}
+                  <a target="_blank" {{bind-attr href=model.wikiUrl}}>
+                    {{model.wikiUrl}}
+                  </a>
+                {{/if}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Scm Url</td>
+              <td class="col-xs-10" colspan="5">
+                {{#if model.scmUrl}}
+                  <a target="_blank" {{bind-attr href=model.scmUrl}}>
+                    {{model.scmUrl}}
+                  </a>
+                {{/if}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Formula</td>
+              <td class="col-xs-10" colspan="5">
+                {{ace-editor content=model.formula itemId=model.id savePath="/api/v1/metrics/{id}/update" saveParam="formula"}}
+              </td>
+            </tr>
+            <tr class="result">
+              <td class="col-xs-2">Grain</td>
+              <td class="col-xs-2">
                 <a
+                  id="metricgrain"
                   href="#"
                   data-name="grain"
-                  data-pk="{{model.id}}"
                   class="xeditable"
                   data-type="text"
                   data-placement="right"
                   data-title="Enter grain"
                   data-placement="right"
-                  data-emptytext="Please Input"
-                >
-                  {{model.grain}}
+                  data-emptytext="Please Input">
                 </a>
               </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Formula</td>
-              <td>
-                {{ace-editor content=model.formula itemId=model.id savePath="/api/v1/metrics/{id}/update" saveParam="formula"}}
-              </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Display Factor</td>
-              <td>
+              <td class="col-xs-2">Display Factor</td>
+              <td class="col-xs-2">
                 <a
+                  id="displayfactor"
                   href="#"
                   data-name="displayFactory"
-                  data-pk="{{model.id}}"
                   class="xeditable"
                   data-type="text"
                   data-placement="right"
@@ -744,78 +805,20 @@
                   data-placement="right"
                   data-emptytext="Please Input"
                 >
-                  {{model.displayFactory}}
                 </a>
               </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Display Factor Sym</td>
-              <td>
+              <td class="col-xs-2">Display Factor Sym</td>
+              <td class="col-xs-2">
                 <a
+                  id="displayfactorsym"
                   href="#"
                   data-name="displayFactorSym"
-                  data-pk="{{model.id}}"
                   class="xeditable"
                   data-type="text"
                   data-placement="right"
                   data-title="Enter display factor symbol"
                   data-placement="right"
                   data-emptytext="Please Input"
-                >
-                  {{model.displayFactorSym}}
-                </a>
-              </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Sub Category</td>
-              <td>
-                <a
-                  href="#"
-                  data-name="subCategory"
-                  data-pk="{{model.id}}"
-                  class="xeditable"
-                  data-type="text"
-                  data-placement="right"
-                  data-title="Enter sub category"
-                  data-placement="right"
-                  data-emptytext="Please Input"
-                >
-                  {{model.subCategory}}
-                </a>
-              </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Source</td>
-              <td>
-                <a
-                  href="#"
-                  data-name="source"
-                  data-pk="{{model.id}}"
-                  class="xeditable"
-                  data-type="text"
-                  data-placement="right"
-                  data-title="Enter source"
-                  data-placement="right"
-                  data-emptytext="Please Input"
-                  data-value={{model.source}}
-                >
-                </a>
-              </td>
-            </tr>
-            <tr class="result">
-              <td>Metric Source Type</td>
-              <td>
-                <a
-                  href="#"
-                  data-name="sourceType"
-                  data-pk="{{model.id}}"
-                  class="xeditable"
-                  data-type="text"
-                  data-placement="right"
-                  data-title="Enter source type"
-                  data-placement="right"
-                  data-emptytext="Please Input"
-                  data-value={{model.sourceType}}
                 >
                 </a>
               </td>
@@ -1820,6 +1823,11 @@
     <script src="@routes.Assets.at("javascripts/routers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/datasets.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/flows.js")" type="text/javascript"></script>
+    @if(isInternal) {
+      <script src="@routes.Assets.at("javascripts/routers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/controllers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/components/metric-watch.js")" type="text/javascript"></script>
+    }
     <script src="@routes.Assets.at("javascripts/controllers/search.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/datasets.js")" type="text/javascript"></script>

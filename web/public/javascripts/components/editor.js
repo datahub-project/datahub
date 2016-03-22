@@ -56,14 +56,10 @@ App.AceEditorComponent = Ember.Component.extend({
         dataType: 'json',
         data: data
       }).done(function(data, txt, xhr){
-        if(data && data.status && data.status == "success")
-          {
-            console.log('Done.')
-          }
-          else
-          {
-            console.log('Failed.')
-          }
+        if(data && data.status && data.status != "success")
+        {
+          Notify.toast("Failed to update data", "Failed to update data within editor", "error")
+        }
       }).fail(function(xhr, txt, err){
         Notify.toast("Failed to update data", "Failed to update data within editor", "error")
       })
