@@ -40,6 +40,28 @@ App.Router.map(function() {
 App.Router.reopen({
     rootURL: '/datasets/page/1',
     tracking: function(){
+        if(window.ga) {
+            var url = this.get('url');
+            if (url)
+            {
+                var username = $("#username").text();
+                var index = url.lastIndexOf("/");
+                var category = url.substring(1, index);
+                var value = url.substring(index+1);
+                window.ga(
+                    'send',
+                    'event',
+                    category,
+                    value,
+                    username);
+                window.ga(
+                    'newTracker.send',
+                    'event',
+                    category,
+                    value,
+                    username);
+            }
+        }
         var states = this.router.state.handlerInfos;
         var type = "dataset";
         var objectId = 0;
@@ -214,12 +236,20 @@ App.ApplicationController = Ember.Controller.extend({
 function updateActiveTab()
 {
     var obj = $("#mainnavbar .nav").find(".active");
+    if (obj && obj.length > 0)
+    {
+        var text = obj[0].innerText;
+        if(text && text.indexOf(currentTab) != -1)
+        {
+            return;
+        }
+    }
     if (obj)
     {
         obj.removeClass("active");
     }
 
-    if (currentTab == 'Metric')
+    if (currentTab == 'Metrics')
     {
         $('#menutabs a:eq(1)').tab("show");
         $('#metriclink').addClass("active");
@@ -435,7 +465,7 @@ $('.category-header a').click(function (e) {
         }
         window.location = "#/datasets/page/1";
     }
-    else if (this.text == 'Metric')
+    else if (this.text == 'Metrics')
     {
         var node = $("#tree1").fancytree("getActiveNode");
         if (node)
