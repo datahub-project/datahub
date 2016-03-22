@@ -21,6 +21,10 @@ GET     /tree/:name                         controllers.Application.loadTree(nam
 
 GET     /tree/flow/:app                     controllers.Application.loadFlowProjects(app:String)
 
+GET     /tree/metric/:dashboard             controllers.Application.loadMetricGroups(dashboard:String)
+
+GET     /tree/metric/:dashboard/:group      controllers.Application.loadMetricNodes(dashboard:String, group:String)
+
 GET     /tree/flow/:app/:project            controllers.Application.loadFlowNodes(app:String, project:String)
 
 GET     /lineage                                    controllers.Application.lineage()
