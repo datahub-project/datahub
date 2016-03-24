@@ -41,7 +41,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
             "m.metric_ref_id_type, m.metric_ref_id, m.metric_type, m.metric_grain, m.metric_display_factor, " +
             "m.metric_display_factor_sym, m.metric_good_direction, m.metric_formula, m.dimensions, " +
             "m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, IFNULL(w.id,0) as watch_id " +
-			"FROM dict_business_metric2 m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"ORDER BY metric_name LIMIT ?, ?";
 
@@ -52,7 +52,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
             "m.metric_display_factor, m.metric_display_factor_sym, m.metric_good_direction, " +
             "m.metric_formula, m.dimensions, m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
             "IFNULL(w.id,0) as watch_id " +
-			"FROM dict_business_metric2 m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE dashboard_name $value ORDER BY m.metric_name limit ?, ?";
 
@@ -63,7 +63,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
             "m.metric_display_factor, m.metric_display_factor_sym, m.metric_good_direction, " +
             "m.metric_formula, m.dimensions, m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
             "IFNULL(w.id,0) as watch_id  " +
-			"FROM dict_business_metric2 m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.dashboard_name $dashboard and m.metric_group $group " +
 			"ORDER BY metric_name limit ?, ?";
@@ -75,7 +75,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
             "m.metric_display_factor_sym, m.metric_good_direction, m.metric_formula, m.dimensions, " +
             "m.owners, m.tags, m.urn, m.metric_url, m.wiki_url, m.scm_url, " +
       		"IFNULL(w.id, 0) as watch_id " +
-			"FROM dict_business_metric2 m " +
+			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.metric_id = ?";
 
@@ -89,35 +89,35 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
   	private final static String GET_USER_ID = "SELECT id FROM users WHERE username = ?";
 
-	private final static String UPDATE_METRIC = "UPDATE dict_business_metric2 SET $SET_CLAUSE WHERE metric_id = ?";
+	private final static String UPDATE_METRIC = "UPDATE dict_business_metric SET $SET_CLAUSE WHERE metric_id = ?";
 
     private final static String GET_METRIC_TREE_DASHBOARD_NODES = "SELECT DISTINCT " +
-            "COALESCE(dashboard_name, '(Other)') FROM dict_business_metric2 order by 1";
+            "COALESCE(dashboard_name, '(Other)') FROM dict_business_metric order by 1";
 
     private final static String GET_METRIC_TREE_OTHER_GROUP_NODES = "SELECT DISTINCT " +
-            "COALESCE(metric_group, '(Other)') FROM dict_business_metric2 WHERE dashboard_name is null order by 1";
+            "COALESCE(metric_group, '(Other)') FROM dict_business_metric WHERE dashboard_name is null order by 1";
 
     private final static String GET_METRIC_TREE_GROUP_NODES = "SELECT DISTINCT " +
-            "COALESCE(metric_group, '(Other)') FROM dict_business_metric2 WHERE dashboard_name = ? order by 1";
+            "COALESCE(metric_group, '(Other)') FROM dict_business_metric WHERE dashboard_name = ? order by 1";
 
     private final static String GET_METRIC_TREE_NODES = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric2 WHERE dashboard_name = ? and metric_group = ? order by 1";
+            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group = ? order by 1";
 
     private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric2 WHERE dashboard_name is null and metric_group = ? order by 1";
+            "FROM dict_business_metric WHERE dashboard_name is null and metric_group = ? order by 1";
 
     private final static String GET_METRIC_TREE_NODES_NO_GROUP = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric2 WHERE dashboard_name = ? and metric_group is null order by 1";
+            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group is null order by 1";
 
     private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD_AND_GROUP = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric2 WHERE dashboard_name is null and metric_group is null order by 1";
+            "FROM dict_business_metric WHERE dashboard_name is null and metric_group is null order by 1";
 
     public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT metric_name " +
-            "FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER by 1";
+            "FROM dict_business_metric WHERE metric_name is not null and metric_name != '' ORDER by 1";
 
     public static JsonNode getMetricDashboardNodes()
     {
