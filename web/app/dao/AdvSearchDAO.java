@@ -58,6 +58,18 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	public final static String GET_JOB_NAMES = "SELECT DISTINCT job_name " +
 			"FROM flow_job GROUP BY 1 ORDER BY 1";
 
+	public final static String GET_DASHBOARD_NAMES = "SELECT DISTINCT dashboard_name " +
+			"FROM dict_business_metric2 WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
+
+	public final static String GET_METRIC_GROUPS = "SELECT DISTINCT metric_group " +
+			"FROM dict_business_metric2 WHERE metric_group is not null and metric_group != '' ORDER BY 1";
+
+	public final static String GET_METRIC_CATEGORIES = "SELECT DISTINCT metric_category " +
+			"FROM dict_business_metric2 WHERE metric_category is not null and metric_category != '' ORDER BY 1";
+
+	public final static String GET_METRIC_NAMES = "SELECT DISTINCT metric_name " +
+			"FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER BY 1";
+
 	public final static String GET_DATASET_FIELDS = "SELECT DISTINCT field_name " +
 			"FROM dict_field_detail ORDER BY 1";
 
@@ -437,6 +449,25 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 		resultNode.set("data", Json.toJson(pagedFlows));
 		return resultNode;
+        }
+	public static List<String> getMetricDashboardNames()
+	{
+		return getJdbcTemplate().queryForList(GET_DASHBOARD_NAMES, String.class);
+	}
+
+	public static List<String> getMetricGroups()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_GROUPS, String.class);
+	}
+
+	public static List<String> getMetricCategories()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_CATEGORIES, String.class);
+	}
+
+	public static List<String> getMetricNames()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_NAMES, String.class);
 	}
 
 	public static ObjectNode search(JsonNode searchOpt, int page, int size)
