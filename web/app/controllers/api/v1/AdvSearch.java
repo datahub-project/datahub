@@ -92,6 +92,42 @@ public class AdvSearch extends Controller
         return ok(result);
     }
 
+    public static Result getDashboardNames()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("dashboardNames", Json.toJson(AdvSearchDAO.getMetricDashboardNames()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricGroups()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricGroups", Json.toJson(AdvSearchDAO.getMetricGroups()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricCategories()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricCategories", Json.toJson(AdvSearchDAO.getMetricCategories()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricNames()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricNames", Json.toJson(AdvSearchDAO.getMetricNames()));
+
+        return ok(result);
+    }
+
     public static Result search()
     {
         ObjectNode result = Json.newObject();
@@ -143,6 +179,11 @@ public class AdvSearch extends Controller
             if(category.equalsIgnoreCase("flow"))
             {
                 result.set("result", Json.toJson(AdvSearchDAO.searchFlows(searchOpt, page, size)));
+                return ok(result);
+            }
+            else if(category.equalsIgnoreCase("metric"))
+            {
+                result.set("result", Json.toJson(AdvSearchDAO.searchMetrics(searchOpt, page, size)));
                 return ok(result);
             }
         }
