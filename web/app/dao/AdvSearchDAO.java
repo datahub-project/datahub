@@ -59,16 +59,16 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"FROM flow_job GROUP BY 1 ORDER BY 1";
 
 	public final static String GET_DASHBOARD_NAMES = "SELECT DISTINCT dashboard_name " +
-			"FROM dict_business_metric2 WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
 
 	public final static String GET_METRIC_GROUPS = "SELECT DISTINCT metric_group " +
-			"FROM dict_business_metric2 WHERE metric_group is not null and metric_group != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_group is not null and metric_group != '' ORDER BY 1";
 
 	public final static String GET_METRIC_CATEGORIES = "SELECT DISTINCT metric_category " +
-			"FROM dict_business_metric2 WHERE metric_category is not null and metric_category != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_category is not null and metric_category != '' ORDER BY 1";
 
 	public final static String GET_METRIC_NAMES = "SELECT DISTINCT metric_name " +
-			"FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_name is not null and metric_name != '' ORDER BY 1";
 
 	public final static String GET_DATASET_FIELDS = "SELECT DISTINCT field_name " +
 			"FROM dict_field_detail ORDER BY 1";
@@ -118,7 +118,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"metric_source_dataset_id, metric_ref_id_type, metric_ref_id, metric_type, metric_grain, " +
 			"metric_display_factor, metric_display_factor_sym, metric_good_direction, " +
 			"metric_formula, dimensions, owners, tags, urn, metric_url, wiki_url, scm_url, 0 as watch_id " +
-			"FROM dict_business_metric2 ";
+			"FROM dict_business_metric ";
 
 	public static List<String> getDatasetSources()
 	{
