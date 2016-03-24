@@ -37,6 +37,16 @@ App.SearchController = Ember.Controller.extend({
         }
         return false;
     }.property('model.category'),
+    isMetrics: function(){
+        var model = this.get("model");
+        if (model && model.category) {
+            if (model.category.toLocaleLowerCase() === 'metrics')
+            {
+                return true;
+            }
+        }
+        return false;
+    }.property('model.category'),
     isFlows: function(){
         var model = this.get("model");
         if (model && model.category) {
@@ -126,7 +136,7 @@ App.SearchController = Ember.Controller.extend({
             this.transitionToRoute
             ( 'search'
                 , { queryParams:
-                { category: 'Metric'
+                { category: 'Metrics'
                     , keywords: this.get('keywords')
                     , page: 1
                     , source: null
