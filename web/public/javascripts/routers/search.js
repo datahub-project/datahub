@@ -51,9 +51,8 @@ App.SearchRoute = Ember.Route.extend({
         {
             q = convertQueryStringToObject();
         }
-
         var keyword = q.keywords;
-        var url = 'api/v1/search/' + keyword + '?page=' + params.page;
+        var url = 'api/v1/search/' + encodeURI(keyword) + '?page=' + params.page;
         if(q.category) {
             url += ("&category=" + q.category.toLowerCase());
             currentTab = q.category.toProperCase();
