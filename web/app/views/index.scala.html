@@ -502,7 +502,7 @@
             </ul>
           </div>
           <div class="col-xs-12">
-            Metric Description:
+            Description:
             <a
               id="metricdesc"
               href="#"
@@ -536,31 +536,31 @@
                 >
                 </a>
               </td>
-              <td class="col-xs-1">Metric Group</td>
+              <td class="col-xs-1">Group</td>
               <td class="col-xs-3">
                 {{model.group}}
               </td>
-              <td class="col-xs-2">Metric Category</td>
+              <td class="col-xs-2">Category</td>
               <td class="col-xs-2">
                   {{model.category}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Sub Category</td>
+              <td class="col-xs-2">Sub Category</td>
               <td class="col-xs-2">
                   {{model.subCategory}}
               </td>
-              <td class="col-xs-2">Metric Level</td>
+              <td class="col-xs-2">Level</td>
               <td class="col-xs-2">
                   {{model.level}}
               </td>
-              <td class="col-xs-2">Metric Type</td>
+              <td class="col-xs-2">Type</td>
               <td class="col-xs-2">
                 {{model.type}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Source Type</td>
+              <td class="col-xs-2">Source Type</td>
               <td class="col-xs-2">
                 <a
                   id="sourcetype"
@@ -575,7 +575,7 @@
                 >
                 </a>
               </td>
-              <td class="col-xs-2">Metric Source</td>
+              <td class="col-xs-2">Source</td>
               <td class="col-xs-6" colspan="3">
                 {{#if model.sourceDatasetLink}}
                   <a {{bind-attr href=model.sourceDatasetLink}}>
@@ -588,33 +588,33 @@
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Ref ID Type</td>
+              <td class="col-xs-2">Ref ID Type</td>
               <td class="col-xs-2">
                   {{model.ref_id_type}}
               </td>
-              <td class="col-xs-2">Metric Ref ID</td>
+              <td class="col-xs-2">Ref ID</td>
               <td class="col-xs-2">
                   {{model.ref_id}}
               </td>
-              <td class="col-xs-2">Metric Good Direction</td>
+              <td class="col-xs-2">Good Direction</td>
               <td class="col-xs-2">
                   {{model.goodDirection}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Owners</td>
+              <td class="col-xs-2">Owners</td>
               <td class="col-xs-10" colspan="5">
                 {{model.owners}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Dimensions</td>
+              <td class="col-xs-2">Dimensions</td>
               <td class="col-xs-10" colspan="5">
                 {{model.dimensions}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Tags</td>
+              <td class="col-xs-2">Tags</td>
               <td class="col-xs-10" colspan="5">
                 {{model.tags}}
               </td>
@@ -630,7 +630,7 @@
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Wiki Url</td>
+              <td class="col-xs-2">Wiki Url</td>
               <td class="col-xs-10" colspan="5">
                 {{#if model.wikiUrl}}
                   <a target="_blank" {{bind-attr href=model.wikiUrl}}>
@@ -640,7 +640,7 @@
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Scm Url</td>
+              <td class="col-xs-2">Scm Url</td>
               <td class="col-xs-10" colspan="5">
                 {{#if model.scmUrl}}
                   <a target="_blank" {{bind-attr href=model.scmUrl}}>
@@ -650,13 +650,13 @@
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Formula</td>
+              <td class="col-xs-2">Formula</td>
               <td class="col-xs-10" colspan="5">
                 {{ace-editor content=model.formula itemId=model.id savePath="/api/v1/metrics/{id}/update" saveParam="formula"}}
               </td>
             </tr>
             <tr class="result">
-              <td class="col-xs-2">Metric Grain</td>
+              <td class="col-xs-2">Grain</td>
               <td class="col-xs-2">
                 <a
                   id="metricgrain"
@@ -670,7 +670,7 @@
                   data-emptytext="Please Input">
                 </a>
               </td>
-              <td class="col-xs-2">Metric Display Factor</td>
+              <td class="col-xs-2">Display Factor</td>
               <td class="col-xs-2">
                 <a
                   id="displayfactor"
@@ -685,7 +685,7 @@
                 >
                 </a>
               </td>
-              <td class="col-xs-2">Metric Display Factor Sym</td>
+              <td class="col-xs-2">Display Factor Sym</td>
               <td class="col-xs-2">
                 <a
                   id="displayfactorsym"
@@ -1145,6 +1145,12 @@
         </button>
         <button
           type="button"
+          {{bind-attr class=":btn isMetrics:btn-primary:btn-default"}}
+          {{action 'switchSearchToMetric' keyword}}>
+          Metrics
+        </button>
+        <button
+          type="button"
           {{bind-attr class=":btn isFlows:btn-primary:btn-default"}}
           {{action 'switchSearchToFlow' keyword}}>
           Flows
@@ -1227,14 +1233,14 @@
                     <td class="col-xs-12">
                       <div class="dataset-name">
                         <td class="dataset-info">
-                        {{#if isMetric}}
+                        {{#if model.isMetrics}}
                           <i class="fa fa-plus-square-o"></i>
-                          {{#link-to 'metric' dataset}}
+                          {{#link-to 'metric' dataset.id}}
                             {{{dataset.name}}}
                           {{/link-to}}
                         {{else}}
                           <i class="fa fa-database"></i>
-                          {{#link-to 'dataset' dataset}}
+                          {{#link-to 'dataset' dataset.id}}
                             {{{dataset.name}}}
                           {{/link-to}}
                         {{/if}}
@@ -1341,13 +1347,28 @@
                   <td class="col-xs-12">
                     <div class="dataset-name">
                       <td class="dataset-info">
-                        <i class="fa fa-database"></i>
-                        {{#link-to 'dataset' dataset}}
-                          {{{dataset.name}}}
-                        {{/link-to}}
+                        {{#if model.isMetrics}}
+                          <i class="fa fa-plus-square-o"></i>
+			  {{#link-to 'metric' dataset.id}}
+                            {{{dataset.name}}}
+                          {{/link-to}}
+                        {{else}}
+			  <i class="fa fa-database"></i>
+                          {{#link-to 'dataset' dataset.id}}
+                            {{{dataset.name}}}
+                          {{/link-to}}
+                        {{/if}}
                       </td>
                       <p>{{{ dataset.urn }}}</p>
-                      <p>source: {{{ dataset.source }}}</p>
+                      {{#if model.isMetrics}}
+                        {{#if dataset.source}}
+                          <p>source: {{{ dataset.source }}}</p>
+                        {{else}}
+                          <p>source: Metric</p>
+                        {{/if}}
+                      {{else}}
+                        <p>source: {{{ dataset.source }}}</p>
+                      {{/if}}
                       <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
                         {{{ dataset.schema }}}
                       </div>

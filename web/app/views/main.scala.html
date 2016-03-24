@@ -241,6 +241,7 @@
 					<div class="modal-body advSearch">
 						<ul id="advsearchtabs" class="nav nav-tabs">
 							<li id="datasetAdvSearchLink"><a data-toggle="tab" href="#datasetAdvTab">Datasets</a></li>
+							<li><a data-toggle="tab" href="#metricAdvtab">Metrics</a></li>
 							<li><a data-toggle="tab" href="#flowAdvtab">Flows</a></li>
 						</ul>
 						<div class="tab-content">
@@ -387,6 +388,154 @@
 									</div>
 									<div id="advSearchSource" class="col-md-2">
 										<h4>Sources</h4>
+									</div>
+								</div>
+							</div>
+							<div id="metricAdvtab" class="tab-pane">
+								<div class="row">
+									<div class="col-md-12 rightPartialBorder">
+										<div class="row">
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Dashboard Name</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="dashInInput"
+																class="dashInput"
+																placeholder="<dashboard1>, <dashboard2>"
+																title="Dashboard Name"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="dashNotInInput"
+																class="dashInput"
+																placeholder="<dashboard_to_exclude>"
+																title="Dashboard Name"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Group</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="groupInInput"
+																class="groupInput"
+																placeholder="<group1>, <group2>"
+																title="Metric Group"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="groupNotInInput"
+																class="groupInput"
+																placeholder="<group_to_exclude>"
+																title="Metric Group"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Category</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="categoryInInput"
+																class="categoryInput"
+																placeholder="<category1>, <category2>"
+																title="Metric Category"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="categoryNotInInput"
+																class="categoryInput"
+																placeholder="<category_to_exclude>"
+																title="Metric Category"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Name</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="metricnameInInput"
+																class="metricnameInput"
+																placeholder="<metric1>, <metric2>"
+																title="Metric"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="metricnameNotInInput"
+																class="metricnameInput"
+																placeholder="<metric_to_exclude>"
+																title="Metric"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
 								</div>
 							</div>
