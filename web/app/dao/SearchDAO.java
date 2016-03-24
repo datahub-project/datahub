@@ -138,7 +138,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"CASE WHEN `dashboard_name` like '%$keyword' THEN 3 ELSE 0 END rank_18, " +
 			"CASE WHEN `dashboard_name` like '$keyword%' THEN 2 ELSE 0 END rank_19, " +
 			"CASE WHEN `dashboard_name` like '%$keyword%' THEN 1 ELSE 0 END rank_20 " +
-			"FROM dict_business_metric2 WHERE " +
+			"FROM dict_business_metric WHERE " +
 			"`metric_name` like '%$keyword%' or `dashboard_name` like '%$keyword%' or `metric_group` like '%$keyword%' " +
 			"or `metric_category` like '%$keyword%' or `metric_description` like '%$keyword%' ) m ORDER BY " +
 			"rank DESC, `metric_name`, `metric_category`, `metric_group`, `dashboard_name` LIMIT ?, ?;";
