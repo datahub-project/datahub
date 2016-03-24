@@ -58,6 +58,18 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	public final static String GET_JOB_NAMES = "SELECT DISTINCT job_name " +
 			"FROM flow_job GROUP BY 1 ORDER BY 1";
 
+	public final static String GET_DASHBOARD_NAMES = "SELECT DISTINCT dashboard_name " +
+			"FROM dict_business_metric2 WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
+
+	public final static String GET_METRIC_GROUPS = "SELECT DISTINCT metric_group " +
+			"FROM dict_business_metric2 WHERE metric_group is not null and metric_group != '' ORDER BY 1";
+
+	public final static String GET_METRIC_CATEGORIES = "SELECT DISTINCT metric_category " +
+			"FROM dict_business_metric2 WHERE metric_category is not null and metric_category != '' ORDER BY 1";
+
+	public final static String GET_METRIC_NAMES = "SELECT DISTINCT metric_name " +
+			"FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER BY 1";
+
 	public final static String GET_DATASET_FIELDS = "SELECT DISTINCT field_name " +
 			"FROM dict_field_detail ORDER BY 1";
 
@@ -94,7 +106,6 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"a.app_code, f.flow_id, f.flow_name, f.flow_path, f.flow_group FROM flow f " +
 			"JOIN cfg_application a on f.app_id = a.app_id ";
 
-
 	public final static String ADV_SEARCH_JOB = "SELECT SQL_CALC_FOUND_ROWS " +
 			"a.app_code, f.flow_name, f.flow_path, f.flow_group, j.flow_id, j.job_id, " +
 			"j.job_name, j.job_path, j.job_type " +
@@ -108,8 +119,6 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"metric_display_factor, metric_display_factor_sym, metric_good_direction, " +
 			"metric_formula, dimensions, owners, tags, urn, metric_url, wiki_url, scm_url, 0 as watch_id " +
 			"FROM dict_business_metric ";
-
-
 
 	public static List<String> getDatasetSources()
 	{
@@ -440,6 +449,25 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 		resultNode.set("data", Json.toJson(pagedFlows));
 		return resultNode;
+        }
+	public static List<String> getMetricDashboardNames()
+	{
+		return getJdbcTemplate().queryForList(GET_DASHBOARD_NAMES, String.class);
+	}
+
+	public static List<String> getMetricGroups()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_GROUPS, String.class);
+	}
+
+	public static List<String> getMetricCategories()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_CATEGORIES, String.class);
+	}
+
+	public static List<String> getMetricNames()
+	{
+		return getJdbcTemplate().queryForList(GET_METRIC_NAMES, String.class);
 	}
 
 	public static ObjectNode search(JsonNode searchOpt, int page, int size)
@@ -1435,6 +1463,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				boolean jobNeedAndKeyword = false;
 				if (jobInList.size() > 0)
 				{
+					query += "( ";
 					int indexForJobInList = 0;
 					for (String job : jobInList)
 					{
@@ -1473,6 +1502,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					}
 					query += ") ";
 				}
+				query += " ) ";
 			}
 
 			query += " LIMIT " + (page-1)*size + ", " + size;

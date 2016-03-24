@@ -100,7 +100,7 @@ public class Search extends Controller
 
         String searchEngine = Play.application().configuration().getString(SearchDAO.WHEREHOWS_SEARCH_ENGINE__KEY);
 
-        if (category.toLowerCase().equalsIgnoreCase("metric"))
+        if (category.toLowerCase().equalsIgnoreCase("metrics"))
         {
             if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
             {
