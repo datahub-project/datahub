@@ -250,6 +250,9 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
         return getMetricListViewMetricNodes(metric.dashboardName, metric.group);
     }
 
+    public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT metric_name " +
+            "FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER by 1";
+
     public static JsonNode getMetricDashboardNodes()
     {
         List<String> dashboardList = getJdbcTemplate().queryForList(GET_METRIC_TREE_DASHBOARD_NODES, String.class);
