@@ -59,16 +59,16 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"FROM flow_job GROUP BY 1 ORDER BY 1";
 
 	public final static String GET_DASHBOARD_NAMES = "SELECT DISTINCT dashboard_name " +
-			"FROM dict_business_metric2 WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE dashboard_name is not null and dashboard_name != '' ORDER BY 1";
 
 	public final static String GET_METRIC_GROUPS = "SELECT DISTINCT metric_group " +
-			"FROM dict_business_metric2 WHERE metric_group is not null and metric_group != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_group is not null and metric_group != '' ORDER BY 1";
 
 	public final static String GET_METRIC_CATEGORIES = "SELECT DISTINCT metric_category " +
-			"FROM dict_business_metric2 WHERE metric_category is not null and metric_category != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_category is not null and metric_category != '' ORDER BY 1";
 
 	public final static String GET_METRIC_NAMES = "SELECT DISTINCT metric_name " +
-			"FROM dict_business_metric2 WHERE metric_name is not null and metric_name != '' ORDER BY 1";
+			"FROM dict_business_metric WHERE metric_name is not null and metric_name != '' ORDER BY 1";
 
 	public final static String GET_DATASET_FIELDS = "SELECT DISTINCT field_name " +
 			"FROM dict_field_detail ORDER BY 1";
