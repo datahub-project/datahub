@@ -101,7 +101,7 @@ public class Search extends Controller
             source = "all";
             isDefault = true;
         }
-        if (category.toLowerCase().equalsIgnoreCase("metric"))
+        if (category.toLowerCase().equalsIgnoreCase("metrics"))
         {
             result.set("result", SearchDAO.getPagedMetricByKeyword(category, keyword, page, size));
         }
