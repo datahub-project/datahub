@@ -105,35 +105,42 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"ORDER BY rank DESC, j.job_name, j.app_id, j.flow_id, j.job_id, j.job_path LIMIT ?, ?";
 
 	public final static String SEARCH_METRIC_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
-			"metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_ref_id_type`, " +
-			"`metric_ref_id`, `metric_category`, `metric_group`, " +
+			"metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_group`, `metric_category`, " +
+			"`metric_sub_category`, `metric_level`, `metric_source_type`, `metric_source`, `metric_source_dataset_id`, " +
+			"`metric_ref_id_type`, `metric_ref_id`, `metric_type`, `metric_grain`, `metric_display_factor`, " +
+			"`metric_display_factor_sym`, `metric_good_direction`, `metric_formula`, `dimensions`, " +
+			"`owners`, `tags`, `urn`, `metric_url`, `wiki_url`, `scm_url`, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 + rank_10 + " +
-			"rank_11 + rank_12 + rank_13 + rank_14 + rank_15 + rank_16 + rank_17 + rank_18 + rank_19 + rank_20 as rank " +
-			"FROM (SELECT metric_id, `metric_name`, `metric_description`, `dashboard_name`, " +
-			"`metric_ref_id_type`, `metric_ref_id`, `metric_category`, `metric_group`, " +
-			"CASE WHEN match(`metric_name`) against ('$keyword' IN BOOLEAN MODE) THEN 90000 ELSE 0 END rank_01, " +
-			"CASE WHEN match(`metric_name`) against ('$keyword' IN BOOLEAN MODE) THEN 30000 ELSE 0 END rank_02, " +
-			"CASE WHEN match(`metric_name`) against ('$keyword*' IN BOOLEAN MODE) THEN 20000 ELSE 0 END rank_03, " +
-			"CASE WHEN match(`metric_name`) against ('*$keyword*' IN BOOLEAN MODE) THEN 10000 ELSE 0 END rank_04, " +
-			"CASE WHEN match(`metric_description`) against ('$keyword' IN BOOLEAN MODE) THEN 9000 ELSE 0 END rank_05, " +
-			"CASE WHEN match(`metric_description`) against ('$keyword' IN BOOLEAN MODE) THEN 3000 ELSE 0 END rank_06, " +
-			"CASE WHEN match(`metric_description`) against ('$keyword*' IN BOOLEAN MODE) THEN 2000 ELSE 0 END rank_07, " +
-			"CASE WHEN match(`metric_description`) against ('*$keyword*' IN BOOLEAN MODE) THEN 1000 ELSE 0 END rank_08, " +
-			"CASE WHEN match(`metric_category`) against ('$keyword' IN BOOLEAN MODE) THEN 900 ELSE 0 END rank_09, " +
-			"CASE WHEN match(`metric_category`) against ('$keyword' IN BOOLEAN MODE) THEN 300 ELSE 0 END rank_10, " +
-			"CASE WHEN match(`metric_category`) against ('$keyword*' IN BOOLEAN MODE) THEN 200 ELSE 0 END rank_11, " +
-			"CASE WHEN match(`metric_category`) against ('*$keyword*' IN BOOLEAN MODE) THEN 100 ELSE 0 END rank_12, " +
-			"CASE WHEN match(`metric_group`) against ('$keyword' IN BOOLEAN MODE) THEN 90 ELSE 0 END rank_13, " +
-			"CASE WHEN match(`metric_group`) against ('$keyword' IN BOOLEAN MODE) THEN 30 ELSE 0 END rank_14, " +
-			"CASE WHEN match(`metric_group`) against ('$keyword*' IN BOOLEAN MODE) THEN 20 ELSE 0 END rank_15, " +
-			"CASE WHEN match(`metric_group`) against ('*$keyword*' IN BOOLEAN MODE) THEN 10 ELSE 0 END rank_16, " +
-			"CASE WHEN match(`dashboard_name`) against ('$keyword' IN BOOLEAN MODE) THEN 9 ELSE 0 END rank_17, " +
-			"CASE WHEN match(`dashboard_name`) against ('$keyword' IN BOOLEAN MODE) THEN 3 ELSE 0 END rank_18, " +
-			"CASE WHEN match(`dashboard_name`) against ('$keyword*' IN BOOLEAN MODE) THEN 2 ELSE 0 END rank_19, " +
-			"CASE WHEN match(`dashboard_name`) against ('*$keyword*' IN BOOLEAN MODE) THEN 1 ELSE 0 END rank_20 " +
-			"FROM dict_business_metric WHERE " +
-			"MATCH(`metric_name`, `dashboard_name`,  `metric_group`, `metric_category`) " +
-			"AGAINST ('*$keyword*' IN BOOLEAN MODE) ) m ORDER BY " +
+			"rank_11 + rank_12 + rank_13 + rank_14 + rank_15 + rank_16 + rank_17 + rank_18 + rank_19 + rank_20 as rank, " +
+			"0 as watch_id " +
+			"FROM (SELECT metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_group`, " +
+			"`metric_category`, `metric_sub_category`, `metric_level`, `metric_source_type`, " +
+			"`metric_source`, `metric_source_dataset_id`, `metric_ref_id_type`, `metric_ref_id`, `metric_type`, " +
+			"`metric_grain`, `metric_display_factor`, `metric_display_factor_sym`, `metric_good_direction`, " +
+			"`metric_formula`, `dimensions`, `owners`, `tags`, `urn`, `metric_url`, `wiki_url`, `scm_url`, " +
+			"CASE WHEN `metric_name` = '$keyword' THEN 90000 ELSE 0 END rank_01, " +
+			"CASE WHEN `metric_name` like '%$keyword' THEN 30000 ELSE 0 END rank_02, " +
+			"CASE WHEN `metric_name` like '$keyword%'THEN 20000 ELSE 0 END rank_03, " +
+			"CASE WHEN `metric_name` like '%$keyword%'THEN 10000 ELSE 0 END rank_04, " +
+			"CASE WHEN `metric_description` = '$keyword' THEN 9000 ELSE 0 END rank_05, " +
+			"CASE WHEN `metric_description` like '%$keyword' THEN 3000 ELSE 0 END rank_06, " +
+			"CASE WHEN `metric_description` like '$keyword%' THEN 2000 ELSE 0 END rank_07, " +
+			"CASE WHEN `metric_description` like '%$keyword%' THEN 1000 ELSE 0 END rank_08, " +
+			"CASE WHEN `metric_category` = '$keyword' THEN 900 ELSE 0 END rank_09, " +
+			"CASE WHEN `metric_category` like '%$keyword' THEN 300 ELSE 0 END rank_10, " +
+			"CASE WHEN `metric_category` like '$keyword%' THEN 200 ELSE 0 END rank_11, " +
+			"CASE WHEN `metric_category` like '%$keyword%' THEN 100 ELSE 0 END rank_12, " +
+			"CASE WHEN `metric_group` = '$keyword' THEN 90 ELSE 0 END rank_13, " +
+			"CASE WHEN `metric_group` like '%$keyword' THEN 30 ELSE 0 END rank_14, " +
+			"CASE WHEN `metric_group` like '$keyword%' THEN 20 ELSE 0 END rank_15, " +
+			"CASE WHEN `metric_group` like '%$keyword%' THEN 10 ELSE 0 END rank_16, " +
+			"CASE WHEN `dashboard_name` = '$keyword' THEN 9 ELSE 0 END rank_17, " +
+			"CASE WHEN `dashboard_name` like '%$keyword' THEN 3 ELSE 0 END rank_18, " +
+			"CASE WHEN `dashboard_name` like '$keyword%' THEN 2 ELSE 0 END rank_19, " +
+			"CASE WHEN `dashboard_name` like '%$keyword%' THEN 1 ELSE 0 END rank_20 " +
+			"FROM dict_business_metric2 WHERE " +
+			"`metric_name` like '%$keyword%' or `dashboard_name` like '%$keyword%' or `metric_group` like '%$keyword%' " +
+			"or `metric_category` like '%$keyword%' or `metric_description` like '%$keyword%' ) m ORDER BY " +
 			"rank DESC, `metric_name`, `metric_category`, `metric_group`, `dashboard_name` LIMIT ?, ?;";
 
 	public final static String SEARCH_DATASET_BY_COMMENTS_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
@@ -148,10 +155,6 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public final static String SEARCH_AUTOCOMPLETE_LIST = "searchSource";
 
-	public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT CASE " +
-			"WHEN parent_path is null or parent_path = '' THEN field_name " +
-			"ELSE CONCAT_WS('.', parent_path,  field_name) END as full_name FROM dict_field_detail";
-
 	public final static String GET_DATASET_AUTO_COMPLETE_LIST = "SELECT DISTINCT name FROM dict_dataset";
 
 	public final static String GET_FLOW_AUTO_COMPLETE_LIST = "SELECT DISTINCT flow_name FROM flow";
@@ -163,12 +166,14 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		List<String> cachedAutoCompleteList = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST);
 		if (cachedAutoCompleteList == null || cachedAutoCompleteList.size() == 0)
 		{
-			//List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
+			List<String> metricList = getJdbcTemplate().queryForList(
+					MetricsDAO.GET_METRIC_AUTO_COMPLETE_LIST,
+					String.class);
 			List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
 			List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
 			List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
 			cachedAutoCompleteList =
-					Stream.concat(datasetList.stream(),
+					Stream.concat(Stream.concat(datasetList.stream(), metricList.stream()),
 							Stream.concat(flowList.stream(), jobList.stream())).collect(Collectors.toList());
 			Collections.sort(cachedAutoCompleteList);
 			Cache.set(SEARCH_AUTOCOMPLETE_LIST, cachedAutoCompleteList, 60*60);
@@ -511,27 +516,37 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			public ObjectNode doInTransaction(TransactionStatus status)
 			{
 				List<Map<String, Object>> rows = null;
-				if (StringUtils.isBlank(source) || source.toLowerCase().equalsIgnoreCase("all"))
-				{
-					String query = SEARCH_DATASET_WITH_PAGINATION.replace("$keyword", keyword);
-					rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
+				try{
+					if (StringUtils.isBlank(source) || source.toLowerCase().equalsIgnoreCase("all"))
+					{
+						String query = SEARCH_DATASET_WITH_PAGINATION.replace("$keyword", keyword);
+						rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
+					}
+					else
+					{
+						String query = SEARCH_DATASET_BY_SOURCE_WITH_PAGINATION.replace("$keyword", keyword);
+						rows = jdbcTemplate.queryForList(query, source, (page-1)*size, size);
+					}
 				}
-				else
+				catch (Exception e)
 				{
-					String query = SEARCH_DATASET_BY_SOURCE_WITH_PAGINATION.replace("$keyword", keyword);
-					rows = jdbcTemplate.queryForList(query, source, (page-1)*size, size);
+					Logger.error(e.getMessage());
 				}
 
-				for (Map row : rows) {
+				if (rows != null)
+				{
+					for (Map row : rows) {
 
-					Dataset ds = new Dataset();
-					ds.id = (Long)row.get(DatasetRowMapper.DATASET_ID_COLUMN);
-					ds.name = (String)row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
-					ds.source = (String)row.get(DatasetRowMapper.DATASET_SOURCE_COLUMN);
-					ds.urn = (String)row.get(DatasetRowMapper.DATASET_URN_COLUMN);
-					ds.schema = (String)row.get(DatasetRowMapper.DATASET_SCHEMA_COLUMN);
-					pagedDatasets.add(ds);
+						Dataset ds = new Dataset();
+						ds.id = (Long)row.get(DatasetRowMapper.DATASET_ID_COLUMN);
+						ds.name = (String)row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
+						ds.source = (String)row.get(DatasetRowMapper.DATASET_SOURCE_COLUMN);
+						ds.urn = (String)row.get(DatasetRowMapper.DATASET_URN_COLUMN);
+						ds.schema = (String)row.get(DatasetRowMapper.DATASET_SCHEMA_COLUMN);
+						pagedDatasets.add(ds);
+					}
 				}
+
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
@@ -561,7 +576,6 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public static ObjectNode getPagedMetricByKeyword(final String category, String keyword, int page, int size)
 	{
-		List<Metric> pagedMetrics = new ArrayList<Metric>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
 		javax.sql.DataSource ds = jdbcTemplate.getDataSource();
 		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
@@ -574,44 +588,19 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			public ObjectNode doInTransaction(TransactionStatus status)
 			{
 				String query = SEARCH_METRIC_WITH_PAGINATION.replace("$keyword", keyword);
-				List<Map<String, Object>> rows = null;
-				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
-				for (Map row : rows) {
+				List<Metric> pagedMetrics = new ArrayList<Metric>();
+				try				{
 
-					Metric metric = new Metric();
-					metric.id = (Integer)row.get(MetricRowMapper.METRIC_ID_COLUMN);
-					metric.name = (String)row.get(MetricRowMapper.METRIC_NAME_COLUMN);
-					metric.refID = (String)row.get(MetricRowMapper.METRIC_REF_ID_COLUMN);
-					metric.refIDType = (String)row.get(MetricRowMapper.METRIC_REF_ID_TYPE_COLUMN);
-					metric.description = (String)row.get(MetricRowMapper.METRIC_DESCRIPTION_COLUMN);
-					metric.dashboardName = (String)row.get(MetricRowMapper.METRIC_DASHBOARD_NAME_COLUMN);
-					metric.category = (String)row.get(MetricRowMapper.METRIC_CATEGORY_COLUMN);
-					metric.group = (String)row.get(MetricRowMapper.METRIC_GROUP_COLUMN);
-					metric.source = "metric";
-					metric.urn = "";
-					if (StringUtils.isNotBlank(metric.dashboardName))
-					{
-						metric.urn += metric.dashboardName + "/";
-					}
-					if (StringUtils.isNotBlank(metric.group))
-					{
-						metric.urn += metric.group + "/";
-					}
-					if (StringUtils.isNotBlank(metric.name))
-					{
-						metric.urn += metric.name;
-					}
-
-					ObjectNode schema = Json.newObject();
-					schema.put(MetricRowMapper.METRIC_REF_ID_COLUMN, metric.refID);
-					schema.put(MetricRowMapper.METRIC_REF_ID_TYPE_COLUMN, metric.refIDType);
-					schema.put(MetricRowMapper.METRIC_DESCRIPTION_COLUMN, metric.description);
-					schema.put(MetricRowMapper.METRIC_DASHBOARD_NAME_COLUMN, metric.dashboardName);
-					schema.put(MetricRowMapper.METRIC_CATEGORY_COLUMN, metric.category);
-					schema.put(MetricRowMapper.METRIC_GROUP_COLUMN, metric.group);
-					metric.schema = schema.toString();
-					pagedMetrics.add(metric);
+					pagedMetrics = jdbcTemplate.query(
+							query,
+							new MetricRowMapper(),
+							(page - 1) * size, size);
 				}
+				catch(Exception e)
+				{
+					Logger.error(e.getMessage());
+				}
+
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
@@ -626,6 +615,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				ObjectNode resultNode = Json.newObject();
 				resultNode.put("count", count);
 				resultNode.put("page", page);
+				resultNode.put("isMetrics", true);
 				resultNode.put("category", category);
 				resultNode.put("itemsPerPage", size);
 				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
@@ -654,23 +644,34 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			{
 				String query = SEARCH_FLOW_WITH_PAGINATION.replace("$keyword", keyword);
 				List<Map<String, Object>> rows = null;
-
-				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
-				for (Map row : rows) {
-
-					FlowJob flow = new FlowJob();
-					flow.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
-					flow.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
-					flow.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
-					flow.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
-					flow.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
-					flow.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
-					flow.displayName = flow.flowName;
-					flow.link = "#/flows/" + flow.appCode + "/" +
-							flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
-					flow.path = flow.appCode + "/" + flow.flowPath;
-					pagedFlows.add(flow);
+				try
+				{
+					rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
 				}
+				catch (Exception e)
+				{
+					Logger.error(e.getMessage());
+				}
+
+				if (rows != null)
+				{
+					for (Map row : rows) {
+
+						FlowJob flow = new FlowJob();
+						flow.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+						flow.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+						flow.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
+						flow.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+						flow.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
+						flow.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
+						flow.displayName = flow.flowName;
+						flow.link = "#/flows/" + flow.appCode + "/" +
+								flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
+						flow.path = flow.appCode + "/" + flow.flowPath;
+						pagedFlows.add(flow);
+					}
+				}
+
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
@@ -715,27 +716,39 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 				String query = SEARCH_JOB_WITH_PAGINATION.replace("$keyword", keyword);
 				List<Map<String, Object>> rows = null;
 
-				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
-				for (Map row : rows) {
-
-					FlowJob flowJob = new FlowJob();
-					flowJob.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
-					flowJob.jobId = (Long)row.get(FlowRowMapper.JOB_ID_COLUMN);
-					flowJob.jobName = (String)row.get(FlowRowMapper.JOB_NAME_COLUMN);
-					flowJob.jobPath = (String)row.get(FlowRowMapper.JOB_PATH_COLUMN);
-					flowJob.jobType = (String)row.get(FlowRowMapper.JOB_TYPE_COLUMN);
-					flowJob.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
-					flowJob.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
-					flowJob.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
-					flowJob.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
-					flowJob.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
-					flowJob.displayName = flowJob.jobName;
-					flowJob.link =  "#/flows/" + flowJob.appCode + "/" +
-							flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
-					flowJob.path = flowJob.appCode + "/" + flowJob.jobPath;
-
-					pagedFlowJobs.add(flowJob);
+				try
+				{
+					rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
 				}
+				catch (Exception e)
+				{
+					Logger.error(e.getMessage());
+				}
+
+				if (rows != null)
+				{
+					for (Map row : rows) {
+
+						FlowJob flowJob = new FlowJob();
+						flowJob.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+						flowJob.jobId = (Long)row.get(FlowRowMapper.JOB_ID_COLUMN);
+						flowJob.jobName = (String)row.get(FlowRowMapper.JOB_NAME_COLUMN);
+						flowJob.jobPath = (String)row.get(FlowRowMapper.JOB_PATH_COLUMN);
+						flowJob.jobType = (String)row.get(FlowRowMapper.JOB_TYPE_COLUMN);
+						flowJob.flowName = (String)row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+						flowJob.flowPath = (String)row.get(FlowRowMapper.FLOW_PATH_COLUMN);
+						flowJob.flowGroup = (String)row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+						flowJob.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
+						flowJob.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
+						flowJob.displayName = flowJob.jobName;
+						flowJob.link =  "#/flows/" + flowJob.appCode + "/" +
+								flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+						flowJob.path = flowJob.appCode + "/" + flowJob.jobPath;
+
+						pagedFlowJobs.add(flowJob);
+					}
+				}
+
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
@@ -765,7 +778,6 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public static ObjectNode getPagedCommentsByKeyword(String category, String keyword, int page, int size)
 	{
-		List<Dataset> pagedDatasets = new ArrayList<Dataset>();
 		final JdbcTemplate jdbcTemplate = getJdbcTemplate();
 		javax.sql.DataSource ds = jdbcTemplate.getDataSource();
 		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
@@ -778,19 +790,30 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			public ObjectNode doInTransaction(TransactionStatus status)
 			{
 				List<Map<String, Object>> rows = null;
+				List<Dataset> pagedDatasets = new ArrayList<Dataset>();
 				String query = SEARCH_DATASET_BY_COMMENTS_WITH_PAGINATION.replace("$keyword", keyword);
-				rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
-
-				for (Map row : rows) {
-
-					Dataset ds = new Dataset();
-					ds.id = (long)row.get(DatasetRowMapper.DATASET_ID_COLUMN);
-					ds.name = (String)row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
-					ds.source = (String)row.get(DatasetRowMapper.DATASET_SOURCE_COLUMN);
-					ds.urn = (String)row.get(DatasetRowMapper.DATASET_URN_COLUMN);
-					ds.schema = (String)row.get(DatasetRowMapper.DATASET_SCHEMA_COLUMN);
-					pagedDatasets.add(ds);
+				try{
+					rows = jdbcTemplate.queryForList(query, (page-1)*size, size);
 				}
+				catch (Exception e)
+				{
+					Logger.error(e.getMessage());
+				}
+
+				if (rows != null)
+				{
+					for (Map row : rows) {
+
+						Dataset ds = new Dataset();
+						ds.id = (long)row.get(DatasetRowMapper.DATASET_ID_COLUMN);
+						ds.name = (String)row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
+						ds.source = (String)row.get(DatasetRowMapper.DATASET_SOURCE_COLUMN);
+						ds.urn = (String)row.get(DatasetRowMapper.DATASET_URN_COLUMN);
+						ds.schema = (String)row.get(DatasetRowMapper.DATASET_SCHEMA_COLUMN);
+						pagedDatasets.add(ds);
+					}
+				}
+
 				long count = 0;
 				try {
 					count = jdbcTemplate.queryForObject(
