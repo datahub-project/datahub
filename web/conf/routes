@@ -173,6 +173,14 @@ GET     /api/v1/advsearch/flowNames                 controllers.api.v1.AdvSearch
 
 GET     /api/v1/advsearch/jobNames                  controllers.api.v1.AdvSearch.getJobNames()
 
+GET     /api/v1/advsearch/dashboards                controllers.api.v1.AdvSearch.getDashboardNames()
+
+GET     /api/v1/advsearch/metricGroups              controllers.api.v1.AdvSearch.getMetricGroups()
+
+GET     /api/v1/advsearch/metricCategories          controllers.api.v1.AdvSearch.getMetricCategories()
+
+GET     /api/v1/advsearch/metricNames               controllers.api.v1.AdvSearch.getMetricNames()
+
 GET     /api/v1/advsearch/search                    controllers.api.v1.AdvSearch.search()
 
 GET     /api/v1/lineage/dataset/:id                 controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)
