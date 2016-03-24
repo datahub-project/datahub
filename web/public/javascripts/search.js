@@ -253,6 +253,94 @@
             });
         });
 
+        $.get('/api/v1/advsearch/dashboards', function(data){
+            $(".dashInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.dashboardNames, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
+        $.get('/api/v1/advsearch/metricGroups', function(data){
+            $(".groupInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.metricGroups, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
+        $.get('/api/v1/advsearch/metricCategories', function(data){
+            $(".categoryInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.metricCategories, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
+        $.get('/api/v1/advsearch/metricNames', function(data){
+            $(".metricnameInput").autocomplete({
+                minLength: 0,
+                source: function( req, res ) {
+                    var result = [];
+                    if (data && data.metricNames && req.term)
+                    {
+                        result = sortAutocompleteResult(data.metricNames, req.term);
+                    }
+                    return res(result);
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+                }
+            });
+        });
+
         $( "#scopeInInput" ).blur(function() {
             $.get('/api/v1/advsearch/tables', {scopes: $( "#scopeInInput").val()}, function(data){
                 $(".tableInput").autocomplete({
@@ -419,6 +507,104 @@
             window.location = "/#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
         }
 
+        function advSearchForMetric()
+        {
+            var empty = true;
+            var dashInInputObj = $('#dashInInput');
+            var dashIn = '';
+            if (dashInInputObj)
+            {
+                dashIn = dashInInputObj.val();
+                if (dashIn)
+                {
+                    empty = false;
+                }
+            }
+            var dashNotInInputObj = $('#dashNotInInput');
+            var dashNotIn = '';
+            if (dashNotInInputObj)
+            {
+                dashNotIn = dashNotInInputObj.val();
+                if (dashNotIn)
+                {
+                    empty = false;
+                }
+            }
+            var groupInInputObj = $('#groupInInput');
+            var groupIn = '';
+            if (groupInInputObj)
+            {
+                groupIn = groupInInputObj.val();
+                if (groupIn)
+                {
+                    empty = false;
+                }
+            }
+            var groupNotInInputObj = $('#groupNotInInput');
+            var groupNotIn = '';
+            if (groupNotInInputObj)
+            {
+                groupNotIn = groupNotInInputObj.val();
+                if (groupNotIn)
+                {
+                    empty = false;
+                }
+            }
+            var categoryInInputObj = $('#categoryInInput');
+            var categoryIn = '';
+            if (categoryInInputObj)
+            {
+                categoryIn = categoryInInputObj.val();
+                if (categoryIn)
+                {
+                    empty = false;
+                }
+            }
+            var categoryNotInInputObj = $('#categoryNotInInput');
+            var categoryNotIn = '';
+            if (categoryNotInInputObj)
+            {
+                categoryNotIn = categoryNotInInputObj.val();
+                if (categoryNotIn)
+                {
+                    empty = false;
+                }
+            }
+            var metricnameInInputObj = $('#metricnameInInput');
+            var metricnameIn = '';
+            if (metricnameInInputObj)
+            {
+                metricnameIn = metricnameInInputObj.val();
+                if (metricnameIn)
+                {
+                    empty = false;
+                }
+            }
+            var metricnameNotInInputObj = $('#metricnameNotInInput');
+            var metricnameNotIn = '';
+            if (metricnameNotInInputObj)
+            {
+                metricnameNotIn = metricnameNotInInputObj.val();
+                if (metricnameNotIn)
+                {
+                    empty = false;
+                }
+            }
+
+            if (empty)
+            {
+                return;
+            }
+
+            var advSearchOpts = {};
+            advSearchOpts.category = 'Metric';
+            advSearchOpts.dashboard = {'in': dashIn, 'not': dashNotIn};
+            advSearchOpts.group = {'in': groupIn, 'not': groupNotIn};
+            advSearchOpts.cat = {'in': categoryIn, 'not': categoryNotIn};
+            advSearchOpts.metric = {'in': metricnameIn, 'not': metricnameNotIn};
+            window.location = "/#/advsearch/?query=" + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+        }
+
         function advSearchForFlow()
         {
             var empty = true;
@@ -505,6 +691,10 @@
                 {
                     advSearchForDataset();
                 }
+                else if (text == 'Metrics')
+                {
+                    advSearchForMetric();
+                }
                 else
                 {
                     advSearchForFlow();
@@ -585,6 +775,46 @@
             if (jobNotInInputObj)
             {
                 jobNotInInputObj.val('');
+            }
+            var dashboardInInputObj = $('#dashInInput');
+            if (dashboardInInputObj)
+            {
+                dashboardInInputObj.val('');
+            }
+            var dashboardNotInInputObj = $('#dashNotInInput');
+            if (dashboardNotInInputObj)
+            {
+                dashboardNotInInputObj.val('');
+            }
+            var groupInInputObj = $('#groupInInput');
+            if (groupInInputObj)
+            {
+                groupInInputObj.val('');
+            }
+            var groupNotInInputObj = $('#groupNotInInput');
+            if (groupNotInInputObj)
+            {
+                groupNotInInputObj.val('');
+            }
+            var categoryInInputObj = $('#categoryInInput');
+            if (categoryInInputObj)
+            {
+                categoryInInputObj.val('');
+            }
+            var categoryNotInInputObj = $('#categoryNotInInput');
+            if (categoryNotInInputObj)
+            {
+                categoryNotInInputObj.val('');
+            }
+            var metricInInputObj = $('#metricnameInInput');
+            if (metricInInputObj)
+            {
+                metricInInputObj.val('');
+            }
+            var metricNotInInputObj = $('#metricnameNotInInput');
+            if (metricNotInInputObj)
+            {
+                metricNotInInputObj.val('');
             }
         });
 

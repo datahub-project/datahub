@@ -94,6 +94,42 @@ public class AdvSearch extends Controller
         return ok(result);
     }
 
+    public static Result getDashboardNames()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("dashboardNames", Json.toJson(AdvSearchDAO.getMetricDashboardNames()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricGroups()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricGroups", Json.toJson(AdvSearchDAO.getMetricGroups()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricCategories()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricCategories", Json.toJson(AdvSearchDAO.getMetricCategories()));
+
+        return ok(result);
+    }
+
+    public static Result getMetricNames()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("metricNames", Json.toJson(AdvSearchDAO.getMetricNames()));
+
+        return ok(result);
+    }
+
     public static Result search()
     {
         ObjectNode result = Json.newObject();
@@ -168,7 +204,6 @@ public class AdvSearch extends Controller
                 }
                 return ok(result);
             }
-
         }
 
         if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
