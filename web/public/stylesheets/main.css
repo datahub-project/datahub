@@ -666,3 +666,7 @@ table tr td {
 div.commentsArea td, div.commentsArea th, div.commentsArea table{
     border: 1px solid black;
 }
+
+.wh-clickable-icon {
+    cursor: pointer;
+}

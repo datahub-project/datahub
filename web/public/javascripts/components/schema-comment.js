@@ -222,13 +222,23 @@ App.SchemaCommentComponent = Ember.Component.extend({
           col.html = marked(col.comment || "").htmlSafe()
           col.selected = false
         })
+        var page = _this.get('similarColumns.page');
+        if (!page)
+        {
+          page = 1;
+        }
+        var pageSize = _this.get('similarColumns.pageSize');
+        if (!pageSize)
+        {
+          pageSize = 10;
+        }
         var similarColumns = {
-          page: _this.get('similarColumns.page'),
+          page: page,
           all: columns,
           count: columns.length,
-          pageSize: _this.get('similarColumns.pageSize'),
-          totalPages: Math.ceil(columns.length / _this.get('similarColumns.pageSize')),
-          data: columns.slice(0,10),
+          pageSize: pageSize,
+          totalPages: Math.ceil(columns.length / pageSize),
+          data: columns.slice(0, pageSize),
           loading: false
         }
         _this.set('similarColumns', similarColumns)
@@ -248,7 +258,6 @@ App.SchemaCommentComponent = Ember.Component.extend({
         comments.forEach(function(cmnt){
           cmnt.html = marked(cmnt.comment || "").htmlSafe()
         })
-        console.log('Similar Comments: ', comments)
         _this.set('similarComments', comments)
       }
     )
@@ -540,6 +549,7 @@ App.SchemaCommentComponent = Ember.Component.extend({
       } else {
         selected.commentId = selectedComment.id
       }
+      console.log(selected);
       this.set("promoteDisabled", true)
       this.set("promoteLoading, true")
       var params =
@@ -578,7 +588,6 @@ App.SchemaCommentComponent = Ember.Component.extend({
       this.getSimilarColumns()
     },
     setTab: function(name) {
-      console.log('Tab Selected: ', name)
       this.set('currentTab', name)
       if(name !== "similar") {
         $("input[name='selectedComment']:checked").each(function(){
@@ -616,11 +625,28 @@ App.SchemaCommentComponent = Ember.Component.extend({
       var page = this.get('similarColumns.page');
       var pageSize = this.get('similarColumns.pageSize');
       var index = ((page - 1) * pageSize) + idx
-      console.log('Index: ', index)
       var all = this.get('similarColumns.all');
       Ember.set(all[index], "selected", Ember.get(similar, "selected"));
       this.set('selectedSimilarColumns', this.getSelected())
       this.set('similarColumns.all', all)
+    },
+    selectAllSimilarColumn: function(selected)
+    {
+      var columns = this.get('similarColumns.all');
+      var model = this.get('similarColumns');
+      Ember.set(model, "selectedAll", selected);
+      for(var i = 0; i < columns.length; i++)
+      {
+        Ember.set(columns[i], "selected", selected);
+      }
+      if (selected)
+      {
+        this.set('selectedSimilarColumns', columns);
+      }
+      else
+      {
+        this.set('selectedSimilarColumns', []);
+      }
     }
   }
 })

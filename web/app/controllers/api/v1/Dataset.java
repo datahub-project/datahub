@@ -675,7 +675,10 @@ public class Dataset extends Controller
         if(req.isArray()) {
             for(int i = 0; i < req.size(); i++) {
                 JsonNode obj = req.get(i);
-                Boolean isSuccess = DatasetsDAO.assignColumnComment(datasetId, columnId, obj.get("commentId").asInt());
+                Boolean isSuccess = DatasetsDAO.assignColumnComment(
+                        obj.get("datasetId").asInt(),
+                        obj.get("columnId").asInt(),
+                        obj.get("commentId").asInt());
                 ObjectNode itemResponse = Json.newObject();
                 if(isSuccess) {
                     itemResponse.put("success", "true");
@@ -688,8 +691,10 @@ public class Dataset extends Controller
                 res.add(itemResponse);
             }
         } else {
-            Logger.error("Comment ID: " + req.get("commentId"));
-            Boolean isSuccess = DatasetsDAO.assignColumnComment(datasetId, columnId, req.get("commentId").asInt());
+            Boolean isSuccess = DatasetsDAO.assignColumnComment(
+                    datasetId,
+                    columnId,
+                    req.get("commentId").asInt());
             ObjectNode itemResponse = Json.newObject();
             if(isSuccess) {
                 itemResponse.put("success", "true");
@@ -721,7 +726,7 @@ public class Dataset extends Controller
         return ok(result);
     }
 
-    public static Result getSimilarColumnComments(int datasetId, int columnId) {
+    public static Result getSimilarColumnComments(Long datasetId, int columnId) {
         ObjectNode result = Json.newObject();
         result.put("similar", Json.toJson(DatasetsDAO.similarColumnComments(datasetId, columnId)));
         return ok(result);
