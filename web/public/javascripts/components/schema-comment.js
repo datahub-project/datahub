@@ -548,7 +548,6 @@ App.SchemaCommentComponent = Ember.Component.extend({
       } else {
         selected.commentId = selectedComment.id
       }
-      console.log(selected);
       this.set("promoteDisabled", true)
       this.set("promoteLoading, true")
       var params =
