@@ -71,7 +71,7 @@ GET     /api/v1/datasets/:id/columns/:columnId/similar      controllers.api.v1.D
 
 GET     /api/v1/datasets/:id/columns/:columnId/comments     controllers.api.v1.Dataset.getPagedDatasetColumnComments(id:Int, columnId:Int)
 
-GET     /api/v1/datasets/:id/columns/:columnId/comments/similar     controllers.api.v1.Dataset.getSimilarColumnComments(id:Int, columnId:Int)
+GET     /api/v1/datasets/:id/columns/:columnId/comments/similar     controllers.api.v1.Dataset.getSimilarColumnComments(id:Long, columnId:Int)
 
 POST    /api/v1/datasets/:id/columns/:columnId/comments             controllers.api.v1.Dataset.postDatasetColumnComment(id:Int, columnId:Int)
 

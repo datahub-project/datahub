@@ -290,10 +290,10 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"SELECT UPPER(field_name) FROM dict_field_detail WHERE field_id = ?";
 
 	private final static String GET_SIMILAR_COMMENTS_BY_FIELD_NAME =
-			"SELECT count(*) as count, fd.dataset_id, " +
-			"fd.default_comment_id as comment_id, fc.comment FROM dict_field_detail fd LEFT JOIN " +
-			"field_comments fc ON fc.id = fd.default_comment_id WHERE UPPER(fd.field_name) = ? " +
-			"AND fd.default_comment_id IS NOT NULL GROUP BY fd.default_comment_id ORDER BY count DESC";
+			"SELECT count(*) as count, f.comment_id, c.comment FROM dict_field_detail d " +
+			"JOIN dict_dataset_field_comment f on d.field_id = f.field_id and d.dataset_id = f.dataset_id " +
+			"JOIN field_comments c on c.id = f.comment_id WHERE d.field_name = ? and f.is_default = 1 " +
+			"GROUP BY f.comment_id, c.comment ORDER BY count DESC";
 
 	private final static String SET_COLUMN_COMMENT_TO_FALSE = "UPDATE dict_dataset_field_comment " +
 			"SET is_default = false WHERE dataset_id = ? AND field_id = ? AND is_default = true";
@@ -1466,7 +1466,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static List similarColumnComments(int datasetId, int columnId)
+	public static List similarColumnComments(Long datasetId, int columnId)
 	{
 		List<SimilarComments> comments = new ArrayList<SimilarComments>();
 		List<Map<String, Object>> rows = null;
@@ -1478,7 +1478,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					columnId);
 		} catch(DataAccessException e) {
 			Logger.error("Dataset similarColumnComments - get field name for columnId, datasetId = " +
-					Integer.toString(datasetId) + " columnId = " + Integer.toString(columnId));
+					Long.toString(datasetId) + " columnId = " + Integer.toString(columnId));
 			Logger.error("Exception = " + e.getMessage());
 			return comments;
 		}
@@ -1494,12 +1494,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				sc.count = (Long)row.get("count");
 				sc.commentId = (Long)row.get("comment_id");
 				sc.comment = (String)row.get("comment");
-				sc.datasetId = (Long)row.get("dataset_id");
+				sc.datasetId = datasetId;
 				comments.add(sc);
 			}
 		} catch(DataAccessException e) {
 			Logger.error("Dataset similarColumnComments - get comments by field name, datasetId = " +
-					Integer.toString(datasetId) + " columnId = " + Integer.toString(columnId));
+					Long.toString(datasetId) + " columnId = " + Integer.toString(columnId));
 			Logger.error("Exception = " + e.getMessage());
 			return comments;
 		}
