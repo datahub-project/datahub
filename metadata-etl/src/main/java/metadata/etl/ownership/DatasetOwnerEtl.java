@@ -29,9 +29,15 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Properties;
 import metadata.etl.EtlJob;
+import org.apache.commons.io.IOUtils;
 import wherehows.common.Constant;
 
 
+/**
+ * Inside linkedin, for most dataset we have a dataset description file aside with dataset.
+ * The description file content contain the ownership information. And it will be periodically ETL into a hive table.
+ * This DatasetOwnerEtl job is extract ownership info from the hive table, transform and store into WhereHows database.
+ */
 public class DatasetOwnerEtl extends EtlJob {
   @Deprecated
   public DatasetOwnerEtl(int dbId, long whExecId) {
@@ -58,7 +64,7 @@ public class DatasetOwnerEtl extends EtlJob {
       session =
         jsch.getSession(this.prop.getProperty(Constant.HDFS_REMOTE_USER_KEY), this.prop.getProperty(Constant.HDFS_REMOTE_MACHINE_KEY));
       // use private key instead of username/password
-      session.setConfig("PreferredAuthentications", "publickey");
+      session.setConfig("PreferredAuthentications", "gssapi-with-mic,publickey,keyboard-interactive,password");
       jsch.addIdentity(this.prop.getProperty(Constant.HDFS_PRIVATE_KEY_LOCATION_KEY));
       Properties config = new Properties();
       config.put("StrictHostKeyChecking", "no");
@@ -82,7 +88,10 @@ public class DatasetOwnerEtl extends EtlJob {
       channelSftp.put(localFileStream, remoteDir + "/" + JAVA_FILE_NAME + JAVA_EXT, ChannelSftp.OVERWRITE);
       localFileStream.close();
 
-      String hiveQuery = prop.getProperty(Constant.HDFS_OWNER_HIVE_QUERY_KEY);
+      // the hive query that are going to extract ownership info from hive table
+      InputStream inputStream = classLoader.getResourceAsStream("fetch_owner_from_dataset_descriptor.sql");
+      String hiveQuery = IOUtils.toString(inputStream);
+
       localFileStream = new ByteArrayInputStream(hiveQuery.getBytes());
       channelSftp.put(localFileStream, remoteDir + "/" + HIVE_SCRIPT_FILE, ChannelSftp.OVERWRITE);
       localFileStream.close();
