@@ -249,7 +249,7 @@ class SchedulerTransform:
 
     query = """
             UPDATE stg_flow_job sj JOIN
-            (SELECT source_job_id as job_id, source_version, GROUP_CONCAT(distinct target_job_id SEPARATOR ',') as post_jobs
+            (SELECT source_job_id as job_id, source_version, SUBSTRING(GROUP_CONCAT(distinct target_job_id SEPARATOR ','), 1, 4000) as post_jobs
             FROM {table} WHERE app_id = {app_id} AND source_job_id != target_job_id
             GROUP BY source_job_id, source_version) as d
             ON sj.job_id = d.job_id AND sj.source_version = d.source_version
@@ -262,7 +262,7 @@ class SchedulerTransform:
 
     query = """
             UPDATE stg_flow_job sj JOIN
-            (SELECT target_job_id as job_id, source_version, GROUP_CONCAT(distinct source_job_id SEPARATOR ',') as pre_jobs
+            (SELECT target_job_id as job_id, source_version, SUBSTRING(GROUP_CONCAT(distinct source_job_id SEPARATOR ','), 1, 4000) as pre_jobs
             FROM {table} WHERE app_id = {app_id} AND source_job_id != target_job_id
             GROUP BY target_job_id, source_version) as d
             ON sj.job_id = d.job_id AND sj.source_version = d.source_version
