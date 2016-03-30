@@ -56,14 +56,14 @@ public class TreeBuilderActor extends UntypedActor {
           in = EtlJob.class.getClassLoader().getResourceAsStream("jython/FlowTreeBuilder.py");
           break;
         default:
-          Logger.warn("unknown message : {}", msg);
+          Logger.error("unknown message : {}", msg);
       }
       if (in != null) {
         interpreter.execfile(in);
         in.close();
         Logger.info("Finish build {} tree", msg);
       } else {
-        Logger.warn("can not find jython script");
+        Logger.error("can not find jython script");
       }
     } else {
       throw new Exception("message type is not supported!");
