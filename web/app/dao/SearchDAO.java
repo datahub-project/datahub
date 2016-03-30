@@ -39,16 +39,15 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"id, `name`, `schema`, `source`, `urn`, FROM_UNIXTIME(source_modified_time) as modified, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 as rank " +
 			"FROM (SELECT id, `name`, `schema`, `source`, `urn`, source_modified_time, " +
-			"CASE WHEN match(`name`) against ('$keyword' IN BOOLEAN MODE) THEN 3000 ELSE 0 END rank_01, " +
-			"CASE WHEN match(`name`) against ('$keyword*' IN BOOLEAN MODE) THEN 2000 ELSE 0 END rank_02, " +
-			"CASE WHEN match(`name`) against ('*$keyword*' IN BOOLEAN MODE) THEN 1000 ELSE 0 END rank_03, " +
-			"CASE WHEN match(`urn`) against ('$keyword' IN BOOLEAN MODE) THEN 300 ELSE 0 END rank_04, " +
-			"CASE WHEN match(`urn`) against ('$keyword*' IN BOOLEAN MODE) THEN 200 ELSE 0 END rank_05, " +
-			"CASE WHEN match(`urn`) against ('*$keyword*' IN BOOLEAN MODE) THEN 100 ELSE 0 END rank_06, " +
-			"CASE WHEN match(`schema`) against ('$keyword' IN BOOLEAN MODE) THEN 30 ELSE 0 END rank_07, " +
-			"CASE WHEN match(`schema`) against ('$keyword*' IN BOOLEAN MODE) THEN 20 ELSE 0 END rank_08, " +
-			"CASE WHEN match(`schema`) against ('*$keyword*' IN BOOLEAN MODE) THEN 10 ELSE 0 END rank_09, " +
-			"CASE WHEN match(`schema`) against ('*v_$keyword*' IN BOOLEAN MODE) THEN 5 ELSE 0 END rank_10 " +
+			"CASE WHEN `name` = '$keyword' THEN 3000 ELSE 0 END rank_01, " +
+			"CASE WHEN `name` like '$keyword%' THEN 2000 ELSE 0 END rank_02, " +
+			"CASE WHEN `name` like '%$keyword%' THEN 1000 ELSE 0 END rank_03, " +
+			"CASE WHEN `urn` = '$keyword' THEN 300 ELSE 0 END rank_04, " +
+			"CASE WHEN `urn` like '$keyword%' THEN 200 ELSE 0 END rank_05, " +
+			"CASE WHEN `urn` like '%$keyword%' THEN 100 ELSE 0 END rank_06, " +
+			"CASE WHEN `schema` = '$keyword' THEN 30 ELSE 0 END rank_07, " +
+			"CASE WHEN `schema` like '$keyword%' THEN 20 ELSE 0 END rank_08, " +
+			"CASE WHEN `schema` like '%$keyword%' THEN 10 ELSE 0 END rank_09 " +
 			"FROM dict_dataset WHERE MATCH(`name`, `schema`,  `properties`, `urn`)" +
 			" AGAINST ('*$keyword* *v_$keyword*' IN BOOLEAN MODE) ) t " +
 			"ORDER BY rank DESC, `name`, `urn` LIMIT ?, ?;";
@@ -57,16 +56,15 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"id, `name`, `schema`, `source`, `urn`, FROM_UNIXTIME(source_modified_time) as modified, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 as rank " +
 			"FROM (SELECT id, `name`, `schema`, `source`, `urn`, source_modified_time, " +
-			"CASE WHEN match(`name`) against ('$keyword' IN BOOLEAN MODE) THEN 3000 ELSE 0 END rank_01, " +
-			"CASE WHEN match(`name`) against ('$keyword*' IN BOOLEAN MODE) THEN 2000 ELSE 0 END rank_02, " +
-			"CASE WHEN match(`name`) against ('*$keyword*' IN BOOLEAN MODE) THEN 1000 ELSE 0 END rank_03, " +
-			"CASE WHEN match(`urn`) against ('$keyword' IN BOOLEAN MODE) THEN 300 ELSE 0 END rank_04, " +
-			"CASE WHEN match(`urn`) against ('$keyword*' IN BOOLEAN MODE) THEN 200 ELSE 0 END rank_05, " +
-			"CASE WHEN match(`urn`) against ('*$keyword*' IN BOOLEAN MODE) THEN 100 ELSE 0 END rank_06, " +
-			"CASE WHEN match(`schema`) against ('$keyword' IN BOOLEAN MODE) THEN 30 ELSE 0 END rank_07, " +
-			"CASE WHEN match(`schema`) against ('$keyword*' IN BOOLEAN MODE) THEN 20 ELSE 0 END rank_08, " +
-			"CASE WHEN match(`schema`) against ('*$keyword*' IN BOOLEAN MODE) THEN 10 ELSE 0 END rank_09, " +
-			"CASE WHEN match(`schema`) against ('*v_$keyword*' IN BOOLEAN MODE) THEN 5 ELSE 0 END rank_10 " +
+			"CASE WHEN `name` = '$keyword' THEN 3000 ELSE 0 END rank_01, " +
+			"CASE WHEN `name` like '$keyword%' THEN 2000 ELSE 0 END rank_02, " +
+			"CASE WHEN `name` like '%$keyword%' THEN 1000 ELSE 0 END rank_03, " +
+			"CASE WHEN `urn` = '$keyword' THEN 300 ELSE 0 END rank_04, " +
+			"CASE WHEN `urn` like '$keyword%' THEN 200 ELSE 0 END rank_05, " +
+			"CASE WHEN `urn` like '%$keyword%' THEN 100 ELSE 0 END rank_06, " +
+			"CASE WHEN `schema` = '$keyword' THEN 30 ELSE 0 END rank_07, " +
+			"CASE WHEN `schema` like '$keyword%' THEN 20 ELSE 0 END rank_08, " +
+			"CASE WHEN `schema` like '%$keyword%' THEN 10 ELSE 0 END rank_09 " +
 			"FROM dict_dataset WHERE MATCH(`name`, `schema`,  `properties`, `urn`)" +
 			" AGAINST ('*$keyword* *v_$keyword*' IN BOOLEAN MODE) and source = ? ) t " +
 			"ORDER BY rank desc, `name`, `urn` LIMIT ?, ?;";
