@@ -382,9 +382,16 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					Long sourceModifiedTime =
 							(Long)row.get(DatasetWithUserRowMapper.DATASET_SOURCE_MODIFIED_TIME_COLUMN);
 					String properties = (String)row.get(DatasetWithUserRowMapper.DATASET_PROPERTIES_COLUMN);
-					if (StringUtils.isNotBlank(properties))
+					try
 					{
-						ds.properties = Json.parse(properties);
+						if (StringUtils.isNotBlank(properties))
+						{
+							ds.properties = Json.parse(properties);
+						}
+					}
+					catch (Exception e)
+					{
+						Logger.error(e.getMessage());
 					}
 
 					if (modified != null && sourceModifiedTime != null && sourceModifiedTime > 0)
