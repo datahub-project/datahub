@@ -321,12 +321,22 @@ if __name__ == "__main__":
   l.input_file = args[Constant.TD_METADATA_KEY]
   l.input_field_file = args[Constant.TD_FIELD_METADATA_KEY]
   l.input_sampledata_file = args[Constant.TD_SAMPLE_OUTPUT_KEY]
+
+  do_sample = True # default load sample
+  if Constant.TD_LOAD_SAMPLE in args:
+    do_sample = bool(args[Constant.TD_LOAD_SAMPLE])
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+
+  if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
+    lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
+    l.conn_mysql.cursor().execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+
   try:
     l.load_metadata()
     l.load_field()
-    l.load_sample()
+    if do_sample:
+      l.load_sample()
   finally:
     l.conn_mysql.close()

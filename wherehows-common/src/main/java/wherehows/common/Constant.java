@@ -65,6 +65,9 @@ public class Constant {
   /** The property_name field in wh_etl_job_property table. Oozie execution info ETL lookback time */
   public static final String OZ_EXEC_ETL_LOOKBACK_MINS_KEY = "oz.exec_etl.lookback_period.in.minutes";
 
+  /** Optional. The property_name field in wh_etl_job_property table. Set innodb_lock_wait_timeout for mysql */
+  public static final String INNODB_LOCK_WAIT_TIMEOUT = "innodb_lock_wait_timeout";
+
   // Teradata
   /** The property_name field in wh_etl_job_property table. Teradata connection info */
   public static final String TD_DB_URL_KEY = "teradata.db.jdbc.url";
@@ -85,6 +88,8 @@ public class Constant {
   public static final String TD_TARGET_DATABASES_KEY = "teradata.databases";
   /** The property_name field in wh_etl_job_property table. Used for connecting */
   public static final String TD_DEFAULT_DATABASE_KEY = "teradata.default_database";
+  /** Optional. The property_name field in wh_etl_job_property table. Decide whether load sample data or not */
+  public static final String TD_LOAD_SAMPLE = "teradata.load_sample";
 
   // Hdfs
   /** The property_name field in wh_etl_job_property table. The hfds remote user that run the hadoop job on gateway */

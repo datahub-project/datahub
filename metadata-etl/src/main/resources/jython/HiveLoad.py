@@ -313,6 +313,11 @@ if __name__ == "__main__":
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+
+  if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
+    lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
+    l.conn_mysql.cursor().execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+
   try:
     l.load_metadata()
     l.load_field()

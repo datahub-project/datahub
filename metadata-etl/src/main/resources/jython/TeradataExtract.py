@@ -547,6 +547,9 @@ if __name__ == "__main__":
 
   e = TeradataExtract()
   e.conn_td = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+  do_sample = True
+  if Constant.TD_LOAD_SAMPLE in args:
+    do_sample = bool(args[Constant.TD_LOAD_SAMPLE])
   try:
     e.conn_td.cursor().execute(
       "SET QUERY_BAND = 'script=%s; pid=%d; ' FOR SESSION;" % ('TeradataExtract.py', os.getpid()))
@@ -557,7 +560,7 @@ if __name__ == "__main__":
     index_type = {'P': 'Primary Index', 'K': 'Primary Key', 'S': 'Secondary Index', 'Q': 'Partitioned Primary Index',
                   'J': 'Join Index', 'U': 'Unique Index'}
 
-    e.run(None, None, args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_SAMPLE_OUTPUT_KEY], sample=False)
+    e.run(None, None, args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_SAMPLE_OUTPUT_KEY], sample=do_sample)
   finally:
     e.conn_td.close()
 
