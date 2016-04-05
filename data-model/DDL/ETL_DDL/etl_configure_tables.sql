@@ -123,7 +123,7 @@ CREATE TABLE `cfg_application` (
 CREATE TABLE `cfg_database` (
   `db_id`                   SMALLINT    UNSIGNED NOT NULL,
   `db_code`                 VARCHAR(30)          NOT NULL,
-  `db_type_id`              SMALLINT(6) UNSIGNED NOT NULL,
+  `db_type_id`              SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
   `description`             VARCHAR(128)         NOT NULL,
   `is_logical`              CHAR(1)              NOT NULL DEFAULT 'N',
   `cluster_size`            SMALLINT(6) UNSIGNED NOT NULL DEFAULT '1',
