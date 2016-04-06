@@ -111,7 +111,7 @@ git.project.whitelist=
 # hive metastore
 hive.metastore.jdbc.url=
 hive.metastore.jdbc.driver=
-hive.metstore.username=
+hive.metastore.username=
 hive.metastore.password=
 
 hive.schema_json_file=

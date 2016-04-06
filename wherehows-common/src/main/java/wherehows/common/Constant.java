@@ -156,7 +156,7 @@ public class Constant {
   // hive
   public static final String HIVE_METASTORE_JDBC_DRIVER = "hive.metastore.jdbc.driver";
   public static final String HIVE_METASTORE_JDBC_URL = "hive.metastore.jdbc.url";
-  public static final String HIVE_METASTORE_USERNAME = "hive.metstore.username";
+  public static final String HIVE_METASTORE_USERNAME = "hive.metastore.username";
   public static final String HIVE_METASTORE_PASSWORD = "hive.metastore.password";
 
   public static final String HIVE_DATABASE_WHITELIST_KEY = "hive.database_white_list";
