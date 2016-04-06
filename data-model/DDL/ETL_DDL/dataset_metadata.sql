@@ -92,7 +92,7 @@ CREATE TABLE `dict_dataset` (
   UNIQUE KEY `uq_dataset_urn` (`urn`),
   FULLTEXT KEY `fti_datasets_all` (`name`, `schema`, `properties`, `urn`)
 )
-  ENGINE = MyISAM
+  ENGINE = InnoDB
   AUTO_INCREMENT = 0
   DEFAULT CHARSET = latin1;
 
@@ -196,7 +196,7 @@ CREATE TABLE `dict_field_detail` (
   KEY `idx_dict_field__datasetid_fieldname` (`dataset_id`, `field_name`) USING BTREE,
   KEY `idx_dict_field__fieldslayoutid` (`fields_layout_id`) USING BTREE
 )
-  ENGINE = MyISAM
+  ENGINE = InnoDB
   AUTO_INCREMENT = 0
   DEFAULT CHARSET = utf8
   COMMENT = 'Fields/Columns';
