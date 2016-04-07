@@ -91,7 +91,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 
     private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT j.storage_type, " +
             "j.abstracted_object_name, d.id FROM job_execution_data_lineage j " +
-            "Left join dict_dataset d on substring_index(d.urn, '://', -1) = j.abstracted_object_name " +
+            "LEFT JOIN dict_dataset d ON d.urn = concat(j.storage_type, '://', j.abstracted_object_name) " +
             "WHERE (app_id, job_exec_id) in ( " +
             "SELECT app_id, job_exec_id FROM job_execution_data_lineage " +
             "WHERE abstracted_object_name in (:pathlist) and source_target_type = 'source' and " +
