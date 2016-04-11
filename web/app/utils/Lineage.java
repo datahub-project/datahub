@@ -45,38 +45,9 @@ public class Lineage
             pathInfo.storageType = storageType;
             if (StringUtils.isNotBlank(storageType))
             {
-                if (storageType.equalsIgnoreCase("hdfs"))
+                if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
                 {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        pathInfo.filePath = "/" + pathArray[1];
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("teradata"))
-                {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        int index = pathArray[1].indexOf("/");
-                        if (index != -1)
-                        {
-                            pathInfo.schemaName = pathArray[1].substring(0, index);
-                            pathInfo.filePath = pathArray[1].substring(index+1);
-                        }
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("nas"))
-                {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        pathInfo.filePath = "/" + pathArray[1];
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("hive"))
-                {
-                  if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                  {
-                      pathInfo.filePath = "/" + pathArray[1];
-                  }
+                    pathInfo.filePath = "/" + pathArray[1];
                 }
                 else
                 {
