@@ -84,13 +84,6 @@ public class Lineage
                 filePath = pathInfo.filePath;
             }
         }
-        if (StringUtils.isNotBlank(pathInfo.storageType) && pathInfo.storageType.equalsIgnoreCase("teradata"))
-        {
-            return "teradata:///" + pathInfo.schemaName + "/" + filePath;
-        }
-        else
-        {
-            return pathInfo.storageType.toLowerCase() + ":///" + filePath;
-        }
+        return pathInfo.storageType.toLowerCase() + ":///" + filePath;
     }
 }
