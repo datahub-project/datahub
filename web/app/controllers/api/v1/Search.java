@@ -38,12 +38,13 @@ public class Search extends Controller
         return ok(result);
     }
 
-    public static Result searchByKeyword(String keyword)
+    public static Result searchByKeyword()
     {
         ObjectNode result = Json.newObject();
 
         int page = 1;
         int size = 10;
+        String keyword = request().getQueryString("keyword");
         String category = request().getQueryString("category");
         String source = request().getQueryString("source");
         String pageStr = request().getQueryString("page");
