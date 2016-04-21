@@ -24,6 +24,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class Lineage
@@ -85,5 +86,21 @@ public class Lineage
             }
         }
         return pathInfo.storageType.toLowerCase() + ":///" + filePath;
+    }
+
+    public static boolean isInList(List<String> list, String source)
+    {
+        if (list == null || list.size() == 0 || StringUtils.isBlank(source))
+        {
+            return false;
+        }
+        for(String s : list)
+        {
+            if (source.equalsIgnoreCase(s))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }

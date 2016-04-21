@@ -33,6 +33,7 @@ public class LineageNode {
     public String job_end_time;
     public Long job_start_unix_time;
     public Long job_end_unix_time;
+    public int level;
     public String git_location;
     public List<String> _sort_list;
     public String source_target_type;
