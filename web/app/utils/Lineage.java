@@ -24,6 +24,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class Lineage
@@ -45,38 +46,9 @@ public class Lineage
             pathInfo.storageType = storageType;
             if (StringUtils.isNotBlank(storageType))
             {
-                if (storageType.equalsIgnoreCase("hdfs"))
+                if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
                 {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        pathInfo.filePath = "/" + pathArray[1];
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("teradata"))
-                {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        int index = pathArray[1].indexOf("/");
-                        if (index != -1)
-                        {
-                            pathInfo.schemaName = pathArray[1].substring(0, index);
-                            pathInfo.filePath = pathArray[1].substring(index+1);
-                        }
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("nas"))
-                {
-                    if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                    {
-                        pathInfo.filePath = "/" + pathArray[1];
-                    }
-                }
-                else if (storageType.equalsIgnoreCase("hive"))
-                {
-                  if (pathArray.length > 1 && StringUtils.isNotBlank(pathArray[1]))
-                  {
-                      pathInfo.filePath = "/" + pathArray[1];
-                  }
+                    pathInfo.filePath = "/" + pathArray[1];
                 }
                 else
                 {
@@ -113,13 +85,22 @@ public class Lineage
                 filePath = pathInfo.filePath;
             }
         }
-        if (StringUtils.isNotBlank(pathInfo.storageType) && pathInfo.storageType.equalsIgnoreCase("teradata"))
+        return pathInfo.storageType.toLowerCase() + ":///" + filePath;
+    }
+
+    public static boolean isInList(List<String> list, String source)
+    {
+        if (list == null || list.size() == 0 || StringUtils.isBlank(source))
         {
-            return "teradata:///" + pathInfo.schemaName + "/" + filePath;
+            return false;
         }
-        else
+        for(String s : list)
         {
-            return pathInfo.storageType.toLowerCase() + ":///" + filePath;
+            if (source.equalsIgnoreCase(s))
+            {
+                return true;
+            }
         }
+        return false;
     }
 }
