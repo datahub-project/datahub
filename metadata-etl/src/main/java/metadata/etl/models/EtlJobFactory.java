@@ -24,6 +24,7 @@ import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
+import metadata.etl.scheduler.appworx.AppworxExecEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
 import metadata.etl.models.EtlJobName;
@@ -38,6 +39,8 @@ public class EtlJobFactory {
     switch (etlJobName) {
       case AZKABAN_EXECUTION_METADATA_ETL:
         return new AzkabanExecEtl(refId, whExecId, properties);
+      case APPWORX_EXECUTION_METADATA_ETL:
+        return new AppworxExecEtl(refId, whExecId, properties);
       case OOZIE_EXECUTION_METADATA_ETL:
         return new OozieExecEtl(refId, whExecId, properties);
       case HADOOP_DATASET_METADATA_ETL:
