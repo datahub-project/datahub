@@ -56,6 +56,17 @@ public class Constant {
   public static final String AZ_SERVICE_USERNAME_KEY = "az.server.username";
   public static final String AZ_SERVICE_PASSWORD_KEY = "az.server.password";
 
+  //Appworx
+  public static final String AW_DB_URL_KEY = "aw.db.jdbc.url";
+  public static final String AW_DB_USERNAME_KEY = "aw.db.username";
+  public static final String AW_DB_PASSWORD_KEY = "aw.db.password";
+  public static final String AW_DB_NAME_KEY = "aw.db.name";
+  public static final String AW_DB_DRIVER_KEY = "aw.db.driver";
+  public static final String AW_DB_PORT_KEY =  "aw.db.port";
+  public static final String AW_ARCHIVE_DIR =  "aw.archive.dir";
+  /** The property_name field in wh_etl_job_property table. The time period backtrace for execution data ETL */
+  public static final String AW_EXEC_ETL_LOOKBACK_KEY = "aw.exec_etl.lookback_period.in.days";
+
   // Oozie
   /** The property_name field in wh_etl_job_property table. Oozie database connection info */
   public static final String OZ_DB_URL_KEY = "oz.db.jdbc.url";
