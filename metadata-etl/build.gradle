@@ -27,8 +27,9 @@ dependencies {
   compile files("extralibs/tdgssconfig-15.00.00.20.jar")
   compile externalDependency.jython
   compile externalDependency.mysql
-  // compile files("extralibs/mysql-connector-java-5.1.36.jar")
-  // compile files("extralibs/jython-standalone-2.7.0.jar")
+  compile files("extralibs/ojdbc7.jar") // externalDependency.oracle
+  compile files("extralibs/mysql-connector-java-5.1.36.jar") // externalDependency.mysql
+  compile files("extralibs/jython-standalone-2.7.0.jar") //externalDependency.jython
   provided project(":hadoop-dataset-extractor-standalone")
   testCompile externalDependency.testng
 }
