@@ -19,5 +19,6 @@ package wherehows.common.enums;
 public enum SchedulerType {
   GENERIC,
   AZKABAN,
-  OOZIE
+  OOZIE,
+  APPWORX
 }
