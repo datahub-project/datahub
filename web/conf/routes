@@ -101,7 +101,7 @@ POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.o
 
 DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
 
-GET     /api/v1/search/:keyword                     controllers.api.v1.Search.searchByKeyword(keyword:String)
+GET     /api/v1/search                              controllers.api.v1.Search.searchByKeyword()
 
 GET     /api/v1/metrics                             controllers.api.v1.Metric.getPagedMetrics()
 
