@@ -17,3 +17,10 @@ def dict_cursor(cursor):
   description = [x[0] for x in cursor.description]
   for row in cursor:
     yield dict(zip(description, row))
+
+def copy_dict_cursor(cursor):
+  result = []
+  description = [x[0] for x in cursor.description]
+  for row in cursor:
+    result.append(dict(zip(description, row)))
+  return result

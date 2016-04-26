@@ -25,6 +25,7 @@ subprojects {
   license {
     header licenseFile
     exclude "**/*.scala.html"
+    exclude "**/pyparsing.py"
   }
   repositories {
     flatDir {

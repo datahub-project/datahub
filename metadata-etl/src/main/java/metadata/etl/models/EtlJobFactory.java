@@ -21,6 +21,7 @@ import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
+import metadata.etl.lineage.appworx.AppworxLineageEtl;
 import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
@@ -49,6 +50,8 @@ public class EtlJobFactory {
         return new TeradataMetadataEtl(refId, whExecId, properties);
       case AZKABAN_LINEAGE_METADATA_ETL:
         return new AzLineageMetadataEtl(refId, whExecId, properties);
+      case APPWORX_LINEAGE_METADATA_ETL:
+        return new AppworxLineageEtl(refId, whExecId, properties);
       case HADOOP_DATASET_OWNER_ETL:
         return new DatasetOwnerEtl(refId, whExecId, properties);
       case LDAP_USER_ETL:
