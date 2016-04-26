@@ -64,8 +64,15 @@ public class Constant {
   public static final String AW_DB_DRIVER_KEY = "aw.db.driver";
   public static final String AW_DB_PORT_KEY =  "aw.db.port";
   public static final String AW_ARCHIVE_DIR =  "aw.archive.dir";
+  public static final String AW_REMOTE_HADOOP_SCRIPT_DIR = "aw.remote_hadoop_script_dir";
+  public static final String AW_LOCAL_SCRIPT_PATH = "aw.local_script_path";
+  public static final String AW_REMOTE_SCRIPT_PATH = "aw.remote_script_path";
+  public static final String AW_BTEQ_SOURCE_TARGET_OVERRIDE = "aw.bteq_source_target_override";
+  public static final String AW_METRIC_OVERRIDE = "aw.metric_override";
+  public static final String AW_SKIP_ALREADY_PARSED = "aw.skip_already_parsed";
   /** The property_name field in wh_etl_job_property table. The time period backtrace for execution data ETL */
   public static final String AW_EXEC_ETL_LOOKBACK_KEY = "aw.exec_etl.lookback_period.in.days";
+  public static final String AW_LINEAGE_ETL_LOOKBACK_KEY = "aw.lineage_etl.lookback_period.in.days";
 
   // Oozie
   /** The property_name field in wh_etl_job_property table. Oozie database connection info */
