@@ -37,6 +37,7 @@ public class AppworxExecEtlTest{
     aw.transform();
   }
 
+
   @Test(groups = {"needConfig"})
   public void testLoad() throws Exception {
     aw.load();
