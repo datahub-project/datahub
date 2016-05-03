@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `stg_job_execution_data_lineage` (
 
   `db_id`                  SMALLINT(5) UNSIGNED                                DEFAULT NULL,
   `abstracted_object_name` VARCHAR(255)                                        DEFAULT NULL,
-  `full_object_name`       VARCHAR(255)                                        DEFAULT NULL,
+  `full_object_name`       VARCHAR(1000)                                       DEFAULT NULL,
   `partition_start`        VARCHAR(50)                                         DEFAULT NULL,
   `partition_end`          VARCHAR(50)                                         DEFAULT NULL,
   `partition_type`         VARCHAR(20)                                         DEFAULT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS `job_execution_data_lineage` (
 
   `db_id`                  SMALLINT(5) UNSIGNED                                DEFAULT NULL,
   `abstracted_object_name` VARCHAR(255)                               NOT NULL,
-  `full_object_name`       VARCHAR(255)                                        DEFAULT NULL,
+  `full_object_name`       VARCHAR(1000)                                       DEFAULT NULL,
   `partition_start`        VARCHAR(50)                                         DEFAULT NULL,
   `partition_end`          VARCHAR(50)                                         DEFAULT NULL,
   `partition_type`         VARCHAR(20)                                         DEFAULT NULL,

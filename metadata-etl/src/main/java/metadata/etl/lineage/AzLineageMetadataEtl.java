@@ -107,6 +107,10 @@ public class AzLineageMetadataEtl extends EtlJob {
     // insert into the final table
     // TODO: need to be insert on duplicate update, so the running flows can be updated
     String insertIntoFinalTable = "INSERT IGNORE INTO job_execution_data_lineage\n"
+        + "( app_id, flow_exec_id, job_exec_id, job_exec_uuid, job_name, job_start_unixtime, job_finished_unixtime,\n"
+        + "db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,\n"
+        + "layout_id, storage_type, source_target_type, srl_no, source_srl_no, operation,\n"
+        + "record_count, insert_count, delete_count, update_count, flow_path, created_date, wh_etl_exec_id)"
       + "SELECT app_id, flow_exec_id, job_exec_id, job_exec_uuid, job_name, job_start_unixtime, job_finished_unixtime,\n"
       + "db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,\n"
       + "layout_id, storage_type, source_target_type, srl_no, source_srl_no, operation,\n"

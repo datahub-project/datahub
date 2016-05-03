@@ -19,7 +19,7 @@ from javax.naming.directory import SearchControls
 from javax.naming.directory import BasicAttributes
 from wherehows.common import Constant
 
-import csv, re, os, sys
+import csv, re, os, sys, json
 from java.util import Hashtable
 from java.io import FileWriter
 
@@ -43,9 +43,6 @@ class LdapExtract:
     self.group_map = dict()
     self.group_flatten_map = dict()
 
-  def split_property(self, property_value):
-    return re.split('\s*\'\s*,\s*\'\s*', property_value.strip('\' \t\n\r\f\v'))
-
   def fetch_ldap_user(self, file):
     """
     fetch ldap user from ldap server
@@ -67,7 +64,7 @@ class LdapExtract:
     search_target = '(objectClass=person)'
     return_attributes_standard = ['user_id', 'distinct_name', 'name', 'display_name', 'title', 'employee_number',
                                   'manager', 'mail', 'department_number', 'department', 'start_date', 'mobile']
-    return_attributes_actual = self.split_property(self.args[Constant.LDAP_SEARCH_RETURN_ATTRS_KEY])
+    return_attributes_actual = json.loads(self.args[Constant.LDAP_SEARCH_RETURN_ATTRS_KEY])
     return_attributes_map = dict(zip(return_attributes_standard, return_attributes_actual))
 
     ctls = SearchControls()
@@ -75,8 +72,8 @@ class LdapExtract:
     ctls.setSearchScope(SearchControls.SUBTREE_SCOPE)
     ldap_records = []
 
-    # domain format should look like : 'OU=domain1','OU=domain2','OU=domain3,OU=subdomain3'
-    org_units = self.split_property(self.args[Constant.LDAP_SEARCH_DOMAINS_KEY])
+    # domain format should look like : ['OU=domain1','OU=domain2','OU=domain3,OU=subdomain3']
+    org_units = json.loads(self.args[Constant.LDAP_SEARCH_DOMAINS_KEY])
 
     for search_unit in org_units:
       search_result = ctx.search(search_unit, search_target, ctls)
@@ -126,14 +123,14 @@ class LdapExtract:
     ctx = InitialDirContext(settings)
     search_target = "(objectClass=posixGroup)"
     return_attributes_standard = ['group_id', 'member_ids']
-    return_attributes_actual = self.split_property(self.args[Constant.LDAP_GROUP_SEARCH_RETURN_ATTRS_KEY])
+    return_attributes_actual = json.loads(self.args[Constant.LDAP_GROUP_SEARCH_RETURN_ATTRS_KEY])
     return_attributes_map = dict(zip(return_attributes_standard, return_attributes_actual))
     ctls = SearchControls()
     ctls.setReturningAttributes(return_attributes_actual)
     ctls.setSearchScope(SearchControls.SUBTREE_SCOPE)
 
     ldap_records = []
-    org_units = self.split_property(self.args[Constant.LDAP_GROUP_SEARCH_DOMAINS_KEY])
+    org_units = json.loads(self.args[Constant.LDAP_GROUP_SEARCH_DOMAINS_KEY])
     for search_unit in org_units:
       results = ctx.search(search_unit, search_target, ctls)
       for r in results:

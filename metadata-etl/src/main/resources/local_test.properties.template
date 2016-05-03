@@ -12,6 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+# Job identify info
+whEtlId=
+job=
+refId=
+
 # Teradata properties
 teradata.databases=
 teradata.db.driver=
