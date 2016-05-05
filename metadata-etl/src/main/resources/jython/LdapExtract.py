@@ -14,13 +14,18 @@
 
 from org.slf4j import LoggerFactory
 from javax.naming.directory import InitialDirContext
+from javax.naming.ldap import InitialLdapContext
 from javax.naming import Context
 from javax.naming.directory import SearchControls
 from javax.naming.directory import BasicAttributes
+from javax.naming.ldap import Control
+from javax.naming.ldap import PagedResultsControl
+from javax.naming.ldap import PagedResultsResponseControl
 from wherehows.common import Constant
 
 import csv, re, os, sys, json
 from java.util import Hashtable
+from jarray import zeros, array
 from java.io import FileWriter
 
 
@@ -56,8 +61,14 @@ class LdapExtract:
     settings.put(Context.SECURITY_PRINCIPAL, self.args[Constant.LDAP_CONTEXT_SECURITY_PRINCIPAL_KEY])
     settings.put(Context.SECURITY_CREDENTIALS, self.args[Constant.LDAP_CONTEXT_SECURITY_CREDENTIALS_KEY])
 
+    # page the result, each page have fix number of records
+    pageSize = 5000
+    pageControl = PagedResultsControl(pageSize, Control.NONCRITICAL)
+    c_array = array([pageControl], Control)
+
     # Connect to LDAP Server
-    ctx = InitialDirContext(settings)
+    ctx = InitialLdapContext(settings, None)
+    ctx.setRequestControls(c_array);
 
     # load the java Hashtable out of the ldap server
     # Query starting point and query target
@@ -75,34 +86,54 @@ class LdapExtract:
     # domain format should look like : ['OU=domain1','OU=domain2','OU=domain3,OU=subdomain3']
     org_units = json.loads(self.args[Constant.LDAP_SEARCH_DOMAINS_KEY])
 
+    cookie = None
     for search_unit in org_units:
-      search_result = ctx.search(search_unit, search_target, ctls)
-
-      # print search_return_attributes
-      for person in search_result:
-        ldap_user_tuple = [self.app_id]
-        if search_unit == self.args[Constant.LDAP_INACTIVE_DOMAIN_KEY]:
-          ldap_user_tuple.append('N')
-        else:
-          ldap_user_tuple.append('Y')
-        person_attributes = person.getAttributes()
-        user_id = person_attributes.get(return_attributes_map['user_id'])
-        user_id = re.sub(r"\r|\n", '', user_id.get(0)).strip().encode('utf8')
-        self.ldap_user.add(user_id)
-
-        for attr_name in return_attributes_actual:
-          attr = person_attributes.get(attr_name)
-          if attr:
-            attr = re.sub(r"\r|\n", '', attr.get(0)).strip().encode('utf8')
-            # special fix for start_date
-            if attr_name == return_attributes_map['start_date'] and len(attr) == 4:
-              attr += '0101'
-            ldap_user_tuple.append(attr)
+      # pagination
+      while True:
+        # do the search
+        search_result = ctx.search(search_unit, search_target, ctls)
+        for person in search_result:
+          ldap_user_tuple = [self.app_id]
+          if search_unit == self.args[Constant.LDAP_INACTIVE_DOMAIN_KEY]:
+            ldap_user_tuple.append('N')
           else:
-            ldap_user_tuple.append("")
+            ldap_user_tuple.append('Y')
+          person_attributes = person.getAttributes()
+          user_id = person_attributes.get(return_attributes_map['user_id'])
+          user_id = re.sub(r"\r|\n", '', user_id.get(0)).strip().encode('utf8')
+          self.ldap_user.add(user_id)
 
-        ldap_user_tuple.append(self.wh_exec_id)
-        ldap_records.append(ldap_user_tuple)
+          for attr_name in return_attributes_actual:
+            attr = person_attributes.get(attr_name)
+            if attr:
+              attr = re.sub(r"\r|\n", '', attr.get(0)).strip().encode('utf8')
+              # special fix for start_date
+              if attr_name == return_attributes_map['start_date'] and len(attr) == 4:
+                attr += '0101'
+              ldap_user_tuple.append(attr)
+            else:
+              ldap_user_tuple.append("")
+
+          ldap_user_tuple.append(self.wh_exec_id)
+          ldap_records.append(ldap_user_tuple)
+
+        # Examine the paged results control response
+        control = ctx.getResponseControls()[0] # will always return a list, but only have one item
+        if isinstance(control, PagedResultsResponseControl):
+          cookie = control.getCookie()
+
+        # Re-activate paged results
+        if cookie is None:
+          # reset ctx, break while loop, do next search
+          pageControl = PagedResultsControl(pageSize, Control.NONCRITICAL)
+          c_array = array([pageControl], Control)
+          ctx.setRequestControls(c_array)
+          break
+        else:
+          self.logger.debug("Have more than one page of result when search " + search_unit)
+          pageControl = PagedResultsControl(pageSize, cookie, Control.CRITICAL)
+          c_array = array([pageControl], Control)
+          ctx.setRequestControls(c_array)
 
     self.logger.info("%d records found in ldap search" % (len(self.ldap_user)))
 
