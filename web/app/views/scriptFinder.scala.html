@@ -1,0 +1,128 @@
+@(user: String, isInternal:Boolean)
+@main(user, "", isInternal) {
+  <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/scriptFinder.css")">
+    <div id="content">
+      <script type="text/x-handlebars" id="scripts">
+        <div id="scriptView" class="container-fluid">
+          <div class="row-fluid">
+            <div class="span9">
+              <div class="search-pagination">
+                <ul class="pager">
+                  {{#unless first}}
+                    <li class="previous">
+                      {{#link-to 'page' previousPage}}
+                        &larr; Prev
+                      {{/link-to}}
+                    </li>
+                  {{/unless}}
+                  <li>
+                    {{ model.data.count }} scripts - page {{ model.data.page }} of {{ model.data.totalPages }}
+                  </li>
+                  {{#unless last}}
+                    <li class="next">
+                      {{#link-to 'page' nextPage}}
+                        Next &rarr;
+                      {{/link-to}}
+                    </li>
+                  {{/unless}}
+                </ul>
+              </div>
+              <table id="scriptstable" class="table table-bordered table-hover search-results">
+                <thead>
+                  <tr class="results-header">
+                    <th class="span2">Script Name</th>
+                    <th class="span2">Script Path</th>
+                    <th class="span1">Type</th>
+                    <th class="span2">Chain Name</th>
+                    <th class="span2">Job Name</th>
+                    <th class="span1">Committer Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr {{action 'onSelect' script this}} class="script-row">
+                    <td>
+                      <input id="scriptName" type="text" class="script-filter form-control" placeholder="Filter by Script Name"/>
+                    </td>
+                    <td>
+                      <input id="scriptPath" type="text" class="script-filter form-control" placeholder="Filter by Script Path"/>
+                    </td>
+                    <td>
+                      <input id="scriptType" type="text" class="script-filter form-control" placeholder="Filter by Script Type"/>
+                    </td>
+                    <td>
+                      <input id="chainName" type="text" class="script-filter form-control" placeholder="Filter by Chain Name"/>
+                    </td>
+                    <td>
+                      <input id="jobName" type="text" class="script-filter form-control" placeholder="Filter by Job Name"/>
+                    </td>
+                    <td>
+                      <input id="committerName" type="text" class="script-filter form-control" placeholder="Filter by Committer Name"/>
+                    </td>
+                    <td>
+                    </td>
+                  </tr>
+                  {{#each script in model.data.scripts}}
+                    <tr {{action 'onSelect' script this}} class="script-row">
+                      <td class="dataset-info">
+                        <a {{bind-attr href=script.scriptUrl}}>
+                          {{{script.scriptName}}}
+                        </a>
+                      </td>
+                      <td>{{ script.scriptPath }}</td>
+                      <td>{{ script.scriptType }}</td>
+                      <td>{{ script.chainName }}</td>
+                      <td>{{ script.jobName }}</td>
+                      <td>{{ script.committerName }}</td>
+                    </tr>
+                  {{/each}}
+                </tbody>
+              </table>
+            </div>
+            <div class="row">
+              <div class="col-xs-12">
+                <div class="row">
+                  <div class="col-xs-12 col-sm-12 col-md-6">
+                    <div id="runtime" config="runtime"></div>
+                  </div>
+                  <div class="col-xs-12 col-sm-12 col-md-6 text-center">
+                    <h4>Lineage</h4>
+                    <table class="table table-bordered search-results">
+                      <thead>
+                        <tr>
+                          <th>Object Name</th>
+                          <th>Source</th>
+                          <th>Storage Type</th>
+                          <th>Operation</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#each lineage in lineages}}
+                        <tr ng-repeat="row in lineages">
+                          <td>{{ lineage.abstractedObjectName }}</td>
+                          <td>{{ lineage.sourceTargetType }}</td>
+                          <td>{{ lineage.storageType }}</td>
+                          <td>{{ lineage.operation }}</td>
+                        </tr>
+                        {{/each}}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="span9">
+              {{outlet}}
+            </div>
+          </div>
+        </div>
+      </script>
+
+    </div>
+
+    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember-template-compiler.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/highcharts/highcharts.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("javascripts/search.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("javascripts/scriptFinder.js")" type="text/javascript"></script>
+  }
