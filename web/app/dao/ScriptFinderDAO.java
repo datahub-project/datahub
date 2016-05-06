@@ -30,7 +30,7 @@ public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 			"script_name, script_url, script_path, script_type, chain_name, job_name, job_id, app_id, " +
 			"GROUP_CONCAT(committer_ldap ORDER BY commit_time DESC SEPARATOR ', ') as committer_names, " +
 			"GROUP_CONCAT(committer_email ORDER BY commit_time DESC SEPARATOR ', ') as committer_emails " +
-			"FROM script_chain_map $WHERE_CLAUSE " +
+			"FROM job_execution_script $WHERE_CLAUSE " +
 			"GROUP BY script_url, script_path, script_name, script_type, chain_name, job_name, job_id, app_id ) a " +
 			"ORDER BY a.script_name " +
 			"LIMIT :index, :size";
