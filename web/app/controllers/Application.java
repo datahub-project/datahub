@@ -27,6 +27,7 @@ import views.html.index;
 import views.html.login;
 import views.html.lineage;
 import views.html.schemaHistory;
+import views.html.scriptFinder;
 import views.html.idpc;
 import static play.data.Form.form;
 import org.apache.commons.lang3.StringUtils;
@@ -115,6 +116,19 @@ public class Application extends Controller
             username = "";
         }
         return ok(schemaHistory.render(username, isInternal));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result scriptFinder()
+    {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+
+        return ok(scriptFinder.render(username, isInternal));
     }
 
     @Security.Authenticated(Secured.class)
