@@ -50,11 +50,30 @@ class AppworxLineageExtract:
     self.metric_override = args[Constant.AW_METRIC_OVERRIDE]
     self.skip_already_parsed = args[Constant.AW_SKIP_ALREADY_PARSED]
     self.look_back_days = args[Constant.AW_LINEAGE_ETL_LOOKBACK_KEY]
+    self.last_execution_unix_time = None
+    self.get_last_execution_unix_time()
+
+  def get_last_execution_unix_time(self):
+    if self.last_execution_unix_time is None:
+      try:
+        query = """
+          SELECT MAX(job_finished_unixtime) as last_time FROM job_execution_data_lineage
+          """
+        self.aw_cursor.execute(query)
+        rows = DbUtil.dict_cursor(self.aw_cursor)
+        if rows:
+          for row in rows:
+            self.last_execution_unix_time = row['last_time']
+            break
+      except:
+        self.logger.error("Get the last execution time from job_execution_data_lineage failed")
+        self.last_execution_unix_time = None
+
+    return self.last_execution_unix_time
 
   def run(self):
     self.logger.info("Begin Appworx Log Parsing")
     try:
-      self.logger.info("Begin Appworx Log Parsing")
       self.process_li_bteq()
       self.process_li_pig()
       self.process_li_hadoop()
@@ -82,16 +101,34 @@ class AppworxLineageExtract:
     return 0
 
   def get_log_file_name(self, module_name, days_offset=1):
-    query =  \
-        """select je.*, fj.job_type,
+    if self.last_execution_unix_time:
+      query =  \
+        """select je.*, fj.job_type, fl.flow_path,
            CONCAT('%s',CONCAT(CONCAT(DATE_FORMAT(FROM_UNIXTIME(je.start_time), '%%Y%%m%%d'),'/o'),
              CONCAT(je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0), '.gz'))) as gzipped_file_name
            from job_execution je
            JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and fj.is_current = 'Y' and
-           je.job_id = fj.job_id where je.app_id = %d and
+           je.job_id = fj.job_id
+           JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
+           WHERE je.app_id = %d
+           and je.start_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 day))
+           and UPPER(fj.job_type) = '%s'
+        """
+      self.aw_cursor.execute(query %
+                             (self.aw_archive_dir, self.app_id, long(self.last_execution_unix_time), module_name))
+    else:
+      query = \
+        """select je.*, fj.job_type, fl.flow_path,
+           CONCAT('%s',CONCAT(CONCAT(DATE_FORMAT(FROM_UNIXTIME(je.start_time), '%%Y%%m%%d'),'/o'),
+             CONCAT(je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0), '.gz'))) as gzipped_file_name
+           from job_execution je
+           JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and fj.is_current = 'Y' and
+           je.job_id = fj.job_id
+           JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
+           WHERE je.app_id = %d  and
            from_unixtime(je.start_time) >= CURRENT_DATE - INTERVAL %d DAY and UPPER(fj.job_type) = '%s'
         """
-    self.aw_cursor.execute(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
+      self.aw_cursor.execute(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
     job_rows = DbUtil.copy_dict_cursor(self.aw_cursor)
 
     return job_rows
@@ -145,11 +182,11 @@ class AppworxLineageExtract:
     update_staging_lineage_query = \
         """
         INSERT IGNORE INTO stg_job_execution_data_lineage (
-          app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+          app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
           db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
           storage_type, source_target_type, srl_no, source_srl_no, operation, record_count, insert_count,
           created_date, wh_etl_exec_id)
-          SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+          SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
           CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
           CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
           CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -231,7 +268,7 @@ class AppworxLineageExtract:
               schema_name = results['table'][0]['schema_name']
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']), 0,
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']), 0,
                                   ('/' + schema_name + '/' + results['table'][0]['abstracted_path']) \
                                       if schema_name else results['table'][0]['abstracted_path'], results['table'][0]['full_path'],
                                   None, None, None, None, None, None, results['table'][0]['storage_type'],
@@ -252,7 +289,7 @@ class AppworxLineageExtract:
               full_table_name = results['table'][1]['table_name']
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']), db_id,
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']), db_id,
                                   ('/' + schema_name + '/' + results['table'][1]['table_name']) \
                                     if schema_name else results['table'][1]['table_name'],
                                   full_table_name, None, None, None, None, None, None, 'Teradata',
@@ -276,7 +313,7 @@ class AppworxLineageExtract:
               full_table_name = schema_name + '.' + table_name
               self.aw_cursor.execute(update_staging_lineage_query %
                                    (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                    row['job_name'], int(row['start_time']), int(row['end_time']),
+                                    row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                     db_id, '/' + schema_name + '/' + table_name, full_table_name,
                                     None, None, None, None, None, None, e['storage_type'],
                                     e['table_type'], (bteq_load_srl + srl + 1), 0, 0,
@@ -288,7 +325,7 @@ class AppworxLineageExtract:
             p['database_id'] = db_id
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   p['database_id'], p['abstracted_object_name'], p['full_object_name'],
                                   p['partition_start'], p['partition_start'], p['partition_end'], p['partition_end'],
                                   p['partition_type'], p['partition_type'], p['storage_type'],
@@ -345,11 +382,11 @@ class AppworxLineageExtract:
         update_staging_lineage_query = \
           """
           INSERT IGNORE INTO stg_job_execution_data_lineage (
-            app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+            app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
             db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
             storage_type, source_target_type, srl_no, source_srl_no, operation, record_count, insert_count,
             created_date, wh_etl_exec_id)
-            SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+            SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -362,7 +399,7 @@ class AppworxLineageExtract:
         for k, tab in enumerate(results['table']):
           self.aw_cursor.execute(update_staging_lineage_query %
                                 (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                 row['job_name'], int(row['start_time']), int(row['end_time']),
+                                 row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                  db_id if tab['table_type'] == 'source' else 0, tab['abstracted_path'], tab['full_path'],
                                  tab['start_partition'], tab['start_partition'],
                                  tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
@@ -431,11 +468,11 @@ class AppworxLineageExtract:
             update_staging_lineage_query = \
                 """
                 INSERT IGNORE INTO stg_job_execution_data_lineage (
-                  app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+                  app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
                   db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
                   storage_type, source_target_type, srl_no, source_srl_no, operation, record_count, insert_count,
                   created_date, wh_etl_exec_id)
-                  SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+                  SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
                   CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
                   CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
                   CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -451,7 +488,7 @@ class AppworxLineageExtract:
               srl = srl + 1
               self.aw_cursor.execute(update_staging_lineage_query %
                                      (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                      row['job_name'], int(row['start_time']), int(row['end_time']),
+                                      row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                       db_id, src_tgt_map[k]['abstracted_hdfs_path'], None,
                                       src_tgt_map[k]['min_start_partition'], src_tgt_map[k]['min_start_partition'],
                                       src_tgt_map[k]['max_end_partition'] if src_tgt_map[k]['table_type'] != 'snapshot' else None,
@@ -494,11 +531,11 @@ class AppworxLineageExtract:
         update_staging_lineage_query = \
           """
           INSERT IGNORE INTO stg_job_execution_data_lineage (
-            app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+            app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
             db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
             storage_type, source_target_type, srl_no, source_srl_no, operation, record_count, insert_count,
             created_date, wh_etl_exec_id)
-            SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+            SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -510,7 +547,7 @@ class AppworxLineageExtract:
         for k, tab in enumerate(results['table']):
           self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   db_id, tab['abstracted_path'], tab['full_path'],
                                   tab['start_partition'], tab['start_partition'],
                                   tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
@@ -550,11 +587,11 @@ class AppworxLineageExtract:
         update_staging_lineage_query = \
             """
             INSERT IGNORE INTO stg_job_execution_data_lineage (
-              app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+              app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
               db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
               storage_type, source_target_type, srl_no, source_srl_no, operation, record_count, insert_count,
               created_date, wh_etl_exec_id)
-              SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+              SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
               CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
               CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
               CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -566,7 +603,7 @@ class AppworxLineageExtract:
         tab = results['table'][0]
         self.aw_cursor.execute(update_staging_lineage_query %
                                (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                row['job_name'], int(row['start_time']), int(row['end_time']),
+                                row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                 0, tab['abstracted_path'], tab['full_path'],
                                 tab['start_partition'], tab['start_partition'],
                                 tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
@@ -578,7 +615,7 @@ class AppworxLineageExtract:
         full_table_name = tab['schema'] + '.' + tab['table_name']
         self.aw_cursor.execute(update_staging_lineage_query %
                                (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                row['job_name'], int(row['start_time']), int(row['end_time']),
+                                row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                 db_id, tab['table_name'], full_table_name,
                                 None, None,
                                 None, None,
@@ -622,11 +659,11 @@ class AppworxLineageExtract:
         update_staging_lineage_query = \
           """
           INSERT IGNORE INTO stg_job_execution_data_lineage (
-            app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+            app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
             db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
             storage_type, source_target_type, srl_no, source_srl_no, operation, record_count,
             created_date, wh_etl_exec_id)
-            SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+            SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -647,7 +684,7 @@ class AppworxLineageExtract:
               tab['source_table_name']
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   source_database_id, tab['source_table_name'], full_table_name,
                                   None, None, None, None, None, None, 'Teradata',
                                   'source', int(srl), 0, 0, 'JDBC Read',
@@ -656,7 +693,7 @@ class AppworxLineageExtract:
             srl = srl + 1
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   db_id, tab['abstracted_path'], tab['full_path'],
                                   tab['start_partition'], tab['start_partition'],
                                   tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
@@ -673,7 +710,7 @@ class AppworxLineageExtract:
           for index, tab in enumerate(results['table']):
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   db_id, tab['abstracted_path'], tab['full_path'],
                                   tab['start_partition'], tab['start_partition'],
                                   tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
@@ -698,6 +735,7 @@ class AppworxLineageExtract:
         if any(results) == 0:
           self.logger.warn("Log file: %s could not be parsed. Skipping the file" % row['gzipped_file_name'])
           continue
+        self.logger.info(str(results))
         src_tgt_map = PigLogParser(log_file_name=row['gzipped_file_name']).simple_parser()
         if any(src_tgt_map) == 0: # check for nonempty dictionary
             self.logger.warn('Pig log inside %s could not be parsed.Skipping the file' % row['gzipped_file_name'])
@@ -731,12 +769,12 @@ class AppworxLineageExtract:
         update_staging_lineage_query = \
           """
           INSERT IGNORE INTO stg_job_execution_data_lineage(
-            app_id, flow_exec_id, job_exec_id, job_name, job_start_unixtime, job_finished_unixtime,
+            app_id, flow_exec_id, job_exec_id, flow_path, job_name, job_start_unixtime, job_finished_unixtime,
             db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,
             storage_type, source_target_type, srl_no, operation, record_count,
             created_date, wh_etl_exec_id
           )
-          SELECT %d, %d, %d, '%s', %d, %d, %d, '%s', '%s',
+          SELECT %d, %d, %d, '%s', '%s', %d, %d, %d, '%s', '%s',
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
             CASE WHEN '%s' = 'None' THEN NULL ELSE '%s' END,
@@ -759,7 +797,7 @@ class AppworxLineageExtract:
             current_db_id = hive_db_id
           self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
-                                  row['job_name'], int(row['start_time']), int(row['end_time']),
+                                  row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                   current_db_id, src_tgt_map[k]['abstracted_hdfs_path'], src_tgt_map[k]['hdfs_path'][0],
                                   src_tgt_map[k]['min_start_partition'],src_tgt_map[k]['min_start_partition'],
                                   partition_end, partition_end, src_tgt_map[k]['partition_type'],
