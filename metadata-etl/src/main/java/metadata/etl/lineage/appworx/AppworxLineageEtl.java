@@ -74,15 +74,28 @@ public class AppworxLineageEtl extends EtlJob {
             throws Exception {
         logger.info("AppworxLineageEtl metadata load");
 
-        String insertIntoFinalTable = "INSERT IGNORE INTO job_execution_data_lineage\n"
-                + "SELECT app_id, flow_exec_id, job_exec_id, job_exec_uuid, job_name, job_start_unixtime, job_finished_unixtime,\n"
-                + "db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,\n"
-                + "layout_id, storage_type, source_target_type, srl_no, source_srl_no, operation,\n"
-                + "record_count, insert_count, delete_count, update_count, flow_path, UNIX_TIMESTAMP(NOW()), " + this.prop
-                .getProperty(Constant.WH_EXEC_ID_KEY) + " FROM stg_job_execution_data_lineage where app_id = " + this.prop
-                .getProperty(Constant.APP_ID_KEY);
-        logger.info("Azkaban Lineage load cmd :\n" + insertIntoFinalTable);
-        conn.createStatement().execute(insertIntoFinalTable);
+        String insertIntoSql = "INSERT IGNORE INTO job_execution_data_lineage(" +
+                "app_id, flow_exec_id, job_exec_id, job_exec_uuid, flow_path, job_name, " +
+                "job_start_unixtime, job_finished_unixtime, db_id, abstracted_object_name, " +
+                "full_object_name, partition_start, partition_end, partition_type, " +
+                "layout_id, storage_type, source_target_type, srl_no, source_srl_no, " +
+                "operation, record_count, insert_count, delete_count, update_count, created_date, wh_etl_exec_id) " +
+                "( SELECT app_id, flow_exec_id, job_exec_id, job_exec_uuid, flow_path, job_name, " +
+                "job_start_unixtime, job_finished_unixtime, db_id, abstracted_object_name, " +
+                "full_object_name, partition_start, partition_end, partition_type, layout_id, storage_type, " +
+                "source_target_type, srl_no, source_srl_no, operation, record_count, insert_count, " +
+                "delete_count, update_count, UNIX_TIMESTAMP(NOW()), " + this.prop.getProperty(Constant.WH_EXEC_ID_KEY) +
+                " FROM stg_job_execution_data_lineage WHERE app_id = " +
+                this.prop.getProperty(Constant.APP_ID_KEY)  + " )";
+
+        logger.info("Appworx Lineage load cmd :\n" + insertIntoSql);
+        conn.createStatement().execute(insertIntoSql);
         logger.info("Appworx lineage metadata ETL completed");
+        logger.info("Appworx lineage update script information");
+        InputStream inputStream = classLoader.getResourceAsStream("jython/ScriptCollect.py");
+        interpreter.execfile(inputStream);
+        inputStream.close();
+        logger.info("Appworx lineage update script information completed");
+
     }
 }
