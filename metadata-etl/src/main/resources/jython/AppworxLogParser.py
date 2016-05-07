@@ -70,7 +70,6 @@ class AppworxLogParser:
       return text, None, None
 
   def parse_log(self, flags, command_type=None):
-    self.logger.info("parse_log")
     result = {}
     parameter_line = Keyword('parameter file').suppress() + \
                      OneOrMore(Word(printables,excludeChars='=') + \
@@ -226,15 +225,19 @@ class AppworxLogParser:
 
         pipe_char = Literal('|').suppress()
 
-        db_vars = dt_string.suppress() + pipe_char + \
-                  Word(alphanums + '.' + '_').suppress() + pipe_char + \
-                  Word(nums).suppress() + pipe_char + \
-                  Keyword('INFO').suppress() + pipe_char + \
-                  db_kw.suppress() + Literal(':').suppress() + \
-                  Literal('{').suppress() + SkipTo(Literal('}'),ignore=quotedString|nestedExpr('{','}'))
+        #db_vars = dt_string.suppress() + pipe_char + \
+        #          Word(alphanums + '.' + '_').suppress() + pipe_char + \
+        #          Word(nums).suppress() + pipe_char + \
+        #          Keyword('INFO').suppress() + pipe_char + \
+        #          db_kw.suppress() + Literal(':').suppress() + \
+        #          Literal('{').suppress() + SkipTo(Literal('}'),ignore=quotedString|nestedExpr('{','}'))
+        db_vars =  db_kw.suppress() + Literal(':').suppress() + \
+                   Literal('{').suppress() + SkipTo(Literal('}'),ignore=quotedString|nestedExpr('{','}'))
 
-        before_match, match, after_match = self.match_one(db_vars, self.text)
-        if match is not None:
+        m = re.search(r'DB variables (.*?)\}', self.text, re.DOTALL)
+        if m is not None:
+          before_match, match, after_match = self.match_one(db_vars, m.group(0))
+          if match is not None:
             result['db_vars'] = []
             for k,v in ast.literal_eval('{' + match[0] + '}').items():
                 k = k.strip()
@@ -247,12 +250,18 @@ class AppworxLogParser:
         if match is not None:
             result['session_id'] = match[0]
 
-        before_match, match, after_match = self.match_one(insert_stats_line, self.text)
-        if match is not None:
+        m = re.search(r'INSERT INTO (.*) rows added.', self.text, re.DOTALL)
+        if m is not None:
+          insert_stats_paragraph = m.group(0)
+          before_match, match, after_match = self.match_one(insert_stats_line, insert_stats_paragraph)
+          if match is not None:
             target_table_name = match['target_table_name']
             source_table_name = match['source_table_name']
             insert_count = match['insert_count']
             # print "%s: %s rows inserted. %s\n" % (table_name, insert_count, str(param_dict))
+          else:
+            source_table_name = None
+            insert_count = 0
         else:
             source_table_name = None
             insert_count = 0
@@ -266,24 +275,28 @@ class AppworxLogParser:
                 result['host'] = match[0].strip().split('.')[0].upper()
                 result['account'] = match[1]
 
-            for tokens, start, stop in import_line.scanString(self.text):
-                result['table'] = []
-                result['table'].append(ParseUtil.get_nas_location_abstraction(tokens.asList()[0]))
-                result['table'][len(result['table']) - 1].update({
-                    'storage_type' : 'NAS',
-                    'table_type' : 'source',
-                    'full_path' : tokens.asList()[0]
-                })
-                schema_name, tab_name = ParseUtil.get_db_table_abstraction(tokens.asList()[1].upper())
-                result['table'].append({
-                    'account' : match[1],
-                    'host' : match[0].strip().split('.')[0].upper(),
-                    'storage_type' : 'Teradata',
-                    'table_type' : 'target',
-                    'table_name' : tab_name,
-                    'schema_name' : schema_name,
-                    'insert_count' : insert_count
-                })
+            #m = re.search(r'IMPORT VARTEXT (.*?) into (.*?) \*', self.text, re.DOTALL|re.I)
+            for m in re.findall(r'IMPORT VARTEXT (.*?) into (.*?) \*', self.text, re.DOTALL|re.I):
+              if m is not None:
+                text = m
+                for tokens, start, stop in import_line.scanString(text):
+                    result['table'] = []
+                    result['table'].append(ParseUtil.get_nas_location_abstraction(tokens.asList()[0]))
+                    result['table'][len(result['table']) - 1].update({
+                        'storage_type' : 'NAS',
+                        'table_type' : 'source',
+                        'full_path' : tokens.asList()[0]
+                    })
+                    schema_name, tab_name = ParseUtil.get_db_table_abstraction(tokens.asList()[1].upper())
+                    result['table'].append({
+                        'account' : match[1],
+                        'host' : match[0].strip().split('.')[0].upper(),
+                        'storage_type' : 'Teradata',
+                        'table_type' : 'target',
+                        'table_name' : tab_name,
+                        'schema_name' : schema_name,
+                        'insert_count' : insert_count
+                    })
 
             if insert_count and not 'table' in result:
                 result['table'] = [
@@ -339,7 +352,6 @@ class AppworxLogParser:
         return result
 
     if command_type in ['LI_TPT_INSERT']:
-        self.logger.info('LI_TPT_INSERT')
         before_match, match, after_match = self.match_one(script_name_line, self.text)
         if match is not None:
             result['script_name'] = os.path.basename(match[0])
