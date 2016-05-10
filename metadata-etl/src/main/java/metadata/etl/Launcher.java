@@ -31,42 +31,40 @@ import org.slf4j.LoggerFactory;
  */
 public class Launcher {
 
-  /** command line parameter keys */
+  /** job property parameter keys */
   public static final String JOB_NAME_KEY = "job";
   public static final String REF_ID_KEY = "refId";
   public static final String WH_ETL_EXEC_ID_KEY = "whEtlId";
 
-  /** Only for test */
+  /** command line config file location parameter key */
   private static final String CONFIG_FILE_LOCATION_KEY = "config";
 
   protected static final Logger logger = LoggerFactory.getLogger("Job Launcher");
 
   /**
-   * It can run as a standalone application
-   * @param args
+   * Read config file location from command line. Read all configuration from command line, execute the job.
+   * Example command line : java -Dconfig=/path/to/config/file -cp "lib/*" metadata.etl.Launcher
+   * @param args contain the config file location parameter 'confg'
    * @throws Exception
    */
   public static void main(String[] args)
       throws Exception {
-    String etlJobNameString = System.getProperty(JOB_NAME_KEY);
+
     String property_file = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
+    String etlJobNameString = null;
+    int refId = 0;
+    long whEtlId = 0;
     Properties props = new Properties();
-    int refId = Integer.valueOf(System.getProperty(REF_ID_KEY, "0"));
-    long whEtlId = Integer.valueOf(System.getProperty(WH_ETL_EXEC_ID_KEY, "0"));
 
+    try (InputStream propFile = new FileInputStream(property_file)) {
+      props.load(propFile);
+      etlJobNameString = props.getProperty(JOB_NAME_KEY);
+      refId = Integer.valueOf(props.getProperty(REF_ID_KEY));
 
-
-    if (property_file != null) {  // test mode
-      try (InputStream propFile = new FileInputStream(property_file)) {
-        props.load(propFile);
-      } catch (IOException e) {
-        //logger.error("property file '{}' not found" , property_file);
-        e.printStackTrace();
-      }
-    }
-    else { // production mode
-      Properties properties = System.getProperties();
-      props.putAll(properties);
+    } catch (IOException e) {
+       //logger.error("property file '{}' not found" , property_file);
+      e.printStackTrace();
+      System.exit(1);
     }
 
     // create the etl job
@@ -76,7 +74,6 @@ public class Launcher {
     try {
       etlJob.run();
     } catch (Exception e) {
-
       StringWriter sw = new StringWriter();
       PrintWriter pw = new PrintWriter(sw);
       e.printStackTrace(pw);

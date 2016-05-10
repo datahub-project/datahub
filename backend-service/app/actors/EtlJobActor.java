@@ -17,8 +17,6 @@ import akka.actor.UntypedActor;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.Properties;
 import metadata.etl.models.EtlJobStatus;
@@ -38,21 +36,21 @@ public class EtlJobActor extends UntypedActor {
   @Override
   public void onReceive(Object message)
     throws Exception {
-
+    Properties props = null;
     if (message instanceof EtlJobMessage) {
       EtlJobMessage msg = (EtlJobMessage) message;
       try {
-        Properties props = EtlJobPropertyDao.getJobProperties(msg.getEtlJobName(), msg.getRefId());
+        props = EtlJobPropertyDao.getJobProperties(msg.getEtlJobName(), msg.getRefId());
         Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
         props.putAll(whProps);
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        String cmd = CmdUtil.generateCMD(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props, msg.getCmdParam());
-        // Logger.debug("run command : " + cmd);
-
+        String cmd = ConfigUtil.generateCMD(msg.getWhEtlExecId(), msg.getCmdParam());
+        Logger.debug("run command : " + cmd);
+        ConfigUtil
+            .generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
         process = Runtime.getRuntime().exec(cmd);
-
 
         InputStream stdout = process.getInputStream();
         InputStreamReader isr = new InputStreamReader(stdout);
@@ -95,6 +93,8 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
       } finally {
         Global.removeRunningJob(((EtlJobMessage) message).getWhEtlJobId());
+        if (!Logger.isDebugEnabled()) // if debug enable, won't delete the config files.
+          ConfigUtil.deletePropertiesFile(props, msg.getWhEtlExecId());
       }
     }
   }
