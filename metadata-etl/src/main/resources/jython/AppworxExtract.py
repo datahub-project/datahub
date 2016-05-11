@@ -79,9 +79,9 @@ class AppworxExtract:
     if self.last_execution_unix_time is None:
       try:
         query = """
-            SELECT MAX(end_time) as last_time FROM job_execution
+            SELECT MAX(end_time) as last_time FROM job_execution where app_id = %d
             """
-        self.wh_cursor.execute(query)
+        self.wh_cursor.execute(query % self.app_id)
         rows = DbUtil.dict_cursor(self.wh_cursor)
         if rows:
           for row in rows:
@@ -132,7 +132,7 @@ class AppworxExtract:
            GROUP BY SO_JOB_SEQ
            ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
            WHERE SO_COMMAND_TYPE = 'CHAIN'
-        """ % self.lookback_period
+        """ % int(self.lookback_period)
     job_query = \
         """SELECT d.SO_TASK_NAME, d.SO_CHAIN_ORDER, d.SO_PREDECESSORS as PREDECESSORS, d.SO_DET_SEQ as JOB_ID,
             t.* FROM SO_CHAIN_DETAIL d
@@ -232,7 +232,7 @@ class AppworxExtract:
            JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
            WHERE H.SO_JOB_FINISHED >= SYSDATE - %d and
-           J.SO_COMMAND_TYPE = 'CHAIN' """ % self.lookback_period
+           J.SO_COMMAND_TYPE = 'CHAIN' """ % int(self.lookback_period)
 
     if self.last_execution_unix_time:
       job_cmd = \
@@ -288,7 +288,7 @@ class AppworxExtract:
       if self.last_execution_unix_time:
         new_appworx_cursor.execute(job_cmd % (self.last_execution_unix_time, flow_exec_id, long(row['SO_CHAIN_ID'])))
       else:
-        new_appworx_cursor.execute(job_cmd % (self.lookback_period, flow_exec_id, long(row['SO_CHAIN_ID'])))
+        new_appworx_cursor.execute(job_cmd % (int(self.lookback_period), flow_exec_id, long(row['SO_CHAIN_ID'])))
       job_rows = DbUtil.dict_cursor(new_appworx_cursor)
 
       for job in job_rows:

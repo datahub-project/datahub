@@ -66,7 +66,7 @@ class AppworxLogParser:
     try:
       match, start, end = grammar.scanString(text).next()
       return text[:start].strip(), match, text[end:].strip()
-    except:
+    except StopIteration:
       return text, None, None
 
   def parse_log(self, flags, command_type=None):
@@ -81,7 +81,6 @@ class AppworxLogParser:
 
     try:
       parameters = match.asList()
-      self.logger.info(str(parameters))
     except:
       self.logger.error("Fails to find parameter section in file: %s" % self.log_file_name)
       self.logger.error(str(sys.exc_info()[0]))
@@ -199,11 +198,21 @@ class AppworxLogParser:
 
         insert_stats_line = CaselessKeyword('INSERT').suppress() + CaselessKeyword('INTO').suppress() + \
                             dim_fact_agg_table_name.setResultsName('target_table_name') + \
+                            SkipTo(CaselessKeyword('FROM'), include=False).suppress() + \
+                            CaselessKeyword('FROM').suppress() + Word(alphanums + '_').setResultsName('source_table_name') + \
+                            SkipTo(Literal('*** Insert completed.'), include=True).suppress() + \
+                            Word(nums).setResultsName('insert_count') + \
+                            Literal('rows added').suppress()
+
+        """
+        insert_stats_line = CaselessKeyword('INSERT').suppress() + CaselessKeyword('INTO').suppress() + \
+                            dim_fact_agg_table_name.setResultsName('target_table_name') + \
                             SkipTo(CaselessKeyword('FROM') + CaselessLiteral('STG_'), include=False).suppress() + \
                             CaselessKeyword('FROM').suppress() + Word(alphanums + '_').setResultsName('source_table_name') + \
                             SkipTo(Literal('*** Insert completed.'), include=True).suppress() + \
                             Word(nums).setResultsName('insert_count') + \
                             Literal('rows added').suppress()
+        """
 
         script_name_line = (Keyword("run_sql").suppress() + \
                             Literal('[').suppress() + \
@@ -234,7 +243,7 @@ class AppworxLogParser:
         db_vars =  db_kw.suppress() + Literal(':').suppress() + \
                    Literal('{').suppress() + SkipTo(Literal('}'),ignore=quotedString|nestedExpr('{','}'))
 
-        m = re.search(r'DB variables (.*?)\}', self.text, re.DOTALL)
+        m = re.search(r'DB variables (.*?)\}', self.text, re.DOTALL|re.I)
         if m is not None:
           before_match, match, after_match = self.match_one(db_vars, m.group(0))
           if match is not None:
@@ -250,7 +259,7 @@ class AppworxLogParser:
         if match is not None:
             result['session_id'] = match[0]
 
-        m = re.search(r'INSERT INTO (.*) rows added.', self.text, re.DOTALL)
+        m = re.search(r'INSERT INTO (.*) rows added.', self.text, re.DOTALL|re.I)
         if m is not None:
           insert_stats_paragraph = m.group(0)
           before_match, match, after_match = self.match_one(insert_stats_line, insert_stats_paragraph)
@@ -263,8 +272,8 @@ class AppworxLogParser:
             source_table_name = None
             insert_count = 0
         else:
-            source_table_name = None
-            insert_count = 0
+          source_table_name = None
+          insert_count = 0
 
         before_match, match, after_match = self.match_one(script_name_line, self.text)
         if match is not None:
