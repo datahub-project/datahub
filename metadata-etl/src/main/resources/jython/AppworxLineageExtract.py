@@ -57,9 +57,9 @@ class AppworxLineageExtract:
     if self.last_execution_unix_time is None:
       try:
         query = """
-          SELECT MAX(job_finished_unixtime) as last_time FROM job_execution_data_lineage
+          SELECT MAX(job_finished_unixtime) as last_time FROM job_execution_data_lineage where app_id = %d
           """
-        self.aw_cursor.execute(query)
+        self.aw_cursor.execute(query % self.app_id)
         rows = DbUtil.dict_cursor(self.aw_cursor)
         if rows:
           for row in rows:
@@ -111,7 +111,7 @@ class AppworxLineageExtract:
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
            WHERE je.app_id = %d
-           and je.start_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 day))
+           and je.end_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 day))
            and UPPER(fj.job_type) = '%s'
         """
       self.aw_cursor.execute(query %
@@ -126,7 +126,7 @@ class AppworxLineageExtract:
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
            WHERE je.app_id = %d  and
-           from_unixtime(je.start_time) >= CURRENT_DATE - INTERVAL %d DAY and UPPER(fj.job_type) = '%s'
+           from_unixtime(je.end_time) >= CURRENT_DATE - INTERVAL %d DAY and UPPER(fj.job_type) = '%s'
         """
       self.aw_cursor.execute(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
     job_rows = DbUtil.copy_dict_cursor(self.aw_cursor)
@@ -250,6 +250,8 @@ class AppworxLineageExtract:
           """ % (int(row['app_id']), int(row['job_id']), int(row['attempt_id']),
                  results['script_name'], results['script_path'],
                  'SQL', md5_str, md5_str.hexdigest())
+        self.aw_cursor.execute(update_source_code_query )
+        self.aw_con.commit()
 
         db_id = 0
         try:
@@ -296,10 +298,11 @@ class AppworxLineageExtract:
                                   results['table'][0]['table_type'], bteq_load_srl, 0, 0,
                                   'Load',
                                   0, 0, int(row['wh_etl_exec_id']) ))
-            self.logger.info("Parsing script: %s/%s" % (results['script_path'], results['script_name']))
             self.aw_con.commit()
+          self.logger.info("Parsing script: %s/%s" % (results['script_path'], results['script_name']))
 
-            entries = BteqLogParser().parse(
+
+          entries = BteqLogParser().parse(
               key_values,
               self.local_script_path +
               results['script_path'] + '/' +
@@ -307,11 +310,11 @@ class AppworxLineageExtract:
               results['script_path'],
               results['script_name'], self.bteq_source_target_override, self.metric_override
             )
-            metric_idx = 1
-            for srl, e in enumerate(entries):
-              schema_name, table_name = ParseUtil.get_db_table_abstraction(e['relation'])
-              full_table_name = schema_name + '.' + table_name
-              self.aw_cursor.execute(update_staging_lineage_query %
+          metric_idx = 1
+          for srl, e in enumerate(entries):
+            schema_name, table_name = ParseUtil.get_db_table_abstraction(e['relation'])
+            full_table_name = schema_name + '.' + table_name
+            self.aw_cursor.execute(update_staging_lineage_query %
                                    (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
                                     row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
                                     db_id, '/' + schema_name + '/' + table_name, full_table_name,
@@ -319,7 +322,7 @@ class AppworxLineageExtract:
                                     e['table_type'], (bteq_load_srl + srl + 1), 0, 0,
                                     e['operation'],
                                     0, 0, int(row['wh_etl_exec_id']) ))
-            self.aw_con.commit()
+          self.aw_con.commit()
         else:
           for p in parsed_lineage:
             p['database_id'] = db_id
@@ -396,6 +399,8 @@ class AppworxLineageExtract:
           FROM dual
           """
         self.aw_cursor.execute(update_source_code_query )
+        self.aw_con.commit()
+
         for k, tab in enumerate(results['table']):
           self.aw_cursor.execute(update_staging_lineage_query %
                                 (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
@@ -527,6 +532,7 @@ class AppworxLineageExtract:
           """ % (int(row['app_id']), int(row['job_id']), int(row['attempt_id']),
                    results['script_name'], results['script_path'], 'Shell')
         self.aw_cursor.execute(update_source_code_query )
+        self.aw_con.commit()
 
         update_staging_lineage_query = \
           """
@@ -583,6 +589,7 @@ class AppworxLineageExtract:
             """ % (int(row['app_id']), int(row['job_id']), int(row['attempt_id']),
                  results['script_name'], results['script_path'], 'TPT')
         self.aw_cursor.execute(update_source_code_query )
+        self.aw_con.commit()
 
         update_staging_lineage_query = \
             """
