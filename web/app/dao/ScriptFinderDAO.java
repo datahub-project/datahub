@@ -45,11 +45,11 @@ public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 			"GROUP BY job_started, elapsed_time, jedl.flow_path, jedl.job_name " +
 			"ORDER BY jedl.job_start_unixtime DESC LIMIT 10";
 
-	private final static String GET_LATEST_5_JOB_EXEC_IDS = "SELECT job_exec_id " +
-			"FROM job_execution WHERE app_id = ? and job_id = ? ORDER BY start_time DESC limit 5;";
+	private final static String GET_LATEST_10_JOB_EXEC_IDS = "SELECT job_exec_id " +
+			"FROM job_execution WHERE app_id = ? and job_id = ? ORDER BY start_time DESC limit 10;";
 
 	private final static String GET_SCRIPT_LINEAGE = "SELECT * FROM " +
-			"job_execution_data_lineage WHERE app_id = ? AND job_exec_id = ?";
+			"job_execution_data_lineage WHERE app_id = ? AND job_exec_id = ? ORDER BY source_target_type DESC";
 	
 	public static List<String> getAllScriptTypes()
 	{
@@ -265,7 +265,7 @@ public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 			int jobID)
 	{
 		List<Long> jobExecIdList = getJdbcTemplate().queryForList(
-				GET_LATEST_5_JOB_EXEC_IDS,
+				GET_LATEST_10_JOB_EXEC_IDS,
 				Long.class,
 				applicationID,
 				jobID);
