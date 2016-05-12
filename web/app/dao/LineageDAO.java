@@ -50,7 +50,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE abstracted_object_name in ( :names ) and " +
 			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
 			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, jedl.flow_path, jedl.source_target_type, " +
+			"GROUP BY ca.app_id, cluster, jedl.job_name, je.job_id, jedl.source_target_type, " +
 			"jedl.storage_type, jedl.operation " +
 			"ORDER BY jedl.source_target_type DESC, jedl.job_finished_unixtime";
 
@@ -66,7 +66,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE abstracted_object_name in ( :names ) and jedl.source_target_type = 'target' and " +
 			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
 			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, jedl.flow_path, jedl.source_target_type, " +
+			"GROUP BY ca.app_id, cluster, jedl.job_name, je.job_id, jedl.source_target_type, " +
 			"jedl.storage_type, jedl.operation " +
 			"ORDER BY jedl.source_target_type DESC, jedl.job_finished_unixtime";
 
@@ -81,7 +81,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE abstracted_object_name in ( :names ) and jedl.source_target_type != (:type) and " +
 			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
 			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, jedl.flow_path, jedl.source_target_type, " +
+			"GROUP BY ca.app_id, cluster, jedl.job_name, je.job_id, jedl.source_target_type, " +
 			"jedl.storage_type, jedl.operation " +
 			"ORDER BY jedl.source_target_type DESC, jedl.job_finished_unixtime";
 
