@@ -41,11 +41,11 @@ import wherehows.common.Constant;
 /**
  * Created by zsun on 9/3/15.
  */
-public class HadoopNameNodeExtractor {
+public class HadoopJobHistoryNodeExtractor {
 
   private String serverURL = "";
   private CloseableHttpClient httpClient;
-  private static final Logger logger = LoggerFactory.getLogger(HadoopNameNodeExtractor.class);
+  private static final Logger logger = LoggerFactory.getLogger(HadoopJobHistoryNodeExtractor.class);
 
   /**
    * Use HTTPClient to connect to Hadoop job history server.
@@ -53,7 +53,7 @@ public class HadoopNameNodeExtractor {
    * @param prop
    * @throws Exception
    */
-  public HadoopNameNodeExtractor(Properties prop)
+  public HadoopJobHistoryNodeExtractor(Properties prop)
     throws Exception {
     this.serverURL = prop.getProperty(Constant.AZ_HADOOP_JOBHISTORY_KEY);
 

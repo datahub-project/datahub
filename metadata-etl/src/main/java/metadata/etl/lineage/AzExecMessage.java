@@ -27,7 +27,7 @@ public class AzExecMessage {
   public Properties prop;
 
   public AzServiceCommunicator asc;
-  public HadoopNameNodeExtractor hnne;
+  public HadoopJobHistoryNodeExtractor hnne;
   public AzDbCommunicator adc;
   public DatabaseWriter databaseWriter;
   public Connection connection;

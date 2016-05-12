@@ -14,6 +14,7 @@
 package actors;
 
 import akka.actor.UntypedActor;
+import java.util.Set;
 import metadata.etl.models.EtlJobStatus;
 import shared.Global;
 import java.util.Date;
@@ -45,8 +46,12 @@ public class SchedulerActor extends UntypedActor {
     if (message.equals("checking")) {
       List<Map<String, Object>> dueJobs = EtlJobDao.getDueJobs();
       Logger.info("running " + dueJobs.size() + " jobs");
+      Set<Integer> whiteList = Global.getWhiteList();
       for (Map<String, Object> dueJob : dueJobs) {
         Integer whEtlJobId = ((Long) dueJob.get("wh_etl_job_id")).intValue();
+        if (whiteList != null && !whiteList.contains(whEtlJobId)) {
+          continue; // if we config the white list and it's not in white list, skip this job
+        }
         EtlJobName etlJobName = EtlJobName.valueOf((String) dueJob.get("wh_etl_job_name"));
         EtlType etlType = EtlType.valueOf((String) dueJob.get("wh_etl_type"));
         Integer refId = (Integer) dueJob.get("ref_id");
