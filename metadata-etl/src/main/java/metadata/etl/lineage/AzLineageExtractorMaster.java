@@ -45,7 +45,7 @@ import wherehows.common.writers.DatabaseWriter;
 public class AzLineageExtractorMaster {
 
   Properties prop;
-  private static final Logger logger =  LoggerFactory.getLogger(AzLineageExtractorActor.class);
+  private static final Logger logger =  LoggerFactory.getLogger(AzLineageExtractorMaster.class);
   public AzLineageExtractorMaster(Properties prop)
     throws Exception {
     this.prop = prop;
@@ -88,7 +88,7 @@ public class AzLineageExtractorMaster {
 
     // initialize
     //AzkabanServiceCommunicator asc = new AzkabanServiceCommunicator(prop);
-    HadoopNameNodeExtractor hnne = new HadoopNameNodeExtractor(prop);
+    HadoopJobHistoryNodeExtractor hnne = new HadoopJobHistoryNodeExtractor(prop);
     AzDbCommunicator adc = new AzDbCommunicator(prop);
 
     String wherehowsUrl = prop.getProperty(Constant.WH_DB_URL_KEY);

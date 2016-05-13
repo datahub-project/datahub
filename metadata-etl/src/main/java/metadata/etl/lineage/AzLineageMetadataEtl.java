@@ -121,59 +121,6 @@ public class AzLineageMetadataEtl extends EtlJob {
     conn.createStatement().execute(insertIntoFinalTable);
 
     logger.info("Azkaban lineage metadata ETL completed");
-    if (prop.getProperty(Constant.APP_ID_KEY).equals("32") || prop.getProperty(Constant.APP_ID_KEY).equals("31") ) {
-      logger.info("TEMPORARY load war & nertz's data into cmdb database");
-      loadIntoOthers();
-    }
-  }
-
-  /**
-   *  temporary solutions, will deprecate later : also insert into cmdb job_attempt_data_lineage table
-   */
-  @Deprecated
-  public void loadIntoOthers()
-    throws SQLException {
-    String cmdbHost = this.prop.getProperty("cmdb.db.host");
-    String cmdbUserName = this.prop.getProperty("cmdb.db.username");
-    String cmdbPassWord = this.prop.getProperty("cmdb.db.password");
-    Connection cmdbConn =
-      DriverManager.getConnection(cmdbHost + "?" + "user=" + cmdbUserName + "&password=" + cmdbPassWord);
-
-    String queryCmd =
-      "SELECT app_id, flow_exec_id, job_exec_id, job_exec_uuid, job_name, job_start_unixtime, job_finished_unixtime,\n"
-        + "db_id, abstracted_object_name, full_object_name, partition_start, partition_end, partition_type,\n"
-        + "layout_id, storage_type, source_target_type, srl_no, source_srl_no, operation,\n"
-        + "record_count, insert_count, delete_count, update_count, created_date, wh_etl_exec_id \n"
-        + "FROM stg_job_execution_data_lineage";
-    ResultSet resultSet = conn.createStatement().executeQuery(queryCmd);
-
-    Statement cmdbStatement = cmdbConn.createStatement();
-    while (resultSet.next()) {
-
-      String insertCmd =
-        "INSERT IGNORE INTO job_attempt_data_lineage (" + "application_id," + " job_id, " + "srl_no," + "database_id,"
-          + "source_target_type," + "object_type," + "abstracted_object_name," + "full_object_name,"
-          + "partition_start," + "partition_end," + "partition_type," + "storage_type," + "operation," + "record_count,"
-          + "insert_count," + "delete_count," + "update_count," + "created_date," + "parent_srl_no," + "flow_exec_id,"
-          + "job_start_unixtime," + "job_finished_unixtime" + ") VALUES (" + resultSet.getString("app_id") + ","
-          + resultSet.getString("job_exec_id") + "," + resultSet.getString("srl_no") + "," + resultSet
-          .getString("db_id") + ",'" + resultSet.getString("source_target_type") + "','" + "hdfs" + "','"
-          + resultSet.getString("abstracted_object_name") + "','" + resultSet.getString("full_object_name") + "'," + (
-          resultSet.getString("partition_start") != null ? "'" + resultSet.getString("partition_start") + "'" : "null")
-          + "," + (resultSet.getString("partition_end") != null ? "'" + resultSet.getString("partition_end") + "'"
-          : "null") + "," + (resultSet.getString("partition_type") != null ? "'" + resultSet.getString("partition_type")
-          + "'" : "null") + ",'" + resultSet.getString("storage_type") + "','" + resultSet.getString("operation") + "',"
-          + resultSet.getString("record_count") + "," + resultSet.getString("insert_count") + "," + resultSet
-          .getString("delete_count") + "," + resultSet.getString("update_count") + "," + "CURRENT_TIME() ,"
-          // TODO convert it to UTC?
-          + resultSet.getString("source_srl_no") + "," + resultSet.getString("flow_exec_id") + "," + resultSet
-          .getString("job_start_unixtime") + "," + resultSet.getString("job_finished_unixtime") + ")";
-
-      logger.debug(insertCmd);
-
-      cmdbStatement.execute(insertCmd);
-    }
-    cmdbConn.close();
   }
 
   @Override

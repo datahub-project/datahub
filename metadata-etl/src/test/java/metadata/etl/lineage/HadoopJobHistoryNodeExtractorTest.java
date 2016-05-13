@@ -14,41 +14,20 @@
 package metadata.etl.lineage;
 
 import junit.framework.Assert;
-import org.apache.hadoop.security.authentication.client.AuthenticatedURL;
-import org.apache.hadoop.security.authentication.client.AuthenticationException;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.params.AuthPolicy;
-import org.apache.http.impl.auth.SPNegoSchemeFactory;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
-import org.codehaus.jettison.json.JSONException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.security.Principal;
-import java.security.PrivilegedExceptionAction;
-
-import org.apache.hadoop.security.UserGroupInformation;
 
 
 /**
  * Created by zsun on 9/3/15.
  */
-public class HadoopNameNodeExtractorTest {
-  HadoopNameNodeExtractor he;
+public class HadoopJobHistoryNodeExtractorTest {
+  HadoopJobHistoryNodeExtractor he;
 
   @BeforeTest
   public void setUp() {
     try {
-      he = new HadoopNameNodeExtractor(new LineageTest().properties);
+      he = new HadoopJobHistoryNodeExtractor(new LineageTest().properties);
     } catch (Exception e) {
       e.printStackTrace();
     }
