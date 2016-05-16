@@ -27,20 +27,15 @@ New to Wherehows? Check out the [Getting Started Guide][GS]
 
 ### Preparation
 
-First, please get Play Framework and Gradle in place.
+First, please get Play Framework in place.
 ```
 wget http://downloads.typesafe.com/play/2.2.4/play-2.2.4.zip
-wget http://services.gradle.org/distributions/gradle-2.4-bin.zip
 
-# Unzip, Remove zipped folder, move gradle/play folder to $HOME
-unzip gradle-2.4-bin.zip && rm gradle-2.4-bin.zip && mv gradle-2.4 $HOME/
+# Unzip, Remove zipped folder, move play folder to $HOME
 unzip play-2.2.4.zip && rm play-2.2.4.zip && mv play-2.2.4 $HOME/
 
 # Add PLAY_HOME, GRADLE_HOME. Update Path to include new gradle, alias to counteract issues
 echo 'export PLAY_HOME="$HOME/play-2.2.4"' >> ~/.bashrc
-echo 'export GRADLE_HOME="$HOME/gradle-2.4"' >> ~/.bashrc
-echo 'export PATH=$PATH:$GRADLE_HOME/bin' >> ~/.bashrc
-echo 'alias gradle=$GRADLE_HOME/bin/gradle' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -64,7 +59,7 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
 2. Put a few 3rd-party jar files to **metadata-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/metadata-etl/extralibs``` 
-3. Go back to the **WhereHows** root directory and build all the modules: ```gradle build```
+3. Go back to the **WhereHows** root directory and build all the modules: ```./gradlew build```
 4. Go back to the **WhereHows** root directory and start the metadata ETL and API service: ```cd backend-service ; $PLAY_HOME/play run```
 5. Go back to the **WhereHows** root directory and start the web front-end: ```cd web ; $PLAY_HOME/play run``` Then WhereHows UI is available at http://localhost:9000 by default. For example, ```play run -Dhttp.port=19001``` will use port 19001 to serve UI.
 
