@@ -12,20 +12,15 @@
 -- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 --
 
-/* wrapper sql to call all individual DDL */
-use wherehows;
+-- configurations for trees views
+CREATE TABLE cfg_ui_trees (
+  `name`    VARCHAR(32) NOT NULL  COMMENT 'name of tree',
+  `value`   LONGTEXT NOT NULL     COMMENT 'tree configuration',
+  PRIMARY KEY (`name`)
+)
+  ENGINE = InnoDB
+  AUTO_INCREMENT = 0
+  DEFAULT CHARSET = utf8;
 
-source ETL_DDL/dataset_metadata.sql;
-source ETL_DDL/etl_configure_tables.sql;
-source ETL_DDL/executor_metadata.sql;
-source ETL_DDL/git_metadata.sql;
-source ETL_DDL/lineage_metadata.sql;
-source ETL_DDL/metric_metadata.sql;
-source ETL_DDL/owner_metadata.sql;
-source ETL_DDL/patterns.sql;
-
-source WEB_DDL/track.sql;
-source WEB_DDL/trees.sql;
-source WEB_DDL/users.sql;
-
-show tables;
+INSERT INTO cfg_ui_trees VALUES ('datasets', '{}');
+INSERT INTO cfg_ui_trees VALUES ('flows', '{}');
