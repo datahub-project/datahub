@@ -1,4 +1,3 @@
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import controllers.api.v1.Dataset;
@@ -6,6 +5,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.Ignore;
 import play.Logger;
 import play.libs.Json;
 
@@ -23,7 +23,7 @@ import static play.test.Helpers.*;
 import static org.fest.assertions.Assertions.*;
 import static org.mockito.Mockito.*;
 
-
+@Ignore
 public class ControllersTest {
 
     public static FakeApplication app;
@@ -168,6 +168,7 @@ public class ControllersTest {
         assertThat(status(result)).isEqualTo(OK);
     }
 
+    /*
     @Ignore("need config") @Test
     public void testScriptFinder()
     {
@@ -181,6 +182,7 @@ public class ControllersTest {
         long count = dataNode.get("count").asLong();
         assertThat(count > 0);
     }
+    */
 
     @Ignore("need config") @Test
     public void testSchemaHistory()

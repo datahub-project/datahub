@@ -69,6 +69,10 @@ task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
     commandLine playExec, 'compile'
 }
 
+task "playTest" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'test'
+}
+
 task "playClean" (type: Exec) {
     commandLine playExec, 'clean'
 }
@@ -88,7 +92,7 @@ idea {
 
 // delegate gradle java task to play command
 
-task "build" (type: Exec, dependsOn: playClean, overwrite: true) {
+task "build" (type: Exec, dependsOn: [playClean, playTest], overwrite: true) {
     commandLine playExec, 'stage'
 }
 
@@ -100,9 +104,9 @@ task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
-task "check" (overwrite: true) {
-  // skip gradle check of this repository
+task "check" (dependsOn: playTest, overwrite: true) {
 }
+
 /*
 // optional: if using 'eclipse' plugin
 eclipse {
