@@ -1,0 +1,20 @@
+{
+  "children": [
+    {
+      "level": 1,
+      "title": "hive",
+      "path": "hive",
+      "folder": 1,
+      "children": [
+        {
+          "level": 2,
+          "title": "test",
+          "path": "hive:///test",
+          "folder": 0,
+          "children": [],
+          "id": 1
+        }
+      ]
+    }
+  ]
+}
