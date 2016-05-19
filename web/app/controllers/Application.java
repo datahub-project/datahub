@@ -31,8 +31,6 @@ import security.AuthenticationManager;
 
 public class Application extends Controller
 {
-    private static String TREE_NAME_SUBFIX = ".tree.name";
-
     @Security.Authenticated(Secured.class)
     public static Result index()
     {
@@ -180,11 +178,7 @@ public class Application extends Controller
 
     public static Result loadTree(String key)
     {
-        if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("flows"))
-        {
-            return ok(FlowsDAO.getFlowApplicationNodes());
-        }
-        return ok(Tree.loadTreeJsonNode(key + TREE_NAME_SUBFIX));
+        return ok(Tree.loadTree(key));
     }
 
     public static Result loadFlowProjects(String app)
@@ -196,5 +190,4 @@ public class Application extends Controller
     {
         return ok(FlowsDAO.getFlowNodes(app, project));
     }
-
 }
