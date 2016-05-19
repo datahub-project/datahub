@@ -12,11 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys
-from com.ziclix.python.sql import zxJDBC
-from wherehows.common import Constant
 import json
 import shutil
+import sys
+from com.ziclix.python.sql import zxJDBC
+from org.slf4j import LoggerFactory
+from wherehows.common import Constant
 
 
 class DatasetTreeBuilder:
@@ -25,12 +26,14 @@ class DatasetTreeBuilder:
     password = args[Constant.WH_DB_PASSWORD_KEY]
     jdbc_driver = args[Constant.WH_DB_DRIVER_KEY]
     jdbc_url = args[Constant.WH_DB_URL_KEY]
-    conn_mysql = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
-    cur = conn_mysql.cursor()
+    self.conn_mysql = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
+    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
+    cursor = self.conn_mysql.cursor()
     try:
-      query = "select distinct id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p from dict_dataset order by urn"
-      cur.execute(query)
-      datasets = cur.fetchall()
+      query = "SELECT DISTINCT id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p, urn FROM dict_dataset ORDER BY urn"
+      cursor.execute(query)
+      datasets = cursor.fetchall()
       self.dataset_dict = dict()
       for dataset in datasets:
         current = self.dataset_dict
@@ -38,11 +41,14 @@ class DatasetTreeBuilder:
         for name in path_arr:
           current = current.setdefault(name, {})
         current["__ID_OF_DATASET__"] = dataset[0]
-      self.file_name = args[Constant.DATASET_TREE_FILE_NAME_KEY]
+      self.file_name = args.get(Constant.DATASET_TREE_FILE_NAME_KEY, None)
       self.value = []
     finally:
-      cur.close()
-      conn_mysql.close()
+      cursor.close()
+
+  def close_database_connection(self):
+    if self.conn_mysql is not None:
+      self.conn_mysql.close()
 
   def build_trie_helper(self, depth, path, current, current_dict):
     nodes = []
@@ -64,18 +70,41 @@ class DatasetTreeBuilder:
     for top_key in sorted(self.dataset_dict.keys()):
       self.value.extend(self.build_trie_helper(1, top_key, top_key, self.dataset_dict[top_key]))
 
-  def write_to_file(self):
+  def store_trie_in_database(self):
+    cursor = self.conn_mysql.cursor()
+    try:
+      table_name = 'cfg_ui_trees'
+      dataset_json = json.dumps({'children': self.value})
+
+      updateStatement = "UPDATE %s SET value = '%s' WHERE name = 'datasets'" % (table_name, dataset_json)
+      cursor.execute(updateStatement)
+
+      self.conn_mysql.commit()
+      self.logger.debug("Datasets trie stored in database")
+    finally:
+      cursor.close()
+
+  def write_trie_to_file(self):
     tmp_file_name = self.file_name + ".tmp"
     f = open(tmp_file_name, "w")
     f.write(json.dumps({'children': self.value}))
     f.close()
     shutil.move(tmp_file_name, self.file_name)
 
+  def save_trie(self):
+    if self.file_name is None or self.file_name == '':
+      self.store_trie_in_database()
+    else:
+      self.write_trie_to_file()
+
   def run(self):
     self.build_trie()
-    self.write_to_file()
+    self.save_trie()
 
 
 if __name__ == "__main__":
-  d = DatasetTreeBuilder(sys.argv[1])
-  d.run()
+  datasetTreeBuilder = DatasetTreeBuilder(sys.argv[1])
+  try:
+    datasetTreeBuilder.run()
+  finally:
+    datasetTreeBuilder.close_database_connection()
