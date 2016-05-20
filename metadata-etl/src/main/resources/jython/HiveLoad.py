@@ -124,7 +124,8 @@ class HiveLoad:
         , default_value=nullif(@default_value,'null')
         , data_size=nullif(@data_size,'null')
         , namespace=nullif(@namespace,'null')
-        , description=nullif(@description,'null');
+        , description=nullif(@description,'null')
+        , last_modified=NULL;
 
 
 
