@@ -138,7 +138,7 @@ App.DatasetController = Ember.Controller.extend({
     hasSamples: false,
     isTable: true,
     isJSON: false,
-    ownerTypes: ["", "Producer", "Consumer"],
+    ownerTypes: [],
     userTypes: [{name:"Corporate User", value: "urn:li:corpuser"}, {name:"Group User", value: "urn:li:griduser"}],
     isPinot: function(){
         var model = this.get("model");
