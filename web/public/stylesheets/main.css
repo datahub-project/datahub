@@ -670,3 +670,7 @@ div.commentsArea td, div.commentsArea th, div.commentsArea table{
 .wh-clickable-icon {
     cursor: pointer;
 }
+
+.keyword-search {
+    min-width: 500px;
+}

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Dataset;
 import models.FlowJob;
+import models.Metric;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,12 +27,12 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
+import play.Play;
+import play.libs.F;
 import play.libs.Json;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import play.libs.WS;
+
+import java.util.*;
 
 public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 {
@@ -99,6 +100,14 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"j.job_name, j.job_path, j.job_type " +
 			"FROM flow_job j JOIN flow f on j.app_id = f.app_id  AND j.flow_id = f.flow_id " +
 			"JOIN cfg_application a on j.app_id = a.app_id ";
+
+	public final static String ADV_SEARCH_METRIC = "SELECT SQL_CALC_FOUND_ROWS metric_id, " +
+			"metric_name, metric_description, dashboard_name, metric_group, metric_category, " +
+			"metric_sub_category, metric_level, metric_source_type, metric_source, " +
+			"metric_source_dataset_id, metric_ref_id_type, metric_ref_id, metric_type, metric_grain, " +
+			"metric_display_factor, metric_display_factor_sym, metric_good_direction, " +
+			"metric_formula, dimensions, owners, tags, urn, metric_url, wiki_url, scm_url, 0 as watch_id " +
+			"FROM dict_business_metric ";
 
 
 
@@ -191,6 +200,246 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	public static List<String> getFlowJobNames()
 	{
 		return getJdbcTemplate().queryForList(GET_JOB_NAMES, String.class);
+	}
+
+	public static ObjectNode elasticSearch(JsonNode searchOpt, int page, int size)
+	{
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<Dataset> pagedDatasets = new ArrayList<Dataset>();
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+
+		JsonNode searchNode = utils.Search.generateDatasetAdvSearchQueryString(searchOpt);
+
+		if (searchNode != null && searchNode.isContainerNode())
+		{
+			queryNode.put("query", searchNode);
+		}
+		F.Promise < WS.Response> responsePromise = WS.url(
+				Play.application().configuration().getString(
+						SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
+		JsonNode responseNode = responsePromise.get().asJson();
+
+		resultNode.put("page", page);
+		resultNode.put("category", "Datasets");
+		resultNode.put("itemsPerPage", size);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits")) {
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null) {
+				if (hitsNode.has("total")) {
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits")) {
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray()) {
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null) {
+							while (arrayIterator.hasNext()) {
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id")) {
+									Dataset dataset = new Dataset();
+									dataset.id = node.get("_id").asLong();
+									if (node.has("_source")) {
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null) {
+											if (sourceNode.has("name")) {
+												dataset.name = sourceNode.get("name").asText();
+											}
+											if (sourceNode.has("source")) {
+												dataset.source = sourceNode.get("source").asText();
+											}
+											if (sourceNode.has("urn")) {
+												dataset.urn = sourceNode.get("urn").asText();
+											}
+											if (sourceNode.has("schema")) {
+												dataset.schema = sourceNode.get("schema").asText();
+											}
+										}
+									}
+									pagedDatasets.add(dataset);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedDatasets));
+		return resultNode;
+	}
+
+	public static ObjectNode elasticSearchMetric(JsonNode searchOpt, int page, int size)
+	{
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<Metric> pagedMetrics = new ArrayList<Metric>();
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+
+		JsonNode searchNode = utils.Search.generateMetricAdvSearchQueryString(searchOpt);
+
+		if (searchNode != null && searchNode.isContainerNode())
+		{
+			queryNode.put("query", searchNode);
+		}
+
+		F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+				SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
+		JsonNode responseNode = responsePromise.get().asJson();
+
+		resultNode.put("page", page);
+		resultNode.put("category", "Metrics");
+		resultNode.put("isMetrics", true);
+		resultNode.put("itemsPerPage", size);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits")) {
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null) {
+				if (hitsNode.has("total")) {
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits")) {
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray()) {
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null) {
+							while (arrayIterator.hasNext()) {
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id")) {
+									Metric metric = new Metric();
+									metric.id = node.get("_id").asInt();
+									if (node.has("_source")) {
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null) {
+											if (sourceNode.has("metric_name")) {
+												metric.name = sourceNode.get("metric_name").asText();
+											}
+											if (sourceNode.has("metric_description")) {
+												metric.description = sourceNode.get("metric_description").asText();
+											}
+											if (sourceNode.has("dashboard_name")) {
+												metric.dashboardName = sourceNode.get("dashboard_name").asText();
+											}
+											if (sourceNode.has("metric_group")) {
+												metric.group = sourceNode.get("metric_group").asText();
+											}
+											if (sourceNode.has("metric_category")) {
+												metric.category = sourceNode.get("metric_category").asText();
+											}
+											if (sourceNode.has("urn")) {
+												metric.urn = sourceNode.get("urn").asText();
+											}
+											if (sourceNode.has("metric_source")) {
+												metric.source = sourceNode.get("metric_source").asText();
+												if (StringUtils.isBlank(metric.source))
+												{
+													metric.source = null;
+												}
+											}
+											metric.schema = sourceNode.toString();
+										}
+									}
+									pagedMetrics.add(metric);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedMetrics));
+		return resultNode;
+	}
+
+	public static ObjectNode elasticSearchFlowJobs(JsonNode searchOpt, int page, int size)
+	{
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<FlowJob> pagedFlows = new ArrayList<FlowJob>();
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+
+		JsonNode searchNode = utils.Search.generateFlowJobAdvSearchQueryString(searchOpt);
+
+		if (searchNode != null && searchNode.isContainerNode())
+		{
+			queryNode.put("query", searchNode);
+		}
+
+		F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+				SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
+		JsonNode responseNode = responsePromise.get().asJson();
+
+		resultNode.put("page", page);
+		resultNode.put("category", "Flows");
+		resultNode.put("isFlowJob", true);
+		resultNode.put("itemsPerPage", size);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits")) {
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null) {
+				if (hitsNode.has("total")) {
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits")) {
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray()) {
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null) {
+							while (arrayIterator.hasNext()) {
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id")) {
+									FlowJob flowJob = new FlowJob();
+									if (node.has("_source")) {
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null) {
+											if (sourceNode.has("app_code")) {
+												flowJob.appCode = sourceNode.get("app_code").asText();
+											}
+											if (sourceNode.has("app_id")) {
+												flowJob.appId = sourceNode.get("app_id").asInt();
+											}
+											if (sourceNode.has("flow_id")) {
+												flowJob.flowId = sourceNode.get("flow_id").asLong();
+											}
+											if (sourceNode.has("flow_name")) {
+												flowJob.flowName = sourceNode.get("flow_name").asText();
+												flowJob.displayName = flowJob.flowName;
+											}
+											if (sourceNode.has("flow_path")) {
+												flowJob.flowPath = sourceNode.get("flow_path").asText();
+											}
+											if (sourceNode.has("flow_group")) {
+												flowJob.flowGroup = sourceNode.get("flow_group").asText();
+											}
+											flowJob.link = "#/flows/" + flowJob.appCode + "/" +
+													flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+											flowJob.path = flowJob.appCode + "/" + flowJob.flowPath;
+
+											flowJob.schema = sourceNode.toString();
+										}
+									}
+									pagedFlows.add(flowJob);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedFlows));
+		return resultNode;
 	}
 
 	public static ObjectNode search(JsonNode searchOpt, int page, int size)
@@ -1277,6 +1526,497 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					resultNode.put("itemsPerPage", size);
 					resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 					resultNode.set("data", Json.toJson(pagedFlows));
+
+					return resultNode;
+				}
+			});
+			return result;
+		}
+		resultNode.put("count", 0);
+		resultNode.put("page", page);
+		resultNode.put("itemsPerPage", size);
+		resultNode.put("totalPages", 0);
+		resultNode.set("data", Json.toJson(""));
+		return resultNode;
+	}
+
+	public static ObjectNode searchMetrics(JsonNode searchOpt, int page, int size)
+	{
+		ObjectNode resultNode = Json.newObject();
+		int count = 0;
+		List<String> dashboardInList = new ArrayList<String>();
+		List<String> dashboardNotInList = new ArrayList<String>();
+		List<String> groupInList = new ArrayList<String>();
+		List<String> groupNotInList = new ArrayList<String>();
+		List<String> categoryInList = new ArrayList<String>();
+		List<String> categoryNotInList = new ArrayList<String>();
+		List<String> metricInList = new ArrayList<String>();
+		List<String> metricNotInList = new ArrayList<String>();
+
+		if (searchOpt != null && (searchOpt.isContainerNode()))
+		{
+			if (searchOpt.has("dashboard")) {
+				JsonNode dashboardNode = searchOpt.get("dashboard");
+				if (dashboardNode != null && dashboardNode.isContainerNode())
+				{
+					if (dashboardNode.has("in"))
+					{
+						JsonNode dashboardInNode = dashboardNode.get("in");
+						if (dashboardInNode != null)
+						{
+							String dashboardInStr = dashboardInNode.asText();
+							if (StringUtils.isNotBlank(dashboardInStr))
+							{
+								String[] dashboardInArray = dashboardInStr.split(",");
+								if (dashboardInArray != null)
+								{
+									for(String value : dashboardInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											dashboardInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (dashboardNode.has("not"))
+					{
+						JsonNode dashboardNotInNode = dashboardNode.get("not");
+						if (dashboardNotInNode != null)
+						{
+							String dashboardNotInStr = dashboardNotInNode.asText();
+							if (StringUtils.isNotBlank(dashboardNotInStr))
+							{
+								String[] dashboardNotInArray = dashboardNotInStr.split(",");
+								if (dashboardNotInArray != null)
+								{
+									for(String value : dashboardNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											dashboardNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (searchOpt.has("group")) {
+				JsonNode groupNode = searchOpt.get("group");
+				if (groupNode != null && groupNode.isContainerNode())
+				{
+					if (groupNode.has("in"))
+					{
+						JsonNode groupInNode = groupNode.get("in");
+						if (groupInNode != null)
+						{
+							String groupInStr = groupInNode.asText();
+							if (StringUtils.isNotBlank(groupInStr))
+							{
+								String[] groupInArray = groupInStr.split(",");
+								if (groupInArray != null)
+								{
+									for(String value : groupInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											groupInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (groupNode.has("not"))
+					{
+						JsonNode groupNotInNode = groupNode.get("not");
+						if (groupNotInNode != null)
+						{
+							String groupNotInStr = groupNotInNode.asText();
+							if (StringUtils.isNotBlank(groupNotInStr))
+							{
+								String[] groupNotInArray = groupNotInStr.split(",");
+								if (groupNotInArray != null)
+								{
+									for(String value : groupNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											groupNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (searchOpt.has("cat")) {
+				JsonNode categoryNode = searchOpt.get("cat");
+				if (categoryNode != null && categoryNode.isContainerNode())
+				{
+					if (categoryNode.has("in"))
+					{
+						JsonNode categoryInNode = categoryNode.get("in");
+						if (categoryInNode != null)
+						{
+							String categoryInStr = categoryInNode.asText();
+							if (StringUtils.isNotBlank(categoryInStr))
+							{
+								String[] categoryInArray = categoryInStr.split(",");
+								if (categoryInArray != null)
+								{
+									for(String value : categoryInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											categoryInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (categoryNode.has("not"))
+					{
+						JsonNode categoryNotInNode = categoryNode.get("not");
+						if (categoryNotInNode != null)
+						{
+							String categoryNotInStr = categoryNotInNode.asText();
+							if (StringUtils.isNotBlank(categoryNotInStr))
+							{
+								String[] categoryNotInArray = categoryNotInStr.split(",");
+								if (categoryNotInArray != null)
+								{
+									for(String value : categoryNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											categoryNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (searchOpt.has("metric")) {
+				JsonNode metricNode = searchOpt.get("metric");
+				if (metricNode != null && metricNode.isContainerNode())
+				{
+					if (metricNode.has("in"))
+					{
+						JsonNode metricInNode = metricNode.get("in");
+						if (metricInNode != null)
+						{
+							String metricInStr = metricInNode.asText();
+							if (StringUtils.isNotBlank(metricInStr))
+							{
+								String[] metricInArray = metricInStr.split(",");
+								if (metricInArray != null)
+								{
+									for(String value : metricInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											metricInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+					if (metricNode.has("not"))
+					{
+						JsonNode metricNotInNode = metricNode.get("not");
+						if (metricNotInNode != null)
+						{
+							String metricNotInStr = metricNotInNode.asText();
+							if (StringUtils.isNotBlank(metricNotInStr))
+							{
+								String[] metricNotInArray = metricNotInStr.split(",");
+								if (metricNotInArray != null)
+								{
+									for(String value : metricNotInArray)
+									{
+										if (StringUtils.isNotBlank(value))
+										{
+											metricNotInList.add(value.trim());
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			boolean needAndKeyword = false;
+
+			final List<Metric> pagedMetrics = new ArrayList<Metric>();
+			final JdbcTemplate jdbcTemplate = getJdbcTemplate();
+			javax.sql.DataSource ds = jdbcTemplate.getDataSource();
+			DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+
+			TransactionTemplate txTemplate = new TransactionTemplate(tm);
+
+			ObjectNode result;
+			String query = ADV_SEARCH_METRIC;
+
+			if (dashboardInList.size() > 0 || dashboardNotInList.size() > 0)
+			{
+				boolean dashboardNeedAndKeyword = false;
+				if (dashboardInList.size() > 0)
+				{
+					int indexForDashboardInList = 0;
+					for (String dashboard : dashboardInList)
+					{
+						if (indexForDashboardInList == 0)
+						{
+							query += "WHERE dashboard_name in ('" + dashboard + "'";
+						}
+						else
+						{
+							query += ", '" + dashboard + "'";
+						}
+						indexForDashboardInList++;
+					}
+					query += ") ";
+					dashboardNeedAndKeyword = true;
+				}
+				if (dashboardNotInList.size() > 0)
+				{
+					if (dashboardNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					else
+					{
+						query += " WHERE ";
+					}
+					int indexForDashboardNotInList = 0;
+					for (String dashboard : dashboardNotInList)
+					{
+						if (indexForDashboardNotInList == 0)
+						{
+							query += "dashboard_name not in ('" + dashboard + "'";
+						}
+						else
+						{
+							query += ", '" + dashboard + "'";
+						}
+						indexForDashboardNotInList++;
+					}
+					query += ") ";
+				}
+				needAndKeyword = true;
+			}
+
+			if (groupInList.size() > 0 || groupNotInList.size() > 0)
+			{
+				if (needAndKeyword)
+				{
+					query += " AND ";
+				}
+				else
+				{
+					query += " WHERE ";
+				}
+				query += "( ";
+				boolean groupNeedAndKeyword = false;
+				if (groupInList.size() > 0)
+				{
+					query += "( ";
+					int indexForGroupInList = 0;
+					for (String group : groupInList)
+					{
+						if (indexForGroupInList == 0)
+						{
+							query += "metric_group LIKE '%" + group + "%'";
+						}
+						else
+						{
+							query += " or metric_group LIKE '%" + group + "%'";
+						}
+						indexForGroupInList++;
+					}
+					query += ") ";
+					groupNeedAndKeyword = true;
+				}
+				if (groupNotInList.size() > 0)
+				{
+					if (groupNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					query += "( ";
+					int indexForGroupNotInList = 0;
+					for (String group : groupNotInList)
+					{
+						if (indexForGroupNotInList == 0)
+						{
+							query += "metric_group NOT LIKE '%" + group + "%'";
+						}
+						else
+						{
+							query += " and metric_group NOT LIKE '%" + group + "%'";
+						}
+						indexForGroupNotInList++;
+					}
+					query += ") ";
+				}
+				query += ") ";
+				needAndKeyword = true;
+			}
+
+			if (categoryInList.size() > 0 || categoryNotInList.size() > 0)
+			{
+				if (needAndKeyword)
+				{
+					query += " AND ";
+				}
+				else
+				{
+					query += " WHERE ";
+				}
+				query += "( ";
+				boolean categoryNeedAndKeyword = false;
+				if (categoryInList.size() > 0)
+				{
+					int indexForCategoryInList = 0;
+					query += "( ";
+					for (String category : categoryInList)
+					{
+						if (indexForCategoryInList == 0)
+						{
+							query += "metric_category LIKE '%" + category + "%'";
+						}
+						else
+						{
+							query += " or metric_category LIKE '%" + category + "%'";
+						}
+						indexForCategoryInList++;
+					}
+					query += ") ";
+					categoryNeedAndKeyword = true;
+				}
+				if (categoryNotInList.size() > 0)
+				{
+					if (categoryNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					query += "( ";
+					int indexForCategoryNotInList = 0;
+					for (String category : categoryNotInList)
+					{
+						if (indexForCategoryNotInList == 0)
+						{
+							query += "metric_category NOT LIKE '%" + category + "%'";
+						}
+						else
+						{
+							query += " and metric_category NOT LIKE '%" + category + "%'";
+						}
+						indexForCategoryNotInList++;
+					}
+					query += ") ";
+				}
+				query += ") ";
+				needAndKeyword = true;
+			}
+
+			if (metricInList.size() > 0 || metricNotInList.size() > 0)
+			{
+				if (needAndKeyword)
+				{
+					query += " AND ";
+				}
+				else
+				{
+					query += " WHERE ";
+				}
+				query += "( ";
+				boolean metricNeedAndKeyword = false;
+				if (metricInList.size() > 0)
+				{
+					int indexForMetricInList = 0;
+					query += " ( ";
+					for (String metric : metricInList)
+					{
+						if (indexForMetricInList == 0)
+						{
+							query += "metric_name LIKE '%" + metric + "%'";
+						}
+						else
+						{
+							query += " or metric_name LIKE '%" + metric + "%'";
+						}
+						indexForMetricInList++;
+					}
+					query += ") ";
+					metricNeedAndKeyword = true;
+				}
+				if (metricNotInList.size() > 0)
+				{
+					if (metricNeedAndKeyword)
+					{
+						query += " AND ";
+					}
+					query += "( ";
+					int indexForMetricNotInList = 0;
+					for (String metric : metricNotInList)
+					{
+						if (indexForMetricNotInList == 0)
+						{
+							query += "metric_name NOT LIKE '%" + metric + "%'";
+						}
+						else
+						{
+							query += " and metric_name NOT LIKE '%" + metric + "%'";
+						}
+						indexForMetricNotInList++;
+					}
+					query += ") ";
+				}
+				query += " )";
+			}
+
+			query += " LIMIT " + (page-1)*size + ", " + size;
+			final String queryString = query;
+
+			result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+			{
+				public ObjectNode doInTransaction(TransactionStatus status)
+				{
+					List<Metric> pagedMetrics = jdbcTemplate.query(queryString, new MetricRowMapper());
+
+					long count = 0;
+					try {
+						count = jdbcTemplate.queryForObject(
+								"SELECT FOUND_ROWS()",
+								Long.class);
+					}
+					catch(EmptyResultDataAccessException e)
+					{
+						Logger.error("Exception = " + e.getMessage());
+					}
+
+					ObjectNode resultNode = Json.newObject();
+					resultNode.put("count", count);
+					resultNode.put("page", page);
+					resultNode.put("isMetrics", true);
+					resultNode.put("itemsPerPage", size);
+					resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+					resultNode.set("data", Json.toJson(pagedMetrics));
 
 					return resultNode;
 				}

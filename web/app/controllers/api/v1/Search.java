@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.SearchDAO;
 import models.DatasetColumn;
+import play.Play;
 import play.api.libs.json.JsValue;
 import play.libs.Json;
 import play.mvc.Controller;
@@ -92,51 +93,71 @@ public class Search extends Controller
         {
             category = "datasets";
         }
-        if (StringUtils.isBlank(source))
+        if (StringUtils.isBlank(source) || source.equalsIgnoreCase("all") || source.equalsIgnoreCase("default"))
         {
-            source = "all";
+            source = null;
         }
-        else if (source.equalsIgnoreCase("default"))
-        {
-            source = "all";
-            isDefault = true;
-        }
+
+        String searchEngine = Play.application().configuration().getString(SearchDAO.WHEREHOWS_SEARCH_ENGINE__KEY);
+
         if (category.toLowerCase().equalsIgnoreCase("metric"))
         {
-            result.set("result", SearchDAO.getPagedMetricByKeyword(category, keyword, page, size));
+            if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+            {
+                result.set("result", SearchDAO.elasticSearchMetricByKeyword(category, keyword, page, size));
+
+            }
+            else
+            {
+                result.set("result", SearchDAO.getPagedMetricByKeyword(category, keyword, page, size));
+            }
         }
         else if (category.toLowerCase().equalsIgnoreCase("flows"))
         {
-            result.set("result", SearchDAO.getPagedFlowByKeyword(category, keyword, page, size));
+            if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+            {
+                result.set("result", SearchDAO.elasticSearchFlowByKeyword(category, keyword, page, size));
+
+            }
+            else
+            {
+                result.set("result", SearchDAO.getPagedFlowByKeyword(category, keyword, page, size));
+            }
         }
         else if (category.toLowerCase().equalsIgnoreCase("jobs"))
         {
-            result.set("result", SearchDAO.getPagedJobByKeyword(category, keyword, page, size));
+            if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+            {
+                result.set("result", SearchDAO.elasticSearchFlowByKeyword(category, keyword, page, size));
+
+            }
+            else
+            {
+                result.set("result", SearchDAO.getPagedJobByKeyword(category, keyword, page, size));
+            }
         }
         else if (category.toLowerCase().equalsIgnoreCase("comments"))
         {
-            result.set("result", SearchDAO.getPagedCommentsByKeyword(category, keyword, page, size));
+            if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+            {
+                result.set("result", SearchDAO.elasticSearchDatasetByKeyword(category, keyword, null, page, size));
+            }
+            else
+            {
+                result.set("result", SearchDAO.getPagedCommentsByKeyword(category, keyword, page, size));
+            }
+
         }
         else
         {
-            ObjectNode node = SearchDAO.getPagedDatasetByKeyword(category, keyword, source, page, size);
-            if (isDefault && node != null && node.has("count"))
+            if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
             {
-                Long count = node.get("count").asLong();
-                if (count != null && count == 0)
-                {
-                    node = SearchDAO.getPagedFlowByKeyword("flows", keyword, page, size);
-                    if (node!= null && node.has("count"))
-                    {
-                        Long flowCount = node.get("count").asLong();
-                        if (flowCount != null && flowCount == 0)
-                        {
-                            node = SearchDAO.getPagedJobByKeyword("jobs", keyword, page, size);
-                        }
-                    }
-                }
+                result.set("result", SearchDAO.elasticSearchDatasetByKeyword(category, keyword, source, page, size));
             }
-            result.set("result", node);
+            else
+            {
+                result.set("result", SearchDAO.getPagedDatasetByKeyword(category, keyword, source, page, size));
+            }
         }
 
         return ok(result);
