@@ -96,7 +96,6 @@ class HiveLoad:
           source_created_time=s.source_created_time, source_modified_time=s.source_modified_time,
             modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
         ;
-        analyze table dict_dataset;
         """.format(source_file=self.input_schema_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
     for state in load_cmd.split(";"):
@@ -127,9 +126,84 @@ class HiveLoad:
         , description=nullif(@description,'null')
         , last_modified=NULL;
 
+        -- update dataset_id
+        update stg_dict_field_detail sf, dict_dataset d
+        set sf.dataset_id = d.id where sf.urn = d.urn
+        and sf.db_id = {db_id};
 
+        -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
+        -- join with dict_dataset to avoid right join using index. (using index will slow down the query)
+        create temporary table if not exists t_deleted_fields (primary key (field_id))
+          select x.field_id
+            from stg_dict_field_detail s
+              join dict_dataset i
+                on s.urn = i.urn
+                and s.db_id = {db_id}
+              right join dict_field_detail x
+                on i.id = x.dataset_id
+                and s.field_name = x.field_name
+                and s.parent_path = x.parent_path
+          where s.field_name is null
+            and x.dataset_id in (
+                       select d.id dataset_id
+                       from stg_dict_field_detail k join dict_dataset d
+                         on k.urn = d.urn
+                        and k.db_id = {db_id}
+            )
+        ; -- run time : ~2min
 
-       ANALYZE TABLE stg_dict_field_detail;
+        delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
+
+        -- update the old record if some thing changed. e.g. sort id changed
+        update dict_field_detail t join
+        (
+          select x.field_id, s.*
+          from stg_dict_field_detail s
+               join dict_field_detail x
+           on s.field_name = x.field_name
+          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+          and s.dataset_id = x.dataset_id
+          where s.db_id = {db_id}
+            and (x.sort_id <> s.sort_id
+                or x.parent_sort_id <> s.parent_sort_id
+                or x.data_type <> s.data_type
+                or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
+                or x.data_precision <> s.data_precision or (x.data_precision is null XOR s.data_precision is null)
+                or x.is_nullable <> s.is_nullable or (x.is_nullable is null XOR s.is_nullable is null)
+                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null XOR s.is_partitioned is null)
+                or x.is_distributed <> s.is_distributed or (x.is_distributed is null XOR s.is_distributed is null)
+                or x.default_value <> s.default_value or (x.default_value is null XOR s.default_value is null)
+                or x.namespace <> s.namespace or (x.namespace is null XOR s.namespace is null)
+            )
+        ) p
+          on t.field_id = p.field_id
+        set t.sort_id = p.sort_id,
+            t.parent_sort_id = p.parent_sort_id,
+            t.data_type = p.data_type,
+            t.data_size = p.data_size,
+            t.data_precision = p.data_precision,
+            t.is_nullable = p.is_nullable,
+            t.is_partitioned = p.is_partitioned,
+            t.is_distributed = p.is_distributed,
+            t.default_value = p.default_value,
+            t.namespace = p.namespace,
+            t.modified = now();
+
+        -- insert new ones
+        CREATE TEMPORARY TABLE IF NOT EXISTS t_existed_field
+        ( primary key (urn, sort_id, db_id) )
+        AS (
+        SELECT sf.urn, sf.sort_id, sf.db_id, count(*) field_count
+        FROM stg_dict_field_detail sf
+        JOIN dict_field_detail t
+          ON sf.dataset_id = t.dataset_id
+         AND sf.field_name = t.field_name
+         AND sf.parent_path = t.parent_path
+        WHERE sf.db_id = {db_id}
+          and sf.dataset_id IS NOT NULL
+        group by 1,2,3
+        );
+
 
        insert into dict_field_detail (
           dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
@@ -137,32 +211,24 @@ class HiveLoad:
            modified
         )
         select
-          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
+          sf.dataset_id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
           sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value, now()
-        from stg_dict_field_detail sf join dict_dataset d
-          on sf.urn = d.urn
-             left join dict_field_detail t
-          on d.id = t.dataset_id
-         and sf.field_name = t.field_name
-         and sf.parent_path = t.parent_path
-        where db_id = {db_id} and t.field_id is null
+        from stg_dict_field_detail sf
+        where sf.db_id = {db_id} and sf.dataset_id is not null
+          and (sf.urn, sf.sort_id, sf.db_id) not in (select urn, sort_id, db_id from t_existed_field)
         ;
-
-        analyze table dict_field_detail;
-
 
         -- delete old record in stagging
         delete from stg_dict_dataset_field_comment where db_id = {db_id};
 
         -- insert
-        insert into stg_dict_dataset_field_comment
-        select t.field_id field_id, fc.id comment_id,  d.id dataset_id, {db_id}
-                from stg_dict_field_detail sf join dict_dataset d
-                  on sf.urn = d.urn
+        insert ignore into stg_dict_dataset_field_comment
+        select t.field_id field_id, fc.id comment_id,  sf.dataset_id, {db_id}
+                from stg_dict_field_detail sf
                       join field_comments fc
                   on sf.description = fc.comment
                       join dict_field_detail t
-                  on d.id = t.dataset_id
+                  on sf.dataset_id = t.dataset_id
                  and sf.field_name = t.field_name
                  and sf.parent_path = t.parent_path
         where sf.db_id = {db_id};
@@ -197,96 +263,8 @@ class HiveLoad:
             and fc.id is null
             and sf.db_id = {db_id}
           group by 1 order by 1
-        ) d;
+        ) d
 
-        analyze table field_comments;
-
-        -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
-        create temporary table if not exists t_deleted_fields (primary key (field_id))
-          select x.field_id
-            from stg_dict_field_detail s
-              join dict_dataset i
-                on s.urn = i.urn
-                and s.db_id = {db_id}
-              right join dict_field_detail x
-                on i.id = x.dataset_id
-                and s.field_name = x.field_name
-                and s.parent_path = x.parent_path
-          where s.field_name is null
-            and x.dataset_id in (
-                       select d.id dataset_id
-                       from stg_dict_field_detail k join dict_dataset d
-                         on k.urn = d.urn
-                        and k.db_id = {db_id}
-            )
-        ; -- run time : ~2min
-
-        delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
-
-        -- update the old record if some thing changed
-        update dict_field_detail t join
-        (
-          select x.field_id, s.*
-          from stg_dict_field_detail s join dict_dataset d
-            on s.urn = d.urn
-               join dict_field_detail x
-           on s.field_name = x.field_name
-          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-          and d.id = x.dataset_id
-          where s.db_id = {db_id}
-            and (x.sort_id <> s.sort_id
-                or x.parent_sort_id <> s.parent_sort_id
-                or x.data_type <> s.data_type
-                or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
-                or x.data_precision <> s.data_precision or (x.data_precision is null XOR s.data_precision is null)
-                or x.is_nullable <> s.is_nullable or (x.is_nullable is null XOR s.is_nullable is null)
-                or x.is_partitioned <> s.is_partitioned or (x.is_partitioned is null XOR s.is_partitioned is null)
-                or x.is_distributed <> s.is_distributed or (x.is_distributed is null XOR s.is_distributed is null)
-                or x.default_value <> s.default_value or (x.default_value is null XOR s.default_value is null)
-                or x.namespace <> s.namespace or (x.namespace is null XOR s.namespace is null)
-            )
-        ) p
-          on t.field_id = p.field_id
-        set t.sort_id = p.sort_id,
-            t.parent_sort_id = p.parent_sort_id,
-            t.data_type = p.data_type,
-            t.data_size = p.data_size,
-            t.data_precision = p.data_precision,
-            t.is_nullable = p.is_nullable,
-            t.is_partitioned = p.is_partitioned,
-            t.is_distributed = p.is_distributed,
-            t.default_value = p.default_value,
-            t.namespace = p.namespace,
-            t.modified = now()
-        ;
-
-        insert into dict_field_detail (
-          dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
-          field_name, namespace, data_type, data_size, is_nullable, default_value,
-          default_comment_id, modified
-        )
-        select
-          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
-          sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value,
-          coalesce(fc.id, t.default_comment_id) fc_id, now()
-        from stg_dict_field_detail sf join dict_dataset d
-          on sf.urn = d.urn
-             left join field_comments fc
-          on sf.description = fc.comment
-             left join dict_field_detail t
-          on d.id = t.dataset_id
-         and sf.field_name = t.field_name
-         and sf.parent_path = t.parent_path
-        where db_id = {db_id} and t.field_id is null
-
-        on duplicate key update
-          data_type = sf.data_type, data_size = sf.data_size,
-          is_nullable = sf.is_nullable, default_value = sf.default_value,
-          namespace = sf.namespace,
-          default_comment_id = coalesce(fc.id, t.default_comment_id),
-          modified=now()
-        ;
-        analyze table dict_field_detail;
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 
     # didn't load into final table for now
