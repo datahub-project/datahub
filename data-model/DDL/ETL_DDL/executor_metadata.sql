@@ -94,7 +94,7 @@ CREATE TABLE flow_job (
   job_path             VARCHAR(1024) COMMENT 'job path from top level',
   job_type_id          SMALLINT COMMENT 'type id of the job',
   job_type             VARCHAR(63) COMMENT 'type of the job',
-  ref_flow_id          INT UNSIGNED DEFAULT NULL COMMENT 'the reference flow id of the job if the job is a subflow',
+  ref_flow_id          INT UNSIGNED NULL COMMENT 'the reference flow id of the job if the job is a subflow',
   pre_jobs             VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
   post_jobs            VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
   is_current           CHAR(1) COMMENT 'determine if it is a current job',
@@ -124,7 +124,7 @@ CREATE TABLE stg_flow_job (
   job_path       VARCHAR(1024) COMMENT 'job path from top level',
   job_type_id    SMALLINT COMMENT 'type id of the job',
   job_type       VARCHAR(63) COMMENT 'type of the job',
-  ref_flow_id    INT UNSIGNED  DEFAULT NULL COMMENT 'the reference flow id of the job if the job is a subflow',
+  ref_flow_id    INT UNSIGNED  NULL COMMENT 'the reference flow id of the job if the job is a subflow',
   ref_flow_path  VARCHAR(1024) COMMENT 'the reference flow path of the job if the job is a subflow',
   pre_jobs       VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
   post_jobs      VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
@@ -161,7 +161,7 @@ CREATE TABLE job_source_id_map (
 CREATE TABLE flow_dag (
   app_id         SMALLINT UNSIGNED NOT NULL
   COMMENT 'application id of the flow',
-  flow_id        INT UNSIGNED DEFAULT NULL
+  flow_id        INT UNSIGNED NOT NULL
   COMMENT 'flow id',
   source_version VARCHAR(255) COMMENT 'last source version of the flow under this dag version',
   dag_version    INT COMMENT 'derived dag version of the flow',
@@ -179,7 +179,7 @@ CREATE TABLE flow_dag (
 CREATE TABLE stg_flow_dag (
   app_id         SMALLINT UNSIGNED NOT NULL
   COMMENT 'application id of the flow',
-  flow_id        INT UNSIGNED DEFAULT NULL
+  flow_id        INT UNSIGNED NOT NULL
   COMMENT 'flow id',
   source_version VARCHAR(255) COMMENT 'last source version of the flow under this dag version',
   dag_version    INT COMMENT 'derived dag version of the flow',
@@ -438,10 +438,64 @@ CREATE TABLE stg_flow_owner_permission (
   DEFAULT CHARSET = utf8
   COMMENT = 'Scheduler owner table' PARTITION BY HASH (app_id) PARTITIONS 8;
 
+CREATE TABLE job_execution_ext_reference ( 
+	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
+	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
+	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  NULL DEFAULT '0',
+	ext_ref_type	varchar(50) COMMENT 'YARN_JOB_ID, DB_SESSION_ID, PID, INFA_WORKFLOW_RUN_ID, CASSCADE_WORKFLOW_ID'  NOT NULL,
+    ext_ref_sort_id smallint(6) COMMENT 'sort id 0..n within each ext_ref_type' NOT NULL DEFAULT '0',
+	ext_ref_id      varchar(100) COMMENT 'external reference id' NOT NULL,
+	created_time   	int(10) UNSIGNED COMMENT 'etl create time'  NULL,
+	wh_etl_exec_id 	bigint(20) COMMENT 'wherehows etl execution id that create this record'  NULL,
+	PRIMARY KEY(app_id,job_exec_id,attempt_id,ext_ref_type,ext_ref_sort_id)
+)
+ENGINE = InnoDB
+DEFAULT CHARSET = latin1
+COMMENT = 'External reference ids for the job execution'
+PARTITION BY HASH(app_id)
+   (	PARTITION p0,
+	PARTITION p1,
+	PARTITION p2,
+	PARTITION p3,
+	PARTITION p4,
+	PARTITION p5,
+	PARTITION p6,
+	PARTITION p7)
+;
+
+CREATE INDEX idx_job_execution_ext_ref__ext_ref_id USING BTREE 
+	ON job_execution_ext_reference(ext_ref_id);
+
+
+CREATE TABLE stg_job_execution_ext_reference ( 
+	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
+	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
+	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  NULL DEFAULT '0',
+	ext_ref_type	varchar(50) COMMENT 'YARN_JOB_ID, DB_SESSION_ID, PID, INFA_WORKFLOW_RUN_ID, CASSCADE_WORKFLOW_ID'  NOT NULL,
+    ext_ref_sort_id smallint(6) COMMENT 'sort id 0..n within each ext_ref_type' NOT NULL DEFAULT '0',
+	ext_ref_id      varchar(100) COMMENT 'external reference id' NOT NULL,
+	created_time   	int(10) UNSIGNED COMMENT 'etl create time'  NULL,
+	wh_etl_exec_id 	bigint(20) COMMENT 'wherehows etl execution id that create this record'  NULL,
+	PRIMARY KEY(app_id,job_exec_id,attempt_id,ext_ref_type,ext_ref_sort_id)
+)
+ENGINE = InnoDB
+DEFAULT CHARSET = latin1
+COMMENT = 'staging table for job_execution_ext_reference'
+PARTITION BY HASH(app_id)
+   (	PARTITION p0,
+	PARTITION p1,
+	PARTITION p2,
+	PARTITION p3,
+	PARTITION p4,
+	PARTITION p5,
+	PARTITION p6,
+	PARTITION p7)
+;
+
 CREATE TABLE `cfg_job_type` (
   `job_type_id` SMALLINT(6) UNSIGNED NOT NULL AUTO_INCREMENT,
   `job_type`    VARCHAR(50)          NOT NULL,
-  `description` VARCHAR(200)                  DEFAULT NULL,
+  `description` VARCHAR(200)         NULL,
   PRIMARY KEY (`job_type_id`),
   UNIQUE KEY `ak_cfg_job_type__job_type` (`job_type`)
 )
@@ -453,9 +507,9 @@ CREATE TABLE `cfg_job_type` (
 CREATE TABLE `cfg_job_type_reverse_map` (
   `job_type_actual`   VARCHAR(50)
                       CHARACTER SET ascii NOT NULL,
-  `job_type_id`       SMALLINT(6) UNSIGNED DEFAULT NULL,
-  `description`       VARCHAR(200)         DEFAULT NULL,
-  `job_type_standard` VARCHAR(50)          DEFAULT NULL,
+  `job_type_id`       SMALLINT(6) UNSIGNED NOT NULL,
+  `description`       VARCHAR(200)         NULL,
+  `job_type_standard` VARCHAR(50)          NOT NULL,
   PRIMARY KEY (`job_type_actual`),
   UNIQUE KEY `cfg_job_type_reverse_map_uk` (`job_type_actual`),
   KEY `cfg_job_type_reverse_map_job_type_id_fk` (`job_type_id`)
