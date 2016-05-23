@@ -63,6 +63,9 @@ class HiveColumnParser:
     if inner:
       self.prefix = column_name
       column.update(self._parse_complex(simple_type, inner, self.sort_id))
+
+    # reset prefix after each outermost field
+    self.prefix = ''
     return column
 
   def is_scalar_type(self, type_string):
@@ -72,6 +75,8 @@ class HiveColumnParser:
   def _parse_type(self, type_string):
     pattern = re.compile(r"^([a-z]+[(),0-9]*)(<(.+)>)?( comment '(.*)')?$", re.IGNORECASE)
     match = re.search(pattern, type_string)
+    if match is None:
+      return None, None, None
     return match.group(1), match.group(3), match.group(5)
 
   def _parse_complex(self, simple_type, inner, parent_id):

@@ -45,7 +45,7 @@ position:string,results:struct<numsearchresults:decimal(15,2),results:array<stru
 additionalinfo:map<string,string>>>> comment 'com.brother.innobella.printer',\
 additionalinfo:map<string,string>>>,searchtime:int comment '1~1024',\
 extratag:uniontype<int,double,struct<aaa:int,bbb:char>,array<varchar>> comment '*',\
-querytagger:string>", "ColumnName": "testcomplex"}]}
+querytagger:string>", "ColumnName": "testcomplex"},{"Comment":null,"TypeName":"string","ColumnName":"extracolumn"}]}
 '''
 
 expect_result_complex = [['hdfs:///test/urn', 1, 0, '', u'testcomplex', u'struct', None, None, None, None, None],
@@ -72,7 +72,8 @@ expect_result_complex = [['hdfs:///test/urn', 1, 0, '', u'testcomplex', u'struct
 ['hdfs:///test/urn', 22, 21, u'testcomplex.extratag.type2', u'aaa', u'int', None, None, None, None, None],
 ['hdfs:///test/urn', 23, 21, u'testcomplex.extratag.type2', u'bbb', u'char', None, None, None, None, None],
 ['hdfs:///test/urn', 24, 18, u'testcomplex.extratag', 'type3', u'array', None, None, None, None, None],
-['hdfs:///test/urn', 25, 1, u'testcomplex', u'querytagger', u'string', None, None, None, None, None]]
+['hdfs:///test/urn', 25, 1, u'testcomplex', u'querytagger', u'string', None, None, None, None, None],
+['hdfs:///test/urn', 26, 0, u'', u'extracolumn', u'string', None, None, None, None, None]]
 class HiveColumnParserTest(unittest.TestCase):
 
   def test_parse_simple(self):
