@@ -155,6 +155,8 @@ class HiveExtract:
       field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
                          'Comment': row_value[17]})
       if row_index == len(rows) - 1 or (row_value[0] != rows[row_index+1][0] or row_value[1] != rows[row_index+1][1]): # if this is last record of current table
+        # sort the field_list by IntegerIndex
+        field_list = sorted(field_list, key=lambda k: k['IntegerIndex'])
         # process the record of table
         table_record = {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
                       TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
