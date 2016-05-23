@@ -87,3 +87,7 @@ subprojects {
                             "hive_exec"          : "org.apache.hive:hive-exec:1.2.1"
   ]
 }
+
+task wrapper(type: Wrapper) {
+  gradleVersion = '2.4'
+}
