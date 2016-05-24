@@ -33,11 +33,13 @@ GET     /lineage/flow/:application/:project/:flow   controllers.Application.flow
 
 GET     /schemaHistory                              controllers.Application.schemaHistory()
 
-GET     /api/v1/company/entities            controllers.api.v1.User.getAllUserEntities()
+GET     /api/v1/owner/types                 controllers.api.v1.Dataset.getDatasetOwnerTypes()
 
-GET     /api/v1/company/employees           controllers.api.v1.User.getAllCompanyUsers()
+GET     /api/v1/party/entities              controllers.api.v1.User.getAllUserEntities()
 
-GET     /api/v1/company/groups              controllers.api.v1.User.getAllGroups()
+GET     /api/v1/party/employees             controllers.api.v1.User.getAllCompanyUsers()
+
+GET     /api/v1/party/groups                controllers.api.v1.User.getAllGroups()
 
 GET     /api/v1/autocomplete/search         controllers.api.v1.Search.getSearchAutoComplete()
 

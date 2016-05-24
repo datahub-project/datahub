@@ -1198,6 +1198,7 @@
                     <td class="col-xs-12">
                       <div class="dataset-name">
                         <td class="dataset-info">
+                          <i class="fa fa-random"></i>
                           <a href="{{flowJob.link}}">
                             {{flowJob.displayName}}
                           </a>
@@ -1206,6 +1207,9 @@
                           {{{ flowJob.path }}}
                         </p>
                         <p>source: {{{ flowJob.appCode }}}</p>
+                        <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                          {{{ flowJob.schema }}}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -1221,10 +1225,12 @@
                       <div class="dataset-name">
                         <td class="dataset-info">
                         {{#if isMetric}}
+                          <i class="fa fa-plus-square-o"></i>
                           {{#link-to 'metric' dataset}}
                             {{{dataset.name}}}
                           {{/link-to}}
                         {{else}}
+                          <i class="fa fa-database"></i>
                           {{#link-to 'dataset' dataset}}
                             {{{dataset.name}}}
                           {{/link-to}}
@@ -1233,7 +1239,11 @@
                         <p>
                           {{{ dataset.urn }}}
                         </p>
-                        <p>source: {{{ dataset.source }}}</p>
+                        {{#if dataset.source}}
+                          <p>source: {{{ dataset.source }}}</p>
+                        {{else}}
+                          <p>source: Metric</p>
+                        {{/if}}
                         <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
                           {{{ dataset.schema }}}
                         </div>
@@ -1302,6 +1312,7 @@
                     <td class="col-xs-12">
                       <div class="dataset-name">
                         <td class="dataset-info">
+                          <i class="fa fa-random"></i>
                           <a href="{{flowJob.link}}">
                             {{flowJob.displayName}}
                           </a>
@@ -1310,6 +1321,9 @@
                           {{{ flowJob.path }}}
                         </p>
                         <p>source: {{{ flowJob.appCode }}}</p>
+                        <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                          {{{ flowJob.schema }}}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -1324,6 +1338,7 @@
                   <td class="col-xs-12">
                     <div class="dataset-name">
                       <td class="dataset-info">
+                        <i class="fa fa-database"></i>
                         {{#link-to 'dataset' dataset}}
                           {{{dataset.name}}}
                         {{/link-to}}

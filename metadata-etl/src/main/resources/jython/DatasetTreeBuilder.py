@@ -12,12 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import json
-import shutil
 import sys
 from com.ziclix.python.sql import zxJDBC
-from org.slf4j import LoggerFactory
 from wherehows.common import Constant
+from ElasticSearchIndex import ElasticSearchIndex
+from datetime import datetime
+import calendar
+import json
+import shutil
 
 
 class DatasetTreeBuilder:
@@ -103,8 +105,9 @@ class DatasetTreeBuilder:
 
 
 if __name__ == "__main__":
-  datasetTreeBuilder = DatasetTreeBuilder(sys.argv[1])
-  try:
-    datasetTreeBuilder.run()
-  finally:
-    datasetTreeBuilder.close_database_connection()
+  d = DatasetTreeBuilder(sys.argv[1])
+  d.run()
+  esi = ElasticSearchIndex(sys.argv[1])
+  d = datetime.utcnow()
+  unixtime = calendar.timegm(d.utctimetuple())
+  esi.update_dataset(unixtime)

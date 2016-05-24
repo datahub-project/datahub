@@ -20,8 +20,11 @@ function highlightResults(result, index, keyword)
     var newContent = content.replace(query, "<b>$1</b>");
     result[index].schema = newContent;
     var urn = result[index].urn;
-    var newUrn = urn.replace(query, "<b>$1</b>");
-    result[index].urn = newUrn;
+    if (urn)
+    {
+        var newUrn = urn.replace(query, "<b>$1</b>");
+        result[index].urn = newUrn;
+    }
 };
 
 App.SearchRoute = Ember.Route.extend({
@@ -65,6 +68,9 @@ App.SearchRoute = Ember.Route.extend({
         $.get(url, function(data) {
             if (data && data.status == "ok") {
                 var result = data.result;
+                var keywords = result.keywords;
+                window.g_currentCategory = result.category;
+                updateSearchCategories(result.category);
                 for(var index = 0; index < result.data.length; index++) {
                     var schema = result.data[index].schema;
                     if (schema) {

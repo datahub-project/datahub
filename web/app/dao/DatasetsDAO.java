@@ -310,6 +310,15 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"LEFT JOIN field_comments fc ON ddfc.comment_id = fc.id " +
 			"WHERE dfd.dataset_id <> ? AND dfd.field_name = ? ORDER BY d.name asc";
 
+
+	private final static String GET_DATASET_OWNER_TYPES = "SELECT DISTINCT owner_type " +
+			"FROM dataset_owner WHERE owner_type is not null";
+
+	public static List<String> getDatasetOwnerTypes()
+	{
+		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
+	}
+
 	public static ObjectNode getPagedDatasets(String urn, Integer page, Integer size, String user)
 	{
 		ObjectNode result = Json.newObject();

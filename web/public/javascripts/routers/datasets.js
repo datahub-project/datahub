@@ -232,6 +232,13 @@ App.DatasetRoute = Ember.Route.extend({
           controller.set("breadcrumbs", breadcrumbs);
         }
 
+        var ownerTypeUrl = 'api/v1/owner/types';
+        $.get(ownerTypeUrl, function(data) {
+          if (data && data.status == "ok") {
+            controller.set("ownerTypes", data.ownerTypes);
+          }
+        });
+
         var userSettingsUrl = 'api/v1/user/me';
         $.get(userSettingsUrl, function(data) {
           var tabview = false;
@@ -427,7 +434,7 @@ App.DatasetRoute = Ember.Route.extend({
                 }
               });
 
-              var allUserEntitiesUrl = 'api/v1/company/entities';
+              var allUserEntitiesUrl = 'api/v1/party/entities';
               $.get(allUserEntitiesUrl, function(data) {
                 if (data && data.status == "ok")
                 {

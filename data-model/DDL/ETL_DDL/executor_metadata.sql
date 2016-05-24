@@ -441,7 +441,7 @@ CREATE TABLE stg_flow_owner_permission (
 CREATE TABLE job_execution_ext_reference ( 
 	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
 	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
-	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  NULL DEFAULT '0',
+	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  DEFAULT '0',
 	ext_ref_type	varchar(50) COMMENT 'YARN_JOB_ID, DB_SESSION_ID, PID, INFA_WORKFLOW_RUN_ID, CASSCADE_WORKFLOW_ID'  NOT NULL,
     ext_ref_sort_id smallint(6) COMMENT 'sort id 0..n within each ext_ref_type' NOT NULL DEFAULT '0',
 	ext_ref_id      varchar(100) COMMENT 'external reference id' NOT NULL,
@@ -470,7 +470,7 @@ CREATE INDEX idx_job_execution_ext_ref__ext_ref_id USING BTREE
 CREATE TABLE stg_job_execution_ext_reference ( 
 	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
 	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
-	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  NULL DEFAULT '0',
+	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  DEFAULT '0',
 	ext_ref_type	varchar(50) COMMENT 'YARN_JOB_ID, DB_SESSION_ID, PID, INFA_WORKFLOW_RUN_ID, CASSCADE_WORKFLOW_ID'  NOT NULL,
     ext_ref_sort_id smallint(6) COMMENT 'sort id 0..n within each ext_ref_type' NOT NULL DEFAULT '0',
 	ext_ref_id      varchar(100) COMMENT 'external reference id' NOT NULL,

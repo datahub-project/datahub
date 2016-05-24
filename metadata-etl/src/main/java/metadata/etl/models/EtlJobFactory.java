@@ -18,6 +18,7 @@ import metadata.etl.EtlJob;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
+import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
@@ -52,6 +53,8 @@ public class EtlJobFactory {
         return new GitMetadataEtl(refId, whExecId, properties);
       case HIVE_DATASET_METADATA_ETL:
         return new HiveMetadataEtl(refId, whExecId, properties);
+      case ELASTICSEARCH_EXECUTION_INDEX_ETL:
+        return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

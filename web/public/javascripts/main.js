@@ -93,6 +93,101 @@ var convertQueryStringToObject = function() {
     return queryString;
 }
 
+function resetCategoryActiveFlag(category)
+{
+    $('#categoryDatasets').removeClass('active');
+    $('#categoryComments').removeClass('active');
+    $('#categoryMetrics').removeClass('active');
+    $('#categoryFlows').removeClass('active');
+    $('#categoryJobs').removeClass('active');
+    if (category.toLowerCase() == 'datasets')
+    {
+        $('#categoryDatasets').addClass('active');
+    }
+    else if (category.toLowerCase() == 'comments')
+    {
+        $('#categoryComments').addClass('active');
+    }
+    else if (category.toLowerCase() == 'metrics')
+    {
+        $('#categoryMetrics').addClass('active');
+    }
+    else if (category.toLowerCase() == 'flows')
+    {
+        $('#categoryFlows').addClass('active');
+    }
+    else if (category.toLowerCase() == 'jobs')
+    {
+        $('#categoryJobs').addClass('active');
+    }
+    currentCategory = category;
+}
+
+function updateSearchCategories(category)
+{
+    if (category.toLowerCase() == 'all')
+    {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-list');
+    }
+    else if (category.toLowerCase() == 'datasets')
+    {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-database');
+    }
+    else if (category.toLowerCase() == 'comments')
+    {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-comment');
+    }
+    else if (category.toLowerCase() == 'metrics')
+    {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-plus-square-o');
+    }
+    else if (category.toLowerCase() == 'flows')
+    {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-random');
+    }
+     else if (category.toLowerCase() == 'jobs')
+     {
+        $('#categoryIcon').removeClass('fa fa-list');
+        $('#categoryIcon').removeClass('fa fa-database');
+        $('#categoryIcon').removeClass('fa fa-comment');
+        $('#categoryIcon').removeClass('fa fa-random');
+        $('#categoryIcon').removeClass('fa fa-plus-square-o');
+        $('#categoryIcon').removeClass('fa fa-file-o');
+        $('#categoryIcon').addClass('fa fa-file-o');
+     }
+    resetCategoryActiveFlag(category);
+}
+
 String.prototype.toProperCase = function(){
     return this.replace(/\w\S*/g, function(txt){
         return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()

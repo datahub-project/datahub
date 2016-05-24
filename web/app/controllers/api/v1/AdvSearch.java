@@ -16,8 +16,10 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.AdvSearchDAO;
+import dao.SearchDAO;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
+import play.Play;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -137,17 +139,46 @@ public class AdvSearch extends Controller
             }
         }
         result.put("status", "ok");
+        String searchEngine = Play.application().configuration().getString(SearchDAO.WHEREHOWS_SEARCH_ENGINE__KEY);
+
         if (searchOpt != null && searchOpt.has("category"))
         {
             String category = searchOpt.get("category").asText();
             if(category.equalsIgnoreCase("flow"))
             {
-                result.set("result", Json.toJson(AdvSearchDAO.searchFlows(searchOpt, page, size)));
+                if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+                {
+                    result.set("result", Json.toJson(AdvSearchDAO.elasticSearchFlowJobs(searchOpt, page, size)));
+                }
+                else
+                {
+                    result.set("result", Json.toJson(AdvSearchDAO.searchFlows(searchOpt, page, size)));
+                }
                 return ok(result);
             }
+            else if(category.equalsIgnoreCase("metric"))
+            {
+                if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+                {
+                    result.set("result", Json.toJson(AdvSearchDAO.elasticSearchMetric(searchOpt, page, size)));
+                }
+                else
+                {
+                    result.set("result", Json.toJson(AdvSearchDAO.searchMetrics(searchOpt, page, size)));
+                }
+                return ok(result);
+            }
+
         }
 
-        result.set("result", Json.toJson(AdvSearchDAO.search(searchOpt, page, size)));
+        if(StringUtils.isNotBlank(searchEngine) && searchEngine.equalsIgnoreCase("elasticsearch"))
+        {
+            result.set("result", Json.toJson(AdvSearchDAO.elasticSearch(searchOpt, page, size)));
+        }
+        else
+        {
+            result.set("result", Json.toJson(AdvSearchDAO.search(searchOpt, page, size)));
+        }
 
         return ok(result);
     }
