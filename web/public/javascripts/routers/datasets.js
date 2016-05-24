@@ -434,7 +434,7 @@ App.DatasetRoute = Ember.Route.extend({
                 }
               });
 
-              var allUserEntitiesUrl = 'api/v1/company/entities';
+              var allUserEntitiesUrl = 'api/v1/party/entities';
               $.get(allUserEntitiesUrl, function(data) {
                 if (data && data.status == "ok")
                 {
