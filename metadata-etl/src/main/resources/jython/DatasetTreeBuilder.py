@@ -12,14 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys
-from com.ziclix.python.sql import zxJDBC
-from wherehows.common import Constant
-from ElasticSearchIndex import ElasticSearchIndex
-from datetime import datetime
 import calendar
 import json
 import shutil
+import sys
+from com.ziclix.python.sql import zxJDBC
+from datetime import datetime
+from org.slf4j import LoggerFactory
+from wherehows.common import Constant
+
+from jython.ElasticSearchIndex import ElasticSearchIndex
 
 
 class DatasetTreeBuilder:
@@ -104,10 +106,20 @@ class DatasetTreeBuilder:
     self.save_trie()
 
 
+def saveTreeInElasticSearchIfApplicable(args):
+  es_url = args.get(Constant.WH_ELASTICSEARCH_URL_KEY, None)
+  es_port = args.get(Constant.WH_ELASTICSEARCH_PORT_KEY, None)
+  if es_url is not None and es_port is not None:
+    esi = ElasticSearchIndex(args)
+    d = datetime.utcnow()
+    unixtime = calendar.timegm(d.utctimetuple())
+    esi.update_dataset(unixtime)
+
+
 if __name__ == "__main__":
-  d = DatasetTreeBuilder(sys.argv[1])
-  d.run()
-  esi = ElasticSearchIndex(sys.argv[1])
-  d = datetime.utcnow()
-  unixtime = calendar.timegm(d.utctimetuple())
-  esi.update_dataset(unixtime)
+  datasetTreeBuilder = DatasetTreeBuilder(sys.argv[1])
+  try:
+    datasetTreeBuilder.run()
+  finally:
+    datasetTreeBuilder.close_database_connection()
+  saveTreeInElasticSearchIfApplicable(sys.argv[1])
