@@ -28,4 +28,5 @@ public class FlowJob {
     public String path;
     public Integer appId;
     public Long flowId;
+    public String schema;
 }

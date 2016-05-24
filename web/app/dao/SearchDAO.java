@@ -13,13 +13,11 @@
  */
 package dao;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -29,12 +27,23 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
+import play.Play;
+import play.libs.F;
 import play.libs.Json;
 import play.cache.Cache;
 import models.*;
+import play.libs.WS;
 
 public class SearchDAO extends AbstractMySQLOpenSourceDAO
 {
+	public static String ELASTICSEARCH_DATASET_URL_KEY = "elasticsearch.dataset.url";
+
+	public static String ELASTICSEARCH_METRIC_URL_KEY = "elasticsearch.metric.url";
+
+	public static String ELASTICSEARCH_FLOW_URL_KEY = "elasticsearch.flow.url";
+
+	public static String WHEREHOWS_SEARCH_ENGINE__KEY = "search.engine";
+
 	public final static String SEARCH_DATASET_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"id, `name`, `schema`, `source`, `urn`, FROM_UNIXTIME(source_modified_time) as modified, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 as rank " +
@@ -167,6 +176,324 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 
 		return cachedAutoCompleteList;
+	}
+
+	public static JsonNode elasticSearchDatasetByKeyword(
+			String category,
+			String keywords,
+			String source,
+			int page,
+			int size)
+	{
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+		JsonNode responseNode = null;
+		ObjectNode keywordNode = null;
+
+		try
+		{
+			keywordNode = utils.Search.generateElasticSearchQueryString(category, source, keywords);
+		}
+		catch(Exception e)
+		{
+			Logger.error("Elastic search dataset input query is not JSON format. Error message :" + e.getMessage());
+		}
+
+		if (keywordNode != null)
+		{
+			queryNode.put("query", keywordNode);
+			F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
+			responseNode = responsePromise.get().asJson();
+		}
+
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<Dataset> pagedDatasets = new ArrayList<Dataset>();
+		resultNode.put("page", page);
+		resultNode.put("category", category);
+		resultNode.put("source", source);
+		resultNode.put("itemsPerPage", size);
+		resultNode.put("keywords", keywords);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits"))
+		{
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null)
+			{
+				if  (hitsNode.has("total"))
+				{
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits"))
+				{
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray())
+					{
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null)
+						{
+							while (arrayIterator.hasNext())
+							{
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id"))
+								{
+									Dataset dataset = new Dataset();
+									dataset.id = node.get("_id").asLong();
+									if (node.has("_source"))
+									{
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null)
+										{
+											if (sourceNode.has("name"))
+											{
+												dataset.name = sourceNode.get("name").asText();
+											}
+											if (sourceNode.has("source"))
+											{
+												dataset.source = sourceNode.get("source").asText();
+											}
+											if (sourceNode.has("urn"))
+											{
+												dataset.urn = sourceNode.get("urn").asText();
+											}
+											if (sourceNode.has("schema"))
+											{
+												dataset.schema = sourceNode.get("schema").asText();
+											}
+										}
+									}
+									pagedDatasets.add(dataset);
+								}
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedDatasets));
+		return resultNode;
+	}
+
+	public static JsonNode elasticSearchMetricByKeyword(
+			String category,
+			String keywords,
+			int page,
+			int size)
+	{
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+		JsonNode responseNode = null;
+		ObjectNode keywordNode = null;
+
+		try
+		{
+			keywordNode = utils.Search.generateElasticSearchQueryString(category, null, keywords);
+		}
+		catch(Exception e)
+		{
+			Logger.error("Elastic search metric input query is not JSON format. Error message :" + e.getMessage());
+		}
+
+		if (keywordNode != null)
+		{
+			queryNode.put("query", keywordNode);
+			F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
+			responseNode = responsePromise.get().asJson();
+		}
+
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<Metric> pagedMetrics = new ArrayList<Metric>();
+		resultNode.put("page", page);
+		resultNode.put("category", category);
+		resultNode.put("isMetrics", true);
+		resultNode.put("itemsPerPage", size);
+		resultNode.put("keywords", keywords);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits"))
+		{
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null)
+			{
+				if  (hitsNode.has("total"))
+				{
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits"))
+				{
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray())
+					{
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null)
+						{
+							while (arrayIterator.hasNext())
+							{
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id"))
+								{
+									Metric metric = new Metric();
+									metric.id = node.get("_id").asInt();
+									if (node.has("_source")) {
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null) {
+											if (sourceNode.has("metric_name")) {
+												metric.name = sourceNode.get("metric_name").asText();
+											}
+											if (sourceNode.has("metric_description")) {
+												metric.description = sourceNode.get("metric_description").asText();
+											}
+											if (sourceNode.has("dashboard_name")) {
+												metric.dashboardName = sourceNode.get("dashboard_name").asText();
+											}
+											if (sourceNode.has("metric_group")) {
+												metric.group = sourceNode.get("metric_group").asText();
+											}
+											if (sourceNode.has("metric_category")) {
+												metric.category = sourceNode.get("metric_category").asText();
+											}
+											if (sourceNode.has("urn")) {
+												metric.urn = sourceNode.get("urn").asText();
+											}
+											if (sourceNode.has("metric_source")) {
+												metric.source = sourceNode.get("metric_source").asText();
+												if (StringUtils.isBlank(metric.source))
+												{
+													metric.source = null;
+												}
+											}
+											metric.schema = sourceNode.toString();
+										}
+									}
+									pagedMetrics.add(metric);
+								}
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedMetrics));
+		return resultNode;
+	}
+
+	public static JsonNode elasticSearchFlowByKeyword(
+			String category,
+			String keywords,
+			int page,
+			int size)
+	{
+		ObjectNode queryNode = Json.newObject();
+		queryNode.put("from", (page-1)*size);
+		queryNode.put("size", size);
+		JsonNode searchOpt = null;
+		JsonNode responseNode = null;
+		ObjectNode keywordNode = null;
+
+		try
+		{
+			keywordNode = utils.Search.generateElasticSearchQueryString(category, null, keywords);
+		}
+		catch(Exception e)
+		{
+			Logger.error("Elastic search flow input query is not JSON format. Error message :" + e.getMessage());
+		}
+
+		if (keywordNode != null)
+		{
+			queryNode.put("query", keywordNode);
+			F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
+			responseNode = responsePromise.get().asJson();
+		}
+
+		ObjectNode resultNode = Json.newObject();
+		Long count = 0L;
+		List<FlowJob> pagedFlowJobs = new ArrayList<FlowJob>();
+		resultNode.put("page", page);
+		resultNode.put("category", category);
+		resultNode.put("isFlowJob", true);
+		resultNode.put("itemsPerPage", size);
+		resultNode.put("keywords", keywords);
+
+		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits"))
+		{
+			JsonNode hitsNode = responseNode.get("hits");
+			if (hitsNode != null)
+			{
+				if  (hitsNode.has("total"))
+				{
+					count = hitsNode.get("total").asLong();
+				}
+				if (hitsNode.has("hits"))
+				{
+					JsonNode dataNode = hitsNode.get("hits");
+					if (dataNode != null && dataNode.isArray())
+					{
+						Iterator<JsonNode> arrayIterator = dataNode.elements();
+						if (arrayIterator != null)
+						{
+							while (arrayIterator.hasNext())
+							{
+								JsonNode node = arrayIterator.next();
+								if (node.isContainerNode() && node.has("_id"))
+								{
+									FlowJob flowJob = new FlowJob();
+									if (node.has("_source")) {
+										JsonNode sourceNode = node.get("_source");
+										if (sourceNode != null) {
+											if (sourceNode.has("app_code")) {
+												flowJob.appCode = sourceNode.get("app_code").asText();
+											}
+											if (sourceNode.has("app_id")) {
+												flowJob.appId = sourceNode.get("app_id").asInt();
+											}
+											if (sourceNode.has("flow_id")) {
+												flowJob.flowId = sourceNode.get("flow_id").asLong();
+											}
+											if (sourceNode.has("flow_name")) {
+												flowJob.flowName = sourceNode.get("flow_name").asText();
+												flowJob.displayName = flowJob.flowName;
+											}
+											if (sourceNode.has("flow_path")) {
+												flowJob.flowPath = sourceNode.get("flow_path").asText();
+											}
+											if (sourceNode.has("flow_group")) {
+												flowJob.flowGroup = sourceNode.get("flow_group").asText();
+											}
+											flowJob.link = "#/flows/" + flowJob.appCode + "/" +
+													flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+											flowJob.path = flowJob.appCode + "/" + flowJob.flowPath;
+
+											flowJob.schema = sourceNode.toString();
+										}
+									}
+									pagedFlowJobs.add(flowJob);
+								}
+							}
+						}
+
+					}
+				}
+
+			}
+		}
+		resultNode.put("count", count);
+		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
+		resultNode.set("data", Json.toJson(pagedFlowJobs));
+		return resultNode;
 	}
 
 	public static ObjectNode getPagedDatasetByKeyword(String category, String keyword, String source, int page, int size)

@@ -176,4 +176,7 @@ public class Constant {
   public static final String DB_ID_KEY = "db.id";
   /** Property name of wherehows execution id for ETL process. */
   public static final String WH_EXEC_ID_KEY = "wh.exec.id";
+
+  public static final String WH_ELASTICSEARCH_URL_KEY = "wh.elasticsearch.url";
+  public static final String WH_ELASTICSEARCH_PORT_KEY = "wh.elasticsearch.port";
 }

@@ -15,6 +15,9 @@
 import sys
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
+from ElasticSearchIndex import ElasticSearchIndex
+from datetime import datetime
+import calendar
 import json
 import shutil
 
@@ -82,3 +85,7 @@ class FlowTreeBuilder:
 if __name__ == "__main__":
   ftb = FlowTreeBuilder(sys.argv[1])
   ftb.run()
+  esi = ElasticSearchIndex(sys.argv[1])
+  d = datetime.utcnow()
+  unixtime = calendar.timegm(d.utctimetuple())
+  esi.update_flow_jobs(unixtime)

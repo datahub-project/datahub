@@ -32,6 +32,15 @@ import java.util.Map;
 
 public class Dataset extends Controller
 {
+    public static Result getDatasetOwnerTypes()
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("ownerTypes", Json.toJson(DatasetsDAO.getDatasetOwnerTypes()));
+        return ok(result);
+    }
+
     public static Result getPagedDatasets()
     {
         ObjectNode result = Json.newObject();

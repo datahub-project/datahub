@@ -1,6 +1,10 @@
-(function ($) {
+(function (window, $) {
     $('#advsearchtabs a:first').tab("show");
     $('#datasetAdvSearchLink').addClass("active");
+    String.prototype.replaceAll = function(target, replacement) {
+        return this.split(target).join(replacement);
+    };
+    window.g_currentCategory = 'Datasets';
     function renderAdvSearchDatasetSources(parent, sources)
         {
             if ((!parent) || (!sources) || sources.length == 0)
@@ -72,7 +76,21 @@
             parent.append(content);
         }
 
-        var datasetSourcesUrl = '/api/v1/advsearch/sources';
+    $(".searchCategory").click(function(e){
+        var objs = $(".searchCategory");
+        if (objs)
+        {
+            $.each(objs, function( index, value ) {
+                $(objs[index]).parent().removeClass("active");
+            });
+        }
+        window.g_currentCategory = e.target.text;
+        updateSearchCategories(e.target.text);
+        //$(e.target).parent().addClass( "active" );
+        e.preventDefault();
+    });
+
+    var datasetSourcesUrl = '/api/v1/advsearch/sources';
         $.get(datasetSourcesUrl, function(data) {
             if (data && data.status == "ok")
             {
@@ -87,32 +105,25 @@
             }
         });
 
-        $("#searchInput").on( "keydown", function(event) {
-            if(event.which == 13)
-            {
-                event.preventDefault();
-                var inputObj = $('#searchInput');
-                if (inputObj) {
-                    var keyword = inputObj.val();
-                    if (keyword) {
-                        window.location = '/#/search?keywords=' + btoa(keyword) +
-                            '&category=Datasets&source=default&page=1';
-                    }
-                }
-            }
-        });
-
         $.get('/api/v1/autocomplete/search', function(data){
             $('#searchInput').autocomplete({
-                source: function(request, response) {
-                    var result = [];
-                    if (data && data.source && request.term)
-                    {
-                        result = sortAutocompleteResult(data.source, request.term);
-                    }
-                    return response(result);
-                }
-            });
+                source: function( req, res ) {
+                    var results = $.ui.autocomplete.filter(data.source, extractLast( req.term ));
+                    res(results.slice(0,maxReturnedResults));
+                },
+                focus: function() {
+                    return false;
+                },
+                select: function( event, ui ) {
+                    var terms = split( this.value );
+                    terms.pop();
+                    terms.push( ui.item.value );
+                    terms.push( "" );
+                    this.value = terms.join( ", " );
+                    return false;
+            }
+
+        });
 
         });
 
@@ -296,7 +307,7 @@
                 if (keyword)
                 {
                     window.location = '/#/search?keywords=' + btoa(keyword) +
-                        '&category=Datasets&source=default&page=1';
+                        '&category=' + window.g_currentCategory + '&source=default&page=1'
                 }
             }
         });
@@ -577,4 +588,4 @@
             }
         });
 
-})(jQuery)
+})(window, jQuery)
