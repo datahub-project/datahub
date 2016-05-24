@@ -12,14 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys
-from com.ziclix.python.sql import zxJDBC
-from wherehows.common import Constant
-from ElasticSearchIndex import ElasticSearchIndex
-from datetime import datetime
 import calendar
 import json
 import shutil
+import sys
+from com.ziclix.python.sql import zxJDBC
+from datetime import datetime
+from wherehows.common import Constant
+
+from jython.ElasticSearchIndex import ElasticSearchIndex
 
 
 class FlowTreeBuilder:
@@ -82,10 +83,16 @@ class FlowTreeBuilder:
     self.write_to_file()
 
 
+def saveTreeInElasticSearchIfApplicable(args):
+  es_url = args.get(Constant.WH_ELASTICSEARCH_URL_KEY, None)
+  es_port = args.get(Constant.WH_ELASTICSEARCH_PORT_KEY, None)
+  if es_url is not None and es_port is not None:
+    esi = ElasticSearchIndex(args)
+    d = datetime.utcnow()
+    unixtime = calendar.timegm(d.utctimetuple())
+    esi.update_flow_jobs(unixtime)
+
 if __name__ == "__main__":
   ftb = FlowTreeBuilder(sys.argv[1])
   ftb.run()
-  esi = ElasticSearchIndex(sys.argv[1])
-  d = datetime.utcnow()
-  unixtime = calendar.timegm(d.utctimetuple())
-  esi.update_flow_jobs(unixtime)
+  saveTreeInElasticSearchIfApplicable(sys.argv[1])
