@@ -109,7 +109,9 @@ class AppworxExtract:
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
     self.logger.info("collect flow&jobs")
-    schema = 'ALTER SESSION SET CURRENT_SCHEMA=APPWORX'
+    timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
+    self.aw_cursor.execute(timezone)
+    schema = "ALTER SESSION SET CURRENT_SCHEMA=APPWORX"
     self.aw_cursor.execute(schema)
     if self.last_execution_unix_time:
       query = \
@@ -117,7 +119,8 @@ class AppworxExtract:
            FROM SO_JOB_TABLE J JOIN (
            SELECT SO_JOB_SEQ, COUNT(*) as RUNS
            FROM SO_JOB_HISTORY
-           WHERE SO_JOB_FINISHED >= (TO_DATE('1970-01-01','YYYY-MM-DD') + %d / 86400) -1
+           WHERE cast((FROM_TZ(CAST(SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
+           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400)
            GROUP BY SO_JOB_SEQ
            ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
            WHERE SO_COMMAND_TYPE = 'CHAIN'
@@ -210,14 +213,18 @@ class AppworxExtract:
     self.logger.info("collect flow&job executions")
     flow_exec_writer = FileWriter(flow_exec_file)
     job_exec_writer = FileWriter(job_exec_file)
-    schema = 'ALTER SESSION SET CURRENT_SCHEMA=APPWORX'
+    timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
+    self.aw_cursor.execute(timezone)
+    schema = "ALTER SESSION SET CURRENT_SCHEMA=APPWORX"
     self.aw_cursor.execute(schema)
     flow_id_list = []
     if self.last_execution_unix_time:
       flow_cmd = \
         """SELECT J.SO_JOB_SEQ, J.SO_MODULE, J.SO_APPLICATION, H.SO_STATUS_NAME, H.SO_JOBID, H.SO_CHAIN_ID,
-           ROUND((H.SO_JOB_STARTED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
-           ROUND((H.SO_JOB_FINISHED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_STARTED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
            U.SO_USER_NAME FROM SO_JOB_TABLE J
            JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
@@ -226,8 +233,10 @@ class AppworxExtract:
     else:
       flow_cmd = \
         """SELECT J.SO_JOB_SEQ, J.SO_MODULE, J.SO_APPLICATION, H.SO_STATUS_NAME, H.SO_JOBID, H.SO_CHAIN_ID,
-           ROUND((H.SO_JOB_STARTED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
-           ROUND((H.SO_JOB_FINISHED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_STARTED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
            U.SO_USER_NAME FROM SO_JOB_TABLE J
            JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
@@ -237,8 +246,10 @@ class AppworxExtract:
     if self.last_execution_unix_time:
       job_cmd = \
         """SELECT D.SO_TASK_NAME, U.SO_USER_NAME, H.SO_STATUS_NAME, H.SO_JOBID, D.SO_DET_SEQ as JOB_ID,
-           ROUND((H.SO_JOB_STARTED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
-           ROUND((H.SO_JOB_FINISHED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_STARTED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED
            FROM SO_JOB_HISTORY H
            JOIN SO_CHAIN_DETAIL D ON D.SO_CHAIN_SEQ = H.SO_CHAIN_SEQ AND D.SO_DET_SEQ = H.SO_DET_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
@@ -247,8 +258,10 @@ class AppworxExtract:
     else:
       job_cmd = \
         """SELECT D.SO_TASK_NAME, U.SO_USER_NAME, H.SO_STATUS_NAME, H.SO_JOBID, D.SO_DET_SEQ as JOB_ID,
-           ROUND((H.SO_JOB_STARTED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
-           ROUND((H.SO_JOB_FINISHED - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_STARTED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_STARTED,
+           ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED
            FROM SO_JOB_HISTORY H
            JOIN SO_CHAIN_DETAIL D ON D.SO_CHAIN_SEQ = H.SO_CHAIN_SEQ AND D.SO_DET_SEQ = H.SO_DET_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
@@ -328,13 +341,17 @@ class AppworxExtract:
   def collect_flow_schedules(self, schedule_file):
     # load flow scheduling info from table triggers
     self.logger.info("collect flow schedule")
-    schema = 'ALTER SESSION SET CURRENT_SCHEMA=APPWORX'
+    timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
+    self.aw_cursor.execute(timezone)
+    schema = "ALTER SESSION SET CURRENT_SCHEMA=APPWORX"
     self.aw_cursor.execute(schema)
     schedule_writer = FileWriter(schedule_file)
     query = \
         """SELECT J.SO_APPLICATION, J.SO_MODULE, S.AW_SCH_NAME, S.AW_SCH_INTERVAL, S.AW_ACTIVE,
-           ROUND((S.AW_SCH_START - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_STARTED,
-           ROUND((S.AW_SCH_END - to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_END
+           ROUND((cast((FROM_TZ(CAST(S.AW_SCH_START as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_STARTED,
+           ROUND((cast((FROM_TZ(CAST(S.AW_SCH_END as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_END
            FROM SO_JOB_TABLE J
            JOIN AW_MODULE_SCHED S ON J.SO_JOB_SEQ = S.AW_JOB_SEQ
            WHERE J.SO_COMMAND_TYPE = 'CHAIN' AND S.AW_ACTIVE = 'Y' """
@@ -355,7 +372,9 @@ class AppworxExtract:
 
   def collect_flow_owners(self, owner_file):
     self.logger.info("collect owner&permissions")
-    schema = 'ALTER SESSION SET CURRENT_SCHEMA=APPWORX'
+    timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
+    self.aw_cursor.execute(timezone)
+    schema = "ALTER SESSION SET CURRENT_SCHEMA=APPWORX"
     self.aw_cursor.execute(schema)
     user_writer = FileWriter(owner_file)
     query = \
