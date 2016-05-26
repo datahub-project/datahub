@@ -67,6 +67,11 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 
 Want to contribute? Check out the [Contributors Guide][CON]
 
+## Community
+
+Want help? Check out the [Google Groups][LIST]
+
+
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
 [GS]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
 [CON]: https://github.com/LinkedIn/Wherehows/wiki/Contributing
@@ -74,3 +79,4 @@ Want to contribute? Check out the [Contributors Guide][CON]
 [EXJAR]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#download-third-party-jar-files
 [DDL]: https://github.com/linkedin/WhereHows/tree/master/data-model/DDL
 [DB]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#set-up-your-database
+[LIST]: https://groups.google.com/forum/#!forum/wherehows
