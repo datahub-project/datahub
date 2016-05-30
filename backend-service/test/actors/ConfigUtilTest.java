@@ -20,8 +20,10 @@ public class ConfigUtilTest {
     String command = ConfigUtil.generateCommand(0L, "", new Properties());
 
     // then:
-    assertThat(command.startsWith("java -cp ")).isTrue();
-    assertThat(command.endsWith(" -Dconfig=/var/tmp/wherehows/exec/0.properties metadata.etl.Launcher")).isTrue();
+    assertThat(command)
+            .startsWith("java -cp ")
+            .contains(" -Dconfig=/var/tmp/wherehows/exec/0.properties ")
+            .endsWith(" metadata.etl.Launcher");
   }
 
   @Test
@@ -36,8 +38,10 @@ public class ConfigUtilTest {
     String command = ConfigUtil.generateCommand(1L, "", etlJobProperties);
 
     // then:
-    assertThat(command.startsWith("java -cp ")).isTrue();
-    assertThat(command.endsWith(" -Dconfig=" + applicationDirectory + "/exec/1.properties metadata.etl.Launcher")).isTrue();
+    assertThat(command)
+            .startsWith("java -cp ")
+            .contains(" -Dconfig=" + applicationDirectory + "/exec/1.properties ")
+            .endsWith(" metadata.etl.Launcher");
   }
 
   @Test
@@ -56,9 +60,10 @@ public class ConfigUtilTest {
 
     // then:
     final String content = Files.toString(propertiesFile, Charset.defaultCharset());
-    assertThat(content).contains("p1=v1");
-    assertThat(content).contains("p2=v2");
-    assertThat(content).contains("p3=v3");
+    assertThat(content)
+            .contains("p1=v1")
+            .contains("p2=v2")
+            .contains("p3=v3");
   }
 
   @Test
@@ -69,20 +74,20 @@ public class ConfigUtilTest {
     final File propertiesFile = createTemporaryPropertiesFile(whEtlExecId, etlJobProperties);
 
     // expect:
-    assertThat(propertiesFile.exists()).isFalse();
+    assertThat(propertiesFile).doesNotExist();
 
     // when:
     final EtlJobName etlJobName = EtlJobName.valueOf("AZKABAN_EXECUTION_METADATA_ETL");
     ConfigUtil.generateProperties(etlJobName, 2, whEtlExecId, etlJobProperties);
 
     // then:
-    assertThat(propertiesFile.exists()).isTrue();
+    assertThat(propertiesFile).exists();
 
     // when:
     ConfigUtil.deletePropertiesFile(etlJobProperties, whEtlExecId);
 
     // then:
-    assertThat(propertiesFile.exists()).isFalse();
+    assertThat(propertiesFile).doesNotExist();
   }
 
   private File createTemporaryPropertiesFile(long whEtlExecId, Properties etlJobProperties) {
