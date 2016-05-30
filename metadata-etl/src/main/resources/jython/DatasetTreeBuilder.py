@@ -109,12 +109,11 @@ class DatasetTreeBuilder:
 def saveTreeInElasticSearchIfApplicable(args):
   es_url = args.get(Constant.WH_ELASTICSEARCH_URL_KEY, None)
   es_port = args.get(Constant.WH_ELASTICSEARCH_PORT_KEY, None)
-  if es_url is not None and es_port is not None:
+  if es_url and es_port:
     esi = ElasticSearchIndex(args)
     d = datetime.utcnow()
     unixtime = calendar.timegm(d.utctimetuple())
     esi.update_dataset(unixtime)
-
 
 if __name__ == "__main__":
   datasetTreeBuilder = DatasetTreeBuilder(sys.argv[1])
