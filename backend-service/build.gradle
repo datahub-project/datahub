@@ -59,6 +59,10 @@ task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
     commandLine playExec, 'compile'
 }
 
+task "playTest" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'test'
+}
+
 task "playClean" (type: Exec) {
     commandLine playExec, 'clean'
 }
@@ -75,7 +79,7 @@ idea {
     }
 }
 
-task "build" (type: Exec, dependsOn: playCompile, overwrite: true) {
+task "build" (type: Exec, dependsOn: [playClean, playTest], overwrite: true) {
     commandLine playExec, 'stage'
 }
 
@@ -83,3 +87,5 @@ task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
+task "check" (dependsOn: playTest, overwrite: true) {
+}
