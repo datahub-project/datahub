@@ -118,7 +118,7 @@ function convertPropertiesToArray(properties)
     {
       for (var key in properties)
         {
-          if (key.toLowerCase() != 'elements')
+          if ((key.toLowerCase() != 'elements') && (key.toLowerCase() != 'view_depends_on'))
           {
             if (typeof properties[key] !== 'object')
             {
@@ -398,6 +398,23 @@ App.DatasetRoute = Ember.Route.extend({
                           }
                     }
                 });
+
+    var datasetDependsUrl = 'api/v1/datasets/' + id + "/depends";
+    $.get(datasetDependsUrl, function(data) {
+      if (data && data.status == "ok")
+      {
+        if (data.depends && (data.depends.length > 0))
+        {
+          controller.set("hasDepends", true);
+          controller.set("depends", data.depends);
+          setTimeout(initializeColumnTreeGrid, 500);
+        }
+        else
+        {
+          controller.set("hasDepends", false);
+        }
+      }
+    });
 
     var ownershipUrl = 'api/v1/datasets/' + id + "/owners";
     $.get(ownershipUrl, function(data) {

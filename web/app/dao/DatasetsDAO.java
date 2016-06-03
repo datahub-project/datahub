@@ -314,6 +314,11 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_DATASET_OWNER_TYPES = "SELECT DISTINCT owner_type " +
 			"FROM dataset_owner WHERE owner_type is not null";
 
+	private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
+			"object_name, object_urn, map_phrase, map_phrase_reversed, mapped_object_dataset_id, " +
+			"mapped_object_type,  mapped_object_sub_type, mapped_object_name, mapped_object_urn " +
+			"FROM stg_cfg_object_name_map WHERE object_dataset_id = ?";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1712,5 +1717,52 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return result;
+	}
+
+	public static void getDatasetDependencies(
+			Long datasetId,
+			int level,
+			int parent,
+			List<DatasetDependency> depends)
+	{
+		if (depends == null)
+		{
+			depends = new ArrayList<DatasetDependency>();
+		}
+
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_DATASET_DEPENDS_VIEW,
+				datasetId);
+
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				DatasetDependency dd = new DatasetDependency();
+				dd.datasetId = (Long) row.get("mapped_object_dataset_id");
+				dd.objectName = (String) row.get("mapped_object_name");
+				dd.objectType = (String) row.get("mapped_object_type");
+				dd.objectSubType = (String) row.get("mapped_object_sub_type");
+				dd.datasetUrn = (String) row.get("mapped_object_urn");
+				if (dd.datasetId != null && dd.datasetId > 0)
+				{
+					dd.isValidDataset = true;
+					dd.datasetLink = "#/datasets/" + Long.toString(dd.datasetId);
+				}
+				else
+				{
+					dd.isValidDataset = false;
+				}
+				dd.level = level;
+				dd.sortId = depends.size() + 1;
+				dd.treeGridClass = "treegrid-" + Integer.toString(dd.sortId);
+				if (parent != 0)
+				{
+					dd.treeGridClass += " treegrid-parent-" + Integer.toString(parent);
+				}
+				depends.add(dd);
+				getDatasetDependencies(dd.datasetId, level + 1, dd.sortId, depends);
+			}
+		}
 	}
 }

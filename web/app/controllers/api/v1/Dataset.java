@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.DatasetColumn;
+import models.DatasetDependency;
 import models.ImpactDataset;
 import play.api.libs.json.JsValue;
 import play.libs.Json;
@@ -27,6 +28,7 @@ import play.Logger;
 import org.apache.commons.lang3.StringUtils;
 import dao.DatasetsDAO;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -745,6 +747,16 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("similar", Json.toJson(DatasetsDAO.similarColumns(datasetId, columnId)));
+        return ok(result);
+    }
+
+    public static Result getDependViews(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        List<DatasetDependency> depends = new ArrayList<DatasetDependency>();
+        DatasetsDAO.getDatasetDependencies(datasetId, 1, 0, depends);
+        result.put("status", "ok");
+        result.put("depends", Json.toJson(depends));
         return ok(result);
     }
 }
