@@ -76,17 +76,15 @@ class HiveTransform:
 
         if TableInfo.schema_literal in table and table[TableInfo.schema_literal] is not None:
           sort_id = 0
+          urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
           try:
             schema_data = json.loads(table[TableInfo.schema_literal])
+            schema_json = schema_data
+            acp = AvroColumnParser(schema_data, urn = urn)
+            result = acp.get_column_list_result()
+            field_detail_list += result
           except ValueError:
             self.logger.error("Schema json error for table : \n" + str(table))
-          schema_json = schema_data
-          # extract fields to field record
-          urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
-          acp = AvroColumnParser(schema_data, urn = urn)
-          result = acp.get_column_list_result()
-          field_detail_list += result
-
         elif TableInfo.field_list in table:
           # Convert to avro
           uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])

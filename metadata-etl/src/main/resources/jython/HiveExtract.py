@@ -129,7 +129,6 @@ class HiveExtract:
              end) field_delim
       from SERDE_PARAMS sp join TBLS t on sp.SERDE_ID = t.SD_ID
       where sp.PARAM_KEY regexp 'schema.literal|schema.url|field.delim'
-        and sp.PARAM_VALUE regexp """ + r" '^(,|{|\\\\|\\|)' " + """
       group by 1,2,3,4,5 ) et
       JOIN DBS d on et.DB_ID = d.DB_ID
       JOIN SDS s on et.SERDE_ID = s.SD_ID
