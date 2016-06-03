@@ -166,6 +166,8 @@ public class Constant {
 
   public static final String HIVE_DATABASE_WHITELIST_KEY = "hive.database_white_list";
   public static final String HIVE_SCHEMA_JSON_FILE_KEY = "hive.schema_json_file";
+  public static final String HIVE_DEPENDENCY_CSV_FILE_KEY = "hive.dependency_csv_file";
+  public static final String HIVE_INSTANCE_CSV_FILE_KEY = "hive.instance_csv_file";
   // public static final String HIVE_SAMPLE_CSV_FILE_KEY = "hive.sample_csv";
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";

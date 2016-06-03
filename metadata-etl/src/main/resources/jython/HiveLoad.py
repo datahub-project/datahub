@@ -30,9 +30,8 @@ class HiveLoad:
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_dataset
         FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
-        (`name`, `schema`, properties, fields, urn, source, @sample_partition_full_path, source_created_time, @source_modified_time)
+        (`name`, `schema`, properties, fields, urn, source, dataset_type, storage_type, @sample_partition_full_path, source_created_time, @source_modified_time)
         SET db_id = {db_id},
-        storage_type = 'Table', dataset_type = 'hive',
         source_modified_time=nullif(@source_modified_time,''),
         sample_partition_full_path=nullif(@sample_partition_full_path,''),
         wh_etl_exec_id = {wh_etl_exec_id};
@@ -270,10 +269,71 @@ class HiveLoad:
     # didn't load into final table for now
 
     for state in load_cmd.split(";"):
-      self.logger.debug(state)
+      self.logger.info(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+
+  def load_dataset_instance(self):
+      """
+      Load dataset instance
+      :return:
+      """
+      cursor = self.conn_mysql.cursor()
+      load_cmd = """
+        DELETE FROM stg_dict_dataset_instance WHERE db_id = {db_id};
+
+        LOAD DATA LOCAL INFILE '{source_file}'
+        INTO TABLE stg_dict_dataset_instance
+        FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
+        (dataset_urn, db_id, deployment_tier, data_center, server_cluster, slice,
+         status_id, native_name, logical_name, version, instance_created_time,
+         created_time, wh_etl_exec_id, abstracted_dataset_urn);
+
+        -- update dataset_id
+        update stg_dict_dataset_instance sdi, dict_dataset d
+        set sdi.dataset_id = d.id where sdi.abstracted_dataset_urn = d.urn
+        and sdi.db_id = {db_id};
+
+        """.format(source_file=self.input_instance_file, db_id=self.db_id)
+
+      # didn't load into final table for now
+
+      for state in load_cmd.split(";"):
+          self.logger.info(state)
+          cursor.execute(state)
+          self.conn_mysql.commit()
+      cursor.close()
+
+  def load_dataset_dependencies(self):
+      """
+      Load dataset instance
+      :return:
+      """
+      cursor = self.conn_mysql.cursor()
+      load_cmd = """
+        LOAD DATA LOCAL INFILE '{source_file}'
+        INTO TABLE stg_cfg_object_name_map
+        FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
+        (object_type, object_sub_type, object_name, object_urn, map_phrase, map_phrase_reversed,
+         mapped_object_type, mapped_object_sub_type, mapped_object_name, mapped_object_urn, description);
+
+        -- update source dataset_id
+        update stg_cfg_object_name_map s, dict_dataset d
+        set s.object_dataset_id = d.id where s.object_urn = d.urn;
+
+        -- update mapped dataset_id
+        update stg_cfg_object_name_map s, dict_dataset d
+        set s.mapped_object_dataset_id = d.id where s.mapped_object_urn = d.urn;
+        """.format(source_file=self.input_dependency_file)
+
+      # didn't load into final table for now
+
+      for state in load_cmd.split(";"):
+          self.logger.info(state)
+          cursor.execute(state)
+          self.conn_mysql.commit()
+      cursor.close()
 
 
 if __name__ == "__main__":
@@ -289,6 +349,8 @@ if __name__ == "__main__":
 
   l.input_schema_file = args[Constant.HIVE_SCHEMA_CSV_FILE_KEY]
   l.input_field_file = args[Constant.HIVE_FIELD_METADATA_KEY]
+  l.input_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
+  l.input_dependency_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
@@ -300,5 +362,7 @@ if __name__ == "__main__":
   try:
     l.load_metadata()
     l.load_field()
+    l.load_dataset_instance()
+    l.load_dataset_dependencies()
   finally:
     l.conn_mysql.close()
