@@ -228,7 +228,8 @@ class AppworxExtract:
            U.SO_USER_NAME FROM SO_JOB_TABLE J
            JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-           WHERE H.SO_JOB_FINISHED >= (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d -3600)/ 86400) and
+           WHERE cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
+           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400) and
            J.SO_COMMAND_TYPE = 'CHAIN' """ % self.last_execution_unix_time
     else:
       flow_cmd = \
@@ -253,7 +254,8 @@ class AppworxExtract:
            FROM SO_JOB_HISTORY H
            JOIN SO_CHAIN_DETAIL D ON D.SO_CHAIN_SEQ = H.SO_CHAIN_SEQ AND D.SO_DET_SEQ = H.SO_DET_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-           WHERE H.SO_JOB_FINISHED >= (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600)/ 86400) and
+           WHERE cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
+           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400) and
            H.SO_PARENTS_JOBID = %d and H.SO_CHAIN_ID = %d"""
     else:
       job_cmd = \
