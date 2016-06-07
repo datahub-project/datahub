@@ -92,6 +92,8 @@ public class Constant {
   public static final String TD_LOAD_SAMPLE = "teradata.load_sample";
 
   // Hdfs
+  /** The property_name field in wh_etl_job_property table. Whether using remote mode or not */
+  public static final String HDFS_REMOTE = "hdfs.remote.mode";
   /** The property_name field in wh_etl_job_property table. The hfds remote user that run the hadoop job on gateway */
   public static final String HDFS_REMOTE_USER_KEY = "hdfs.remote.user";
   /** The property_name field in wh_etl_job_property table. The gateway machine name*/

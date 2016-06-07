@@ -60,6 +60,7 @@ public class Launcher {
       props.load(propFile);
       etlJobNameString = props.getProperty(JOB_NAME_KEY);
       refId = Integer.valueOf(props.getProperty(REF_ID_KEY));
+      whEtlId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
 
     } catch (IOException e) {
        //logger.error("property file '{}' not found" , property_file);

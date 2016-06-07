@@ -14,11 +14,6 @@
 package actors;
 
 import akka.actor.UntypedActor;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.util.Properties;
 import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
@@ -26,6 +21,11 @@ import msgs.EtlJobMessage;
 import play.Logger;
 import shared.Global;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.util.Properties;
 
 /**
  * Created by zechen on 9/4/15.
@@ -33,9 +33,10 @@ import shared.Global;
 public class EtlJobActor extends UntypedActor {
 
   private Process process;
+
   @Override
   public void onReceive(Object message)
-    throws Exception {
+          throws Exception {
     Properties props = null;
     if (message instanceof EtlJobMessage) {
       EtlJobMessage msg = (EtlJobMessage) message;
@@ -46,17 +47,17 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        String cmd = ConfigUtil.generateCMD(msg.getWhEtlExecId(), msg.getCmdParam());
+        String cmd = ConfigUtil.generateCommand(msg.getWhEtlExecId(), msg.getCmdParam(), props);
         Logger.debug("run command : " + cmd);
-        ConfigUtil
-            .generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
+
+        ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
         process = Runtime.getRuntime().exec(cmd);
 
         InputStream stdout = process.getInputStream();
         InputStreamReader isr = new InputStreamReader(stdout);
         BufferedReader br = new BufferedReader(isr);
         String line = null;
-        while ( (line = br.readLine()) != null) {
+        while ((line = br.readLine()) != null) {
           Logger.info(line);
         }
 
@@ -67,7 +68,7 @@ public class EtlJobActor extends UntypedActor {
         if (execResult > 0) {
           br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
           String errString = "Error Details:\n";
-          while((line = br.readLine()) != null)
+          while ((line = br.readLine()) != null)
             errString = errString.concat(line).concat("\n");
           Logger.error("*** Process + " + getPid(process) + " failed, status: " + execResult);
           Logger.error(errString);
@@ -101,6 +102,7 @@ public class EtlJobActor extends UntypedActor {
 
   /**
    * Reflection to get the pid
+   *
    * @param process {@code Process}
    * @return pid, -1 if not found
    */
@@ -116,6 +118,4 @@ public class EtlJobActor extends UntypedActor {
       return -1;
     }
   }
-
-
 }
