@@ -31,7 +31,6 @@ public class SelectStmt extends Stmt {
 
     public SelectStmt(TSelectSqlStatement stmt) throws NoSqlTypeException {
         super(stmt);
-        logger.error("In constructor part 0");
         if (stmt.getSetOperator() != TSelectSqlStatement.setOperator_none) {
             // System.out.println("########");
             setOpProcess(stmt);
