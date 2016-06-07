@@ -111,9 +111,10 @@ class AppworxLineageExtract:
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
            WHERE je.app_id = %d
-           and je.end_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 day))
+           and je.end_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 HOUR))
            and UPPER(fj.job_type) = '%s'
         """
+      self.logger.info(query % (self.aw_archive_dir, self.app_id, long(self.last_execution_unix_time), module_name))
       self.aw_cursor.execute(query %
                              (self.aw_archive_dir, self.app_id, long(self.last_execution_unix_time), module_name))
     else:
@@ -126,10 +127,12 @@ class AppworxLineageExtract:
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
            WHERE je.app_id = %d  and
-           from_unixtime(je.end_time) >= CURRENT_DATE - INTERVAL %d DAY and UPPER(fj.job_type) = '%s'
+           from_unixtime(je.end_time) >= CURRENT_DATE - INTERVAL %d HOUR and UPPER(fj.job_type) = '%s'
         """
+      self.logger.info(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
       self.aw_cursor.execute(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
     job_rows = DbUtil.copy_dict_cursor(self.aw_cursor)
+    self.logger.info(str(len(job_rows)))
 
     return job_rows
 
