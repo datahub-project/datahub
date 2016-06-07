@@ -74,7 +74,7 @@ class HiveTransform:
             else 'Table'
           end
         end object_sub_type,
-        case when (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW'
+        case when (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and t.TBL_TYPE = 'VIRTUAL_VIEW'
           then 'dalids'
         else 'hive'
         end prefix
@@ -117,7 +117,7 @@ class HiveTransform:
                                           table['type'],
                                           "/%s/%s" % (one_db_info['database'], table['name']),
                                           'dalids:///' + one_db_info['database'] + '/' + table['name']
-                                          if one_db_info['type'].lower() == 'dali'
+                                          if one_db_info['type'].lower() == 'dalids'
                                           else 'hive:///' + one_db_info['database'] + '/' + table['name'],
                                           'depends on',
                                           'is used by',

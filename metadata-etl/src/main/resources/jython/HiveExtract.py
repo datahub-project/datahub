@@ -92,7 +92,7 @@ class HiveExtract:
         end dataset_name,
         case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then replace(substring_index(t.TBL_NAME, '_', -3), '_', '.')
-        end version, 'Dali' TYPE, 'View' storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name,
+        end version, 'Dalids' TYPE, 'View' storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name,
         case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1)
           else t.TBL_NAME
@@ -128,7 +128,7 @@ class HiveExtract:
       join SDS s on t.SD_ID = s.SD_ID
       join COLUMNS_V2 c on s.CD_ID = c.CD_ID
       where
-      d.NAME in ('{db_name}') and not ((d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW')
+      d.NAME in ('{db_name}') and not ((d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and t.TBL_TYPE = 'VIRTUAL_VIEW')
       order by 1,2
       """.format(db_name=database_name)
     curs.execute(tbl_info_sql)
@@ -202,7 +202,7 @@ class HiveExtract:
         field_list = sorted(field_list, key=lambda k: k['IntegerIndex'])
         # process the record of table
 
-        if row_value[20].lower() == 'dali':
+        if row_value[20].lower() == 'dalids':
           urn = 'dalids:///' + row_value[0] + '/' + row_value[18]
           instance_record = DatasetInstanceRecord(row_value[25],
                                       long(self.db_id),
@@ -340,7 +340,7 @@ class HiveExtract:
       if len(rows) > 0:
         self.format_table_metadata_v2(rows, schema)
       end = datetime.datetime.now().strftime("%H:%M:%S")
-      self.logger.info("Get Dali table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
+      self.logger.info("Get Dalids table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
     schema_json_file.write(json.dumps(schema, indent=None) + '\n')
 
