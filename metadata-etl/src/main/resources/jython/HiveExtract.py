@@ -13,6 +13,8 @@
 #
 
 from org.slf4j import LoggerFactory
+from wherehows.common.writers import FileWriter
+from wherehows.common.schemas import DatasetInstanceRecord
 from com.ziclix.python.sql import zxJDBC
 import sys, os, re, json
 import datetime
@@ -46,7 +48,6 @@ class TableInfo:
                    table_type, location, view_expended_text, input_format, output_format, is_compressed,
                    is_storedassubdirectories, etl_source]
 
-
 class HiveExtract:
   """
   Extract hive metadata from hive metastore. store it in a json file
@@ -54,12 +55,14 @@ class HiveExtract:
   conn_hms = None
   db_dict = {}  # name : index
   table_dict = {}  # fullname : index
+  dataset_dict = {}  # name : index
+  instance_dict = {}  # name : index
   serde_param_columns = []
 
   def __init__(self):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
 
-  def get_table_info_from_v2(self, database_name):
+  def get_table_info_from_v2(self, database_name, is_dali=False):
     """
     get table, column info from table columns_v2
     :param database_name:
@@ -68,27 +71,66 @@ class HiveExtract:
     13IS_COMPRESSED, 14 IS_STOREDASSUBDIRECTORIES, 15 INTEGER_IDX, 16 COLUMN_NAME, 17 TYPE_NAME, 18 COMMENT)
     """
     curs = self.conn_hms.cursor()
-    tbl_info_sql = """select d.NAME DB_NAME, t.TBL_NAME TBL_NAME,
-      case when s.INPUT_FORMAT like '%.TextInput%' then 'Text'
-        when s.INPUT_FORMAT like '%.Avro%' then 'Avro'
-        when s.INPUT_FORMAT like '%.RCFile%' then 'RC'
-        when s.INPUT_FORMAT like '%.Orc%' then 'ORC'
-        when s.INPUT_FORMAT like '%.Sequence%' then 'Sequence'
-        when s.INPUT_FORMAT like '%.Parquet%' then 'Parquet'
-        else s.INPUT_FORMAT
-      end SerializationFormat,
-      t.CREATE_TIME TableCreateTime,
-      t.DB_ID, t.TBL_ID, s.SD_ID,
-      substr(s.LOCATION, length(substring_index(s.LOCATION, '/', 3))+1) Location,
-      t.TBL_TYPE, t.VIEW_EXPANDED_TEXT, s.INPUT_FORMAT, s.OUTPUT_FORMAT, s.IS_COMPRESSED, s.IS_STOREDASSUBDIRECTORIES,
-      c.INTEGER_IDX, c.COLUMN_NAME, c.TYPE_NAME, c.COMMENT
-    from TBLS t join DBS d on t.DB_ID=d.DB_ID
-    join SDS s on t.SD_ID = s.SD_ID
-    join COLUMNS_V2 c on s.CD_ID = c.CD_ID
-    where
-    d.NAME in ('{db_name}')
-    order by 1,2
-    """.format(db_name=database_name)
+    if is_dali:
+      tbl_info_sql = """select d.NAME DB_NAME, t.TBL_NAME TBL_NAME,
+        case when s.INPUT_FORMAT like '%.TextInput%' then 'Text'
+          when s.INPUT_FORMAT like '%.Avro%' then 'Avro'
+          when s.INPUT_FORMAT like '%.RCFile%' then 'RC'
+          when s.INPUT_FORMAT like '%.Orc%' then 'ORC'
+          when s.INPUT_FORMAT like '%.Sequence%' then 'Sequence'
+          when s.INPUT_FORMAT like '%.Parquet%' then 'Parquet'
+          else s.INPUT_FORMAT
+        end SerializationFormat,
+        t.CREATE_TIME TableCreateTime,
+        t.DB_ID, t.TBL_ID, s.SD_ID,
+        substr(s.LOCATION, length(substring_index(s.LOCATION, '/', 3))+1) Location,
+        t.TBL_TYPE, t.VIEW_EXPANDED_TEXT, s.INPUT_FORMAT, s.OUTPUT_FORMAT, s.IS_COMPRESSED, s.IS_STOREDASSUBDIRECTORIES,
+        c.INTEGER_IDX, c.COLUMN_NAME, c.TYPE_NAME, c.COMMENT,
+        case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
+          then concat(substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1),'_{version}')
+        else t.TBL_NAME
+        end dataset_name,
+        case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
+          then replace(substring_index(t.TBL_NAME, '_', -3), '_', '.')
+        end version, 'Dalids' TYPE, 'View' storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name,
+        case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
+          then substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1)
+          else t.TBL_NAME
+        end logical_name, unix_timestamp(now()) created_time, concat('dalids:///', d.NAME, '/', t.TBL_NAME) dataset_urn
+      from TBLS t join DBS d on t.DB_ID=d.DB_ID
+      join SDS s on t.SD_ID = s.SD_ID
+      join COLUMNS_V2 c on s.CD_ID = c.CD_ID
+      where
+      d.NAME in ('{db_name}') and (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW'
+      order by DB_NAME, dataset_name, version DESC
+      """.format(version='{version}', db_name=database_name)
+    else:
+      tbl_info_sql = """select d.NAME DB_NAME, t.TBL_NAME TBL_NAME,
+        case when s.INPUT_FORMAT like '%.TextInput%' then 'Text'
+          when s.INPUT_FORMAT like '%.Avro%' then 'Avro'
+          when s.INPUT_FORMAT like '%.RCFile%' then 'RC'
+          when s.INPUT_FORMAT like '%.Orc%' then 'ORC'
+          when s.INPUT_FORMAT like '%.Sequence%' then 'Sequence'
+          when s.INPUT_FORMAT like '%.Parquet%' then 'Parquet'
+          else s.INPUT_FORMAT
+        end SerializationFormat,
+        t.CREATE_TIME TableCreateTime,
+        t.DB_ID, t.TBL_ID, s.SD_ID,
+        substr(s.LOCATION, length(substring_index(s.LOCATION, '/', 3))+1) Location,
+        t.TBL_TYPE, t.VIEW_EXPANDED_TEXT, s.INPUT_FORMAT, s.OUTPUT_FORMAT, s.IS_COMPRESSED, s.IS_STOREDASSUBDIRECTORIES,
+        c.INTEGER_IDX, c.COLUMN_NAME, c.TYPE_NAME, c.COMMENT, t.TBL_NAME dataset_name, 0 version, 'Hive' TYPE,
+        case when LOCATE('view', LOWER(t.TBL_TYPE)) > 0 then 'View'
+          when LOCATE('index', LOWER(t.TBL_TYPE)) > 0 then 'Index'
+          else 'Table'
+        end storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name, t.TBL_NAME logical_name,
+        unix_timestamp(now()) created_time, concat('hive:///', d.NAME, '/', t.TBL_NAME) dataset_urn
+      from TBLS t join DBS d on t.DB_ID=d.DB_ID
+      join SDS s on t.SD_ID = s.SD_ID
+      join COLUMNS_V2 c on s.CD_ID = c.CD_ID
+      where
+      d.NAME in ('{db_name}') and not ((d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and t.TBL_TYPE = 'VIRTUAL_VIEW')
+      order by 1,2
+      """.format(db_name=database_name)
     curs.execute(tbl_info_sql)
     rows = curs.fetchall()
     curs.close()
@@ -148,6 +190,8 @@ class HiveExtract:
     """
     db_idx = len(schema) - 1
     table_idx = -1
+    dataset_idx = -1
+    dataset_urn_idx = -1
 
     field_list = []
     for row_index, row_value in enumerate(rows):
@@ -157,16 +201,44 @@ class HiveExtract:
         # sort the field_list by IntegerIndex
         field_list = sorted(field_list, key=lambda k: k['IntegerIndex'])
         # process the record of table
-        table_record = {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
+
+        if row_value[20].lower() == 'dalids':
+          urn = 'dalids:///' + row_value[0] + '/' + row_value[18]
+          instance_record = DatasetInstanceRecord(row_value[25],
+                                      long(self.db_id),
+                                      'grid',
+                                      'eat1',
+                                      'eat1-nertz',
+                                      '*',
+                                      0,
+                                      row_value[22],
+                                      row_value[23],
+                                      str(row_value[19]),
+                                      long(row_value[3]),
+                                      long(row_value[24]),
+                                      self.wh_exec_id,
+                                      'dalids:///' + row_value[0] + '/' + row_value[18])
+          self.instance_writer.append(instance_record)
+          dataset_urn_idx += 1
+          self.instance_dict[row_value[25]] = dataset_urn_idx
+        else:
+          urn = 'hive:///' + row_value[0] + '/' + row_value[18]
+
+        if urn in self.dataset_dict:
+          continue
+
+        table_record = {TableInfo.table_name: row_value[18], TableInfo.type: row_value[21], TableInfo.serialization_format: row_value[2],
                       TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
                       TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
                       TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
                       TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
                       TableInfo.etl_source: 'COLUMN_V2', TableInfo.field_list: field_list[:]}
+        dataset_idx += 1
+        self.dataset_dict[urn] = dataset_idx
         field_list = [] # empty it
 
         if row_value[0] not in self.db_dict:
-          schema.append({'database': row_value[0], 'type': 'Hive', 'tables': []})
+          schema.append({'database': row_value[0], 'type': row_value[20], 'tables': []})
           db_idx += 1
           self.db_dict[row_value[0]] = db_idx
 
@@ -178,7 +250,7 @@ class HiveExtract:
           table_idx += 1
           self.table_dict[full_name] = table_idx
 
-
+    self.instance_writer.flush()
     self.logger.info("%s %6d tables processed for database %12s from COLUMN_V2" % (
       datetime.datetime.now(), table_idx + 1, row_value[0]))
 
@@ -256,11 +328,19 @@ class HiveExtract:
       # tables from Column V2
       rows = []
       begin = datetime.datetime.now().strftime("%H:%M:%S")
-      rows.extend(self.get_table_info_from_v2(database_name))
+      rows.extend(self.get_table_info_from_v2(database_name, False))
       if len(rows) > 0:
         self.format_table_metadata_v2(rows, schema)
       end = datetime.datetime.now().strftime("%H:%M:%S")
-      self.logger.info("Get table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
+      self.logger.info("Get Hive table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
+
+      rows = []
+      begin = datetime.datetime.now().strftime("%H:%M:%S")
+      rows.extend(self.get_table_info_from_v2(database_name, True))
+      if len(rows) > 0:
+        self.format_table_metadata_v2(rows, schema)
+      end = datetime.datetime.now().strftime("%H:%M:%S")
+      self.logger.info("Get Dalids table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
     schema_json_file.write(json.dumps(schema, indent=None) + '\n')
 
@@ -298,6 +378,10 @@ if __name__ == "__main__":
     database_white_list = ''
 
   e = HiveExtract()
+  e.dataset_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
+  e.instance_writer = FileWriter(e.dataset_instance_file)
+  e.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
+  e.db_id = args[Constant.DB_ID_KEY]
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
   try:
@@ -305,3 +389,4 @@ if __name__ == "__main__":
     e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
   finally:
     e.conn_hms.close()
+    e.instance_writer.close()
