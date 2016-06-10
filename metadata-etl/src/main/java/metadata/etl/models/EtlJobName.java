@@ -27,6 +27,7 @@ public enum EtlJobName {
   GIT_MEDATA_ETL(EtlType.VCS, RefIdType.APP),
   HIVE_DATASET_METADATA_ETL(EtlType.DATASET, RefIdType.DB),
   ELASTICSEARCH_EXECUTION_INDEX_ETL(EtlType.OPERATION, RefIdType.APP),
+  ORACLE_DATASET_METADATA_ETL(EtlType.DATASET, RefIdType.DB)
   ;
 
   EtlType etlType;
