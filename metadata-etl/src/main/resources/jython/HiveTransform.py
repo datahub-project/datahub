@@ -63,8 +63,8 @@ class HiveTransform:
         end dataset_name,
         concat('/', d.NAME, '/', t.TBL_NAME) object_name,
         case when (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW'
-          then 'Dali'
-        else 'Hive'
+          then 'dalids'
+        else 'hive'
         end object_type,
         case when (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW'
           then 'View'
@@ -148,15 +148,15 @@ class HiveTransform:
         elif TableInfo.field_list in table:
           # Convert to avro
           uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
-          hcp = HiveColumnParser(table, urn = uri)
-          if one_db_info['type'].lower() == 'dali':
+          if one_db_info['type'].lower() == 'dalids':
             uri = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
           else:
             uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          hcp = HiveColumnParser(table, urn = uri)
           schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
           field_detail_list += hcp.column_type_list
 
-        if one_db_info['type'].lower() == 'dali':
+        if one_db_info['type'].lower() == 'dalids':
           dataset_urn = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
         else:
           dataset_urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])

@@ -315,9 +315,9 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"FROM dataset_owner WHERE owner_type is not null";
 
 	private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
-			"object_name, object_urn, map_phrase, map_phrase_reversed, mapped_object_dataset_id, " +
-			"mapped_object_type,  mapped_object_sub_type, mapped_object_name, mapped_object_urn " +
-			"FROM stg_cfg_object_name_map WHERE object_dataset_id = ?";
+			"object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
+			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
+			"FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
 	public static List<String> getDatasetOwnerTypes()
 	{
@@ -1743,7 +1743,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				dd.objectName = (String) row.get("mapped_object_name");
 				dd.objectType = (String) row.get("mapped_object_type");
 				dd.objectSubType = (String) row.get("mapped_object_sub_type");
-				dd.datasetUrn = (String) row.get("mapped_object_urn");
 				if (dd.datasetId != null && dd.datasetId > 0)
 				{
 					dd.isValidDataset = true;
