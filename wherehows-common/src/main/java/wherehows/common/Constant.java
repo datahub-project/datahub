@@ -15,6 +15,7 @@ package wherehows.common;
 
 /**
  * Created by zsun on 9/29/15.
+ * Changed by aig on 2016-06-10.
  */
 public class Constant {
 
@@ -67,6 +68,29 @@ public class Constant {
 
   /** Optional. The property_name field in wh_etl_job_property table. Set innodb_lock_wait_timeout for mysql */
   public static final String INNODB_LOCK_WAIT_TIMEOUT = "innodb_lock_wait_timeout";
+
+  // Oracle
+  /** The property_name field in wh_etl_job_property table. Oracle connection info */
+  public static final String OR_DB_URL_KEY = "oracle.db.jdbc.url";
+  public static final String OR_DB_USERNAME_KEY = "oracle.db.username";
+  public static final String OR_DB_PASSWORD_KEY = "oracle.db.password";
+  public static final String OR_DB_DRIVER_KEY = "oracle.db.driver";
+  /** The property_name field in wh_etl_job_property table. Oracle metadata raw interim file store location */
+  public static final String OR_METADATA_KEY = "oracle.metadata";
+  /** The property_name field in wh_etl_job_property table. Oracle field metadata interim file store location */
+  public static final String OR_FIELD_METADATA_KEY = "oracle.field_metadata";
+  /** The property_name field in wh_etl_job_property table. Oracle schema interim file store location */
+  public static final String OR_SCHEMA_OUTPUT_KEY = "oracle.schema_output";
+  /** The property_name field in wh_etl_job_property table. Oracle sample data interim file store location */
+  public static final String OR_SAMPLE_OUTPUT_KEY = "oracle.sample_output";
+  /** The property_name field in wh_etl_job_property table. Oracle log file store location */
+  public static final String OR_LOG_KEY = "oracle.log";
+  /** The property_name field in wh_etl_job_property table. Oracle databases to collect metadata */
+  public static final String OR_TARGET_DATABASES_KEY = "oracle.databases";
+  /** The property_name field in wh_etl_job_property table. Used for connecting */
+  public static final String OR_DEFAULT_DATABASE_KEY = "oracle.default_database";
+  /** Optional. The property_name field in wh_etl_job_property table. Decide whether load sample data or not */
+  public static final String OR_LOAD_SAMPLE = "oracle.load_sample";
 
   // Teradata
   /** The property_name field in wh_etl_job_property table. Teradata connection info */

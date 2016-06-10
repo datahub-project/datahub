@@ -36,8 +36,8 @@ class TeradataExtract:
     curs_vw = self.conn_td.cursor()
     view_sql = '''
         SELECT Trim(DatabaseName) DatabaseName, Trim(TableName) TableName, RequestText,
-               CreateTimestamp(CHAR(19)), LastAlterTimestamp(CHAR(19)), AccessCount
-        FROM   DBC.Tables
+               RTRIM(CreateTimestamp(CHAR(19))) CreateTimestamp, RTRIM(LastAlterTimestamp(CHAR(19))) LastAlterTimestamp, AccessCount
+        FROM   DBC.TablesV
         WHERE  DatabaseName = '%s'
         AND    TableName NOT LIKE ALL ('!_%%', '#%%', 'TMP%%', 'TEMP%%') ESCAPE '!'
         AND    TableKind = 'V' ORDER BY 2''' % database_name
@@ -128,9 +128,9 @@ class TeradataExtract:
 
     col_stats_sql = """SELECT c.DatabaseName,
            c.TableName2 TableName,
-           c.CreateTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19)) createTimestamp,
-           c.LastAlterTimestamp (CHAR(19)) TableLastAlterTimestamp,
-           c.LastAccessTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19)) LastAccessTimestamp,
+           RTRIM(c.CreateTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19))) createTimestamp,
+           RTRIM(c.LastAlterTimestamp (CHAR(19))) TableLastAlterTimestamp,
+           RTRIM(c.LastAccessTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19))) LastAccessTimestamp,
            c.TableAccessCount,
            RTRIM(a.columnname) ColumnName,
            CASE
@@ -141,10 +141,10 @@ class TeradataExtract:
            END ColumnFormat,
            a.DefaultValue,
            a.nullable,
-           a.LastAccessTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19)) LastAccessTimestamp,
+           RTRIM(a.LastAccessTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19))) LastAccessTimestamp,
            a.AccessCount,
            b.UniqueValueCount (bigint) UniqueValueCount,
-           b.LastCollectTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19)) LastCollectTimestamp,
+           RTRIM(b.LastCollectTimestamp (FORMAT 'YYYY-MM-DDBHH:MI:SS') (CHAR(19))) LastCollectTimestamp,
            CASE
               WHEN a.columntype = 'I1' THEN 'BYTEINT'
               WHEN a.columntype = 'I2' THEN 'SMALLINT'
@@ -194,7 +194,7 @@ class TeradataExtract:
            a.LastAccessTimestamp,
            a.AccessCount TableAccessCount,
            a.CreatorName
-    from DBC.Tables a where a.TableKind = 'T'
+    from DBC.TablesV a where a.TableKind = 'T'
     AND  a.DatabaseName = '%s'
     %s
     AND  case when a.DatabaseName in ('DM_BIZ', 'DM_SEC') and a.AccessCount < 200 then -1
@@ -209,7 +209,7 @@ class TeradataExtract:
     QUALIFY RANK() OVER (PARTITION BY DatabaseName, TableName2 ORDER BY a.TableName desc) = 1
            ) c
            JOIN
-           DBC.Columns a
+           DBC.ColumnsV a
     ON     (c.databasename = a.databasename AND
             c.tablename = a.tablename)
            LEFT OUTER JOIN
@@ -234,18 +234,18 @@ class TeradataExtract:
     :return: size, partition, indice
     '''
     table_size_sql = """select RTrim(TableName), cast(sum(CurrentPerm)/1024/1024 as BIGINT) size_in_mb
-        from DBC.TableSize where DatabaseName = '%s'
+        from DBC.TableSizeV where DatabaseName = '%s'
         AND TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', 'ut!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
         AND  RTRIM(TableName) NOT LIKE ALL ('%%!_tmp', '%%!_temp', '%%!_ERR!_.', '%%!_bkp', '%%!_backup') ESCAPE '!'
         AND  REGEXP_SIMILAR(RTRIM(TableName), '.*_tmp_[0-9]+','i') = 0
         AND  REGEXP_SIMILAR(RTRIM(TableName), '.*_tmp[0-9]+','i') = 0
         group by 1 order by 1 """ % (database_name)
 
-    table_index_sql = """select RTrim(TableName), IndexNumber, IndexType, UniqueFlag, IndexName, RTrim(ColumnName), ColumnPosition, AccessCount
-        from DBC.Indices where DatabaseName = '%s' order by TableName, IndexNumber, ColumnPosition""" % (database_name)
+    table_index_sql = """select RTrim(TableName), IndexNumber, RTRIM(IndexType), UniqueFlag, IndexName, RTrim(ColumnName), ColumnPosition, AccessCount
+        from DBC.IndicesV where DatabaseName = '%s' order by TableName, IndexNumber, ColumnPosition""" % (database_name)
 
     table_partition_sql = """select RTrim(TableName), ConstraintText
-        from DBC.IndexConstraints where DatabaseName = '%s' and ConstraintType = 'Q'
+        from DBC.IndexConstraintsV where DatabaseName = '%s' and ConstraintType = 'Q'
         order by TableName""" % (database_name)
 
     extra_table_info = {}
