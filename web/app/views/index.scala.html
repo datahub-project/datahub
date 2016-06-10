@@ -464,7 +464,7 @@
 
     <script type="text/x-handlebars" data-template-name="depend">
       {{#if hasDepends}}
-        <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+        <table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
           <thead>
             <tr class="results-header">
               <th class="span2">Dataset</th>
@@ -838,9 +838,9 @@
           {{/unless}}
           <li id="impacts">
             <a data-toggle="tab"
-              title="Downstream"
+              title="Down Stream Impact Analysis"
               href="#impacttab">
-              Down Stream Impact
+              Downstream
             </a>
           </li>
           <li id="depends">
@@ -965,8 +965,9 @@
           <div class="panel-heading" role="tab" id="impactsHeading">
             <h4 class="panel-title">
               <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
-               href="#impactAnalysis" aria-expanded="false" aria-controls="sampleData">
-                Down Stream Impact Analysis
+               href="#impactAnalysis" title="Down Stream Impact Analysis"
+               aria-expanded="false" aria-controls="sampleData">
+                Downstream
               </a>
             </h4>
           </div>

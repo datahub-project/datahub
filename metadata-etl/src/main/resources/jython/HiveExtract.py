@@ -92,6 +92,7 @@ class HiveExtract:
         end dataset_name,
         case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then replace(substring_index(t.TBL_NAME, '_', -3), '_', '.')
+          else 0
         end version, 'Dalids' TYPE, 'View' storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name,
         case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1)
