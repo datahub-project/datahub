@@ -1,6 +1,11 @@
 function initializeColumnTreeGrid()
 {
-  $('.columntreegrid').treegrid();
+  $('#json-table').treegrid();
+}
+
+function initializeDependsTreeGrid()
+{
+  $('#depends-table').treegrid();
 }
 
 function formatValue(key, value){
@@ -407,7 +412,7 @@ App.DatasetRoute = Ember.Route.extend({
         {
           controller.set("hasDepends", true);
           controller.set("depends", data.depends);
-          setTimeout(initializeColumnTreeGrid, 500);
+          setTimeout(initializeDependsTreeGrid, 500);
         }
         else
         {
