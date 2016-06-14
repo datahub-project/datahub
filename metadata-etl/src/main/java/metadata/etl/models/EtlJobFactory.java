@@ -55,6 +55,8 @@ public class EtlJobFactory {
         return new HiveMetadataEtl(refId, whExecId, properties);
       case ELASTICSEARCH_EXECUTION_INDEX_ETL:
         return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
+      case TREEBUILDER_EXECUTION_DATASET_ETL:
+        return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
