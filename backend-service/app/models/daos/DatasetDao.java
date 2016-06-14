@@ -17,9 +17,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.lang3.StringUtils;
+import play.libs.Json;
 import utils.JdbcUtil;
+import wherehows.common.schemas.DatasetDependencyRecord;
 import wherehows.common.schemas.DatasetRecord;
 import wherehows.common.utils.PartitionPatternMatcher;
 import wherehows.common.writers.DatabaseWriter;
@@ -33,6 +40,44 @@ public class DatasetDao {
 
   public static final String GET_DATASET_BY_ID = "SELECT * FROM dict_dataset WHERE id = :id";
   public static final String GET_DATASET_BY_URN = "SELECT * FROM dict_dataset WHERE urn = :urn";
+  public static final String DEFAULT_CLUSTER_NAME = "ltx1-holdem";
+  public static final String CLUSTER_NAME_KEY = "cluster_name";
+  public static final String DATASET_URI_KEY = "dataset_uri";
+  public static final String HIVE_PREFIX_WITH_3_SLASH = "hive:///";
+  public static final String DALIDS_PREFIX_WITH_3_SLASH = "dalids:///";
+  public static final String HIVE_PREFIX_WITH_2_SLASH = "hive://";
+  public static final String DALIDS_PREFIX_WITH_2_SLASH = "dalids://";
+
+  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE = "SELECT c.object_dataset_id as dataset_id, " +
+          "d.urn, d.dataset_type, i.deployment_tier, i.data_center, i.server_cluster " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
+          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? and lower(c.object_type) = ?";
+
+  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER = "SELECT " +
+          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, " +
+          "i.deployment_tier, i.data_center, i.server_cluster " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
+          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? " +
+          "and lower(c.object_type) = ? and lower(i.server_cluster) = ?";
+
+  public static final String GET_DATASET_ID_IN_MAP_TABLE = "SELECT c.object_dataset_id as dataset_id, " +
+          "d.urn, d.dataset_type, i.deployment_tier, i.data_center, i.server_cluster " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
+          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ?";
+
+  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_CLUSTER = "SELECT c.object_dataset_id as dataset_id, " +
+          "d.urn, d.dataset_type, i.deployment_tier, i.data_center, i.server_cluster " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
+          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? and lower(i.server_cluster) = ?";
+
+  private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
+          "object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
+          "mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
+          "FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
   public static Map<String, Object> getDatasetById(int datasetId)
     throws SQLException {
@@ -72,5 +117,274 @@ public class DatasetDao {
     DatabaseWriter dw = new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, "dict_dataset");
     dw.append(record);
     dw.close();
+  }
+
+  public static int getDatasetDependencies(
+          Long datasetId,
+          String topologySortId,
+          int level,
+          List<DatasetDependencyRecord> depends)
+  {
+    if (depends == null)
+    {
+      depends = new ArrayList<DatasetDependencyRecord>();
+    }
+
+    List<Map<String, Object>> rows = null;
+    rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+            GET_DATASET_DEPENDS_VIEW,
+            datasetId);
+
+    int index = 1;
+    if (rows != null)
+    {
+      for (Map row : rows) {
+        DatasetDependencyRecord datasetDependencyRecord = new DatasetDependencyRecord();
+        datasetDependencyRecord.dataset_id = (Long) row.get("mapped_object_dataset_id");
+        String objectName = (String) row.get("mapped_object_name");
+        if (StringUtils.isNotBlank(objectName))
+        {
+          String[] info = objectName.split("/");
+          if (info != null && info.length == 3)
+          {
+            datasetDependencyRecord.database_name = info[1];
+            datasetDependencyRecord.table_name = info[2];
+          }
+        }
+        datasetDependencyRecord.level_from_root = level;
+        datasetDependencyRecord.type = (String) row.get("mapped_object_sub_type");
+        datasetDependencyRecord.ref_obj_location = objectName;
+        datasetDependencyRecord.ref_obj_type = (String) row.get("mapped_object_type");
+        datasetDependencyRecord.topology_sort_id = topologySortId + Integer.toString((index++)*100);
+        datasetDependencyRecord.next_level_dependency_count =
+                getDatasetDependencies(datasetDependencyRecord.dataset_id,
+                        datasetDependencyRecord.topology_sort_id,
+                        level + 1,
+                        depends);
+        depends.add(datasetDependencyRecord);
+      }
+      return rows.size();
+    }
+    else
+    {
+      return 0;
+    }
+  }
+  public static ObjectNode getDatasetDependency(JsonNode input)
+          throws Exception {
+
+    ObjectNode resultJson = Json.newObject();
+    String cluster = DEFAULT_CLUSTER_NAME;
+    String datasetUri = null;
+    String dbName = null;
+    String tableName = null;
+    boolean isHive = false;
+    boolean isDalids = false;
+    boolean hasCluster = false;
+    if (input != null && input.isContainerNode())
+    {
+      if (input.has(CLUSTER_NAME_KEY))
+      {
+        cluster = input.get(CLUSTER_NAME_KEY).asText();
+        hasCluster = true;
+      }
+      if (input.has(DATASET_URI_KEY))
+      {
+        datasetUri = input.get(DATASET_URI_KEY).asText();
+      }
+    }
+
+    if (StringUtils.isBlank(datasetUri))
+    {
+      resultJson.put("return_code", 404);
+      resultJson.put("message", "Wrong input format! Missing dataset uri");
+      return resultJson;
+    }
+
+    Integer index = -1;
+    if ((index = datasetUri.indexOf(HIVE_PREFIX_WITH_3_SLASH)) != -1)
+    {
+      isHive = true;
+      String tmp = datasetUri.substring(index + HIVE_PREFIX_WITH_3_SLASH.length());
+      String[] info = tmp.split("\\.|/");
+      if (info != null && info.length == 2)
+      {
+        dbName = info[0];
+        tableName = info[1];
+      }
+    }
+    else if ((index = datasetUri.indexOf(DALIDS_PREFIX_WITH_3_SLASH)) != -1)
+    {
+      isDalids = true;
+      String tmp = datasetUri.substring(index + DALIDS_PREFIX_WITH_3_SLASH.length());
+      String[] info = tmp.split("\\.|/");
+      if (info != null && info.length == 2)
+      {
+        dbName = info[0];
+        tableName = info[1];
+      }
+    }
+    else if ((index = datasetUri.indexOf(HIVE_PREFIX_WITH_2_SLASH)) != -1)
+    {
+      isHive = true;
+      String tmp = datasetUri.substring(index + HIVE_PREFIX_WITH_2_SLASH.length());
+      String[] info = tmp.split("\\.|/");
+      if (info != null && info.length == 3)
+      {
+        hasCluster = true;
+        cluster = info[0];
+        dbName = info[1];
+        tableName = info[2];
+      }
+    }
+    else if ((index = datasetUri.indexOf(DALIDS_PREFIX_WITH_2_SLASH)) != -1)
+    {
+      isDalids = true;
+      String tmp = datasetUri.substring(index + DALIDS_PREFIX_WITH_2_SLASH.length());
+      String[] info = tmp.split("\\.|/");
+      if (info != null && info.length == 3)
+      {
+        hasCluster = true;
+        cluster = info[0];
+        dbName = info[1];
+        tableName = info[2];
+      }
+    }
+    else if (datasetUri.indexOf('.') != -1)
+    {
+      index = datasetUri.indexOf(':');
+      String tmp = datasetUri;
+      if (index != -1)
+      {
+        cluster = datasetUri.substring(0, index);
+        tmp = datasetUri.substring(index + 1);
+        hasCluster = true;
+      }
+      String[] info = tmp.split("\\.|/");
+      if (info != null && info.length == 2)
+      {
+        dbName = info[0];
+        tableName = info[1];
+      }
+    }
+
+    if (StringUtils.isBlank(cluster) || StringUtils.isBlank(dbName) || StringUtils.isBlank(tableName))
+    {
+      resultJson.put("return_code", 404);
+      resultJson.put("message", "Wrong input format! Missing dataset uri");
+      return resultJson;
+    }
+
+    String sqlQuery = null;
+    List<Map<String, Object>> rows = null;
+
+    if (isHive)
+    {
+      if (hasCluster)
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER,
+                "/" + dbName + "/" + tableName,
+                "hive",
+                cluster);
+
+      }
+      else
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE,
+                "/" + dbName + "/" + tableName,
+                "hive");
+      }
+    }
+    else if (isDalids)
+    {
+      if (hasCluster)
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER,
+                "/" + dbName + "/" + tableName,
+                "dalids",
+                cluster);
+      }
+      else
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE,
+                "/" + dbName + "/" + tableName,
+                "dalids");
+      }
+
+    }
+    else
+    {
+      if (hasCluster)
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE_WITH_CLUSTER,
+                "/" + dbName + "/" + tableName, cluster);
+      }
+      else
+      {
+        rows = JdbcUtil.wherehowsJdbcTemplate.queryForList(
+                GET_DATASET_ID_IN_MAP_TABLE,
+                "/" + dbName + "/" + tableName);
+      }
+
+    }
+
+    Long datasetId = 0L;
+    String urn = null;
+    String datasetType = null;
+    String deploymentTier = null;
+    String dataCenter = null;
+    String serverCluster = null;
+    if (rows != null && rows.size() > 0) {
+      for (Map row : rows) {
+
+        datasetId = (Long) row.get("dataset_id");
+        urn = (String) row.get("urn");
+        datasetType = (String) row.get("dataset_type");
+        deploymentTier = (String) row.get("deployment_tier");
+        dataCenter = (String) row.get("data_center");
+        serverCluster = (String) row.get("server_cluster");
+        break;
+      }
+    }
+    else {
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dependency information is not available.");
+      return resultJson;
+    }
+
+    List<DatasetDependencyRecord> depends = new ArrayList<DatasetDependencyRecord>();
+    getDatasetDependencies(datasetId, "", 1, depends);
+    StringBuilder inputUri = new StringBuilder("");
+    if (isHive)
+    {
+      inputUri.append("hive://");
+    }
+    else if (isDalids)
+    {
+      inputUri.append("dalids://");
+    }
+    if (hasCluster)
+    {
+      inputUri.append(cluster);
+    }
+    inputUri.append("/" + dbName + "/" + tableName);
+
+    resultJson.put("return_code", 200);
+    resultJson.put("deployment_tier", deploymentTier);
+    resultJson.put("data_center", dataCenter);
+    resultJson.put("cluster", StringUtils.isNotBlank(serverCluster) ? serverCluster: cluster);
+    resultJson.put("dataset_type", datasetType);
+    resultJson.put("database_name", dbName);
+    resultJson.put("table_name", tableName);
+    resultJson.put("urn", urn);
+    resultJson.put("dataset_id", datasetId);
+    resultJson.put("input_uri", inputUri.toString());
+    resultJson.set("dependencies", Json.toJson(depends));
+    return resultJson;
   }
 }

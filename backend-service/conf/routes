@@ -8,6 +8,9 @@ GET         /                             controllers.Application.index()
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file                 controllers.Assets.at(path="/public", file)
 
+# Find a dataset's dependencies.
+GET         /dependency/dataset           controllers.DatasetController.getDatasetDependency()
+
 # Find a dataset's schema, field and all datasets level information.
 GET         /dataset                      controllers.DatasetController.getDatasetInfo()
 
