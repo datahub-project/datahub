@@ -145,10 +145,12 @@ class ElasticSearchIndex():
              json.dumps(row['schema'])  if row['schema'] else '', json.dumps(row['fields'])  if row['fields'] else ''))
       if row_count % 1000 == 0:
         self.bulk_insert(params, url)
+        self.logger.info('dataset' + str(row_count))
         params = []
       row_count += 1
     if len(params) > 0:
       self.bulk_insert(params, url)
+      self.logger.info('dataset' + str(len(params)))
 
   def update_metric(self):
       sql = """
@@ -250,11 +252,11 @@ class ElasticSearchIndex():
                      row['pre_flows'] if row['pre_flows'] else ''))
           if row_count % 1000 == 0:
               self.bulk_insert(params, url)
-              self.logger.info(str(row_count))
+              self.logger.info('flow jobs' + str(row_count))
               params = []
           row_count += 1
       if len(params) > 0:
-          self.logger.info(str(len(params)))
+          self.logger.info('flow_jobs' + str(len(params)))
           self.bulk_insert(params, url)
 
   def run(self):

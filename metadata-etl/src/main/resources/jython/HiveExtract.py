@@ -317,14 +317,6 @@ class HiveExtract:
 
     for database_name in self.databases:
       self.logger.info("Collecting hive tables in database : " + database_name)
-      # tables from schemaLiteral
-      rows = []
-      begin = datetime.datetime.now().strftime("%H:%M:%S")
-      rows.extend(self.get_table_info_from_serde_params(database_name))
-      if len(rows) > 0:
-        self.format_table_metadata_serde(rows, schema)
-      end = datetime.datetime.now().strftime("%H:%M:%S")
-      self.logger.info("Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
       # tables from Column V2
       rows = []
@@ -342,6 +334,15 @@ class HiveExtract:
         self.format_table_metadata_v2(rows, schema)
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Get Dalids table info from COLUMN_V2 %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
+
+      # tables from schemaLiteral
+      rows = []
+      begin = datetime.datetime.now().strftime("%H:%M:%S")
+      rows.extend(self.get_table_info_from_serde_params(database_name))
+      if len(rows) > 0:
+        self.format_table_metadata_serde(rows, schema)
+      end = datetime.datetime.now().strftime("%H:%M:%S")
+      self.logger.info("Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
     schema_json_file.write(json.dumps(schema, indent=None) + '\n')
 
