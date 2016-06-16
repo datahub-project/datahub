@@ -20,6 +20,7 @@ import java.util.Map;
 import models.daos.DatasetDao;
 import models.utils.Urn;
 import org.springframework.dao.EmptyResultDataAccessException;
+import play.Logger;
 import play.libs.Json;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
@@ -83,6 +84,23 @@ public class DatasetController extends Controller {
       resultJson.put("message", "Dataset inserted!");
     } catch (Exception e) {
       e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result getDatasetDependency() {
+    String queryString = request().getQueryString("query");
+    JsonNode input = Json.parse(queryString);
+    ObjectNode resultJson = Json.newObject();
+
+    try {
+      resultJson = DatasetDao.getDatasetDependency(input);
+    } catch (Exception e) {
+      Logger.error(e.getMessage());
       resultJson.put("return_code", 404);
       resultJson.put("error_message", e.getMessage());
     }

@@ -79,7 +79,7 @@ idea {
     }
 }
 
-task "build" (type: Exec, dependsOn: [playClean, playTest], overwrite: true) {
+task "build" (type: Exec, dependsOn: [playClean], overwrite: true) {
     commandLine playExec, 'stage'
 }
 
@@ -87,5 +87,5 @@ task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
-task "check" (dependsOn: playTest, overwrite: true) {
+task "check" (overwrite: true) {
 }
