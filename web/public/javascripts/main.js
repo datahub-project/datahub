@@ -62,10 +62,22 @@
         accessKey: 'I'
     });
 
-    $(window).resize(function(){
-      var height = ($(window).height() * 0.99) - 82;
-      $('#mainSplitter').height(height)
-    })
+    var splitterResize = false;
+    var skipResize = false;
+
+    $(window).resize(function() {
+      if (skipResize)
+        return;
+      if (splitterResize)
+        clearTimeout(splitterResize);
+      skipResize = true;
+      splitterResize = setTimeout(function() {
+        var height = ($(window).height() * 0.99) - 82;
+        var width = $(window).width()*0.99;
+        $("#mainSplitter").css("height", height, "width", width).trigger("resize");
+        skipResize = false;
+      }, 500);
+    });
 
     var markedRendererOverride = new marked.Renderer()
     markedRendererOverride.link = function(href, title, text) {
