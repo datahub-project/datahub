@@ -36,9 +36,8 @@ addons:
     - mysql-client-5.6
 
 before_script:
-  - uname -a; pwd
   - mysql -u root -e 'create database if not exists wherehows'
   - mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'travis'@'localhost'"
-  - mysql -u root -D wherehows < data-model/DDL/create_all_tables_wrapper.sql
+  - cd data-model/DDL; mysql -u root -D wherehows < create_all_tables_wrapper.sql; cd ../..
   - sleep 5
 
