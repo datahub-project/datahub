@@ -13,7 +13,7 @@
 --
 
 /* wrapper sql to call all individual DDL */
-use wherehows;
+-- use wherehows;
 
 source ETL_DDL/dataset_metadata.sql;
 source ETL_DDL/etl_configure_tables.sql;
