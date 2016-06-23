@@ -196,7 +196,13 @@ class HiveExtract:
 
     field_list = []
     for row_index, row_value in enumerate(rows):
-      field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
+      if row_value[20].lower() == 'dalids':
+        urn = 'dalids:///' + row_value[0] + '/' + row_value[18]
+      else:
+        urn = 'hive:///' + row_value[0] + '/' + row_value[18]
+
+      if urn not in self.dataset_dict:
+        field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
                          'Comment': row_value[17]})
       if row_index == len(rows) - 1 or (row_value[0] != rows[row_index+1][0] or row_value[1] != rows[row_index+1][1]): # if this is last record of current table
         # sort the field_list by IntegerIndex
@@ -204,7 +210,6 @@ class HiveExtract:
         # process the record of table
 
         if row_value[20].lower() == 'dalids':
-          urn = 'dalids:///' + row_value[0] + '/' + row_value[18]
           instance_record = DatasetInstanceRecord(row_value[25],
                                       long(self.db_id),
                                       'grid',
@@ -222,8 +227,6 @@ class HiveExtract:
           self.instance_writer.append(instance_record)
           dataset_urn_idx += 1
           self.instance_dict[row_value[25]] = dataset_urn_idx
-        else:
-          urn = 'hive:///' + row_value[0] + '/' + row_value[18]
 
         if urn in self.dataset_dict:
           continue

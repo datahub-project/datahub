@@ -79,7 +79,7 @@ idea {
     }
 }
 
-task "build" (type: Exec, dependsOn: [playClean], overwrite: true) {
+task "build" (type: Exec, dependsOn: [playClean, playCompile], overwrite: true) {
     commandLine playExec, 'stage'
 }
 
