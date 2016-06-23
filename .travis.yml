@@ -13,3 +13,31 @@ before_install:
   # change the build file stack size
   - sed -i -e 's/-Xss1M/-Xss2M/g' $PLAY_HOME/framework/build
   - cat $PLAY_HOME/framework/build
+
+  # elasticsearch
+  - curl -O https://download.elasticsearch.org/elasticsearch/elasticsearch/elasticsearch-2.3.3.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.3.deb && sudo service elasticsearch restart
+
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
+
+services:
+  - mysql
+  - elasticsearch
+
+dist: trusty
+sudo: required
+addons:
+  apt:
+    packages:
+    - mysql-server-5.7
+    - mysql-client-core-5.7
+    - mysql-client-5.7
+
+before_script:
+  - mysql -u root -e 'create database wherehows_test'
+  - mysql -D wherehows_test < data-model/DDL/create_all_tables_wrapper.sql
+  - mysql -D wherehows_test -e 'show tables'
+  - sleep 5
+
