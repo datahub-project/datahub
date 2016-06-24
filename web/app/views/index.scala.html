@@ -3,20 +3,27 @@
     <div>
       <div id="mainSplitter">
         <div id="tabSplitter">
-          <ul id="menutabs" class="nav nav-tabs category-header">
+          <div class="btn-group" role="group" aria-label="Toggle List/Tree View">
+            <button id="listviewbtn" type="button" class="btn btn-primary">List View</button>
+            <button id="treeviewbtn" type="button" class="btn btn-default">Tree View</button>
+          </div>
+          <ul id="menutabs" style="display:none" class="nav nav-tabs category-header">
             <li>
               <a data-toggle="tab" href="#filtertab">Datasets</a>
             </li>
             <li><a data-toggle="tab" href="#flowtab">Flows</a></li>
           </ul>
           <div class="tab-content">
+            <div>
+              <input placeholder="Filter By" style="width:100%;display: none;">
+            </div>
             <div id="filtertab" class="tab-pane">
-              <div id="tree2" data-source="ajax" class="sampletree">
-              </div>
+              <div id="datasetlist" class="list-group"></div>
+              <div id="tree2" data-source="ajax" class="sampletree" style="display: none;"></div>
             </div>
             <div id="flowtab" class="tab-pane">
-              <div id="tree3" data-source="ajax" class="sampletree">
-              </div>
+              <div id="flowlist" class="list-group"></div>
+              <div id="tree3" data-source="ajax" class="sampletree" style="display: none;"></div>
             </div>
           </div>
         </div>
@@ -105,6 +112,24 @@
         <div class="row">
           <div class="col-xs-12">
             {{#unless detailview}}
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-6 pull-right">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a
+                          title="{{crumb.title}}"
+                          href="#/datasets/{{crumb.urn}}"
+                        >
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="search-pagination">
               <ul class="pager">
                 {{#unless first}}
@@ -140,40 +165,6 @@
             </div>
             {{/unless}}
             {{#unless detailview}}
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-10">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a
-                          title="{{crumb.title}}"
-                          href="#/datasets/{{crumb.urn}}"
-                        >
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-                <div class="col-xs-2 text-right">
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-sm pull-right"
-                    {{action 'watchUrn' urn}}
-                  >
-                    <i
-                      {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}
-                    ></i>
-                    {{#if urnWatched}}
-                      Unwatch
-                    {{else}}
-                      Watch
-                    {{/if}}
-                  </button>
-                </div>
-              </div>
-            </div>
             <table
               class="table table-bordered search-results"
               style="word-break: break-all;">
@@ -740,6 +731,21 @@
 
     <script type="text/x-handlebars" id="dataset">
       <div id="dataset" >
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-6 pull-right">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    <a title="{{crumb.title}}" href="#/datasets/{{crumb.urn}}">
+                      {{crumb.title}}
+                    </a>
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
         <div class="row">
           <div class="col-xs-5">
             <h3>{{ model.name }}</h3>
@@ -800,21 +806,6 @@
                 </span>
               </li>
             </ul>
-          </div>
-        </div>
-        <div class="well well-sm">
-          <div class="row">
-            <div class="col-xs-12">
-              <ul class="breadcrumbs">
-                {{#each breadcrumbs as |crumb|}}
-                  <li>
-                    <a title="{{crumb.title}}" href="#/datasets/{{crumb.urn}}">
-                      {{crumb.title}}
-                    </a>
-                  </li>
-                {{/each}}
-              </ul>
-            </div>
           </div>
         </div>
       </div>
@@ -1051,7 +1042,7 @@
             {{#unless detailview}}
             <div class="well well-sm">
               <div class="row">
-                <div class="col-xs-10">
+                <div class="col-xs-6 pull-right">
                   <ul class="breadcrumbs">
                     {{#each breadcrumbs as |crumb|}}
                       <li>
@@ -1061,19 +1052,6 @@
                       </li>
                     {{/each}}
                   </ul>
-                </div>
-                <div class="col-xs-2 text-right">
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-sm pull-right"
-                    {{action 'watchUrn' urn}}>
-                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
-                    {{#if urnWatched}}
-                      Unwatch
-                    {{else}}
-                      Watch
-                    {{/if}}
-                  </button>
                 </div>
               </div>
             </div>
@@ -1435,6 +1413,21 @@
       <div id="pagedProjects" >
         <div class="row">
           <div class="col-xs-12">
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-6 pull-right">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="search-pagination">
               <ul class="pager">
                 {{#unless first}}
@@ -1455,34 +1448,6 @@
                   </li>
                 {{/unless}}
               </ul>
-            </div>
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-10">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-                <div class="col-xs-2 text-right">
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-sm pull-right"
-                    {{action 'watchUrn' urn}}>
-                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
-                    {{#if urnWatched}}
-                      Unwatch
-                    {{else}}
-                      Watch
-                    {{/if}}
-                  </button>
-                </div>
-              </div>
             </div>
             <table class="table table-bordered search-results">
               <thead>
@@ -1515,6 +1480,21 @@
       <div id="pagedFlows" >
         <div class="row">
           <div class="col-xs-12">
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-6 pull-right">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="search-pagination">
               <ul class="pager">
                 {{#unless first}}
@@ -1535,34 +1515,6 @@
                   </li>
                 {{/unless}}
               </ul>
-            </div>
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-10">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-                <div class="col-xs-2 text-right">
-                  <button
-                    type="button"
-                    class="btn btn-primary btn-sm pull-right"
-                    {{action 'watchUrn' urn}}>
-                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
-                    {{#if urnWatched}}
-                      Unwatch
-                    {{else}}
-                      Watch
-                    {{/if}}
-                  </button>
-                </div>
-              </div>
             </div>
             <table class="table table-bordered search-results">
               <thead>
@@ -1614,6 +1566,21 @@
       <div id="pagedJobs" class="container-fluid">
         <div class="row-fluid">
           <div class="span9">
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-6 pull-right">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="row">
               <div class="col-xs-7">
                 <h3> {{ model.data.flow }}</h3>
@@ -1639,21 +1606,6 @@
                     </a>
                   </li>
                 </ul>
-              </div>
-            </div>
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-12">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
               </div>
             </div>
             <div class="search-pagination">

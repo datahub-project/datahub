@@ -65,6 +65,32 @@
     var splitterResize = false;
     var skipResize = false;
 
+    $('#listviewbtn').click(function(){
+        $('#listviewbtn').removeClass('btn-primary');
+        $('#listviewbtn').removeClass('btn-default');
+        $('#treeviewbtn').removeClass('btn-primary');
+        $('#treeviewbtn').removeClass('btn-default');
+        $('#listviewbtn').addClass('btn-primary');
+        $('#treeviewbtn').addClass('btn-default');
+        $('#tree2').hide();
+        $('#tree3').hide();
+        $('#datasetlist').show();
+        $('#flowlist').show();
+    });
+
+    $('#treeviewbtn').click(function(){
+        $('#listviewbtn').removeClass('btn-primary');
+        $('#listviewbtn').removeClass('btn-default');
+        $('#treeviewbtn').removeClass('btn-primary');
+        $('#treeviewbtn').removeClass('btn-default');
+        $('#listviewbtn').addClass('btn-default');
+        $('#treeviewbtn').addClass('btn-primary');
+        $('#datasetlist').hide();
+        $('#flowlist').hide();
+        $('#tree2').show();
+        $('#tree3').show();
+    });
+
     $(window).resize(function() {
       if (skipResize)
         return;
@@ -204,4 +230,60 @@ String.prototype.toProperCase = function(){
     return this.replace(/\w\S*/g, function(txt){
         return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
     })
+}
+
+function renderDatasetListView(nodes, name)
+{
+    var template = '<a href="$URL" class="list-group-item">$NODE_NAME</a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item">$NODE_NAME</a>';
+    var obj = $('#datasetlist');
+    if (!obj)
+        return;
+    obj.empty();
+    var activeObj;
+    for(var i = 0; i < nodes.length; i++)
+    {
+        if (name && name == nodes[i].nodeName)
+        {
+            obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+        }
+        else
+        {
+            obj.append(template.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+        }
+    }
+    if (activeObj)
+    {
+        var scrollToActiveNode = function() {
+            $("#tabSplitter").scrollTo(activeObj, 800)
+        }
+    }
+}
+
+function renderFlowListView(nodes, flowId)
+{
+    var template = '<a href="$URL" class="list-group-item">$NODE_NAME</a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item">$NODE_NAME</a>';
+    var obj = $('#flowlist');
+    if (!obj)
+        return;
+    obj.empty();
+    var activeObj;
+    for(var i = 0; i < nodes.length; i++)
+    {
+        if (flowId && flowId == nodes[i].flowId)
+        {
+            activeObj = obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+        }
+        else
+        {
+            obj.append(template.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+        }
+    }
+    if (activeObj)
+    {
+        var scrollToActiveNode = function() {
+            $("#tabSplitter").scrollTo(activeObj, 800)
+        }
+    }
 }

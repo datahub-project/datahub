@@ -8,6 +8,12 @@ App.FlowsRoute = Ember.Route.extend({
             return;
         }
         currentTab = 'Flows';
+        var listUrl = 'api/v1/list/flows';
+        $.get(listUrl, function(data) {
+            if (data && data.status == "ok"){
+                renderFlowListView(data.nodes);
+            }
+        });
         updateActiveTab();
         var url = 'api/v1/flows?size=10&page=1';
         var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"}];
@@ -55,6 +61,12 @@ App.PagedapplicationRoute = Ember.Route.extend({
             {
                 flowsController.set('isAppworx', false);
             }
+            var listUrl = 'api/v1/list/flows/' + application;
+            $.get(listUrl, function(data) {
+                if (data && data.status == "ok"){
+                    renderFlowListView(data.nodes);
+                }
+            });
             var url = 'api/v1/flows/' + application + '?size=10&page=' + params.page;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
@@ -108,6 +120,12 @@ App.PagedprojectRoute = Ember.Route.extend({
             }
             var project = transition.resolvedModels.project.project;
             var url = 'api/v1/flows/' + application + '/' + project + '?size=10&page=' + params.page;
+            var listUrl = 'api/v1/list/flows/' + application + '/' + project;
+            $.get(listUrl, function(data) {
+                if (data && data.status == "ok"){
+                    renderFlowListView(data.nodes);
+                }
+            });
             var breadcrumbs = [{"title": application, "urn": application + "/page/1"},
                     {"title": project, "urn": application + "/" + project + "/page/1"}];
             $.get(url, function(data) {
@@ -155,6 +173,13 @@ App.PagedflowRoute = Ember.Route.extend({
             var flow = transition.resolvedModels.flow.flow;
             var lineageUrl = '/lineage/flow/' + application + '/' + project + '/' + flow;
             controller.set('lineageUrl', lineageUrl);
+            var listUrl = 'api/v1/list/flows/' + application + '/' + project;
+            console.log(flow);
+            $.get(listUrl, function(data) {
+                if (data && data.status == "ok"){
+                    renderFlowListView(data.nodes, flow);
+                }
+            });
             var url = 'api/v1/flows/' + application + '/' + project + '/' + flow + '?size=10&page=' + params.page;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){

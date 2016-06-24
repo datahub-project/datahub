@@ -42,7 +42,15 @@
             {
                 if (node.isFolder())
                 {
-                    window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path;
+                    if (node.data.level == 1)
+                    {
+                        window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path + ':///';
+                    }
+                    else
+                    {
+                        window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path + '/';
+                    }
+
                 }
                 else{
                     if (node && node.data && node.data.id)

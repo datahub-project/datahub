@@ -148,6 +148,12 @@ App.DatasetsRoute = Ember.Route.extend({
   },
   actions: {
     getDatasets: function(){
+      var listUrl = 'api/v1/list/datasets';
+      $.get(listUrl, function(data) {
+        if (data && data.status == "ok"){
+          renderDatasetListView(data.nodes);
+        }
+      });
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
       currentTab = 'Datasets';
       updateActiveTab();
@@ -171,12 +177,14 @@ App.DatasetRoute = Ember.Route.extend({
     var id = 0;
     var source = '';
     var urn = '';
+    var name = '';
     controller.set("hasProperty", false);
     if(params && params.id)
       {
         id = params.id;
         source = params.source;
         urn = params.urn;
+        name = params.name;
         datasetController.set("detailview", true);
         if (params.originalSchema)
         {
@@ -191,9 +199,25 @@ App.DatasetRoute = Ember.Route.extend({
             id = params.dataset.id;
             source = params.dataset.source;
             urn = params.dataset.urn;
+            name = params.dataset.name;
             controller.set('model', params.dataset);
             datasetController.set("detailview", true);
           }
+      }
+
+      if (urn)
+      {
+        var index = urn.lastIndexOf('/');
+        if (index != -1)
+        {
+          var listUrl = 'api/v1/list/datasets?urn=' + urn.substring(0, index+1);
+          $.get(listUrl, function(data) {
+            if (data && data.status == "ok"){
+              console.log(name);
+              renderDatasetListView(data.nodes, name);
+            }
+          });
+        }
       }
 
       if (datasetCommentsComponent)
@@ -217,7 +241,7 @@ App.DatasetRoute = Ember.Route.extend({
             if( i === 0) {
               breadcrumbs.push({
                 title: b[i],
-                urn: "name/" + b[i] + "/page/1?urn=" + b[i]
+                urn: "name/" + b[i] + "/page/1?urn=" + b[i] + ':///'
               })
             }
             else if (i === (b.length -1))
@@ -532,6 +556,12 @@ App.NameRoute = Ember.Route.extend({
   },
   actions: {
     getDatasets: function(){
+      var listUrl = 'api/v1/list/datasets';
+      $.get(listUrl, function(data) {
+        if (data && data.status == "ok"){
+          renderDatasetListView(data.nodes);
+        }
+      });
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
       currentTab = 'Datasets';
       updateActiveTab();
@@ -548,6 +578,12 @@ App.NameRoute = Ember.Route.extend({
 
 App.PageRoute = Ember.Route.extend({
   setupController: function(controller, param) {
+    var listUrl = 'api/v1/list/datasets';
+    $.get(listUrl, function(data) {
+      if (data && data.status == "ok"){
+        renderDatasetListView(data.nodes);
+      }
+    });
     var url = 'api/v1/datasets?size=10&page=' + param.page;
     currentTab = 'Datasets';
     var breadcrumbs = [{"title":"DATASETS_ROOT", "urn":"page/1"}];
@@ -573,6 +609,12 @@ App.PageRoute = Ember.Route.extend({
   },
   actions: {
     getDatasets: function(){
+      var listUrl = 'api/v1/list/datasets';
+      $.get(listUrl, function(data) {
+        if (data && data.status == "ok"){
+          renderDatasetListView(data.nodes);
+        }
+      });
       var url = 'api/v1/datasets?size=10&page=' + datasetController.get('model.data.page');
       currentTab = 'Datasets';
       updateActiveTab();
@@ -591,7 +633,27 @@ App.SubpageRoute = Ember.Route.extend({
   setupController: function(controller, param) {
     if(!datasetController)
       return;
+
+    var listUrl = 'api/v1/list/datasets?urn=' + param.urn;
+    var addSlash = false;
+    if (param.urn && (param.urn[param.urn.length-1] != '/'))
+    {
+      addSlash = true;
+    }
+    if (addSlash)
+    {
+      listUrl += '/';
+    }
+    $.get(listUrl, function(data) {
+      if (data && data.status == "ok"){
+        renderDatasetListView(data.nodes);
+      }
+    });
     var url = 'api/v1/datasets?size=10&page=' + param.page + '&urn=' + param.urn;
+    if (addSlash)
+    {
+      url += '/';
+    }
     currentTab = 'Datasets';
     updateActiveTab();
     var breadcrumbs = [];
@@ -601,7 +663,7 @@ App.SubpageRoute = Ember.Route.extend({
         if( i === 0) {
             breadcrumbs.push({
                 title: b[i],
-                urn: "name/" + b[i] + "/page/1?urn=" + b[i]
+                urn: "name/" + b[i] + "/page/1?urn=" + b[i] + ':///'
             })
         } else {
             var urn = b.slice(0, (i+1)).join('/');
@@ -612,6 +674,10 @@ App.SubpageRoute = Ember.Route.extend({
         }
     }
     var watcherEndpoint = "/api/v1/urn/watch?urn=" + param.urn;
+    if (addSlash)
+    {
+      watcherEndpoint += '/';
+    }
     $.get(watcherEndpoint, function(data){
         if(data.id && data.id !== 0) {
             datasetController.set('urnWatched', true)

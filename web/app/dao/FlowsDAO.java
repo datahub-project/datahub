@@ -88,6 +88,17 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE (f.is_active is null or f.is_active = 'Y') and ca.app_code = ? " +
 			"and f.flow_group is null ORDER BY f.flow_name";
 
+	private final static String GET_FLOW_LIST_VIEW_CLUSTER_NODES = "SELECT DISTINCT f.app_id, a.app_code " +
+			"FROM flow f JOIN cfg_application a ON f.app_id = a.app_id ORDER BY a.app_code";
+
+	private final static String GET_FLOW_LIST_VIEW_PROJECT_NODES = "SELECT DISTINCT f.flow_group, " +
+			"a.app_id, a.app_code FROM flow f JOIN cfg_application a ON f.app_id = a.app_id " +
+			"WHERE a.app_code = ? ORDER BY f.flow_group";
+
+	private final static String GET_FLOW_LIST_VIEW_FLOW_NODES = "SELECT DISTINCT f.flow_name, f.flow_group, " +
+			"f.flow_id, a.app_id, a.app_code FROM flow f JOIN cfg_application a ON f.app_id = a.app_id " +
+			"WHERE a.app_code = ? and f.flow_group = ? order by f.flow_name";
+
 	public static Integer getApplicationIDByName(String applicationName)
 	{
 		Integer applicationId = 0;
@@ -566,5 +577,67 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 		result.put("totalPages", 0);
 		result.set("jobs", Json.toJson(""));
 		return result;
+	}
+
+	public static List<FlowListViewNode> getFlowListViewClusters()
+	{
+		List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
+		List<Map<String, Object>> rows = null;
+
+		rows = getJdbcTemplate().queryForList(
+				GET_FLOW_LIST_VIEW_CLUSTER_NODES);
+		for (Map row : rows) {
+
+			FlowListViewNode node = new FlowListViewNode();
+			node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
+			node.nodeName = node.application;
+			node.nodeUrl = "#/flows/" + node.nodeName + "/page/1";
+			nodes.add(node);
+		}
+		return nodes;
+	}
+
+	public static List<FlowListViewNode> getFlowListViewProjects(String application)
+	{
+		List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
+		List<Map<String, Object>> rows = null;
+
+		rows = getJdbcTemplate().queryForList(
+				GET_FLOW_LIST_VIEW_PROJECT_NODES,
+				application);
+		for (Map row : rows) {
+
+			FlowListViewNode node = new FlowListViewNode();
+			node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
+			node.project = (String) row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+			node.nodeName = node.project;
+			node.nodeUrl = "#/flows/" + node.application + "/" + node.project + "/page/1";
+			nodes.add(node);
+		}
+		return nodes;
+	}
+
+	public static List<FlowListViewNode> getFlowListViewFlows(String application, String project)
+	{
+		List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
+		List<Map<String, Object>> rows = null;
+
+		rows = getJdbcTemplate().queryForList(
+				GET_FLOW_LIST_VIEW_FLOW_NODES,
+				application,
+				project);
+		for (Map row : rows) {
+
+			FlowListViewNode node = new FlowListViewNode();
+			node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
+			node.project = (String) row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
+			node.flow = (String) row.get(FlowRowMapper.FLOW_NAME_COLUMN);
+			node.nodeName = node.flow;
+			node.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
+			node.nodeUrl = "#/flows/" + node.application + "/"
+					+ node.project + "/" + Long.toString(node.flowId) + '/' + "/page/1";
+			nodes.add(node);
+		}
+		return nodes;
 	}
 }

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.DatasetColumn;
 import models.DatasetDependency;
+import models.DatasetListViewNode;
 import models.ImpactDataset;
 import play.api.libs.json.JsValue;
 import play.libs.Json;
@@ -759,4 +760,14 @@ public class Dataset extends Controller
         result.put("depends", Json.toJson(depends));
         return ok(result);
     }
+
+    public static Result getDatasetListNodes()
+    {
+        ObjectNode result = Json.newObject();
+        String urn = request().getQueryString("urn");
+        result.put("status", "ok");
+        result.put("nodes", Json.toJson(DatasetsDAO.getDatasetListViewNodes(urn)));
+        return ok(result);
+    }
+
 }
