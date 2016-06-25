@@ -121,7 +121,7 @@ a.dropdown-toggle:hover {
 }
 
 /* Search Bar */
-.btn-group button {
+#searchcategorybtngroup button {
     background-color: #edf6fb;
     border: none;
     color: #808081;
