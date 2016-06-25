@@ -1,0 +1,5 @@
+test:
+  adapter: mysql2
+  database: wherehows
+  username: travis
+  encoding: utf8

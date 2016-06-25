@@ -27,8 +27,6 @@ a.navbar-brand {
 }
 
 .navbar-nav > li.active > a {
-    background: #333 !important;
-    border: 1px solid #2b2b2b !important;
     padding: 20px 9px 19px;
     height: 60px;
 }
@@ -198,7 +196,7 @@ table tr td {
 }
 
 .ace_editor {
-    min-height: 400px;
+    min-height: 200px;
     min-width: 600px;
     width: 100%;
 }
@@ -301,14 +299,14 @@ table tr td {
 }
 
 #mainSplitter {
-  width: 100.8% !important;
+    width: 100.8% !important;
 }
 
 #contentSplitter{
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-left: 5px;
-  padding-right: 5px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 5px;
+    padding-right: 5px;
 }
 
 .datasetDetailsLinks {
@@ -340,65 +338,65 @@ table tr td {
 }
 
 .datasetDetailsLinks li > div {
-  display: inline-block;
-  white-space: nowrap;
+    display: inline-block;
+    white-space: nowrap;
 }
 
 .datasetTableLinks {
-  color: #000;
-  widtH: 100%;
+    color: #000;
+    widtH: 100%;
 }
 
 .datasetTableLinks li {
-  list-style-taype: none;
-  display: table-cell;
-  line-height: 2em;
-  height: 40xp;
-  width: 80px;
+    list-style-taype: none;
+    display: table-cell;
+    line-height: 2em;
+    height: 40xp;
+    width: 80px;
 }
 
 .datasetTableLinks li:first-child {
-  width: 120px;
+    width: 120px;
 }
 
 .datasetTableLinks li > a {
-  text-decoration: none;
-  color: #000;:q
+    text-decoration: none;
+    color: #000;:q
 
 }
 
 .datasetTableLinks li:hover, .datasetTableLinks li > a:hover {
-  color: #337ab7;
+    color: #337ab7;
 }
 
 .datasetTableLinks li > a > i, .datasetTableLinks li > i, .datasetTableLinks li > span > i {
-  font-size: 1.4em;
+    font-size: 1.4em;
 }
 
 .datasetTableLinks li > a > i.active, .datasetTableLinks li > i.active, .datasetTableLinks li > span > i.active {
-  color: #337ab7;
+    color: #337ab7;
 }
 
 .datasetTableLinks li.no-link:hover, .datasetTableLinks li > a.no-link:hover {
-  color: #00 !important;
+    color: #00 !important;
 }
 
 .source {
-  width: 100px;
+    width: 100px;
 }
 
 .modal-body textarea.form-control {
-  min-height: 250px;
-  resize: vertical;
-  width: 100%;
+    min-height: 250px;
+    resize: vertical;
+    width: 100%;
 }
 
 .commentsHeader > .commentsPagination {
-  margin-top: -20px;
+    margin-top: -20px;
 }
 
 .commentsHeader b {
-  margin-top: 5px;
+    margin-top: 5px;
 }
 
 .editor-wrapper {
@@ -434,7 +432,6 @@ table tr td {
     min-width:  600px;
     min-height: 300px;
     height: 800px;
-    border: 1px solid #aaa;
 }
 .vsplitbar {
     width: 5px;
@@ -482,7 +479,7 @@ table tr td {
 .ui-widget button {
 }
 .ui-widget-content {
-  background: white;
+    background: white;
 }
 
 .ui-tabs {
