@@ -234,8 +234,9 @@ String.prototype.toProperCase = function(){
 
 function renderDatasetListView(nodes, name)
 {
-    var template = '<a href="$URL" class="list-group-item">$NODE_NAME</a>';
-    var activeTemplate = '<a href="$URL" class="active list-group-item">$NODE_NAME</a>';
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var datasetTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-database" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-database" style="margin-right: 5px;"> $NODE_NAME</i></a>';
     var obj = $('#datasetlist');
     if (!obj)
         return;
@@ -243,14 +244,23 @@ function renderDatasetListView(nodes, name)
     var activeObj;
     for(var i = 0; i < nodes.length; i++)
     {
-        if (name && name == nodes[i].nodeName)
+        if (nodes[i].datasetId && nodes[i].datasetId > 0)
         {
-            obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            if (name && name == nodes[i].nodeName)
+            {
+
+                obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
+            else
+            {
+                obj.append(datasetTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
         }
         else
         {
-            obj.append(template.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            obj.append(folderTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
         }
+
     }
     if (activeObj)
     {
@@ -262,8 +272,9 @@ function renderDatasetListView(nodes, name)
 
 function renderFlowListView(nodes, flowId)
 {
-    var template = '<a href="$URL" class="list-group-item">$NODE_NAME</a>';
-    var activeTemplate = '<a href="$URL" class="active list-group-item">$NODE_NAME</a>';
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var flowTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-random" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-random" style="margin-right: 5px;"> $NODE_NAME</i></a>';
     var obj = $('#flowlist');
     if (!obj)
         return;
@@ -271,14 +282,22 @@ function renderFlowListView(nodes, flowId)
     var activeObj;
     for(var i = 0; i < nodes.length; i++)
     {
-        if (flowId && flowId == nodes[i].flowId)
+        if (flowId && flowId > 0)
         {
-            activeObj = obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            if (flowId == nodes[i].flowId)
+            {
+                activeObj = obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
+            else
+            {
+                obj.append(flowTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
         }
         else
         {
-            obj.append(template.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            obj.append(folderTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
         }
+
     }
     if (activeObj)
     {
@@ -287,3 +306,36 @@ function renderFlowListView(nodes, flowId)
         }
     }
 }
+
+function filterListView(category, filter)
+{
+    var obj = $('#flowlist');
+    if (category == 'Datasets')
+    {
+        obj = $('#datasetlist');
+    }
+
+    if (!obj || !obj.children() || obj.children().length == 0)
+    {
+        return;
+    }
+
+    var items = obj.children();
+
+    for(var i = 0; i < items.length; i++)
+    {
+        if (!filter)
+        {
+            $(items[i]).show();
+        }
+        else if (items[i].text && items[i].text.toLowerCase().includes(filter.toLowerCase()))
+        {
+            $(items[i]).show();
+        }
+        else
+        {
+            $(items[i]).hide();
+        }
+    }
+}
+

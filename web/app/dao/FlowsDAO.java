@@ -635,7 +635,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			node.nodeName = node.flow;
 			node.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
 			node.nodeUrl = "#/flows/" + node.application + "/"
-					+ node.project + "/" + Long.toString(node.flowId) + '/' + "/page/1";
+					+ node.project + "/" + Long.toString(node.flowId) + "/page/1";
 			nodes.add(node);
 		}
 		return nodes;
