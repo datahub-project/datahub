@@ -133,9 +133,10 @@ class HiveTransform:
         flds = {}
         field_detail_list = []
 
-        if TableInfo.schema_literal in table and table[TableInfo.schema_literal] is not None:
+        if TableInfo.schema_literal in table and table[TableInfo.schema_literal] .startswith('{'):
           sort_id = 0
           urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          self.logger.info("Getting schema literal for: " % (urn))
           try:
             schema_data = json.loads(table[TableInfo.schema_literal])
             schema_json = schema_data
@@ -143,7 +144,7 @@ class HiveTransform:
             result = acp.get_column_list_result()
             field_detail_list += result
           except ValueError:
-            self.logger.error("Schema json error for table : \n" + str(table))
+            self.logger.error("Schema Literal JSON error for table: " + str(table))
 
         elif TableInfo.field_list in table:
           # Convert to avro
@@ -152,6 +153,7 @@ class HiveTransform:
             uri = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
           else:
             uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          self.logger.info("Getting column definition for: " % (uri))
           hcp = HiveColumnParser(table, urn = uri)
           schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
           field_detail_list += hcp.column_type_list
