@@ -60,6 +60,15 @@ dependencies{
     // playManaged files('target/scala-2.9.1/classes_managed')
 }
 
+configurations {
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j', module: 'log4j'
+}
+
+clean {
+    delete "lib/"
+}
+
 task copyPlayLibs(type: Copy){
     from configurations.provided
     into 'lib'
