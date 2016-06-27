@@ -104,8 +104,8 @@ class HiveTransform:
             l.append(a)
             names = str(a).split('.')
             if names and len(names) >= 2:
-              db_name = names[0]
-              table_name = names[1]
+              db_name = names[0].lower()
+              table_name = names[1].lower()
               if db_name and table_name:
                 rows = []
                 self.curs.execute(depends_sql.format(db_name=db_name, table_name=table_name, version='{version}'))
