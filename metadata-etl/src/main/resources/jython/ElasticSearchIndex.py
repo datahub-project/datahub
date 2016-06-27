@@ -25,10 +25,8 @@ from org.slf4j import LoggerFactory
 class ElasticSearchIndex():
   def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
-    self.app_id = int(args[Constant.APP_ID_KEY])
     self.elasticsearch_index_url = args[Constant.WH_ELASTICSEARCH_URL_KEY]
     self.elasticsearch_port = args[Constant.WH_ELASTICSEARCH_PORT_KEY]
-    self.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY],
@@ -49,7 +47,7 @@ class ElasticSearchIndex():
       self.logger.error(str(e.code))
       self.logger.error(e.read())
 
-  def update_dataset_field(self, last_time):
+  def update_dataset_field(self, last_time=None):
       if last_time:
           sql = """
             SELECT * FROM dict_field_detail WHERE modified >= DATE_SUB(%s, INTERVAL 1 HOUR)
@@ -94,7 +92,7 @@ class ElasticSearchIndex():
       if len(params) > 0:
           self.bulk_insert(params, url)
 
-  def update_comment(self, last_time):
+  def update_comment(self, last_time=None):
     if last_time:
         sql = """
           SELECT * FROM comments WHERE modified >= DATE_SUB(%s, INTERVAL 1 HOUR)
@@ -122,7 +120,7 @@ class ElasticSearchIndex():
     if len(params) > 0:
       self.bulk_insert(params, url)
 
-  def update_dataset(self, last_unixtime):
+  def update_dataset(self, last_unixtime=None):
     if last_unixtime:
         sql = """
           SELECT * FROM dict_dataset WHERE from_unixtime(modified_time) >= DATE_SUB(from_unixtime(%f), INTERVAL 1 HOUR)
@@ -139,8 +137,7 @@ class ElasticSearchIndex():
     for row in rows:
       params.append('{ "index": { "_id": ' + str(row['id']) + ' }}')
       params.append(
-          """{ "name": "%s", "source": "%s", "urn": "%s", "location_prefix": "%s", "parent_name": "%s",
-          "schema_type": "%s", "properties": %s, "schema": %s , "fields": %s}"""
+          """{ "name": "%s", "source": "%s", "urn": "%s", "location_prefix": "%s", "parent_name": "%s","schema_type": "%s", "properties": %s, "schema": %s , "fields": %s}"""
           % (row['name'] if row['name'] else '', row['source'] if row['source'] else '',
              row['urn'] if row['urn'] else '', row['location_prefix'] if row['location_prefix'] else '',
              row['parent_name'] if row['parent_name'] else '', row['schema_type'] if row['schema_type'] else '',
@@ -148,10 +145,12 @@ class ElasticSearchIndex():
              json.dumps(row['schema'])  if row['schema'] else '', json.dumps(row['fields'])  if row['fields'] else ''))
       if row_count % 1000 == 0:
         self.bulk_insert(params, url)
+        self.logger.info('dataset' + str(row_count))
         params = []
       row_count += 1
     if len(params) > 0:
       self.bulk_insert(params, url)
+      self.logger.info('dataset' + str(len(params)))
 
   def update_metric(self):
       sql = """
@@ -165,13 +164,7 @@ class ElasticSearchIndex():
       for row in rows:
           params.append('{ "index": { "_id": ' + str(row['metric_id']) + '  }}')
           params.append(
-              """{"metric_id": %d,  "metric_name": %s, "metric_description": %s, "dashboard_name": %s,
-              "metric_group": %s, "metric_category": %s, "metric_sub_category": %s, "metric_level": %s,
-              "metric_source_type": %s, "metric_source": %s, "metric_source_dataset_id": %d,
-              "metric_ref_id_type": %s, "metric_ref_id": %s, "metric_type": %s, "metric_additive_type": %s,
-              "metric_grain": %s, "metric_display_factor": %f, "metric_display_factor_sym": %s,
-              "metric_good_direction": %s, "metric_formula": %s, "dimensions": %s, "owners": %s, "tags": %s,
-              "urn": %s, "metric_url": %s, "wiki_url": %s, "scm_url": %s}"""
+              """{"metric_id": %d,  "metric_name": %s, "metric_description": %s, "dashboard_name": %s, "metric_group": %s, "metric_category": %s, "metric_sub_category": %s, "metric_level": %s, "metric_source_type": %s, "metric_source": %s, "metric_source_dataset_id": %d, "metric_ref_id_type": %s, "metric_ref_id": %s, "metric_type": %s, "metric_additive_type": %s, "metric_grain": %s, "metric_display_factor": %f, "metric_display_factor_sym": %s, "metric_good_direction": %s, "metric_formula": %s, "dimensions": %s, "owners": %s, "tags": %s, "urn": %s, "metric_url": %s, "wiki_url": %s, "scm_url": %s}"""
               % (row['metric_id'], json.dumps(row['metric_name']) if row['metric_name'] else json.dumps(''),
                  json.dumps(row['metric_description']) if row['metric_description'] else json.dumps(''),
                  json.dumps(row['dashboard_name']) if row['dashboard_name'] else json.dumps(''),
@@ -205,7 +198,7 @@ class ElasticSearchIndex():
       if len(params) > 0:
           self.bulk_insert(params, url)
 
-  def update_flow_jobs(self, last_unixtime):
+  def update_flow_jobs(self, last_unixtime=None):
       if last_unixtime:
           flow_sql = """
             SELECT a.app_code, f.* FROM flow f JOIN cfg_application a on f.app_id = a.app_id
@@ -243,9 +236,7 @@ class ElasticSearchIndex():
           params.append('{ "index": { "_id": ' + str(long(row['flow_id'])*10000 + long(row['app_id'])) + '  }}')
           if len(jobs) > 0:
               params.append(
-                  """{"app_id": %d,  "flow_id": %d, "app_code": "%s", "flow_name": "%s", "flow_group": "%s",
-                  "flow_path": "%s", "flow_level": %d, "is_active": "%s", "is_scheduled": "%s",
-                  "pre_flows": "%s", "jobs": %s}"""
+                  """{"app_id": %d,  "flow_id": %d, "app_code": "%s", "flow_name": "%s", "flow_group": "%s", "flow_path": "%s", "flow_level": %d, "is_active": "%s", "is_scheduled": "%s", "pre_flows": "%s", "jobs": %s}"""
                   % (row['app_id'], row['flow_id'], row['app_code'] if row['app_code'] else '',
                      row['flow_name'] if row['flow_name'] else '', row['flow_group'] if row['flow_group'] else '',
                      row['flow_path'] if row['flow_path'] else '', row['flow_level'],
@@ -253,9 +244,7 @@ class ElasticSearchIndex():
                      row['pre_flows'] if row['pre_flows'] else '', json.dumps(jobs)))
           else:
               params.append(
-                  """{"app_id": %d,  "flow_id": %d, "app_code": "%s", "flow_name": "%s", "flow_group": "%s",
-                  "flow_path": "%s", "flow_level": %d, "is_active": "%s",
-                  "is_scheduled": "%s", "pre_flows": "%s", "jobs": ""}"""
+                  """{"app_id": %d,  "flow_id": %d, "app_code": "%s", "flow_name": "%s", "flow_group": "%s", "flow_path": "%s", "flow_level": %d, "is_active": "%s", "is_scheduled": "%s", "pre_flows": "%s", "jobs": ""}"""
                   % (row['app_id'], row['flow_id'], row['app_code'] if row['app_code'] else '',
                      row['flow_name'] if row['flow_name'] else '', row['flow_group'] if row['flow_group'] else '',
                      row['flow_path'] if row['flow_path'] else '', row['flow_level'],
@@ -263,11 +252,11 @@ class ElasticSearchIndex():
                      row['pre_flows'] if row['pre_flows'] else ''))
           if row_count % 1000 == 0:
               self.bulk_insert(params, url)
-              self.logger.info(str(row_count))
+              self.logger.info('flow jobs' + str(row_count))
               params = []
           row_count += 1
       if len(params) > 0:
-          self.logger.info(str(len(params)))
+          self.logger.info('flow_jobs' + str(len(params)))
           self.bulk_insert(params, url)
 
   def run(self):

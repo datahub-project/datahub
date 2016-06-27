@@ -118,7 +118,7 @@ CREATE TABLE `dict_dataset_sample` (
   `modified`   DATETIME         NULL,
   `created`    DATETIME         NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `ak_dict_dataset_sample__dataset_id` (`dataset_id`)
+  UNIQUE KEY `ak_dict_dataset_sample__datasetid` (`dataset_id`)
 )
   ENGINE = InnoDB
   AUTO_INCREMENT = 0
@@ -150,7 +150,7 @@ CREATE TABLE `stg_dict_field_detail` (
   PRIMARY KEY (`urn`, `sort_id`, `db_id`)
 )
   ENGINE = InnoDB
-  DEFAULT CHARSET = utf8
+  DEFAULT CHARSET = latin1
   PARTITION BY HASH(db_id)
   PARTITIONS 8;
 
@@ -161,7 +161,7 @@ CREATE TABLE `dict_field_detail` (
   `fields_layout_id`   INT(11) UNSIGNED     NOT NULL,
   `sort_id`            SMALLINT(6) UNSIGNED NOT NULL,
   `parent_sort_id`     SMALLINT(5) UNSIGNED NOT NULL,
-  `parent_path`        VARCHAR(250)                  NULL,
+  `parent_path`        VARCHAR(200)                  NULL,
   `field_name`         VARCHAR(100)         NOT NULL,
   `field_label`        VARCHAR(100)                  NULL,
   `data_type`          VARCHAR(50)          NOT NULL,
@@ -192,13 +192,13 @@ CREATE TABLE `dict_field_detail` (
   COMMENT 'correspond type in hcatalog',
   `modified`           TIMESTAMP            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`field_id`),
-  KEY `idx_dict_field__datasetid_fieldname` (`dataset_id`, `field_name`) USING BTREE,
-  KEY `idx_dict_field__fieldslayoutid` (`fields_layout_id`) USING BTREE
+  UNIQUE KEY `uix_dict_field__datasetid_parentpath_fieldname` (`dataset_id`, `parent_path`, `field_name`) USING BTREE,
+  UNIQUE KEY `uix_dict_field__datasetid_sortid` (`dataset_id`, `sort_id`) USING BTREE
 )
   ENGINE = InnoDB
   AUTO_INCREMENT = 0
-  DEFAULT CHARSET = utf8
-  COMMENT = 'Fields/Columns';
+  DEFAULT CHARSET = latin1
+  COMMENT = 'Flattened Fields/Columns';
 
 -- schema history
 CREATE TABLE `dict_dataset_schema_history` (
@@ -215,26 +215,29 @@ CREATE TABLE `dict_dataset_schema_history` (
 
 -- staging table table of fields to comments mapping
 CREATE TABLE `stg_dict_dataset_field_comment` (
-  `field_id` bigint(20) NOT NULL,
+  `field_id` int(11) UNSIGNED NOT NULL,
   `comment_id` bigint(20) NOT NULL,
-  `dataset_id` bigint(20) NOT NULL,
+  `dataset_id` int(11) UNSIGNED NOT NULL,
   `db_id` smallint(6) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`field_id`,`comment_id`)
+  PRIMARY KEY (`field_id`,`comment_id`, `db_id`)
 ) ENGINE=InnoDB 
   DEFAULT CHARSET=utf8
+  PARTITION BY HASH(db_id)
+  PARTITIONS 8
 ;
 
 -- fields to comments mapping
 CREATE TABLE `dict_dataset_field_comment` (
-  `field_id`   BIGINT(20) NOT NULL,
+  `field_id`   INT(11) UNSIGNED NOT NULL,
   `comment_id` BIGINT(20) NOT NULL,
-  `dataset_id` BIGINT(20) NOT NULL,
+  `dataset_id` INT(11) UNSIGNED NOT NULL,
   `is_default` TINYINT(1) NULL DEFAULT '0',
-  PRIMARY KEY (field_id, comment_id)
+  PRIMARY KEY (field_id, comment_id),
+  KEY (comment_id)
 )
   ENGINE = InnoDB;
 
--- (table) comments
+-- dataset comments
 CREATE TABLE comments (
   `id`           INT(11) AUTO_INCREMENT                                                                       NOT NULL,
   `text`         TEXT CHARACTER SET utf8                                                                      NOT NULL,
@@ -256,9 +259,9 @@ CREATE TABLE comments (
 -- field comments
 CREATE TABLE `field_comments` (
   `id`                     INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id`                INT(11)          NOT NULL,
+  `user_id`                INT(11)          NOT NULL DEFAULT '0',
   `comment`                VARCHAR(4000)    NOT NULL,
-  `created`                DATETIME         NOT NULL,
+  `created`                TIMESTAMP        NOT NULL,
   `modified`               TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `comment_crc32_checksum` INT(11) UNSIGNED          NULL COMMENT '4-byte CRC32',
   PRIMARY KEY (`id`),
@@ -268,3 +271,79 @@ CREATE TABLE `field_comments` (
   ENGINE = InnoDB
   AUTO_INCREMENT = 0
   DEFAULT CHARSET = utf8;
+
+-- dict_dataset_instance
+CREATE TABLE dict_dataset_instance  ( 
+	dataset_id           	int(11) UNSIGNED NOT NULL,
+	db_id                	smallint(6) UNSIGNED COMMENT 'FK to cfg_database'  NOT NULL DEFAULT '0',
+	deployment_tier      	enum('local','grid','dev','int','ei','ei2','ei3','qa','stg','prod') NOT NULL DEFAULT 'dev',
+	data_center          	varchar(30) COMMENT 'data center code: lva1, ltx1, dc2, dc3...'  NULL DEFAULT '*',
+	server_cluster       	varchar(150) COMMENT 'sfo1-bigserver, jfk3-sqlserver03'  NULL DEFAULT '*',
+	slice                	varchar(50) COMMENT 'virtual group/tenant id/instance tag'  NOT NULL DEFAULT '*',
+	status_id            	smallint(6) UNSIGNED COMMENT 'Reserve for dataset status'  NULL,
+	native_name          	varchar(250) NOT NULL,
+	logical_name         	varchar(250) NOT NULL,
+	version              	varchar(30) COMMENT '1.2.3 or 0.3.131'  NULL,
+	version_sort_id      	bigint(20) COMMENT '4-digit for each version number: 000100020003, 000000030131'  NULL,
+	instance_created_time	int(10) UNSIGNED COMMENT 'source instance created time'  NULL,
+	created_time         	int(10) UNSIGNED COMMENT 'wherehows created time'  NULL,
+	modified_time        	int(10) UNSIGNED COMMENT 'latest wherehows modified'  NULL,
+	wh_etl_exec_id       	bigint(20) COMMENT 'wherehows etl execution id that modified this record'  NULL,
+	PRIMARY KEY(dataset_id,db_id)
+)
+ENGINE = InnoDB
+CHARACTER SET latin1
+COLLATE latin1_swedish_ci
+AUTO_INCREMENT = 0
+	PARTITION BY HASH(db_id)
+	(PARTITION p0,
+	PARTITION p1,
+	PARTITION p2,
+	PARTITION p3,
+	PARTITION p4,
+	PARTITION p5,
+	PARTITION p6,
+	PARTITION p7);
+
+CREATE INDEX logical_name USING BTREE 
+	ON dict_dataset_instance(logical_name);
+CREATE INDEX server_cluster USING BTREE 
+	ON dict_dataset_instance(server_cluster, deployment_tier, data_center, slice);
+CREATE INDEX native_name USING BTREE 
+	ON dict_dataset_instance(native_name);
+
+
+CREATE TABLE stg_dict_dataset_instance  ( 
+	dataset_urn          	varchar(200) NOT NULL,
+	db_id                	smallint(6) UNSIGNED NOT NULL DEFAULT '0',
+	deployment_tier      	enum('local','grid','dev','int','ei','ei2','ei3','qa','stg','prod') NOT NULL DEFAULT 'dev',
+	data_center          	varchar(30) COMMENT 'data center code: lva1, ltx1, dc2, dc3...'  NULL DEFAULT '*',
+	server_cluster       	varchar(150) COMMENT 'sfo1-bigserver'  NULL DEFAULT '*',
+	slice                	varchar(50) COMMENT 'virtual group/tenant id/instance tag'  NOT NULL DEFAULT '*',
+	status_id            	smallint(6) UNSIGNED COMMENT 'Reserve for dataset status'  NULL,
+	native_name          	varchar(250) NOT NULL,
+	logical_name         	varchar(250) NOT NULL,
+	version              	varchar(30) COMMENT '1.2.3 or 0.3.131'  NULL,
+	instance_created_time	int(10) UNSIGNED COMMENT 'source instance created time'  NULL,
+	created_time         	int(10) UNSIGNED COMMENT 'wherehows created time'  NULL,
+	wh_etl_exec_id       	bigint(20) COMMENT 'wherehows etl execution id that modified this record'  NULL,
+	dataset_id           	int(11) UNSIGNED NULL,
+	abstract_dataset_urn 	varchar(200) NULL,
+	PRIMARY KEY(dataset_urn,db_id)
+)
+ENGINE = InnoDB
+CHARACTER SET latin1
+COLLATE latin1_swedish_ci
+AUTO_INCREMENT = 0
+	PARTITION BY HASH(db_id)
+	(PARTITION p0,
+	PARTITION p1,
+	PARTITION p2,
+	PARTITION p3,
+	PARTITION p4,
+	PARTITION p5,
+	PARTITION p6,
+	PARTITION p7);
+CREATE INDEX server_cluster USING BTREE 
+	ON stg_dict_dataset_instance(server_cluster, deployment_tier, data_center, slice);
+

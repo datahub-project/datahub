@@ -462,6 +462,41 @@
       {{/if}}
     </script>
 
+    <script type="text/x-handlebars" data-template-name="depend">
+      {{#if hasDepends}}
+        <table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+          <thead>
+            <tr class="results-header">
+              <th class="span2">Dataset</th>
+              <th class="span1">Object Type</th>
+              <th class="span1">Object Sub Type</th>
+              <th class="span2">Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each depend in depends}}
+            <tr {{bind-attr class="depend.treeGridClass"}}>
+              <td>
+                {{#if depend.isValidDataset}}
+                  <a {{bind-attr href=depend.datasetLink}}>
+                    {{depend.objectName}}
+                  </a>
+                {{else}}
+                  {{depend.objectName}}
+                {{/if}}
+              </td>
+              <td>{{depend.objectType}}</td>
+              <td>{{depend.objectSubType}}</td>
+              <td>{{depend.level}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      {{else}}
+        <p>Depends view is not available</p>
+      {{/if}}
+    </script>
+
     <script type="text/x-handlebars" data-template-name="detail">
       <div id="metric" class="container-fluid">
         <div class="row-fluid">
@@ -805,7 +840,14 @@
             <a data-toggle="tab"
               title="Down Stream Impact Analysis"
               href="#impacttab">
-              Down Stream Impact
+              Downstream
+            </a>
+          </li>
+          <li id="depends">
+            <a data-toggle="tab"
+              title="Depend On"
+              href="#dependtab">
+              Depend On
             </a>
           </li>
         </ul>
@@ -836,6 +878,9 @@
           {{/unless}}
           <div id="impacttab" class="tab-pane">
             {{view "impact"}}
+          </div>
+          <div id="dependtab" class="tab-pane">
+            {{view "depend"}}
           </div>
         </div>
       {{else}}
@@ -920,14 +965,31 @@
           <div class="panel-heading" role="tab" id="impactsHeading">
             <h4 class="panel-title">
               <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
-               href="#impactAnalysis" aria-expanded="false" aria-controls="sampleData">
-                Down Stream Impact Analysis
+               href="#impactAnalysis" title="Down Stream Impact Analysis"
+               aria-expanded="false" aria-controls="sampleData">
+                Downstream
               </a>
             </h4>
           </div>
           <div id="impactAnalysis" class="panel-collapse collapse" role="tabpanel" aria-labelledby="impactsHeading">
             <div class="panel-body">
               {{view "impact"}}
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="dependsHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+               href="#dependsview" aria-expanded="false" aria-controls="sampleData">
+                Depends On
+              </a>
+            </h4>
+          </div>
+          <div id="dependsview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="impactsHeading">
+            <div class="panel-body">
+              {{view "depend"}}
             </div>
           </div>
         </div>

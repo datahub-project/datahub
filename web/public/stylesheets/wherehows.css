@@ -1,0 +1,243 @@
+/* WhereHows Top Navbar _____________________________________ */
+
+.navbar-inverse {
+    background-color: #008cc9;
+    border: none;
+    color: rgba(255,255,255,.7);
+}
+
+/* Top Nav :: all links */
+.navbar-inverse a:hover {
+    color: white;
+}
+
+/* Top Nav :: logo */
+.navbar-inverse .navbar-brand {
+    color: white;
+    font-size: 16px;
+}
+
+a.navbar-brand {
+    letter-spacing: 0.2em;
+    text-shadow: none;
+    margin-left: 63px;
+    margin-top: 4px;
+    font-size: 1.2em;
+}
+
+/* Top Nav :: main nav links in navbar */
+ul.navbar-nav {
+    margin-left: 16px;
+}
+
+ul.navbar-right {
+    margin: 9px 15px 0 16px;
+}
+
+.navbar-right a.dropdown-toggle {
+    float: left;
+}
+
+ul.navbar-right i.fa-angle-down {
+    font-size: 25px;
+    margin-top: -3px;
+}
+
+#mainnavbar a {
+    color: inherit;
+    font-size: 16px;
+    font-family: Candara,Calibri,Segoe,"Segoe UI",Optima,Arial,sans-serif;
+}
+
+.active {
+    background: none;
+}
+
+.nav li {
+    background: none;
+}
+
+#mainnavbar .category-header a:hover {
+    color: white;
+    cursor: pointer;
+    background-color: #008cc9;
+}
+
+/* Top Nav :: Tools Links */
+a.dropdown-toggle {
+    color: inherit !important;
+}
+
+a.dropdown-toggle:hover {
+    cursor: pointer;
+    color: white !important;
+}
+
+.navbar-inverse .navbar-nav .open a {
+    background: none !important;
+}
+
+/* Top Nav :: Dropdown Menus */
+#mainnavbar .category-header .open a:hover,
+#mainnavbar .navbar-right .open a:hover,
+#mainnavbar .navbar-left .open a:hover {
+    border: none !important;
+    cursor: pointer;
+    color: white;
+    background-color: #008cc9;
+}
+
+.navbar-inverse .navbar-nav>li>a,
+.navbar-inverse .btn-link {
+    color: inherit;
+}
+
+.navbar-header:before {
+    content: url(/assets/images/icons/logo-white.png);
+    position: absolute;
+    margin-top: 13px;
+    margin-left: 20px;
+}
+
+.navbar-inverse .navbar-nav li {
+    margin-right: 10px;
+}
+
+.navbar-inverse .navbar-nav .active a {
+    background: none !important;
+    color: white !important;
+    border-bottom: 9px solid white;
+    height: 61px;
+}
+
+.navbar-inverse .navbar-nav .active a:hover {
+    background: none;
+    border-color: white;
+}
+
+.navbar-inverse .navbar-nav a:hover {
+    color: white;
+    border-bottom: 9px solid rgba(255,255,255,.4);
+}
+
+/* Search Bar */
+.btn-group button {
+    background-color: #edf6fb;
+    border: none;
+    color: #808081;
+    height: 32px !important;
+    width: 45px;
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
+}
+
+.navbar-right .usericon {
+    width: 41px;
+    height: 41px;
+    float: left;
+    background: url(/assets/images/user_empty.png);
+    background-size: 100%;
+    border-radius: 50%;
+    background-repeat: no-repeat;
+}
+
+.caret,
+#categoryIcon:before {
+    color: #008cc9;
+}
+
+.open .dropdown-menu {
+    background-color: #edf6fb;
+    border-top: none;
+}
+
+.open .dropdown-menu li {
+    margin-right: 0;
+}
+
+.open a.dropdown-toggle {
+    background-color: none;
+}
+
+ul.dropdown-menu {
+    padding: 0;
+    box-shadow: none;
+    border-color: #008cc9;
+}
+
+ul.dropdown-menu li {
+    color: #037cb1;
+}
+
+ul.dropdown-menu li:hover {
+    color: #037cb1;
+    background-color: #008cc9;
+}
+
+ul.dropdown-menu li.active {
+    color: #edf6fb;
+}
+
+.navbar-nav.navbar-right .dropdown-menu {
+    margin-top: -9px;
+}
+
+.btn-group ul.dropdown-menu {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    margin-top: 13px;
+}
+
+.navbar-nav .btn-group.open .dropdown-menu .active a,
+.dropdown-menu>.active>a {
+    background-color: #008cc9;
+}
+
+.input-group input {
+    background-color: #edf6fb;
+    border: none;
+    margin-left: 5px;
+    border-radius: 0;
+    height: 32px;
+    font-size: 14px;
+    color: #545454;
+}
+
+.keyword-search {
+    min-width: 400px;
+}
+
+button#searchBtn {
+    height: 32px;
+    margin-left: 5px;
+    border: 1px solid #edf6fb;
+    background-color: none;
+    background: none;
+    width: 50px;
+    color: #edf6fb;
+}
+
+button#searchBtn:hover {
+    background: #8cb337;
+}
+
+button.btn.btn-link.btn-sm {
+    background: #008cc9;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    line-height: 22px;
+    margin-left: 8px;
+}
+
+ul.ui-autocomplete {
+    background-color: #edf6fb;
+}
+
+ul.ui-autocomplete b {
+    color: #008cc9 !important;
+}
+
+div.btn-group {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}

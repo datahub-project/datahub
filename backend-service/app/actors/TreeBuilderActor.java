@@ -53,7 +53,7 @@ public class TreeBuilderActor extends UntypedActor {
           in = EtlJob.class.getClassLoader().getResourceAsStream("jython/DatasetTreeBuilder.py");
           break;
         case "flow":
-          in = EtlJob.class.getClassLoader().getResourceAsStream("jython/FlowTreeBuilder.py");
+          //in = EtlJob.class.getClassLoader().getResourceAsStream("jython/FlowTreeBuilder.py");
           break;
         default:
           Logger.error("unknown message : {}", msg);

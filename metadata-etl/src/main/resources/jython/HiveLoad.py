@@ -30,9 +30,8 @@ class HiveLoad:
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_dataset
         FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
-        (`name`, `schema`, properties, fields, urn, source, @sample_partition_full_path, source_created_time, @source_modified_time)
+        (`name`, `schema`, properties, fields, urn, source, dataset_type, storage_type, @sample_partition_full_path, source_created_time, @source_modified_time)
         SET db_id = {db_id},
-        storage_type = 'Table', dataset_type = 'hive',
         source_modified_time=nullif(@source_modified_time,''),
         sample_partition_full_path=nullif(@sample_partition_full_path,''),
         wh_etl_exec_id = {wh_etl_exec_id};
@@ -124,7 +123,7 @@ class HiveLoad:
         , data_size=nullif(@data_size,'null')
         , namespace=nullif(@namespace,'null')
         , description=nullif(@description,'null')
-        , last_modified=NULL;
+        , last_modified=now();
 
         -- update dataset_id
         update stg_dict_field_detail sf, dict_dataset d
@@ -270,10 +269,155 @@ class HiveLoad:
     # didn't load into final table for now
 
     for state in load_cmd.split(";"):
-      self.logger.debug(state)
+      self.logger.info(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+
+  def load_dataset_instance(self):
+      """
+      Load dataset instance
+      :return:
+      """
+      cursor = self.conn_mysql.cursor()
+      load_cmd = """
+        DELETE FROM stg_dict_dataset_instance WHERE db_id = {db_id};
+
+        LOAD DATA LOCAL INFILE '{source_file}'
+        INTO TABLE stg_dict_dataset_instance
+        FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
+        (dataset_urn, db_id, deployment_tier, data_center, server_cluster, slice,
+         status_id, native_name, logical_name, version, instance_created_time,
+         created_time, wh_etl_exec_id, abstract_dataset_urn);
+
+        -- update dataset_id
+        update stg_dict_dataset_instance sdi, dict_dataset d
+        set sdi.dataset_id = d.id where sdi.abstract_dataset_urn = d.urn
+        and sdi.db_id = {db_id};
+
+        INSERT INTO dict_dataset_instance
+        ( dataset_id,
+          db_id,
+          deployment_tier,
+          data_center,
+          server_cluster,
+          slice,
+          status_id,
+          native_name,
+          logical_name,
+          version,
+          instance_created_time,
+          created_time,
+          wh_etl_exec_id
+        )
+        select s.dataset_id, s.db_id, s.deployment_tier, s.data_center,
+          s.server_cluster, s.slice, s.status_id, s.native_name, s.logical_name, s.version,
+          s.instance_created_time, s.created_time, s.wh_etl_exec_id
+        from stg_dict_dataset_instance s
+        where s.db_id = {db_id}
+        on duplicate key update
+          deployment_tier=s.deployment_tier, data_center=s.data_center, server_cluster=s.server_cluster, slice=s.slice,
+          status_id=s.status_id, native_name=s.native_name, logical_name=s.logical_name, version=s.version,
+            instance_created_time=s.instance_created_time, created_time=s.created_time, wh_etl_exec_id=s.wh_etl_exec_id
+            ;
+        """.format(source_file=self.input_instance_file, db_id=self.db_id)
+
+      # didn't load into final table for now
+
+      for state in load_cmd.split(";"):
+          self.logger.info(state)
+          cursor.execute(state)
+          self.conn_mysql.commit()
+      cursor.close()
+
+  def load_dataset_dependencies(self):
+      """
+      Load dataset instance
+      :return:
+      """
+      cursor = self.conn_mysql.cursor()
+      load_cmd = """
+        DELETE FROM stg_cfg_object_name_map;
+        LOAD DATA LOCAL INFILE '{source_file}'
+        INTO TABLE stg_cfg_object_name_map
+        FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
+        (object_type, object_sub_type, object_name, object_urn, map_phrase, is_identical_map,
+         mapped_object_type, mapped_object_sub_type, mapped_object_name, mapped_object_urn, description, @last_modified)
+         SET last_modified=now();
+
+        -- update source dataset_id
+        UPDATE stg_cfg_object_name_map s, dict_dataset d
+        SET s.object_dataset_id = d.id WHERE s.object_urn = d.urn;
+
+        -- update mapped dataset_id
+        UPDATE stg_cfg_object_name_map s, dict_dataset d
+        SET s.mapped_object_dataset_id = d.id WHERE s.mapped_object_urn = d.urn;
+
+        -- create to be deleted table
+        CREATE TEMPORARY TABLE IF NOT EXISTS t_deleted_depend
+        AS (
+        SELECT c.obj_name_map_id
+          FROM cfg_object_name_map c LEFT JOIN stg_cfg_object_name_map s
+          ON c.object_dataset_id = s.object_dataset_id
+            and CASE WHEN c.mapped_object_dataset_id is not null
+                    THEN c.mapped_object_dataset_id = s.mapped_object_dataset_id
+                    ELSE c.mapped_object_name = s.mapped_object_name
+                END
+          WHERE s.object_name is null
+            and c.object_dataset_id is not null
+            and c.map_phrase = 'depends on'
+            and c.object_type in ('dalids', 'hive'));
+
+        -- delete old dependencies
+        DELETE FROM cfg_object_name_map where obj_name_map_id in (
+          SELECT obj_name_map_id FROM t_deleted_depend
+        );
+
+        -- update exist depends
+        UPDATE cfg_object_name_map c, stg_cfg_object_name_map s
+          SET c.object_type = s.object_type, c.object_sub_type = s.object_sub_type, c.object_name = s.object_name,
+              c.map_phrase = s.map_phrase, c.is_identical_map = s.is_identical_map,
+              c.mapped_object_type = s.mapped_object_type, c.mapped_object_sub_type = s.mapped_object_sub_type,
+              c.mapped_object_name = s.mapped_object_name, c.description = s.description,
+              c.last_modified = s.last_modified
+        WHERE s.object_dataset_id is not null and s.object_dataset_id = c.object_dataset_id
+          and s.mapped_object_dataset_id is not null and s.mapped_object_dataset_id = c.mapped_object_dataset_id;
+
+        -- insert new depends
+        INSERT INTO cfg_object_name_map
+        (
+          object_type,
+          object_sub_type,
+          object_name,
+          object_dataset_id,
+          map_phrase,
+          is_identical_map,
+          mapped_object_type,
+          mapped_object_sub_type,
+          mapped_object_name,
+          mapped_object_dataset_id,
+          description,
+          last_modified
+        )
+        SELECT s.object_type, s.object_sub_type, s.object_name, s.object_dataset_id, s.map_phrase, s.is_identical_map,
+          s.mapped_object_type, s.mapped_object_sub_type, s.mapped_object_name, s.mapped_object_dataset_id,
+          s.description, s.last_modified
+          FROM stg_cfg_object_name_map s LEFT JOIN cfg_object_name_map c
+          ON s.object_dataset_id is not null and s.object_dataset_id = c.object_dataset_id
+            and CASE WHEN s.mapped_object_dataset_id is not null
+                    THEN s.mapped_object_dataset_id = c.mapped_object_dataset_id
+                    ELSE s.mapped_object_name = c.mapped_object_name
+                END
+          WHERE c.object_name is null;
+        """.format(source_file=self.input_dependency_file)
+
+      # didn't load into final table for now
+
+      for state in load_cmd.split(";"):
+          self.logger.info(state)
+          cursor.execute(state)
+          self.conn_mysql.commit()
+      cursor.close()
 
 
 if __name__ == "__main__":
@@ -289,6 +433,8 @@ if __name__ == "__main__":
 
   l.input_schema_file = args[Constant.HIVE_SCHEMA_CSV_FILE_KEY]
   l.input_field_file = args[Constant.HIVE_FIELD_METADATA_KEY]
+  l.input_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
+  l.input_dependency_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
@@ -299,6 +445,10 @@ if __name__ == "__main__":
 
   try:
     l.load_metadata()
+    l.load_dataset_instance()
+    l.load_dataset_dependencies()
     l.load_field()
+  except Exception as e:
+    l.logger.error(str(e))
   finally:
     l.conn_mysql.close()

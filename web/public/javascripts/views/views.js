@@ -18,6 +18,10 @@ App.OwnerView = Ember.View.extend({
     templateName: 'owner'
 });
 
+App.DependView = Ember.View.extend({
+    templateName: 'depend'
+});
+
 App.DetailView = Ember.View.extend({
     templateName: 'detail',
     didInsertElement: function() {

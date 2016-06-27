@@ -139,16 +139,43 @@ CREATE TABLE `cfg_database` (
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
+CREATE TABLE stg_cfg_object_name_map  ( 
+	object_type             	varchar(100) NOT NULL,
+	object_sub_type         	varchar(100) NULL,
+	object_name             	varchar(350) NOT NULL,
+	object_urn              	varchar(350) NULL,
+	object_dataset_id       	int(11) UNSIGNED NULL,
+	map_phrase              	varchar(100) NULL,
+	is_identical_map        	char(1) NULL DEFAULT 'N',
+	mapped_object_type      	varchar(100) NOT NULL,
+	mapped_object_sub_type  	varchar(100) NULL,
+	mapped_object_name      	varchar(350) NOT NULL,
+	mapped_object_urn       	varchar(350) NULL,
+	mapped_object_dataset_id	int(11) UNSIGNED NULL,
+	description             	varchar(500) NULL,
+	last_modified           	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY(object_name,mapped_object_name)
+)
+ENGINE = InnoDB
+CHARACTER SET latin1
+COLLATE latin1_swedish_ci
+COMMENT = 'Map alias (when is_identical_map=Y) and view dependency' ;
+
+CREATE INDEX idx_stg_cfg_object_name_map__mappedobjectname USING BTREE 
+	ON stg_cfg_object_name_map(mapped_object_name);
+
 CREATE TABLE cfg_object_name_map  ( 
   obj_name_map_id         int(11) AUTO_INCREMENT NOT NULL,
   object_type             varchar(100) NOT NULL,
   object_sub_type         varchar(100) NULL,
   object_name             varchar(350) NOT NULL COMMENT 'this is the derived/child object',
   map_phrase              varchar(100) NULL,
+  object_dataset_id       int(11) UNSIGNED NULL COMMENT 'can be the abstract dataset id for versioned objects',
   is_identical_map        char(1) NOT NULL DEFAULT 'N' COMMENT 'Y/N',
   mapped_object_type      varchar(100) NOT NULL,
   mapped_object_sub_type  varchar(100) NULL,
   mapped_object_name      varchar(350) NOT NULL COMMENT 'this is the original/parent object',
+  mapped_object_dataset_id	int(11) UNSIGNED NULL COMMENT 'can be the abstract dataset id for versioned objects',
   description             varchar(500) NULL,
   last_modified           timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(obj_name_map_id)
@@ -156,8 +183,7 @@ CREATE TABLE cfg_object_name_map  (
 ENGINE = InnoDB
 CHARACTER SET latin1
 AUTO_INCREMENT = 1
-COMMENT = 'Map alias and view dependency.
-Always map from Derived/Child (object) back to its Original/Parent (mapped_object)' ;
+COMMENT = 'Map alias (when is_identical_map=Y) and view dependency. Always map from Derived/Child (object) back to its Original/Parent (mapped_object)' ;
 
 ALTER TABLE cfg_object_name_map
   ADD CONSTRAINT uix_cfg_object_name_map__objectname_mappedobjectname
