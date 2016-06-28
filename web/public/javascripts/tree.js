@@ -2,6 +2,14 @@
     $(document).ready(function() {
 
         $("#tree2").fancytree({
+            extensions: ["filter"],
+            filter: {
+                autoApply: true,
+                counter: true,
+                hideExpandedCounter: true,
+                mode: "dimm",
+                highlight: true
+            },
             source: {
                 url: "/tree/datasets"
             }
@@ -14,6 +22,14 @@
         });
         */
         $("#tree3").fancytree({
+            extensions: ["filter"],
+            filter: {
+                autoApply: true,
+                counter: true,
+                hideExpandedCounter: true,
+                mode: "dimm",
+                highlight: true
+            },
             source: {
                 url: "/tree/flows"
             },
@@ -42,7 +58,15 @@
             {
                 if (node.isFolder())
                 {
-                    window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path;
+                    if (node.data.level == 1)
+                    {
+                        window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path + ':///';
+                    }
+                    else
+                    {
+                        window.location = "#/datasets/name/" + node.title + "/page/1?urn=" + node.data.path + '/';
+                    }
+
                 }
                 else{
                     if (node && node.data && node.data.id)
@@ -94,6 +118,38 @@
             window.g_currentFlowProject = null;
             window.g_currentFlowName = null;
             window.g_currentFlowId = null;
+        });
+
+        $("#filterinput").val('');
+        $("#filterinput").bind("paste keyup", function(){
+            var val = $('#filterinput').val();
+            var isTreeView = false;
+            if ($('#treeviewbtn').hasClass('btn-primary'))
+            {
+                isTreeView = true;
+            }
+            if (currentTab == 'Datasets')
+            {
+                if (isTreeView)
+                {
+                    $("#tree2").fancytree("getTree").filterNodes(val);
+                }
+                else
+                {
+                    filterListView(currentTab, val);
+                }
+            }
+            else
+            {
+                if (isTreeView)
+                {
+                    $("#tree3").fancytree("getTree").filterNodes(val);
+                }
+                else
+                {
+                    filterListView(currentTab, val);
+                }
+            }
         });
 
         /*

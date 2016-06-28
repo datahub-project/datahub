@@ -20,7 +20,7 @@
 a.navbar-brand {
     letter-spacing: 0.2em;
     text-shadow: none;
-    margin-left: 63px;
+    /*margin-left: 63px;*/
     margin-top: 4px;
     font-size: 1.2em;
 }
@@ -93,10 +93,11 @@ a.dropdown-toggle:hover {
 }
 
 .navbar-header:before {
-    content: url(/assets/images/icons/logo-white.png);
+    /*content: url(/assets/images/icons/logo-white.png);
     position: absolute;
     margin-top: 13px;
     margin-left: 20px;
+    */
 }
 
 .navbar-inverse .navbar-nav li {
@@ -121,7 +122,7 @@ a.dropdown-toggle:hover {
 }
 
 /* Search Bar */
-.btn-group button {
+#searchcategorybtngroup button {
     background-color: #edf6fb;
     border: none;
     color: #808081;

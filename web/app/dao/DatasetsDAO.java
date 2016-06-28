@@ -319,6 +319,17 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
 			"FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
+	private final static String GET_DATASET_LISTVIEW_TOP_LEVEL_NODES = "SELECT DISTINCT " +
+			"SUBSTRING_INDEX(urn, ':///', 1) as name, 0 as id, " +
+			"concat(SUBSTRING_INDEX(urn, ':///', 1), ':///') as urn FROM dict_dataset order by 1";
+
+	private final static String GET_DATASET_LISTVIEW_NODES_BY_URN = "SELECT distinct " +
+			"SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1) as name, " +
+			"concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) as urn, " +
+			"s.id FROM dict_dataset d LEFT JOIN dict_dataset s " +
+			"ON s.urn = concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) " +
+			"WHERE d.urn LIKE ? ORDER BY d.name";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1763,5 +1774,44 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				getDatasetDependencies(dd.datasetId, level + 1, dd.sortId, depends);
 			}
 		}
+	}
+
+	public static List<DatasetListViewNode> getDatasetListViewNodes(String urn) {
+
+		List<DatasetListViewNode> nodes = new ArrayList<DatasetListViewNode>();
+		List<Map<String, Object>> rows = null;
+
+		if (StringUtils.isBlank(urn)) {
+			rows = getJdbcTemplate().queryForList(
+					GET_DATASET_LISTVIEW_TOP_LEVEL_NODES);
+		} else {
+			rows = getJdbcTemplate().queryForList(
+					GET_DATASET_LISTVIEW_NODES_BY_URN,
+					urn,
+					urn,
+					urn,
+					urn,
+					urn,
+					urn + "%");
+		}
+
+		for (Map row : rows) {
+
+			DatasetListViewNode node = new DatasetListViewNode();
+			node.datasetId = (Long) row.get(DatasetWithUserRowMapper.DATASET_ID_COLUMN);
+			node.nodeName = (String) row.get(DatasetWithUserRowMapper.DATASET_NAME_COLUMN);
+			String nodeUrn = (String) row.get(DatasetWithUserRowMapper.DATASET_URN_COLUMN);
+			if (node.datasetId !=null && node.datasetId > 0)
+			{
+				node.nodeUrl = "#/datasets/" + node.datasetId;
+			}
+			else
+			{
+				node.nodeUrl = "#/datasets/name/" + node.nodeName + "/page/1?urn=" + nodeUrn;
+			}
+			nodes.add(node);
+		}
+
+		return nodes;
 	}
 }

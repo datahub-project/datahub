@@ -43,6 +43,14 @@ GET     /api/v1/party/groups                controllers.api.v1.User.getAllGroups
 
 GET     /api/v1/autocomplete/search         controllers.api.v1.Search.getSearchAutoComplete()
 
+GET     /api/v1/list/datasets               controllers.api.v1.Dataset.getDatasetListNodes()
+
+GET     /api/v1/list/flows                  controllers.api.v1.Flow.getFlowListViewClusters()
+
+GET     /api/v1/list/flows/:application     controllers.api.v1.Flow.getFlowListViewProjects(application:String)
+
+GET     /api/v1/list/flows/:application/:project      controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
+
 GET     /api/v1/datasets                    controllers.api.v1.Dataset.getPagedDatasets()
 
 GET     /api/v1/datasets/:id                controllers.api.v1.Dataset.getDatasetByID(id:Int)

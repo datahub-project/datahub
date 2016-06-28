@@ -2834,6 +2834,7 @@ $.extend(Fancytree.prototype,
 			tree = ctx.tree,
 			opts = ctx.options,
 			aria = opts.aria,
+			glyph = opts._classNames.glyph,
 			level = node.getLevel(),
 			ares = [],
 			icon = node.data.icon;
@@ -2864,7 +2865,7 @@ $.extend(Fancytree.prototype,
 			if(aria){
 				ares.push("<span role='button' class='fancytree-expander'></span>");
 			}else{
-				ares.push("<span class='fancytree-expander'></span>");
+				ares.push("<span class='fancytree-expander " + glyph + "'></span>");
 			}
 		}
 		// Checkbox mode
@@ -2915,6 +2916,7 @@ $.extend(Fancytree.prototype,
 	nodeRenderStatus: function(ctx) {
 		// Set classes for current status
 		var node = ctx.node,
+			level = node.getLevel(),
 			tree = ctx.tree,
 			opts = ctx.options,
 //			nodeContainer = node[tree.nodeContainerAttrName],
@@ -3016,6 +3018,7 @@ $.extend(Fancytree.prototype,
 				(node.folder ? "f" : "")
 				);
 //        node.span.className = cnList.join(" ");
+		cnList.push('level' + level);
 		statusElem.className = cnList.join(" ");
 
 		// TODO: we should not set this in the <span> tag also, if we set it here:
@@ -3565,7 +3568,7 @@ $.widget("ui.fancytree",
 		extensions: [],
 		fx: { height: "toggle", duration: 200 },
 		generateIds: false,
-		icons: true,
+		icons: false,
 		idPrefix: "ft_",
 		keyboard: true,
 		keyPathSeparator: "/",
@@ -3593,7 +3596,8 @@ $.widget("ui.fancytree",
 			partsel: "fancytree-partsel",
 			lastsib: "fancytree-lastsib",
 			loading: "fancytree-loading",
-			error: "fancytree-error"
+			error: "fancytree-error",
+		    glyph: "glyphicon glyphicon-plus-sign"
 		},
 		// events
 		lazyLoad: null,

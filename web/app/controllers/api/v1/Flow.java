@@ -214,4 +214,31 @@ public class Flow extends Controller
         result.set("data", FlowsDAO.getPagedJobsByFlow(application, project, flowId, page, size));
         return ok(result);
     }
+
+    public static Result getFlowListViewClusters()
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewClusters()));
+        return ok(result);
+    }
+
+    public static Result getFlowListViewProjects(String application)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewProjects(application)));
+        return ok(result);
+    }
+
+    public static Result getFlowListViewFlows(String application, String project)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewFlows(application, project)));
+        return ok(result);
+    }
 }
