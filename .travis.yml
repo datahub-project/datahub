@@ -17,6 +17,10 @@ before_install:
   # elasticsearch
   - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.3/elasticsearch-2.3.3.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.3.deb && sudo service elasticsearch restart
 
+  # extralibs
+  - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
+  - mkdir -p metadata-etl/extralibs; unzip extralibs.zip -d metadata-etl/extralibs
+
 cache:
   directories:
     - $HOME/.gradle/caches/
@@ -39,7 +43,5 @@ before_script:
   - mysql -u root -e 'create database if not exists wherehows'
   - mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'travis'@'localhost'"
   - cd data-model/DDL; mysql -u root -D wherehows < create_all_tables_wrapper.sql; cd ../..
-  - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
-  - mkdir -p metadata-etl/extralibs; unzip extralibs.zip -d metadata-etl/extralibs
   - sleep 5
 
