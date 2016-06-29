@@ -26,8 +26,8 @@
             </div>
             @if(isInternal) {
               <div id="treetab" class="tab-pane">
-                <div id="tree1" data-source="ajax" class="sampletree">
-                </div>
+                <div id="metriclist" class="list-group"></div>
+                <div id="tree1" data-source="ajax" class="sampletree" style="display: none;"></div>
               </div>
             }
             <div id="flowtab" class="tab-pane">
@@ -1181,6 +1181,21 @@
         <div class="row">
           <div class="col-xs-12">
             {{#unless detailview}}
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-11">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="search-pagination">
               <ul class="pager">
                 {{#unless first}}
@@ -1228,21 +1243,6 @@
             </div>
             {{/unless}}
             {{#unless detailview}}
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-11">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-              </div>
-            </div>
 
             <table class="table table-bordered search-results">
               <tbody>
@@ -1293,8 +1293,22 @@
       </div>
     </script>
 
-
     <script type="text/x-handlebars" id="metric">
+      <div class="well well-sm">
+        <div class="row">
+          <div class="col-xs-11">
+            <ul class="breadcrumbs">
+              {{#each breadcrumbs as |crumb|}}
+                <li>
+                  <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
+                    {{crumb.title}}
+                  </a>
+                </li>
+              {{/each}}
+            </ul>
+          </div>
+        </div>
+      </div>
       {{#metric-detail showLineage=showLineage model=model}}
       {{/metric-detail}}
     </script>
