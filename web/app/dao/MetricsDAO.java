@@ -21,6 +21,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.primitives.Ints;
+import models.MetricListViewNode;
 import models.TreeNode;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -79,6 +80,9 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
       		"WHERE m.metric_id = ?";
 
+    private final static String GET_METRIC_BASIC_INFO_BY_ID = "SELECT metric_name, " +
+            "dashboard_name, metric_group, metric_category FROM dict_business_metric WHERE metric_id = ?";
+
   	private final static String GET_WATCHED_METRIC_ID = "SELECT id FROM watch " +
       		"WHERE user_id = ? and item_id = ? and item_type = 'metric'";
 
@@ -102,22 +106,148 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
     private final static String GET_METRIC_TREE_NODES = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group = ? order by 1";
+            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group = ? order by 2";
 
     private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric WHERE dashboard_name is null and metric_group = ? order by 1";
+            "FROM dict_business_metric WHERE dashboard_name is null and metric_group = ? order by 2";
 
     private final static String GET_METRIC_TREE_NODES_NO_GROUP = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group is null order by 1";
+            "FROM dict_business_metric WHERE dashboard_name = ? and metric_group is null order by 2";
 
     private final static String GET_METRIC_TREE_NODES_NO_DASHBOARD_AND_GROUP = "SELECT DISTINCT metric_category, " +
             "COALESCE(metric_name, '(Other)') as metric_name, metric_id " +
-            "FROM dict_business_metric WHERE dashboard_name is null and metric_group is null order by 1";
+            "FROM dict_business_metric WHERE dashboard_name is null and metric_group is null order by 2";
 
     public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT metric_name " +
             "FROM dict_business_metric WHERE metric_name is not null and metric_name != '' ORDER by 1";
+
+    public static JsonNode getMetricListViewDashboardNodes()
+    {
+        List<String> dashboardList = getJdbcTemplate().queryForList(GET_METRIC_TREE_DASHBOARD_NODES, String.class);
+        List<MetricListViewNode> nodes = new ArrayList<MetricListViewNode>();
+        if (dashboardList != null && dashboardList.size() > 0)
+        {
+            for (String dashboard : dashboardList)
+            {
+                MetricListViewNode node = new MetricListViewNode();
+                node.dashboard = dashboard;
+                node.nodeName = dashboard;
+                node.nodeUrl = "#/metrics/name/" + node.dashboard + "/page/1";
+                nodes.add(node);
+            }
+        }
+        return Json.toJson(nodes);
+    }
+
+    public static JsonNode getMetricListViewGroupsNodes(String dashboard)
+    {
+        List<MetricListViewNode> nodes = new ArrayList<MetricListViewNode>();
+        if (StringUtils.isBlank(dashboard))
+        {
+            return Json.toJson(nodes);
+        }
+        List<String> groupList = null;
+        if (dashboard.equalsIgnoreCase("(Other)"))
+        {
+            groupList = getJdbcTemplate().queryForList(GET_METRIC_TREE_OTHER_GROUP_NODES, String.class);
+        }
+        else
+        {
+            groupList = getJdbcTemplate().queryForList(GET_METRIC_TREE_GROUP_NODES, String.class, dashboard);
+        }
+
+        if (groupList != null && groupList.size() > 0)
+        {
+            for (String group : groupList)
+            {
+                MetricListViewNode node = new MetricListViewNode();
+                node.dashboard = dashboard;
+                node.group = group;
+                node.nodeName = group;
+                node.nodeUrl = "#/metrics/name/" + dashboard + "/" + group + "/page/1";
+                nodes.add(node);
+            }
+        }
+        return Json.toJson(nodes);
+    }
+
+    public static JsonNode getMetricListViewMetricNodes(String dashboard, String group)
+    {
+        List<MetricListViewNode> nodes = new ArrayList<MetricListViewNode>();
+        if (StringUtils.isBlank(dashboard) || StringUtils.isBlank(group))
+        {
+            return Json.toJson(nodes);
+        }
+        List<Map<String, Object>> rows = null;
+        if (dashboard.equalsIgnoreCase("(Other)"))
+        {
+            if (group.equalsIgnoreCase("(Other)"))
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_DASHBOARD_AND_GROUP);
+            }
+            else
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_DASHBOARD, group);
+            }
+
+        }
+        else
+        {
+            if (group.equalsIgnoreCase("(Other)"))
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES_NO_GROUP, dashboard);
+            }
+            else
+            {
+                rows = getJdbcTemplate().queryForList(GET_METRIC_TREE_NODES, dashboard, group);
+            }
+        }
+
+        if (rows != null)
+        {
+            for (Map row : rows)
+            {
+                String category = (String)row.get(MetricRowMapper.METRIC_CATEGORY_COLUMN);
+                String name = (String)row.get(MetricRowMapper.METRIC_NAME_COLUMN);
+                String title = "";
+                if (StringUtils.isBlank(category))
+                {
+                    title = name;
+                }
+                else
+                {
+                    title = "{" + category + "} " + name;
+                }
+
+                MetricListViewNode node = new MetricListViewNode();
+                node.dashboard = dashboard;
+                node.group = group;
+                node.metric = name;
+                node.metricId = new Long((Integer)row.get(MetricRowMapper.METRIC_ID_COLUMN));
+                node.nodeName = title;
+                node.nodeUrl = "#/metrics/" + Long.toString(node.metricId);
+                nodes.add(node);
+            }
+        }
+        return Json.toJson(nodes);
+    }
+
+    public static JsonNode getMetricListViewMetricNodesByMetricId(Integer metricId)
+    {
+        List<MetricListViewNode> nodes = new ArrayList<MetricListViewNode>();
+        Metric metric = getMetricBasicInfoById(metricId);
+        if (StringUtils.isBlank(metric.dashboardName))
+        {
+            metric.dashboardName = "(Other)";
+        }
+        if (StringUtils.isBlank(metric.group))
+        {
+            metric.group = "(Other)";
+        }
+        return getMetricListViewMetricNodes(metric.dashboardName, metric.group);
+    }
 
     public static JsonNode getMetricDashboardNodes()
     {
@@ -320,7 +450,37 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static Metric getMetricByID(int id, String user)
+    private static Metric getMetricBasicInfoById(int id)
+    {
+        List<Map<String, Object>> rows = null;
+        Metric metric = new Metric();
+        try
+        {
+            rows = getJdbcTemplate().queryForList(
+                    GET_METRIC_BASIC_INFO_BY_ID,
+                    id);
+            if (rows != null)
+            {
+                for (Map row : rows)
+                {
+                    String dashboard = (String)row.get(MetricRowMapper.METRIC_DASHBOARD_NAME_COLUMN);
+                    String group = (String)row.get(MetricRowMapper.METRIC_GROUP_COLUMN);
+                    metric.dashboardName = dashboard;
+                    metric.group = group;
+                }
+            }
+
+        }
+        catch(EmptyResultDataAccessException e)
+        {
+            Logger.error("Metric getMetricByID failed, id = " + id);
+            Logger.error("Exception = " + e.getMessage());
+        }
+
+        return metric;
+    }
+
+    public static Metric getMetricByID(int id, String user)
 	{
     	Integer userId = UserDAO.getUserIDByUserName(user);
 		Metric metric = null;

@@ -53,11 +53,19 @@ GET     /api/v1/autocomplete/search         controllers.api.v1.Search.getSearchA
 
 GET     /api/v1/list/datasets               controllers.api.v1.Dataset.getDatasetListNodes()
 
+GET     /api/v1/list/metrics                controllers.api.v1.Metric.getMetricListViewDashboards()
+
+GET     /api/v1/list/metrics/:dashboard             controllers.api.v1.Metric.getMetricListViewGroups(dashboard: String)
+
+GET     /api/v1/list/metrics/:dashboard/:group      controllers.api.v1.Metric.getMetricListViewNodes(dashboard: String, group: String)
+
+GET     /api/v1/list/metric/:id             controllers.api.v1.Metric.getMetricListViewByMetricId(id: Int)
+
 GET     /api/v1/list/flows                  controllers.api.v1.Flow.getFlowListViewClusters()
 
 GET     /api/v1/list/flows/:application     controllers.api.v1.Flow.getFlowListViewProjects(application:String)
 
-GET     /api/v1/list/flows/:application/:project      controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
+GET     /api/v1/list/flows/:application/:project    controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
 
 GET     /api/v1/datasets                    controllers.api.v1.Dataset.getPagedDatasets()
 
