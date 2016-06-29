@@ -257,6 +257,41 @@ public class Metric extends Controller
             result.put("message", message);
             return badRequest(result);
         }
+    }
 
+    public static Result getMetricListViewByMetricId(Integer id)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", MetricsDAO.getMetricListViewMetricNodesByMetricId(id));
+        return ok(result);
+    }
+
+    public static Result getMetricListViewDashboards()
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", MetricsDAO.getMetricListViewDashboardNodes());
+        return ok(result);
+    }
+
+    public static Result getMetricListViewGroups(String dashboard)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", MetricsDAO.getMetricListViewGroupsNodes(dashboard));
+        return ok(result);
+    }
+
+    public static Result getMetricListViewNodes(String dashboard, String group)
+    {
+        ObjectNode result = Json.newObject();
+
+        result.put("status", "ok");
+        result.set("nodes", MetricsDAO.getMetricListViewMetricNodes(dashboard, group));
+        return ok(result);
     }
 }
