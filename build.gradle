@@ -3,6 +3,7 @@ plugins {
 }
 
 apply plugin: 'idea'
+apply plugin: 'license'
 ext.licenseFile = file('.license_header.txt')
 
 subprojects {
@@ -24,9 +25,13 @@ subprojects {
 
   license {
     header licenseFile
+
     exclude "**/*.scala.html"
     exclude "**/pyparsing.py"
+    excludes(["**/*.json", "**/*.avsc", "**/*.conf", "**/*.yaml", "**/*.xml"])
+    excludes(["**/*.txt", "**/*.csv"])
   }
+
   repositories {
     flatDir {
       dirs 'extralibs'
