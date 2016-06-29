@@ -133,10 +133,10 @@ class HiveTransform:
         flds = {}
         field_detail_list = []
 
-        if TableInfo.schema_literal in table and table[TableInfo.schema_literal] .startswith('{'):
+        if TableInfo.schema_literal in table and table[TableInfo.schema_literal] is not None and table[TableInfo.schema_literal].startswith('{'):
           sort_id = 0
           urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
-          self.logger.info("Getting schema literal for: " % (urn))
+          self.logger.info("Getting schema literal for: %s" % (urn))
           try:
             schema_data = json.loads(table[TableInfo.schema_literal])
             schema_json = schema_data
@@ -153,7 +153,7 @@ class HiveTransform:
             uri = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
           else:
             uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
-          self.logger.info("Getting column definition for: " % (uri))
+          self.logger.info("Getting column definition for: %s" % (uri))
           hcp = HiveColumnParser(table, urn = uri)
           schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
           field_detail_list += hcp.column_type_list
