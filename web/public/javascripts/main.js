@@ -282,7 +282,7 @@ function renderFlowListView(nodes, flowId)
     var activeObj;
     for(var i = 0; i < nodes.length; i++)
     {
-        if (flowId && flowId > 0)
+        if (nodes[i].flowId && nodes[i].flowId > 0)
         {
             if (flowId == nodes[i].flowId)
             {

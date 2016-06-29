@@ -234,7 +234,7 @@ App.DatasetRoute = Ember.Route.extend({
             var name = urn.substring(index +1);
             findAndActiveDatasetNode(name, urn);
           }
-          var breadcrumbs = [];
+          var breadcrumbs = [{"title":"DATASETS_ROOT", "urn":"page/1"}];
           var updatedUrn = urn.replace("://", "");
           var b = updatedUrn.split('/');
           for(var i = 0; i < b.length; i++) {
@@ -656,7 +656,7 @@ App.SubpageRoute = Ember.Route.extend({
     }
     currentTab = 'Datasets';
     updateActiveTab();
-    var breadcrumbs = [];
+    var breadcrumbs = [{"title":"DATASETS_ROOT", "urn":"page/1"}];
     var urn = param.urn.replace("://", "");
     var b = urn.split('/');
     for(var i = 0; i < b.length; i++) {

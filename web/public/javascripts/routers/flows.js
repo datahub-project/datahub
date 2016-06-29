@@ -52,7 +52,8 @@ App.PagedapplicationRoute = Ember.Route.extend({
             && transition.resolvedModels.applicationname.applicationname)
         {
             var application = transition.resolvedModels.applicationname.applicationname;
-            var breadcrumbs = [{"title": application, "urn": application + "/page/1"}];
+            var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
+                {"title": application, "urn": application + "/page/1"}];
             if (application && (application.toLowerCase().indexOf("appworx") != -1))
             {
                 flowsController.set('isAppworx', true);
@@ -126,7 +127,8 @@ App.PagedprojectRoute = Ember.Route.extend({
                     renderFlowListView(data.nodes);
                 }
             });
-            var breadcrumbs = [{"title": application, "urn": application + "/page/1"},
+            var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
+                    {"title": application, "urn": application + "/page/1"},
                     {"title": project, "urn": application + "/" + project + "/page/1"}];
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
@@ -186,7 +188,8 @@ App.PagedflowRoute = Ember.Route.extend({
                     controller.set('model', data);
                     controller.set('flowId', flow);
                     controller.set('urn', application + '/' + project + '/' + flow);
-                    var breadcrumbs = [{"title": application, "urn": application + "/page/1"},
+                    var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
+                        {"title": application, "urn": application + "/page/1"},
                         {"title": project, "urn": application + "/" + project + "/page/1"},
                         {"title": data.data.flow, "urn": application + "/" + project + "/" + flow + "/page/1"}];
                     controller.set('breadcrumbs', breadcrumbs);
