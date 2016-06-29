@@ -118,9 +118,14 @@ class AppworxExtract:
         """SELECT J.*, R.RUNS
            FROM SO_JOB_TABLE J JOIN (
            SELECT SO_JOB_SEQ, COUNT(*) as RUNS
-           FROM SO_JOB_HISTORY
-           WHERE cast((FROM_TZ(CAST(SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
-           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400)
+           FROM 
+           ( SELECT SO_JOB_SEQ FROM SO_JOB_HISTORY
+             WHERE cast((FROM_TZ(CAST(SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date)
+                   >= (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400)
+             UNION ALL
+             SELECT SO_JOB_SEQ FROM SO_JOB_QUEUE
+             WHERE SO_STATUS_NAME IN ('RUNNING', 'FINISHED')
+           )
            GROUP BY SO_JOB_SEQ
            ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
            WHERE SO_COMMAND_TYPE = 'CHAIN'
@@ -130,8 +135,13 @@ class AppworxExtract:
         """SELECT J.*, R.RUNS
            FROM SO_JOB_TABLE J JOIN (
            SELECT SO_JOB_SEQ, COUNT(*) as RUNS
-           FROM SO_JOB_HISTORY
-           WHERE SO_JOB_FINISHED >= SYSDATE - %d
+           FROM 
+           ( SELECT SO_JOB_SEQ FROM SO_JOB_HISTORY
+             WHERE SO_JOB_FINISHED >= SYSDATE - %d
+             UNION ALL
+             SELECT SO_JOB_SEQ FROM SO_JOB_QUEUE
+             WHERE SO_STATUS_NAME IN ('RUNNING', 'FINISHED')
+           )
            GROUP BY SO_JOB_SEQ
            ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
            WHERE SO_COMMAND_TYPE = 'CHAIN'
@@ -140,7 +150,8 @@ class AppworxExtract:
         """SELECT d.SO_TASK_NAME, d.SO_CHAIN_ORDER, d.SO_PREDECESSORS as PREDECESSORS, d.SO_DET_SEQ as JOB_ID,
             t.* FROM SO_CHAIN_DETAIL d
             JOIN SO_JOB_TABLE t ON d.SO_JOB_SEQ = t.SO_JOB_SEQ
-            WHERE d.SO_CHAIN_SEQ = %d ORDER BY d.SO_CHAIN_ORDER
+            WHERE d.SO_CHAIN_SEQ = %d 
+            ORDER BY d.SO_CHAIN_ORDER
         """
     self.aw_cursor.execute(query)
     rows = DbUtil.dict_cursor(self.aw_cursor)
