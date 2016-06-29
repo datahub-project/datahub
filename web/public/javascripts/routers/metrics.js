@@ -5,6 +5,13 @@ App.MetricsRoute = Ember.Route.extend({
     },
     actions: {
       getMetrics: function() {
+        var listUrl = 'api/v1/list/metrics';
+        $.get(listUrl, function(data) {
+          if (data && data.status == "ok"){
+            renderMetricListView(data.nodes);
+          }
+        });
+
         var url = 'api/v1/metrics?size=10&page=' + metricsController.get('model.data.page');
         currentTab = 'Metrics';
         updateActiveTab();
@@ -20,6 +27,12 @@ App.MetricsRoute = Ember.Route.extend({
 });
 App.MetricspageRoute = Ember.Route.extend({
     setupController: function(controller, param) {
+        var listUrl = 'api/v1/list/metrics';
+        $.get(listUrl, function(data) {
+            if (data && data.status == "ok"){
+                renderMetricListView(data.nodes);
+            }
+        });
         var url = 'api/v1/metrics?size=10&page=' + param.page;
         currentTab = 'Metrics';
         updateActiveTab();
@@ -47,6 +60,12 @@ App.MetricspageRoute = Ember.Route.extend({
     },
     actions: {
       getMetrics: function() {
+        var listUrl = 'api/v1/list/metrics';
+        $.get(listUrl, function(data) {
+          if (data && data.status == "ok"){
+            renderMetricListView(data.nodes);
+          }
+        });
         var url = 'api/v1/metrics?size=10&page=' + metricsController.get('model.data.page');
         currentTab = 'Metrics';
         updateActiveTab();
@@ -178,9 +197,25 @@ App.MetricRoute = Ember.Route.extend({
             {
                 name = params.name;
             }
+            var breadcrumbs;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     controller.set("model", data.metric);
+                    var dashboard = data.metric.dashboardName;
+                    if (!dashboard)
+                    {
+                        dashboard = '(Other)';
+                    }
+                    var group = data.metric.group;
+                    if (!group)
+                    {
+                        group = '(Other)';
+                    }
+                    breadcrumbs = [{"title":"METRICS_ROOT", "urn":"page/1"},
+                            {"title":dashboard, "urn":"name/" + dashboard + "/page/1"},
+                            {"title":group, "urn":"name/" + dashboard + "/" + group + "/page/1"},
+                            {"title":data.metric.name, "urn": params.id}];
+                    controller.set('breadcrumbs', breadcrumbs);
                     setTimeout(initializeXEditable(id,
                         data.metric.description,
                         data.metric.dashboardName,
@@ -194,6 +229,21 @@ App.MetricRoute = Ember.Route.extend({
         else if (params && params.metric)
         {
             id = params.metric.id;
+            var dashboard = params.metric.dashboardName;
+            if (!dashboard)
+            {
+                dashboard = '(Other)';
+            }
+            var group = params.metric.group;
+            if (!group)
+            {
+                group = '(Other)';
+            }
+            breadcrumbs = [{"title":"METRICS_ROOT", "urn":"page/1"},
+                {"title":name, "urn":"name/" + dashboard + "/page/1"},
+                {"title":group, "urn":"name/" + dashboard + "/" + group + "/page/1"},
+                {"title":params.metric.name, "urn": params.id}];
+            controller.set('breadcrumbs', breadcrumbs);
             if (params.metric.category)
             {
                 name =  '{' + params.metric.category + '} ' + params.metric.name;
@@ -210,6 +260,15 @@ App.MetricRoute = Ember.Route.extend({
                 params.metric.displayFactor,
                 params.metric.displayFactorSym), 500);
         }
+
+
+        var listUrl = 'api/v1/list/metric/' + id;
+        $.get(listUrl, function(data) {
+            if (data && data.status == "ok"){
+                renderMetricListView(data.nodes, id);
+            }
+        });
+
         if (name)
         {
             findAndActiveMetricNode(name, id);
@@ -218,6 +277,15 @@ App.MetricRoute = Ember.Route.extend({
     },
     actions: {
       getMetrics: function() {
+        var id = this.get('controller.model.id');
+        var listUrl = 'api/v1/list/metrics/' + id;
+
+        $.get(listUrl, function(data) {
+          if (data && data.status == "ok"){
+            renderMetricListView(data.nodes, id);
+          }
+        });
+
         var url = 'api/v1/metrics/' + this.get('controller.model.id')
         var _this = this
         currentTab = 'Metrics';
@@ -242,8 +310,16 @@ App.MetricnamepageRoute = Ember.Route.extend({
             && transition.resolvedModels.metricname.name)
         {
             var name = transition.resolvedModels.metricname.name;
+            var listUrl = 'api/v1/list/metrics/' + name;
+            $.get(listUrl, function(data) {
+                if (data && data.status == "ok"){
+                    renderMetricListView(data.nodes);
+                }
+            });
+
             var url = 'api/v1/metrics/name/' + name + '?page=' + params.page;
-            var breadcrumbs = [{"title":name, "urn":"name/" + name + "/page/1"}];
+            var breadcrumbs = [{"title":"METRICS_ROOT", "urn":"page/1"},
+                                {"title":name, "urn":"name/" + name + "/page/1"}];
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     metricsController.set('model', data);
@@ -273,6 +349,13 @@ App.MetricnamepageRoute = Ember.Route.extend({
     },
     actions: {
       getMetrics: function() {
+        var listUrl = 'api/v1/list/metrics/' + metricsController.get('dashboard');
+        $.get(listUrl, function(data) {
+          if (data && data.status == "ok"){
+            renderMetricListView(data.nodes);
+          }
+        });
+
         var url = 'api/v1/metrics/name/' + metricsController.get('dashboard')
         url += '?size=10&page=' + metricsController.get('model.data.page');
         currentTab = 'Metrics';
@@ -306,10 +389,18 @@ App.MetricnamesubpageRoute = Ember.Route.extend({
             {
                 group = transition.resolvedModels.metricgroup.group;
                 url += '/' + group + '?page=' + params.page;
-                breadcrumbs = [{"title":name, "urn":"name/" + name + "/page/1"},
+                breadcrumbs = [{"title":"METRICS_ROOT", "urn":"page/1"},
+                    {"title":name, "urn":"name/" + name + "/page/1"},
                     {"title":group, "urn":"name/" + name + "/" + group + "/page/1"}];
 
             }
+            var listUrl = 'api/v1/list/metrics/' + name + '/' + group;
+            $.get(listUrl, function(data) {
+                if (data && data.status == "ok"){
+                    renderMetricListView(data.nodes);
+                }
+            });
+
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     metricsController.set('breadcrumbs', breadcrumbs);
@@ -338,6 +429,13 @@ App.MetricnamesubpageRoute = Ember.Route.extend({
     },
     actions: {
       getMetrics: function() {
+        var listUrl = 'api/v1/list/metrics/' + metricsController.get('dashboard')
+            + '/' + metricsController.get('group');
+        $.get(listUrl, function(data) {
+          if (data && data.status == "ok"){
+            renderMetricListView(data.nodes);
+          }
+        });
         var url = 'api/v1/metrics/name/' + metricsController.get('dashboard')
         url += '/' + metricsController.get('group') + '?size=10&page=' + metricsController.get('model.data.page');
         currentTab = 'Metrics';
