@@ -72,9 +72,11 @@
         $('#treeviewbtn').removeClass('btn-default');
         $('#listviewbtn').addClass('btn-primary');
         $('#treeviewbtn').addClass('btn-default');
+        $('#tree1').hide();
         $('#tree2').hide();
         $('#tree3').hide();
         $('#datasetlist').show();
+        $('#metriclist').show();
         $('#flowlist').show();
     });
 
@@ -86,7 +88,9 @@
         $('#listviewbtn').addClass('btn-default');
         $('#treeviewbtn').addClass('btn-primary');
         $('#datasetlist').hide();
+        $('#metriclist').hide();
         $('#flowlist').hide();
+        $('#tree1').show();
         $('#tree2').show();
         $('#tree3').show();
     });
@@ -307,12 +311,53 @@ function renderFlowListView(nodes, flowId)
     }
 }
 
+function renderMetricListView(nodes, metricId)
+{
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var metricTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-plus-square-o" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-plus-square-o" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var obj = $('#metriclist');
+    if (!obj)
+        return;
+    obj.empty();
+    var activeObj;
+    for(var i = 0; i < nodes.length; i++)
+    {
+        if (nodes[i].metricId && nodes[i].metricId > 0)
+        {
+            if (metricId == nodes[i].metricId)
+            {
+                activeObj = obj.append(activeTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
+            else
+            {
+                obj.append(metricTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+            }
+        }
+        else
+        {
+            obj.append(folderTemplate.replace('$NODE_NAME', nodes[i].nodeName).replace("$URL", nodes[i].nodeUrl));
+        }
+
+    }
+    if (activeObj)
+    {
+        var scrollToActiveNode = function() {
+            $("#tabSplitter").scrollTo(activeObj, 800)
+        }
+    }
+}
+
 function filterListView(category, filter)
 {
     var obj = $('#flowlist');
     if (category == 'Datasets')
     {
         obj = $('#datasetlist');
+    }
+    else if (category == 'Metrics')
+    {
+        obj = $('#metriclist');
     }
 
     if (!obj || !obj.children() || obj.children().length == 0)
