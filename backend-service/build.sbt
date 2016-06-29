@@ -2,6 +2,11 @@ name := "backend-service"
 
 version := "1.0-SNAPSHOT"
 
+unmanagedJars in Compile <++= baseDirectory map { base =>
+  val dirs = (base / "metadata-etl/extralibs") +++ (base / "extralibs") 
+  (dirs ** "*.jar").classpath
+}
+
 libraryDependencies ++= Seq(
   javaJdbc,
   javaEbean,

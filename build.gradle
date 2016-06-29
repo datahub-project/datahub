@@ -25,6 +25,7 @@ subprojects {
   license {
     header licenseFile
     exclude "**/*.scala.html"
+    exclude "**/pyparsing.py"
   }
   repositories {
     flatDir {
@@ -53,21 +54,20 @@ subprojects {
                             "testng"             : "org.testng:testng:6.9.6",
                             "hadoop_common"      : "org.apache.hadoop:hadoop-common:2.7.1",
                             "hadoop_client"      : "org.apache.hadoop:hadoop-mapreduce-client-core:2.7.1",
-                            "pig"                : "org.apache.pig:pig:0.11.1",
+                            "hadoop_auth"        : "org.apache.hadoop:hadoop-auth:2.7.1",
+                            "pig"                : "org.apache.pig:pig:0.15.0",
+                            "hive_exec"          : "org.apache.hive:hive-exec:1.2.1",
                             "avro"               : "org.apache.avro:avro:1.7.7",
                             "avro_mapred"        : "org.apache.avro:avro-mapred:1.7.7",
                             "joda"               : "joda-time:joda-time:2.8.2",
                             "jsch"               : "com.jcraft:jsch:0.1.53",
-                            "hive"               : "org.apache.hive:hive-exec:1.2.1",
                             "http_client"        : "org.apache.httpcomponents:httpclient:4.5",
                             "http_core"          : "org.apache.httpcomponents:httpcore:4.4.1",
-                            "hadoop_auth"        : "org.apache.hadoop:hadoop-auth:2.7.1",
                             "json_path"          : "com.jayway.jsonpath:json-path:2.0.0",
-                            "akka"               : "com.typesafe.akka:akka-actor_2.10:2.2.0",
+                            "akka"               : "com.typesafe.akka:akka-actor_2.10:2.3.15",
                             "jgit"               : "org.eclipse.jgit:org.eclipse.jgit:4.1.1.201511131810-r",
                             "jsoup"              : "org.jsoup:jsoup:1.8.3",
                             "commons_io"         : "commons-io:commons-io:2.4",
-
 
                             "jackson_databind"   : "com.fasterxml.jackson.core:jackson-databind:2.6.1",
                             "jackson_core"       : "com.fasterxml.jackson.core:jackson-core:2.6.1",
@@ -83,8 +83,7 @@ subprojects {
                             "play"               : "com.typesafe.play:play_2.10:2.2.4",
                             "play_ebean"         : "com.typesafe.play:play-java-ebean_2.10:2.2.4",
                             "play_java_jdbc"     : "com.typesafe.play:play-java-jdbc_2.10:2.2.4",
-                            "play_cache"         : "com.typesafe.play:play-cache_2.10:2.2.4",
-                            "hive_exec"          : "org.apache.hive:hive-exec:1.2.1"
+                            "play_cache"         : "com.typesafe.play:play-cache_2.10:2.2.4"
   ]
 }
 

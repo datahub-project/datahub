@@ -12,7 +12,7 @@ dependencies {
   //extraLibs files("extralibs/voldemort-0.91.li1.jar")
   extraLibs externalDependency.joda
   extraLibs externalDependency.avro_mapred
-  extraLibs externalDependency.hive
+  extraLibs externalDependency.hive_exec
   extraLibs externalDependency.pig
 
   compile project(":wherehows-common")
@@ -24,7 +24,7 @@ dependencies {
   compile externalDependency.avro
   compile externalDependency.avro_mapred
   compile externalDependency.joda
-  compile externalDependency.hive
+  compile externalDependency.hive_exec
   compile externalDependency.http_client
   compile externalDependency.http_core
 
