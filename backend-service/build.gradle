@@ -1,12 +1,15 @@
 apply plugin: 'scala'
 apply plugin: 'idea'
 
-def findPlay20(){
-    project.ext.playHome = "${System.env.PLAY_HOME}"
+def findPlayHome(){
+    project.ext.playHome = System.getenv()['PLAY_HOME']
+    if (null == project.ext.playHome) {
+        throw new GradleException('PLAY_HOME env variable not set!')
+    }
     project.ext.playExec = "${playHome}/play"
 }
 
-findPlay20()
+findPlayHome()
 
 repositories{
     mavenCentral()
@@ -22,6 +25,9 @@ repositories{
         url "https://repo.typesafe.com/typesafe/ivy-releases"
         layout "ivy"
     }
+
+    flatDir name: 'extralibs',
+        dirs: "${projectDir}/metadata-etl/extralibs"
 }
 
 configurations{
