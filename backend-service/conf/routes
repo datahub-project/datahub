@@ -14,6 +14,9 @@ GET         /dependency/dataset           controllers.DatasetController.getDatas
 # Find a dataset's schema, field and all datasets level information.
 GET         /dataset                      controllers.DatasetController.getDatasetInfo()
 
+# Find a list of watchers for a given dataset name
+GET         /dataset/watchers             controllers.DatasetController.getDatasetWatchers(datasetName: String)
+
 # Insert new job data lineage
 POST        /dataset                      controllers.DatasetController.addDataset()
 
