@@ -289,7 +289,7 @@ CREATE TABLE dict_dataset_instance  (
 	created_time         	int(10) UNSIGNED COMMENT 'wherehows created time'  NULL,
 	modified_time        	int(10) UNSIGNED COMMENT 'latest wherehows modified'  NULL,
 	wh_etl_exec_id       	bigint(20) COMMENT 'wherehows etl execution id that modified this record'  NULL,
-	PRIMARY KEY(dataset_id,db_id)
+	PRIMARY KEY(dataset_id,db_id,version_sort_id)
 )
 ENGINE = InnoDB
 CHARACTER SET latin1
