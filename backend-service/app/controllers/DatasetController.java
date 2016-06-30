@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.SQLException;
 import java.util.Map;
 import models.daos.DatasetDao;
+import models.daos.UserDao;
 import models.utils.Urn;
 import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
@@ -31,6 +32,18 @@ import play.mvc.Result;
  * Created by zechen on 10/12/15.
  */
 public class DatasetController extends Controller {
+
+  public static Result getDatasetWatchers(String datasetName)
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    if (datasetName != null) {
+      ObjectNode result = UserDao.getWatchers(datasetName);
+      resultJson.put("return_code", 200);
+      resultJson.put("watchers", result);
+    }
+    return ok(resultJson);
+  }
+
   public static Result getDatasetInfo() throws SQLException {
     ObjectNode resultJson = Json.newObject();
     String datasetIdString = request().getQueryString("datasetId");

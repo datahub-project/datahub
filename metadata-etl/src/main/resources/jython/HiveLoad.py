@@ -306,14 +306,21 @@ class HiveLoad:
           native_name,
           logical_name,
           version,
+          version_sort_id,
           instance_created_time,
           created_time,
           wh_etl_exec_id
         )
         select s.dataset_id, s.db_id, s.deployment_tier, s.data_center,
           s.server_cluster, s.slice, s.status_id, s.native_name, s.logical_name, s.version,
+          case when s.version regexp '[0-9]+\.[0-9]+\.[0-9]+'
+            then cast(substring_index(s.version, '.', 1) as unsigned) * 100000000 +
+                 cast(substring_index(substring_index(s.version, '.', 2), '.', -1) as unsigned) * 10000 +
+                 cast(substring_index(s.version, '.', -1) as unsigned)
+          else 0
+          end version_sort_id,
           s.instance_created_time, s.created_time, s.wh_etl_exec_id
-        from stg_dict_dataset_instance s
+        from stg_dict_dataset_instance s join dict_dataset d on s.dataset_id = d.id
         where s.db_id = {db_id}
         on duplicate key update
           deployment_tier=s.deployment_tier, data_center=s.data_center, server_cluster=s.server_cluster, slice=s.slice,
