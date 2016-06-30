@@ -111,7 +111,7 @@ public class DatasetDao {
   }
 
   public static void setDatasetRecord (JsonNode dataset)
-    throws Exception {
+      throws Exception {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
     DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
@@ -128,8 +128,10 @@ public class DatasetDao {
     }
   }
 
+
+
   public static void updateDataset(JsonNode dataset)
-    throws Exception {
+      throws Exception {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
     DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
