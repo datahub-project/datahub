@@ -284,7 +284,7 @@ CREATE TABLE dict_dataset_instance  (
 	native_name          	varchar(250) NOT NULL,
 	logical_name         	varchar(250) NOT NULL,
 	version              	varchar(30) COMMENT '1.2.3 or 0.3.131'  NULL,
-	version_sort_id      	bigint(20) COMMENT '4-digit for each version number: 000100020003, 000000030131'  NULL,
+	version_sort_id      	bigint(20) COMMENT '4-digit for each version number: 000100020003, 000000030131'  NOT NULL DEFAULT '0',
 	instance_created_time	int(10) UNSIGNED COMMENT 'source instance created time'  NULL,
 	created_time         	int(10) UNSIGNED COMMENT 'wherehows created time'  NULL,
 	modified_time        	int(10) UNSIGNED COMMENT 'latest wherehows modified'  NULL,
