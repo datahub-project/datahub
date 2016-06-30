@@ -48,6 +48,16 @@ public class DatabaseWriter extends Writer {
     this.tableName = tableName;
   }
 
+  public synchronized void update(String setValues, String urn) {
+
+    StringBuilder sb = new StringBuilder();
+    sb.append("UPDATE " + this.tableName +" SET "+ setValues +" WHERE urn = '"+urn+"'");
+    try {
+      this.jdbcTemplate.execute(sb.toString());
+    } catch (DataAccessException e) {
+      logger.error("UPDATE statement have error : " + sb.toString() + e);
+    }
+  }
 
   //TODO: this insert sql is too ambitious, need add column names
   @Override

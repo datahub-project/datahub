@@ -24,6 +24,7 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.dao.EmptyResultDataAccessException;
 import play.libs.Json;
 import utils.JdbcUtil;
 import wherehows.common.schemas.DatasetDependencyRecord;
@@ -40,6 +41,7 @@ public class DatasetDao {
 
   public static final String GET_DATASET_BY_ID = "SELECT * FROM dict_dataset WHERE id = :id";
   public static final String GET_DATASET_BY_URN = "SELECT * FROM dict_dataset WHERE urn = :urn";
+
   public static final String DEFAULT_CLUSTER_NAME = "ltx1-holdem";
   public static final String CLUSTER_NAME_KEY = "cluster_name";
   public static final String DATASET_URI_KEY = "dataset_uri";
@@ -106,6 +108,51 @@ public class DatasetDao {
     dw.append(record);
     dw.close();
   }
+
+  public static void setDatasetRecord (JsonNode dataset)
+      throws Exception {
+    ObjectMapper om = new ObjectMapper();
+    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
+    DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
+
+    if (record != null) {
+      Map<String, Object> params = new HashMap<>();
+      params.put("urn", record.getUrn());
+      try {
+        Map<String, Object> result = JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_BY_URN, params);
+        updateDataset(dataset);
+      } catch (EmptyResultDataAccessException e) {
+        insertDataset(dataset);
+      }
+    }
+
+  }
+
+
+
+  public static void updateDataset(JsonNode dataset)
+      throws Exception {
+    ObjectMapper om = new ObjectMapper();
+    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
+    DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
+    if (record.getRefDatasetUrn() != null) {
+      Map<String, Object> refDataset = getDatasetByUrn(record.getRefDatasetUrn());
+      // Find ref dataset id
+      if (refDataset != null) {
+        record.setRefDatasetId(((Long) refDataset.get("id")).intValue());
+      }
+    }
+    // Find layout id
+    if (record.getSamplePartitionFullPath() != null) {
+      PartitionPatternMatcher ppm = new PartitionPatternMatcher(PartitionLayoutDao.getPartitionLayouts());
+      record.setPartitionLayoutPatternId(ppm.analyze(record.getSamplePartitionFullPath()));
+    }
+
+    DatabaseWriter dw = new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, "dict_dataset");
+    dw.update(record.toUpdateDatabaseValue(), record.getUrn());
+    dw.close();
+  }
+
 
   public static int getDatasetDependencies(
           Long datasetId,
