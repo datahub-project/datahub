@@ -234,9 +234,9 @@ String.prototype.toProperCase = function(){
 
 function renderDatasetListView(nodes, name)
 {
-    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var datasetTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-database" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-database" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder"></i> $NODE_NAME</a>';
+    var datasetTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-database"></i> $NODE_NAME</a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-database"></i> $NODE_NAME</a>';
     var obj = $('#datasetlist');
     if (!obj)
         return;
@@ -272,9 +272,9 @@ function renderDatasetListView(nodes, name)
 
 function renderFlowListView(nodes, flowId)
 {
-    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var flowTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-random" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-random" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder"></i> $NODE_NAME</a>';
+    var flowTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-random"></i> $NODE_NAME</a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-random"></i> $NODE_NAME</a>';
     var obj = $('#flowlist');
     if (!obj)
         return;
