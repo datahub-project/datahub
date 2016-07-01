@@ -313,9 +313,9 @@ function renderFlowListView(nodes, flowId)
 
 function renderMetricListView(nodes, metricId)
 {
-    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var metricTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-plus-square-o" style="margin-right: 5px;"> $NODE_NAME</i></a>';
-    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-plus-square-o" style="margin-right: 5px;"> $NODE_NAME</i></a>';
+    var folderTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-folder"></i>$NODE_NAME</a>';
+    var metricTemplate = '<a href="$URL" class="list-group-item"><i class="fa fa-plus-square-o"></i>$NODE_NAME</a>';
+    var activeTemplate = '<a href="$URL" class="active list-group-item"><i class="fa fa-plus-square-o"></i>$NODE_NAME</a>';
     var obj = $('#metriclist');
     if (!obj)
         return;
