@@ -69,7 +69,7 @@ subprojects {
                             "http_client"        : "org.apache.httpcomponents:httpclient:4.5",
                             "http_core"          : "org.apache.httpcomponents:httpcore:4.4.1",
                             "json_path"          : "com.jayway.jsonpath:json-path:2.0.0",
-                            "akka"               : "com.typesafe.akka:akka-actor_2.10:2.3.15",
+                            "akka"               : "com.typesafe.akka:akka-actor_2.10:2.2.5",
                             "jgit"               : "org.eclipse.jgit:org.eclipse.jgit:4.1.1.201511131810-r",
                             "jsoup"              : "org.jsoup:jsoup:1.8.3",
                             "commons_io"         : "commons-io:commons-io:2.4",
