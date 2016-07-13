@@ -49,7 +49,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	public final static String HDFS_BROWSER_URL_KEY = "dataset.hdfs_browser.link";
 
 
-	private final static String SELECT_PAGED_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SELECT_PAGED_DATASET  = "SELECT " +
 			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
@@ -61,7 +61,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
 			"created, d.source_modified_time, modified";
 
-	private final static String SELECT_PAGED_DATASET_BY_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SELECT_PAGED_DATASET_BY_CURRENT_USER  = "SELECT " +
 			"d.id, d.name, d.urn, d.source, d.schema, d.properties, " +
 			"f.dataset_id, w.id as watch_id, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
@@ -76,34 +76,37 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
 			"watch_id, created, d.source_modified_time, modified";
 
-	private final static String SELECT_PAGED_DATASET_BY_URN  = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String GET_PAGED_DATASET_COUNT  = "SELECT count(*) FROM dict_dataset";
+
+	private final static String SELECT_PAGED_DATASET_BY_URN  = "SELECT " +
 			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM ( SELECT * FROM dict_dataset ORDER BY urn limit ?, ? ) d " +
+			"FROM ( SELECT * FROM dict_dataset WHERE urn LIKE ? ORDER BY urn limit ?, ? ) d " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
-			"WHERE d.urn LIKE ? " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, created, " +
 			"d.source_modified_time, modified";
 
-	private final static String SELECT_PAGED_DATASET_BY_URN_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SELECT_PAGED_DATASET_BY_URN_CURRENT_USER  = "SELECT " +
 			"d.id, d.name, d.urn, d.source, d.schema, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
 			"d.properties, f.dataset_id, w.id as watch_id, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM ( SELECT * FROM dict_dataset ORDER BY urn LIMIT ?, ? ) d LEFT JOIN favorites f ON (" +
+			"FROM ( SELECT * FROM dict_dataset WHERE urn LIKE ?  ORDER BY urn LIMIT ?, ? ) d " +
+			"LEFT JOIN favorites f ON (" +
 			"d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN watch w ON (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
-			"WHERE d.urn LIKE ? " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
 			"watch_id, created, d.source_modified_time, modified";
+
+	private final static String GET_PAGED_DATASET_COUNT_BY_URN  = "SELECT count(*) FROM dict_dataset WHERE urn LIKE ?";
 
 	private final static String CHECK_SCHEMA_HISTORY  = "SELECT COUNT(*) FROM dict_dataset_schema_history " +
 			"WHERE dataset_id = ? ";
@@ -255,7 +258,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String GET_FIELD_COMMENT_BY_ID = "SELECT comment FROM dict_dataset_field_comment WHERE id = ?";
 
-	private final static String GET_COLUMN_COMMENTS_BY_DATASETID_AND_COLUMNID = "SELECT c.id, u.name as author, " +
+	private final static String GET_COLUMN_COMMENTS_BY_DATASETID_AND_COLUMNID = "SELECT SQL_CALC_FOUND_ROWS " +
+			"c.id, u.name as author, " +
 			"u.email as authorEmail, u.username as authorUsername, c.comment as `text`, " +
 			"c.created, c.modified, dfc.field_id, dfc.is_default FROM dict_dataset_field_comment dfc " +
 			"LEFT JOIN field_comments c ON dfc.comment_id = c.id LEFT JOIN users u ON c.user_id = u.id " +
@@ -362,10 +366,10 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					} else {
 						rows = getJdbcTemplate().queryForList(
 								SELECT_PAGED_DATASET_BY_URN_CURRENT_USER,
+								urn + "%",
 								(page - 1) * size, size,
 								id,
-								id,
-								urn + "%");
+								id);
 					}
 				}
 				else
@@ -377,17 +381,27 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					} else {
 						rows = getJdbcTemplate().queryForList(
 								SELECT_PAGED_DATASET_BY_URN,
-								(page - 1) * size, size,
-								urn + "%");
+								urn + "%",
+								(page - 1) * size, size);
 					}
 
 				}
 
 				long count = 0;
 				try {
-					count = getJdbcTemplate().queryForObject(
-							"SELECT FOUND_ROWS()",
-							Long.class);
+
+					if (StringUtils.isBlank(urn)) {
+						count = getJdbcTemplate().queryForObject(
+								GET_PAGED_DATASET_COUNT,
+								Long.class);
+					}
+					else
+					{
+						count = getJdbcTemplate().queryForObject(
+								GET_PAGED_DATASET_COUNT_BY_URN,
+								Long.class,
+								urn + "%");
+					}
 				} catch (EmptyResultDataAccessException e) {
 					Logger.error("Exception = " + e.getMessage());
 				}
@@ -1230,7 +1244,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				List<Map<String, Object>> rows = null;
 
 				rows = getJdbcTemplate().queryForList(
-          GET_COLUMN_COMMENTS_BY_DATASETID_AND_COLUMNID,
+					GET_COLUMN_COMMENTS_BY_DATASETID_AND_COLUMNID,
 					datasetId,
 					columnId,
 					start,
