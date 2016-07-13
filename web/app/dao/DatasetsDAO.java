@@ -55,11 +55,11 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset d " +
+			"FROM ( SELECT * FROM dict_dataset ORDER BY urn LIMIT ?, ? ) d " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
-			"created, d.source_modified_time, modified ORDER BY d.urn LIMIT ?, ?";
+			"created, d.source_modified_time, modified";
 
 	private final static String SELECT_PAGED_DATASET_BY_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"d.id, d.name, d.urn, d.source, d.schema, d.properties, " +
@@ -68,13 +68,13 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset d LEFT JOIN favorites f ON (" +
+			"FROM ( SELECT * FROM dict_dataset ORDER BY urn LIMIT ?, ?) d LEFT JOIN favorites f ON (" +
 			"d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN watch w on (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
-			"watch_id, created, d.source_modified_time, modified ORDER BY d.urn LIMIT ?, ?";
+			"watch_id, created, d.source_modified_time, modified";
 
 	private final static String SELECT_PAGED_DATASET_BY_URN  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
@@ -82,13 +82,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset d " +
+			"FROM ( SELECT * FROM dict_dataset ORDER BY urn limit ?, ? ) d " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"WHERE d.urn LIKE ? " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.properties, d.schema, created, " +
-			"d.source_modified_time, modified " +
-			"ORDER BY d.urn limit ?, ?";
+			"d.source_modified_time, modified";
 
 	private final static String SELECT_PAGED_DATASET_BY_URN_CURRENT_USER  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"d.id, d.name, d.urn, d.source, d.schema, " +
@@ -97,14 +96,14 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"d.properties, f.dataset_id, w.id as watch_id, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
-			"FROM dict_dataset d LEFT JOIN favorites f ON (" +
+			"FROM ( SELECT * FROM dict_dataset ORDER BY urn LIMIT ?, ? ) d LEFT JOIN favorites f ON (" +
 			"d.id = f.dataset_id and f.user_id = ?) " +
 			"LEFT JOIN watch w ON (d.id = w.item_id and w.item_type = 'dataset' and w.user_id = ?) " +
 			"LEFT JOIN dataset_owner o on (d.id = o.dataset_id and (o.is_deleted is null OR o.is_deleted != 'Y')) " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"WHERE d.urn LIKE ? " +
 			"GROUP BY d.id, d.name, d.urn, d.source, d.schema, d.properties, f.dataset_id, " +
-			"watch_id, created, d.source_modified_time, modified ORDER BY urn LIMIT ?, ?";
+			"watch_id, created, d.source_modified_time, modified";
 
 	private final static String CHECK_SCHEMA_HISTORY  = "SELECT COUNT(*) FROM dict_dataset_schema_history " +
 			"WHERE dataset_id = ? ";
@@ -357,16 +356,16 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					if (StringUtils.isBlank(urn)) {
 						rows = getJdbcTemplate().queryForList(
 								SELECT_PAGED_DATASET_BY_CURRENT_USER,
+								(page - 1) * size, size,
 								id,
-								id,
-								(page - 1) * size, size);
+								id);
 					} else {
 						rows = getJdbcTemplate().queryForList(
 								SELECT_PAGED_DATASET_BY_URN_CURRENT_USER,
+								(page - 1) * size, size,
 								id,
 								id,
-								urn + "%",
-								(page - 1) * size, size);
+								urn + "%");
 					}
 				}
 				else
@@ -378,8 +377,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					} else {
 						rows = getJdbcTemplate().queryForList(
 								SELECT_PAGED_DATASET_BY_URN,
-								urn + "%",
-								(page - 1) * size, size);
+								(page - 1) * size, size,
+								urn + "%");
 					}
 
 				}
