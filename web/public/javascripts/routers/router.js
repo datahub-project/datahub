@@ -219,7 +219,7 @@ function updateActiveTab()
         obj.removeClass("active");
     }
 
-    if (currentTab == 'Metric')
+    if (currentTab == 'Metrics')
     {
         $('#menutabs a:eq(1)').tab("show");
         $('#metriclink').addClass("active");
@@ -421,11 +421,16 @@ var scrollToTreeNode = function() {
 }
 
 $('.category-header a').click(function (e) {
-    if (currentTab == this.text)
+    var text = 'Datasets';
+    if (this && this.children && this.children.length > 0 && this.children[0] && this.children[0].textContent)
+    {
+        text = this.children[0].textContent;
+    }
+    if (currentTab == text)
         return;
-    currentTab = this.text;
+    currentTab = text;
     updateActiveTab();
-    if (this.text == 'Datasets')
+    if (text == 'Datasets')
     {
         var node = $("#tree2").fancytree("getActiveNode");
         if (node)
@@ -435,7 +440,7 @@ $('.category-header a').click(function (e) {
         }
         window.location = "#/datasets/page/1";
     }
-    else if (this.text == 'Metric')
+    else if (text == 'Metrics')
     {
         var node = $("#tree1").fancytree("getActiveNode");
         if (node)
@@ -445,7 +450,7 @@ $('.category-header a').click(function (e) {
         }
         window.location = "#/metrics/page/1";
     }
-    else if (this.text == 'Flows')
+    else if (text == 'Flows')
     {
         var node = $("#tree3").fancytree("getActiveNode");
         if (node)
