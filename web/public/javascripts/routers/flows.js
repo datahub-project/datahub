@@ -2,49 +2,14 @@ var flowsController = null;
 App.FlowsRoute = Ember.Route.extend({
     setupController: function(controller) {
         flowsController = controller;
-        var location = window.location.hash;
-        if (location != '#/flows/page/1')
-        {
-            return;
-        }
-        currentTab = 'Flows';
-        var listUrl = 'api/v1/list/flows';
-        $.get(listUrl, function(data) {
-            if (data && data.status == "ok"){
-                renderFlowListView(data.nodes);
-            }
-        });
-        updateActiveTab();
-        var url = 'api/v1/flows?size=10&page=1';
-        var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"}];
-        $.get(url, function(data) {
-            if (data && data.status == "ok"){
-                flowsController.set('model', data);
-                flowsController.set('projectView', true);
-                flowsController.set('flowView', false);
-                flowsController.set('breadcrumbs', breadcrumbs);
-                flowsController.set('urn', 'FLOWS_ROOT');
-                flowsController.set('projectView', true);
-                flowsController.set('flowView', false);
-                flowsController.set('jobView', false);
-            }
-        });
-        var watcherEndpoint = "/api/v1/urn/watch?urn=FLOWS_ROOT";
-        $.get(watcherEndpoint, function(data){
-            if(data.id && data.id !== 0) {
-                flowsController.set('urnWatched', true)
-                flowsController.set('urnWatchedId', data.id)
-            } else {
-                flowsController.set('urnWatched', false)
-                flowsController.set('urnWatchedId', 0)
-            }
-        });
     }
 });
 
 App.FlowspageRoute = Ember.Route.extend({
-    setupController: function(controller) {
+    setupController: function(controller, params) {
         currentTab = 'Flows';
+        flowsController.set('flowView', true);
+        flowsController.set('queryParams', null);
         var listUrl = 'api/v1/list/flows';
         $.get(listUrl, function(data) {
             if (data && data.status == "ok"){
@@ -52,53 +17,47 @@ App.FlowspageRoute = Ember.Route.extend({
             }
         });
         updateActiveTab();
-        var url = 'api/v1/flows?size=10&page=1';
+        var url = 'api/v1/flows?size=10&page=' + params.page;
         var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"}];
         $.get(url, function(data) {
             if (data && data.status == "ok"){
                 flowsController.set('model', data);
-                flowsController.set('projectView', true);
-                flowsController.set('flowView', false);
-                flowsController.set('breadcrumbs', breadcrumbs);
-                flowsController.set('urn', 'FLOWS_ROOT');
-                flowsController.set('projectView', true);
-                flowsController.set('flowView', false);
                 flowsController.set('jobView', false);
-            }
-        });
-        var watcherEndpoint = "/api/v1/urn/watch?urn=FLOWS_ROOT";
-        $.get(watcherEndpoint, function(data){
-            if(data.id && data.id !== 0) {
-                flowsController.set('urnWatched', true)
-                flowsController.set('urnWatchedId', data.id)
-            } else {
-                flowsController.set('urnWatched', false)
-                flowsController.set('urnWatchedId', 0)
+                flowsController.set('flowView', true);
+                flowsController.set('breadcrumbs', breadcrumbs);
             }
         });
     }
 });
 
-App.PagedapplicationRoute = Ember.Route.extend({
-    setupController: function(controller, params, transition) {
+App.FlowsnameRoute = Ember.Route.extend({
+    setupController: function(controller, param) {
+        flowsController.set('currentName', param.name);
+    }
+});
+
+App.FlowssubpageRoute = Ember.Route.extend({
+    setupController: function (controller, params) {
+        if (!flowsController)
+            return;
+
         currentTab = 'Flows';
         updateActiveTab();
-        if (transition
-            && transition.resolvedModels
-            && transition.resolvedModels.applicationname
-            && transition.resolvedModels.applicationname.applicationname)
+        flowsController.set('flowView', true);
+        var application;
+        var project;
+        var urn = params.urn;
+        flowsController.set('queryParams', params.urn);
+        if (!urn)
+         return;
+
+        var links = urn.split('/');
+        if (links.length == 1)
         {
-            var application = transition.resolvedModels.applicationname.applicationname;
+            application = links[0];
+            flowsController.set('currentName', application);
             var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
-                {"title": application, "urn": application + "/page/1"}];
-            if (application && (application.toLowerCase().indexOf("appworx") != -1))
-            {
-                flowsController.set('isAppworx', true);
-            }
-            else
-            {
-                flowsController.set('isAppworx', false);
-            }
+                {"title": application, "urn": "name/" + application + "/page/1?urn=" + application}];
             var listUrl = 'api/v1/list/flows/' + application;
             $.get(listUrl, function(data) {
                 if (data && data.status == "ok"){
@@ -109,23 +68,7 @@ App.PagedapplicationRoute = Ember.Route.extend({
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     flowsController.set('model', data);
-                    flowsController.set('projectView', true);
-                    flowsController.set('flowView', false);
                     flowsController.set('breadcrumbs', breadcrumbs);
-                    flowsController.set('urn', application);
-                    flowsController.set('jobView', false);
-                    flowsController.set('projectView', true);
-                    flowsController.set('flowView', false);
-                }
-            });
-            var watcherEndpoint = "/api/v1/urn/watch?urn=" + application;
-            $.get(watcherEndpoint, function(data){
-                if(data.id && data.id !== 0) {
-                    flowsController.set('urnWatched', true)
-                    flowsController.set('urnWatchedId', data.id)
-                } else {
-                    flowsController.set('urnWatched', false)
-                    flowsController.set('urnWatchedId', 0)
                 }
             });
             if (application)
@@ -133,30 +76,11 @@ App.PagedapplicationRoute = Ember.Route.extend({
                 findAndActiveFlowNode(application, null, null, null);
             }
         }
-    }
-});
-
-App.PagedprojectRoute = Ember.Route.extend({
-    setupController: function(controller, params, transition) {
-        currentTab = 'Flows';
-        updateActiveTab();
-        if (transition
-            && transition.resolvedModels
-            && transition.resolvedModels.applicationname
-            && transition.resolvedModels.applicationname.applicationname
-            && transition.resolvedModels.project
-            && transition.resolvedModels.project.project)
+        else if (links.length == 2)
         {
-            var application = transition.resolvedModels.applicationname.applicationname;
-            if (application && (application.toLowerCase().indexOf("appworx") != -1))
-            {
-                flowsController.set('isAppworx', true);
-            }
-            else
-            {
-                flowsController.set('isAppworx', false);
-            }
-            var project = transition.resolvedModels.project.project;
+            application = links[0];
+            project = links[1];
+            flowsController.set('currentName', project);
             var url = 'api/v1/flows/' + application + '/' + project + '?size=10&page=' + params.page;
             var listUrl = 'api/v1/list/flows/' + application + '/' + project;
             $.get(listUrl, function(data) {
@@ -165,30 +89,19 @@ App.PagedprojectRoute = Ember.Route.extend({
                 }
             });
             var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
-                    {"title": application, "urn": application + "/page/1"},
-                    {"title": project, "urn": application + "/" + project + "/page/1"}];
+                {"title": application, "urn": "name/" + application + "/page/1?urn=" + application},
+                {"title": project, "urn": "name/" + project + "/page/1?urn=" + application + '/' + project}];
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     flowsController.set('model', data);
                     flowsController.set('breadcrumbs', breadcrumbs);
-                    flowsController.set('projectView', false);
                     flowsController.set('flowView', true);
-                    flowsController.set('urn', application + "/" + project);
                     flowsController.set('jobView', false);
                     findAndActiveFlowNode(application, project, null, null);
                 }
             });
-            var watcherEndpoint = "/api/v1/urn/watch?urn=" + application + "/" + project;
-            $.get(watcherEndpoint, function(data){
-                if(data.id && data.id !== 0) {
-                    flowsController.set('urnWatched', true)
-                    flowsController.set('urnWatchedId', data.id)
-                } else {
-                    flowsController.set('urnWatched', false)
-                    flowsController.set('urnWatchedId', 0)
-                }
-            });
         }
+
     }
 });
 
@@ -196,43 +109,38 @@ App.PagedflowRoute = Ember.Route.extend({
     setupController: function(controller, params, transition) {
         currentTab = 'Flows';
         updateActiveTab();
+        flowsController.set('flowView', false);
         if (transition
             && transition.resolvedModels
-            && transition.resolvedModels.applicationname
-            && transition.resolvedModels.applicationname.applicationname
-            && transition.resolvedModels.project
-            && transition.resolvedModels.project.project
+            && transition.resolvedModels.flowsname
+            && transition.resolvedModels.flowsname.name
             && transition.resolvedModels.flow
-            && transition.resolvedModels.flow.flow)
+            && transition.resolvedModels.flow.id
+            && transition.resolvedModels.pagedflow
+            && transition.resolvedModels.pagedflow.page )
         {
-            flowsController.set('projectView', false);
-            flowsController.set('flowView', false);
-            var application = transition.resolvedModels.applicationname.applicationname;
-            var project = transition.resolvedModels.project.project;
-            var flow = transition.resolvedModels.flow.flow;
+            var application = transition.resolvedModels.flowsname.name;
+            var project = transition.resolvedModels.pagedflow.urn;
+            var flow = transition.resolvedModels.flow.id;
             var lineageUrl = '/lineage/flow/' + application + '/' + project + '/' + flow;
             controller.set('lineageUrl', lineageUrl);
             var listUrl = 'api/v1/list/flows/' + application + '/' + project;
-            console.log(flow);
             $.get(listUrl, function(data) {
                 if (data && data.status == "ok"){
                     renderFlowListView(data.nodes, flow);
                 }
             });
-            var url = 'api/v1/flows/' + application + '/' + project + '/' + flow + '?size=10&page=' + params.page;
+            var url = 'api/v1/flow/' + application + '/' + flow + '?size=10&page=' +
+                transition.resolvedModels.pagedflow.page;
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
                     controller.set('model', data);
                     controller.set('flowId', flow);
-                    controller.set('urn', application + '/' + project + '/' + flow);
                     var breadcrumbs = [{"title": 'FLOWS_ROOT', "urn": "page/1"},
-                        {"title": application, "urn": application + "/page/1"},
-                        {"title": project, "urn": application + "/" + project + "/page/1"},
-                        {"title": data.data.flow, "urn": application + "/" + project + "/" + flow + "/page/1"}];
+                        {"title": application, "urn": "name/" + application + "/page/1?urn=" + application},
+                        {"title": project, "urn": "name/" + project + "/page/1?urn=" + application + '/' + project},
+                        {"title": data.data.flow, "urn": "name/" + application + "/" + flow + "/page/1?urn=" + project}];
                     controller.set('breadcrumbs', breadcrumbs);
-                    flowsController.set('projectView', false);
-                    flowsController.set('flowView', false);
-                    flowsController.set('jobView', true);
                     if (data.data.flow)
                     {
                         findAndActiveFlowNode(application, project, flow, data.data.flow);

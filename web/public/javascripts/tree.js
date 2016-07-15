@@ -92,15 +92,17 @@
             {
                 if (node.data.level == 1)
                 {
-                    window.location = "#/flows/" + node.title + "/page/1";
+                    window.location = "#/flows/name/" + node.title + "/page/1?urn=" + node.title;
                 }
                 else if(node.data.level == 2)
                 {
-                    window.location = "#/flows/" + node.parent.title + '/' + node.title + "/page/1";
+                    window.location = "#/flows/name/" + node.title +
+                        "/page/1?urn=" + node.parent.title + '/' + node.title;
                 }
                 else if(node.data.level == 3)
                 {
-                    window.location = "#/flows/" + node.parent.parent.title + '/' + node.parent.title + '/' + node.data.id + "/page/1";
+                    window.location = "#/flows/name/" + node.parent.parent.title + '/' +
+                        node.data.id + '/page/1?urn=' + node.parent.title;
                 }
             }
         });

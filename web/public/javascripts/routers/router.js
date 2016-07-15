@@ -25,13 +25,10 @@ App.Router.map(function() {
 
     this.resource('flows', function(){
         this.resource('flowspage', {path: '/page/:page'});
-        this.resource('applicationname', {path: '/:applicationname'}, function(){
-            this.resource('pagedapplication', {path: '/page/:page'});
-            this.resource('project', {path: '/:project'}, function(){
-                this.resource('pagedproject', {path: '/page/:page'});
-                this.resource('flow', {path: '/:flow'}, function(){
-                    this.resource('pagedflow', {path: '/page/:page'});
-                });
+        this.resource('flowsname', {path: '/name/:name'}, function(){
+            this.resource('flowssubpage', {path: '/page/:page'});
+            this.resource('flow', {path: '/:id'}, function(){
+                this.resource('pagedflow', {path: '/page/:page'});
             });
         });
     });

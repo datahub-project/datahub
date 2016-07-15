@@ -48,15 +48,31 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_FLOW_COUNT_WITHOUT_PROJECT_BY_APP_ID = "SELECT count(*) " +
 			"FROM flow WHERE app_id = ? and flow_group is null";
 
+	private final static String GET_PAGED_FLOWS = "SELECT SQL_CALC_FOUND_ROWS " +
+			"DISTINCT f.flow_id, f.flow_name, f.flow_path, f.flow_group, f.flow_level, f.app_id, ca.app_code, " +
+			"FROM_UNIXTIME(f.created_time) as created_time, FROM_UNIXTIME(f.modified_time) as modified_time " +
+			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE (f.is_active is null or f.is_active = 'Y') ORDER BY 2 LIMIT ?, ?";
+
+	private final static String GET_PAGED_FLOWS_BY_APP_ID = "SELECT SQL_CALC_FOUND_ROWS " +
+			"DISTINCT f.flow_id, f.flow_name, f.flow_path, f.flow_group, f.flow_level, f.app_id, ca.app_code, " +
+			"FROM_UNIXTIME(f.created_time) as created_time, FROM_UNIXTIME(f.modified_time) as modified_time " +
+			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE f.app_id = ? and (f.is_active is null or f.is_active = 'Y') ORDER BY 2 LIMIT ?, ?";
+
 	private final static String GET_PAGED_FLOWS_BY_APP_ID_AND_PROJECT_NAME = "SELECT SQL_CALC_FOUND_ROWS " +
-			"DISTINCT flow_id, flow_name, flow_path, flow_level, " +
-            "FROM_UNIXTIME(created_time) as created_time, FROM_UNIXTIME(modified_time) as modified_time FROM flow " +
-			"WHERE app_id = ? and flow_group = ? and (is_active is null or is_active = 'Y') ORDER BY 1 LIMIT ?, ?";
+			"DISTINCT f.flow_id, f.flow_name, f.flow_path, f.flow_group, f.flow_level, f.app_id, ca.app_code, " +
+            "FROM_UNIXTIME(f.created_time) as created_time, FROM_UNIXTIME(f.modified_time) as modified_time " +
+			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE f.app_id = ? and f.flow_group = ? and (f.is_active is null or f.is_active = 'Y') " +
+			"ORDER BY 2 LIMIT ?, ?";
 
 	private final static String GET_PAGED_FLOWS_WITHOUT_PROJECT_BY_APP_ID = "SELECT SQL_CALC_FOUND_ROWS " +
-			"DISTINCT flow_id, flow_name, flow_path, flow_level, " +
-            "FROM_UNIXTIME(created_time) as created_time, FROM_UNIXTIME(modified_time) as modified_time FROM flow " +
-			"WHERE app_id = ? and flow_group is null and (is_active is null or is_active = 'Y') ORDER BY 1 LIMIT ?, ?";
+			"DISTINCT f.flow_id, f.flow_name, f.flow_path, f.flow_group, f.flow_level, f.app_id, ca.app_code, " +
+            "FROM_UNIXTIME(f.created_time) as created_time, FROM_UNIXTIME(f.modified_time) as modified_time " +
+			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
+			"WHERE f.app_id = ? and f.flow_group is null and (f.is_active is null or f.is_active = 'Y') " +
+			"ORDER BY 2 LIMIT ?, ?";
 
 	private final static String GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID =
 			"SELECT count(*) FROM flow_job WHERE app_id = ? and flow_id = ?";
@@ -64,8 +80,9 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_PAGED_JOBS_BY_APP_ID_AND_FLOW_ID = "select SQL_CALC_FOUND_ROWS " +
 			"j.job_id, MAX(j.last_source_version), j.job_name, j.job_path, j.job_type, j.ref_flow_id, " +
 			"FROM_UNIXTIME(j.created_time) as created_time, " +
-			"FROM_UNIXTIME(j.modified_time) as modified_time, f.flow_name " +
+			"FROM_UNIXTIME(j.modified_time) as modified_time, f.flow_name, l.flow_group " +
 			"FROM flow_job j JOIN flow f on j.app_id = f.app_id and j.flow_id = f.flow_id " +
+			"LEFT JOIN flow l on j.app_id = l.app_id and j.ref_flow_id = l.flow_id " +
 			"WHERE j.app_id = ? and j.flow_id = ? GROUP BY j.job_id, j.job_name, " +
 			"j.job_path, j.job_type, j.ref_flow_id, " +
 			"f.flow_name ORDER BY j.job_id LIMIT ?, ?";
@@ -188,70 +205,84 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 
 	public static ObjectNode getPagedProjects(int page, int size)
 	{
-		ObjectNode result = Json.newObject();
+		ObjectNode result;
 
 		javax.sql.DataSource ds = getJdbcTemplate().getDataSource();
 		DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
 		TransactionTemplate txTemplate = new TransactionTemplate(tm);
-
-		result = txTemplate.execute(new TransactionCallback<ObjectNode>() {
-			public ObjectNode doInTransaction(TransactionStatus status) {
-
+		result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+		{
+			public ObjectNode doInTransaction(TransactionStatus status)
+			{
 				ObjectNode resultNode = Json.newObject();
-				List<Project> pagedProjects = getJdbcTemplate().query(
-						GET_PAGED_PROJECTS,
-						new ProjectRowMapper(),
-						(page - 1) * size, size);
 				long count = 0;
+				List<Flow> pagedFlows = new ArrayList<Flow>();
+				List<Map<String, Object>> rows = null;
+				rows = getJdbcTemplate().queryForList(
+						GET_PAGED_FLOWS,
+						(page - 1) * size,
+						size);
+
 				try {
 					count = getJdbcTemplate().queryForObject(
 							"SELECT FOUND_ROWS()",
 							Long.class);
-				} catch (EmptyResultDataAccessException e) {
+				}
+				catch(EmptyResultDataAccessException e)
+				{
 					Logger.error("Exception = " + e.getMessage());
 				}
-				if (pagedProjects != null && pagedProjects.size() > 0)
-				{
-					for(Project project : pagedProjects)
+				for (Map row : rows) {
+					Flow flow = new Flow();
+					flow.id = (Long)row.get("flow_id");
+					flow.level = (Integer)row.get("flow_level");
+					flow.appId = (Integer)row.get("app_id");
+					flow.group = (String)row.get("flow_group");
+					flow.name = (String)row.get("flow_name");
+					flow.path = (String)row.get("flow_path");
+					flow.appCode = (String)row.get("app_code");
+					if (StringUtils.isNotBlank(flow.path))
 					{
-						Long flowCount = 0L;
-						if (StringUtils.isNotBlank(project.flowGroup))
+						int index = flow.path.indexOf(":");
+						if (index != -1)
 						{
-							try {
-								flowCount = getJdbcTemplate().queryForObject(
-										GET_FLOW_COUNT_BY_APP_ID_AND_PROJECT_NAME,
-										new Object[] {project.appId, project.name},
-										Long.class);
-								project.flowCount = flowCount;
-							}
-							catch(EmptyResultDataAccessException e)
-							{
-								Logger.error("Exception = " + e.getMessage());
-							}
-						}
-						else
-						{
-							try {
-								flowCount = getJdbcTemplate().queryForObject(
-										GET_FLOW_COUNT_WITHOUT_PROJECT_BY_APP_ID,
-										new Object[] {project.appId},
-										Long.class);
-								project.flowCount = flowCount;
-							}
-							catch(EmptyResultDataAccessException e)
-							{
-								Logger.error("Exception = " + e.getMessage());
-							}
+							flow.path = flow.path.substring(0, index);
 						}
 					}
-				}
-				resultNode.set("projects", Json.toJson(pagedProjects));
+					Object created = row.get("created_time");
+					if (created != null)
+					{
+						flow.created = created.toString();
+					}
+					Object modified = row.get("modified_time");
+					if (modified != null)
+					{
+						flow.modified = row.get("modified_time").toString();
+					}
 
+					int jobCount = 0;
+
+					if (flow.id != null && flow.id != 0)
+					{
+						try {
+							jobCount = getJdbcTemplate().queryForObject(
+									GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID,
+									new Object[] {flow.appId, flow.id},
+									Integer.class);
+							flow.jobCount = jobCount;
+						}
+						catch(EmptyResultDataAccessException e)
+						{
+							Logger.error("Exception = " + e.getMessage());
+						}
+					}
+					pagedFlows.add(flow);
+				}
+				resultNode.set("flows", Json.toJson(pagedFlows));
 				resultNode.put("count", count);
 				resultNode.put("page", page);
 				resultNode.put("itemsPerPage", size);
-				resultNode.put("totalPages", (int) Math.ceil(count / ((double) size)));
-
+				resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 
 				return resultNode;
 			}
@@ -274,64 +305,78 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			final int applicationID = appID;
 
 			result = txTemplate.execute(new TransactionCallback<ObjectNode>() {
-				public ObjectNode doInTransaction(TransactionStatus status) {
-
+				public ObjectNode doInTransaction(TransactionStatus status)
+				{
 					ObjectNode resultNode = Json.newObject();
-					List<Project> pagedProjects = getJdbcTemplate().query(
-						GET_PAGED_PROJECTS_BY_APP_ID,
-						new ProjectRowMapper(),
-						applicationID,
-						(page - 1) * size, size);
 					long count = 0;
+					List<Flow> pagedFlows = new ArrayList<Flow>();
+					List<Map<String, Object>> rows = null;
+					rows = getJdbcTemplate().queryForList(
+							GET_PAGED_FLOWS_BY_APP_ID,
+							applicationID,
+							(page - 1) * size,
+							size);
+
 					try {
 						count = getJdbcTemplate().queryForObject(
 								"SELECT FOUND_ROWS()",
 								Long.class);
-					} catch (EmptyResultDataAccessException e) {
+					}
+					catch(EmptyResultDataAccessException e)
+					{
 						Logger.error("Exception = " + e.getMessage());
 					}
-					if (pagedProjects != null && pagedProjects.size() > 0)
-					{
-						for(Project project : pagedProjects)
+					for (Map row : rows) {
+						Flow flow = new Flow();
+						flow.id = (Long)row.get("flow_id");
+						flow.level = (Integer)row.get("flow_level");
+						flow.appId = (Integer)row.get("app_id");
+						flow.group = (String)row.get("flow_group");
+						flow.name = (String)row.get("flow_name");
+						flow.path = (String)row.get("flow_path");
+						flow.appCode = (String)row.get("app_code");
+						if (StringUtils.isNotBlank(flow.path))
 						{
-							Long flowCount = 0L;
-							if (StringUtils.isNotBlank(project.flowGroup))
+							int index = flow.path.indexOf(":");
+							if (index != -1)
 							{
-								try {
-									flowCount = getJdbcTemplate().queryForObject(
-											GET_FLOW_COUNT_BY_APP_ID_AND_PROJECT_NAME,
-											new Object[] {appID, project.name},
-											Long.class);
-									project.flowCount = flowCount;
-								}
-								catch(EmptyResultDataAccessException e)
-								{
-									Logger.error("Exception = " + e.getMessage());
-								}
-							}
-							else
-							{
-								try {
-									flowCount = getJdbcTemplate().queryForObject(
-											GET_FLOW_COUNT_WITHOUT_PROJECT_BY_APP_ID,
-											new Object[] {appID},
-											Long.class);
-									project.flowCount = flowCount;
-								}
-								catch(EmptyResultDataAccessException e)
-								{
-									Logger.error("Exception = " + e.getMessage());
-								}
+								flow.path = flow.path.substring(0, index);
 							}
 						}
-					}
-					resultNode.set("projects", Json.toJson(pagedProjects));
+						Object created = row.get("created_time");
+						if (created != null)
+						{
+							flow.created = created.toString();
+						}
+						Object modified = row.get("modified_time");
+						if (modified != null)
+						{
+							flow.modified = row.get("modified_time").toString();
+						}
 
+						int jobCount = 0;
+
+						if (flow.id != null && flow.id != 0)
+						{
+							try {
+								jobCount = getJdbcTemplate().queryForObject(
+										GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID,
+										new Object[] {flow.appId, flow.id},
+										Integer.class);
+								flow.jobCount = jobCount;
+							}
+							catch(EmptyResultDataAccessException e)
+							{
+								Logger.error("Exception = " + e.getMessage());
+							}
+						}
+						pagedFlows.add(flow);
+					}
+					resultNode.set("flows", Json.toJson(pagedFlows));
 					resultNode.put("count", count);
 					resultNode.put("page", page);
 					resultNode.put("itemsPerPage", size);
-					resultNode.put("totalPages", (int) Math.ceil(count / ((double) size)));
-
+					resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
 
 					return resultNode;
 				}
@@ -344,7 +389,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 		result.put("page", page);
 		result.put("itemsPerPage", size);
 		result.put("totalPages", 0);
-		result.set("projects", Json.toJson(""));
+		result.set("flows", Json.toJson(""));
 		return result;
 	}
 
@@ -413,6 +458,8 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 						flow.level = (Integer)row.get("flow_level");
 						flow.name = (String)row.get("flow_name");
 						flow.path = (String)row.get("flow_path");
+						flow.appCode = (String)row.get("app_code");
+						flow.group = project;
 						if (StringUtils.isNotBlank(flow.path))
 						{
 							int index = flow.path.indexOf(":");
@@ -473,16 +520,14 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 
 	public static ObjectNode getPagedJobsByFlow(
 			String applicationName,
-			String project,
 			Long flowId,
 			int page,
 			int size)
 	{
 		ObjectNode result;
 		List<Job> pagedJobs = new ArrayList<Job>();
-		int flowSK = 0;
 
-		if (StringUtils.isBlank(applicationName) || StringUtils.isBlank(project) || (flowId <= 0))
+		if (StringUtils.isBlank(applicationName) || (flowId <= 0))
 		{
 			result = Json.newObject();
 			result.put("count", 0);
@@ -530,6 +575,8 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 						job.id = (Long)row.get("job_id");
 						job.name = (String)row.get("job_name");
 						job.path = (String)row.get("job_path");
+						job.path = (String)row.get("job_path");
+						job.refFlowGroup = (String)row.get("flow_group");
 						if (StringUtils.isNotBlank(job.path))
 						{
 							int index = job.path.indexOf("/");
@@ -591,7 +638,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			FlowListViewNode node = new FlowListViewNode();
 			node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
 			node.nodeName = node.application;
-			node.nodeUrl = "#/flows/" + node.nodeName + "/page/1";
+			node.nodeUrl = "#/flows/name/" + node.nodeName + "/page/1?urn=" + node.nodeName;
 			nodes.add(node);
 		}
 		return nodes;
@@ -611,7 +658,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
 			node.project = (String) row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
 			node.nodeName = node.project;
-			node.nodeUrl = "#/flows/" + node.application + "/" + node.project + "/page/1";
+			node.nodeUrl = "#/flows/name/" + node.project + "/page/1?urn=" + node.application + "/" + node.project;
 			nodes.add(node);
 		}
 		return nodes;
@@ -634,8 +681,8 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			node.flow = (String) row.get(FlowRowMapper.FLOW_NAME_COLUMN);
 			node.nodeName = node.flow;
 			node.flowId = (Long)row.get(FlowRowMapper.FLOW_ID_COLUMN);
-			node.nodeUrl = "#/flows/" + node.application + "/"
-					+ node.project + "/" + Long.toString(node.flowId) + "/page/1";
+			node.nodeUrl = "#/flows/name/" + node.application + "/"
+					+ Long.toString(node.flowId) + "/page/1?urn=" + node.project;
 			nodes.add(node);
 		}
 		return nodes;

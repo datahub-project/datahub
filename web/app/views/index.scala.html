@@ -1409,75 +1409,8 @@
     </script>
 
     <script type="text/x-handlebars" id="flows">
-      {{#if projectView}}
-      <div id="pagedProjects" >
-        <div class="row">
-          <div class="col-xs-12">
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-11">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div class="search-pagination">
-              <ul class="pager">
-                {{#unless first}}
-                  <li class="previous">
-                    {{#link-to 'pagedapplication' previousPage}}
-                      &larr; Prev
-                    {{/link-to}}
-                  </li>
-                {{/unless}}
-                <li>
-                  {{ model.data.count }} projects - page {{ model.data.page }} of {{ model.data.totalPages }}
-                </li>
-                {{#unless last}}
-                  <li class="next">
-                    {{#link-to 'pagedapplication' nextPage}}
-                      Next &rarr;
-                    {{/link-to}}
-                  </li>
-                {{/unless}}
-              </ul>
-            </div>
-            <table class="table table-bordered search-results">
-              <thead>
-                <tr class="results-header">
-                  <th class="col-xs-3">Project Name</th>
-                  <th class="col-xs-3">Flow Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{#each project in model.data.projects}}
-                  <tr>
-                    <td class="dataset-info">
-                      {{#link-to 'pagedproject' project.appCode project.name 1}}
-                        {{project.name}}
-                      {{/link-to}}
-                    </td>
-                    <td>{{ project.flowCount }}</td>
-                  </tr>
-                {{/each}}
-              </tbody>
-            </table>
-          </div>
-          <div class="col-xs-12">
-            {{outlet}}
-          </div>
-        </div>
-      </div>
-      {{/if}}
       {{#if flowView}}
-      <div id="pagedFlows" >
+      <div id="flowspage" >
         <div class="row">
           <div class="col-xs-12">
             <div class="well well-sm">
@@ -1499,9 +1432,15 @@
               <ul class="pager">
                 {{#unless first}}
                   <li class="previous">
-                    {{#link-to 'pagedproject' previousPage}}
-                      &larr; Prev
-                    {{/link-to}}
+                    {{#if queryParams}}
+                      {{#link-to 'flowssubpage' currentName previousPage (query-params urn=queryParams)}}
+                        &larr; Prev
+                      {{/link-to}}
+                    {{else}}
+                      {{#link-to 'flowspage' previousPage}}
+                        &larr; Prev
+                      {{/link-to}}
+                    {{/if}}
                   </li>
                 {{/unless}}
                 <li>
@@ -1509,9 +1448,15 @@
                 </li>
                 {{#unless last}}
                   <li class="next">
-                    {{#link-to 'pagedproject' nextPage}}
-                      Next &rarr;
-                    {{/link-to}}
+                    {{#if queryParams}}
+                      {{#link-to 'flowssubpage' currentName nextPage (query-params urn=queryParams)}}
+                        Next &rarr;
+                      {{/link-to}}
+                    {{else}}
+                      {{#link-to 'flowspage' nextPage}}
+                        Next &rarr;
+                      {{/link-to}}
+                    {{/if}}
                   </li>
                 {{/unless}}
               </ul>
@@ -1532,7 +1477,7 @@
                   <tr>
                     <td class="wrap-all-word">{{ flow.path }}</td>
                     <td class="dataset-info wrap-all-word">
-                      {{#link-to 'pagedflow' flow.id 1}}
+                      {{#link-to 'pagedflow' flow.appCode flow.id 1 (query-params urn=flow.group)}}
                         {{flow.name}}
                       {{/link-to}}
                     </td>
@@ -1550,8 +1495,7 @@
           </div>
         </div>
       </div>
-      {{/if}}
-      {{#if jobView}}
+      {{else}}
       <div id="pagedJobs" >
         <div class="row">
           <div class="col-xs-12">
@@ -1563,7 +1507,7 @@
     </script>
 
     <script type="text/x-handlebars" id="pagedflow">
-      <div id="pagedJobs" class="container-fluid">
+      <div id="flow" class="container-fluid">
         <div class="row-fluid">
           <div class="span9">
             <div class="well well-sm">
@@ -1612,7 +1556,7 @@
               <ul class="pager">
                 {{#unless first}}
                   <li class="previous">
-                    {{#link-to 'pagedflow' previousPage}}
+                    {{#link-to 'pagedflow' previousPage (query-params urn=urn)}}
                       &larr; Prev
                     {{/link-to}}
                   </li>
@@ -1622,7 +1566,7 @@
                 </li>
                 {{#unless last}}
                   <li class="next">
-                    {{#link-to 'pagedflow' nextPage}}
+                    {{#link-to 'pagedflow' nextPage (query-params urn=urn)}}
                       Next &rarr;
                     {{/link-to}}
                   </li>
@@ -1645,7 +1589,7 @@
                     <td class="wrap-all-word">{{ job.path }}</td>
                     <td class="dataset-info wrap-all-word">
                       {{#if job.refFlowId}}
-                        {{#link-to 'pagedflow' job.refFlowId 1}}
+                        {{#link-to 'pagedflow' job.refFlowId 1 (query-params urn=job.refFlowGroup)}}
                           {{job.name}}
                         {{/link-to}}
                       {{else}}
