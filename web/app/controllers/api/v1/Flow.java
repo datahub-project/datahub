@@ -167,7 +167,7 @@ public class Flow extends Controller
         return ok(result);
     }
 
-    public static Result getPagedJobs(String application, String project, Long flowId)
+    public static Result getPagedJobs(String application, Long flowId)
     {
         ObjectNode result = Json.newObject();
         int page = 1;
@@ -211,7 +211,7 @@ public class Flow extends Controller
         }
 
         result.put("status", "ok");
-        result.set("data", FlowsDAO.getPagedJobsByFlow(application, project, flowId, page, size));
+        result.set("data", FlowsDAO.getPagedJobsByFlow(application, flowId, page, size));
         return ok(result);
     }
 

@@ -21,4 +21,5 @@ public class Job {
     public String created;
     public String modified;
     public Long refFlowId;
+    public String refFlowGroup;
 }

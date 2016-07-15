@@ -135,7 +135,7 @@ GET     /api/v1/flows/:application                  controllers.api.v1.Flow.getP
 
 GET     /api/v1/flows/:application/:project         controllers.api.v1.Flow.getPagedFlows(application: String, project: String)
 
-GET     /api/v1/flows/:application/:project/:flowId   controllers.api.v1.Flow.getPagedJobs(application: String, project: String, flowId: Long)
+GET     /api/v1/flow/:application/:flowId           controllers.api.v1.Flow.getPagedJobs(application: String, flowId: Long)
 
 GET     /api/v1/advsearch/sources                   controllers.api.v1.AdvSearch.getDatasetSources()
 
