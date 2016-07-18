@@ -111,6 +111,12 @@ public class ControllersTest {
         JsonNode sampleNode = Json.parse(contentAsString(result));
         assertThat(sampleNode.isContainerNode());
         //assertThat(sampleNode.get("status").asText()).isEqualTo("ok");
+
+        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId)
+        assertThat(status(result)).isEqualTo(OK);
+        JsonNode versionNode = Json.parse(contentAsString(result));
+        assertThat(versionNode.isContainerNode());
+        assertThat(versionNode.get("status").asText()).isEqualTo("ok");
     }
 
     /*
