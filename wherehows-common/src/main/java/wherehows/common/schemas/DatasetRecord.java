@@ -15,6 +15,7 @@ package wherehows.common.schemas;
 
 import java.util.ArrayList;
 import java.util.List;
+import wherehows.common.utils.StringUtil;
 
 
 /**
@@ -75,6 +76,54 @@ public class DatasetRecord extends AbstractRecord {
     allFields.add(null);
     return allFields;
   }
+  public List<String> fillAllFieldNames() {
+    List<String> allFieldNames = new ArrayList<>();
+    allFieldNames.add("id");
+    allFieldNames.add("name");
+    allFieldNames.add("schema");
+    allFieldNames.add("schema_type");
+    allFieldNames.add("properties");
+    allFieldNames.add("fields");
+    allFieldNames.add("urn");
+    allFieldNames.add("source");
+    allFieldNames.add("location_prefix");
+    allFieldNames.add("parent_name");
+    allFieldNames.add("storage_type");
+    allFieldNames.add("ref_dataset_id");
+    allFieldNames.add("status_id");
+    allFieldNames.add("dataset_type");
+    allFieldNames.add("hive_serdes_class");
+    allFieldNames.add("is_partitioned");
+    allFieldNames.add("partition_layout_pattern_id");
+    allFieldNames.add("sample_partition_full_path");
+    allFieldNames.add("source_created_time");
+    allFieldNames.add("source_modified_time");
+    // add the created_date, modified_date and wh_etl_exec_id
+    allFieldNames.add("created_time");
+    allFieldNames.add("modified_time");
+    allFieldNames.add("wh_etl_exec_id");
+    return allFieldNames;
+  }
+
+  public String toUpdateDatabaseValue() {
+    List<Object> allFields = fillAllFields();
+    List<String> allFieldNames = fillAllFieldNames();
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < allFields.size(); i++) {
+      Object o = allFields.get(i);
+      if (o != null)   {
+        String fieldName = allFieldNames.get(i);
+        sb.append("`"+fieldName+"`");
+        sb.append("=");
+        sb.append(StringUtil.toDbString(o));
+        sb.append(",");
+      }
+    }
+    sb.deleteCharAt(sb.length() - 1);
+    return sb.toString();
+
+  }
+
 
   public Integer getId() {
     return id;
