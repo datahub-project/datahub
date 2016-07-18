@@ -205,6 +205,18 @@ App.DatasetRoute = Ember.Route.extend({
           }
       }
 
+      var versionUrl = 'api/v1/datasets/' + id + "/versions";
+      $.get(versionUrl, function(data) {
+        if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
+          controller.set("hasversions", true);
+          controller.set("versions", data.versions);
+        }
+        else
+        {
+          controller.set("hasversions", false);
+        }
+      });
+
       if (urn)
       {
         var index = urn.lastIndexOf('/');
@@ -213,7 +225,6 @@ App.DatasetRoute = Ember.Route.extend({
           var listUrl = 'api/v1/list/datasets?urn=' + urn.substring(0, index+1);
           $.get(listUrl, function(data) {
             if (data && data.status == "ok"){
-              console.log(name);
               renderDatasetListView(data.nodes, name);
             }
           });

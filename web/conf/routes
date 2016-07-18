@@ -59,6 +59,8 @@ GET     /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.getDatase
 
 POST    /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
 
+GET     /api/v1/datasets/:id/versions       controllers.api.v1.Dataset.getDatasetVersions(id:Long)
+
 GET     /api/v1/datasets/:id/columns        controllers.api.v1.Dataset.getDatasetColumnsByID(id:Int)
 
 GET     /api/v1/datasets/:id/depends        controllers.api.v1.Dataset.getDependViews(id:Long)
