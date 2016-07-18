@@ -770,4 +770,12 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result getDatasetVersions(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.put("versions", Json.toJson(DatasetsDAO.getDatasetVersions(datasetId)));
+        return ok(result);
+    }
+
 }

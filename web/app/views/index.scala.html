@@ -749,6 +749,14 @@
         <div class="row">
           <div class="col-xs-5">
             <h3>{{ model.name }}</h3>
+              {{#if hasversions}}
+                <div class="col-xs-12">
+                  <span class="prop-label">Versions:</span>
+                  {{#each version in versions}}
+                    <a style="display:inline;margin-right:5px;">{{ version }} </a>
+                  {{/each}}
+                </div>
+              {{/if}}
           </div>
           <div class="col-xs-7 text-right">
             <ul class="datasetDetailsLinks">

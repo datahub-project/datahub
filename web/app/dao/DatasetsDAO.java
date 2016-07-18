@@ -333,6 +333,9 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"ON s.urn = concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) " +
 			"WHERE d.urn LIKE ? ORDER BY d.name";
 
+	private final static String GET_DATASET_VERSIONS = "SELECT version " +
+			"FROM dict_dataset_instance WHERE dataset_id = ? and version != '0' ORDER BY version_sort_id";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1826,5 +1829,10 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return nodes;
+	}
+
+	public static List<String> getDatasetVersions(Long datasetId)
+	{
+		return getJdbcTemplate().queryForList(GET_DATASET_VERSIONS, String.class, datasetId);
 	}
 }
