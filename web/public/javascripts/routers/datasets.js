@@ -8,6 +8,11 @@ function initializeDependsTreeGrid()
   $('#depends-table').treegrid();
 }
 
+function initializeReferencesTreeGrid()
+{
+  $('#references-table').treegrid();
+}
+
 function formatValue(key, value){
   switch(key) {
     case 'modification_time':
@@ -452,6 +457,23 @@ App.DatasetRoute = Ember.Route.extend({
         else
         {
           controller.set("hasDepends", false);
+        }
+      }
+    });
+
+    var datasetReferencesUrl = 'api/v1/datasets/' + id + "/references";
+    $.get(datasetReferencesUrl, function(data) {
+      if (data && data.status == "ok")
+      {
+        if (data.references && (data.references.length > 0))
+        {
+          controller.set("hasReferences", true);
+          controller.set("references", data.references);
+          setTimeout(initializeReferencesTreeGrid, 500);
+        }
+        else
+        {
+          controller.set("hasReferences", false);
         }
       }
     });
