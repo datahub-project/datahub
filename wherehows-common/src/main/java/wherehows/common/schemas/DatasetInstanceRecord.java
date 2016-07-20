@@ -23,7 +23,6 @@ import java.util.List;
  */
 public class DatasetInstanceRecord extends AbstractRecord {
   String datasetUrn;
-  Integer dbId;
   String deploymentTier;
   String dataCenter;
   String serverCluster;
@@ -33,16 +32,15 @@ public class DatasetInstanceRecord extends AbstractRecord {
   String logicalName;
   String version;
   Long instanceCreatedUnixtime;
-  Long createdUnixtime;
-  Long whExecId;
+  String schema;
+  String viewExpandedText;
   String abstractedDatasetUrn;
 
-  public DatasetInstanceRecord(String datasetUrn, Integer dbId, String deploymentTier, String dataCenter,
+  public DatasetInstanceRecord(String datasetUrn, String deploymentTier, String dataCenter,
                                String serverCluster, String slice, Integer statusId, String nativeName,
                                String logicalName, String version, Long instanceCreatedUnixtime,
-                               Long createdUnixtime, Long whExecId, String abstractedDatasetUrn) {
+                               String schema, String viewExpandedText, String abstractedDatasetUrn) {
     this.datasetUrn = datasetUrn;
-    this.dbId = dbId;
     this.deploymentTier = deploymentTier;
     this.dataCenter = dataCenter;
     this.serverCluster = serverCluster;
@@ -52,8 +50,8 @@ public class DatasetInstanceRecord extends AbstractRecord {
     this.logicalName = logicalName;
     this.version = version;
     this.instanceCreatedUnixtime = instanceCreatedUnixtime;
-    this.createdUnixtime = createdUnixtime;
-    this.whExecId = whExecId;
+    this.schema = schema;
+    this.viewExpandedText = viewExpandedText;
     this.abstractedDatasetUrn = abstractedDatasetUrn;
   }
 
@@ -61,7 +59,6 @@ public class DatasetInstanceRecord extends AbstractRecord {
   public List<Object> fillAllFields() {
     List<Object> allFields = new ArrayList<>();
     allFields.add(datasetUrn);
-    allFields.add(dbId);
     allFields.add(deploymentTier);
     allFields.add(dataCenter);
     allFields.add(serverCluster);
@@ -71,8 +68,8 @@ public class DatasetInstanceRecord extends AbstractRecord {
     allFields.add(logicalName);
     allFields.add(version);
     allFields.add(instanceCreatedUnixtime);
-    allFields.add(createdUnixtime);
-    allFields.add(whExecId);
+    allFields.add(schema);
+    allFields.add(viewExpandedText);
     allFields.add(abstractedDatasetUrn);
     return allFields;
   }
