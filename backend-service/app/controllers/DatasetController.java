@@ -44,6 +44,24 @@ public class DatasetController extends Controller {
     return ok(resultJson);
   }
 
+  public static Result getDatasetUrns(String propertiesLike)
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    try {
+      if (propertiesLike != null) {
+        ObjectNode result = DatasetDao.getDatasetUrnForPropertiesLike(propertiesLike);
+        resultJson.put("return_code", 200);
+        resultJson.put("dataset_urns", result);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+
+    return ok(resultJson);
+  }
+
   public static Result getDatasetInfo() throws SQLException {
     ObjectNode resultJson = Json.newObject();
     String datasetIdString = request().getQueryString("datasetId");

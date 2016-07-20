@@ -69,6 +69,8 @@ public class DatasetDao {
           "mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
           "FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
+  public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR = "select urn from dict_dataset where properties like :properties";
+
   public static Map<String, Object> getDatasetById(int datasetId)
     throws SQLException {
     Map<String, Object> params = new HashMap<>();
@@ -82,6 +84,26 @@ public class DatasetDao {
     params.put("urn", urn);
     return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_BY_URN, params);
   }
+
+  //
+  public static ObjectNode getDatasetUrnForPropertiesLike(String properties) {
+    ObjectNode result = Json.newObject();
+    List<String> datasetUrns = new ArrayList<String>();
+    if (StringUtils.isNotBlank(properties)) {
+      Map<String, Object> params = new HashMap<>();
+      params.put("properties", properties);
+      List<Map<String, Object>> rows = null;
+      rows = JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_URN_PROPERTIES_LIKE_EXPR, params);
+      for (Map row : rows) {
+        String datasetUrn = (String) row.get("urn");
+        datasetUrns.add(datasetUrn);
+      }
+      result.put("count", datasetUrns.size());
+      result.set("urns", Json.toJson(datasetUrns));
+    }
+    return result;
+  }
+
 
   public static void insertDataset(JsonNode dataset)
     throws Exception {
