@@ -458,7 +458,7 @@
         <table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
           <thead>
             <tr class="results-header">
-              <th class="span2">Dataset</th>
+              <th class="span2">Depends on</th>
               <th class="span1">Object Type</th>
               <th class="span1">Object Sub Type</th>
               <th class="span2">Level</th>
@@ -483,8 +483,36 @@
             {{/each}}
           </tbody>
         </table>
-      {{else}}
-        <p>Depends view is not available</p>
+      {{/if}}
+      {{#if hasReferences}}
+        <table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+          <thead>
+            <tr class="results-header">
+              <th class="span2">Referred By</th>
+              <th class="span1">Object Type</th>
+              <th class="span1">Object Sub Type</th>
+              <th class="span2">Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each reference in references}}
+            <tr {{bind-attr class="reference.treeGridClass"}}>
+              <td>
+                {{#if reference.isValidDataset}}
+                  <a {{bind-attr href=reference.datasetLink}}>
+                    {{reference.objectName}}
+                  </a>
+                {{else}}
+                  {{reference.objectName}}
+                {{/if}}
+              </td>
+              <td>{{reference.objectType}}</td>
+              <td>{{reference.objectSubType}}</td>
+              <td>{{reference.level}}</td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
       {{/if}}
     </script>
 
@@ -844,9 +872,9 @@
           </li>
           <li id="depends">
             <a data-toggle="tab"
-              title="Depend On"
+              title="Relations"
               href="#dependtab">
-              Depend On
+              Relations
             </a>
           </li>
         </ul>
@@ -982,7 +1010,7 @@
             <h4 class="panel-title">
               <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
                href="#dependsview" aria-expanded="false" aria-controls="sampleData">
-                Depends On
+                Relations
               </a>
             </h4>
           </div>

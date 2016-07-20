@@ -761,6 +761,16 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result getReferenceViews(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        List<DatasetDependency> references = new ArrayList<DatasetDependency>();
+        DatasetsDAO.getDatasetReferences(datasetId, 1, 0, references);
+        result.put("status", "ok");
+        result.put("references", Json.toJson(references));
+        return ok(result);
+    }
+
     public static Result getDatasetListNodes()
     {
         ObjectNode result = Json.newObject();

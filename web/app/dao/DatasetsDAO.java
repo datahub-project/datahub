@@ -322,6 +322,11 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
 			"FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
+	private final static String GET_DATASET_REFERENCES = "SELECT object_type, object_sub_type, " +
+			"object_name, object_dataset_id, map_phrase, is_identical_map, mapped_object_dataset_id, " +
+			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
+			"FROM cfg_object_name_map WHERE mapped_object_dataset_id = ?";
+
 	private final static String GET_DATASET_LISTVIEW_TOP_LEVEL_NODES = "SELECT DISTINCT " +
 			"SUBSTRING_INDEX(urn, ':///', 1) as name, 0 as id, " +
 			"concat(SUBSTRING_INDEX(urn, ':///', 1), ':///') as urn FROM dict_dataset order by 1";
@@ -1788,6 +1793,52 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				}
 				depends.add(dd);
 				getDatasetDependencies(dd.datasetId, level + 1, dd.sortId, depends);
+			}
+		}
+	}
+
+	public static void getDatasetReferences(
+			Long datasetId,
+			int level,
+			int parent,
+			List<DatasetDependency> references)
+	{
+		if (references == null)
+		{
+			references = new ArrayList<DatasetDependency>();
+		}
+
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_DATASET_REFERENCES,
+				datasetId);
+
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				DatasetDependency dd = new DatasetDependency();
+				dd.datasetId = (Long) row.get("object_dataset_id");
+				dd.objectName = (String) row.get("object_name");
+				dd.objectType = (String) row.get("object_type");
+				dd.objectSubType = (String) row.get("object_sub_type");
+				if (dd.datasetId != null && dd.datasetId > 0)
+				{
+					dd.isValidDataset = true;
+					dd.datasetLink = "#/datasets/" + Long.toString(dd.datasetId);
+				}
+				else
+				{
+					dd.isValidDataset = false;
+				}
+				dd.level = level;
+				dd.sortId = references.size() + 1;
+				dd.treeGridClass = "treegrid-" + Integer.toString(dd.sortId);
+				if (parent != 0)
+				{
+					dd.treeGridClass += " treegrid-parent-" + Integer.toString(parent);
+				}
+				references.add(dd);
+				getDatasetReferences(dd.datasetId, level + 1, dd.sortId, references);
 			}
 		}
 	}
