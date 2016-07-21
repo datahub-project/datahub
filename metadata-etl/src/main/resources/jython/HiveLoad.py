@@ -310,9 +310,9 @@ class HiveLoad:
           logical_name,
           version,
           version_sort_id,
-          instance_created_time,
           schema_text,
           ddl_text,
+          instance_created_time,
           created_time,
           wh_etl_exec_id
         )
@@ -367,16 +367,18 @@ class HiveLoad:
         SET s.mapped_object_dataset_id = d.id WHERE s.mapped_object_urn = d.urn;
 
         -- create to be deleted table
-        CREATE TEMPORARY TABLE IF NOT EXISTS t_deleted_depend
+        DROP TEMPORARY table IF EXISTS t_deleted_depend;
+
+        CREATE TEMPORARY TABLE t_deleted_depend
         AS (
-        SELECT c.obj_name_map_id
+        SELECT DISTINCT c.obj_name_map_id
           FROM cfg_object_name_map c LEFT JOIN stg_cfg_object_name_map s
           ON c.object_dataset_id = s.object_dataset_id
             and CASE WHEN c.mapped_object_dataset_id is not null
                     THEN c.mapped_object_dataset_id = s.mapped_object_dataset_id
                     ELSE c.mapped_object_name = s.mapped_object_name
                 END
-          WHERE s.object_name is null
+          WHERE s.object_name is not null
             and c.object_dataset_id is not null
             and c.map_phrase = 'depends on'
             and c.object_type in ('dalids', 'hive'));
@@ -385,16 +387,6 @@ class HiveLoad:
         DELETE FROM cfg_object_name_map where obj_name_map_id in (
           SELECT obj_name_map_id FROM t_deleted_depend
         );
-
-        -- update exist depends
-        UPDATE cfg_object_name_map c, stg_cfg_object_name_map s
-          SET c.object_type = s.object_type, c.object_sub_type = s.object_sub_type, c.object_name = s.object_name,
-              c.map_phrase = s.map_phrase, c.is_identical_map = s.is_identical_map,
-              c.mapped_object_type = s.mapped_object_type, c.mapped_object_sub_type = s.mapped_object_sub_type,
-              c.mapped_object_name = s.mapped_object_name, c.description = s.description,
-              c.last_modified = s.last_modified
-        WHERE s.object_dataset_id is not null and s.object_dataset_id = c.object_dataset_id
-          and s.mapped_object_dataset_id is not null and s.mapped_object_dataset_id = c.mapped_object_dataset_id;
 
         -- insert new depends
         INSERT INTO cfg_object_name_map
