@@ -13,8 +13,6 @@
 #
 
 from org.slf4j import LoggerFactory
-from wherehows.common.writers import FileWriter
-from wherehows.common.schemas import DatasetInstanceRecord
 from com.ziclix.python.sql import zxJDBC
 import sys, os, re, json
 import datetime
@@ -24,6 +22,10 @@ from wherehows.common import Constant
 class TableInfo:
   """ Class to define the variable name  """
   table_name = 'name'
+  dataset_name = 'dataset_name'
+  native_name = 'native_name'
+  logical_name = 'logical_name'
+  version = 'version'
   type = 'type'
   serialization_format = 'serialization_format'
   create_time = 'create_time'
@@ -191,54 +193,27 @@ class HiveExtract:
     """
     db_idx = len(schema) - 1
     table_idx = -1
-    dataset_idx = -1
-    dataset_urn_idx = -1
 
     field_list = []
     for row_index, row_value in enumerate(rows):
-      if row_value[20].lower() == 'dalids':
-        urn = 'dalids:///' + row_value[0] + '/' + row_value[18]
-      else:
-        urn = 'hive:///' + row_value[0] + '/' + row_value[18]
 
-      if urn not in self.dataset_dict:
-        field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
+      field_list.append({'IntegerIndex': row_value[14], 'ColumnName': row_value[15], 'TypeName': row_value[16],
                          'Comment': row_value[17]})
       if row_index == len(rows) - 1 or (row_value[0] != rows[row_index+1][0] or row_value[1] != rows[row_index+1][1]): # if this is last record of current table
         # sort the field_list by IntegerIndex
         field_list = sorted(field_list, key=lambda k: k['IntegerIndex'])
         # process the record of table
 
-        if row_value[20].lower() == 'dalids':
-          instance_record = DatasetInstanceRecord(row_value[25],
-                                      long(self.db_id),
-                                      'grid',
-                                      'eat1',
-                                      'eat1-nertz',
-                                      '*',
-                                      0,
-                                      row_value[22],
-                                      row_value[23],
-                                      str(row_value[19]),
-                                      long(row_value[3]),
-                                      long(row_value[24]),
-                                      self.wh_exec_id,
-                                      'dalids:///' + row_value[0] + '/' + row_value[18])
-          self.instance_writer.append(instance_record)
-          dataset_urn_idx += 1
-          self.instance_dict[row_value[25]] = dataset_urn_idx
-
-        if urn in self.dataset_dict:
-          continue
-
-        table_record = {TableInfo.table_name: row_value[18], TableInfo.type: row_value[21], TableInfo.serialization_format: row_value[2],
+        table_record = {TableInfo.table_name: row_value[1], TableInfo.type: row_value[21],
+                      TableInfo.native_name: row_value[22], TableInfo.logical_name: row_value[23],
+                      TableInfo.dataset_name: row_value[18], TableInfo.version: str(row_value[19]),
+                      TableInfo.serialization_format: row_value[2],
                       TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
                       TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
                       TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
                       TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
                       TableInfo.etl_source: 'COLUMN_V2', TableInfo.field_list: field_list[:]}
-        dataset_idx += 1
-        self.dataset_dict[urn] = dataset_idx
+
         field_list = [] # empty it
 
         if row_value[0] not in self.db_dict:
@@ -254,7 +229,6 @@ class HiveExtract:
           table_idx += 1
           self.table_dict[full_name] = table_idx
 
-    self.instance_writer.flush()
     self.logger.info("%s %6d tables processed for database %12s from COLUMN_V2" % (
       datetime.datetime.now(), table_idx + 1, row_value[0]))
 
@@ -288,6 +262,8 @@ class HiveExtract:
       if full_name not in self.table_dict:
         schema[db_idx]['tables'].append(
           {TableInfo.table_name: row_value[1], TableInfo.type: 'Table', TableInfo.serialization_format: row_value[2],
+           TableInfo.dataset_name: row_value[1],
+           TableInfo.native_name: row_value[1], TableInfo.logical_name: row_value[1], TableInfo.version: '0',
            TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
            TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
            TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10],
@@ -383,10 +359,6 @@ if __name__ == "__main__":
     database_white_list = ''
 
   e = HiveExtract()
-  e.dataset_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
-  e.instance_writer = FileWriter(e.dataset_instance_file)
-  e.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
-  e.db_id = args[Constant.DB_ID_KEY]
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
   try:
@@ -394,4 +366,3 @@ if __name__ == "__main__":
     e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
   finally:
     e.conn_hms.close()
-    e.instance_writer.close()

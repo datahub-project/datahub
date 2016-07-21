@@ -19,7 +19,7 @@ import time
 from com.ziclix.python.sql import zxJDBC
 from org.slf4j import LoggerFactory
 from wherehows.common.writers import FileWriter
-from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord, HiveDependencyInstanceRecord
+from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord, HiveDependencyInstanceRecord, DatasetInstanceRecord
 from wherehows.common import Constant
 from HiveExtract import TableInfo
 from org.apache.hadoop.hive.ql.tools import LineageInfo
@@ -29,6 +29,7 @@ from HiveColumnParser import HiveColumnParser
 from AvroColumnParser import AvroColumnParser
 
 class HiveTransform:
+  dataset_dict = {}
   def __init__(self):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     username = args[Constant.HIVE_METASTORE_USERNAME]
@@ -40,7 +41,7 @@ class HiveTransform:
     dependency_instance_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
     self.instance_writer = FileWriter(dependency_instance_file)
 
-  def transform(self, input, hive_metadata, hive_field_metadata):
+  def transform(self, input, hive_instance, hive_metadata, hive_field_metadata):
     """
     convert from json to csv
     :param input: input json file
@@ -52,6 +53,9 @@ class HiveTransform:
     all_data = json.load(f_json)
     f_json.close()
 
+    dataset_idx = -1
+
+    instance_file_writer = FileWriter(hive_instance)
     schema_file_writer = FileWriter(hive_metadata)
     field_file_writer = FileWriter(hive_field_metadata)
 
@@ -96,7 +100,10 @@ class HiveTransform:
           if prop_name in table and table[prop_name] is not None:
             prop_json[prop_name] = table[prop_name]
 
+        view_expanded_text = ''
+
         if TableInfo.view_expended_text in prop_json:
+          view_expanded_text = prop_json[TableInfo.view_expended_text]
           text = prop_json[TableInfo.view_expended_text].replace('`', '')
           array = HiveViewDependency.getViewDependency(text)
           l = []
@@ -116,9 +123,9 @@ class HiveTransform:
                                           one_db_info['type'],
                                           table['type'],
                                           "/%s/%s" % (one_db_info['database'], table['name']),
-                                          'dalids:///' + one_db_info['database'] + '/' + table['name']
+                                          'dalids:///' + one_db_info['database'] + '/' + table['dataset_name']
                                           if one_db_info['type'].lower() == 'dalids'
-                                          else 'hive:///' + one_db_info['database'] + '/' + table['name'],
+                                          else 'hive:///' + one_db_info['database'] + '/' + table['dataset_name'],
                                           'depends on',
                                           'is used by',
                                           row_value[3],
@@ -137,7 +144,7 @@ class HiveTransform:
            table[TableInfo.schema_literal] is not None and \
            table[TableInfo.schema_literal].startswith('{'):
           sort_id = 0
-          urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          urn = "hive:///%s/%s" % (one_db_info['database'], table['dataset_name'])
           self.logger.info("Getting schema literal for: %s" % (urn))
           try:
             schema_data = json.loads(table[TableInfo.schema_literal])
@@ -150,36 +157,62 @@ class HiveTransform:
 
         elif TableInfo.field_list in table:
           # Convert to avro
-          uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+          uri = "hive:///%s/%s" % (one_db_info['database'], table['dataset_name'])
           if one_db_info['type'].lower() == 'dalids':
-            uri = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
+            uri = "dalids:///%s/%s" % (one_db_info['database'], table['dataset_name'])
           else:
-            uri = "hive:///%s/%s" % (one_db_info['database'], table['name'])
+            uri = "hive:///%s/%s" % (one_db_info['database'], table['dataset_name'])
           self.logger.info("Getting column definition for: %s" % (uri))
           hcp = HiveColumnParser(table, urn = uri)
           schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
           field_detail_list += hcp.column_type_list
 
         if one_db_info['type'].lower() == 'dalids':
-          dataset_urn = "dalids:///%s/%s" % (one_db_info['database'], table['name'])
+          dataset_urn = "dalids:///%s/%s" % (one_db_info['database'], table['dataset_name'])
         else:
-          dataset_urn = "hive:///%s/%s" % (one_db_info['database'], table['name'])
-        dataset_scehma_record = DatasetSchemaRecord(table['name'], json.dumps(schema_json), json.dumps(prop_json),
+          dataset_urn = "hive:///%s/%s" % (one_db_info['database'], table['dataset_name'])
+
+        dataset_instance_record = DatasetInstanceRecord('dalids:///' + one_db_info['database'] + '/' + table['name']
+                                                if one_db_info['type'].lower() == 'dalids'
+                                                else 'hive:///' + one_db_info['database'] + '/' + table['name'],
+                                                'grid',
+                                                'eat1',
+                                                'eat1-nertz',
+                                                '*',
+                                                0,
+                                                table['native_name'],
+                                                table['logical_name'],
+                                                table['version'],
+                                                table['create_time'],
+                                                json.dumps(schema_json),
+                                                view_expanded_text,
+                                                dataset_urn)
+        instance_file_writer.append(dataset_instance_record)
+
+        if dataset_urn not in self.dataset_dict:
+          dataset_scehma_record = DatasetSchemaRecord(table['dataset_name'], json.dumps(schema_json), json.dumps(prop_json),
                                                     json.dumps(flds),
                                                     dataset_urn,
                                                     'Hive', one_db_info['type'], table['type'],
                                                     '', (table[TableInfo.create_time] if table.has_key(
             TableInfo.create_time) else None), (table["lastAlterTime"]) if table.has_key("lastAlterTime") else None)
-        schema_file_writer.append(dataset_scehma_record)
+          schema_file_writer.append(dataset_scehma_record)
 
-        for fields in field_detail_list:
-          field_record = DatasetFieldRecord(fields)
-          field_file_writer.append(field_record)
+          dataset_idx += 1
+          self.dataset_dict[dataset_urn] = dataset_idx
 
+          for fields in field_detail_list:
+            field_record = DatasetFieldRecord(fields)
+            field_file_writer.append(field_record)
+
+
+
+      instance_file_writer.flush()
       schema_file_writer.flush()
       field_file_writer.flush()
       self.logger.info("%20s contains %6d tables" % (one_db_info['database'], i))
 
+    instance_file_writer.close()
     schema_file_writer.close()
     field_file_writer.close()
 
@@ -192,6 +225,7 @@ if __name__ == "__main__":
   t = HiveTransform()
   try:
     t.transform(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY],
+                args[Constant.HIVE_INSTANCE_CSV_FILE_KEY],
                 args[Constant.HIVE_SCHEMA_CSV_FILE_KEY],
                 args[Constant.HIVE_FIELD_METADATA_KEY])
   finally:
