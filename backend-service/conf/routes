@@ -17,6 +17,10 @@ GET         /dataset                      controllers.DatasetController.getDatas
 # Find a list of watchers for a given dataset name
 GET         /dataset/watchers             controllers.DatasetController.getDatasetWatchers(datasetName: String)
 
+# Find a list of dataset properties
+GET         /dataset/properties           controllers.DatasetController.getDatasetUrns(propertiesLike: String)
+
+
 # Insert new job data lineage
 POST        /dataset                      controllers.DatasetController.addDataset()
 
