@@ -16,13 +16,12 @@ package models.daos;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
 import play.libs.Json;
 import utils.JdbcUtil;
@@ -40,6 +39,7 @@ public class DatasetDao {
 
   public static final String GET_DATASET_BY_ID = "SELECT * FROM dict_dataset WHERE id = :id";
   public static final String GET_DATASET_BY_URN = "SELECT * FROM dict_dataset WHERE urn = :urn";
+
   public static final String DEFAULT_CLUSTER_NAME = "ltx1-holdem";
   public static final String CLUSTER_NAME_KEY = "cluster_name";
   public static final String DATASET_URI_KEY = "dataset_uri";
@@ -66,6 +66,8 @@ public class DatasetDao {
           "object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
           "mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
           "FROM cfg_object_name_map WHERE object_dataset_id = ?";
+
+  public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR = "select urn from dict_dataset where properties like :properties";
 
   public static Map<String, Object> getDatasetById(int datasetId)
     throws SQLException {
@@ -106,6 +108,7 @@ public class DatasetDao {
     dw.append(record);
     dw.close();
   }
+
 
   public static int getDatasetDependencies(
           Long datasetId,
@@ -358,4 +361,25 @@ public class DatasetDao {
     resultJson.put("leaf_level_dependency_count", leafLevelDependencyCount);
     return resultJson;
   }
+
+   //
+   public static ObjectNode getDatasetUrnForPropertiesLike(String properties) {
+     ObjectNode result = Json.newObject();
+     List<String> datasetUrns = new ArrayList<String>();
+     if (StringUtils.isNotBlank(properties)) {
+       Map<String, Object> params = new HashMap<>();
+       params.put("properties", properties);
+       List<Map<String, Object>> rows = null;
+       rows = JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_URN_PROPERTIES_LIKE_EXPR, params);
+       for (Map row : rows) {
+         String datasetUrn = (String) row.get("urn");
+         datasetUrns.add(datasetUrn);
+       }
+       result.put("count", datasetUrns.size());
+       result.set("urns", Json.toJson(datasetUrns));
+     }
+     return result;
+   }
+
+
 }
