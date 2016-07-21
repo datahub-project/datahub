@@ -755,7 +755,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         List<DatasetDependency> depends = new ArrayList<DatasetDependency>();
-        DatasetsDAO.getDatasetDependencies(datasetId, 1, 0, depends);
+        DatasetsDAO.getDependencies(datasetId, depends);
         result.put("status", "ok");
         result.put("depends", Json.toJson(depends));
         return ok(result);
@@ -765,7 +765,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         List<DatasetDependency> references = new ArrayList<DatasetDependency>();
-        DatasetsDAO.getDatasetReferences(datasetId, 1, 0, references);
+        DatasetsDAO.getReferences(datasetId, references);
         result.put("status", "ok");
         result.put("references", Json.toJson(references));
         return ok(result);

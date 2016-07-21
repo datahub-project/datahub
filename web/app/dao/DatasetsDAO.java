@@ -320,12 +320,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
 			"object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
 			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
-			"FROM cfg_object_name_map WHERE object_dataset_id = ?";
+			"FROM cfg_object_name_map WHERE object_name = ?";
 
 	private final static String GET_DATASET_REFERENCES = "SELECT object_type, object_sub_type, " +
 			"object_name, object_dataset_id, map_phrase, is_identical_map, mapped_object_dataset_id, " +
 			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
-			"FROM cfg_object_name_map WHERE mapped_object_dataset_id = ?";
+			"FROM cfg_object_name_map WHERE mapped_object_name = ?";
 
 	private final static String GET_DATASET_LISTVIEW_TOP_LEVEL_NODES = "SELECT DISTINCT " +
 			"SUBSTRING_INDEX(urn, ':///', 1) as name, 0 as id, " +
@@ -338,8 +338,11 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"ON s.urn = concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) " +
 			"WHERE d.urn LIKE ? ORDER BY d.name";
 
-	private final static String GET_DATASET_VERSIONS = "SELECT version " +
-			"FROM dict_dataset_instance WHERE dataset_id = ? and version != '0' ORDER BY version_sort_id";
+	private final static String GET_DATASET_VERSIONS = "SELECT DISTINCT version " +
+			"FROM dict_dataset_instance WHERE dataset_id = ? and version != '0' ORDER BY version_sort_id DESC";
+
+	private final static String GET_DATASET_NATIVE_NAME = "SELECT native_name " +
+			"FROM dict_dataset_instance WHERE dataset_id = ? ORDER BY version_sort_id DESC limit 1";
 
 	public static List<String> getDatasetOwnerTypes()
 	{
@@ -1751,8 +1754,41 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static void getDatasetDependencies(
+	public static void getDependencies(
 			Long datasetId,
+			List<DatasetDependency> depends)
+	{
+		String nativeName = getJdbcTemplate().queryForObject(
+				GET_DATASET_NATIVE_NAME,
+				String.class,
+				datasetId);
+
+		if (StringUtils.isNotBlank(nativeName))
+		{
+			getDatasetDependencies("/" + nativeName.replace(".", "/"), 1, 0, depends);
+		}
+
+	}
+
+	public static void getReferences(
+			Long datasetId,
+			List<DatasetDependency> references)
+	{
+		String nativeName = getJdbcTemplate().queryForObject(
+				GET_DATASET_NATIVE_NAME,
+				String.class,
+				datasetId);
+
+		if (StringUtils.isNotBlank(nativeName))
+		{
+			getDatasetReferences("/" + nativeName.replace(".", "/"), 1, 0, references);
+		}
+
+	}
+
+
+	public static void getDatasetDependencies(
+			String objectName,
 			int level,
 			int parent,
 			List<DatasetDependency> depends)
@@ -1765,7 +1801,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		List<Map<String, Object>> rows = null;
 		rows = getJdbcTemplate().queryForList(
 				GET_DATASET_DEPENDS_VIEW,
-				datasetId);
+				objectName);
 
 		if (rows != null)
 		{
@@ -1792,13 +1828,13 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					dd.treeGridClass += " treegrid-parent-" + Integer.toString(parent);
 				}
 				depends.add(dd);
-				getDatasetDependencies(dd.datasetId, level + 1, dd.sortId, depends);
+				getDatasetDependencies(dd.objectName, level + 1, dd.sortId, depends);
 			}
 		}
 	}
 
 	public static void getDatasetReferences(
-			Long datasetId,
+			String objectName,
 			int level,
 			int parent,
 			List<DatasetDependency> references)
@@ -1811,7 +1847,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		List<Map<String, Object>> rows = null;
 		rows = getJdbcTemplate().queryForList(
 				GET_DATASET_REFERENCES,
-				datasetId);
+				objectName);
 
 		if (rows != null)
 		{
@@ -1838,7 +1874,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					dd.treeGridClass += " treegrid-parent-" + Integer.toString(parent);
 				}
 				references.add(dd);
-				getDatasetReferences(dd.datasetId, level + 1, dd.sortId, references);
+				getDatasetReferences(dd.objectName, level + 1, dd.sortId, references);
 			}
 		}
 	}
