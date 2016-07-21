@@ -98,7 +98,7 @@ class HiveLoad:
         """.format(source_file=self.input_schema_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
     for state in load_cmd.split(";"):
-      self.logger.debug(state)
+      self.logger.info(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
@@ -288,7 +288,7 @@ class HiveLoad:
         FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
         (dataset_urn, deployment_tier, data_center, server_cluster, slice,
          status_id, native_name, logical_name, version, instance_created_time,
-         `schema`, view_expanded_text, abstract_dataset_urn)
+         schema_text, ddl_text, abstract_dataset_urn)
          SET db_id = {db_id},
          created_time=unix_timestamp(now()),
          wh_etl_exec_id = {wh_etl_exec_id};
@@ -311,8 +311,8 @@ class HiveLoad:
           version,
           version_sort_id,
           instance_created_time,
-          `schema`,
-          view_expanded_text,
+          schema_text,
+          ddl_text,
           created_time,
           wh_etl_exec_id
         )
@@ -323,14 +323,14 @@ class HiveLoad:
                  cast(substring_index(substring_index(s.version, '.', 2), '.', -1) as unsigned) * 10000 +
                  cast(substring_index(s.version, '.', -1) as unsigned)
           else 0
-          end version_sort_id, s.schema, s.view_expanded_text,
+          end version_sort_id, s.schema_text, s.ddl_text,
           s.instance_created_time, s.created_time, s.wh_etl_exec_id
         from stg_dict_dataset_instance s join dict_dataset d on s.dataset_id = d.id
         where s.db_id = {db_id}
         on duplicate key update
           deployment_tier=s.deployment_tier, data_center=s.data_center, server_cluster=s.server_cluster, slice=s.slice,
           status_id=s.status_id, native_name=s.native_name, logical_name=s.logical_name, version=s.version,
-          `schema`=s.schema, view_expanded_text=s.view_expanded_text,
+          schema_text=s.schema_text, ddl_text=s.ddl_text,
             instance_created_time=s.instance_created_time, created_time=s.created_time, wh_etl_exec_id=s.wh_etl_exec_id
             ;
         """.format(source_file=self.input_instance_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
