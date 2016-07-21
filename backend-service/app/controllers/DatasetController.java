@@ -92,7 +92,7 @@ public class DatasetController extends Controller {
     JsonNode dataset = request().body().asJson();
     ObjectNode resultJson = Json.newObject();
     try {
-      DatasetDao.insertDataset(dataset);
+      DatasetDao.setDatasetRecord(dataset);
       resultJson.put("return_code", 200);
       resultJson.put("message", "Dataset inserted!");
     } catch (Exception e) {
