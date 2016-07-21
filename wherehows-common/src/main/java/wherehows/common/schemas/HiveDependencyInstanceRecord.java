@@ -26,7 +26,7 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
   String objectSubType;
   String objectName;
   String mapPhrase;
-  String mapPhraseReversed;
+  String isIdentialMap;
   String mappedObjectType;
   String mappedObjectSubType;
   String mappedObjectName;
@@ -35,7 +35,7 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
   String mappedObjectUrn;
 
   public HiveDependencyInstanceRecord(String objectType, String objectSubType, String objectName, String objectUrn,
-                               String mapPhrase, String mapPhraseReversed, String mappedObjectType,
+                               String mapPhrase, String isIdentialMap, String mappedObjectType,
                                String mappedObjectSubType, String mappedObjectName,
                                String mappedObjectUrn, String description) {
     this.objectType = objectType;
@@ -43,7 +43,7 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
     this.objectName = objectName;
     this.objectUrn = objectUrn;
     this.mapPhrase = mapPhrase;
-    this.mapPhraseReversed = mapPhraseReversed;
+    this.isIdentialMap = isIdentialMap;
     this.mappedObjectType = mappedObjectType;
     this.mappedObjectSubType = mappedObjectSubType;
     this.mappedObjectName = mappedObjectName;
@@ -59,7 +59,7 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
     allFields.add(objectName);
     allFields.add(objectUrn);
     allFields.add(mapPhrase);
-    allFields.add(mapPhraseReversed);
+    allFields.add(isIdentialMap);
     allFields.add(mappedObjectType);
     allFields.add(mappedObjectSubType);
     allFields.add(mappedObjectName);

@@ -127,7 +127,7 @@ class HiveTransform:
                                           if one_db_info['type'].lower() == 'dalids'
                                           else 'hive:///' + one_db_info['database'] + '/' + table['dataset_name'],
                                           'depends on',
-                                          'is used by',
+                                          'Y',
                                           row_value[3],
                                           row_value[4],
                                           row_value[2],
@@ -185,7 +185,7 @@ class HiveTransform:
                                                 table['version'],
                                                 table['create_time'],
                                                 json.dumps(schema_json),
-                                                view_expanded_text,
+                                                json.dumps(view_expanded_text),
                                                 dataset_urn)
         instance_file_writer.append(dataset_instance_record)
 
