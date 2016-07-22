@@ -35,6 +35,22 @@ public class DatasetSchemaRecord extends AbstractRecord {
   Integer sourceModified;
 
   public DatasetSchemaRecord(String name, String schema, String properties, String fields, String urn, String source,
+                             String samplePartitionFullPath, Integer sourceCreated, Integer sourceModified) {
+    this.name = name;
+    this.schema = schema;
+    this.properties = properties;
+    this.fields = fields;
+    this.urn = urn;
+    this.source = source;
+    this.datasetType = null;
+    this.storageType = null;
+    this.samplePartitionFullPath = samplePartitionFullPath;
+    this.sourceCreated = sourceCreated;
+    this.sourceModified = sourceModified;
+
+  }
+
+  public DatasetSchemaRecord(String name, String schema, String properties, String fields, String urn, String source,
                              String datasetType, String storageType, String samplePartitionFullPath,
     Integer sourceCreated, Integer sourceModified) {
     this.name = name;
