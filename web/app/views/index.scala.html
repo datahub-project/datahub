@@ -778,10 +778,20 @@
           <div class="col-xs-5">
             <h3>{{ model.name }}</h3>
               {{#if hasversions}}
-                <div class="col-xs-12">
-                  <span class="prop-label">Versions:</span>
-                  {{#each version in versions}}
-                    <a style="display:inline;margin-right:5px;">{{ version }} </a>
+                <span class="prop-label">Versions:</span>
+                <div class="btn-toolbar col-xs-12" role="toolbar">
+                  {{#each versions as |version index|}}
+                      <div class="btn-group" role="group">
+                        {{#if index}}
+                          <button type="button" class="btn btn-secondary version-btn" {{action "updateVersion" version}}>
+                            {{ version }}
+                          </button>
+                        {{else}}
+                          <button type="button" class="btn btn-secondary version-btn active" {{action "updateVersion" version}}>
+                            {{ version }}
+                          </button>
+                        {{/if}}
+                    </div>
                   {{/each}}
                 </div>
               {{/if}}

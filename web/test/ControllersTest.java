@@ -120,9 +120,21 @@ public class ControllersTest {
 
         result = controllers.api.v1.Dataset.getReferenceViews(datasetId);
         assertThat(status(result)).isEqualTo(OK);
-        JsonNode versionNode = Json.parse(contentAsString(result));
-        assertThat(versionNode.isContainerNode());
-        assertThat(versionNode.get("status").asText()).isEqualTo("ok");
+        JsonNode referenceNode = Json.parse(contentAsString(result));
+        assertThat(referenceNode.isContainerNode());
+        assertThat(referenceNode.get("status").asText()).isEqualTo("ok");
+
+        result = controllers.api.v1.Dataset.getDependViews(datasetId);
+        assertThat(status(result)).isEqualTo(OK);
+        JsonNode dependsNode = Json.parse(contentAsString(result));
+        assertThat(dependsNode.isContainerNode());
+        assertThat(dependsNode.get("status").asText()).isEqualTo("ok");
+
+        result = controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(datasetId, '0.0.1');
+        assertThat(status(result)).isEqualTo(OK);
+        JsonNode schemaTextNode = Json.parse(contentAsString(result));
+        assertThat(schemaTextNode.isContainerNode());
+        assertThat(schemaTextNode.get("status").asText()).isEqualTo("ok");
     }
 
     /*

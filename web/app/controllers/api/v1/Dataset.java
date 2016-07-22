@@ -788,4 +788,12 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result getDatasetSchemaTextByVersion(Long datasetId, String version)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.put("schema_text", Json.toJson(DatasetsDAO.getDatasetSchemaTextByVersion(datasetId, version)));
+        return ok(result);
+    }
+
 }

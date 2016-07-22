@@ -215,10 +215,14 @@ App.DatasetRoute = Ember.Route.extend({
         if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
           controller.set("hasversions", true);
           controller.set("versions", data.versions);
+          controller.set("currentVersion", data.versions[0]);
+          controller.set("latestVersion", data.versions[0]);
         }
         else
         {
           controller.set("hasversions", false);
+          controller.set("currentVersion", '0');
+          controller.set("latestVersion", '0');
         }
       });
 
@@ -323,12 +327,14 @@ App.DatasetRoute = Ember.Route.extend({
                 else
                   {
                     controller.set("hasSchemas", false);
+                    controller.set("schemas", null);
                     controller.buildJsonView();
                   }
             }
             else
               {
                 controller.set("hasSchemas", false);
+                controller.set("schemas", null);
                 controller.buildJsonView();
               }
         });

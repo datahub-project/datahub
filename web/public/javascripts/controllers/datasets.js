@@ -138,6 +138,8 @@ App.DatasetController = Ember.Controller.extend({
     hasSamples: false,
     isTable: true,
     isJSON: false,
+    currentVersion:'0',
+    latestVersion:'0',
     ownerTypes: [],
     userTypes: [{name:"Corporate User", value: "urn:li:corpuser"}, {name:"Group User", value: "urn:li:griduser"}],
     isPinot: function(){
@@ -323,6 +325,60 @@ App.DatasetController = Ember.Controller.extend({
                 _this.set('alertType', "alert-danger");
                 _this.set('ownerMessage', "Ownership update failed.");
             })
+        },
+        updateVersion: function(version) {
+            _this = this;;
+            var currentVersion = _this.get('currentVersion');
+            var latestVersion = _this.get('latestVersion');
+            if (currentVersion == version)
+            {
+                return;
+            }
+            var objs = $('.version-btn');
+            if (objs && objs.length > 0)
+            {
+                for(var i = 0; i < objs.length; i++)
+                {
+                    if ($(objs[i]).hasClass('active'))
+                    {
+                        $(objs[i]).removeClass('active');
+                    }
+                    if (version == objs[i].outerText)
+                    {
+                        $(objs[i]).addClass('active');
+                    }
+                }
+            }
+            var model = this.get("model");
+            if (version != latestVersion)
+            {
+                if (!model || !model.id)
+                {
+                    return;
+                }
+                _this.set('hasSchemas', false);
+                var schemaUrl = "/api/v1/datasets/" + model.id + "/schema/" + version;
+                $.get(schemaUrl, function(data) {
+                    if (data && data.status == "ok"){
+                        setTimeout(function() {
+                            $("#json-viewer").JSONView(JSON.parse(data.schema_text))
+                        }, 500);
+                    }
+                });
+            }
+            else
+            {
+                if (_this.schemas)
+                {
+                    _this.set('hasSchemas', true);
+                }
+                else
+                {
+                    _this.buildJsonView();
+                }
+            }
+
+            _this.set('currentVersion', version);
         }
     }
 });

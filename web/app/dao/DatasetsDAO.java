@@ -344,6 +344,9 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_DATASET_NATIVE_NAME = "SELECT native_name " +
 			"FROM dict_dataset_instance WHERE dataset_id = ? ORDER BY version_sort_id DESC limit 1";
 
+	private final static String GET_DATASET_SCHEMA_TEXT_BY_VERSION = "SELECT schema_text " +
+			"FROM dict_dataset_instance WHERE dataset_id = ? and version = ? ORDER BY db_id DESC limit 1";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1758,10 +1761,18 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			Long datasetId,
 			List<DatasetDependency> depends)
 	{
-		String nativeName = getJdbcTemplate().queryForObject(
-				GET_DATASET_NATIVE_NAME,
-				String.class,
-				datasetId);
+		String nativeName = null;
+		try
+		{
+			nativeName = getJdbcTemplate().queryForObject(
+					GET_DATASET_NATIVE_NAME,
+					String.class,
+					datasetId);
+		}
+		catch (EmptyResultDataAccessException e)
+		{
+			nativeName = null;
+		}
 
 		if (StringUtils.isNotBlank(nativeName))
 		{
@@ -1774,10 +1785,18 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			Long datasetId,
 			List<DatasetDependency> references)
 	{
-		String nativeName = getJdbcTemplate().queryForObject(
-				GET_DATASET_NATIVE_NAME,
-				String.class,
-				datasetId);
+		String nativeName = null;
+		try
+		{
+			nativeName = getJdbcTemplate().queryForObject(
+					GET_DATASET_NATIVE_NAME,
+					String.class,
+					datasetId);
+		}
+		catch (EmptyResultDataAccessException e)
+		{
+			nativeName = null;
+		}
 
 		if (StringUtils.isNotBlank(nativeName))
 		{
@@ -1921,5 +1940,23 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	public static List<String> getDatasetVersions(Long datasetId)
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_VERSIONS, String.class, datasetId);
+	}
+
+	public static String getDatasetSchemaTextByVersion(
+			Long datasetId, String version)
+	{
+		String schemaText = null;
+		try
+		{
+			schemaText = getJdbcTemplate().queryForObject(
+					GET_DATASET_SCHEMA_TEXT_BY_VERSION,
+					String.class,
+					datasetId, version);
+		}
+		catch (EmptyResultDataAccessException e)
+		{
+			schemaText = null;
+		}
+		return schemaText;
 	}
 }
