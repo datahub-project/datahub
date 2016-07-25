@@ -51,6 +51,8 @@ dependencies{
     compile externalDependency.mockito
     compile externalDependency.slf4j_api
     compile externalDependency.jasypt
+    compile externalDependency.kafka
+    compile externalDependency.kafka_clients
 
     provided project(":wherehows-common")
     provided project(":metadata-etl")

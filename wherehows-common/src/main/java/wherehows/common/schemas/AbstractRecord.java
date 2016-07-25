@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import java.lang.reflect.Field;
 import java.util.List;
 import wherehows.common.utils.StringUtil;
 
@@ -48,4 +49,34 @@ public abstract class AbstractRecord implements Record {
   }
 
   public abstract List<Object> fillAllFields();
+
+  /**
+   * return all declared fields of the class, exclude inherited fields
+   * @return Field[]
+   */
+  public Field[] getAllFields() {
+    return this.getClass().getDeclaredFields();
+  }
+
+  /**
+   * return values of all declared fields as Object[]
+   * @return Object[]
+   */
+  public Object[] getAllValues() throws IllegalAccessException {
+    final Field[] fields = this.getAllFields();
+    final Object[] values = new Object[fields.length];
+    for (int i = 0; i < fields.length; i++) {
+      fields[i].setAccessible(true);
+      values[i] = fields[i].get(this);
+    }
+    return values;
+  }
+
+  /**
+   * return the corresponding database column names to the class fields
+   * @return
+   */
+  public String[] getDbColumnNames() {
+    return null;
+  };
 }
