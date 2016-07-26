@@ -36,6 +36,7 @@ public class ControllersTest {
     public static String DATABASE_WHEREHOWS_OPENSOURCE_USER_NAME = "wherehows";
     public static String DATABASE_WHEREHOWS_OPENSOURCE_USER_PASSWORD = "wherehows";
     public static String DATABASE_WHEREHOWS_OPENSOURCE_URL = "jdbc:mysql://localhost/wherehows";
+    public static Integer DB_ID = 65;
 
     @BeforeClass
     public static void startApp() {
@@ -112,7 +113,13 @@ public class ControllersTest {
         assertThat(sampleNode.isContainerNode());
         //assertThat(sampleNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId)
+        result = controllers.api.v1.Dataset.getDatasetInstances(datasetId);
+        assertThat(status(result)).isEqualTo(OK);
+        JsonNode instanceNode = Json.parse(contentAsString(result));
+        assertThat(instanceNode.isContainerNode());
+        assertThat(instanceNode.get("status").asText()).isEqualTo("ok");
+
+        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId, DB_ID);
         assertThat(status(result)).isEqualTo(OK);
         JsonNode versionNode = Json.parse(contentAsString(result));
         assertThat(versionNode.isContainerNode());

@@ -53,6 +53,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
         String source = rs.getString(DATASET_SOURCE_COLUMN);
         String strOwner = rs.getString(DATASET_OWNER_ID_COLUMN);
         String strOwnerName = rs.getString(DATASET_OWNER_NAME_COLUMN);
+        String schema = rs.getString(DATASET_SCHEMA_COLUMN);
         Time created = rs.getTime(DATASET_CREATED_TIME_COLUMN);
         Time modified = rs.getTime(DATASET_MODIFIED_TIME_COLUMN);
         Integer schemaHistoryId = rs.getInt(SCHEMA_HISTORY_ID_COLUMN);
@@ -61,6 +62,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
         dataset.id = id;
         dataset.name = name;
         dataset.urn = urn;
+        dataset.schema = schema;
         String[] owners = null;
         if (StringUtils.isNotBlank(strOwner))
         {

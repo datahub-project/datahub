@@ -777,24 +777,6 @@
         <div class="row">
           <div class="col-xs-5">
             <h3>{{ model.name }}</h3>
-              {{#if hasversions}}
-                <span class="prop-label">Versions:</span>
-                <div class="btn-toolbar col-xs-12" role="toolbar">
-                  {{#each versions as |version index|}}
-                      <div class="btn-group" role="group">
-                        {{#if index}}
-                          <button type="button" class="btn btn-secondary version-btn" {{action "updateVersion" version}}>
-                            {{ version }}
-                          </button>
-                        {{else}}
-                          <button type="button" class="btn btn-secondary version-btn active" {{action "updateVersion" version}}>
-                            {{ version }}
-                          </button>
-                        {{/if}}
-                    </div>
-                  {{/each}}
-                </div>
-              {{/if}}
           </div>
           <div class="col-xs-7 text-right">
             <ul class="datasetDetailsLinks">
@@ -854,6 +836,46 @@
             </ul>
           </div>
         </div>
+        {{#if hasinstances}}
+          <div class="row">
+            <span class="prop-label col-xs-1">Instance:</span>
+            <div class="btn-toolbar col-xs-11" role="toolbar">
+              {{#each instances as |instance index|}}
+                <div class="btn-group" role="group">
+                  {{#if index}}
+                    <button type="button" class="btn btn-secondary instance-btn" {{action "updateInstance" instance}}>
+                      {{ instance.dbCode }}
+                    </button>
+                  {{else}}
+                    <button type="button" class="btn btn-secondary instance-btn active" {{action "updateInstance" instance}}>
+                      {{ instance.dbCode }}
+                    </button>
+                  {{/if}}
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
+        {{#if hasversions}}
+          <div class="row">
+            <span class="prop-label col-xs-1">Versions:</span>
+            <div class="btn-toolbar col-xs-11" role="toolbar">
+              {{#each versions as |version index|}}
+                <div class="btn-group" role="group">
+                  {{#if index}}
+                    <button type="button" class="btn btn-secondary version-btn" {{action "updateVersion" version}}>
+                      {{ version }}
+                    </button>
+                  {{else}}
+                    <button type="button" class="btn btn-secondary version-btn active" {{action "updateVersion" version}}>
+                      {{ version }}
+                    </button>
+                  {{/if}}
+                </div>
+              {{/each}}
+            </div>
+          </div>
+        {{/if}}
       </div>
 
       {{#if tabview}}

@@ -59,7 +59,9 @@ GET     /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.getDatase
 
 POST    /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
 
-GET     /api/v1/datasets/:id/versions       controllers.api.v1.Dataset.getDatasetVersions(id:Long)
+GET     /api/v1/datasets/:id/versions/db/:dbId       controllers.api.v1.Dataset.getDatasetVersions(id:Long, dbId:Int)
+
+GET     /api/v1/datasets/:id/instances      controllers.api.v1.Dataset.getDatasetInstances(id:Long)
 
 GET     /api/v1/datasets/:id/schema/:version       controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(id:Long, version:String)
 

@@ -347,6 +347,10 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_DATASET_SCHEMA_TEXT_BY_VERSION = "SELECT schema_text " +
 			"FROM dict_dataset_instance WHERE dataset_id = ? and version = ? ORDER BY db_id DESC limit 1";
 
+	private final static String GET_DATASET_INSTANCES = "SELECT DISTINCT i.db_id, c.db_code FROM " +
+			"dict_dataset_instance i JOIN cfg_database c ON i.db_id = c.db_id " +
+			"WHERE i.dataset_id = ?";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1937,7 +1941,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return nodes;
 	}
 
-	public static List<String> getDatasetVersions(Long datasetId)
+	public static List<String> getDatasetVersions(Long datasetId, Integer dbId)
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_VERSIONS, String.class, datasetId);
 	}
@@ -1958,5 +1962,27 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			schemaText = null;
 		}
 		return schemaText;
+	}
+
+	public static List<DatasetInstance> getDatasetInstances(Long id)
+	{
+		List<DatasetInstance> datasetInstances = new ArrayList<DatasetInstance>();
+
+		List<Map<String, Object>> rows = null;
+		rows = getJdbcTemplate().queryForList(
+				GET_DATASET_INSTANCES,
+				id);
+
+		if (rows != null)
+		{
+			for (Map row : rows) {
+				DatasetInstance datasetInstance = new DatasetInstance();
+				datasetInstance.datasetId = id;
+				datasetInstance.dbId = (Integer) row.get("db_id");
+				datasetInstance.dbCode = (String) row.get("db_code");
+				datasetInstances.add(datasetInstance);
+			}
+		}
+		return datasetInstances;
 	}
 }

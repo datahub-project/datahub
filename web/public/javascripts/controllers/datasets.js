@@ -379,6 +379,32 @@ App.DatasetController = Ember.Controller.extend({
             }
 
             _this.set('currentVersion', version);
+        },
+        updateInstance: function(instance) {
+            _this = this;;
+            var currentInstance = _this.get('currentInstance');
+            var latestInstance = _this.get('latestInstance');
+            if (currentInstance == instance.dbId)
+            {
+                return;
+            }
+            var objs = $('.instance-btn');
+            if (objs && objs.length > 0)
+            {
+                for(var i = 0; i < objs.length; i++)
+                {
+                    if ($(objs[i]).hasClass('active'))
+                    {
+                        $(objs[i]).removeClass('active');
+                    }
+                    if (instance.dbCode == objs[i].outerText)
+                    {
+                        $(objs[i]).addClass('active');
+                    }
+                }
+            }
+
+            _this.set('currentInstance', instance.dbId);
         }
     }
 });
