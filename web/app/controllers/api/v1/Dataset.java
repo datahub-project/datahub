@@ -780,11 +780,11 @@ public class Dataset extends Controller
         return ok(result);
     }
 
-    public static Result getDatasetVersions(Long datasetId)
+    public static Result getDatasetVersions(Long datasetId, Integer dbId)
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("versions", Json.toJson(DatasetsDAO.getDatasetVersions(datasetId)));
+        result.put("versions", Json.toJson(DatasetsDAO.getDatasetVersions(datasetId, dbId)));
         return ok(result);
     }
 
@@ -793,6 +793,14 @@ public class Dataset extends Controller
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
         result.put("schema_text", Json.toJson(DatasetsDAO.getDatasetSchemaTextByVersion(datasetId, version)));
+        return ok(result);
+    }
+
+    public static Result getDatasetInstances(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.put("instances", Json.toJson(DatasetsDAO.getDatasetInstances(datasetId)));
         return ok(result);
     }
 
