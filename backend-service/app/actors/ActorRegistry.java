@@ -38,4 +38,6 @@ public class ActorRegistry {
 
   public static ActorRef treeBuilderActor = actorSystem.actorOf(Props.create(TreeBuilderActor.class), "TreeBuilderActor");
 
+  public static ActorRef kafkaConsumerMaster =
+      actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
 }

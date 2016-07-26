@@ -123,3 +123,14 @@ hive.schema_json_file=
 #hive.sample_csv=
 hive.schema_csv_file=
 hive.field_metadata=
+
+# kafka
+group.id=
+schemaRegistryUrl=
+zookeeper.connect=
+zookeeper.session.timeout.ms=
+zookeeper.sync.time.ms=
+auto.commit.interval.ms=
+kafka.topics=
+kafka.processors=
+kafka.db.tables=

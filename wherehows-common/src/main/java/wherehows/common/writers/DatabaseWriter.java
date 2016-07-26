@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import wherehows.common.schemas.AbstractRecord;
 import wherehows.common.schemas.Record;
 
 
@@ -90,5 +91,77 @@ public class DatabaseWriter extends Writer {
   public void close()
     throws SQLException {
     this.flush();
+  }
+
+
+  /**
+   * use JDBC template PreparedStatement to insert records
+   * require record to have getAllValues() and optional getDbColumnNames() method
+   * @return boolean if the insert is successful
+   * @throws SQLException
+   */
+  public boolean insert()
+      throws SQLException {
+    if (records.size() == 0 || !(records.get(0) instanceof AbstractRecord)) {
+      logger.debug("DatabaseWriter no record to insert or unknown record Class.");
+      return false;
+    }
+
+    final AbstractRecord record0 = (AbstractRecord) records.get(0);
+    final String[] columnNames = record0.getDbColumnNames();
+    final String sql = (columnNames != null) ? prepareInsertTemplateWithColumn(columnNames)
+        : prepareInsertTemplateWithoutColumn(record0.getAllFields().length);
+    //logger.debug("DatabaseWriter template for " + record0.getClass() + " : " + sql);
+
+    for (final Record record : records) {
+      try {
+        jdbcTemplate.update(sql, ((AbstractRecord) record).getAllValues());
+
+        /* jdbcTemplate.update(sql, new PreparedStatementSetter() {
+          @Override
+          public void setValues(PreparedStatement ps)
+              throws SQLException {
+            record.setPreparedStatementValues(ps);
+          }
+        }); */
+      } catch (IllegalAccessException | DataAccessException ae) {
+        logger.error("DatabaseWriter insert error: " + ae);
+      }
+    }
+    records.clear();
+    return true;
+  }
+
+
+  /**
+   * prepare SQL insert template with column names and placeholders, 'INSERT INTO table(`a`,`b`) VALUES (?,?)'
+   * @param columnNames String[]
+   * @return SQL String
+   */
+  private String prepareInsertTemplateWithColumn(String[] columnNames) {
+    return "INSERT INTO " + tableName + "(`" + String.join("`,`", columnNames) + "`) VALUES "
+        + generatePlaceholder(columnNames.length);
+  }
+
+  /**
+   * prepare SQL insert template with placeholders, 'INSERT INTO table VALUES (?,?,?)'
+   * @param columnNum int
+   * @return SQL String
+   */
+  private String prepareInsertTemplateWithoutColumn(int columnNum) {
+    return "INSERT INTO " + tableName + " VALUES " + generatePlaceholder(columnNum);
+  }
+
+  /**
+   * generate placeholder string (?,?,?)
+   * @param columnNum number of placeholders
+   * @return
+   */
+  private String generatePlaceholder(int columnNum) {
+    final StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < columnNum; i++) {
+      sb.append("?,");
+    }
+    return "(" + sb.substring(0, sb.length() - 1) + ")";
   }
 }
