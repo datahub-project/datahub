@@ -210,16 +210,34 @@ App.DatasetRoute = Ember.Route.extend({
           }
       }
 
-      var versionUrl = 'api/v1/datasets/' + id + "/versions";
-      $.get(versionUrl, function(data) {
-        if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
-          controller.set("hasversions", true);
-          controller.set("versions", data.versions);
-          controller.set("currentVersion", data.versions[0]);
-          controller.set("latestVersion", data.versions[0]);
+      var instanceUrl = 'api/v1/datasets/' + id + "/instances";
+      $.get(instanceUrl, function(data) {
+        if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
+          controller.set("hasinstances", true);
+          controller.set("instances", data.instances);
+          controller.set("currentInstance", data.instances[0]);
+          controller.set("latestInstance", data.instances[0]);
+          var versionUrl = 'api/v1/datasets/' + id + "/versions/db/" + data.instances[0].dbId;
+          $.get(versionUrl, function(data) {
+            if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
+              controller.set("hasversions", true);
+              controller.set("versions", data.versions);
+              controller.set("currentVersion", data.versions[0]);
+              controller.set("latestVersion", data.versions[0]);
+            }
+            else
+            {
+              controller.set("hasversions", false);
+              controller.set("currentVersion", '0');
+              controller.set("latestVersion", '0');
+            }
+          });
         }
         else
         {
+          controller.set("hasinstances", false);
+          controller.set("currentInstance", '0');
+          controller.set("latestInstance", '0');
           controller.set("hasversions", false);
           controller.set("currentVersion", '0');
           controller.set("latestVersion", '0');
