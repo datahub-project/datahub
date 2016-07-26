@@ -66,10 +66,10 @@ public class KafkaConsumerMaster extends UntypedActor {
   public void preStart() throws Exception {
     Logger.info("Start the KafkaConsumerMaster actor...");
 
-    _kafkaConfig = KafkaConfig.getKafkaProperties();
-    _kafkaTopics = KafkaConfig.getKafkaTopics();
-    //_kafkaConfig = KafkaConfig.getKafkaPropertiesDefault();
-    //_kafkaTopics = KafkaConfig.getKafkaTopicsDefault();
+    // get Kafka configurations from database
+    KafkaConfig.updateKafkaProperties();
+    _kafkaConfig = KafkaConfig.getProperties();
+    _kafkaTopics = KafkaConfig.getTopics();
 
     for (String topic : _kafkaTopics.keySet()) {
       // get the processor class and method
