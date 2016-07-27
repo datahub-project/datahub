@@ -181,7 +181,7 @@
                           </div>
                           {{#if dataset.owners}}
                           <div class="col-xs-12">
-                            <span class="prop-label">owner:</span>
+                            <span>owner:</span>
                             {{#each owner in dataset.owners}}
                               <p style="display:inline" title={{owner.name}}>{{ owner.userName }} </p>
                             {{/each}}
@@ -189,7 +189,7 @@
                           {{/if}}
                           {{#if dataset.formatedModified}}
                           <div class="col-xs-12">
-                            <span class="prop-label">last modified:</span>
+                            <span>last modified:</span>
                             {{ dataset.formatedModified }}
                           </div>
                           {{/if}}
@@ -326,9 +326,13 @@
       {{#if hasProperty}}
         <div>
           {{#each item in properties}}
-            <div>
-              <span class="prop-label">{{item.key}}:</span>
-              <span>{{item.value}}</span>
+            <div class="prop-row group">
+              <div class="prop-label">{{item.key}}:</div>
+              {{#if item.isSelectController}}
+                <div class="prop-value-query">{{item.value}}</div>
+              {{else}}
+                <div class="prop-value">{{item.value}}</div>
+              {{/if}}
             </div>
           {{/each}}
         </div>
@@ -838,7 +842,7 @@
         </div>
         {{#if hasinstances}}
           <div class="row">
-            <span class="prop-label col-xs-1">Instances:</span>
+            <span class="col-xs-1">Instances:</span>
             <div class="btn-toolbar col-xs-11" role="toolbar">
               {{#each instances as |instance index|}}
                 <div class="btn-group" role="group">
@@ -858,7 +862,7 @@
         {{/if}}
         {{#if hasversions}}
           <div class="row">
-            <span class="prop-label col-xs-1">Versions:</span>
+            <span class="col-xs-1">Versions:</span>
             <div class="btn-toolbar col-xs-11" role="toolbar">
               {{#each versions as |version index|}}
                 <div class="btn-group" role="group">
@@ -882,14 +886,16 @@
         <ul class="nav nav-tabs nav-justified">
           {{#unless isPinot}}
           <li id="properties">
-            <a
-              data-toggle="tab"
-              href="#propertiestab"
-            >
-              Properties & Comments
+            <a data-toggle="tab" href="#propertiestab">
+              Properties
             </a>
           </li>
           {{/unless}}
+          <li id="properties">
+            <a data-toggle="tab" href="#commentstab">
+              Comments
+            </a>
+          </li>
           <li id="schemas" class="active"><a data-toggle="tab" href="#schematab">Schema</a></li>
           <li id="ownership"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
           {{#unless isSFDC}}
@@ -913,17 +919,13 @@
         <div class="tab-content">
           {{#unless isPinot}}
             <div id="propertiestab" class="tab-pane">
-              <div class="row">
-                <div class="col-xs-4">
-                  {{view "property"}}
-                </div>
-                <div class="col-xs-8">
-                  {{#dataset-comments dataset=this}}
-                  {{/dataset-comments}}
-                </div>
-              </div>
+              {{view "property"}}
             </div>
           {{/unless}}
+          <div id="commentstab" class="tab-pane">
+            {{#dataset-comments dataset=this}}
+            {{/dataset-comments}}
+          </div>
           <div id="schematab" class="tab-pane active">
             {{view "schema"}}
           </div>
@@ -950,25 +952,36 @@
             <h4 class="panel-title">
               <a data-toggle="collapse" data-parent="#accordion"
                 href="#properties" aria-expanded="true" aria-controls="properties">
-                Properties & Comments
+                Properties
               </a>
             </h4>
           </div>
           <div id="properties" class="panel-collapse collapse" role="tabpanel" aria-labelledby="propertiesHeading">
             <div class="panel-body">
               <div class="row">
-                <div class="col-xs-4">
-                  {{view "property"}}
-                </div>
-                <div class="col-xs-8">
-                  {{#dataset-comments dataset=this}}
-                  {{/dataset-comments}}
-                </div>
+                {{view "property"}}
               </div>
             </div>
           </div>
         </div>
         {{/unless}}
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="commentsHeading">
+            <h4 class="panel-title">
+              <a data-toggle="collapse" data-parent="#accordion"
+                href="#comments" aria-expanded="true" aria-controls="comments">
+                Comments
+              </a>
+            </h4>
+          </div>
+          <div id="comments" class="panel-collapse collapse" role="tabpanel" aria-labelledby="commentsHeading">
+            <div class="panel-body">
+              {{#dataset-comments dataset=this}}
+              {{/dataset-comments}}
+            </div>
+          </div>
+        </div>
 
         <div class="panel panel-default">
           <div class="panel-heading" role="tab" id="schemaHeading">
