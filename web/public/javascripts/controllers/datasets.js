@@ -261,7 +261,7 @@ App.DatasetController = Ember.Controller.extend({
             {
                 $(objs[i]).removeClass('btn-default');
                 $(objs[i]).removeClass('btn-primary');
-                if (version == objs[i].outerText)
+                if (version == $(objs[i]).attr('data-value'))
                 {
                     $(objs[i]).addClass('btn-primary');
                 }
@@ -423,7 +423,8 @@ App.DatasetController = Ember.Controller.extend({
                 {
                     $(objs[i]).removeClass('btn-default');
                     $(objs[i]).removeClass('btn-primary');
-                    if (instance.dbCode == objs[i].outerText)
+
+                    if (instance.dbCode == $(objs[i]).attr('data-value'))
                     {
                         $(objs[i]).addClass('btn-primary');
                     }

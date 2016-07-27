@@ -843,11 +843,11 @@
               {{#each instances as |instance index|}}
                 <div class="btn-group" role="group">
                   {{#if index}}
-                    <button type="button" class="btn btn-default instance-btn" {{action "updateInstance" instance}}>
+                    <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-default instance-btn" {{action "updateInstance" instance}}>
                       {{ instance.dbCode }}
                     </button>
                   {{else}}
-                    <button type="button" class="btn btn-primary instance-btn" {{action "updateInstance" instance}}>
+                    <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-primary instance-btn" {{action "updateInstance" instance}}>
                       {{ instance.dbCode }}
                     </button>
                   {{/if}}
@@ -863,11 +863,11 @@
               {{#each versions as |version index|}}
                 <div class="btn-group" role="group">
                   {{#if index}}
-                    <button type="button" class="btn btn-default version-btn" {{action "updateVersion" version}}>
+                    <button type="button" data-value="{{ version }}" class="btn btn-default version-btn" {{action "updateVersion" version}}>
                       {{ version }}
                     </button>
                   {{else}}
-                    <button type="button" class="btn btn-primary version-btn" {{action "updateVersion" version}}>
+                    <button type="button" data-value="{{ version }}" class="btn btn-primary version-btn" {{action "updateVersion" version}}>
                       {{ version }}
                     </button>
                   {{/if}}
