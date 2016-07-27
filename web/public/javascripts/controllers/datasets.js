@@ -223,6 +223,85 @@ App.DatasetController = Ember.Controller.extend({
             $("#json-viewer").JSONView(schema)
         }, 500);
     },
+    refreshVersions: function(dbId) {
+        _this = this;
+        var model = this.get("model");
+        if (!model || !model.id)
+        {
+            return;
+        }
+        var versionUrl = 'api/v1/datasets/' + model.id + "/versions/db/" + dbId;
+        $.get(versionUrl, function(data) {
+            if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
+                _this.set("hasversions", true);
+                _this.set("versions", data.versions);
+                _this.set("latestVersion", data.versions[0]);
+                _this.changeVersion(data.versions[0]);
+            }
+            else
+            {
+                _this.set("hasversions", false);
+                _this.set("currentVersion", '0');
+                _this.set("latestVersion", '0');
+            }
+        });
+    },
+    changeVersion: function(version) {
+        _this = this;
+        var currentVersion = _this.get('currentVersion');
+        var latestVersion = _this.get('latestVersion');
+        if (currentVersion == version)
+        {
+            return;
+        }
+        var objs = $('.version-btn');
+        if (objs && objs.length > 0)
+        {
+            for(var i = 0; i < objs.length; i++)
+            {
+                $(objs[i]).removeClass('btn-default');
+                $(objs[i]).removeClass('btn-primary');
+                if (version == $(objs[i]).attr('data-value'))
+                {
+                    $(objs[i]).addClass('btn-primary');
+                }
+                else
+                {
+                    $(objs[i]).addClass('btn-default');
+                }
+            }
+        }
+        var model = this.get("model");
+        if (version != latestVersion)
+        {
+            if (!model || !model.id)
+            {
+                return;
+            }
+            _this.set('hasSchemas', false);
+            var schemaUrl = "/api/v1/datasets/" + model.id + "/schema/" + version;
+            $.get(schemaUrl, function(data) {
+                if (data && data.status == "ok"){
+                    setTimeout(function() {
+                        $("#json-viewer").JSONView(JSON.parse(data.schema_text))
+                    }, 500);
+                }
+            });
+        }
+        else
+        {
+            if (_this.schemas)
+            {
+                _this.set('hasSchemas', true);
+            }
+            else
+            {
+                _this.buildJsonView();
+            }
+        }
+
+        _this.set('currentVersion', version);
+    },
     actions: {
         setView: function(view) {
             switch(view) {
@@ -327,61 +406,10 @@ App.DatasetController = Ember.Controller.extend({
             })
         },
         updateVersion: function(version) {
-            _this = this;;
-            var currentVersion = _this.get('currentVersion');
-            var latestVersion = _this.get('latestVersion');
-            if (currentVersion == version)
-            {
-                return;
-            }
-            var objs = $('.version-btn');
-            if (objs && objs.length > 0)
-            {
-                for(var i = 0; i < objs.length; i++)
-                {
-                    if ($(objs[i]).hasClass('active'))
-                    {
-                        $(objs[i]).removeClass('active');
-                    }
-                    if (version == objs[i].outerText)
-                    {
-                        $(objs[i]).addClass('active');
-                    }
-                }
-            }
-            var model = this.get("model");
-            if (version != latestVersion)
-            {
-                if (!model || !model.id)
-                {
-                    return;
-                }
-                _this.set('hasSchemas', false);
-                var schemaUrl = "/api/v1/datasets/" + model.id + "/schema/" + version;
-                $.get(schemaUrl, function(data) {
-                    if (data && data.status == "ok"){
-                        setTimeout(function() {
-                            $("#json-viewer").JSONView(JSON.parse(data.schema_text))
-                        }, 500);
-                    }
-                });
-            }
-            else
-            {
-                if (_this.schemas)
-                {
-                    _this.set('hasSchemas', true);
-                }
-                else
-                {
-                    _this.buildJsonView();
-                }
-            }
-
-            _this.set('currentVersion', version);
+            this.changeVersion(version);
         },
         updateInstance: function(instance) {
-            _this = this;;
+            _this = this;
             var currentInstance = _this.get('currentInstance');
             var latestInstance = _this.get('latestInstance');
             if (currentInstance == instance.dbId)
@@ -393,18 +421,22 @@ App.DatasetController = Ember.Controller.extend({
             {
                 for(var i = 0; i < objs.length; i++)
                 {
-                    if ($(objs[i]).hasClass('active'))
+                    $(objs[i]).removeClass('btn-default');
+                    $(objs[i]).removeClass('btn-primary');
+
+                    if (instance.dbCode == $(objs[i]).attr('data-value'))
                     {
-                        $(objs[i]).removeClass('active');
+                        $(objs[i]).addClass('btn-primary');
                     }
-                    if (instance.dbCode == objs[i].outerText)
+                    else
                     {
-                        $(objs[i]).addClass('active');
+                        $(objs[i]).addClass('btn-default');
                     }
                 }
             }
 
             _this.set('currentInstance', instance.dbId);
+            _this.refreshVersions(instance.dbId);
         }
     }
 });

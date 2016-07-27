@@ -16,10 +16,13 @@ package metadata.etl.lineage;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import org.codehaus.jettison.json.JSONException;
+import com.jayway.jsonpath.PathNotFoundException;
 import wherehows.common.DatasetPath;
 import wherehows.common.schemas.AzkabanJobExecRecord;
 import wherehows.common.schemas.LineageRecord;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,12 +31,14 @@ import java.util.List;
  * Created by zsun on 9/8/15.
  */
 public class AzJsonAnalyzer {
+  private static final Logger logger = LoggerFactory.getLogger(AzJsonAnalyzer.class);
 
   private static final String[] INPUT_KEYS =
     {"mapreduce.input.fileinputformat.inputdir", "pig.input.dirs", "mapred.input.dir"};
   private static final String[] OUTPUT_KEYS =
     {"mapreduce.output.fileoutputformat.outputdir", "pig.output.dirs", "mapred.output.dir"};
 
+  String jobConfJson;
   Object document;
   AzkabanJobExecRecord aje;
 
@@ -41,7 +46,7 @@ public class AzJsonAnalyzer {
   int defaultDatabaseId;
 
   public AzJsonAnalyzer(String jsonString, AzkabanJobExecRecord aje, int defaultDatabaseId) {
-    document = Configuration.defaultConfiguration().jsonProvider().parse(jsonString);
+    this.jobConfJson = jsonString;
     this.aje = aje;
     this.appId = aje.getAppId();
     this.defaultDatabaseId = defaultDatabaseId;
@@ -108,7 +113,17 @@ public class AzJsonAnalyzer {
       query.append("||");
     }
     query.delete(query.length() - 2, query.length());
-    List<String> result = JsonPath.read(document, "$.conf.property[?(" + query.toString() + ")].value");
-    return result;
+    try {
+      document = Configuration.defaultConfiguration().jsonProvider().parse(jobConfJson);
+      List<String> result = JsonPath.read(document, "$.conf.property[?(" + query.toString() + ")].value");
+      return result;
+    } catch (PathNotFoundException e){
+      logger.error(String.format(
+          "Malformat JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s",
+          appId, aje.getJobExecId(), jobConfJson.substring(1,100)
+          ));
+      return null;
+    }
   }
+
 }
