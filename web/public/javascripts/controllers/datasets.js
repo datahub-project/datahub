@@ -259,13 +259,15 @@ App.DatasetController = Ember.Controller.extend({
         {
             for(var i = 0; i < objs.length; i++)
             {
-                if ($(objs[i]).hasClass('active'))
-                {
-                    $(objs[i]).removeClass('active');
-                }
+                $(objs[i]).removeClass('btn-default');
+                $(objs[i]).removeClass('btn-primary');
                 if (version == objs[i].outerText)
                 {
-                    $(objs[i]).addClass('active');
+                    $(objs[i]).addClass('btn-primary');
+                }
+                else
+                {
+                    $(objs[i]).addClass('btn-default');
                 }
             }
         }
@@ -419,13 +421,15 @@ App.DatasetController = Ember.Controller.extend({
             {
                 for(var i = 0; i < objs.length; i++)
                 {
-                    if ($(objs[i]).hasClass('active'))
-                    {
-                        $(objs[i]).removeClass('active');
-                    }
+                    $(objs[i]).removeClass('btn-default');
+                    $(objs[i]).removeClass('btn-primary');
                     if (instance.dbCode == objs[i].outerText)
                     {
-                        $(objs[i]).addClass('active');
+                        $(objs[i]).addClass('btn-primary');
+                    }
+                    else
+                    {
+                        $(objs[i]).addClass('btn-default');
                     }
                 }
             }
