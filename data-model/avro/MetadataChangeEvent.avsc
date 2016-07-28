@@ -1,0 +1,424 @@
+{
+  "type": "record",
+  "name": "MetadataChangeEvent",
+  "namespace": "com.linkedin.events.wherehows",
+  "fields": [
+    { "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "namespace": "com.linkedin.events",
+        "doc": "This header intended to be used by the Kafka audit application.",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "logicalType": "timestamp-millis",
+            "doc": "The time at which the event was emitted into Kafka."
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The full name of the host of this event."
+          },
+          {
+            "name": "instance",
+            "type": ["null", "string"],
+            "doc": "The instance of the host."
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application of the event."
+          },
+          {
+            "name": "messageId",
+            "type": {"name": "UUID", "type":"fixed", "size":16},
+            "doc": "A unique identifier for the message."
+          }
+        ]
+      }
+    },
+    { "name": "namespace", "type": "string", "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,teradata,..." },
+    { "name": "nativeName", "type": "string", "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>" },
+    { "name": "nativeType", "type": "string", "doc": "The native type: TABLE, VIEW, DALI_DATASET, DIRECTORY, LDAP, LUCENE_INDEX, or STREAM" },
+    { "name": "uri", "type": ["string", "null"], "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This can be used as unique identifier in absensce of URN." },
+    { "name": "urn", "type": ["string", "null"], "doc": "The applicable URN - urn:li:dataset:dali:<id>, urn:salesforce:table:opportunity, arn:aws:dynamodb::<account>:table/<table>. This is the preferred " },
+
+    { "name": "changedItems",
+      "type": {
+       "type": "array",
+       "doc": "Array of changed items",
+       "items": {
+          "type": "record",
+          "name": "ChangeItems",
+          "doc": "Explain the changes",
+          "fields": [
+            { "name": "changeScope", "type": "string", "default": "[ANY]", "doc": "[ANY], OWNER, SCHEMA, DEPLOYMENT, PARTITION, CONSTRAINT, INDEX, REFERENCE, CAPACITY"},
+            { "name": "changeType", "type": "string", "doc": "CREATE, UPDATE, DELETE"},
+            { "name": "changeTime", "type": "long", "logicalType": "timestamp-millis", "doc": "Epoch"},
+            { "name": "changeNote", "type": "string", "doc": "Extra detail about the changes"}
+          ]
+        }
+      }
+    },
+
+    { "name": "owners",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OwnerInfo",
+          "fields": [
+            { "name": "ownerCategory", "type": "string", "doc": "Producer, Delegate, Consumer, Auditor" },
+            { "name": "ownerSubCategory", "type": ["string", "null"], "doc": "optional team, group, department" },
+            { "name": "owner", "type": "string", "doc": "urn:li:corp:ldap, urn:li:group:abc, urn:li:service:mp" },
+            { "name": "ownerType", "type": ["string","null"], "doc": "user, group, role, service" },
+            { "name": "ownerSource", "type": "string", "doc": "JIRA,RB,DB,FS,AUDIT,NUAGE" }
+          ]},
+          "doc": "Owner info"
+        }
+    },
+
+    { "name": "references",
+      "type": [ "null", {
+        "type": "array",
+        "doc": "Array of reference info",
+        "items": {
+          "type": "record",
+          "name": "Reference",
+          "doc": "An id, urn or url of references",
+          "fields": [
+            { "name": "referenceType", "type": "string", "doc": "JIRA, RB, LIX, CR"},
+            { "name": "referenceFormat", "type": "string", "doc": "ID, URN, URI or URL"},
+            { "name": "referenceList", "type": ["null", {"type": "array", "items": "string"}], "doc": "references[]"}
+          ]
+        }
+      }],
+      "default": null
+    },
+    { "name": "partitionSpec",
+      "type": [ "null", {
+        "type": "record",
+        "name": "PartitionSpecification",
+        "doc": "Partition strategy: level, type, keys",
+        "fields": [
+          { "name": "totalPartitionLevel", "type": ["int", "null"], "default": 0, "doc": "What is the deepest partition level"},
+          { "name": "partitionSpecText", "type": ["null","string"], "default": null, "doc": "Original partition DDL"},
+          { "name": "hasTimePartition", "type": ["string","null"], "default": "N", "doc": "Does the dataset contain time partition? Y/N"},
+          { "name": "hasHashPartition", "type": "string", "default": "N", "doc": "Does the dataset contain hash/shard partition? Y/N"},
+          { "name": "partitionKeys",
+            "doc": "Array of partition keys",
+            "type": [ "null", {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "PartitionKey",
+                "doc": "Detail of partition key",
+                "fields": [
+                  { "name": "partitionLevel", "type": "int", "doc": "1,2,3..."},
+                  { "name": "partitionType", "type": "string", "doc": "RANGE, HASH, LIST, EQUAL"},
+                  { "name": "timeFormat", "type": ["null","string"], "doc": "yyyyMMdd or Epoch. https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html"},
+                  { "name": "granularity", "type": ["null","string"], "doc": "The most granular level: Day, Hour or Minute"},
+                  { "name": "fieldNames", "type":
+                    {"type": "array", "items": "string"},
+                    "doc": "Partition keys"
+                  },
+                  { "name": "partitionValues",
+                    "type": {"type": "array", "items": "string"},
+                    "doc": "Values of the partition keys"
+                  },
+                  { "name": "numberOfHashBuckets", "type": ["null","int"], "doc": "2,4,8,16..."}
+                ]
+              }
+            }],
+            "default": null
+          },
+          { "name": "timePartitionExpression", "type": ["null","string"], "doc": "ds=yyyy-MM-dd/ts=HH"}
+        ]
+      }
+      ], "doc": "Partition specification detail"
+    },
+    { "name": "deploymentInfo",
+      "type": [ "null", {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "DeploymentDetail",
+          "doc": "Each deployment environment/tier",
+          "fields": [
+            { "name": "deploymentEnvironment", "type": "string", "default": "*", "doc": "DEV, SI, EI, QA, CORP, STAGING, PROD, GRID... (aka Fabric Group)"},
+            { "name": "dataCenter", "type": "string", "default": "*", "doc": "DC1, DC2, LTX3, LVA4, *"},
+            { "name": "cluster", "type": "string", "default": "*", "doc": "Cluster or a comma-delimited list of servers"},
+            { "name": "enabled", "type": "string", "default": "Y", "doc": "Y/N"},
+            { "name": "additionalDeploymentInfo",
+              "type": {"type": "map", "values": "string"},
+              "doc": "Misc deployment info, such as Zookeeper, Connection, InGraph URL, native reference ID or KEY"
+            }
+          ]
+        }
+
+      }],
+      "doc": "The deployment info"
+    },
+
+    { "name": "isCaseSensitive",
+      "type": ["null", {
+        "type": "record",
+        "name": "CaseSensitiveInfo",
+        "doc": "Is the object_name/data/field case sensitive?",
+        "fields": [
+          { "name": "nativeName", "type": "string", "default": "Y", "doc": "Is native object name CS?"},
+          { "name": "fieldName", "type": "string", "default": "Y", "doc": "Is field name CS?"},
+          { "name": "dataContent", "type": "string", "default": "Y", "doc": "Is data content CS?"}
+        ]
+      }]
+    },
+
+    { "name": "tags", "type": { "type": "array", "items": "string"}, "doc": "Tags of the metadata object"},
+
+    { "name": "schemas", "doc": "The schema of a metadata object",
+      "type": [ "null", {
+        "type": "record",
+        "name": "SchemaInfo",
+        "fields": [
+          { "name": "isLatest", "type": "string", "doc": "Is the latest version Y/N" },
+          { "name": "createTime", "type": "long", "doc": "epoch" },
+          { "name": "revision", "type": ["null","int"], "doc": "revision if available" },
+          { "name": "version", "type": ["null","string"], "doc": "1.0.3, 2.12, 2_3_6"},
+          { "name": "name", "type": "string", "doc": "name or class name" },
+          { "name": "description", "type": ["null","string"], "doc": "descripiton" },
+          { "name": "type", "type": "string", "default": "default", "doc": "default, table, key, document, database" },
+          { "name": "format", "type": "string", "default": "TEXT", "doc": "JSON,DDL,Avro,Hive,XML,HOCOON,Thrift,Text..." },
+          { "name": "isCaseSensitive", "type": "string", "default": "Y", "doc": "Is the object names in schema case sensitive? Y/N" },
+          { "name": "originalSchema", "type": ["null","string"], "doc": "The raw schema content" },
+          { "name": "originalSchemaChecksum", "type": {"type": "map", "values": "string"}, "doc": "Map key can be MD5,SHA-1,CRC32. Checksum is hex string in lower case." },
+          { "name": "fieldSchema",
+            "type": [ "null", {
+              "type": "array",
+              "items": {
+                "type": "record",
+                "name": "FieldSchemaRecord",
+                "doc": "Abstracted field schema in tablular model",
+                "fields": [
+                  { "name": "position", "type": "int", "default": 1, "doc": "Field position id, SORT_ID. Starting from 1" },
+                  { "name": "parentFieldPosition", "type": "int", "default": 0, "doc": "Position id of the parent field for nested structure. 0 means this field is the top-level field" },
+                  { "name": "parentFieldPath", "type": ["null", "string"], "doc": "For example, <grand_grand_parent>.<grand_parent>.<parent>" },
+                  { "name": "name", "type": "string", "doc": "Field name" },
+                  { "name": "label", "type": ["null", "string"], "doc": "Field title/label for display" },
+                  { "name": "aliases", "type": {"type": "array", "items": "string"}, "doc": "Field aliaes." },
+                  { "name": "type", "type": "string", "doc": "native data type" },
+                  { "name": "logicalType", "type": ["null", "string"], "doc": "logical data type, DateTime, NUMBER(15,2), GUID, Epoch(3)" },
+                  { "name": "domainType", "type": ["null", "string"], "doc": "domain data type. can be URN, MEMBER_ID, EMAIL, PHONE" },
+                  { "name": "abstractType", "type": "string", "doc": "Standard types to generate canonical schema abstraction. Hide the subtle difference." },
+                  { "name": "description", "type": ["null", "string"], "doc": "field comment/description" },
+                  { "name": "nullable", "type": "string", "default": "Y", "doc": "Is the field nullable" },
+                  { "name": "defaultValue", "type": ["null", "string"], "doc": "default value" },
+                  { "name": "maxByteLength", "type": ["null", "int"], "doc": "max length in bytes" },
+                  { "name": "maxCharLength", "type": ["null", "int"], "doc": "max length in characters" },
+                  { "name": "charType", "type": ["null", "string"], "doc": "ascii, utf8, utf16, latin, iso8859" },
+                  { "name": "precision", "type": ["null", "int"], "doc": "number(p,s)" },
+                  { "name": "scale", "type": ["null", "int"], "doc": "number(p,s)" },
+                  { "name": "changeDataCaptureRole", "type": ["null","string"], "doc": "SEQUENCE, TIME" },
+                  { "name": "auditRole", "type": ["null","string"], "doc": "PARTY, TIME" },
+                  { "name": "sensitiveFlags", "type": ["null","string"], "doc": "ERPF=Encrypted Restricted Privacy Financial. --P-=Privacy" },
+                  { "name": "isRecursive", "type": ["null","string"], "doc": "Does this field contains recursive structure?" }
+                ]
+              }
+            }]
+          }
+        ]
+      }],
+      "default": null
+    },
+    { "name": "constraints", "type": [ "null", {
+      "type": "array",
+      "doc": "Array of constraints",
+      "items": {
+        "type": "record",
+        "name": "Constraint", "doc": "constraint info",
+        "fields": [
+          { "name": "constraintType", "type": "string", "doc": "constraint, referetial, index, dataquality" },
+          { "name": "constraintName", "type": "string", "doc": "constraint name" },
+          { "name": "constraintExpression", "type": "string", "doc": "Expression in constraint" },
+          { "name": "enabled", "type": "string", "doc": "Is constraint enabled: Y/N" },
+          { "name": "referredFields",
+            "type": {
+              "type": "array",
+              "doc": "Fields involved in this constraint",
+              "items": {
+                "type": "record",
+                "name": "Field",
+                "fields": [
+                  { "name": "fieldName", "type": "string", "doc": "Field name with parent path." },
+                  { "name": "position", "type": "int", "doc": "Position in a constraint" }
+                ]
+              }
+            }
+          },
+          { "name": "additionalReferences",
+            "type": ["null", {
+              "type": "map",
+              "values": "string"
+              }],
+            "doc": "When map key = Index, the value = PK/AK index name; when key = Constraint, the value refers to another dataset's constraint, such as FK; when key = DataQuality, the value points to data quality rule."
+          }
+        ]
+      }
+      }],
+      "default": null
+    },
+    { "name": "indices",
+      "type": ["null", {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Index",
+          "doc": "Index Info",
+          "fields": [
+            { "name": "indexType", "type": "string", "doc": "BTree, Hash, Fulltext, Normal" },
+            { "name": "indexName", "type": "string", "doc": "Index name" },
+            { "name": "isUnique", "type": "string", "default": "N", "doc": "Is unique index or not" },
+            { "name": "indexedFields", "doc": "Fields in an index",
+              "type": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "IndexedFieldName", "doc": "Indexed field name",
+                  "fields": [
+                    { "name": "position", "type": "int", "doc": "Position id within an index" },
+                    { "name": "fieldName", "type": "string", "doc": "Field name or expression" },
+                    { "name": "descend", "type": ["null","string"], "defualt": "ASC", "doc": "ASC or DESC" },
+                    { "name": "prefixLength", "type": ["null","int"], "doc": "The length of the prefix portion of a string" },
+                    { "name": "filter", "type": ["null","string"], "doc": "Filter expression for conditional index" }
+                  ]
+              }
+          }
+          }],
+          "default": null
+        }
+        }
+      ],
+      "default": null
+    },
+    { "name": "capacity", "type": [ "null", {
+      "type": "array",
+      "items": {
+        "type": "record",
+        "name": "Capacity",
+        "doc": "capacity info",
+        "fields": [
+          { "name": "capacityName", "type": "string", "doc": "Capacity name" },
+          { "name": "capacityType", "type": ["null","string"], "doc": "storage, read qps, write qps" },
+          { "name": "capacityUnit", "type": ["null","string"], "doc": "KB,MB,GB,TB,QPS" },
+          { "name": "capacityLow", "type": "long", "doc": "lower/min capacity" },
+          { "name": "capacityHigh", "type": "long", "doc": "higher/max capacity" }
+        ]
+      }
+      }],
+      "default": null
+    },
+    { "name": "securitySpec", "type": [ "null", {
+      "type": "record",
+      "name": "SecuritySpecification",
+      "doc": "",
+      "fields": [
+        { "name": "classification", "type": {
+          "type": "map", "values": "int", "doc": "How many fields match this classification"
+          },
+          "doc": "Map key = HighlyConfidential, Confidential, LimitedDistribution, Encrypted, Masked"
+        },
+        { "name": "ownerType", "type" :
+          { "type": "enum",
+            "name": "OwnerTypes",
+            "doc": "Record ownership spec that marks the owner of a dataset",
+            "symbols" : [ "MEMBER", "CUSTOMER", "JOINT", "INTERNAL", "COMPANY" ],
+            "symbolDoc" : {
+              "INTERNAL" : "data is generated by value internal to Linkedin",
+              "CUSTOMER" : "If the data is generated through a customer or enterprise product integration, that data is owned by a Customer.",
+              "JOINT" : "If the data is generated by an action of a member to a customer object, such as a member applying to a customer’s job, the ownership is joint.",
+              "COMPANY" : "If data is generated/produced by company",
+              "MEMBER" : "If data is generated/produced by member. All datasets that marked as member, should comply with legal retention policies."
+            }
+          }
+        },
+        { "name" : "retentionPolicy",
+          "type" : {
+            "type": "record",
+            "name": "RetentionSpec",
+            "namespace": "com.linkedin.common",
+            "doc" : "Retention policy on a dataset",
+            "fields" : [
+              { "name" : "retentionType",
+                "type" : {
+                  "type" : "enum",
+                  "name" : "RetentionType",
+                  "doc" : "types of different retention policies",
+                  "symbols" : [ "LIMITED", "LEGAL_HOLD", "UNLIMITED" ],
+                  "symbolDocs" : {
+                    "LIMITED" : "Data is stored for limited time only",
+                    "LEGAL_HOLD" : "",
+                    "UNLIMITED" : "Data can be held indefinitely"
+                  }
+                },
+                "doc" : "Retention type on dataset"
+              },
+              { "name" : "retentionWindow",
+                "type" : [ "null", "long" ],
+                "doc" : "Time in (unit) how long data is retained for in case of LIMITED retention",
+                "default" : null
+              },
+              { "name" : "retentionWindowUnit",
+                "type" : [ "null", {
+                  "type": "enum",
+                  "name": "TimePeriodUnit",
+                  "doc": "Unit of time period",
+                  "symbols": [ "YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND", "MILLISECOND"]
+                  }],
+                "doc" : "",
+                "default" : null
+              }
+            ]
+          }
+        },
+        { "name" : "geographicAffinity",
+          "type" : [ "null", {
+            "type" : "record",
+            "name" : "GeographicAffinity",
+            "fields" : [ {
+              "name" : "affinity",
+              "type" : [ "null", {
+                "type" : "enum",
+                "name" : "AffinityType",
+                "symbols" : [ "LIMITED", "EXCLUDED" ]
+              } ],
+              "doc" : "Affinity type",
+              "default" : null
+            },
+            { "name" : "locations",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "Locale",
+                  "namespace" : "com.linkedin.common",
+                  "doc" : "Motivated by java.util.Locale",
+                  "fields" : [
+                    { "name" : "language", "type" : "string", "doc" : "A lowercase two-letter language code as defined by ISO-639." },
+                    { "name" : "country", "type" : [ "null", "string" ], "doc" : "An uppercase two-letter country code as defined by ISO-3166.", "default" : null },
+                    { "name" : "variant", "type" : [ "null", "string" ], "doc" : "Vendor or browser-specific code.", "default" : null }
+                  ]
+                }
+              },
+              "doc" : "List of locations data should be stored at"
+            }
+          ]
+          }],
+          "doc" : "Geographic affinity if applicable",
+          "default" : null
+          }
+        ]
+      }]
+    }
+  ]
+}

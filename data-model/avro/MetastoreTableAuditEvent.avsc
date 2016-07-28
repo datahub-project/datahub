@@ -1,0 +1,292 @@
+{
+  "type": "record",
+  "name": "MetastoreTableAuditEvent",
+  "namespace": "com.linkedin.events",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "doc": "This header intended to be used by the Kafka audit application.",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "The time at which the event was emitted into Kafka."
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The full name of the host of this event."
+          },
+          {
+            "name": "instance",
+            "type": ["null", "string"],
+            "doc": "The instance of the host."
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application of the event."
+          },
+          {
+            "name": "messageId",
+            "type": {"name": "UUID", "type":"fixed", "size":16},
+            "doc": "A unique identifier for the message."
+          }
+        ]
+      }
+    },
+    {
+      "name": "metastoreTableAuditContent",
+      "type": {
+        "type": "record",
+        "name": "MetastoreTableAuditContent",
+        "doc": "Metastore event content.",
+        "fields": [
+          {
+            "name": "eventType",
+            "type":
+            {
+              "type": "enum",
+              "name": "TableEventType",
+              "symbols": [ "CREATE_TABLE", "ALTER_TABLE", "DROP_TABLE" ]
+            },
+            "doc": "Event type."
+          },
+          {
+            "name": "timestamp",
+            "type": "long",
+            "doc": "Timestamp of this event."
+          },
+          {
+            "name": "metastoreThriftUri",
+            "type": ["null", "string"],
+            "doc": "Thrift URI of the Metastore."
+          },
+          {
+            "name": "metastoreVersion",
+            "type": ["null", "string"],
+            "doc": "Version of the Metastore."
+          },
+          {
+            "name": "isSuccessful",
+            "type": "boolean",
+            "doc": "Whether event is successful or not."
+          },
+          {
+            "name": "isDataDeleted",
+            "type": "boolean",
+            "doc": "Whether the underlying data is deleted, only valid for drop events."
+          },
+          {
+            "name": "oldTable",
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "Table",
+                "doc": "Hive table metadata.",
+                "fields": [
+                  {
+                    "name": "tableName",
+                    "type": "string",
+                    "doc": "The table name."
+                  },
+                  {
+                    "name": "dbName",
+                    "type": "string",
+                    "doc": "The database name."
+                  },
+                  {
+                    "name": "owner",
+                    "type": ["null", "string"],
+                    "doc": "The owner of the table."
+                  },
+                  {
+                    "name": "createTime",
+                    "type": "long",
+                    "doc": "The create time of the table."
+                  },
+                  {
+                    "name": "lastAccessTime",
+                    "type": "long",
+                    "doc": "The last access time of the table."
+                  },
+                  {
+                    "name": "retention",
+                    "type": "int",
+                    "doc": "The retention on the table."
+                  },
+                  {
+                    "name": "schema",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items":
+                        {
+                          "type": "record",
+                          "name": "FieldSchema",
+                          "doc": "Field schema description in Hive.",
+                          "fields": [
+                            {
+                              "name": "name",
+                              "type": "string",
+                              "doc": "Field name."
+                            },
+                            {
+                              "name": "type",
+                              "type": "string",
+                              "doc": "Field type."
+                            },
+                            {
+                              "name": "comment",
+                              "type": ["null", "string"],
+                              "doc": "Field comment."
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "name": "location",
+                    "type": ["null", "string"],
+                    "doc": "The underlying location of the table."
+                  },
+                  {
+                    "name": "storageDescriptor",
+                    "type": {
+                      "type": "record",
+                      "name": "StorageDescriptor",
+                      "doc": "Storage information.",
+                      "fields": [
+                        {
+                          "name": "inputFormatClassName",
+                          "type": ["null", "string"],
+                          "doc": "The input format class name of the table."
+                        },
+                        {
+                          "name": "outputFormatClassName",
+                          "type": ["null", "string"],
+                          "doc": "The output format class name of the table."
+                        },
+                        {
+                          "name": "isCompressed",
+                          "type": "boolean",
+                          "doc": "Whether the data is compressed."
+                        },
+                        {
+                          "name": "numBuckets",
+                          "type": "int",
+                          "doc": "Number of buckets. Only applies to bucketed tables."
+                        },
+                        {
+                          "name": "serdeName",
+                          "type": ["null", "string"],
+                          "doc": "SerDe Name."
+                        },
+                        {
+                          "name": "serializationLib",
+                          "type": ["null", "string"],
+                          "doc": "Serilization lib name."
+                        },
+                        {
+                          "name": "serdeProperties",
+                          "type": ["null", {"type": "map", "values": "string"}],
+                          "doc": "Additional serde properties."
+                        },
+                        {
+                          "name": "bucketCols",
+                          "type": ["null", {"type": "array", "items": "string"}],
+                          "doc": "Bucket columns. Only applies to bucketed tables."
+                        },
+                        {
+                          "name": "sortCols",
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items":
+                              {
+                                "type": "record",
+                                "name": "ColumnOrder",
+                                "doc": "Column sorting information.",
+                                "fields": [
+                                  {
+                                    "name": "col",
+                                    "type": "string",
+                                    "doc": "Column name."
+                                  },
+                                  {
+                                    "name": "order",
+                                    "type": "int",
+                                    "doc": "Order of values on the column."
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "name": "storageProperties",
+                          "type": ["null", {"type": "map", "values": "string"}],
+                          "doc": "Additional storage properties."
+                        },
+                        {
+                          "name": "isStoredAsSubDirectories",
+                          "type": "boolean",
+                          "doc": "Whether the data is stored as sub directories."
+                        }
+                      ]
+                    },
+                    "doc": "Storage information."
+                  },
+                  {
+                    "name": "partitionKeys",
+                    "type": ["null", {"type": "array", "items": "string"}],
+                    "doc": "The partition keys of the table."
+                  },
+                  {
+                    "name": "tblProperties",
+                    "type": ["null", {"type": "map", "values": "string"}],
+                    "doc": "Additional table properties."
+                  },
+                  {
+                    "name": "viewOriginalText",
+                    "type": ["null", "string"],
+                    "doc": "View Original Text."
+                  },
+                  {
+                    "name": "viewExpandedText",
+                    "type": ["null", "string"],
+                    "doc": "View Expanded Text."
+                  },
+                  {
+                    "name": "tableType",
+                    "type":
+                    {
+                      "type": "enum",
+                      "name": "TableType",
+                      "symbols": ["MANAGED_TABLE", "EXTERNAL_TABLE", "VIRTUAL_VIEW", "INDEX_TABLE"]
+                    },
+                    "doc": "Table type."
+                  }
+                ]
+              }
+            ],
+            "doc": "Table before event, only valid for table events."
+          },
+          {
+            "name": "newTable",
+            "type": ["null", "Table"],
+            "doc": "Table after event, only valid for table events."
+          }
+        ]
+      }
+    }
+  ]
+}
+
