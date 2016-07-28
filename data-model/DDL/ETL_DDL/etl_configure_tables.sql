@@ -120,24 +120,30 @@ CREATE TABLE `cfg_application` (
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
-CREATE TABLE `cfg_database` (
-  `db_id`                   SMALLINT    UNSIGNED NOT NULL,
-  `db_code`                 VARCHAR(30)          NOT NULL,
-  `db_type_id`              SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
-  `description`             VARCHAR(128)         NOT NULL,
-  `is_logical`              CHAR(1)              NOT NULL DEFAULT 'N',
-  `cluster_size`            SMALLINT(6) UNSIGNED NOT NULL DEFAULT '1',
-  `associated_data_centers` TINYINT(4) UNSIGNED  NOT NULL DEFAULT '1',
-  `replication_role`        VARCHAR(10)                   DEFAULT NULL,
-  `jdbc_url`                VARCHAR(1000)                 DEFAULT NULL,
-  `uri`                     VARCHAR(1000)                 DEFAULT NULL,
-  `short_connection_string` VARCHAR(50)                   DEFAULT NULL,
-  `last_modified`           TIMESTAMP            NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`db_id`),
-  UNIQUE KEY `idx_cfg_database_database_code` (`db_code`)
+CREATE TABLE cfg_database  ( 
+	db_id                  	smallint(6) UNSIGNED NOT NULL,
+	db_code                	varchar(30) COMMENT 'Unique string without space'  NOT NULL,
+	db_type_id             	smallint(5) UNSIGNED NOT NULL DEFAULT '0',
+	description            	varchar(128) NOT NULL,
+	is_logical             	char(1) COMMENT 'Is a group, which contains multiple physical DB(s)'  NOT NULL DEFAULT 'N',
+	deployment_tier        	varchar(20) COMMENT 'Lifecycle/FabricGroup: local,dev,sit,ei,qa,canary,preprod,pr'  NULL DEFAULT 'prod',
+	data_center            	varchar(200) COMMENT 'Code name of its primary data center. Put * for all data cen'  NULL DEFAULT '*',
+	associated_dc_num      	tinyint(4) UNSIGNED COMMENT 'Number of associated data centers'  NOT NULL DEFAULT '1',
+	cluster                	varchar(200) COMMENT 'Name of Fleet, Group of Servers or Cluster'  NULL DEFAULT '*',
+	cluster_size           	smallint(6) COMMENT 'Num of servers in the cluster'  NOT NULL DEFAULT '1',
+	server_list            	varchar(500) COMMENT 'If cluster is not applicable, put the server names here'  NULL,
+	extra_deployment_tag1  	varchar(50) COMMENT 'Additional tag. Such as container_group:HIGH'  NULL,
+	extra_deployment_tag2  	varchar(50) COMMENT 'Additional tag. Such as slice:i0001'  NULL,
+	extra_deployment_tag3  	varchar(50) COMMENT 'Additional tag. Such as virtual_slot:RED'  NULL,
+	replication_role       	varchar(10) COMMENT 'master or slave or broker'  NULL,
+	jdbc_url               	varchar(1000) NULL,
+	uri                    	varchar(1000) NULL,
+	short_connection_string	varchar(50) NULL,
+	last_modified          	timestamp NOT NULL,
+	PRIMARY KEY(db_id)
 )
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8;
+ENGINE = InnoDB
+DEFAULT CHARSET = utf8;
 
 CREATE TABLE stg_cfg_object_name_map  ( 
 	object_type             	varchar(100) NOT NULL,
@@ -191,3 +197,41 @@ ALTER TABLE cfg_object_name_map
 
 CREATE INDEX idx_cfg_object_name_map__mappedobjectname USING BTREE 
   ON cfg_object_name_map(mapped_object_name);
+
+
+CREATE TABLE cfg_deployment_tier  ( 
+  tier_id      	tinyint(4) NOT NULL,
+  tier_code    	varchar(25) COMMENT 'local,dev,test,qa,stg,prod' NOT NULL,
+  tier_label    varchar(50) COMMENT 'display full name' NULL,
+  sort_id       smallint(6) COMMENT '3-digit for group, 3-digit within group' NOT NULL,
+  last_modified timestamp NOT NULL,
+  PRIMARY KEY(tier_id)
+)
+ENGINE = InnoDB
+AUTO_INCREMENT = 0
+COMMENT = 'http://en.wikipedia.org/wiki/Deployment_environment';
+
+CREATE UNIQUE INDEX uix_cfg_deployment_tier__tiercode
+	ON cfg_deployment_tier(tier_code);
+
+CREATE TABLE cfg_data_center  ( 
+	data_center_id    	smallint(6) NOT NULL DEFAULT '0',
+	data_center_code  	varchar(30) NOT NULL,
+	data_center_name  	varchar(50) NOT NULL,
+	time_zone         	varchar(50) NOT NULL,
+	city              	varchar(50) NOT NULL,
+	state             	varchar(25) NULL,
+	country           	varchar(50) NOT NULL,
+	longtitude        	decimal(10,6) NULL,
+	latitude          	decimal(10,6) NULL,
+	data_center_status	char(1) COMMENT 'A,D,U' NULL,
+	last_modified     	timestamp NULL,
+	PRIMARY KEY(data_center_id)
+)
+ENGINE = InnoDB
+AUTO_INCREMENT = 0
+COMMENT = 'https://en.wikipedia.org/wiki/Data_center' ;
+
+CREATE UNIQUE INDEX uix_cfg_data_center__datacentercode
+	ON cfg_data_center(data_center_code);
+

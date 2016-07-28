@@ -13,10 +13,21 @@
 --
 
 
--- creation statement for Gobblin tracking event related tables
+-- creation statement for Kafka event related tables
+-- Gobblin:
+--   + GobblinTrackingEvent: compaction 
+--   + GobblinTrackingEvent_Distcp_Ng: distcp
+--   + GobblinTrackingEvent_Lumos: rdbms/nosql
+-- Hive Metastore
+--   + MetastoreTableAudit
+--   + MetastorePartitionAudit
+-- Mapping {Kafka topic => stg table} is loaded in
+-- backend-service/app/actors/KafkaConsumerMaster.java
+-- Avro schemas of the Kafka event are available in
+-- data-model/avro
 
 -- staging table for Gobblin tracking event compaction
-CREATE TABLE `stg_gobblin_tracking_compaction` (
+CREATE TABLE `stg_kafka_gobblin_compaction` (
   `cluster`         VARCHAR(20) NOT NULL,
   `dataset`         VARCHAR(100) NOT NULL,
   `partition_type`  VARCHAR(20) DEFAULT NULL,
@@ -37,7 +48,7 @@ CREATE TABLE `stg_gobblin_tracking_compaction` (
 
 
 -- staging table for Gobblin tracking event lumos
-CREATE TABLE `stg_gobblin_tracking_lumos` (
+CREATE TABLE `stg_kafka_gobblin_lumos` (
   `cluster`     VARCHAR(20) NOT NULL,
   `dataset`     VARCHAR(100) NOT NULL,
   `location`    VARCHAR(200) NOT NULL,
@@ -65,7 +76,7 @@ CREATE TABLE `stg_gobblin_tracking_lumos` (
 
 
 -- staging table for Gobblin tracking event distcp_ng
-CREATE TABLE `stg_gobblin_tracking_distcp_ng` (
+CREATE TABLE `stg_kafka_gobblin_distcp` (
   `cluster`     VARCHAR(20) NOT NULL,
   `dataset`     VARCHAR(100) NOT NULL,
   `partition_type`  VARCHAR(20) DEFAULT NULL,
@@ -87,7 +98,7 @@ CREATE TABLE `stg_gobblin_tracking_distcp_ng` (
 
 
 -- staging table for Metastore Audit Event, include TableAudit / PartitionAudit
-CREATE TABLE `stg_metastore_audit` (
+CREATE TABLE `stg_kafka_metastore_audit` (
   `server`          VARCHAR(20) NOT NULL,
   `instance`        VARCHAR(20) NOT NULL,
   `app_name`        VARCHAR(50) NOT NULL,
@@ -105,8 +116,8 @@ CREATE TABLE `stg_metastore_audit` (
   `owner`           VARCHAR(100) DEFAULT NULL,
   `create_time`     BIGINT(20) DEFAULT NULL,
   `last_access_time`  BIGINT(20) DEFAULT NULL,
-  `old`             MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
-  `new`             MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
+  `old_info`          MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
+  `new_info`          MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
   PRIMARY KEY (`db_name`,`table_name`,`time_partition`,`instance`,`log_event_time`,`event_type`)
 )
   ENGINE=InnoDB
