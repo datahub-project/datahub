@@ -183,4 +183,15 @@ public class Constant {
 
   public static final String WH_ELASTICSEARCH_URL_KEY = "wh.elasticsearch.url";
   public static final String WH_ELASTICSEARCH_PORT_KEY = "wh.elasticsearch.port";
+
+  // Oracle
+  public static final String ORA_DB_USERNAME_KEY = "oracle.db.username";
+  public static final String ORA_DB_PASSWORD_KEY = "oracle.db.password";
+  public static final String ORA_DB_DRIVER_KEY = "oracle.db.driver";
+  public static final String ORA_DB_URL_KEY = "oracle.db.jdbc.url";
+  public static final String ORA_SCHEMA_OUTPUT_KEY = "oracle.metadata";
+  public static final String ORA_FIELD_OUTPUT_KEY = "oracle.field_metadata";
+  public static final String ORA_SAMPLE_OUTPUT_KEY = "oracle.sample_data";
+  public static final String ORA_LOAD_SAMPLE = "oracle.load_sample";
+  public static final String ORA_EXCLUDE_DATABASES_KEY = "oracle.exclude_db";
 }
