@@ -134,3 +134,15 @@ auto.commit.interval.ms=
 kafka.topics=
 kafka.processors=
 kafka.db.tables=
+
+#Oracle
+oracle.db.driver=
+oracle.db.name=
+oracle.db.username=
+oracle.db.password=
+oracle.db.jdbc.url=
+oracle.metadata=
+oracle.field_metadata=
+oracle.sample_data=
+oracle.load_sample=
+oracle.exclude_db=

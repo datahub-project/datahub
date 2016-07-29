@@ -17,6 +17,7 @@ import java.util.Properties;
 import metadata.etl.EtlJob;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
+import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
@@ -57,6 +58,8 @@ public class EtlJobFactory {
         return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
       case TREEBUILDER_EXECUTION_DATASET_ETL:
         return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
+      case ORACLE_DATASET_METADATA_ETL:
+        return new OracleMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

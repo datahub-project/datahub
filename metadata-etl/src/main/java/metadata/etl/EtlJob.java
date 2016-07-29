@@ -106,10 +106,12 @@ public abstract class EtlJob {
     }
     prop.setProperty(Constant.WH_EXEC_ID_KEY, String.valueOf(whExecId));
 
-    try (InputStream propFile = new FileInputStream(configFile)) {
+    try {
+      InputStream propFile = new FileInputStream(configFile);
       prop.load(propFile);
+      propFile.close();
     } catch (IOException e) {
-      logger.error("property file '{}' not found" , configFile);
+      logger.error("property file '{}' not found", configFile);
       e.printStackTrace();
     }
 
@@ -148,10 +150,6 @@ public abstract class EtlJob {
     sys.argv.append(config);
     return sys;
   }
-  /**
-   * Extract data from source
-   * @return success
-   */
 
   public abstract void extract()
     throws Exception;
@@ -166,7 +164,6 @@ public abstract class EtlJob {
     throws Exception {
     // redirect error to out
     System.setErr(System.out);
-
   }
 
   public void close()
