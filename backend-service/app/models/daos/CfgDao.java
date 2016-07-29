@@ -37,9 +37,9 @@ public class CfgDao {
     + "VALUES (:appId, :appCode, :description, :uri, :shortConnectionString, :techMatrixId, :parentAppId, :appStatus, :isLogical)";
   public static final String UPDATE_APP = "UPDATE cfg_application SET app_code = :appCode, description = :description, uri = :uri, short_connection_string = :shortConnectionString, " +
     " tech_matrix_id = :techMatrixId, parent_app_id = :parentAppId, app_status = :appStatus, is_logical = :isLogical WHERE app_id = :appId";
-  public static final String INSERT_NEW_DB = "INSERT INTO cfg_database (db_id, db_code, db_type_id, description, cluster_size, associated_data_centers, replication_role, uri, short_connection_string, jdbc_url, is_logical) "
-    + "VALUES (:dbId, :dbCode, :dbTypeId, :description, :clusterSize, :associatedDataCenters, :replicationRole, :uri, :shortConnectionString, :jdbcUrl, :isLogical)";
-  public static final String UPDATE_DB = "UPDATE cfg_database SET db_code = :dbCode, db_type_id = :dbTypeId, description = :description, cluster_size = :clusterSize, associated_data_centers = :associatedDataCenters, " +
+  public static final String INSERT_NEW_DB = "INSERT INTO cfg_database (db_id, db_code, db_type_id, description, cluster_size, associated_dc_num, replication_role, uri, short_connection_string, jdbc_url, is_logical) "
+    + "VALUES (:dbId, :dbCode, :dbTypeId, :description, :clusterSize, :associatedDcNum, :replicationRole, :uri, :shortConnectionString, :jdbcUrl, :isLogical)";
+  public static final String UPDATE_DB = "UPDATE cfg_database SET db_code = :dbCode, db_type_id = :dbTypeId, description = :description, cluster_size = :clusterSize, associated_dc_num = :associatedDcNum, " +
     " replication_role = :replicationRole, uri = :uri, short_connection_string = :shortConnectionString, jdbc_url = :jdbcUrl, is_logical = :isLogical WHERE db_id = :dbId";
 
 
@@ -118,7 +118,7 @@ public class CfgDao {
     params.put("description", JsonUtil.getJsonValue(db, "description", String.class, null));
     params.put("dbTypeId", JsonUtil.getJsonValue(db, "db_type_id", Integer.class, null));
     params.put("clusterSize", JsonUtil.getJsonValue(db, "cluster_size", Integer.class, null));
-    params.put("associatedDataCenters", JsonUtil.getJsonValue(db, "associated_data_centers", Integer.class, null));
+    params.put("associatedDcNum", JsonUtil.getJsonValue(db, "associated_dc_num", Integer.class, null));
     params.put("replicationRole", JsonUtil.getJsonValue(db, "replication_role", String.class, null));
     params.put("uri", JsonUtil.getJsonValue(db, "uri", String.class, null));
     params.put("shortConnectionString", JsonUtil.getJsonValue(db, "short_connection_string", String.class));

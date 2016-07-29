@@ -1,0 +1,262 @@
+{
+  "type": "record",
+  "name": "MetastorePartitionAuditEvent",
+  "namespace": "com.linkedin.events",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "doc": "This header intended to be used by the Kafka audit application.",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "The time at which the event was emitted into Kafka."
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The full name of the host of this event."
+          },
+          {
+            "name": "instance",
+            "type": ["null", "string"],
+            "doc": "The instance of the host."
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application of the event."
+          },
+          {
+            "name": "messageId",
+            "type": {"name": "UUID", "type":"fixed", "size":16},
+            "doc": "A unique identifier for the message."
+          }
+        ]
+      }
+    },
+    {
+      "name": "metastorePartitionAuditContent",
+      "type": {
+        "type": "record",
+        "name": "MetastorePartitionAuditContent",
+        "doc": "Metastore event content.",
+        "fields": [
+          {
+            "name": "eventType",
+            "type":
+            {
+              "type": "enum",
+              "name": "PartitionEventType",
+              "symbols": [ "ADD_PARTITION", "ALTER_PARTITION", "DROP_PARTITION" ]
+            },
+            "doc": "Event type."
+          },
+          {
+            "name": "timestamp",
+            "type": "long",
+            "doc": "Timestamp of this event."
+          },
+          {
+            "name": "metastoreThriftUri",
+            "type": ["null", "string"],
+            "doc": "Thrift URI of the Metastore."
+          },
+          {
+            "name": "metastoreVersion",
+            "type": ["null", "string"],
+            "doc": "Version of the Metastore."
+          },
+          {
+            "name": "isSuccessful",
+            "type": "boolean",
+            "doc": "Whether event is successful or not."
+          },
+          {
+            "name": "isDataDeleted",
+            "type": "boolean",
+            "doc": "Whether the underlying data is deleted, only valid for drop events."
+          },
+          {
+            "name": "oldPartition",
+            "type": [
+              "null",
+              {
+                "type": "record",
+                "name": "Partition",
+                "doc": "Hive partition metadata.",
+                "fields": [
+                  {
+                    "name": "values",
+                    "type": ["null", {"type": "array", "items": "string"}],
+                    "doc": "Partition values."
+                  },
+                  {
+                    "name": "dbName",
+                    "type": "string",
+                    "doc": "The database name."
+                  },
+                  {
+                    "name": "tableName",
+                    "type": "string",
+                    "doc": "The table name."
+                  },
+                  {
+                    "name": "createTime",
+                    "type": "long",
+                    "doc": "The create time of the partition."
+                  },
+                  {
+                    "name": "lastAccessTime",
+                    "type": "long",
+                    "doc": "The last access time of the partition."
+                  },
+                  {
+                    "name": "schema",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items":
+                        {
+                          "type": "record",
+                          "name": "FieldSchema",
+                          "doc": "Field schema description in Hive.",
+                          "fields": [
+                            {
+                              "name": "name",
+                              "type": "string",
+                              "doc": "Field name."
+                            },
+                            {
+                              "name": "type",
+                              "type": "string",
+                              "doc": "Field type."
+                            },
+                            {
+                              "name": "comment",
+                              "type": ["null", "string"],
+                              "doc": "Field comment."
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                      "name": "location",
+                      "type": ["null", "string"],
+                      "doc": "The underlying location of the partition."
+                  },
+                  {
+                    "name": "storageDescriptor",
+                    "type": {
+                      "type": "record",
+                      "name": "StorageDescriptor",
+                      "doc": "Storage information.",
+                      "fields": [
+                        {
+                          "name": "inputFormatClassName",
+                          "type": ["null", "string"],
+                          "doc": "The input format class name of the table."
+                        },
+                        {
+                          "name": "outputFormatClassName",
+                          "type": ["null", "string"],
+                          "doc": "The output format class name of the table."
+                        },
+                        {
+                          "name": "isCompressed",
+                          "type": "boolean",
+                          "doc": "Whether the data is compressed."
+                        },
+                        {
+                          "name": "numBuckets",
+                          "type": "int",
+                          "doc": "Number of buckets. Only applies to bucketed tables."
+                        },
+                        {
+                          "name": "serdeName",
+                          "type": ["null", "string"],
+                          "doc": "SerDe Name."
+                        },
+                        {
+                          "name": "serializationLib",
+                          "type": ["null", "string"],
+                          "doc": "Serilization lib name."
+                        },
+                        {
+                          "name": "serdeProperties",
+                          "type": ["null", {"type": "map", "values": "string"}],
+                          "doc": "Additional serde properties."
+                        },
+                        {
+                          "name": "bucketCols",
+                          "type": ["null", {"type": "array", "items": "string"}],
+                          "doc": "Bucket columns. Only applies to bucketed tables."
+                        },
+                        {
+                          "name": "sortCols",
+                          "type": [
+                            "null",
+                            {
+                              "type": "array",
+                              "items":
+                              {
+                                "type": "record",
+                                "name": "ColumnOrder",
+                                "doc": "Column sorting information.",
+                                "fields": [
+                                  {
+                                    "name": "col",
+                                    "type": "string",
+                                    "doc": "Column name."
+                                  },
+                                  {
+                                    "name": "order",
+                                    "type": "int",
+                                    "doc": "Order of values on the column."
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "name": "storageProperties",
+                          "type": ["null", {"type": "map", "values": "string"}],
+                          "doc": "Additional storage properties."
+                        },
+                        {
+                          "name": "isStoredAsSubDirectories",
+                          "type": "boolean",
+                          "doc": "Whether the data is stored as sub directories."
+                        }
+                      ]
+                    },
+                    "doc": "Storage information."
+                  },
+                  {
+                    "name": "partitionProperties",
+                    "type": ["null", {"type": "map", "values": "string"}],
+                    "doc": "Additional partition properties."
+                  }
+                ]
+              }
+            ],
+            "doc": "Partition before event, only valid for partition events."
+          },
+          {
+            "name": "newPartition",
+            "type": ["null", "Partition"],
+            "doc": "Partition after event, only valid for partition events."
+          }
+        ]
+      }
+    }
+  ]
+}
+

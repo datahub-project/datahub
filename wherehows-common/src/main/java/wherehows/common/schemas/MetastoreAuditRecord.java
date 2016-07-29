@@ -42,15 +42,15 @@ public class MetastoreAuditRecord extends AbstractRecord {
   String owner;
   long createTime;
   long lastAccessTime;
-  String oldOne = null;
-  String newOne = null;
+  String oldInfo = null;
+  String newInfo = null;
 
   @Override
   public String[] getDbColumnNames() {
     final String[] columnNames = {"server", "instance", "app_name", "event_name", "event_type",
         "log_event_time", "metastore_thrift_uri", "metastore_version", "is_successful", "is_data_deleted",
         "db_name", "table_name", "time_partition", "location", "owner",
-        "create_time", "last_access_time", "old", "new"};
+        "create_time", "last_access_time", "old_info", "new_info"};
     return columnNames;
   }
 
@@ -228,18 +228,18 @@ public class MetastoreAuditRecord extends AbstractRecord {
   }
 
   public String getOldOne() {
-    return oldOne;
+    return oldInfo;
   }
 
   public void setOldOne(String oldOne) {
-    this.oldOne = oldOne;
+    this.oldInfo = oldOne;
   }
 
   public String getNewOne() {
-    return newOne;
+    return newInfo;
   }
 
   public void setNewOne(String newOne) {
-    this.newOne = newOne;
+    this.newInfo = newOne;
   }
 }

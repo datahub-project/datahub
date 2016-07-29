@@ -23,6 +23,7 @@ source ETL_DDL/lineage_metadata.sql;
 source ETL_DDL/metric_metadata.sql;
 source ETL_DDL/owner_metadata.sql;
 source ETL_DDL/patterns.sql;
+source ETL_DDL/kafka_tracking.sql;
 
 source WEB_DDL/track.sql;
 source WEB_DDL/users.sql;
