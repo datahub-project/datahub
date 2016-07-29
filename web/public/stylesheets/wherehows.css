@@ -372,3 +372,46 @@ ul.breadcrumbs {
 ul.breadcrumbs a {
     color: #008cc9;
 }
+
+/*Properties Tab*/
+.prop-row {
+    border: thin rgba(1, 1, 1, 0.1) solid;
+    padding: 10px;
+    margin: 0 20px 10px 0;
+    color: rgba(1, 1, 1, 0.6);
+    background: #f9f9f9;
+}
+
+.prop-label {
+    width: 30%;
+    float: left;
+    color: rgba(1, 1, 1, 0.8);
+}
+
+.prop-value select {
+    -webkit-appearance: button;
+    -webkit-border-radius: 2px;
+    -webkit-box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+    -webkit-padding-end: 20px;
+    -webkit-padding-start: 2px;
+    -webkit-user-select: none;
+    background-image: url(http://i62.tinypic.com/15xvbd5.png);
+    background-position: 98% center;
+    background-repeat: no-repeat;
+    border: 1px solid #AAA;
+    color: #555;
+    font-size: inherit;
+    overflow: hidden;
+    padding: 5px 10px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: auto;
+}
+
+.prop-value-query {
+    padding: 10px 15px;
+    max-height: 150px;
+    overflow-x: hidden;
+    border: thin rgba(0,0,0,.2) solid;
+    background-color: rgba(255,255,255,.3);
+}

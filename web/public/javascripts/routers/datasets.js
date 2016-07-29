@@ -126,17 +126,48 @@ function convertPropertiesToArray(properties)
   var propertyArray = [];
   if (properties)
     {
-      for (var key in properties)
+        for (var key in properties)
         {
           if ((key.toLowerCase() != 'elements') && (key.toLowerCase() != 'view_depends_on'))
           {
-            if (typeof properties[key] !== 'object')
+            var isSelectController = false;
+            if (key.toLowerCase() == 'view_expanded_text' || key.toLowerCase() == 'viewSqlText')
             {
-              propertyArray.push({'key':key, 'value':formatValue(key, properties[key])});
+              isSelectController = true;
             }
             else
             {
-              propertyArray.push({'key':key, 'value':JsonHuman.format(properties[key])});
+              isSelectController = false;
+            }
+            if (typeof properties[key] !== 'object')
+            {
+              if (key == 'connectionURL' && properties[key])
+              {
+                var list = properties[key].split(',');
+                if (list && list.length > 0)
+                {
+                  propertyArray.push({'isSelectController': isSelectController,
+                    'key':key, 'value':JsonHuman.format(list)});
+                }
+                else
+                {
+                  propertyArray.push({'isSelectController': isSelectController,
+                    'key':key, 'value': properties[key]});
+                }
+              }
+              else
+              {
+                var value = formatValue(key, properties[key]);
+                if (!value && !(value === 0))
+                  value = 'NULL';
+                propertyArray.push({'isSelectController': isSelectController,
+                  'key':key, 'value': value});
+              }
+            }
+            else
+            {
+              propertyArray.push({'isSelectController': isSelectController,
+                'key':key, 'value':JsonHuman.format(properties[key])});
             }
 
           }

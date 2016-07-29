@@ -336,7 +336,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) as urn, " +
 			"s.id FROM dict_dataset d LEFT JOIN dict_dataset s " +
 			"ON s.urn = concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) " +
-			"WHERE d.urn LIKE ? ORDER BY d.name";
+			"WHERE d.urn LIKE ? ORDER BY d.urn";
 
 	private final static String GET_DATASET_VERSIONS = "SELECT DISTINCT version " +
 			"FROM dict_dataset_instance WHERE dataset_id = ? and version != '0' ORDER BY version_sort_id DESC";
