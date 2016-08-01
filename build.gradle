@@ -1,5 +1,5 @@
 plugins {
-  id "com.github.hierynomus.license" version "0.12.0"
+  id "com.github.hierynomus.license" version "0.13.1"
 }
 
 apply plugin: 'idea'
@@ -27,8 +27,9 @@ subprojects {
     header licenseFile
 
     exclude "**/*.scala.html"
+    exclude "**/jython/requests/**"
     exclude "**/pyparsing.py"
-    excludes(["**/*.json", "**/*.avsc", "**/*.conf", "**/*.yaml", "**/*.xml"])
+    excludes(["**/*.json", "**/*.avsc", "**/*.avro", "**/*.conf", "**/*.yaml", "**/*.xml"])
     excludes(["**/*.txt", "**/*.csv"])
   }
 
@@ -97,6 +98,10 @@ subprojects {
                             "kafka_clients"      : "org.apache.kafka:kafka-clients:0.10.0.0",
                             "confluent_common_cfg" : "io.confluent:common-config:3.0.0"
   ]
+
+  task buildWithWarning(type: JavaCompile, dependsOn: build) {
+    compileJava.options.compilerArgs << "-Xlint:deprecation" << "-Xlint:unchecked"
+  }
 }
 
 task wrapper(type: Wrapper) {

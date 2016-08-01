@@ -123,27 +123,28 @@ CREATE TABLE `cfg_application` (
 CREATE TABLE cfg_database  ( 
 	db_id                  	smallint(6) UNSIGNED NOT NULL,
 	db_code                	varchar(30) COMMENT 'Unique string without space'  NOT NULL,
-	db_type_id             	smallint(5) UNSIGNED NOT NULL DEFAULT '0',
+	primary_dataset_type    varchar(30) COMMENT 'What type of dataset this DB supports' NOT NULL DEFAULT '*', 
 	description            	varchar(128) NOT NULL,
 	is_logical             	char(1) COMMENT 'Is a group, which contains multiple physical DB(s)'  NOT NULL DEFAULT 'N',
 	deployment_tier        	varchar(20) COMMENT 'Lifecycle/FabricGroup: local,dev,sit,ei,qa,canary,preprod,pr'  NULL DEFAULT 'prod',
 	data_center            	varchar(200) COMMENT 'Code name of its primary data center. Put * for all data cen'  NULL DEFAULT '*',
 	associated_dc_num      	tinyint(4) UNSIGNED COMMENT 'Number of associated data centers'  NOT NULL DEFAULT '1',
-	cluster                	varchar(200) COMMENT 'Name of Fleet, Group of Servers or Cluster'  NULL DEFAULT '*',
+	cluster                	varchar(200) COMMENT 'Name of Fleet, Group of Servers or a Server'  NULL DEFAULT '*',
 	cluster_size           	smallint(6) COMMENT 'Num of servers in the cluster'  NOT NULL DEFAULT '1',
-	server_list            	varchar(500) COMMENT 'If cluster is not applicable, put the server names here'  NULL,
 	extra_deployment_tag1  	varchar(50) COMMENT 'Additional tag. Such as container_group:HIGH'  NULL,
 	extra_deployment_tag2  	varchar(50) COMMENT 'Additional tag. Such as slice:i0001'  NULL,
-	extra_deployment_tag3  	varchar(50) COMMENT 'Additional tag. Such as virtual_slot:RED'  NULL,
+	extra_deployment_tag3  	varchar(50) COMMENT 'Additional tag. Such as region:eu-west-1'  NULL,
 	replication_role       	varchar(10) COMMENT 'master or slave or broker'  NULL,
 	jdbc_url               	varchar(1000) NULL,
 	uri                    	varchar(1000) NULL,
-	short_connection_string	varchar(50) NULL,
+	short_connection_string	varchar(50) COMMENT 'Oracle TNS Name, ODBC DSN, TDPID...' NULL,
 	last_modified          	timestamp NOT NULL,
-	PRIMARY KEY(db_id)
+	PRIMARY KEY(db_id),
+        UNIQUE KEY `uix_cfg_database__dbcode` (db_code) USING HASH
 )
 ENGINE = InnoDB
-DEFAULT CHARSET = utf8;
+DEFAULT CHARSET = utf8
+COMMENT = 'Abstract different storage instances as databases' ;
 
 CREATE TABLE stg_cfg_object_name_map  ( 
 	object_type             	varchar(100) NOT NULL,
@@ -234,4 +235,21 @@ COMMENT = 'https://en.wikipedia.org/wiki/Data_center' ;
 
 CREATE UNIQUE INDEX uix_cfg_data_center__datacentercode
 	ON cfg_data_center(data_center_code);
+
+
+CREATE TABLE cfg_cluster  ( 
+	cluster_id    	        smallint(6) NOT NULL DEFAULT '0',
+	cluster_code  	        varchar(80) NOT NULL,
+	cluster_short_name      varchar(50) NOT NULL,
+	cluster_type       	varchar(50) NOT NULL,
+	deployment_tier_code    varchar(25) NOT NULL,
+	data_center_code        varchar(30) NULL,
+	description             varchar(200) NULL,
+	last_modified     	timestamp NULL,
+	PRIMARY KEY(cluster_id)
+)
+COMMENT = 'https://en.wikipedia.org/wiki/Computer_cluster' ;
+
+CREATE UNIQUE INDEX uix_cfg_cluster__clustercode
+	ON cfg_cluster(cluster_code);
 
