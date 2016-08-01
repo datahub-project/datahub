@@ -122,3 +122,50 @@ CREATE TABLE `stg_kafka_metastore_audit` (
 )
   ENGINE=InnoDB
   DEFAULT CHARSET=latin1;
+
+
+-- Combine multiple data log status from Kafka events into a status table
+SET TIME_ZONE='US/Pacific';	-- this needs to be customized based on your time zone
+SELECT @@session.time_zone, current_timestamp;
+
+CREATE TABLE log_dataset_instance_load_status  ( 
+	dataset_id         	int(11) NOT NULL DEFAULT '0',
+	db_id              	smallint(6) NOT NULL DEFAULT '0',
+	dataset_type       	varchar(30) COMMENT 'hive,teradata,oracle,hdfs...'  NOT NULL,
+	dataset_native_name	varchar(200) NOT NULL,
+	operation_type     	varchar(50) COMMENT 'load, merge, compact, update, delete'  NULL,
+	partition_grain    	varchar(30) COMMENT 'snapshot, delta, daily, daily, monthly...'  NOT NULL,
+	partition_expr     	varchar(500) COMMENT 'partition name or expression'  NOT NULL,
+	data_time_expr     	varchar(20) COMMENT 'datetime literal of the data datetime'  NOT NULL,
+	data_time_epoch    	int(11) COMMENT 'epoch second of the data datetime'  NOT NULL,
+	record_count       	bigint(20) NULL,
+	size_in_byte       	bigint(20) NULL,
+	log_time_epoch     	int(11) COMMENT 'When data is loaded or published'  NOT NULL,
+	ref_dataset_type   	varchar(30) COMMENT 'Refer to the underlying dataset'  NULL,
+	ref_db_id          	int(11) COMMENT 'Refer to db of the underlying dataset'  NULL,
+	ref_uri            	varchar(300) COMMENT 'Table name or HDFS location'  NULL,
+	last_modified      	timestamp NULL,
+	PRIMARY KEY(dataset_id,db_id,data_time_epoch,partition_grain,partition_expr)
+	KEY(dataset_native_name),
+	KEY(ref_uri)
+)
+ENGINE = InnoDB
+CHARACTER SET latin1
+AUTO_INCREMENT = 0
+COMMENT = 'Capture the load/publish ops for dataset instance'
+PARTITION BY RANGE COLUMNS (data_time_epoch)
+( PARTITION P201601 VALUES LESS THAN (unix_timestamp(date'2016-02-01')),
+  PARTITION P201602 VALUES LESS THAN (unix_timestamp(date'2016-03-01')),
+  PARTITION P201603 VALUES LESS THAN (unix_timestamp(date'2016-04-01')),
+  PARTITION P201604 VALUES LESS THAN (unix_timestamp(date'2016-05-01')),
+  PARTITION P201605 VALUES LESS THAN (unix_timestamp(date'2016-06-01')),
+  PARTITION P201606 VALUES LESS THAN (unix_timestamp(date'2016-07-01')),
+  PARTITION P201607 VALUES LESS THAN (unix_timestamp(date'2016-08-01')),
+  PARTITION P201608 VALUES LESS THAN (unix_timestamp(date'2016-09-01')),
+  PARTITION P201609 VALUES LESS THAN (unix_timestamp(date'2016-10-01')),
+  PARTITION P201610 VALUES LESS THAN (unix_timestamp(date'2016-11-01')),
+  PARTITION P201611 VALUES LESS THAN (unix_timestamp(date'2016-12-01')),
+  PARTITION P201612 VALUES LESS THAN (unix_timestamp(date'2017-01-01')),
+  PARTITION P203507 VALUES LESS THAN (unix_timestamp(date'2035-08-01'))
+) ;
+
