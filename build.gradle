@@ -6,6 +6,18 @@ apply plugin: 'idea'
 apply plugin: 'license'
 ext.licenseFile = file('.license_header.txt')
 
+configurations.all {
+  exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+  exclude group: 'log4j'
+
+  resolutionStrategy {
+      dependencySubstitution {
+          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
+          //prefer 'log4j-over-slf4j' over 'log4j'
+      }
+  }
+}
+
 subprojects {
   apply plugin: 'eclipse'
   apply plugin: 'java'
@@ -82,8 +94,9 @@ subprojects {
                             "jackson_core"       : "com.fasterxml.jackson.core:jackson-core:2.6.1",
                             "jackson_annotations": "com.fasterxml.jackson.core:jackson-annotations:2.6.1",
 
-                            "slf4j_api"          : "org.slf4j:slf4j-api:1.6.6",
-                            "slf4j_log4j"        : "org.slf4j:slf4j-log4j12:1.7.12",
+                            "slf4j_api"          : "org.slf4j:slf4j-api:1.7.21",
+                            "slf4j_log4j"        : "org.slf4j:log4j-over-slf4j:1.7.21",
+                            "logback"            : "ch.qos.logback:logback-classic:1.1.7",
                             "jasypt"             : "org.jasypt:jasypt:1.9.2",
 
                             "spring_context"     : "org.springframework:spring-context:4.1.1.RELEASE",

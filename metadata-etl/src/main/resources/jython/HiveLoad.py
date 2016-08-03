@@ -389,7 +389,7 @@ class HiveLoad:
         );
 
         -- insert new depends
-        INSERT INTO cfg_object_name_map
+        INSERT IGNORE INTO cfg_object_name_map
         (
           object_type,
           object_sub_type,

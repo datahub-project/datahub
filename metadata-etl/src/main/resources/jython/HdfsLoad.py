@@ -225,7 +225,7 @@ class HdfsLoad:
             t.modified = now()
         ;
 
-       insert into dict_field_detail (
+       insert ignore into dict_field_detail (
           dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
           field_name, namespace, data_type, data_size, is_nullable, default_value,
            modified

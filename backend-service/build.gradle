@@ -30,11 +30,20 @@ repositories{
         dirs: "${projectDir}/metadata-etl/extralibs"
 }
 
-configurations{
+configurations {
+  // configuration that holds jars to copy into lib
+  extraLibs
+  provided
 
-    //Libraries needed at compilation time but not to be
-    //exported as part of the distribution
-    provided
+  all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+  all*.exclude group: 'log4j'
+
+  all*.resolutionStrategy { 
+      dependencySubstitution {
+          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
+          //prefer 'log4j-over-slf4j' over 'log4j'
+      }
+  }
 }
 
 dependencies{
