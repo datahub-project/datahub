@@ -126,10 +126,10 @@ public class SchemaFetch {
         if (!fstat.isDirectory()) {
           // file
           fileCount++;
-        } else if (objName.matches("(_|\\.|tmp|temp|_distcp|\\*|test).*")) {
+        } else if (objName.matches("(_|\\.|tmp|temp|_distcp|backup|\\*|test|trash).*")) {
           // hidden/temporary fs object
           hiddenFileCount++;
-        } else if (objName.matches("daily|hourly|monthly|weekly|year=[0-9]+|month=[0-9]+|country=.*")) {
+        } else if (objName.matches("daily|hourly|hourly.deduped|monthly|weekly|(ds|dt|datepartition|year|month|date)=[0-9-]+")) {
           // temporal partition type
           datePartitionCount++;
         } else if (objName.matches(
@@ -167,8 +167,8 @@ public class SchemaFetch {
     throws IOException, InterruptedException, SQLException {
     String curPath = path.toUri().getPath();
     Path n = path;
-    //if (path.getName().matches("^(\\.|_|tmp|temp|test|\\*|archive|ARCHIVE|storkinternal).*"))
-    //    return;
+    if (path.getName().matches("^(\\.|_|tmp|temp|test|trash|backup|archive|ARCHIVE|storkinternal).*"))
+        return;
 
     logger.info("  -- scanPath(" + curPath + ")\n");
     int x = isTable(path, scanFs);

@@ -26,10 +26,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.BufferedInputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URL;
 import java.util.Properties;
+import java.lang.reflect.*;
 import metadata.etl.EtlJob;
 import org.apache.commons.io.FileUtils;
 import wherehows.common.Constant;
@@ -80,7 +82,11 @@ public class HdfsMetadataEtl extends EtlJob {
     String homeDir = System.getProperty("user.home");
     String remoteJarFile = homeDir + "/.wherehows/schemaFetch.jar";
     File dest = new File(remoteJarFile);
-    FileUtils.copyURLToFile(localJarUrl, dest);
+    try {
+        FileUtils.copyURLToFile(localJarUrl, dest);
+    } catch(Exception e) { 
+        logger.error(e.toString()); 
+    }
 
     String outputSchemaFile = prop.getProperty(Constant.HDFS_SCHEMA_LOCAL_PATH_KEY);
     String outputSampleDataFile = prop.getProperty(Constant.HDFS_SAMPLE_LOCAL_PATH_KEY);
@@ -98,31 +104,50 @@ public class HdfsMetadataEtl extends EtlJob {
             + " -D " + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList
             + " -D " + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread
             + " -D " + Constant.HDFS_REMOTE_USER_KEY + "=" + hdfsUser
+            + " -D log_file_name=hdfs_schema_fetch" 
             + " -D " + Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY + "=" + hdfsKeyTab;
-    logger.info("executue remote command : " + execCmd);
+    //logger.info("executue remote command : " + execCmd);
 
     Process process = Runtime.getRuntime().exec(execCmd);
+    int pid = -1;
+    if(process.getClass().getName().equals("java.lang.UNIXProcess")) {
+        /* get the PID on unix/linux systems */
+        try {
+          Field f = process.getClass().getDeclaredField("pid");
+          f.setAccessible(true);
+          pid = f.getInt(process);
+        } catch (Throwable e) {
+        }
+    }
+    logger.info("executue remote command [PID=" + pid + "]: " + execCmd);
 
+    BufferedInputStream stdout = new BufferedInputStream(process.getInputStream());
+    byte[] bytes = new byte[4096];
+    while (stdout.read(bytes) != -1) {}
+
+    String line = null;
+    /* @need to redo this part using ProcessBuilder + redirection      
     InputStream stdout = process.getInputStream();
     InputStreamReader isr = new InputStreamReader(stdout);
     BufferedReader br = new BufferedReader(isr);
-    String line = null;
+    
+
     while ( (line = br.readLine()) != null) {
       logger.info(line);
-    }
+    }*/
 
     // wait until this process finished.
     int execResult = process.waitFor();
 
     // if the process failed, log the error and throw exception
     if (execResult > 0) {
-      br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+      BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
       String errString = "Error Details:\n";
       while((line = br.readLine()) != null)
         errString = errString.concat(line).concat("\n");
       logger.error("*** Process  failed, status: " + execResult);
       logger.error(errString);
-      throw new Exception("Process +  failed");
+      throw new Exception("Process + " + pid + " failed");
     }
 
 

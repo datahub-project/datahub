@@ -4,6 +4,17 @@ version = '1.0'
 configurations {
   // configuration that holds jars to copy into lib
   extraLibs
+  provided
+
+  all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+  all*.exclude group: 'log4j'
+
+  all*.resolutionStrategy { 
+      dependencySubstitution {
+          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
+          //prefer 'log4j-over-slf4j' over 'log4j'
+      }
+  }
 }
 
 dependencies {
@@ -16,10 +27,8 @@ dependencies {
   extraLibs externalDependency.pig
 
   compile project(":wherehows-common")
-  //compile files("extralibs/linkedin-pig-0.11.1.49.jar")
-  //compile files("extralibs/voldemort-0.91.li1.jar")
   compile externalDependency.hadoop_common
-  compile externalDependency.hadoop_client
+  provided externalDependency.hadoop_client
   compile externalDependency.pig
   compile externalDependency.avro
   compile externalDependency.avro_mapred
@@ -27,8 +36,10 @@ dependencies {
   compile externalDependency.hive_exec
   compile externalDependency.http_client
   compile externalDependency.http_core
+  compile externalDependency.logback
 
   testCompile externalDependency.testng
+  testCompile externalDependency.hadoop_client
 }
 
 jar {
