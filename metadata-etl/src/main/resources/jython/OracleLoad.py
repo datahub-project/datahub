@@ -15,7 +15,7 @@
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-import datetime
+import sys, os, datetime
 
 
 class OracleLoad:
@@ -39,10 +39,19 @@ class OracleLoad:
       lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
       self.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
+    self.logger.info("Load Oracle Metadata into {}, db_id {}, wh_exec_id {}"
+                     .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
+
+    self.dict_dataset_table = 'dict_dataset'
+    self.field_comments_table = 'field_comments'
+    self.dict_field_table = 'dict_field_detail'
+    self.dict_field_comment_table = 'dict_dataset_field_comment'
+    self.dict_dataset_sample_table = 'dict_dataset_sample'
+
 
   def load_tables(self):
     load_tables_cmd = '''
-    DELETE FROM stg_dict_dataset WHERE db_id = '{db_id}';
+    DELETE FROM stg_dict_dataset WHERE db_id = {db_id};
 
     -- load into stg table
     LOAD DATA LOCAL INFILE '{source_file}'
@@ -55,7 +64,7 @@ class OracleLoad:
     wh_etl_exec_id = {wh_etl_exec_id};
 
     -- insert into final table
-    INSERT INTO dict_dataset
+    INSERT INTO {dict_dataset}
     ( `name`,
       `schema`,
       schema_type,
@@ -97,16 +106,18 @@ class OracleLoad:
         modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
     ;
 
-    analyze table dict_dataset;
-    '''.format(source_file=self.input_table_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
+    analyze table {dict_dataset};
+    '''.format(source_file=self.input_table_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id,
+               dict_dataset=self.dict_dataset_table)
 
     self.executeCommands(load_tables_cmd)
-    self.logger.info("finish loading oracle table metadata")
+    self.logger.info("finish loading oracle table metadata from {} to {}"
+                     .format(self.input_table_file, self.dict_dataset_table))
 
 
   def load_fields(self):
     load_fields_cmd = '''
-        DELETE FROM stg_dict_field_detail where db_id = '{db_id}';
+        DELETE FROM stg_dict_field_detail where db_id = {db_id};
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_field_detail
@@ -132,13 +143,13 @@ class OracleLoad:
           and (char_length(trim(description)) = 0
           or description in ('null', 'N/A', 'nothing', 'empty', 'none'));
 
-        insert into field_comments (
+        insert into {field_comments} (
           user_id, comment, created, modified, comment_crc32_checksum
         )
         select 0 user_id, description, now() created, now() modified, crc32(description) from
         (
           select sf.description
-          from stg_dict_field_detail sf left join field_comments fc
+          from stg_dict_field_detail sf left join {field_comments} fc
             on sf.description = fc.comment
           where sf.description is not null
             and fc.id is null
@@ -146,40 +157,41 @@ class OracleLoad:
           group by 1 order by 1
         ) d;
 
-        analyze table field_comments;
+        analyze table {field_comments};
 
         -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
         create temporary table if not exists t_deleted_fields (primary key (field_id))
           select x.field_id
             from stg_dict_field_detail s
-              join dict_dataset i
+              join {dict_dataset} i
                 on s.urn = i.urn
                 and s.db_id = {db_id}
-              right join dict_field_detail x
+              right join {dict_field_detail} x
                 on i.id = x.dataset_id
                 and s.field_name = x.field_name
                 and s.parent_path = x.parent_path
           where s.field_name is null
             and x.dataset_id in (
                        select d.id dataset_id
-                       from stg_dict_field_detail k join dict_dataset d
+                       from stg_dict_field_detail k join {dict_dataset} d
                          on k.urn = d.urn
                         and k.db_id = {db_id}
             )
         ; -- run time : ~2min
 
-        delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
+        delete from {dict_field_detail} where field_id in (select field_id from t_deleted_fields);
 
         -- update the old record if some thing changed
-        update dict_field_detail t join
+        update {dict_field_detail} t join
         (
           select x.field_id, s.*
-          from stg_dict_field_detail s join dict_dataset d
+          from stg_dict_field_detail s
+          join {dict_dataset} d
             on s.urn = d.urn
-               join dict_field_detail x
-           on s.field_name = x.field_name
-          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-          and d.id = x.dataset_id
+          join {dict_field_detail} x
+            on s.field_name = x.field_name
+            and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+            and d.id = x.dataset_id
           where s.db_id = {db_id}
             and (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
@@ -207,24 +219,23 @@ class OracleLoad:
             t.modified = now()
         ;
 
-       insert into dict_field_detail (
+        insert into {dict_field_detail} (
           dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
-          field_name, namespace, data_type, data_size, is_nullable, default_value,
-           modified
+          field_name, namespace, data_type, data_size, is_nullable, default_value, modified
         )
         select
           d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
           sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value, now()
-        from stg_dict_field_detail sf join dict_dataset d
+        from stg_dict_field_detail sf join {dict_dataset} d
           on sf.urn = d.urn
-             left join dict_field_detail t
+             left join {dict_field_detail} t
           on d.id = t.dataset_id
-         and sf.field_name = t.field_name
-         and sf.parent_path = t.parent_path
+          and sf.field_name = t.field_name
+          and sf.parent_path = t.parent_path
         where db_id = {db_id} and t.field_id is null
         ;
 
-        analyze table dict_field_detail;
+        analyze table {dict_field_detail};
 
         -- delete old record in stagging
         delete from stg_dict_dataset_field_comment where db_id = {db_id};
@@ -232,36 +243,40 @@ class OracleLoad:
         -- insert
         insert into stg_dict_dataset_field_comment
         select t.field_id field_id, fc.id comment_id,  d.id dataset_id, {db_id}
-                from stg_dict_field_detail sf join dict_dataset d
+                from stg_dict_field_detail sf join {dict_dataset} d
                   on sf.urn = d.urn
-                      join field_comments fc
+                      join {field_comments} fc
                   on sf.description = fc.comment
-                      join dict_field_detail t
+                      join {dict_field_detail} t
                   on d.id = t.dataset_id
                  and sf.field_name = t.field_name
                  and sf.parent_path = t.parent_path
         where sf.db_id = {db_id};
 
         -- have default comment, insert it set default to 0
-        insert ignore into dict_dataset_field_comment
+        insert ignore into {dict_dataset_field_comment}
         select field_id, comment_id, dataset_id, 0 is_default from stg_dict_dataset_field_comment where field_id in (
-          select field_id from dict_dataset_field_comment
+          select field_id from {dict_dataset_field_comment}
           where field_id in (select field_id from stg_dict_dataset_field_comment)
         and is_default = 1 ) and db_id = {db_id};
 
 
         -- doesn't have this comment before, insert into it and set as default
-        insert ignore into dict_dataset_field_comment
-        select sd.field_id, sd.comment_id, sd.dataset_id, 1 from stg_dict_dataset_field_comment sd
-        left join dict_dataset_field_comment d
-        on d.field_id = sd.field_id
-         and d.comment_id = sd.comment_id
+        insert ignore into {dict_dataset_field_comment}
+        select sd.field_id, sd.comment_id, sd.dataset_id, 1
+        from stg_dict_dataset_field_comment sd
+        left join {dict_dataset_field_comment} d
+          on d.field_id = sd.field_id
+          and d.comment_id = sd.comment_id
         where d.comment_id is null
-        and sd.db_id = {db_id};
-    '''.format(source_file=self.input_field_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
+          and sd.db_id = {db_id};
+    '''.format(source_file=self.input_field_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id,
+               dict_dataset=self.dict_dataset_table, dict_field_detail=self.dict_field_table,
+               field_comments=self.field_comments_table, dict_dataset_field_comment=self.dict_field_comment_table)
 
     self.executeCommands(load_fields_cmd)
-    self.logger.info("finish loading oracle table fields")
+    self.logger.info("finish loading oracle table fields from {} to {}"
+                     .format(self.input_field_file, self.dict_field_table))
 
 
   def load_sample(self):
@@ -277,12 +292,12 @@ class OracleLoad:
 
     -- update reference id in stagging table
     UPDATE  stg_dict_dataset_sample s
-    LEFT JOIN dict_dataset d ON s.ref_urn = d.urn
+    LEFT JOIN {dict_dataset} d ON s.ref_urn = d.urn
     SET s.ref_id = d.id
     WHERE s.db_id = {db_id};
 
     -- first insert ref_id as 0
-    INSERT INTO dict_dataset_sample
+    INSERT INTO {dict_dataset_sample}
     ( `dataset_id`,
       `urn`,
       `ref_id`,
@@ -290,20 +305,22 @@ class OracleLoad:
       created
     )
     select d.id as dataset_id, s.urn, s.ref_id, s.data, now()
-    from stg_dict_dataset_sample s left join dict_dataset d on d.urn = s.urn
+    from stg_dict_dataset_sample s left join {dict_dataset} d on d.urn = s.urn
           where s.db_id = {db_id}
     on duplicate key update
       `data`=s.data, modified=now();
 
       -- update reference id in final table
-    UPDATE dict_dataset_sample d
+    UPDATE {dict_dataset_sample} d
     RIGHT JOIN stg_dict_dataset_sample s ON d.urn = s.urn
     SET d.ref_id = s.ref_id
     WHERE s.db_id = {db_id} AND d.ref_id = 0;
-    '''.format(source_file=self.input_sample_file, db_id=self.db_id)
+    '''.format(source_file=self.input_sample_file, db_id=self.db_id,
+               dict_dataset=self.dict_dataset_table, dict_dataset_sample=self.dict_dataset_sample_table)
 
     self.executeCommands(load_sample_cmd)
-    self.logger.info("finish loading oracle sample data")
+    self.logger.info("finish loading oracle sample data from {} to {}"
+                     .format(self.input_sample_file, self.dict_dataset_sample_table))
 
 
   def executeCommands(self, commands):
