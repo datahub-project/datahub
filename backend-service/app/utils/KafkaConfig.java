@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Properties;
 import metadata.etl.models.EtlJobName;
 import models.daos.EtlJobPropertyDao;
+import play.Logger;
 
 
 /**
@@ -29,8 +30,7 @@ public class KafkaConfig {
   // Map of <topic_name, topic_content>
   private static Map<String, Topic> _topics = new HashMap<>();
 
-  public static final EtlJobName KAFKA_GOBBLIN_JOBNAME = EtlJobName.KAFKA_CONSUMER_GOBBLIN_ETL;
-  public static final Integer KAFKA_GOBBLIN_JOB_REFID = 50;
+  public static final EtlJobName KAFKA_JOBNAME = EtlJobName.KAFKA_CONSUMER_ETL;
 
   /**
    * Class for storing Kafka Topic info
@@ -53,15 +53,19 @@ public class KafkaConfig {
    * Update Kafka properties and topics from etl_job_properies table
    * @throws Exception
    */
-  public static void updateKafkaProperties() throws Exception {
-    Properties props = EtlJobPropertyDao.getJobProperties(KAFKA_GOBBLIN_JOBNAME, KAFKA_GOBBLIN_JOB_REFID);
+  public static void updateKafkaProperties(int kafkaJobRefId) throws Exception {
+    Properties props = EtlJobPropertyDao.getJobProperties(KAFKA_JOBNAME, kafkaJobRefId);
+    if (props == null || props.size() < 5) {
+      Logger.error("Fail to update Kafka job properties for " + KAFKA_JOBNAME.name()
+          + ", job ref id: " + kafkaJobRefId);
+      return;
+    } else {
+      Logger.info("Get Kafka job properties for " + KAFKA_JOBNAME.name() + ", job ref id: " + kafkaJobRefId);
+    }
 
-    String[] topics = ((String) props.get("kafka.topics")).split("\\s*,\\s*");
-    props.remove("kafka.topics");
-    String[] processors = ((String) props.get("kafka.processors")).split("\\s*,\\s*");
-    props.remove("kafka.processors");
-    String[] dbTables = ((String) props.get("kafka.db.tables")).split("\\s*,\\s*");
-    props.remove("kafka.db.tables");
+    String[] topics = ((String) props.remove("kafka.topics")).split("\\s*,\\s*");
+    String[] processors = ((String) props.remove("kafka.processors")).split("\\s*,\\s*");
+    String[] dbTables = ((String) props.remove("kafka.db.tables")).split("\\s*,\\s*");
 
     _props.clear();
     _props.putAll(props);

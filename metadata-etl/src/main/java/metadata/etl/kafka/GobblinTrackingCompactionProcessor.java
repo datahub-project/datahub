@@ -13,12 +13,15 @@
  */
 package metadata.etl.kafka;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.avro.generic.GenericData;
+import wherehows.common.schemas.ClusterInfo;
 import wherehows.common.schemas.GobblinTrackingCompactionRecord;
 import wherehows.common.schemas.Record;
+import wherehows.common.utils.ClusterUtil;
 
 
 /**
@@ -30,7 +33,6 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
   // cut into 3 pieces: dataset + partitionType + partition
   private final String UrnRegex = "^(\\/\\w+\\/\\w+\\/[\\w-]+)\\/([\\w-]+)\\/(\\d+.*)$";
   private final Pattern UrnPattern = Pattern.compile(UrnRegex);
-
 
   /**
    * Process a Gobblin tracking event compaction record
@@ -53,7 +55,8 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
         final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
 
         final String jobContext = "Gobblin:" + name;
-        final String cluster = parseClusterIdentifier(metadata.get("clusterIdentifier")).get("cluster");
+        final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
+        // final String cluster = parseClusterIdentifier(metadata.get("clusterIdentifier")).get("cluster");
         final String projectName = metadata.get("azkabanProjectName");
         final String flowId = metadata.get("azkabanFlowId");
         final String jobId = metadata.get("azkabanJobId");

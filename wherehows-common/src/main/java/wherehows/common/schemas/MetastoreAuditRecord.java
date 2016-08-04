@@ -227,19 +227,19 @@ public class MetastoreAuditRecord extends AbstractRecord {
     this.lastAccessTime = lastAccessTime;
   }
 
-  public String getOldOne() {
+  public String getOldInfo() {
     return oldInfo;
   }
 
-  public void setOldOne(String oldOne) {
-    this.oldInfo = oldOne;
+  public void setOldInfo(String oldInfo) {
+    this.oldInfo = oldInfo;
   }
 
-  public String getNewOne() {
+  public String getNewInfo() {
     return newInfo;
   }
 
-  public void setNewOne(String newOne) {
-    this.newInfo = newOne;
+  public void setNewInfo(String newInfo) {
+    this.newInfo = newInfo;
   }
 }

@@ -16,6 +16,7 @@ package metadata.etl.kafka;
 import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.MetastoreAuditRecord;
 import wherehows.common.schemas.Record;
+import wherehows.common.utils.ClusterUtil;
 
 
 public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
@@ -35,28 +36,28 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
       logger.info("Processing Metastore Audit event record.");
 
       final GenericData.Record auditHeader = (GenericData.Record) record.get("auditHeader");
-      final String server = utf8ToString(auditHeader.get("server"));
+      final String server = ClusterUtil.matchClusterCode(utf8ToString(auditHeader.get("server")));
       final String instance = utf8ToString(auditHeader.get("instance"));
       final String appName = utf8ToString(auditHeader.get("appName"));
 
       String eventName;
       GenericData.Record content;
-      final Object oldOne;
-      final Object newOne;
+      final Object oldInfo;
+      final Object newInfo;
 
       // check if it is MetastoreTableAuditEvent
       if (record.get("metastoreTableAuditContent") != null) {
         eventName = "MetastoreTableAuditEvent";
         content = (GenericData.Record) record.get("metastoreTableAuditContent");
-        oldOne = content.get("oldTable");
-        newOne = content.get("newTable");
+        oldInfo = content.get("oldTable");
+        newInfo = content.get("newTable");
       }
       // check if it is MetastorePartitionAuditEvent
       else if (record.get("metastorePartitionAuditContent") != null) {
         eventName = "MetastorePartitionAuditEvent";
         content = (GenericData.Record) record.get("metastorePartitionAuditContent");
-        oldOne = content.get("oldPartition");
-        newOne = content.get("newPartition");
+        oldInfo = content.get("oldPartition");
+        newInfo = content.get("newPartition");
       }
       else {
         throw new IllegalArgumentException("Unknown Metastore Audit event: " + record);
@@ -70,7 +71,7 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
       final String isDataDeleted = utf8ToString(content.get("isDataDeleted"));
 
       // use newOne, if null, use oldOne
-      final GenericData.Record rec = newOne != null ? (GenericData.Record) newOne : (GenericData.Record) oldOne;
+      final GenericData.Record rec = newInfo != null ? (GenericData.Record) newInfo : (GenericData.Record) oldInfo;
       final String dbName = utf8ToString(rec.get("dbName"));
       final String tableName = utf8ToString(rec.get("tableName"));
       final String partition = utf8ToString(rec.get("values"));
@@ -84,8 +85,8 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
       // set null partition to '?' for primary key
       eventRecord.setTableInfo(dbName, tableName, (partition != null ? partition : "?"),
           location, owner, createTime, lastAccessTime);
-      eventRecord.setOldOne(utf8ToString(oldOne));
-      eventRecord.setNewOne(utf8ToString(newOne));
+      eventRecord.setOldInfo(utf8ToString(oldInfo));
+      eventRecord.setNewInfo(utf8ToString(newInfo));
     }
     return eventRecord;
   }
