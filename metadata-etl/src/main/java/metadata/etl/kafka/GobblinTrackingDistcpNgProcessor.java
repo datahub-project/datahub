@@ -13,12 +13,15 @@
  */
 package metadata.etl.kafka;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.avro.generic.GenericData;
+import wherehows.common.schemas.ClusterInfo;
 import wherehows.common.schemas.GobblinTrackingDistcpNgRecord;
 import wherehows.common.schemas.Record;
+import wherehows.common.utils.ClusterUtil;
 
 
 /**
@@ -51,7 +54,7 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
         final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
 
         final String jobContext = "DistcpNG:" + name;
-        final String cluster = parseClusterIdentifier(metadata.get("clusterIdentifier")).get("cluster");
+        final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
         final String projectName = metadata.get("azkabanProjectName");
         final String flowId = metadata.get("azkabanFlowId");
         final String jobId = metadata.get("azkabanJobId");

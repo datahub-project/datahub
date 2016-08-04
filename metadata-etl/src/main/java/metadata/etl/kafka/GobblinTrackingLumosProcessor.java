@@ -19,6 +19,7 @@ import java.util.regex.Pattern;
 import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.GobblinTrackingLumosRecord;
 import wherehows.common.schemas.Record;
+import wherehows.common.utils.ClusterUtil;
 
 
 public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
@@ -59,7 +60,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
         logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
 
         final String jobContext = "Lumos:" + name;
-        final String cluster = parseClusterIdentifier(metadata.get("clusterIdentifier")).get("cluster");
+        final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
         final String projectName = metadata.get("azkabanProjectName");
         final String flowId = metadata.get("azkabanFlowId");
         final String jobId = metadata.get("azkabanJobId");

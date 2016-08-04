@@ -199,7 +199,6 @@ class OracleExtract:
     '''
     schema_dict = {"fields": []}
     table_record = {}
-    field_record = {}
     table_idx = 0
     field_idx = 0
 
@@ -211,14 +210,18 @@ class OracleExtract:
         # This is a new table. Let's push the previous table record into output_list
         if 'urn' in table_record:
           schema_dict["num_fields"] = field_idx
-          table_record['columns'] = schema_dict
+          table_record["columns"] = json.dumps(schema_dict)
           self.table_output_list.append(table_record)
 
+        properties = {
+          "indexes": self.table_dict[table_name_key].get("indexes"),
+          "partition_column": self.table_dict[table_name_key].get("partition_column")
+        }
         table_record = {
           "name": row[1],
-          "columns": {},
+          "columns": None,
           "schema_type": "JSON",
-          "properties": self.table_dict[table_name_key],
+          "properties": json.dumps(properties),
           "urn": table_urn,
           "source": "Oracle",
           "location_prefix": row[0],
@@ -249,7 +252,7 @@ class OracleExtract:
 
     # finish all remaining rows
     schema_dict["num_fields"] = field_idx
-    table_record['columns'] = schema_dict
+    table_record["columns"] = json.dumps(schema_dict)
     self.table_output_list.append(table_record)
     self.logger.info("%d Table records generated" % table_idx)
 
@@ -304,7 +307,17 @@ class OracleExtract:
       return None
 
   def trim_newline(self, line):
-    return None if line is None else line.replace('\n', ' ').replace('\r', ' ')
+    return None if line is None else line.replace('\n', ' ').replace('\r', ' ').encode('ascii', 'ignore')
+
+  def write_csv(self, csv_filename, csv_columns, data_list):
+    csvfile = open(csv_filename, 'wb')
+    os.chmod(csv_filename, 0644)
+    writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n',
+                            quoting=csv.QUOTE_NONE, quotechar='\1', escapechar='\0')
+    writer.writeheader()
+    for data in data_list:
+      writer.writerow(data)
+    csvfile.close()
 
 
   def run(self, database_name, table_name, table_output_file, field_output_file, sample_output_file, sample=False):
@@ -323,34 +336,25 @@ class OracleExtract:
       begin = datetime.datetime.now().strftime("%H:%M:%S")
       # table info
       rows = self.get_table_info(None, None)
+      self.get_extra_table_info()
       self.format_table_metadata(rows)
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Collecting table info [%s -> %s]" % (str(begin), str(end)))
 
       csv_columns = ['name', 'columns', 'schema_type', 'properties', 'urn', 'source', 'location_prefix',
                      'parent_name', 'storage_type', 'dataset_type', 'is_partitioned']
-      csvfile = open(table_output_file, 'wb')
-      os.chmod(table_output_file, 0666)
-      writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n')
-      writer.writeheader()
-      for data in self.table_output_list:
-        writer.writerow(data)
-      csvfile.close
+      self.write_csv(table_output_file, csv_columns, self.table_output_list)
 
       csv_columns = ['dataset_urn', 'sort_id', 'name', 'data_type', 'nullable',
                      'size', 'precision', 'scale', 'default_value', 'doc']
-      csvfile = open(field_output_file, 'wb')
-      os.chmod(field_output_file, 0666)
-      writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n')
-      writer.writeheader()
-      for data in self.field_output_list:
-        writer.writerow(data)
-      csvfile.close
+      self.write_csv(field_output_file, csv_columns, self.field_output_list)
 
     if sample:
       csvfile = open(sample_output_file, 'wb')
       os.chmod(sample_output_file, 0666)
-      writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n')
+      writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n',
+                              quoting=csv.QUOTE_NONE, quotechar='\1', escapechar='\0')
+      self.logger.info("Writing to CSV file {}".format(sample_output_file))
 
       # collect sample data
       for onedatabase in schema:

@@ -28,16 +28,21 @@ import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
+import metadata.etl.models.EtlJobName;
+import models.daos.ClusterDao;
+import models.daos.EtlJobDao;
 import org.apache.avro.generic.GenericData;
 
 import msgs.KafkaResponseMsg;
 import play.Logger;
+import play.Play;
 import utils.JdbcUtil;
 import utils.KafkaConfig;
 import utils.KafkaConfig.Topic;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.schemas.AbstractRecord;
+import wherehows.common.utils.ClusterUtil;
 import wherehows.common.writers.DatabaseWriter;
 
 
@@ -48,6 +53,7 @@ import wherehows.common.writers.DatabaseWriter;
  */
 public class KafkaConsumerMaster extends UntypedActor {
 
+  private static List<Integer> _kafkaJobList;
   private static ConsumerConnector _consumer;
   private static Properties _kafkaConfig;
   private static Map<String, Topic> _kafkaTopics;
@@ -64,12 +70,31 @@ public class KafkaConsumerMaster extends UntypedActor {
 
   @Override
   public void preStart() throws Exception {
-    Logger.info("Start the KafkaConsumerMaster actor...");
+    _kafkaJobList = Play.application().configuration().getIntList("kafka.consumer.etl.jobid", null);;
+    if (_kafkaJobList == null || _kafkaJobList.size() == 0) {
+      Logger.error("Kafka job id error, kafkaJobList: " + _kafkaJobList);
+      getContext().stop(getSelf());
+    }
+    Logger.info("Start the KafkaConsumerMaster... Kafka etl job id list: " + _kafkaJobList);
+
+    // handle 1 kafka connection
+    Map<String, Object> kafkaEtlJob = EtlJobDao.getEtlJobById(_kafkaJobList.get(0));
+    final int kafkaJobRefId = Integer.parseInt(kafkaEtlJob.get("ref_id").toString());
+    final String kafkaJobName = kafkaEtlJob.get("wh_etl_job_name").toString();
+
+    if (!kafkaJobName.equals(EtlJobName.KAFKA_CONSUMER_ETL.name())) {
+      Logger.error("Kafka job info error: job name '" + kafkaJobName + "' not equal "
+          + EtlJobName.KAFKA_CONSUMER_ETL.name());
+      getContext().stop(getSelf());
+    }
 
     // get Kafka configurations from database
-    KafkaConfig.updateKafkaProperties();
+    KafkaConfig.updateKafkaProperties(kafkaJobRefId);
     _kafkaConfig = KafkaConfig.getProperties();
     _kafkaTopics = KafkaConfig.getTopics();
+
+    // get list of cluster information from database and update ClusterUtil
+    ClusterUtil.updateClusterInfo(ClusterDao.getClusterInfo());
 
     for (String topic : _kafkaTopics.keySet()) {
       // get the processor class and method
@@ -125,7 +150,7 @@ public class KafkaConsumerMaster extends UntypedActor {
       final AbstractRecord record = kafkaMsg.getRecord();
 
       if (record != null && _kafkaTopics.containsKey(topic)) {
-        Logger.info("Writing to DB kafka event record: " + topic);
+        Logger.debug("Writing to DB kafka event record: " + topic);
         final DatabaseWriter dbWriter = _topicDbWriter.get(topic);
 
         try {
@@ -145,6 +170,7 @@ public class KafkaConsumerMaster extends UntypedActor {
 
   @Override
   public void postStop() {
+    Logger.info("Terminating KafkaConsumerMaster...");
     if (_consumer != null) {
       _consumer.shutdown();
       _kafkaConfig.clear();
