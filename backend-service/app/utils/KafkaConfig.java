@@ -13,24 +13,23 @@
  */
 package utils;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import kafka.javaapi.consumer.ConsumerConnector;
 import metadata.etl.models.EtlJobName;
 import models.daos.EtlJobPropertyDao;
+import org.apache.avro.generic.GenericData;
 import play.Logger;
+import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
+import wherehows.common.writers.DatabaseWriter;
 
 
 /**
  * Utilities for Kafka configurations and topics
  */
 public class KafkaConfig {
-
-  private static Properties _props = new Properties();
-  // Map of <topic_name, topic_content>
-  private static Map<String, Topic> _topics = new HashMap<>();
-
-  public static final EtlJobName KAFKA_JOBNAME = EtlJobName.KAFKA_CONSUMER_ETL;
 
   /**
    * Class for storing Kafka Topic info
@@ -49,19 +48,30 @@ public class KafkaConfig {
     }
   }
 
+  private final Properties _props = new Properties();
+  // Map of <topic_name, topic_content>
+  private final Map<String, Topic> _topics = new HashMap<>();
+  private final Map<String, Object> _topicProcessorClass = new HashMap<>();
+  private final Map<String, Method> _topicProcessorMethod = new HashMap<>();
+  private final Map<String, DatabaseWriter> _topicDbWriter = new HashMap<>();
+
+  private ConsumerConnector _consumer;
+  private SchemaRegistryClient _schemaRegistryClient;
+
   /**
-   * Update Kafka properties and topics from etl_job_properies table
+   * Update Kafka properties and topics from wh_etl_job_properties table
    * @throws Exception
    */
-  public static void updateKafkaProperties(int kafkaJobRefId) throws Exception {
-    Properties props = EtlJobPropertyDao.getJobProperties(KAFKA_JOBNAME, kafkaJobRefId);
-    if (props == null || props.size() < 5) {
-      Logger.error("Fail to update Kafka job properties for " + KAFKA_JOBNAME.name()
-          + ", job ref id: " + kafkaJobRefId);
+  public void updateKafkaProperties(EtlJobName jobName, int jobRefId)
+      throws Exception {
+    Properties props;
+    try {
+      props = EtlJobPropertyDao.getJobProperties(jobName, jobRefId);
+    } catch (Exception e) {
+      Logger.error("Fail to update Kafka job properties for " + jobName.name() + ", ref id: " + jobRefId);
       return;
-    } else {
-      Logger.info("Get Kafka job properties for " + KAFKA_JOBNAME.name() + ", job ref id: " + kafkaJobRefId);
     }
+    Logger.info("Get Kafka job properties for " + jobName.name() + ", job ref id: " + jobRefId);
 
     String[] topics = ((String) props.remove("kafka.topics")).split("\\s*,\\s*");
     String[] processors = ((String) props.remove("kafka.processors")).split("\\s*,\\s*");
@@ -78,10 +88,60 @@ public class KafkaConfig {
   }
 
   /**
+   * update processor class, method and db writer for each topic
+   */
+  public void updateTopicProcessor() {
+    for (String topic : _topics.keySet()) {
+      try {
+        // get the processor class and method
+        final Class processorClass = Class.forName(_topics.get(topic).processor);
+        _topicProcessorClass.put(topic, processorClass.newInstance());
+
+        final Method method = processorClass.getDeclaredMethod("process", GenericData.Record.class, String.class);
+        _topicProcessorMethod.put(topic, method);
+
+        // get the database writer
+        final DatabaseWriter dw = new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, _topics.get(topic).dbTable);
+        _topicDbWriter.put(topic, dw);
+      } catch (Exception e) {
+        Logger.error("Fail to create Processor for topic: " + topic, e);
+        _topicProcessorClass.remove(topic);
+        _topicProcessorMethod.remove(topic);
+        _topicDbWriter.remove(topic);
+      }
+    }
+  }
+
+  public Object getProcessorClass(String topic) {
+    return _topicProcessorClass.get(topic);
+  }
+
+  public Method getProcessorMethod(String topic) {
+    return _topicProcessorMethod.get(topic);
+  }
+
+  public DatabaseWriter getDbWriter(String topic) {
+    return _topicDbWriter.get(topic);
+  }
+
+  public Map<String, DatabaseWriter> getTopicDbWriters() {
+    return _topicDbWriter;
+  }
+
+  /**
+   * close the Config
+   */
+  public void close() {
+    if (_consumer != null) {
+      _consumer.shutdown();
+    }
+  }
+
+  /**
    * get Kafka configuration
    * @return
    */
-  public static Properties getProperties() {
+  public Properties getProperties() {
     return _props;
   }
 
@@ -89,8 +149,23 @@ public class KafkaConfig {
    * get Kafka topics
    * @return
    */
-  public static Map<String, Topic> getTopics() {
+  public Map<String, Topic> getTopics() {
     return _topics;
   }
 
+  public ConsumerConnector getConsumer() {
+    return _consumer;
+  }
+
+  public void setConsumer(ConsumerConnector consumer) {
+    _consumer = consumer;
+  }
+
+  public SchemaRegistryClient getSchemaRegistryClient() {
+    return _schemaRegistryClient;
+  }
+
+  public void setSchemaRegistryClient(SchemaRegistryClient schemaRegistryClient) {
+    _schemaRegistryClient = schemaRegistryClient;
+  }
 }
