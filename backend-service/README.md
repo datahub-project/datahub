@@ -1,6 +1,7 @@
 Linkedin Wherehows - a Metadata data warehouse
 ==============================================
-* Summary:
+Summary:
+==
 Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
 Wherehows comes in three operational components
