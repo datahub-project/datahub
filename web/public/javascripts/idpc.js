@@ -3,6 +3,15 @@
 
         App = Ember.Application.create({rootElement: "#content"});
 
+        if (Ember.Debug && typeof Ember.Debug.registerDeprecationHandler === 'function') {
+            Ember.Debug.registerDeprecationHandler(function(message, options, next) {
+                if (options && options.id && options.id == 'ember-routing.router-resource') {
+                    return;
+                }
+                next(message, options);
+            });
+        }
+
         App.Router.map(function() {
             this.resource('jira', function(){
                 this.resource('user', {path: '/:user'});
