@@ -61,7 +61,7 @@ class HdfsLoad:
         update stg_dict_dataset
         set name = substring_index(urn, '/', -2)
         where db_id = {db_id}
-          and name in ('1.0', '2.0', '3.0', '4.0', '0.1', '0.2', '0.3', '0.4', 'dedup', '1-day', '7-day');
+          and name '[0-9]+\\.[0-9]+|dedup|dedupe|[0-9]+-day';
 
         -- update parent name, this depends on the data from source system
         update stg_dict_dataset
@@ -109,7 +109,7 @@ class HdfsLoad:
           wh_etl_exec_id={wh_etl_exec_id}, abstract_dataset_urn=s.urn, schema_text=s.schema;
 
         -- insert into final table
-        INSERT INTO dict_dataset
+        INSERT IGNORE INTO dict_dataset
         ( `name`,
           `schema`,
           schema_type,
@@ -145,11 +145,11 @@ class HdfsLoad:
         on duplicate key update
           `name`=s.name, `schema`=s.schema, schema_type=s.schema_type, fields=s.fields,
           properties=s.properties, source=s.source, location_prefix=s.location_prefix, parent_name=s.parent_name,
-            storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, status_id=s.status_id,
-                     dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
+          storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, status_id=s.status_id,
+          dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
           partition_layout_pattern_id=s.partition_layout_pattern_id, sample_partition_full_path=s.sample_partition_full_path,
           source_created_time=s.source_created_time, source_modified_time=s.source_modified_time,
-            modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
+          modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
         ;
         analyze table dict_dataset;
 
@@ -159,7 +159,7 @@ class HdfsLoad:
         and sdi.db_id = {db_id};
 
         -- insert into final instance table
-        INSERT INTO dict_dataset_instance
+        INSERT IGNORE INTO dict_dataset_instance
         ( dataset_id,
           db_id,
           deployment_tier,
@@ -195,11 +195,13 @@ class HdfsLoad:
           instance_created_time=s.instance_created_time, created_time=s.created_time, wh_etl_exec_id=s.wh_etl_exec_id
           ;
         '''.format(source_file=self.input_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
+
     for state in load_cmd.split(";"):
       self.logger.debug(state)
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+    self.logger.info("finish loading hdfs metadata db_id={db_id} to dict_dataset".format(db_id=self.db_id))
 
   def load_field(self):
     cursor = self.conn_mysql.cursor()
@@ -359,6 +361,7 @@ class HdfsLoad:
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+    self.logger.info("finish loading hdfs metadata db_id={db_id} to dict_field_detail".format(db_id=self.db_id))
 
   def load_sample(self):
     cursor = self.conn_mysql.cursor()
@@ -402,6 +405,7 @@ class HdfsLoad:
       cursor.execute(state)
       self.conn_mysql.commit()
     cursor.close()
+    self.logger.info("finish loading hdfs sample data db_id={db_id} to dict_dataset_sample".format(db_id=self.db_id))
 
 
 if __name__ == "__main__":

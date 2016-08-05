@@ -15,6 +15,7 @@ configurations {
       dependencySubstitution {
           substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
           //prefer 'log4j-over-slf4j' over 'log4j'
+          substitute module('log4j:log4j') with module('org.slf4j:log4j-over-slf4j:1.7.21')
       }
   }
 }
