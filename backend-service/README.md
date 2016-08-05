@@ -42,11 +42,12 @@ export GRADLE_HOME=~/development/gradle-2.4
 export PATH=$PATH:$GRADLE_HOME/bin:$PLAY_HOME
 ```
 
-## Build:
+### Build:
 ```
 gradlew dist
 ```
 
+### Install:
 Download/upload the distribution binaries, unzip to 
 ```
 /opt/wherehows/backend-service-1.0-SNAPSHOT
@@ -57,7 +58,7 @@ Create temp space for wherehows
 sudo mkdir /var/tmp/wherehows
 sudo chmod a+rw /var/tmp/wherehows
 ```
-To run the backend service:
+
 ```
 cd /opt/wherehows/backend-service-1.0-SNAPSHOT
 ```
@@ -107,7 +108,8 @@ Ensure these JAR files are present
  lib/jython-standalone-2.7.0.jar
  lib/mysql-connector-java-5.1.36.jar
 ```
-
+### Run
+To run the backend service:
 Set these variables to configure the application (or edit conf/database.conf)
 ```
 export WHZ_DB_URL=jdbc:mysql://<mysql host>:3306/wherehows
@@ -119,15 +121,15 @@ Run backend service application on port 9001 (from the backend-service folder ru
 ```
 $PLAY_HOME/play “run -Dhttp.port=9001”
 ```
-- In separate window, monitor 
+In separate window, monitor 
 ```tail -f /var/tmp/wherehows/wherehows.log```
 
-- Open browser to http://<edge node>:9001/
+Open browser to ```http://<edge node>:9001/```
 This will show ‘TEST’. This is the RESTful api endpoint
 
-- run the web ui
+Run the web ui
 ```
-cd <web ui dir>
+cd <web ui deployment dir>
 cd web
 # <ensure the conf/*.conf files are configured>
 $PLAY_HOME/play run
