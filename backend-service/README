@@ -1,4 +1,107 @@
-This is your new Play application
-=====================================
+Linkedin Wherehows - a Metadata data warehouse
+Summary:
+Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
-This file will be packaged with your application, when using `play dist`.
+Wherehows comes in three operational components
+A web-ui service
+Backend service
+Database schema for MySQL
+
+The backend service provides the RESTful api but more importantly runs the ETL jobs that go and gather the metadata. The backend service relies heavily on the mysql wherehows database instance for configuration information and as a location for where the metadata will land.
+
+The Web UI provides navigation between the bits of information and the ability to annotate the collected data with comments, ownership and more. The example below is Hive metadata collected from the Cloudera VM
+
+
+Configuration notes:
+Hartford specific:
+MySQL database for the Wherehows metadata database
+host: 	lad1labhc2056
+db: 	wherehows
+user: 	wherehows
+pass:	wherehows
+
+Wherehows application directory (in test):
+Host: 	tdhfd6n19
+Folder:	/data/user/ter00006/wherehows
+
+Key notes:
+Please become familiar with these pages:
+https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
+https://github.com/dmoore247/WhereHows  (this is my fork, used to stabilize the release)
+https://github.com/linkedin/WhereHows
+https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
+
+
+Wherehows did not compile on the Hartford edge nodes, most likely due to a security proxy blocking or partially blocking some build dependencies.
+
+The application was built off-site and uploaded to https://github.com/dmoore247/WhereHows/releases/tag/v0.0.2
+
+First set env variables to Play and Gradle:
+. env.sh
+Download the binaries, unzip,... 
+To run the backend service:
+
+# create temp space for wherehows
+sudo mkdir /var/tmp/wherehows
+sudo chmod a+rw /var/tmp/wherehows
+
+
+cd ~ter00006/...wherehows/backend-service-1.0-SNAPSHOT
+
+#ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the 
+mysql host property for wherehows database (on lad1labhc2056)
+The hive metastore (as Postgresql database) properties need to match the hadoop cluster:
+Host - tdhfd6n1
+Port - 5432
+Username - hive
+Password - hive
+URL - jdbc:postgresql://tdhfd6n1:5432/metastore
+Set the hive metastore driver class to ‘org.postgresql.Driver’
+other properties per configuration.
+
+#ensure these JAR files are present
+ lib/jython-standalone-2.7.0.jar is present
+ lib/postgresql-9.4.1209.jar is present (download https://jdbc.postgresql.org/download/postgresql-9.4.1209.jar)
+
+# set these variables to configure the application (or edit conf/database.conf)
+export WHZ_DB_URL=jdbc:mysql://lad1labhc2056:3306/wherehows
+export WHZ_DB_USERNAME=wherehows
+export WHZ_DB_PASSWORD=wherehows
+export WHZ_DB_HOST=lad1labhc2056
+
+# run backend service application on port 9001 (from the backend-service folder run:
+$PLAY_HOME/play “run -Dhttp.port=9001”
+
+# in separate window, monitor /var/tmp/wherehows/wherehows.log
+
+# open browser to http://tdhfd6n1:9001
+This will show ‘TEST’. This is the RESTful api endpoint
+
+# run the web ui
+cd <web ui dir>
+cd web
+# <ensure the conf/*.conf files are configured>
+$PLAY_HOME/play run
+
+# Next steps
+Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
+Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
+Add additional crawlers, for Oracle, Teradata, ETL and schedulers
+
+# epiloge
+Once the testing has reached a certain level of maturity, you will want to run this under a secure id and secure MySQL server instance.
+
+Eventually, send note to Wherehows community to be placed on the “Who’s using” page. This will tremendously help perpetuate the open source efforts.
+
+Troubleshooting
+To check the configuration properties
+select * from wh_etl_job;
+select * from wh_etl_job_property;
+select * from wh_property;
+
+
+
+
+
+
+
