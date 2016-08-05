@@ -12,9 +12,9 @@
             <div class="row">
               <div class="col-xs-12 well well-sm">
                 <ul class="breadcrumbs">
-                  {{#each crumb in breadcrumbs}}
+                  {{#each breadcrumbs as |crumb|}}
                     <li>
-                      <a {{bind-attr href=crumb.urn title=crumb.title }}>
+                      <a href={{crumb.urn}} title={{crumb.title }}>
                         {{ crumb.title }}
                       </a>
                     </li>
@@ -48,10 +48,10 @@
                       <tbody>
                         <tr>
                           <td>
-                            <img {{bind-attr src=selectedUser.iconUrl title=selectedUser.displayName }}
+                            <img src={{selectedUser.iconUrl}} title={{selectedUser.displayName }}
                               width="25px"
                               height="25px"/>
-                            <a {{bind-attr href=selectedUser.url title=selectedUser.displayName }}>
+                            <a href={{selectedUser.url}} title={{selectedUser.displayName}}>
                               {{ selectedUser.displayName }}
                             </a>
                           </td>
@@ -98,13 +98,13 @@
                               </td>
                             </tr>
                           {{else}}
-                            {{#each user in members}}
+                            {{#each members as |user|}}
                               <tr>
                                 <td>
-                                  <img {{bind-attr src=user.iconUrl title=user.displayName }}
+                                  <img src={{user.iconUrl}} title={{user.displayName}}
                                     width="25px"
                                     height="25px"/>
-                                  <a {{bind-attr href=user.url title=user.displayName }}>
+                                  <a href={{user.url}} title={{user.displayName}}>
                                     {{ user.displayName }}
                                   </a>
                                 </td>
@@ -129,8 +129,8 @@
                           <div class="form-group">
                             <label>Sort Options</label>
                             <select class="form-control">
-                              {{#each option in sortOptions}}
-                                <option {{bind-attr value=option }}>{{option}}
+                              {{#each sortOptions as |option|}}
+                                <option value={{option}}>{{option}}
                                 </option>
                               {{/each}}
                             </select>
@@ -175,16 +175,16 @@
                               </td>
                             </tr>
                           {{else}}
-                            {{#each ticket in headlessTickets}}
+                            {{#each headlessTickets as |ticket|}}
                               <tr>
                                 <td>
-                                  <img {{bind-attr src=ticket.assigneeIconUrl title=ticket.assigneeDisplayName }}
+                                  <img src={{ticket.assigneeIconUrl}} title={{ticket.assigneeDisplayName}}
                                     width="25px"
                                     height="25px"/>
                                   {{ ticket.assigneeDisplayName }}
                                 </td>
                                 <td class="text-center">
-                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.ticketKey }} target="_blank">
+                                  <a href={{ticket.jiraKeyUrl}} title={{ticket.ticketKey}} target="_blank">
                                     {{ ticket.ticketKey }}
                                   </a>
                                 </td>
@@ -220,10 +220,10 @@
                       <tbody>
                         <tr>
                           <td>
-                            <img {{bind-attr src=selectedUser.iconUrl title=selectedUser.displayName }}
+                            <img src={{selectedUser.iconUrl}} title={{selectedUser.displayName}}
                               width="25px"
                               height="25px"/>
-                            <a {{bind-attr href=selectedUser.orgHierarchyUrl title=selectedUser.displayName }}>
+                            <a href={{selectedUser.orgHierarchyUrl}} title={{selectedUser.displayName}}>
                               {{ selectedUser.displayName }}
                             </a>
                           </td>
@@ -269,13 +269,13 @@
                               </td>
                             </tr>
                           {{else}}
-                            {{#each user in members}}
+                            {{#each members as |user|}}
                               <tr>
                                 <td>
-                                  <img {{bind-attr src=user.iconUrl title=user.displayName }}
+                                  <img src={{user.iconUrl}} title={{user.displayName}}
                                     width="25px"
                                     height="25px"/>
-                                  <a {{bind-attr href=user.orgHierarchyUrl title=user.displayName }}>
+                                  <a href={{user.orgHierarchyUrl}} title={{user.displayName}}>
                                     {{ user.displayName }}
                                   </a>
                                 </td>
@@ -300,8 +300,8 @@
                           <div class="form-group">
                             <label>Sort Options</label>
                             <select class="form-control">
-                              {{#each option in sortOptions}}
-                                <option {{bind-attr value=option }}>{{option}}
+                              {{#each sortOptions as |option|}}
+                                <option value={{option }}>{{option}}
                                 </option>
                               {{/each}}
                             </select>
@@ -346,17 +346,17 @@
                               </td>
                             </tr>
                           {{else}}
-                            {{#each ticket in userTickets}}
+                            {{#each userTickets as |ticket|}}
                               <tr>
                                 <td>
-                                  <img {{bind-attr src=ticket.currentAssigneeIconUrl
-                                    title=ticket.currentAssigneeDisplayName }}
+                                  <img src={{ticket.currentAssigneeIconUrl}}
+                                    title={{ticket.currentAssigneeDisplayName}}
                                     width="25px"
                                     height="25px"/>
                                   {{ ticket.assigneeDisplayName }}
                                 </td>
                                 <td class="text-center">
-                                  <a {{bind-attr href=ticket.jiraKeyUrl title=ticket.jiraKey }} target="_blank">
+                                  <a href={{ticket.jiraKeyUrl}} title={{ticket.jiraKey}} target="_blank">
                                     {{ ticket.ticketKey }}
                                   </a>
                                 </td>
@@ -381,7 +381,7 @@
       </script>
     </div>
 
-    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember-template-compiler.js")" type="text/javascript"></script>
-    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-2.6.2/ember-template-compiler.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-2.6.2/ember.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/idpc.js")" type="text/javascript"></script>
   }
