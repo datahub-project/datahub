@@ -1,12 +1,12 @@
 Linkedin Wherehows - a Metadata data warehouse
 ==============================================
-Summary:
+* Summary:
 Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
 Wherehows comes in three operational components
-A web-ui service
-Backend service
-Database schema for MySQL
+- A web-ui service
+- Backend service
+- Database schema for MySQL
 
 The backend service provides the RESTful api but more importantly runs the ETL jobs that go and gather the metadata. The backend service relies heavily on the mysql wherehows database instance for configuration information and as a location for where the metadata will land.
 
@@ -14,16 +14,15 @@ The Web UI provides navigation between the bits of information and the ability t
 
 
 Configuration notes:
-Hartford specific:
 MySQL database for the Wherehows metadata database
-host: 	lad1labhc2056
-db: 	wherehows
-user: 	wherehows
+host: <mysqlhost>
+db: 	 wherehows
+user: wherehows
 pass:	wherehows
 
 Wherehows application directory (in test):
-Host: 	tdhfd6n19
-Folder:	/data/user/ter00006/wherehows
+Host: 	<edge node>
+Folder:	/opt/wherehows
 
 Key notes:
 Please become familiar with these pages:
@@ -47,16 +46,16 @@ sudo mkdir /var/tmp/wherehows
 sudo chmod a+rw /var/tmp/wherehows
 
 
-cd ~ter00006/...wherehows/backend-service-1.0-SNAPSHOT
+cd /opt/wherehows/backend-service-1.0-SNAPSHOT
 
 #ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the 
 mysql host property for wherehows database (on lad1labhc2056)
 The hive metastore (as Postgresql database) properties need to match the hadoop cluster:
-Host - tdhfd6n1
+Host - <metastore host>
 Port - 5432
 Username - hive
 Password - hive
-URL - jdbc:postgresql://tdhfd6n1:5432/metastore
+URL - jdbc:postgresql://<metastore host>:5432/metastore
 Set the hive metastore driver class to ‘org.postgresql.Driver’
 other properties per configuration.
 
@@ -65,7 +64,7 @@ other properties per configuration.
  lib/postgresql-9.4.1209.jar is present (download https://jdbc.postgresql.org/download/postgresql-9.4.1209.jar)
 
 # set these variables to configure the application (or edit conf/database.conf)
-export WHZ_DB_URL=jdbc:mysql://lad1labhc2056:3306/wherehows
+export WHZ_DB_URL=jdbc:mysql://<mysql host>:3306/wherehows
 export WHZ_DB_USERNAME=wherehows
 export WHZ_DB_PASSWORD=wherehows
 export WHZ_DB_HOST=lad1labhc2056
@@ -75,7 +74,7 @@ $PLAY_HOME/play “run -Dhttp.port=9001”
 
 # in separate window, monitor /var/tmp/wherehows/wherehows.log
 
-# open browser to http://tdhfd6n1:9001
+# open browser to http://<edge node>:9001
 This will show ‘TEST’. This is the RESTful api endpoint
 
 # run the web ui
@@ -89,12 +88,7 @@ Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
-# epiloge
-Once the testing has reached a certain level of maturity, you will want to run this under a secure id and secure MySQL server instance.
-
-Eventually, send note to Wherehows community to be placed on the “Who’s using” page. This will tremendously help perpetuate the open source efforts.
-
-Troubleshooting
+** Troubleshooting
 To check the configuration properties
 select * from wh_etl_job;
 select * from wh_etl_job_property;
