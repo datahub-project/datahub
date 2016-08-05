@@ -140,7 +140,7 @@ Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
-** Troubleshooting
+### Troubleshooting
 To check the configuration properties
 ```
 select * from wh_etl_job;
