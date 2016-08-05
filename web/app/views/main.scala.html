@@ -657,7 +657,7 @@
       </div>
       <div class="row commentsArea">
         {{#if comments}}
-        {{#each comment in comments}}
+        {{#each comments as |comment|}}
         <div class="col-xs-12 well comment">
           <span class="bs-docs-example">
             {{comment.type}}
@@ -712,9 +712,8 @@
             </div>
             <div class="modal-body">
               <div class="row">
-                <div class="col-xs-3 pull-left text-right">
-                  {{view "select" content=commentTypes value=comment.type class="form-control"}}
-                </div>
+                {{#ember-selector values=commentTypes selected=comment.type class="col-xs-3 pull-left text-right"}}
+                {{/ember-selector}}
               </div>
               <div>
                 <ul class="nav nav-tabs" role="tablist">
@@ -1127,7 +1126,7 @@
                                 <input
                                   type="radio"
                                   name="selectedComment"
-                                  {{bind-attr value="index"}}
+                                  value={{index}}
                                 />
                               </td>
                               <td class="text-left">{{comment.html}}</td>

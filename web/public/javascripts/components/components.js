@@ -1,3 +1,230 @@
+function setOwnerNameAutocomplete(controller)
+{
+  if (!controller)
+  {
+    return;
+  }
+
+  $('.userEntity').blur(function(data){
+    var userEntitiesMaps = controller.get("userEntitiesMaps");
+    var value = this.value;
+    if (userEntitiesMaps[value])
+    {
+      controller.set("showMsg", false);
+      var owners = controller.get("owners");
+      for(var i = 0; i < owners.length; i++)
+      {
+        if (owners[i].userName == value)
+        {
+          Ember.set(owners[i], "name", userEntitiesMaps[value]);
+          if (userEntitiesMaps[value])
+          {
+            Ember.set(owners[i], "isGroup", false);
+          }
+          else
+          {
+            Ember.set(owners[i], "isGroup", true);
+          }
+        }
+      }
+    }
+    else
+    {
+      controller.set("showMsg", true);
+      controller.set("alertType", "alert-danger");
+      controller.set("ownerMessage", "The user name '" + value + "' is invalid");
+    }
+  });
+
+  $('.userEntity').autocomplete({
+    select: function( event, ui )
+    {
+      var userEntitiesMaps = controller.get("userEntitiesMaps");
+      var value = ui.item.value;
+      if (value in userEntitiesMaps)
+      {
+        var owners = controller.get("owners");
+        for(var i = 0; i < owners.length; i++)
+        {
+          if (owners[i].userName == value)
+          {
+            controller.set("showMsg", false);
+            Ember.set(owners[i], "name", userEntitiesMaps[value]);
+            if (userEntitiesMaps[value])
+            {
+              Ember.set(owners[i], "isGroup", false);
+            }
+            else
+            {
+              Ember.set(owners[i], "isGroup", true);
+            }
+          }
+        }
+      }
+    },
+
+    source: function(request, response) {
+      var userEntitiesSource = controller.get("userEntitiesSource");
+      var results = $.ui.autocomplete.filter(userEntitiesSource, request.term);
+      response(results.slice(0, 20));
+    }
+
+  });
+}
+
+App.EmberSelectorComponent = Ember.Component.extend({
+  init: function() {
+    this._super();
+    var values = this.get('values');
+    var selected = this.get('selected');
+    var renderValues = [];
+    if (values && values.length > 0)
+    {
+      for(var i = 0; i < values.length; i++)
+      {
+        renderValues.push({'value': values[i], 'isSelected': values[i] === selected});
+      }
+
+    }
+    this.set('renderValues', renderValues);
+  }
+});
+
+App.DatasetPropertyComponent = Ember.Component.extend({
+});
+
+App.DatasetSchemaComponent = Ember.Component.extend({
+  buildJsonView: function(){
+    var dataset = this.get("dataset");
+    var schema = JSON.parse(dataset.schema)
+    setTimeout(function() {
+      $("#json-viewer").JSONView(schema)
+    }, 500);
+  },
+  actions: {
+    setView: function (view) {
+      switch (view) {
+        case "tabular":
+          this.set('isTable', true);
+          this.set('isJSON', false);
+          $('#json-viewer').hide();
+          $('#json-table').show();
+          break;
+        case "json":
+          this.set('isTable', false);
+          this.set('isJSON', true);
+          this.buildJsonView();
+          $('#json-table').hide();
+          $('#json-viewer').show();
+          break;
+        default:
+          this.set('isTable', true);
+          this.set('isJSON', false);
+          $('#json-viewer').hide();
+          $('#json-table').show();
+      }
+    }
+  }
+});
+
+App.DatasetSampleComponent = Ember.Component.extend({
+});
+
+App.DatasetImpactComponent = Ember.Component.extend({
+});
+
+App.DatasetAuthorComponent = Ember.Component.extend({
+  actions: {
+    addOwner: function(data) {
+      var owners = data;
+      var controller = this.get("parentController");
+      var currentUser = this.get("currentUser");
+      var addedOwner = {"userName":"Owner","email":null,"name":"","isGroup":false,
+        "namespace":"urn:li:griduser","type":"Producer","subType":null,"sortId":0};
+      var userEntitiesSource = controller.get("userEntitiesSource");
+      var userEntitiesMaps = controller.get("userEntitiesMaps");
+      var exist = false;
+      if (owners && owners.length > 0)
+      {
+        owners.forEach(function(owner){
+          if(owner.userName == addedOwner.userName)
+          {
+            exist = true;
+          }
+        });
+      }
+      if (!exist)
+      {
+        owners.unshiftObject(addedOwner);
+        setTimeout(function(){
+          setOwnerNameAutocomplete(controller)
+        }, 500);
+      }
+      else
+      {
+        console.log("The owner is already exist");
+      }
+    },
+    removeOwner: function(owners, owner) {
+      if (owners && owner)
+      {
+        owners.removeObject(owner);
+      }
+    },
+    updateOwners: function(owners) {
+      _this = this;
+      controller = this.get("parentController");
+      var showMsg = controller.get("showMsg");
+      if (showMsg)
+      {
+        return;
+      }
+      var model = controller.get("model");
+      if (!model || !model.id)
+      {
+        return;
+      }
+      var url = "/api/v1/datasets/" + model.id + "/owners";
+      var token = $("#csrfToken").val().replace('/', '');
+      $.ajax({
+        url: url,
+        method: 'POST',
+        header: {
+          'Csrf-Token': token
+        },
+        data: {
+          csrfToken: token,
+          owners: JSON.stringify(owners)
+        }
+      }).done(function(data, txt, xhr){
+        if (data.status == "success")
+        {
+          _this.set('showMsg', true);
+          _this.set('alertType', "alert-success");
+          _this.set('ownerMessage', "Ownership successfully updated.");
+        }
+        else
+        {
+          _this.set('showMsg', true);
+          _this.set('alertType', "alert-danger");
+          _this.set('ownerMessage', "Ownership update failed.");
+        }
+
+      }).fail(function(xhr, txt, error){
+        _this.set('showMsg', true);
+        _this.set('alertType', "alert-danger");
+        _this.set('ownerMessage', "Ownership update failed.");
+      })
+    }
+  }
+});
+
+App.DatasetRelationsComponent = Ember.Component.extend({
+});
+
+App.MetricDetailComponent = Ember.Component.extend({
+});
+
 App.DatasetFavoriteComponent = Ember.Component.extend({
   actions: {
     favorites: function(dataset) {

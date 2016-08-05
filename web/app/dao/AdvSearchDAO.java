@@ -421,8 +421,8 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 											if (sourceNode.has("flow_group")) {
 												flowJob.flowGroup = sourceNode.get("flow_group").asText();
 											}
-											flowJob.link = "#/flows/" + flowJob.appCode + "/" +
-													flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+											flowJob.link = "#/flows/name/" + flowJob.appCode + "/" +
+													Long.toString(flowJob.flowId) + "/page/1?urn=" + flowJob.flowGroup;
 											flowJob.path = flowJob.appCode + "/" + flowJob.flowPath;
 
 											flowJob.schema = sourceNode.toString();
@@ -1503,8 +1503,8 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 						{
 							flow.displayName = flow.flowName;
 						}
-						flow.link = "#/flows/" + flow.appCode + "/" +
-								flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
+						flow.link = "#/flows/name/" + flow.appCode + "/" +
+								Long.toString(flow.flowId) + "/page/1?urn=" + flow.flowGroup;
 						flow.path = flow.appCode + "/" + flow.flowPath;
 						pagedFlows.add(flow);
 					}
