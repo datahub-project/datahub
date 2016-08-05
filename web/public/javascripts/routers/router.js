@@ -1,5 +1,14 @@
 var App = Ember.Application.create({rootElement: "#contentSplitter"});
 
+if (Ember.Debug && typeof Ember.Debug.registerDeprecationHandler === 'function') {
+    Ember.Debug.registerDeprecationHandler(function(message, options, next) {
+        if (options && options.id && options.id == 'ember-routing.router-resource') {
+          return;
+        }
+        next(message, options);
+    });
+}
+
 App.Router.map(function() {
     this.resource('datasets', function(){
         this.resource('page', {path: '/page/:page'});
