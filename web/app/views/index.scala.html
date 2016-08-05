@@ -63,7 +63,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-favorite">
       <i
-      {{bind-attr class=":wh-clickable-icon :fa dataset.isFavorite:fa-heart:fa-heart-o"}}
+      class="wh-clickable-icon fa {{if dataset.isFavorite 'fa-heart'}} {{unless dataset.isFavorite 'fa-heart-o'}}"
       {{action "favorites" dataset}}
       >
       </i>
@@ -71,7 +71,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-owner">
       <i
-        {{bind-attr class=":wh-clickable-icon :fa dataset.isOwned:fa-bookmark:fa-bookmark-o"}}
+        class="wh-clickable-icon fa {{if dataset.isOwned 'fa-bookmark'}} {{unless dataset.isOwned 'fa-bookmark-o'}}"
         {{action "owned" dataset}}
       >
       </i>
@@ -79,7 +79,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-watch">
       <i
-        {{bind-attr class=":wh-clickable-icon :fa dataset.watchId:fa-eye-slash:fa-eye"}}
+        class="wh-clickable-icon fa {{if dataset.watchId 'fa-eye-slash'}} {{unless dataset.watchId 'fa-eye'}}"
         {{action "watch" dataset}}
       >
       </i>
@@ -94,7 +94,7 @@
 
     <script type="text/x-handlebars" id="components/metric-watch">
       <i
-        {{bind-attr class=":fa metric.watchId:fa-eye-slash:fa-eye"}}
+        class="fa {{if metric.watchId 'fa-eye-slash'}} {{unless metric.watchId 'fa-eye'}}"
         {{action "watch" metric}}
       >
       </i>
@@ -296,7 +296,7 @@
           </thead>
           <tbody>
             {{#each schemas as |schema|}}
-            <tr {{bind-attr class="schema.treeGridClass"}}>
+            <tr class="{{schema.treeGridClass}}">
               <td>{{schema.fieldName}}</td>
               <td>{{schema.dataType}}</td>
               <td title="Is nullable" class="text-center">
@@ -457,7 +457,7 @@
               <td>{{impact.level}}</td>
               <td>
                 {{#if impact.isValidDataset}}
-                  <a {{bind-attr href=impact.datasetUrl}}>
+                  <a href={{impact.datasetUrl}}>
                     {{impact.name}}
                   </a>
                 {{else}}
@@ -487,10 +487,10 @@
           </thead>
           <tbody>
             {{#each depends as |depend|}}
-            <tr {{bind-attr class="depend.treeGridClass"}}>
+            <tr class="{{depend.treeGridClass}}">
               <td>
                 {{#if depend.isValidDataset}}
-                  <a {{bind-attr href=depend.datasetLink}}>
+                  <a href={{depend.datasetLink}}>
                     {{depend.objectName}}
                   </a>
                 {{else}}
@@ -517,10 +517,10 @@
           </thead>
           <tbody>
             {{#each references as |reference|}}
-            <tr {{bind-attr class="reference.treeGridClass"}}>
+            <tr class="{{reference.treeGridClass}}">
               <td>
                 {{#if reference.isValidDataset}}
-                  <a {{bind-attr href=reference.datasetLink}}>
+                  <a href={{reference.datasetLink}}>
                     {{reference.objectName}}
                   </a>
                 {{else}}
@@ -557,7 +557,7 @@
               </li>
               {{#if showLineage}}
               <li>
-                <a target="_blank" {{bind-attr href=lineageUrl}}>
+                <a target="_blank" href={{lineageUrl}}>
                   <i class="fa fa-sitemap"></i>
                   <span class="hidden-sm hidden-xs">
                     View Lineage
@@ -654,7 +654,7 @@
                   data-title="Enter Type"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.refIDType}}
+                  data-value={{model.refIDType}}
                 >
                 </a>
               </td>
@@ -750,7 +750,7 @@
                   data-title="Enter source"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.source}}
+                  data-value={{model.source}}
                 >
                 </a>
               </td>
@@ -768,7 +768,7 @@
                   data-title="Enter source type"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.sourceType}}
+                  data-value={{model.sourceType}}
                 >
                 </a>
               </td>
@@ -814,7 +814,7 @@
               </li>
               {{#if model.hdfsBrowserLink}}
               <li>
-                <a target="_blank" {{bind-attr href=model.hdfsBrowserLink}}
+                <a target="_blank" href={{model.hdfsBrowserLink}}
                   title="View on HDFS">
                   <i class="fa fa-database"></i>
                   <span class="hidden-sm hidden-xs">
@@ -824,7 +824,7 @@
               </li>
               {{/if}}
               <li>
-                <a target="_blank" {{bind-attr href=lineageUrl}}
+                <a target="_blank" href={{lineageUrl}}
                   title="View Lineage">
                   <i class="fa fa-sitemap"></i>
                   <span class="hidden-sm hidden-xs">
@@ -834,7 +834,7 @@
               </li>
               {{#if model.hasSchemaHistory}}
                 <li>
-                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}
+                  <a target="_blank" href={{schemaHistoryUrl}}
                     title="View Schema History">
                     <i class="fa fa-history"></i>
                     <span class="hidden-sm hidden-xs">
@@ -1227,7 +1227,7 @@
         <div class="btn-group" role="group">
           <button
             type="button"
-            {{bind-attr class=":btn :dropdown-toggle isDatasets:btn-primary:btn-default"}}
+            class="btn dropdown-toggle {{if isDatasets 'btn-primary'}} {{unless isDatasets 'btn-default'}}"
             data-toggle="dropdown"
             aria-expanded="false">
             {{datasetTitle}}
@@ -1288,19 +1288,19 @@
         </div>
         <button
           type="button"
-          {{bind-attr class=":btn isComments:btn-primary:btn-default"}}
+          class="btn {{if isComments 'btn-primary'}} {{unless isComments 'btn-default'}}"
           {{action 'switchSearchToComments' keyword}}>
           Comments
         </button>
         <button
           type="button"
-          {{bind-attr class=":btn isFlows:btn-primary:btn-default"}}
+          class="btn {{if isFlows 'btn-primary'}} {{unless isFlows 'btn-default'}}"
           {{action 'switchSearchToFlow' keyword}}>
           Flows
         </button>
         <button
           type="button"
-          {{bind-attr class=":btn isJobs:btn-primary:btn-default"}}
+          class="btn {{if isJobs 'btn-primary'}} {{unless isJobs 'btn-default'}}"
           {{action 'switchSearchToJob' keyword}}>
           Jobs
         </button>
@@ -1644,7 +1644,7 @@
               <div class="col-xs-5 text-right">
                 <ul class="datasetDetailsLinks">
                   <li {{action 'watchUrn' urn}}>
-                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
+                    <i class="fa {{if urnWatched 'fa-eye-slash'}} {{unless urnWatched 'fa-eye'}}"></i>
                     <span class="hidden-sm hidden-xs">
                       {{#if urnWatched}}
                         Unwatch
@@ -1654,7 +1654,7 @@
                     </span>
                   </li>
                   <li>
-                    <a target="_blank" {{bind-attr href=lineageUrl}}>
+                    <a target="_blank" href={{lineageUrl}}>
                       <i class="fa fa-sitemap"></i>
                       <span class="hidden-sm hidden-xs">
                         View Lineage

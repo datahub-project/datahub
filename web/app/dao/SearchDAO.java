@@ -473,8 +473,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 											if (sourceNode.has("flow_group")) {
 												flowJob.flowGroup = sourceNode.get("flow_group").asText();
 											}
-											flowJob.link = "#/flows/" + flowJob.appCode + "/" +
-													flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+											flowJob.link = "#/flows/name/" + flowJob.appCode + "/" +
+													Long.toString(flowJob.flowId) + "/page/1?urn=" + flowJob.flowGroup;
 											flowJob.path = flowJob.appCode + "/" + flowJob.flowPath;
 
 											flowJob.schema = sourceNode.toString();
@@ -666,8 +666,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 					flow.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
 					flow.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
 					flow.displayName = flow.flowName;
-					flow.link = "#/flows/" + flow.appCode + "/" +
-							flow.flowGroup + "/" + Long.toString(flow.flowId) + "/page/1";
+					flow.link = "#/flows/name/" + flow.appCode + "/" +
+							Long.toString(flow.flowId) + "/page/1?urn=" + flow.flowGroup;
 					flow.path = flow.appCode + "/" + flow.flowPath;
 					pagedFlows.add(flow);
 				}
@@ -730,8 +730,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 					flowJob.appCode = (String)row.get(FlowRowMapper.APP_CODE_COLUMN);
 					flowJob.appId = (Integer)row.get(FlowRowMapper.APP_ID_COLUMN);
 					flowJob.displayName = flowJob.jobName;
-					flowJob.link =  "#/flows/" + flowJob.appCode + "/" +
-							flowJob.flowGroup + "/" + Long.toString(flowJob.flowId) + "/page/1";
+					flowJob.link = "#/flows/name/" + flowJob.appCode + "/" +
+							Long.toString(flowJob.flowId) + "/page/1?urn=" + flowJob.flowGroup;
 					flowJob.path = flowJob.appCode + "/" + flowJob.jobPath;
 
 					pagedFlowJobs.add(flowJob);
