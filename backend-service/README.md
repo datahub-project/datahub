@@ -9,7 +9,7 @@ Wherehows comes in three operational components:
 
 The backend service provides the RESTful api but more importantly runs the ETL jobs that go and gather the metadata. The backend service relies heavily on the mysql wherehows database instance for configuration information and as a location for where the metadata will land.
 
-The Web UI provides navigation between the bits of information and the ability to annotate the collected data with comments, ownership and more. The example below is Hive metadata collected from the Cloudera VM
+The Web UI provides navigation between the bits of information and the ability to annotate the collected data with comments, ownership and more. The example below is for collecting Hive metadata collected from the Cloudera Hadoop VM
 
 
 Configuration notes:
@@ -41,47 +41,81 @@ export PLAY_HOME=~/development/play-2.2.4
 export GRADLE_HOME=~/development/gradle-2.4
 export PATH=$PATH:$GRADLE_HOME/bin:$PLAY_HOME
 ```
-Download/upload the binaries created by, unzip,... 
-Build:
-```gradlew dist```
 
-To run the backend service:
+## Build:
+```
+gradlew dist
+```
 
-- create temp space for wherehows
+Download/upload the distribution binaries, unzip to 
+```
+/opt/wherehows/backend-service-1.0-SNAPSHOT
+```
+
+Create temp space for wherehows
 ```
 sudo mkdir /var/tmp/wherehows
 sudo chmod a+rw /var/tmp/wherehows
 ```
+To run the backend service:
 ```
 cd /opt/wherehows/backend-service-1.0-SNAPSHOT
 ```
-- Ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the 
-mysql host property for wherehows database (on <mysqlhost>)
-The hive metastore (as Postgresql database) properties need to match the hadoop cluster:
+Ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the mysql host property for wherehows database (on <mysqlhost>). The initial SQL:
+~~~~
+--
+-- Dumping data for table `wh_etl_job`
+--
+
+INSERT INTO `wh_etl_job` VALUES (21,'HIVE_DATASET_METADATA_ETL','DATASET','5 * * * * ?',61,'DB',NULL,1470390365,'comments','','Y');
+
+
+
+--
+-- Dumping data for table `wh_etl_job_property`
+--
+
+INSERT INTO `wh_etl_job_property` VALUES (117,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.jdbc.url','jdbc:mysql://10.153.252.111:3306/metastore','N','url to connect to hive metastore'),(118,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.jdbc.driver','com.mysql.jdbc.Driver','N',NULL),(119,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.password','hive','N',NULL),(120,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.username','hive','N',NULL),(121,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.schema_json_file','/var/tmp/wherehows/hive_schema.json','N',NULL),(122,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.schema_csv_file','/var/tmp/wherehows/hive_schema.csv','N',NULL),(123,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.field_metadata','/var/tmp/wherehows/hive_field_metadata.csv','N',NULL);
+
+--
+-- Table structure for table `wh_property`
+--
+
+
+--
+-- Dumping data for table `wh_property`
+--
+
+INSERT INTO `wh_property` VALUES ('wherehows.app_folder','/var/tmp/wherehows','N',NULL),('wherehows.db.driver','com.mysql.jdbc.Driver','N',NULL),('wherehows.db.jdbc.url','jdbc:mysql://localhost/wherehows','N',NULL),('wherehows.db.password','wherehows','N',NULL),('wherehows.db.username','wherehows','N',NULL),('wherehows.encrypt.master.key.loc','/var/tmp/wherehows/.wherehows/master_key','N',NULL),('wherehows.ui.tree.dataset.file','/var/tmp/wherehows/resource/dataset.json','N',NULL),('wherehows.ui.tree.flow.file','/var/tmp/wherehows/resource/flow.json','N',NULL);
+
+
+~~~~
+
+The hive metastore (as MySQL database) properties need to match the hadoop cluster:
 ```
-Host		<metastore host>
-Port		5432
-Username		hive
-Password		hive
-URL		jdbc:postgresql://<metastore host>:5432/metastore
+Host	 <metastore host>
+Port	 3306
+Username hive
+Password hive
+URL		 jdbc:mysql://<metastore host>:3306/metastore
 ```
-Set the hive metastore driver class to ‘org.postgresql.Driver’
+Set the hive metastore driver class to ```com.mysql.jdbc.Driver```
 other properties per configuration.
 
-- ensure these JAR files are present
+Ensure these JAR files are present
 ```
- lib/jython-standalone-2.7.0.jar is present
- lib/postgresql-9.4.1209.jar is present (download https://jdbc.postgresql.org/download/postgresql-9.4.1209.jar)
+ lib/jython-standalone-2.7.0.jar
+ lib/mysql-connector-java-5.1.36.jar
 ```
 
-- set these variables to configure the application (or edit conf/database.conf)
+Set these variables to configure the application (or edit conf/database.conf)
 ```
 export WHZ_DB_URL=jdbc:mysql://<mysql host>:3306/wherehows
 export WHZ_DB_USERNAME=wherehows
 export WHZ_DB_PASSWORD=wherehows
 export WHZ_DB_HOST=<mysql host>
 ```
-- run backend service application on port 9001 (from the backend-service folder run:
+Run backend service application on port 9001 (from the backend-service folder run:
 ```
 $PLAY_HOME/play “run -Dhttp.port=9001”
 ```
@@ -99,17 +133,18 @@ cd web
 $PLAY_HOME/play run
 ```
 
-- Next steps
+## Next steps
 Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
 ** Troubleshooting
 To check the configuration properties
+```
 select * from wh_etl_job;
 select * from wh_etl_job_property;
 select * from wh_property;
-
+```
 
 
 
