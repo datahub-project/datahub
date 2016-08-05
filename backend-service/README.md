@@ -1,10 +1,8 @@
-Linkedin Wherehows - a Metadata data warehouse
-==============================================
-Summary:
-==
+#Linkedin Wherehows - a Metadata data warehouse
+
 Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
-Wherehows comes in three operational components
+Wherehows comes in three operational components:
 - A web-ui service
 - Backend service
 - Database schema for MySQL
@@ -16,75 +14,92 @@ The Web UI provides navigation between the bits of information and the ability t
 
 Configuration notes:
 MySQL database for the Wherehows metadata database
-host: <mysqlhost>
-db: 	 wherehows
-user: wherehows
+```
+host:	<mysqlhost>
+db:		wherehows
+user:	wherehows
 pass:	wherehows
-
+```
 Wherehows application directory (in test):
-Host: 	<edge node>
+```
+Host:	<edge node>
 Folder:	/opt/wherehows
+```
 
-Key notes:
+# Key notes:
+
 Please become familiar with these pages:
-https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
-https://github.com/dmoore247/WhereHows  (this is my fork, used to stabilize the release)
-https://github.com/linkedin/WhereHows
-https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
-
-
-Wherehows did not compile on the Hartford edge nodes, most likely due to a security proxy blocking or partially blocking some build dependencies.
-
-The application was built off-site and uploaded to https://github.com/dmoore247/WhereHows/releases/tag/v0.0.2
+- https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
+- https://github.com/dmoore247/WhereHows  (this is my fork, used to stabilize the release)
+- https://github.com/linkedin/WhereHows
+- https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
 
 First set env variables to Play and Gradle:
-. env.sh
-Download the binaries, unzip,... 
+```
+export WH_HOME=~/development/wherehows/src/deployment/
+export PLAY_HOME=~/development/play-2.2.4
+export GRADLE_HOME=~/development/gradle-2.4
+export PATH=$PATH:$GRADLE_HOME/bin:$PLAY_HOME
+```
+Download/upload the binaries created by, unzip,... 
+Build:
+```gradlew dist```
+
 To run the backend service:
 
-# create temp space for wherehows
+- create temp space for wherehows
+```
 sudo mkdir /var/tmp/wherehows
 sudo chmod a+rw /var/tmp/wherehows
-
-
+```
+```
 cd /opt/wherehows/backend-service-1.0-SNAPSHOT
-
-#ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the 
-mysql host property for wherehows database (on lad1labhc2056)
+```
+- Ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the 
+mysql host property for wherehows database (on <mysqlhost>)
 The hive metastore (as Postgresql database) properties need to match the hadoop cluster:
-Host - <metastore host>
-Port - 5432
-Username - hive
-Password - hive
-URL - jdbc:postgresql://<metastore host>:5432/metastore
+```
+Host		<metastore host>
+Port		5432
+Username		hive
+Password		hive
+URL		jdbc:postgresql://<metastore host>:5432/metastore
+```
 Set the hive metastore driver class to ‘org.postgresql.Driver’
 other properties per configuration.
 
-#ensure these JAR files are present
+- ensure these JAR files are present
+```
  lib/jython-standalone-2.7.0.jar is present
  lib/postgresql-9.4.1209.jar is present (download https://jdbc.postgresql.org/download/postgresql-9.4.1209.jar)
+```
 
-# set these variables to configure the application (or edit conf/database.conf)
+- set these variables to configure the application (or edit conf/database.conf)
+```
 export WHZ_DB_URL=jdbc:mysql://<mysql host>:3306/wherehows
 export WHZ_DB_USERNAME=wherehows
 export WHZ_DB_PASSWORD=wherehows
-export WHZ_DB_HOST=lad1labhc2056
-
-# run backend service application on port 9001 (from the backend-service folder run:
+export WHZ_DB_HOST=<mysql host>
+```
+- run backend service application on port 9001 (from the backend-service folder run:
+```
 $PLAY_HOME/play “run -Dhttp.port=9001”
+```
+- In separate window, monitor 
+```tail -f /var/tmp/wherehows/wherehows.log```
 
-# in separate window, monitor /var/tmp/wherehows/wherehows.log
-
-# open browser to http://<edge node>:9001
+- Open browser to http://<edge node>:9001/
 This will show ‘TEST’. This is the RESTful api endpoint
 
-# run the web ui
+- run the web ui
+```
 cd <web ui dir>
 cd web
 # <ensure the conf/*.conf files are configured>
 $PLAY_HOME/play run
+```
 
-# Next steps
+- Next steps
 Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
