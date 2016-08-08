@@ -61,7 +61,7 @@ class HdfsLoad:
         update stg_dict_dataset
         set name = substring_index(urn, '/', -2)
         where db_id = {db_id}
-          and name '[0-9]+\\.[0-9]+|dedup|dedupe|[0-9]+-day';
+          and name regexp '[0-9]+\\.[0-9]+|dedup|dedupe|[0-9]+-day';
 
         -- update parent name, this depends on the data from source system
         update stg_dict_dataset
