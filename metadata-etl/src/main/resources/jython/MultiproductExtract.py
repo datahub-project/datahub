@@ -89,7 +89,11 @@ class MultiproductLoad:
         continue
       project_url = '{}/{}?format=xml'.format(args[Constant.MP_GIT_REPO_URL], project_name)
 
-      resp = requests.get(project_url, verify=False)
+      try:
+        resp = requests.get(project_url, verify=False)
+      except Exception as ex:
+        self.logger.info("Error getting /{}.xml - {}".format(project_name, ex.message))
+        continue
       if resp.status_code != 200:
         # This means something went wrong.
         self.logger.debug('Request Error: GET /{}.xml {}'.format(project_name, resp.status_code))
@@ -169,6 +173,7 @@ class MultiproductLoad:
     fetch owners information from acl
     '''
     re_acl_names = re.compile(r"acl\/([\w\-]+)\.acl")
+    re_commit_hash = re.compile(r"source\/(\w+\:)acl")
     re_acl_owners = re.compile(r"owners\:\s*\[([^\[\]]+)\]")
     re_acl_path = re.compile(r"paths\:\s*\[([^\[\]]+)\]")
 
@@ -184,9 +189,13 @@ class MultiproductLoad:
         continue
 
       if resp.headers['content-type'].split(';')[0] == 'text/html':
+        commit_hash = re_commit_hash.search(resp.url)
+        commit_hash = commit_hash.group(1) if commit_hash else ''
+
         for acl_name in re_acl_names.findall(resp.content):
+          acl_url = '{}/raw/{}acl/{}.acl'.format(repo_url, commit_hash, acl_name)
           try:
-            resp = requests.get('{}/raw/acl/{}.acl'.format(repo_url, acl_name), verify=False)
+            resp = requests.get(acl_url, verify=False)
           except Exception as ex:
             self.logger.info("Error getting acl {}/raw/acl/{}.acl - {}".format(repo_url, acl_name, ex.message))
             continue
