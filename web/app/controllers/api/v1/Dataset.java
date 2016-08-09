@@ -804,4 +804,20 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Result getDatasetPartitions(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.put("partitions", Json.toJson(DatasetsDAO.getDatasetPartitionGains(datasetId)));
+        return ok(result);
+    }
+
+    public static Result getDatasetAccess(Long datasetId)
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.put("access", Json.toJson(DatasetsDAO.getDatasetAccessibilty(datasetId)));
+        return ok(result);
+    }
+
 }

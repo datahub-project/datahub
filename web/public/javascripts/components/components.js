@@ -130,6 +130,9 @@ App.DatasetSchemaComponent = Ember.Component.extend({
 App.DatasetSampleComponent = Ember.Component.extend({
 });
 
+App.DatasetAccessComponent = Ember.Component.extend({
+});
+
 App.DatasetImpactComponent = Ember.Component.extend({
 });
 

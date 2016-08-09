@@ -351,6 +351,19 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"dict_dataset_instance i JOIN cfg_database c ON i.db_id = c.db_id " +
 			"WHERE i.dataset_id = ?";
 
+	private final static String GET_DATASET_ACCESS_PARTITION_GAIN = "SELECT DISTINCT partition_grain " +
+			"FROM log_dataset_instance_load_status WHERE dataset_id = ? order by 1";
+
+	private final static String GET_DATASET_ACCESS_PARTITION_INSTANCES = "SELECT DISTINCT d.db_code " +
+			"FROM log_dataset_instance_load_status l " +
+			"JOIN cfg_database d on l.db_id = d.db_id WHERE dataset_id = ? and partition_grain = ? ORDER BY 1";
+
+	private final static String GET_DATASET_ACCESS = "SELECT l.db_id, d.db_code, l.dataset_type, l.partition_expr, " +
+			"l.data_time_expr, l.data_time_epoch, l.record_count, l.size_in_byte, l.log_time_epoch, " +
+			"from_unixtime(l.log_time_epoch) as log_time_str FROM log_dataset_instance_load_status l " +
+			"JOIN cfg_database d on l.db_id = d.db_id WHERE dataset_id = ? and partition_grain = ? " +
+			"ORDER by l.data_time_expr DESC";
+
 	public static List<String> getDatasetOwnerTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
@@ -1984,5 +1997,104 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			}
 		}
 		return datasetInstances;
+	}
+
+	public static List<String> getDatasetPartitionGains(Long id) {
+		return getJdbcTemplate().queryForList(GET_DATASET_ACCESS_PARTITION_GAIN, String.class, id);
+	}
+
+	public static List<String> getDatasetPartitionInstance(Long id, String partition) {
+		return getJdbcTemplate().queryForList(GET_DATASET_ACCESS_PARTITION_INSTANCES, String.class, id, partition);
+	}
+
+	public static List<DatasetPartition> getDatasetAccessibilty(Long id) {
+
+		ObjectNode resultNode = Json.newObject();
+		List<String> partitions = getDatasetPartitionGains(id);
+		List<DatasetPartition> datasetPartitions = new ArrayList<DatasetPartition>();
+		if (partitions != null && partitions.size() > 0)
+		{
+			for(String partition:partitions)
+			{
+				List<Map<String, Object>> rows = null;
+				Map<String, DatasetAccessibility> addedAccessibilities= new HashMap<String, DatasetAccessibility>();
+				rows = getJdbcTemplate().queryForList(
+						GET_DATASET_ACCESS,
+						id,
+						partition);
+				List<DatasetAccessibility> datasetAccessibilities = new ArrayList<DatasetAccessibility>();
+				List<String> instances = new ArrayList<String>();
+				instances = getDatasetPartitionInstance(id, partition);
+
+				if (rows != null)
+				{
+					for (Map row : rows) {
+						DatasetAccessibility datasetAccessibility = new DatasetAccessibility();
+						datasetAccessibility.datasetId = id;
+						datasetAccessibility.itemList = new ArrayList<DatasetAccessItem>();
+						datasetAccessibility.dbId = (Integer) row.get("db_id");
+						datasetAccessibility.dbName = (String) row.get("db_code");
+						datasetAccessibility.datasetType = (String) row.get("dataset_type");
+						datasetAccessibility.partitionExpr = (String) row.get("partition_expr");
+						datasetAccessibility.partitionGain = partition;
+						datasetAccessibility.dataTimeExpr = (String) row.get("data_time_expr");
+						datasetAccessibility.dataTimeEpoch = (Integer) row.get("data_time_epoch");
+						datasetAccessibility.recordCount = (Long) row.get("record_count");
+						if (datasetAccessibility.recordCount == null)
+						{
+							datasetAccessibility.recordCount = 0L;
+						}
+						datasetAccessibility.sizeInByte = (Long) row.get("size_in_byte");
+						datasetAccessibility.logTimeEpoch = (Integer) row.get("log_time_epoch");
+						datasetAccessibility.logTimeEpochStr = row.get("log_time_str").toString();
+						DatasetAccessibility exist = addedAccessibilities.get(datasetAccessibility.dataTimeExpr);
+						if (exist == null)
+						{
+							for(int i = 0; i < instances.size(); i++)
+							{
+								DatasetAccessItem datasetAccessItem = new DatasetAccessItem();
+								if(instances.get(i).equalsIgnoreCase(datasetAccessibility.dbName))
+								{
+									datasetAccessItem.recordCountStr = Long.toString(datasetAccessibility.recordCount);
+									datasetAccessItem.logTimeEpochStr = datasetAccessibility.logTimeEpochStr;
+									datasetAccessItem.isPlaceHolder = false;
+								}
+								else
+								{
+									datasetAccessItem.recordCountStr = "";
+									datasetAccessItem.logTimeEpochStr = "";
+									datasetAccessItem.isPlaceHolder = true;
+								}
+								datasetAccessibility.itemList.add(datasetAccessItem);
+							}
+							addedAccessibilities.put(datasetAccessibility.dataTimeExpr, datasetAccessibility);
+							datasetAccessibilities.add(datasetAccessibility);
+						}
+						else
+						{
+							for(int i = 0; i < instances.size(); i++)
+							{
+								if(instances.get(i).equalsIgnoreCase(datasetAccessibility.dbName))
+								{
+									DatasetAccessItem datasetAccessItem = new DatasetAccessItem();
+									datasetAccessItem.logTimeEpochStr = datasetAccessibility.logTimeEpochStr;
+									datasetAccessItem.recordCountStr = Long.toString(datasetAccessibility.recordCount);
+									datasetAccessItem.isPlaceHolder = false;
+									exist.itemList.set(i, datasetAccessItem);
+								}
+							}
+						}
+					}
+				}
+				DatasetPartition datasetPartition = new DatasetPartition();
+				datasetPartition.datasetId = id;
+				datasetPartition.accessibilityList = datasetAccessibilities;
+				datasetPartition.instanceList = instances;
+				datasetPartition.partition = partition;
+				datasetPartitions.add(datasetPartition);
+			}
+		}
+
+		return datasetPartitions;
 	}
 }

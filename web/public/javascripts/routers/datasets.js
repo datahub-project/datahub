@@ -516,6 +516,23 @@ App.DatasetRoute = Ember.Route.extend({
       }
     });
 
+    var datasetPartitionsUrl = 'api/v1/datasets/' + id + "/access";
+    var datasetAccessibilities = [];
+    $.get(datasetPartitionsUrl, function(data) {
+      if (data && data.status == "ok")
+      {
+        if (data.access && (data.access.length > 0))
+        {
+          controller.set("hasAccess", true);
+          controller.set("accessibilities", data.access);
+        }
+        else
+        {
+          controller.set("hasAccess", false);
+        }
+      }
+    });
+
     var datasetReferencesUrl = 'api/v1/datasets/' + id + "/references";
     $.get(datasetReferencesUrl, function(data) {
       if (data && data.status == "ok")
