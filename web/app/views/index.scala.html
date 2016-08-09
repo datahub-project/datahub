@@ -537,6 +537,43 @@
       {{/if}}
     </script>
 
+    <script type="text/x-handlebars" id="components/dataset-access">
+      {{#if hasAccess}}
+        {{#each accessibilities as |accessibility|}}
+          <h4>Partition By: {{accessibility.partition}}</h4>
+          <table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+            <thead>
+              <tr class="results-header">
+                <th>Time</th>
+                {{#each accessibility.instanceList as |instance|}}
+                  <th>{{instance}}</th>
+                {{/each}}
+              </tr>
+            </thead>
+            <tbody>
+              {{#each accessibility.accessibilityList as |access|}}
+              <tr>
+                <td>{{access.dataTimeExpr}}</td>
+                {{#each access.itemList as |item|}}
+                  <td>
+                    {{#unless item.isPlaceHolder}}
+                      <div>
+                        <p>Log time: {{item.logTimeEpochStr}}</p>
+                        <p>Record count: {{item.recordCountStr}}</p>
+                      </div>
+                    {{/unless}}
+                  </td>
+                {{/each}}
+              </tr>
+              {{/each}}
+            </tbody>
+          </table>
+        {{/each}}
+      {{else}}
+        <p>Accessibility is not available</p>
+      {{/if}}
+    </script>
+
     <script type="text/x-handlebars" id="components/metric-detail">
       <div id="metric" class="container-fluid">
         <div class="row-fluid">
@@ -932,6 +969,13 @@
               Relations
             </a>
           </li>
+          <li id="access">
+            <a data-toggle="tab"
+              title="Accessibilities"
+              href="#accesstab">
+              Accessibilities
+            </a>
+          </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
@@ -965,6 +1009,10 @@
           <div id="dependtab" class="tab-pane">
             {{#dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
             {{/dataset-relations}}
+          </div>
+          <div id="accesstab" class="tab-pane">
+            {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
+            {{/dataset-access}}
           </div>
         </div>
       {{else}}
@@ -1091,6 +1139,23 @@
             <div class="panel-body">
               {{#dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
               {{/dataset-relations}}
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="accessHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+               href="#accessview" aria-expanded="false" aria-controls="accessData">
+                Accessiblities
+              </a>
+            </h4>
+          </div>
+          <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="accessHeading">
+            <div class="panel-body">
+              {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
+              {{/dataset-access}}
             </div>
           </div>
         </div>

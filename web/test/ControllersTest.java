@@ -142,6 +142,12 @@ public class ControllersTest {
         JsonNode schemaTextNode = Json.parse(contentAsString(result));
         assertThat(schemaTextNode.isContainerNode());
         assertThat(schemaTextNode.get("status").asText()).isEqualTo("ok");
+
+        result = controllers.api.v1.Dataset.getDatasetAccess(datasetId)
+        assertThat(status(result)).isEqualTo(OK);
+        JsonNode accessNode = Json.parse(contentAsString(result));
+        assertThat(accessNode.isContainerNode());
+        assertThat(accessNode.get("status").asText()).isEqualTo("ok");
     }
 
     /*
