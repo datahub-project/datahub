@@ -49,7 +49,7 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
       final String name = (String) record.get("name");
 
       if (name.equals("DatasetPublished")) { // || name.equals("FilePublished")) {
-        logger.info("Processing Gobblin tracking event record: " + name);
+        // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
         final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
 

@@ -57,7 +57,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
       if (name.equals("DeltaPublished") || name.equals("SnapshotPublished")) {
         final long timestamp = (long) record.get("timestamp");
         final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
-        logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
+        // logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
 
         final String jobContext = "Lumos:" + name;
         final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));

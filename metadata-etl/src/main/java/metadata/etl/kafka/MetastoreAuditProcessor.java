@@ -33,7 +33,7 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
 
     // handle MetastoreTableAuditEvent and MetastorePartitionAuditEvent
     if (record != null) {
-      logger.info("Processing Metastore Audit event record.");
+      // logger.info("Processing Metastore Audit event record.");
 
       final GenericData.Record auditHeader = (GenericData.Record) record.get("auditHeader");
       final String server = ClusterUtil.matchClusterCode(utf8ToString(auditHeader.get("server")));
