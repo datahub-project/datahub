@@ -15,7 +15,7 @@
 
 -- creation statement for Kafka event related tables
 -- Gobblin:
---   + GobblinTrackingEvent: compaction 
+--   + GobblinTrackingEvent: compaction
 --   + GobblinTrackingEvent_Distcp_Ng: distcp
 --   + GobblinTrackingEvent_Lumos: rdbms/nosql
 -- Hive Metastore
@@ -128,8 +128,8 @@ CREATE TABLE `stg_kafka_metastore_audit` (
 SET TIME_ZONE='US/Pacific';	-- this needs to be customized based on your time zone
 SELECT @@session.time_zone, current_timestamp;
 
-CREATE TABLE log_dataset_instance_load_status  ( 
-	dataset_id         	int(11) NOT NULL DEFAULT '0',
+CREATE TABLE log_dataset_instance_load_status  (
+	dataset_id         	int(11) UNSIGNED NOT NULL DEFAULT '0',
 	db_id              	smallint(6) NOT NULL DEFAULT '0',
 	dataset_type       	varchar(30) COMMENT 'hive,teradata,oracle,hdfs...'  NOT NULL,
 	dataset_native_name	varchar(200) NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE log_dataset_instance_load_status  (
 	ref_db_id          	int(11) COMMENT 'Refer to db of the underlying dataset'  NULL,
 	ref_uri            	varchar(300) COMMENT 'Table name or HDFS location'  NULL,
 	last_modified      	timestamp NULL,
-	PRIMARY KEY(dataset_id,db_id,data_time_epoch,partition_grain,partition_expr)
+	PRIMARY KEY(dataset_id,db_id,data_time_epoch,partition_grain,partition_expr),
 	KEY(dataset_native_name),
 	KEY(ref_uri)
 )

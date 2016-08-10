@@ -21,6 +21,7 @@ import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
+import metadata.etl.git.MultiproductMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
@@ -60,6 +61,8 @@ public class EtlJobFactory {
         return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
       case ORACLE_DATASET_METADATA_ETL:
         return new OracleMetadataEtl(refId, whExecId, properties);
+      case PRODUCT_REPO_METADATA_ETL:
+        return new MultiproductMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
