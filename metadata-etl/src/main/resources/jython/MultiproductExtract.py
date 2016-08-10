@@ -13,11 +13,14 @@
 #
 
 import sys, os, re
-import json, csv
 import datetime
 import xml.etree.ElementTree as ET
 from jython import requests
 from wherehows.common import Constant
+from wherehows.common.schemas import MultiproductProjectRecord
+from wherehows.common.schemas import MultiproductRepoRecord
+from wherehows.common.schemas import MultiproductRepoOwnerRecord
+from wherehows.common.writers import FileWriter
 from org.slf4j import LoggerFactory
 
 
@@ -28,11 +31,13 @@ class MultiproductLoad:
     requests.packages.urllib3.disable_warnings()
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
+    self.project_writer = FileWriter(args[Constant.GIT_PROJECT_OUTPUT_KEY])
+    self.repo_writer = FileWriter(args[Constant.PRODUCT_REPO_OUTPUT_KEY])
+    self.repo_owner_writer = FileWriter(args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY])
+
     self.multiproduct = {}
-    self.git_projects = []
     self.git_repo = {}
     self.product_repo = []
-    self.product_repo_owners = []
 
 
   def get_multiproducts(self):
@@ -70,7 +75,7 @@ class MultiproductLoad:
           "owner_name": ",".join(product_info["owners"]),
           "product_version": product_info["product-version"]
         }
-      self.logger.info("Fetched {} multiproducts".format(len(self.multiproduct)))
+      self.logger.info("Fetched {} Multiproducts".format(len(self.multiproduct)))
 
 
   def get_project_repo(self):
@@ -105,15 +110,17 @@ class MultiproductLoad:
       # print resp.content
       if resp.headers['content-type'].split(';')[0] == 'application/xml':
         xml = ET.fromstring(resp.content)
-        current_project = {
-          'project_name': xml.find('slug').text,
-          'scm_type': 'git',
-          'owner_type': xml.find('owner').attrib['kind'],
-          'owner_name': xml.find('owner').text,
-          'create_time': xml.find('created-at').text,
-          'license': xml.find('license').text,
-          'description': self.trim_newline(xml.find('description').text)
-        }
+        current_project = MultiproductProjectRecord(
+          self.app_id,
+          xml.find('slug').text,
+          'git',
+          xml.find('owner').attrib['kind'],
+          xml.find('owner').text,
+          xml.find('created-at').text,
+          xml.find('license').text,
+          self.trim_newline(xml.find('description').text),
+          self.wh_exec_id
+        )
 
         project_repo_names = []
         for repo in xml.findall('repositories/mainlines/repository'):
@@ -130,18 +137,13 @@ class MultiproductLoad:
           }
 
         project_repo_num = len(project_repo_names)
-        current_project['num_of_repos'] = project_repo_num
-        current_project['repos'] = ','.join(project_repo_names)
-        self.git_projects.append(current_project)
+        current_project.setRepos(project_repo_num, ','.join(project_repo_names))
+        self.project_writer.append(current_project)
         project_names[project_name] = project_repo_num
         # self.logger.debug("Project: {} - Repos: {}".format(project_name, project_repo_num))
 
-    csv_columns = ["project_name", "scm_type", "owner_type", "owner_name", "create_time", "num_of_repos", "repos",
-                   "license", "description"]
-    gitli_project_csv = args[Constant.GIT_PROJECT_OUTPUT_KEY]
-    self.write_csv(gitli_project_csv, csv_columns, self.git_projects)
-
-    self.logger.info("Fetched {} projects with {} repos".format(len(self.git_projects), len(self.git_repo)))
+    self.project_writer.close()
+    self.logger.info("Finish Fetching git projects and repos")
     self.logger.debug('Non-exist projects: {}'.format(project_nonexist))
 
 
@@ -150,24 +152,50 @@ class MultiproductLoad:
     merge multiproduct and repo into same product_repo store
     '''
     for key, repo in self.git_repo.iteritems():
+      record = MultiproductRepoRecord(
+        self.app_id,
+        repo['scm_repo_fullname'],
+        repo['scm_type'],
+        repo['repo_id'],
+        repo['project'],
+        repo['owner_type'],
+        repo['owner_name'],
+        self.wh_exec_id
+      )
       if key in self.multiproduct:
         mp = self.multiproduct[key]
-        repo['multiproduct_name'] = mp["multiproduct_name"]
-        repo['product_type'] = mp["product_type"]
-        repo['product_version'] = mp["product_version"]
-        repo['namespace'] = mp["namespace"]
-      self.product_repo.append(repo)
+        record.setMultiproductInfo(
+          mp["multiproduct_name"],
+          mp["product_type"],
+          mp["product_version"],
+          mp["namespace"]
+        )
+      self.repo_writer.append(record)
+      self.product_repo.append(record)
 
     for key, product in self.multiproduct.iteritems():
       if key not in self.git_repo:
-        self.product_repo.append(product)
+        record = MultiproductRepoRecord(
+          self.app_id,
+          product["scm_repo_fullname"],
+          product["scm_type"],
+          None,
+          None,
+          None,
+          product["owner_name"],
+          self.wh_exec_id
+        )
+        record.setMultiproductInfo(
+          product["multiproduct_name"],
+          product["product_type"],
+          product["product_version"],
+          product["namespace"],
+        )
+        self.repo_writer.append(record)
+        self.product_repo.append(record)
 
-    csv_columns = ["scm_repo_fullname", "scm_type", "repo_id", "project", "owner_type", "owner_name",
-                   "multiproduct_name", "product_type", "product_version", "namespace"]
-    gitli_repo_csv = args[Constant.PRODUCT_REPO_OUTPUT_KEY]
-    self.write_csv(gitli_repo_csv, csv_columns, self.product_repo)
-
-    self.logger.info("Merged into {} product repos".format(len(self.product_repo)))
+    self.repo_writer.close()
+    self.logger.info("Merged products and repos, total {} records".format(len(self.product_repo)))
 
 
   def get_acl_owners(self):
@@ -179,11 +207,16 @@ class MultiproductLoad:
     re_svn_acl_url = re.compile(r'href=\"[\w\/\-]+[\/\:]acl\/([\w\-\/]+)\.acl(\?revision=\d+)&amp;view=markup\"')
     re_git_acl_url = re.compile(r'href=\"[\w\/\-]+\/source\/([\w\:]*)acl\/([\w\-]+)\.acl\"')
 
+    owner_count = 0
     for repo in self.product_repo:
-      if repo['scm_type'] == "git":
-        repo_url = '{}/{}/source/acl'.format(args[Constant.GIT_URL_PREFIX], repo['scm_repo_fullname'])
-      elif repo['scm_type'] == "svn":
-        repo_url = '{}/{}/acl'.format(args[Constant.SVN_URL_PREFIX], repo['scm_repo_fullname'])
+      repo_fullname = repo.getScmRepoFullname()
+      scm_type = repo.getScmType()
+      repo_id = repo.getRepoId()
+
+      if scm_type == "git":
+        repo_url = '{}/{}/source/acl'.format(args[Constant.GIT_URL_PREFIX], repo_fullname)
+      elif scm_type == "svn":
+        repo_url = '{}/{}/acl'.format(args[Constant.SVN_URL_PREFIX], repo_fullname)
 
       try:
         resp = requests.get(repo_url, verify=False)
@@ -195,15 +228,15 @@ class MultiproductLoad:
         continue
 
       if resp.headers['content-type'].split(';')[0] == 'text/html':
-        re_acl_url = re_git_acl_url if repo['scm_type'] == "git" else re_svn_acl_url
+        re_acl_url = re_git_acl_url if scm_type == "git" else re_svn_acl_url
 
         for acl_url in re_acl_url.finditer(resp.content):
-          if repo['scm_type'] == "git":
+          if scm_type == "git":
             acl_name = acl_url.group(2)
             commit_hash = acl_url.group(1)
             full_acl_url = '{}/{}/raw/{}acl/{}.acl'.format(args[Constant.GIT_URL_PREFIX],
-                                                           repo['scm_repo_fullname'], commit_hash, acl_name)
-          elif repo['scm_type'] == "svn":
+                                                           repo_fullname, commit_hash, acl_name)
+          elif scm_type == "svn":
             acl_name = acl_url.group(1)
             commit_hash = acl_url.group(2)
             full_acl_url = '{}/{}.acl{}'.format(repo_url, acl_name, commit_hash)
@@ -223,35 +256,23 @@ class MultiproductLoad:
             owners = self.parse_owners(owners_string.group(1))
             paths = self.trim_path(path_string.group(1)) if path_string else None
             for owner in owners:
-              self.product_repo_owners.append({
-                "scm_repo_fullname": repo['scm_repo_fullname'],
-                "scm_type": repo['scm_type'],
-                "repo_id": repo['repo_id'] if 'repo_id' in repo else 0,
-                "owner_type": acl_name,
-                "owner_name": owner,
-                "paths": paths
-              })
-            # self.logger.debug('{} acl {} owners: {}'.format(repo['scm_repo_fullname'], acl_name, len(owners)))
+              owner_record = MultiproductRepoOwnerRecord(
+                self.app_id,
+                repo_fullname,
+                scm_type,
+                repo_id,
+                acl_name,
+                owner,
+                paths,
+                self.wh_exec_id
+              )
+              self.repo_owner_writer.append(owner_record)
+              owner_count += 1
+            # self.logger.debug('{} - {} owners: {}'.format(repo_fullname, acl_name, len(owners)))
 
-    csv_columns = ["scm_repo_fullname", "scm_type", "repo_id", "owner_type", "owner_name", "paths"]
-    gitli_repo_owner_csv = args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY]
-    self.write_csv(gitli_repo_owner_csv, csv_columns, self.product_repo_owners)
+    self.repo_owner_writer.close()
+    self.logger.info('Finish Fetching acl owners, total {} records'.format(owner_count))
 
-    self.logger.info('Fetched {} acl owners for {} repos'.format(len(self.product_repo_owners), len(self.git_repo)))
-
-
-  def write_csv(self, csv_filename, csv_columns, data_list):
-    csvfile = open(csv_filename, 'wb')
-    os.chmod(csv_filename, 0644)
-    writer = csv.DictWriter(csvfile, fieldnames=csv_columns, delimiter='\x1A', lineterminator='\n',
-                            quoting=csv.QUOTE_NONE, quotechar='\1', escapechar='\0')
-    writer.writeheader()
-    for data in data_list:
-      try:
-        writer.writerow(data)
-      except Exception as ex:
-        self.logger.info("Error writing data {} - {}".format(ex.message, str(data)))
-    csvfile.close()
 
   def trim_newline(self, line):
     return line.replace('\n', ' ').replace('\r', ' ').encode('ascii', 'ignore') if line else None
