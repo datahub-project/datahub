@@ -51,6 +51,7 @@ class MultiproductLoad:
     LOAD DATA LOCAL INFILE '{source_file}'
     INTO TABLE stg_git_project
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
+    LINES TERMINATED BY '\n'
     (`app_id`, `wh_etl_exec_id`, `project_name`, `scm_type`, `owner_type`, `owner_name`, `create_time`,
     `num_of_repos`, `repos`, `license`, `description`)
     '''.format(source_file=self.mp_gitli_project_file, app_id=self.app_id)
@@ -67,6 +68,7 @@ class MultiproductLoad:
     LOAD DATA LOCAL INFILE '{source_file}'
     INTO TABLE stg_product_repo
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
+    LINES TERMINATED BY '\n'
     (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `project`, `owner_type`, `owner_name`,
     `multiproduct_name`, `product_type`, `product_version`, `namespace`)
     '''.format(source_file=self.product_repo_file, app_id=self.app_id)
@@ -83,6 +85,7 @@ class MultiproductLoad:
     LOAD DATA LOCAL INFILE '{source_file}'
     INTO TABLE stg_repo_owner
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
+    LINES TERMINATED BY '\n'
     (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `owner_type`, `owner_name`, `paths`)
     '''.format(source_file=self.product_repo_owner_file, app_id=self.app_id)
 

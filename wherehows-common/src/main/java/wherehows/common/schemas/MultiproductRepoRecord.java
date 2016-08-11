@@ -22,7 +22,7 @@ public class MultiproductRepoRecord extends AbstractRecord {
   Integer appId;
   String scmRepoFullname;
   String scmType;
-  String repoId;
+  Integer repoId;
   String project;
   String ownerType;
   String ownerName;
@@ -32,7 +32,7 @@ public class MultiproductRepoRecord extends AbstractRecord {
   String namespace;
   Long whExecId;
 
-  public MultiproductRepoRecord(Integer appId, String scmRepoFullname, String scmType, String repoId,
+  public MultiproductRepoRecord(Integer appId, String scmRepoFullname, String scmType, Integer repoId,
       String project, String ownerType, String ownerName, Long whExecId) {
     this.appId = appId;
     this.scmRepoFullname = scmRepoFullname;
@@ -78,7 +78,7 @@ public class MultiproductRepoRecord extends AbstractRecord {
     return scmType;
   }
 
-  public String getRepoId() {
+  public Integer getRepoId() {
     return repoId;
   }
 }

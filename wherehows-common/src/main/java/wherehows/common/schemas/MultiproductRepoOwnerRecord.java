@@ -22,13 +22,13 @@ public class MultiproductRepoOwnerRecord extends AbstractRecord {
   Integer appId;
   String scmRepoFullname;
   String scmType;
-  String repoId;
+  Integer repoId;
   String ownerType;
   String ownerName;
   String paths;
   Long whExecId;
 
-  public MultiproductRepoOwnerRecord(Integer appId, String scmRepoFullname, String scmType, String repoId,
+  public MultiproductRepoOwnerRecord(Integer appId, String scmRepoFullname, String scmType, Integer repoId,
       String ownerType, String ownerName, String paths, Long whExecId) {
     this.appId = appId;
     this.scmRepoFullname = scmRepoFullname;
