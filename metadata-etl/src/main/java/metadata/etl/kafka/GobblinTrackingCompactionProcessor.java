@@ -50,7 +50,7 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
 
       // for event name "CompactionCompleted" or "CompactionRecordCounts"
       if (name.equals("CompactionCompleted") || name.equals("CompactionRecordCounts")) {
-        logger.info("Processing Gobblin tracking event record: " + name);
+        // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
         final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
 

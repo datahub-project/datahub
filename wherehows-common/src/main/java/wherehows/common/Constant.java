@@ -194,4 +194,12 @@ public class Constant {
   public static final String ORA_SAMPLE_OUTPUT_KEY = "oracle.sample_data";
   public static final String ORA_LOAD_SAMPLE = "oracle.load_sample";
   public static final String ORA_EXCLUDE_DATABASES_KEY = "oracle.exclude_db";
+
+  // Multiproduct
+  public static final String MULTIPRODUCT_SERVICE_URL = "multiproduct.service.url";
+  public static final String GIT_URL_PREFIX = "git.url.prefix";
+  public static final String SVN_URL_PREFIX = "svn.url.prefix";
+  public static final String GIT_PROJECT_OUTPUT_KEY = "git.project.metadata";
+  public static final String PRODUCT_REPO_OUTPUT_KEY = "product.repo.metadata";
+  public static final String PRODUCT_REPO_OWNER_OUTPUT_KEY = "product.repo.owner";
 }

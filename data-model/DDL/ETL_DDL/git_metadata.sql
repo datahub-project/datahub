@@ -50,3 +50,46 @@ CREATE TABLE `stg_source_code_commit_info` (
   KEY (repository_urn, file_name, committer_email)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8;
 
+
+CREATE TABLE `stg_git_project` (
+  `app_id`          SMALLINT(5) UNSIGNED NOT NULL,
+  `wh_etl_exec_id`  BIGINT COMMENT 'wherehows etl execution id that modified this record',
+  `project_name`    VARCHAR(100) NOT NULL,
+  `scm_type`        VARCHAR(20) NOT NULL COMMENT 'git, svn or other',
+  `owner_type`      VARCHAR(50) DEFAULT NULL,
+  `owner_name`      VARCHAR(300) DEFAULT NULL COMMENT 'owner names in comma separated list',
+  `create_time`     VARCHAR(50) DEFAULT NULL,
+  `num_of_repos`    INT UNSIGNED DEFAULT NULL,
+  `repos`           MEDIUMTEXT DEFAULT NULL COMMENT 'repo names in comma separated list',
+  `license`         VARCHAR(100) DEFAULT NULL,
+  `description`     MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
+  PRIMARY KEY (`project_name`, `scm_type`, `app_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = latin1;
+
+CREATE TABLE `stg_product_repo` (
+  `app_id`          SMALLINT(5) UNSIGNED NOT NULL,
+  `wh_etl_exec_id`  BIGINT COMMENT 'wherehows etl execution id that modified this record',
+  `scm_repo_fullname` VARCHAR(100) NOT NULL,
+  `scm_type`        VARCHAR(20) NOT NULL,
+  `repo_id`         INT UNSIGNED DEFAULT NULL,
+  `project`         VARCHAR(100) DEFAULT NULL,
+  `owner_type`      VARCHAR(50) DEFAULT NULL,
+  `owner_name`      VARCHAR(300) DEFAULT NULL COMMENT 'owner names in comma separated list',
+  `multiproduct_name` VARCHAR(100) DEFAULT NULL,
+  `product_type`    VARCHAR(100) DEFAULT NULL,
+  `product_version` VARCHAR(50) DEFAULT NULL,
+  `namespace`       VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (`scm_repo_fullname`, `scm_type`, `app_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = latin1;
+
+CREATE TABLE `stg_repo_owner` (
+  `app_id`          SMALLINT(5) UNSIGNED NOT NULL,
+  `wh_etl_exec_id`  BIGINT COMMENT 'wherehows etl execution id that modified this record',
+  `scm_repo_fullname` VARCHAR(100) NOT NULL,
+  `scm_type`        VARCHAR(20) NOT NULL,
+  `repo_id`         INT DEFAULT NULL,
+  `owner_type`      VARCHAR(50) DEFAULT NULL COMMENT 'which acl file this owner is in',
+  `owner_name`      VARCHAR(50) DEFAULT NULL COMMENT 'one owner name',
+  `paths`           TEXT CHAR SET utf8 DEFAULT NULL COMMENT 'covered paths by this acl',
+  PRIMARY KEY (`scm_repo_fullname`, `scm_type`, `owner_type`, `owner_name`, `app_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = latin1;

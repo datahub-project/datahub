@@ -146,3 +146,11 @@ oracle.field_metadata=
 oracle.sample_data=
 oracle.load_sample=
 oracle.exclude_db=
+
+# Multiproduct, repo and owner
+multiproduct.service.url=
+git.url.prefix=
+svn.url.prefix=
+git.project.metadata=
+product.repo.metadata=
+product.repo.owner=
