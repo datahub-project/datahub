@@ -13,6 +13,12 @@
  */
 package wherehows.common.utils;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Map;
+import wherehows.common.schemas.Record;
+
+
 /**
  * Created by zechen on 10/21/15.
  */
@@ -40,5 +46,18 @@ public class StringUtil {
     } else {
       return s.replace(target, "null");
     }
+  }
+
+  public static Object objectToString(Object obj) {
+    if (obj instanceof Collection || obj instanceof Map || obj instanceof Record) {
+      return obj.toString();
+    } else if (obj instanceof Object[]) {
+      return Arrays.toString((Object[]) obj);
+    }
+    return obj;
+  }
+
+  public static String toStr(Object obj) {
+    return obj != null ? obj.toString() : null;
   }
 }

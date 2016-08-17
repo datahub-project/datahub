@@ -14,6 +14,7 @@
 package wherehows.common.writers;
 
 import java.sql.SQLException;
+import java.util.Arrays;
 import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import wherehows.common.schemas.AbstractRecord;
 import wherehows.common.schemas.Record;
+import wherehows.common.utils.PreparedStatementUtil;
 
 
 /**
@@ -42,8 +44,8 @@ public class DatabaseWriter extends Writer {
     this.tableName = tableName;
   }
 
-
-  public DatabaseWriter(String connectionUrl, String tableName) throws SQLException {
+  public DatabaseWriter(String connectionUrl, String tableName)
+      throws SQLException {
     DriverManagerDataSource dataSource = new DriverManagerDataSource(connectionUrl);
     this.jdbcTemplate = new JdbcTemplate(dataSource);
     this.tableName = tableName;
@@ -52,7 +54,7 @@ public class DatabaseWriter extends Writer {
   public synchronized void update(String setValues, String urn) {
 
     StringBuilder sb = new StringBuilder();
-    sb.append("UPDATE " + this.tableName +" SET "+ setValues +" WHERE urn = '"+urn+"'");
+    sb.append("UPDATE " + this.tableName + " SET " + setValues + " WHERE urn = '" + urn + "'");
     try {
       this.jdbcTemplate.execute(sb.toString());
     } catch (DataAccessException e) {
@@ -63,7 +65,7 @@ public class DatabaseWriter extends Writer {
   //TODO: this insert sql is too ambitious, need add column names
   @Override
   public synchronized boolean flush()
-    throws SQLException {
+      throws SQLException {
     if (records.size() == 0) {
       return false;
     }
@@ -89,10 +91,9 @@ public class DatabaseWriter extends Writer {
 
   @Override
   public void close()
-    throws SQLException {
+      throws SQLException {
     this.flush();
   }
-
 
   /**
    * use JDBC template PreparedStatement to insert records
@@ -109,13 +110,14 @@ public class DatabaseWriter extends Writer {
 
     final AbstractRecord record0 = (AbstractRecord) records.get(0);
     final String[] columnNames = record0.getDbColumnNames();
-    final String sql = (columnNames != null) ? prepareInsertTemplateWithColumn(columnNames)
-        : prepareInsertTemplateWithoutColumn(record0.getAllFields().length);
+    final String sql =
+        (columnNames != null) ? PreparedStatementUtil.prepareInsertTemplateWithColumn(tableName, columnNames)
+            : PreparedStatementUtil.prepareInsertTemplateWithoutColumn(tableName, record0.getAllFields().length);
     //logger.debug("DatabaseWriter template for " + record0.getClass() + " : " + sql);
 
     for (final Record record : records) {
       try {
-        jdbcTemplate.update(sql, ((AbstractRecord) record).getAllValues());
+        jdbcTemplate.update(sql, ((AbstractRecord) record).getAllValuesToString());
 
         /* jdbcTemplate.update(sql, new PreparedStatementSetter() {
           @Override
@@ -132,36 +134,36 @@ public class DatabaseWriter extends Writer {
     return true;
   }
 
-
   /**
-   * prepare SQL insert template with column names and placeholders, 'INSERT INTO table(`a`,`b`) VALUES (?,?)'
-   * @param columnNames String[]
-   * @return SQL String
+   * use JDBC template PreparedStatement to update row in database by setting columns with conditions
+   * @param columns String[] column names to update
+   * @param columnValues Object[] new values
+   * @param conditions String[] conditions
+   * @param conditionValues Object[] condition values
    */
-  private String prepareInsertTemplateWithColumn(String[] columnNames) {
-    return "INSERT INTO " + tableName + "(`" + String.join("`,`", columnNames) + "`) VALUES "
-        + generatePlaceholder(columnNames.length);
-  }
-
-  /**
-   * prepare SQL insert template with placeholders, 'INSERT INTO table VALUES (?,?,?)'
-   * @param columnNum int
-   * @return SQL String
-   */
-  private String prepareInsertTemplateWithoutColumn(int columnNum) {
-    return "INSERT INTO " + tableName + " VALUES " + generatePlaceholder(columnNum);
-  }
-
-  /**
-   * generate placeholder string (?,?,?)
-   * @param columnNum number of placeholders
-   * @return
-   */
-  private String generatePlaceholder(int columnNum) {
-    final StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < columnNum; i++) {
-      sb.append("?,");
+  public void update(String[] columns, Object[] columnValues, String[] conditions, Object[] conditionValues)
+      throws DataAccessException {
+    if (columns.length != columnValues.length || conditions.length != conditionValues.length) {
+      logger.error("DatabaseWriter update columns and values mismatch");
+      return;
     }
-    return "(" + sb.substring(0, sb.length() - 1) + ")";
+    Object[] values = Arrays.copyOf(columnValues, columnValues.length + conditionValues.length);
+    System.arraycopy(conditionValues, 0, values, columnValues.length, conditionValues.length);
+
+    final String sql = PreparedStatementUtil.prepareUpdateTemplateWithColumn(tableName, columns, conditions);
+    //logger.debug("DatabaseWriter template for " + record0.getClass() + " : " + sql);
+
+    execute(sql, values);
+  }
+
+  /**
+   * use JDBC template PreparedStatement to execute an SQL command with values
+   * @param sql String, command with placeholders
+   * @param values Object[]
+   */
+  public synchronized void execute(String sql, Object[] values)
+      throws DataAccessException {
+    // logger.debug("SQL: " + sql + ", values: " + Arrays.toString(values));
+    jdbcTemplate.update(sql, values);
   }
 }

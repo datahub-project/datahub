@@ -120,3 +120,69 @@ GET         /pattern/jobid             controllers.PatternController.getAllJobId
 
 # Insert a new filename pattern
 POST        /pattern/jobid             controllers.PatternController.addJobIdPattern()
+
+# Get all deployment info of a dataset by either id or urn
+GET         /dataset/deployment           controllers.DatasetInfoController.getDatasetDeployment()
+
+# Update deployment info of a dataset
+POST        /dataset/deployment           controllers.DatasetInfoController.updateDatesetDeployment()
+
+# Get all capacity info of a dataset by either id or urn
+GET         /dataset/capacity             controllers.DatasetInfoController.getDatasetCapacity()
+
+# Update capacity info of a dataset
+POST        /dataset/capacity             controllers.DatasetInfoController.updateDatesetCapacity()
+
+# Get all tags info of a dataset by either id or urn
+GET         /dataset/tag                  controllers.DatasetInfoController.getDatasetTags()
+
+# Update tags of a dataset
+POST        /dataset/tag                  controllers.DatasetInfoController.updateDatesetTags()
+
+# Get case sensitivity info of a dataset by either id or urn
+GET         /dataset/casesensitivity      controllers.DatasetInfoController.getDatasetCaseSensitivity()
+
+# Update case sensitive info of a dataset
+POST        /dataset/casesensitivity      controllers.DatasetInfoController.updateDatasetCaseSensitivity()
+
+# Get reference info of a dataset by either id or urn
+GET         /dataset/reference            controllers.DatasetInfoController.getDatasetReference()
+
+# Update reference info of a dataset
+POST        /dataset/reference            controllers.DatasetInfoController.updateDatasetReference()
+
+# Get partition info of a dataset by either id or urn
+GET         /dataset/partition            controllers.DatasetInfoController.getDatasetPartition()
+
+# Update partition info of a dataset
+POST        /dataset/partition            controllers.DatasetInfoController.updateDatasetPartition()
+
+# Get security info of a dataset by either id or urn
+GET         /dataset/security             controllers.DatasetInfoController.getDatasetSecurity()
+
+# Update security info of a dataset
+POST        /dataset/security             controllers.DatasetInfoController.updateDatasetSecurity()
+
+# Get owner info of a dataset by either id or urn
+GET         /dataset/owner                controllers.DatasetInfoController.getDatasetOwner()
+
+# Update owner info of a dataset
+POST        /dataset/owner                controllers.DatasetInfoController.updateDatasetOwner()
+
+# Get constraints of a dataset by either id or urn
+GET         /dataset/constraint           controllers.DatasetSchemaController.getDatasetConstraint()
+
+# Update constraints of a dataset
+POST        /dataset/constraint           controllers.DatasetSchemaController.updateDatesetConstraint()
+
+# Get indices of a dataset by either id or urn
+GET         /dataset/index                controllers.DatasetSchemaController.getDatasetIndex()
+
+# Update indices of a dataset
+POST        /dataset/index                controllers.DatasetSchemaController.updateDatesetIndex()
+
+# Get schema of a dataset by either id or urn
+GET         /dataset/schema               controllers.DatasetSchemaController.getDatasetSchema()
+
+# Update schema of a dataset
+POST        /dataset/schema               controllers.DatasetSchemaController.updateDatesetSchema()
