@@ -34,6 +34,7 @@ public enum EtlJobName {
   PRODUCT_REPO_METADATA_ETL(EtlType.OPERATION, RefIdType.APP),
   KAFKA_CONSUMER_ETL(EtlType.OPERATION, RefIdType.DB),
   DALI_VIEW_OWNER_ETL(EtlType.OWNER, RefIdType.DB),
+  CONFIDENTIAL_FIELD_METADATA_ETL(EtlType.DATASET, RefIdType.DB),
   ;
 
   EtlType etlType;
