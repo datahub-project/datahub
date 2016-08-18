@@ -31,6 +31,7 @@ import metadata.etl.scheduler.appworx.AppworxExecEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
 import metadata.etl.models.EtlJobName;
+import metadata.etl.security.DatasetConfidentialFieldEtl;
 
 
 /**
@@ -72,6 +73,8 @@ public class EtlJobFactory {
         return new MultiproductMetadataEtl(refId, whExecId, properties);
       case DALI_VIEW_OWNER_ETL:
         return new DaliViewOwnerEtl(refId, whExecId, properties);
+      case CONFIDENTIAL_FIELD_METADATA_ETL:
+        return new DatasetConfidentialFieldEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
