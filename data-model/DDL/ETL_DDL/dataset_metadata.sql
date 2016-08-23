@@ -180,6 +180,8 @@ CREATE TABLE `dict_field_detail` (
   COMMENT 'only in RDBMS',
   `is_distributed`     TINYINT(4)                    NULL
   COMMENT 'only in RDBMS',
+  `is_recursive`       CHAR(1)                       NULL,
+  `confidential_flag`  VARCHAR(200)                  NULL,
   `default_value`      VARCHAR(200)                  NULL,
   `namespace`          VARCHAR(200)                  NULL,
   `java_data_type`     VARCHAR(50)                   NULL
@@ -220,7 +222,7 @@ CREATE TABLE `stg_dict_dataset_field_comment` (
   `dataset_id` int(11) UNSIGNED NOT NULL,
   `db_id` smallint(6) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`field_id`,`comment_id`, `db_id`)
-) ENGINE=InnoDB 
+) ENGINE=InnoDB
   DEFAULT CHARSET=utf8
   PARTITION BY HASH(db_id)
   PARTITIONS 8
@@ -273,7 +275,7 @@ CREATE TABLE `field_comments` (
   DEFAULT CHARSET = utf8;
 
 -- dict_dataset_instance
-CREATE TABLE dict_dataset_instance  ( 
+CREATE TABLE dict_dataset_instance  (
 	dataset_id           	int(11) UNSIGNED NOT NULL,
 	db_id                	smallint(6) UNSIGNED COMMENT 'FK to cfg_database'  NOT NULL DEFAULT '0',
 	deployment_tier      	enum('local','grid','dev','int','ei','ei2','ei3','qa','stg','prod') NOT NULL DEFAULT 'dev',
@@ -307,15 +309,15 @@ AUTO_INCREMENT = 0
 	PARTITION p6,
 	PARTITION p7);
 
-CREATE INDEX logical_name USING BTREE 
+CREATE INDEX logical_name USING BTREE
 	ON dict_dataset_instance(logical_name);
-CREATE INDEX server_cluster USING BTREE 
+CREATE INDEX server_cluster USING BTREE
 	ON dict_dataset_instance(server_cluster, deployment_tier, data_center, slice);
-CREATE INDEX native_name USING BTREE 
+CREATE INDEX native_name USING BTREE
 	ON dict_dataset_instance(native_name);
 
 
-CREATE TABLE stg_dict_dataset_instance  ( 
+CREATE TABLE stg_dict_dataset_instance  (
 	dataset_urn          	varchar(200) NOT NULL,
 	db_id                	smallint(6) UNSIGNED NOT NULL DEFAULT '0',
 	deployment_tier      	enum('local','grid','dev','int','ei','ei2','ei3','qa','stg','prod') NOT NULL DEFAULT 'dev',
@@ -348,6 +350,6 @@ AUTO_INCREMENT = 0
 	PARTITION p5,
 	PARTITION p6,
 	PARTITION p7);
-CREATE INDEX server_cluster USING BTREE 
+CREATE INDEX server_cluster USING BTREE
 	ON stg_dict_dataset_instance(server_cluster, deployment_tier, data_center, slice);
 

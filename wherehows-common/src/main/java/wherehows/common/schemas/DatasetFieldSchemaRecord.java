@@ -63,13 +63,15 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   public String[] getFieldDetailColumns() {
     return new String[]{"dataset_id", "sort_id", "parent_sort_id", "parent_path", "field_name", "fields_layout_id",
         "field_label", "data_type", "data_size", "data_precision", "data_fraction", "is_nullable", "is_indexed",
-        "is_partitioned", "default_value", "namespace", "default_comment_id", "comment_ids"};
+        "is_partitioned", "is_recursive", "confidential_flags", "default_value", "namespace", "default_comment_id",
+        "comment_ids"};
   }
 
   public Object[] getFieldDetailValues() {
     return new Object[]{datasetId, position, parentFieldPosition, parentPath, fieldName, 0, label, type, maxCharLength,
         precision, scale, nullable != null && nullable ? "Y" : "N", indexed != null && indexed ? "Y" : "N",
-        partitioned != null && partitioned ? "Y" : "N", defaultValue, namespace, defaultCommentId, commentIds};
+        partitioned != null && partitioned ? "Y" : "N", isRecursive != null && isRecursive ? "Y" : "N",
+        confidentialFlags, defaultValue, namespace, defaultCommentId, commentIds};
   }
 
   public DatasetFieldSchemaRecord() {

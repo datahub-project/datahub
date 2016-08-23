@@ -590,11 +590,12 @@ public class DatasetInfoDao {
       String isActive = "N";
       if (ownerInfo.containsKey("app_id")) {
         appId = StringUtil.toInt(ownerInfo.get("app_id"));
-        isActive = appId == 301 ? "Y" : appId == 300 ? StringUtil.toStr(ownerInfo.get("is_active")) : "N";
+        isActive = appId == 301 ? "Y" : appId == 300 ? (String) ownerInfo.get("is_active") : "N";
       }
       record.setAppId(appId);
       record.setIsActive(isActive);
-      record.setIsGroup(record.getOwnerType().equalsIgnoreCase("group") ? "Y" : "N");
+      String ownerTypeString = record.getOwnerType();
+      record.setIsGroup(ownerTypeString != null && ownerTypeString.equalsIgnoreCase("group") ? "Y" : "N");
       sortId++;
       record.setSortId(sortId);
 
@@ -612,17 +613,16 @@ public class DatasetInfoDao {
     for (DatasetOwnerRecord rec : ownerList) {
       for (Map<String, Object> old : oldOwnerList) {
         if (rec.getDatasetId().equals(StringUtil.toInt(old.get("dataset_id"))) && rec.getOwner()
-            .equals(StringUtil.toStr(old.get("owner_id"))) && rec.getAppId()
-            .equals(StringUtil.toInt(old.get("app_id")))) {
-          rec.setDbIds(StringUtil.toStr(old.get("db_ids")));
+            .equals(old.get("owner_id")) && rec.getAppId().equals(StringUtil.toInt(old.get("app_id")))) {
+          rec.setDbIds((String) old.get("db_ids"));
           rec.setCreatedTime(StringUtil.toLong(old.get("created_time")));
 
           // take the higher priority owner category
           rec.setOwnerCategory(
-              OwnerType.chooseOwnerType(rec.getOwnerCategory(), StringUtil.toStr(old.get("owner_type"))));
+              OwnerType.chooseOwnerType(rec.getOwnerCategory(), (String) old.get("owner_type")));
 
           // merge owner source as comma separated list
-          rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), StringUtil.toStr(old.get("owner_source"))));
+          rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), (String) old.get("owner_source")));
 
           // remove from owner source?
         }
@@ -853,21 +853,18 @@ public class DatasetInfoDao {
       field.setDatasetId(datasetId);
       String fieldPath = field.getFieldPath();
       int lastIndex = fieldPath.lastIndexOf('.'); // if not found, index = -1
-      if (lastIndex >= 0) {
-        field.setParentPath(fieldPath.substring(0, lastIndex));
-      }
       field.setFieldName(fieldPath.substring(lastIndex + 1));
+      field.setParentPath(lastIndex > 0 ? fieldPath.substring(0, lastIndex) : "");
 
       // merge old info into updated list
       for (Map<String, Object> old : oldInfo) {
-        if (field.getDatasetId().equals(StringUtil.toInt(old.get("dataset_id"))) && field.getFieldName()
-            .equals(StringUtil.toStr(old.get("field_name"))) && field.getParentPath()
-            .equals(StringUtil.toStr(old.get("parent_path")))) {
-          field.setNamespace(StringUtil.toStr(old.get("namespace")));
-          field.setCommentIds(StringUtil.toStr(old.get("comment_ids")));
+        if (datasetId.equals(StringUtil.toInt(old.get("dataset_id"))) && field.getFieldName()
+            .equals(old.get("field_name")) && field.getParentPath().equals(old.get("parent_path"))) {
+          field.setNamespace((String) old.get("namespace"));
+          field.setCommentIds((String) old.get("comment_ids"));
           field.setDefaultCommentId(StringUtil.toInt(old.get("default_comment_id")));
-          field.setPartitioned(StringUtil.toStr(old.get("is_partitioned")).equals("Y"));
-          field.setPartitioned(StringUtil.toStr(old.get("is_indexed")).equals("Y"));
+          field.setPartitioned("Y".equals(old.get("is_partitioned")));
+          field.setIndexed("Y".equals(old.get("is_indexed")));
         }
       }
     }
