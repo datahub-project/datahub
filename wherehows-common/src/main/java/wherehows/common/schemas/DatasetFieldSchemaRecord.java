@@ -23,6 +23,8 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   Integer parentFieldPosition;
   String fieldJsonPath;
   String fieldPath;
+  String parentPath;
+  String fieldName;
   String label;
   List<String> aliases;
   String type;
@@ -39,17 +41,35 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   Integer scale;
   String confidentialFlags;
   Boolean isRecursive;
+  Boolean partitioned;
+  Boolean indexed;
+  String namespace;
+  Integer defaultCommentId;
+  String commentIds;
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "position", "parent_field_position", "field_json_path", "field_path", "label",
-        "aliases", "type", "logical_type", "semantic_type", "abstract_type", "description", "nullable", "default_value",
-        "max_byte_length", "max_char_length", "char_type", "precision", "scale", "confidential_flags", "is_recursive"};
+    return new String[]{"dataset_id", "position", "parent_field_position", "field_json_path", "field_path", "parent_path",
+        "field_name", "label", "aliases", "type", "logical_type", "semantic_type", "abstract_type", "description",
+        "nullable", "default_value", "max_byte_length", "max_char_length", "char_type", "precision", "scale",
+        "confidential_flags", "is_recursive", "partitioned", "indexed", "namespace", "default_comment_id", "comment_ids"};
   }
 
   @Override
   public List<Object> fillAllFields() {
     return null;
+  }
+
+  public String[] getFieldDetailColumns() {
+    return new String[]{"dataset_id", "sort_id", "parent_sort_id", "parent_path", "field_name", "fields_layout_id",
+        "field_label", "data_type", "data_size", "data_precision", "data_fraction", "is_nullable", "is_indexed",
+        "is_partitioned", "default_value", "namespace", "default_comment_id", "comment_ids"};
+  }
+
+  public Object[] getFieldDetailValues() {
+    return new Object[]{datasetId, position, parentFieldPosition, parentPath, fieldName, 0, label, type, maxCharLength,
+        precision, scale, nullable != null && nullable ? "Y" : "N", indexed != null && indexed ? "Y" : "N",
+        partitioned != null && partitioned ? "Y" : "N", defaultValue, namespace, defaultCommentId, commentIds};
   }
 
   public DatasetFieldSchemaRecord() {
@@ -102,6 +122,22 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
 
   public void setFieldPath(String fieldPath) {
     this.fieldPath = fieldPath;
+  }
+
+  public String getParentPath() {
+    return parentPath;
+  }
+
+  public void setParentPath(String parentPath) {
+    this.parentPath = parentPath;
+  }
+
+  public String getFieldName() {
+    return fieldName;
+  }
+
+  public void setFieldName(String fieldName) {
+    this.fieldName = fieldName;
   }
 
   public String getLabel() {
@@ -224,11 +260,59 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
     this.confidentialFlags = confidentialFlags;
   }
 
+  public Boolean getRecursive() {
+    return isRecursive;
+  }
+
+  public void setRecursive(Boolean recursive) {
+    isRecursive = recursive;
+  }
+
+  public Boolean getPartitioned() {
+    return partitioned;
+  }
+
+  public void setPartitioned(Boolean partitioned) {
+    this.partitioned = partitioned;
+  }
+
+  public Boolean getIndexed() {
+    return indexed;
+  }
+
+  public void setIndexed(Boolean indexed) {
+    this.indexed = indexed;
+  }
+
   public Boolean getIsRecursive() {
     return isRecursive;
   }
 
   public void setIsRecursive(Boolean isRecursive) {
     this.isRecursive = isRecursive;
+  }
+
+  public String getNamespace() {
+    return namespace;
+  }
+
+  public void setNamespace(String namespace) {
+    this.namespace = namespace;
+  }
+
+  public Integer getDefaultCommentId() {
+    return defaultCommentId;
+  }
+
+  public void setDefaultCommentId(Integer defaultCommentId) {
+    this.defaultCommentId = defaultCommentId;
+  }
+
+  public String getCommentIds() {
+    return commentIds;
+  }
+
+  public void setCommentIds(String commentIds) {
+    this.commentIds = commentIds;
   }
 }

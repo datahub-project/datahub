@@ -170,19 +170,19 @@ GET         /dataset/owner                controllers.DatasetInfoController.getD
 POST        /dataset/owner                controllers.DatasetInfoController.updateDatasetOwner()
 
 # Get constraints of a dataset by either id or urn
-GET         /dataset/constraint           controllers.DatasetSchemaController.getDatasetConstraint()
+GET         /dataset/constraint           controllers.DatasetInfoController.getDatasetConstraint()
 
 # Update constraints of a dataset
-POST        /dataset/constraint           controllers.DatasetSchemaController.updateDatesetConstraint()
+POST        /dataset/constraint           controllers.DatasetInfoController.updateDatesetConstraint()
 
 # Get indices of a dataset by either id or urn
-GET         /dataset/index                controllers.DatasetSchemaController.getDatasetIndex()
+GET         /dataset/index                controllers.DatasetInfoController.getDatasetIndex()
 
 # Update indices of a dataset
-POST        /dataset/index                controllers.DatasetSchemaController.updateDatesetIndex()
+POST        /dataset/index                controllers.DatasetInfoController.updateDatesetIndex()
 
 # Get schema of a dataset by either id or urn
-GET         /dataset/schema               controllers.DatasetSchemaController.getDatasetSchema()
+GET         /dataset/schema               controllers.DatasetInfoController.getDatasetSchema()
 
 # Update schema of a dataset
-POST        /dataset/schema               controllers.DatasetSchemaController.updateDatesetSchema()
+POST        /dataset/schema               controllers.DatasetInfoController.updateDatesetSchema()

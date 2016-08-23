@@ -20,17 +20,26 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
+  Integer appId;
   String ownerCategory;
   String ownerSubCategory;
   String owner;
   String ownerType;
+  String isGroup;
+  String isActive;
+  Integer sortId;
+  String namespace;
   String ownerSource;
+  String dbIds;
+  Long sourceTime;
+  Long createdTime;
   Long modifiedTime;
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "owner_category", "owner_sub_category", "owner_id",
-        "owner_type", "owner_source", "modified_time"};
+    return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id",
+        "owner_id_type", "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_ids",
+        "source_time", "created_time", "modified_time"};
   }
 
   @Override
@@ -38,12 +47,41 @@ public class DatasetOwnerRecord extends AbstractRecord {
     return null;
   }
 
+  public String[] getDbColumnForUnmatchedOwner() {
+    return new String[]{"dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id", "owner_id_type",
+        "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_name", "db_id", "source_time"};
+  }
+
+  public Object[] getValuesForUnmatchedOwner() {
+    return new Object[]{datasetUrn, appId, ownerCategory, ownerSubCategory, owner, ownerType, isGroup,
+        isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};
+  }
+
   public DatasetOwnerRecord() {
   }
 
-  public void setDataset(Integer datasetId, String datasetUrn) {
+  public Integer getDatasetId() {
+    return datasetId;
+  }
+
+  public void setDatasetId(Integer datasetId) {
     this.datasetId = datasetId;
+  }
+
+  public String getDatasetUrn() {
+    return datasetUrn;
+  }
+
+  public void setDatasetUrn(String datasetUrn) {
     this.datasetUrn = datasetUrn;
+  }
+
+  public Integer getAppId() {
+    return appId;
+  }
+
+  public void setAppId(Integer appId) {
+    this.appId = appId;
   }
 
   public String getOwnerCategory() {
@@ -78,12 +116,68 @@ public class DatasetOwnerRecord extends AbstractRecord {
     this.ownerType = ownerType;
   }
 
+  public String getIsGroup() {
+    return isGroup;
+  }
+
+  public void setIsGroup(String isGroup) {
+    this.isGroup = isGroup;
+  }
+
+  public String getIsActive() {
+    return isActive;
+  }
+
+  public void setIsActive(String isActive) {
+    this.isActive = isActive;
+  }
+
+  public Integer getSortId() {
+    return sortId;
+  }
+
+  public void setSortId(Integer sortId) {
+    this.sortId = sortId;
+  }
+
+  public String getNamespace() {
+    return namespace;
+  }
+
+  public void setNamespace(String namespace) {
+    this.namespace = namespace;
+  }
+
   public String getOwnerSource() {
     return ownerSource;
   }
 
   public void setOwnerSource(String ownerSource) {
     this.ownerSource = ownerSource;
+  }
+
+  public String getDbIds() {
+    return dbIds;
+  }
+
+  public void setDbIds(String dbIds) {
+    this.dbIds = dbIds;
+  }
+
+  public Long getSourceTime() {
+    return sourceTime;
+  }
+
+  public void setSourceTime(Long sourceTime) {
+    this.sourceTime = sourceTime;
+  }
+
+  public Long getCreatedTime() {
+    return createdTime;
+  }
+
+  public void setCreatedTime(Long createdTime) {
+    this.createdTime = createdTime;
   }
 
   public Long getModifiedTime() {

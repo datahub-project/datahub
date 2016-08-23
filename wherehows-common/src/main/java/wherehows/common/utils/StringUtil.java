@@ -60,4 +60,16 @@ public class StringUtil {
   public static String toStr(Object obj) {
     return obj != null ? obj.toString() : null;
   }
+
+  public static Long toLong(Object obj) {
+    return obj != null ? Long.valueOf(obj.toString()) : null;
+  }
+
+  public static Integer toInt(Object obj) {
+    return obj != null ? Integer.valueOf(obj.toString()) : null;
+  }
+
+  public static Boolean toBoolean(Object obj) {
+    return obj != null ? Boolean.valueOf(obj.toString()) : null;
+  }
 }

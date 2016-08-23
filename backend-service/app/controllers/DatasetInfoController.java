@@ -509,4 +509,185 @@ public class DatasetInfoController extends Controller {
     }
     return ok(resultJson);
   }
+
+  public static Result getDatasetConstraint()
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    String datasetIdString = request().getQueryString("datasetId");
+    if (datasetIdString != null) {
+      int datasetId = Integer.parseInt(datasetIdString);
+
+      try {
+        List<Map<String, Object>> constraints = DatasetInfoDao.getDatasetConstraintByDatasetId(datasetId);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_constraints", Json.toJson(constraints));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException dataset id: " + datasetId, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + datasetId + " constraints cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    String urn = request().getQueryString("urn");
+    if (urn != null) {
+      if (!Urn.validateUrn(urn)) {
+        resultJson.put("return_code", 400);
+        resultJson.put("error_message", "Urn format wrong!");
+        return ok(resultJson);
+      }
+      try {
+        List<Map<String, Object>> constraints = DatasetInfoDao.getDatasetConstraintByDatasetUrn(urn);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_constraints", Json.toJson(constraints));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException urn: " + urn, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + urn + " constraints cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    // if no parameter, return an error message
+    resultJson.put("return_code", 400);
+    resultJson.put("error_message", "No parameter provided");
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateDatesetConstraint() {
+    JsonNode root = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      DatasetInfoDao.updateDatasetConstraint(root);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dataset constraints updated!");
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+    return ok(resultJson);
+  }
+
+  public static Result getDatasetIndex()
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    String datasetIdString = request().getQueryString("datasetId");
+    if (datasetIdString != null) {
+      int datasetId = Integer.parseInt(datasetIdString);
+
+      try {
+        List<Map<String, Object>> indices = DatasetInfoDao.getDatasetIndexByDatasetId(datasetId);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_indices", Json.toJson(indices));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException dataset id: " + datasetId, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + datasetId + " indices cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    String urn = request().getQueryString("urn");
+    if (urn != null) {
+      if (!Urn.validateUrn(urn)) {
+        resultJson.put("return_code", 400);
+        resultJson.put("error_message", "Urn format wrong!");
+        return ok(resultJson);
+      }
+      try {
+        List<Map<String, Object>> indices = DatasetInfoDao.getDatasetIndexByDatasetUrn(urn);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_indices", Json.toJson(indices));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException urn: " + urn, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + urn + " indices cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    // if no parameter, return an error message
+    resultJson.put("return_code", 400);
+    resultJson.put("error_message", "No parameter provided");
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateDatesetIndex() {
+    JsonNode root = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      DatasetInfoDao.updateDatasetIndex(root);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dataset indices updated!");
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+    return ok(resultJson);
+  }
+
+
+  public static Result getDatasetSchema()
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    String datasetIdString = request().getQueryString("datasetId");
+    if (datasetIdString != null) {
+      int datasetId = Integer.parseInt(datasetIdString);
+
+      try {
+        Map<String, Object> schema = DatasetInfoDao.getDatasetSchemaByDatasetId(datasetId);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_schema", Json.toJson(schema));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException dataset id: " + datasetId, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + datasetId + " schema cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    String urn = request().getQueryString("urn");
+    if (urn != null) {
+      if (!Urn.validateUrn(urn)) {
+        resultJson.put("return_code", 400);
+        resultJson.put("error_message", "Urn format wrong!");
+        return ok(resultJson);
+      }
+      try {
+        Map<String, Object> schema = DatasetInfoDao.getDatasetSchemaByDatasetUrn(urn);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_schema", Json.toJson(schema));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException urn: " + urn, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + urn + " schema cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    // if no parameter, return an error message
+    resultJson.put("return_code", 400);
+    resultJson.put("error_message", "No parameter provided");
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateDatesetSchema() {
+    JsonNode root = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      DatasetInfoDao.updateDatasetSchema(root);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dataset schema updated!");
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+    return ok(resultJson);
+  }
 }
