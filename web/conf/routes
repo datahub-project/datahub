@@ -35,6 +35,8 @@ GET     /lineage/metric/:id                         controllers.Application.metr
 
 GET     /lineage/flow/:application/:project/:flow   controllers.Application.flowLineage(application: String, project: String, flow: String)
 
+GET     /metadata                           controllers.Application.dashboard()
+
 GET     /scriptFinder                       controllers.Application.scriptFinder()
 
 GET     /schemaHistory                      controllers.Application.schemaHistory()
@@ -202,6 +204,10 @@ GET     /api/v1/schemaHistory/datasets              controllers.api.v1.SchemaHis
 GET     /api/v1/jira/ldapinfo                       controllers.api.v1.Jira.getLdapInfo()
 
 GET     /api/v1/jira/members/:managerId             controllers.api.v1.Jira.getFirstLevelLdapInfo(managerId :String)
+
+GET     /api/v1/metadata/dashboard/:managerId       controllers.api.v1.Dashboard.getConfidentialDatasetsPercentage(managerId :String)
+
+GET     /api/v1/metadata/dataset/:managerId         controllers.api.v1.Dashboard.getPagedConfidentialDatasets(managerId :String)
 
 GET     /api/v1/scriptFinder/scripts                controllers.api.v1.ScriptFinder.getScripts()
 
