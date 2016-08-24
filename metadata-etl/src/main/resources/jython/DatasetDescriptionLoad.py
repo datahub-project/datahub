@@ -60,7 +60,7 @@ class DatasetDescriptionLoad:
   def load_kafka_to_hdfs_map(self):
     cursor = self.conn_mysql.cursor()
     load_cmd = """
-        INSERT IGNORE INTO cfg_object_name_map_test
+        INSERT IGNORE INTO cfg_object_name_map
         (
           object_type,
           object_sub_type,
