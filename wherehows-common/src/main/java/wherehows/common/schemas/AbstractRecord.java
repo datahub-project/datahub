@@ -14,7 +14,9 @@
 package wherehows.common.schemas;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import wherehows.common.utils.StringUtil;
 
 
@@ -61,8 +63,10 @@ public abstract class AbstractRecord implements Record {
   /**
    * return values of all declared fields as Object[]
    * @return Object[]
+   * @throws IllegalAccessException
    */
-  public Object[] getAllValues() throws IllegalAccessException {
+  public Object[] getAllValues()
+      throws IllegalAccessException {
     final Field[] fields = this.getAllFields();
     final Object[] values = new Object[fields.length];
     for (int i = 0; i < fields.length; i++) {
@@ -78,5 +82,45 @@ public abstract class AbstractRecord implements Record {
    */
   public String[] getDbColumnNames() {
     return null;
-  };
+  }
+
+  /**
+   * return values of declared fields, and transform record, collection, map and array into string
+   * Primitive data types and other structures are unchanged.
+   * @return Object[]
+   * @throws IllegalAccessException
+   */
+  public Object[] getAllValuesToString()
+      throws IllegalAccessException {
+    final Object[] values = getAllValues();
+    for (int i = 0; i < values.length; i++) {
+      values[i] = StringUtil.objectToString(values[i]);
+    }
+    return values;
+  }
+
+  /**
+   * get the field-value map of the record
+   * use db column name as field name, if not available, use class field names
+   * @return Map: String-Object
+   * @throws IllegalAccessException
+   */
+  public Map<String, Object> getFieldValueMap()
+      throws IllegalAccessException {
+    String[] columns = this.getDbColumnNames();
+    Object[] values = this.getAllValues();
+
+    Map<String, Object> map = new HashMap<>();
+    if (columns != null && columns.length == values.length) {
+      for (int i = 0; i < columns.length; i++) {
+        map.put(columns[i], values[i]);
+      }
+    } else {
+      Field[] fields = this.getAllFields();
+      for (int i = 0; i < fields.length; i++) {
+        map.put(fields[i].getName(), values[i]);
+      }
+    }
+    return map;
+  }
 }
