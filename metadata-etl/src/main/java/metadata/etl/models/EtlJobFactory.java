@@ -24,6 +24,7 @@ import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.git.MultiproductMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.lineage.appworx.AppworxLineageEtl;
+import metadata.etl.metadata.DatasetDescriptionEtl;
 import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
@@ -75,6 +76,8 @@ public class EtlJobFactory {
         return new DaliViewOwnerEtl(refId, whExecId, properties);
       case CONFIDENTIAL_FIELD_METADATA_ETL:
         return new DatasetConfidentialFieldEtl(refId, whExecId, properties);
+      case DATASET_DESCRIPTION_METADATA_ETL:
+        return new DatasetDescriptionEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
