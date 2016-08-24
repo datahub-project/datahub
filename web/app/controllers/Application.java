@@ -23,12 +23,8 @@ import play.mvc.Result;
 import play.Logger;
 import play.mvc.Security;
 import utils.Tree;
-import views.html.index;
-import views.html.login;
-import views.html.lineage;
-import views.html.schemaHistory;
-import views.html.scriptFinder;
-import views.html.idpc;
+import views.html.*;
+
 import static play.data.Form.form;
 import org.apache.commons.lang3.StringUtils;
 import security.AuthenticationManager;
@@ -141,6 +137,18 @@ public class Application extends Controller
             username = "";
         }
         return ok(idpc.render(username, isInternal));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result dashboard()
+    {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+        return ok(dashboard.render(username, isInternal));
     }
 
     public static Result login()
