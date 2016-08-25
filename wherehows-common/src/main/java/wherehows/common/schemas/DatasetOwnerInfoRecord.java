@@ -16,7 +16,7 @@ package wherehows.common.schemas;
 import java.util.List;
 
 
-public class DatasetOwnerRecord extends AbstractRecord {
+public class DatasetOwnerInfoRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
@@ -57,7 +57,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
         isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};
   }
 
-  public DatasetOwnerRecord() {
+  public DatasetOwnerInfoRecord() {
   }
 
   public Integer getDatasetId() {

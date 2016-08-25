@@ -34,7 +34,7 @@ import wherehows.common.schemas.DatasetDeploymentRecord;
 import wherehows.common.schemas.DatasetFieldIndexRecord;
 import wherehows.common.schemas.DatasetFieldSchemaRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
-import wherehows.common.schemas.DatasetOwnerRecord;
+import wherehows.common.schemas.DatasetOwnerInfoRecord;
 import wherehows.common.schemas.DatasetPartitionKeyRecord;
 import wherehows.common.schemas.DatasetPartitionRecord;
 import wherehows.common.schemas.DatasetRecord;
@@ -567,10 +567,10 @@ public class DatasetInfoDao {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
-    List<DatasetOwnerRecord> ownerList = new ArrayList<>();
+    List<DatasetOwnerInfoRecord> ownerList = new ArrayList<>();
     int sortId = 0;
     for (final JsonNode owner : owners) {
-      DatasetOwnerRecord record = om.convertValue(owner, DatasetOwnerRecord.class);
+      DatasetOwnerInfoRecord record = om.convertValue(owner, DatasetOwnerInfoRecord.class);
       record.setDatasetId(datasetId);
       record.setDatasetUrn(urn);
       record.setSourceTime(eventTime);
@@ -610,7 +610,7 @@ public class DatasetInfoDao {
 
     List<Map<String, Object>> oldOwnerList = getDatasetOwnerByDatasetUrn(urn);
     // merge old owner info into updated owner list
-    for (DatasetOwnerRecord rec : ownerList) {
+    for (DatasetOwnerInfoRecord rec : ownerList) {
       for (Map<String, Object> old : oldOwnerList) {
         if (rec.getDatasetId().equals(StringUtil.toInt(old.get("dataset_id"))) && rec.getOwner()
             .equals(old.get("owner_id")) && rec.getAppId().equals(StringUtil.toInt(old.get("app_id")))) {
@@ -631,7 +631,7 @@ public class DatasetInfoDao {
 
     // remove old info then insert new info
     OWNER_WRITER.execute(DELETE_DATASET_OWNER_BY_URN, new Object[]{urn});
-    for (DatasetOwnerRecord record : ownerList) {
+    for (DatasetOwnerInfoRecord record : ownerList) {
       OWNER_WRITER.append(record);
     }
     OWNER_WRITER.insert();
