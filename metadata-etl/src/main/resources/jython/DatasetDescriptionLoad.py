@@ -40,13 +40,13 @@ class DatasetDescriptionLoad:
           mapped_object_dataset_id,
           last_modified
         )
-        SELECT 'Oracle' as object_type, 'Table' as object_sub_type,
-        concat('/', t1.parent_name, '/', t1.name) as object_name,
-        t1.id as object_dataset_id, 'derived from' as map_phrase,
-        'N' as is_identical_map, 'Hdfs' as mapped_object_type,
+        SELECT 'Hdfs' as object_type, 'Table' as object_sub_type,
+        substring_index(t2.urn, 'hdfs://', -1) as object_name,
+        t2.id as object_dataset_id, 'is copied from' as map_phrase,
+        'N' as is_identical_map, 'Oracle' as mapped_object_type,
         'Table' as mapped_object_sub_type,
-        substring_index(t2.urn, 'hdfs://', -1) as mapped_object_name,
-        t2.id as mapped_object_dataset_id, now() as last_modified
+        concat('/', t1.parent_name, '/', t1.name) as mapped_object_name,
+        t1.id as mapped_object_dataset_id, now() as last_modified
         FROM dict_dataset t1 JOIN dict_dataset t2 ON
         t2.urn = concat('hdfs:///data/databases/', substring_index(t1.urn, '/', -2))
         WHERE lower(t1.dataset_type) = 'oracle';
@@ -74,13 +74,13 @@ class DatasetDescriptionLoad:
           mapped_object_dataset_id,
           last_modified
         )
-        SELECT 'Kafka' as object_type, 'Table' as object_sub_type,
-        concat('/', t1.parent_name, '/', t1.name) as object_name,
-        t1.id as object_dataset_id, 'derived from' as map_phrase,
-        'N' as is_identical_map, 'Hdfs' as mapped_object_type,
+        SELECT 'Hdfs' as object_type, 'Table' as object_sub_type,
+        substring_index(t2.urn, 'hdfs://', -1) as object_name,
+        t2.id as object_dataset_id, 'is copied from' as map_phrase,
+        'N' as is_identical_map, 'Kafka' as mapped_object_type,
         'Table' as mapped_object_sub_type,
-        substring_index(t2.urn, 'hdfs://', -1) as mapped_object_name,
-        t2.id as mapped_object_dataset_id, now() as last_modified
+        concat('/', t1.parent_name, '/', t1.name) as mapped_object_name,
+        t1.id as mapped_object_dataset_id, now() as last_modified
         FROM dict_dataset t1 JOIN dict_dataset t2 ON
         t2.urn = concat('hdfs:///data/tracking/', substring_index(t1.urn, '/', -1))
         WHERE lower(t1.dataset_type) = 'kafka';
@@ -108,13 +108,13 @@ class DatasetDescriptionLoad:
           mapped_object_dataset_id,
           last_modified
         )
-        SELECT 'Hdfs' as object_type, 'Table' as object_sub_type,
-        substring_index(t1.urn, 'hdfs://', -1) as object_name,
-        t1.id as object_dataset_id, 'derived from' as map_phrase,
-        'N' as is_identical_map, 'Teradata' as mapped_object_type,
+        SELECT 'Teradata' as object_type, 'Table' as object_sub_type,
+        concat('/', t2.parent_name, '/', t2.name) as object_name,
+        t2.id as object_dataset_id, 'is copied from' as map_phrase,
+        'N' as is_identical_map, 'Hdfs' as mapped_object_type,
         'Table' as mapped_object_sub_type,
-        concat('/', t2.parent_name, '/', t2.name) as mapped_object_name,
-        t2.id as mapped_object_dataset_id, now() as last_modified
+        substring_index(t1.urn, 'hdfs://', -1) as mapped_object_name,
+        t1.id as mapped_object_dataset_id, now() as last_modified
         FROM dict_dataset t1 JOIN dict_dataset t2 ON
         t1.name = t2.name and lower(t2.urn) like 'teradata:///DWH_%' and lower(t2.source) = 'teradata'
         WHERE lower(t1.source) = 'Hdfs' and lower(t1.urn) like 'hdfs:///jobs/%';
