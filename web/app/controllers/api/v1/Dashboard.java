@@ -36,6 +36,11 @@ public class Dashboard extends Controller
         return ok(DashboardDAO.getConfidentialPercentageByManagerId(managerId));
     }
 
+    public static Result getDescriptionDatasetsPercentage(String managerId)
+    {
+        return ok(DashboardDAO.getDescriptionPercentageByManagerId(managerId));
+    }
+
     public static Result getPagedConfidentialDatasets(String managerId)
     {
         int page = 1;
@@ -77,5 +82,67 @@ public class Dashboard extends Controller
         }
 
         return ok(DashboardDAO.getPagedConfidentialDatasetsByManagerId(managerId, page, size));
+    }
+
+    public static Result getPagedDescriptionDatasets(String managerId)
+    {
+        int page = 1;
+        int option = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedDescriptionDatasets wrong page parameter. Error message: " + e.getMessage());
+                page = 1;
+            }
+        }
+
+        String optionStr = request().getQueryString("option");
+        if (StringUtils.isBlank(optionStr))
+        {
+            option = 1;
+        }
+        else
+        {
+            try
+            {
+                option = Integer.parseInt(optionStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedDescriptionDatasets wrong option parameter. Error message: " + e.getMessage());
+                option = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedDescriptionDatasets wrong size parameter. Error message: " + e.getMessage());
+                size = 10;
+            }
+        }
+
+        return ok(DashboardDAO.getPagedDescriptionDatasetsByManagerId(managerId, option, page, size));
     }
 }
