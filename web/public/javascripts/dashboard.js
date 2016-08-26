@@ -56,7 +56,7 @@
                 page = 1;
             if (!size)
                 size = 10;
-            var datasetsUrl = '/api/v1/metadata/dataset/' + user + '?page=' + page + '&size=' + size;
+            var datasetsUrl = '/api/v1/metadata/dataset/confidential/' + user + '?page=' + page + '&size=' + size;
             $.get(datasetsUrl, function(data) {
                 if (data && data.status == "ok") {
                     var currentPage = data.page;
@@ -91,6 +91,50 @@
             });
         }
 
+        function refreshDescDatasets(user, option, page, size)
+        {
+            if (!user)
+                return;
+
+            if (!page)
+                page = 1;
+            if (!size)
+                size = 10;
+            var datasetsUrl = '/api/v1/metadata/dataset/description/' + user + '?page=' +
+                page + '&size=' + size + '&option=' + option;
+            $.get(datasetsUrl, function(data) {
+                if (data && data.status == "ok") {
+                    var currentPage = data.page;
+                    var totalPage = data.totalPages;
+                    if (currentPage == 1)
+                    {
+                        jiraController.set('descFirst', true);
+                    }
+                    else
+                    {
+                        jiraController.set('descFirst', false);
+                    }
+                    if (currentPage == totalPage)
+                    {
+                        jiraController.set('descLast', true);
+                    }
+                    else
+                    {
+                        jiraController.set('descLast', false);
+                    }
+                    jiraController.set('descriptionDatasets', data);
+                    jiraController.set('currentDescPage', data.page);
+                    if (data.datasets && data.datasets.length > 0)
+                    {
+                        jiraController.set('userNoDescriptionFields', false);
+                    }
+                    else
+                    {
+                        jiraController.set('userNoDescriptionFields', true);
+                    }
+                }
+            });
+        }
 
         var jiraController = null;
         var hierarchy = '/jweiner';
@@ -107,6 +151,12 @@
             'cfTotalDatasets': 0,
             'cfConfirmedDatasets': 0,
             'url': '/metadata#/dashboard/jweiner'};
+        var descriptionOptions = [{'value':'All Datasets', 'option': 1},
+            {'value':'Has Dataset Description', 'option': 2},
+            {'value':'Full Fields Description', 'option': 3},
+            {'value':'Has Fields Description', 'option': 4},
+            {'value':'No Fields Description', 'option': 5}];
+
         setTimeout(setActiveTab, 500);
 
         App.DashboardRoute = Ember.Route.extend({
@@ -115,7 +165,7 @@
                 breadcrumbs = genBreadcrumbs(hierarchy);
                 jiraController.set('breadcrumbs', breadcrumbs);
                 jiraController.set('selectedUser', selectedUser);
-                jiraController.set('sortOptions', sortOptions);
+                jiraController.set('descriptionOptions', descriptionOptions);
             }
         });
 
@@ -123,22 +173,21 @@
             setupController: function(controller, params) {
                 if (params && params.user)
                 {
-                    jiraController.set('ticketsInProgress', true);
-                    var confidentialUrl = 'api/v1/metadata/dashboard/' + params.user;
+                    jiraController.set('cfInProgress', true);
+                    var confidentialUrl = 'api/v1/metadata/dashboard/confidential/' + params.user;
                     var headlessTickets;
                     var userTickets;
                     $.get(confidentialUrl, function(data) {
-                        jiraController.set('ticketsInProgress', false);
+                        jiraController.set('cfInProgress', false);
                         if (data && data.status == "ok") {
-                            jiraController.set('membersInProgress', true);
                             jiraController.set('confidentialFieldsOwners', data.members);
                             if (data.members && data.members.length > 0)
                             {
-                                jiraController.set('userNoMembers', false);
+                                jiraController.set('userNoCfMembers', false);
                             }
                             else
                             {
-                                jiraController.set('userNoMembers', true);
+                                jiraController.set('userNoCfMembers', true);
                             }
                             jiraController.set('currentConfidentialFieldsUser', data.currentUser);
                             var breadcrumbs;
@@ -156,6 +205,48 @@
                             refreshCfDatasets(params.user, 1, 10);
                         }
                     });
+
+                    jiraController.set('descInProgress', true);
+                    var confidentialUrl = 'api/v1/metadata/dashboard/description/' + params.user;
+                    var headlessTickets;
+                    var userTickets;
+                    $.get(confidentialUrl, function(data) {
+                        jiraController.set('descInProgress', false);
+                        if (data && data.status == "ok") {
+                            jiraController.set('descriptionOwners', data.members);
+                            if (data.members && data.members.length > 0)
+                            {
+                                jiraController.set('userNoDescMembers', false);
+                            }
+                            else
+                            {
+                                jiraController.set('userNoDescMembers', true);
+                            }
+                            jiraController.set('currentDescriptionUser', data.currentUser);
+                            var breadcrumbs;
+                            if (data.currentUser.orgHierarchy)
+                            {
+                                breadcrumbs = genBreadcrumbs(data.currentUser.orgHierarchy);
+                            }
+                            else
+                            {
+                                var hierarchy = '/jweiner';
+                                breadcrumbs = genBreadcrumbs(hierarchy);
+                            }
+                            jiraController.set('breadcrumbs', breadcrumbs);
+
+                            var obj = $('#descShowOption');
+                            if (obj)
+                            {
+                                refreshDescDatasets(params.user, obj.val(), 1, 10);
+                            }
+                            else
+                            {
+                                refreshDescDatasets(params.user, 1, 1, 10);
+                            }
+
+                        }
+                    });
                 }
             }
         });
@@ -163,6 +254,8 @@
         App.DashboardController = Ember.Controller.extend({
             cfFirst: false,
             cfLast: false,
+            descFirst: false,
+            descLast: false,
             actions: {
                 prevCfPage: function() {
                     var cfInfo = this.get("confidentialFieldsDatasets");
@@ -180,10 +273,40 @@
                     if (cfInfo && user) {
                         var currentPage = parseInt(cfInfo.page) + 1;
                         var totalPages = cfInfo.totalPages;
-                        if (currentPage < totalPages) {
+                        if (currentPage <= totalPages) {
                             refreshCfDatasets(user.userName, currentPage, 10);
                         }
 
+                    }
+                },
+                prevDescPage: function() {
+                    var descInfo = this.get("descriptionDatasets");
+                    var user = this.get("currentDescriptionUser");
+                    if (descInfo && user) {
+                        var currentPage = parseInt(descInfo.page) - 1;
+                        if (currentPage > 0) {
+                            refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10);
+                        }
+                    }
+                },
+                nextDescPage: function() {
+                    var descInfo = this.get("descriptionDatasets");
+                    var user = this.get("currentDescriptionUser");
+                    if (descInfo && user) {
+                        var currentPage = parseInt(descInfo.page) + 1;
+                        console.log(currentPage);
+                        var totalPages = descInfo.totalPages;
+                        if (currentPage <= totalPages) {
+                            refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10);
+                        }
+
+                    }
+                },
+                optionChanged: function() {
+                    var user = this.get("currentDescriptionUser");
+                    if (user)
+                    {
+                        refreshDescDatasets(user.userName, $('#descShowOption').val(), 1, 10);
                     }
                 }
             }
