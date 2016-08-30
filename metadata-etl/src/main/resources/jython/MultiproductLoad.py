@@ -79,18 +79,64 @@ class MultiproductLoad:
 
   def load_product_repo_owners(self):
     load_product_repo_owners_cmd = '''
-    DELETE FROM stg_repo_owner WHERE app_id = {app_id};
+    DELETE FROM stg_repo_owner WHERE app_id IN ({app_id}, 300, 301);
 
     -- load into stg table
     LOAD DATA LOCAL INFILE '{source_file}'
     INTO TABLE stg_repo_owner
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
     LINES TERMINATED BY '\n'
-    (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `owner_type`, `owner_name`, `paths`)
+    (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `owner_type`, `owner_name`, `sort_id`, `paths`)
     '''.format(source_file=self.product_repo_owner_file, app_id=self.app_id)
 
     self.executeCommands(load_product_repo_owners_cmd)
     self.logger.info("finish loading product repo owners from {}".format(self.product_repo_owner_file))
+
+
+  def merge_repo_owners_into_dataset_owners(self):
+    merge_repo_owners_into_dataset_owners_cmd = '''
+    UPDATE stg_repo_owner stg
+    JOIN (select app_id, user_id from dir_external_user_info) ldap
+    ON stg.owner_name = ldap.user_id
+    SET stg.app_id = ldap.app_id;
+
+    UPDATE stg_repo_owner stg
+    JOIN (select distinct app_id, group_id from dir_external_group_user_map) ldap
+    ON stg.owner_name = ldap.group_id
+    SET stg.app_id = ldap.app_id;
+
+    INSERT INTO dataset_owner (
+    dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, owner_id_type,
+    owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id
+    )
+    SELECT * FROM (
+    SELECT m.object_dataset_id, ds.urn, r.owner_name n_owner_id, r.sort_id n_sort_id,
+        'urn:li:corpuser' n_namespace, r.app_id, r.owner_type n_owner_type, null n_owner_sub_type,
+        case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
+        'SCM' n_owner_source, null db_ids, case when r.app_id = 301 then 'Y' else 'N' end is_group, 'Y' is_active,
+        0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
+    FROM stg_repo_owner r
+      JOIN (SELECT object_dataset_id, mapped_object_name FROM cfg_object_name_map WHERE mapped_object_type = 'scm') m
+        ON r.scm_repo_fullname = m.mapped_object_name
+      JOIN (SELECT id, urn FROM dict_dataset WHERE urn like 'dalids:///%') ds
+        ON m.object_dataset_id = ds.id
+    ) n
+    ON DUPLICATE KEY UPDATE
+    dataset_urn = values(dataset_urn),
+    sort_id = COALESCE(n.n_sort_id, sort_id),
+    owner_type = CASE WHEN n.n_owner_type IS NULL OR owner_type >= n.n_owner_type
+                    THEN owner_type ELSE n.n_owner_type END,
+    owner_sub_type = COALESCE(owner_sub_type, n.n_owner_sub_type),
+    owner_id_type = COALESCE(owner_id_type, n.n_owner_id_type),
+    owner_source = CASE WHEN owner_source is null THEN 'SCM'
+                    WHEN owner_source LIKE '%SCM%' THEN owner_source ELSE CONCAT(owner_source, ',SCM') END,
+    namespace = COALESCE(namespace, n.n_namespace),
+    wh_etl_exec_id = n.wh_etl_exec_id,
+    modified_time = unix_timestamp(NOW());
+    '''
+
+    self.executeCommands(merge_repo_owners_into_dataset_owners_cmd)
+    self.logger.info("finish merging repo and dataset owners")
 
 
   def executeCommands(self, commands):
@@ -105,6 +151,7 @@ class MultiproductLoad:
       self.load_git_projects()
       self.load_product_repos()
       self.load_product_repo_owners()
+      self.merge_repo_owners_into_dataset_owners()
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Load Multiproduct metadata [%s -> %s]" % (str(begin), str(end)))
     finally:

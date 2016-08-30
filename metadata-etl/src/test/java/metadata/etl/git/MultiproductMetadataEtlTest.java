@@ -23,7 +23,7 @@ public class MultiproductMetadataEtlTest {
   @BeforeTest
   public void setUp()
       throws Exception {
-    _etl = new MultiproductMetadataEtl(90, 0L);
+    _etl = new MultiproductMetadataEtl(500, 0L);
   }
 
   @Test

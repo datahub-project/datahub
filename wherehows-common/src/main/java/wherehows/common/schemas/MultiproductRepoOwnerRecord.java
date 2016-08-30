@@ -25,17 +25,19 @@ public class MultiproductRepoOwnerRecord extends AbstractRecord {
   Integer repoId;
   String ownerType;
   String ownerName;
+  Integer sortId;
   String paths;
   Long whExecId;
 
   public MultiproductRepoOwnerRecord(Integer appId, String scmRepoFullname, String scmType, Integer repoId,
-      String ownerType, String ownerName, String paths, Long whExecId) {
+      String ownerType, String ownerName, Integer sortId, String paths, Long whExecId) {
     this.appId = appId;
     this.scmRepoFullname = scmRepoFullname;
     this.scmType = scmType;
     this.repoId = repoId;
     this.ownerType = ownerType;
     this.ownerName = ownerName;
+    this.sortId = sortId;
     this.paths = paths;
     this.whExecId = whExecId;
   }
@@ -50,6 +52,7 @@ public class MultiproductRepoOwnerRecord extends AbstractRecord {
     allFields.add(repoId);
     allFields.add(ownerType);
     allFields.add(ownerName);
+    allFields.add(sortId);
     allFields.add(paths);
     return allFields;
   }

@@ -43,7 +43,8 @@ class OwnerLoad:
             owner_type = CASE WHEN sb.owner_type IS NULL OR @owner_type >= sb.owner_type THEN @owner_type ELSE sb.owner_type END,
             owner_sub_type = COALESCE(@owner_sub_type, sb.owner_sub_type),
             owner_id_type = sb.owner_id_type,
-            owner_source = CASE WHEN @owner_source LIKE '%AUDIT%' THEN @owner_source ELSE CONCAT(@owner_source, ',AUDIT') END,
+            owner_source = CASE WHEN @owner_source IS NULL THEN 'AUDIT'
+                            WHEN @owner_source LIKE '%AUDIT%' THEN @owner_source ELSE CONCAT(@owner_source, ',AUDIT') END,
             app_id = sb.app_id,
             is_active = sb.is_active,
             db_ids = sb.db_ids,

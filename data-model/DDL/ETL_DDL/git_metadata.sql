@@ -90,6 +90,7 @@ CREATE TABLE `stg_repo_owner` (
   `repo_id`         INT DEFAULT NULL,
   `owner_type`      VARCHAR(50) DEFAULT NULL COMMENT 'which acl file this owner is in',
   `owner_name`      VARCHAR(50) DEFAULT NULL COMMENT 'one owner name',
+  `sort_id`         INT UNSIGNED DEFAULT NULL,
   `paths`           TEXT CHAR SET utf8 DEFAULT NULL COMMENT 'covered paths by this acl',
   PRIMARY KEY (`scm_repo_fullname`, `scm_type`, `owner_type`, `owner_name`, `app_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = latin1;
