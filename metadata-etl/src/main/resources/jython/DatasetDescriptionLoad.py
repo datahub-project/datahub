@@ -125,6 +125,49 @@ class DatasetDescriptionLoad:
     self.conn_mysql.commit()
     cursor.close()
 
+  def load_dataset_comments(self):
+    cursor = self.conn_mysql.cursor()
+    load_cmd = """
+        INSERT IGNORE INTO comments
+        ( text,
+          user_id,
+          dataset_id,
+          created,
+          modified,
+          comment_type
+        )
+        SELECT c.text, c.user_id, m.object_dataset_id, c.created, c.modified, c.comment_type
+        FROM comments c JOIN cfg_object_name_map m on c.dataset_id = m.mapped_object_dataset_id
+        WHERE m.map_phrase = 'is copied from';
+        """
+
+    self.logger.info(load_cmd)
+    cursor.execute(load_cmd)
+    self.conn_mysql.commit()
+    cursor.close()
+
+  def load_field_comments(self):
+    cursor = self.conn_mysql.cursor()
+    load_cmd = """
+        INSERT IGNORE INTO dict_dataset_field_comment
+        ( field_id,
+          comment_id,
+          dataset_id,
+          is_default
+        )
+        SELECT dd1.field_id as field_id, df.comment_id, dd1.dataset_id as dataset_id, df.is_default
+        FROM cfg_object_name_map cm
+        JOIN dict_field_detail dd1 on cm.object_dataset_id = dd1.dataset_id
+        JOIN dict_field_detail dd2 on cm.mapped_object_dataset_id = dd2.dataset_id
+        JOIN dict_dataset_field_comment df on dd2.dataset_id = df.dataset_id and dd2.field_id = df.field_id
+        WHERE dd1.field_name = dd2.field_name and cm.map_phrase = 'is copied from';
+        """
+
+    self.logger.info(load_cmd)
+    cursor.execute(load_cmd)
+    self.conn_mysql.commit()
+    cursor.close()
+
 if __name__ == "__main__":
   args = sys.argv[1]
 
@@ -142,6 +185,8 @@ if __name__ == "__main__":
     d.load_oracle_to_hdfs_map()
     d.load_kafka_to_hdfs_map()
     d.load_hdfs_to_teradata_map()
+    d.load_dataset_comments()
+    d.load_field_comments()
   except Exception as e:
     d.logger.error(str(e))
   finally:
