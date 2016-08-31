@@ -671,3 +671,26 @@ div.commentsArea td, div.commentsArea th, div.commentsArea table{
 .keyword-search {
     min-width: 500px;
 }
+
+.bar {
+    fill: steelblue;
+}
+
+.bar:hover {
+    fill: green;
+}
+
+.axis {
+    font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+}
+
+.x.axis path {
+    display: none;
+}
