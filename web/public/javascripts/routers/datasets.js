@@ -1,7 +1,3 @@
-function initializeColumnTreeGrid()
-{
-  $('#json-table').treegrid();
-}
 
 function initializeDependsTreeGrid()
 {
