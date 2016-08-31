@@ -25,9 +25,12 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
+import java.text.DecimalFormat;
 
 public class DashboardDAO extends AbstractMySQLOpenSourceDAO
 {
+
+    private static DecimalFormat df2 = new DecimalFormat("##0.##");
 
     private final static String GET_CONFIDENTIAL_DATASETS  = "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, " +
             "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, d.name FROM " +
@@ -60,12 +63,11 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             "dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id and " +
             "( o.is_deleted != 'Y' or o.is_deleted is null ) " +
             "WHERE o.dataset_id in ( " +
-            "SELECT dataset_id FROM ( " +
-            "SELECT df.dataset_id as dataset_id, COUNT(df.dataset_id) as field_count, " +
-            "SUM(CASE WHEN dc.dataset_id is null THEN 0 ELSE 1 end) as comment_count " +
-            "FROM dict_field_detail df LEFT JOIN dict_dataset_field_comment dc " +
-            "ON df.dataset_id = dc.dataset_id and df.field_id = dc.field_id GROUP BY " +
-            "df.dataset_id HAVING field_count = comment_count ) t " +
+            "SELECT dd.dataset_id FROM " +
+            "( SELECT count(field_id) as field_count, dataset_id FROM dict_field_detail GROUP BY dataset_id ) dd " +
+            "JOIN " +
+            "( SELECT count(distinct field_id) as comments_count, dataset_id FROM dict_dataset_field_comment " +
+            "GROUP BY dataset_id) dc ON dd.dataset_id = dc.dataset_id and dd.field_count = dc.comments_count " +
             ") and owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
             "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
@@ -112,6 +114,33 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
     private final static String GET_CONFIDENTIAL_FIELDS = "SELECT field_name " +
             "FROM dict_pii_field WHERE dataset_id = ?";
 
+    private final static String GET_COMMENTS_DESCRIPTION_BAR_CHART_DATA = "SELECT " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 1 MONTH THEN 1 ELSE 0 END) as 1_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 2 MONTH THEN 1 ELSE 0 END) as 2_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 3 MONTH THEN 1 ELSE 0 END) as 3_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 4 MONTH THEN 1 ELSE 0 END) as 4_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 5 MONTH THEN 1 ELSE 0 END) as 5_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 6 MONTH THEN 1 ELSE 0 END) as 6_month_ago " +
+            "FROM ( SELECT dc.id, dc.comments_on FROM " +
+            "(SELECT d.id, CASE WHEN c.modified is not null THEN c.modified ELSE c.created END as comments_on " +
+            "FROM dict_dataset d JOIN comments c ON d.id = c.dataset_id ORDER BY d.id) dc JOIN " +
+            "(SELECT dataset_id FROM dataset_owner WHERE owner_id in ( " +
+            "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?)) o " +
+            "ON dc.id = o.dataset_id GROUP BY dc.id) co";
+
+    private final static String GET_FIELD_COMMENTS_DESCRIPTION_BAR_CHART_DATA = "SELECT " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 1 MONTH THEN 1 ELSE 0 END) as 1_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 2 MONTH THEN 1 ELSE 0 END) as 2_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 3 MONTH THEN 1 ELSE 0 END) as 3_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 4 MONTH THEN 1 ELSE 0 END) as 4_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 5 MONTH THEN 1 ELSE 0 END) as 5_month_ago, " +
+            "SUM(CASE WHEN comments_on > NOW() - INTERVAL 6 MONTH THEN 1 ELSE 0 END) as 6_month_ago " +
+            "FROM (SELECT df.dataset_id as id, " +
+            "CASE WHEN fc.modified is not null THEN fc.modified ELSE fc.created END as comments_on " +
+            "FROM dict_dataset_field_comment df JOIN field_comments fc ON df.comment_id = fc.id " +
+            "JOIN dataset_owner o on df.dataset_id = o.dataset_id " +
+            "WHERE o.owner_id in (SELECT user_id FROM dir_external_user_info " +
+            "WHERE org_hierarchy = ? or org_hierarchy like ?)) co";
 
     public static ObjectNode getDescriptionPercentageByManagerId(String managerId) {
 
@@ -165,11 +194,12 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
 
                     if (currentUser.potentialDatasets != 0)
                     {
-                        currentUser.completed =  100.0 * currentUser.confirmed / currentUser.potentialDatasets;
+                        currentUser.completed =
+                                df2.format(100.0 * currentUser.confirmed / currentUser.potentialDatasets);
                     }
                     else
                     {
-                        currentUser.completed = 0.0;
+                        currentUser.completed = df2.format(0.0);
                     }
 
                 }
@@ -201,11 +231,11 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                                 owner.orgHierarchy + "/%");
                         if (owner.potentialDatasets != 0)
                         {
-                            owner.completed = 100.0 * owner.confirmed / owner.potentialDatasets;
+                            owner.completed = df2.format(100.0 * owner.confirmed / owner.potentialDatasets);
                         }
                         else
                         {
-                            owner.completed = 0.0;
+                            owner.completed = df2.format(0.0);
                         }
                         memberList.add(owner);
                     }
@@ -255,11 +285,12 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                     currentUser.confirmed = 0L;
                     if (currentUser.potentialDatasets != 0)
                     {
-                        currentUser.completed = 100.0 * (currentUser.confirmed / currentUser.potentialDatasets);
+                        currentUser.completed =
+                                df2.format(100.0 * (currentUser.confirmed / currentUser.potentialDatasets));
                     }
                     else
                     {
-                        currentUser.completed = 0.0;
+                        currentUser.completed = df2.format(0.0);
                     }
 
                 }
@@ -287,11 +318,11 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                         owner.confirmed = 0L;
                         if (owner.potentialDatasets != 0)
                         {
-                            owner.completed = 100.0 * (owner.confirmed / owner.potentialDatasets);
+                            owner.completed = df2.format(100.0 * (owner.confirmed / owner.potentialDatasets));
                         }
                         else
                         {
-                            owner.completed = 0.0;
+                            owner.completed = df2.format(0.0);
                         }
                         memberList.add(owner);
                     }
@@ -412,19 +443,19 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                             switch (option)
                             {
                                 case 1:
-                                    datasetQuery = GET_ALL_DATASETS_BY_ID;
-                                    break;
-                                case 2:
                                     datasetQuery = GET_DATASETS_WITH_DESCRIPTION_BY_ID;
                                     break;
-                                case 3:
+                                case 2:
                                     datasetQuery = GET_DATASETS_WITH_FULL_FIELD_DESCRIPTION_BY_ID;
                                     break;
-                                case 4:
+                                case 3:
                                     datasetQuery = GET_DATASETS_WITH_ANY_FIELD_DESCRIPTION_BY_ID;
                                     break;
-                                case 5:
+                                case 4:
                                     datasetQuery = GET_DATASETS_WITH_NO_FIELD_DESCRIPTION_BY_ID;
+                                    break;
+                                case 5:
+                                    datasetQuery = GET_ALL_DATASETS_BY_ID;
                                     break;
                                 default:
                                     datasetQuery = GET_ALL_DATASETS_BY_ID;
@@ -485,5 +516,85 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             }
         });
         return result;
+    }
+
+    public static ObjectNode getDescriptionBarChartData(String managerId, Integer option) {
+
+        ObjectNode resultNode = Json.newObject();
+        List<MetadataBarData> barDataList = new ArrayList<MetadataBarData>();
+
+        if (StringUtils.isNotBlank(managerId))
+        {
+            List<LdapInfo> ldapInfoList = JiraDAO.getCurrentUserLdapInfo(managerId);
+            if (ldapInfoList != null && ldapInfoList.size() > 0)
+            {
+                LdapInfo ldapInfo = ldapInfoList.get(0);
+                if (ldapInfo != null)
+                {
+                    String query = GET_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                    switch (option)
+                    {
+                        case 1:
+                            query = GET_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                            break;
+                        case 2:
+                            query = GET_FIELD_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                            break;
+                        case 3:
+                            query = GET_FIELD_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                            break;
+                        case 4:
+                            query = GET_FIELD_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                            break;
+                        case 5:
+                            query = GET_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                            break;
+                        default:
+                            query = GET_COMMENTS_DESCRIPTION_BAR_CHART_DATA;
+                    }
+                    List<Map<String, Object>> rows = null;
+                    if (StringUtils.isNotBlank(ldapInfo.orgHierarchy)) {
+                        rows = getJdbcTemplate().queryForList(
+                                query,
+                                ldapInfo.orgHierarchy,
+                                ldapInfo.orgHierarchy + "/%");
+                    }
+                    else if (managerId.equalsIgnoreCase("jweiner"))
+                    {
+                        rows = getJdbcTemplate().queryForList(
+                                query,
+                                "/" + ldapInfo.userName,
+                                "/" + ldapInfo.userName + "/%");
+                    }
+
+                    for (Map row : rows) {
+                        for (int i = 6; i > 0; i--)
+                        {
+                            java.math.BigDecimal value = (java.math.BigDecimal) row.get(Integer.toString(i) + "_month_ago");
+                            GregorianCalendar date = new GregorianCalendar();
+                            Integer month = date.get(Calendar.MONTH);
+                            Integer year = date.get(Calendar.YEAR);
+                            month = month+1;
+                            if (month > i)
+                            {
+                                month = month - i + 1;
+                            }
+                            else
+                            {
+                                month = month + 12 - i + 1;
+                            }
+                            String label = Integer.toString(month) + "/" + Integer.toString(year);
+                            MetadataBarData metadataBarData = new MetadataBarData();
+                            metadataBarData.label = label;
+                            metadataBarData.value = value.longValue();
+                            barDataList.add(metadataBarData);
+                        }
+                    }
+                }
+            }
+        }
+        resultNode.put("status", "ok");
+        resultNode.set("barData", Json.toJson(barDataList));
+        return resultNode;
     }
 }
