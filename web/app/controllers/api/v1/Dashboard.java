@@ -145,4 +145,29 @@ public class Dashboard extends Controller
 
         return ok(DashboardDAO.getPagedDescriptionDatasetsByManagerId(managerId, option, page, size));
     }
+
+    public static Result getDescriptionBarData(String managerId)
+    {
+        int option = 1;
+
+        String optionStr = request().getQueryString("option");
+        if (StringUtils.isBlank(optionStr))
+        {
+            option = 1;
+        }
+        else
+        {
+            try
+            {
+                option = Integer.parseInt(optionStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedDescriptionDatasets wrong option parameter. Error message: " + e.getMessage());
+                option = 1;
+            }
+        }
+
+        return ok(DashboardDAO.getDescriptionBarChartData(managerId, option));
+    }
 }
