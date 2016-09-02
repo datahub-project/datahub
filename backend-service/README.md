@@ -146,6 +146,38 @@ To check the configuration properties:
 select * from wh_etl_job;
 select * from wh_etl_job_property;
 select * from wh_property;
+
+select distinct wh_etl_job_name from wh_etl_job;
+
+select j.wh_etl_job_name, j.ref_id_type, j.ref_id, 
+       coalesce(d.db_code, a.app_code) db_or_app_code,
+       j.cron_expr, p.property_name, p.property_value
+from wh_etl_job j join wh_etl_job_property p
+  on j.wh_etl_job_name = p.wh_etl_job_name
+ and j.ref_id_type = p.ref_id_type
+ and j.ref_id = p.ref_id
+     left join cfg_database d
+  on j.ref_id = d.db_id
+ and j.ref_id_type = 'DB'
+     left join cfg_application a
+  on j.ref_id = a.app_id
+ and j.ref_id_type = 'APP'
+where j.wh_etl_job_name = 'HIVE_DATASET_METADATA_ETL'
+/*  AZKABAN_EXECUTION_METADATA_ETL
+    AZKABAN_LINEAGE_METADATA_ETL
+    ELASTICSEARCH_EXECUTION_INDEX_ETL
+    HADOOP_DATASET_METADATA_ETL
+    HADOOP_DATASET_OWNER_ETL
+    HIVE_DATASET_METADATA_ETL
+    KAFKA_CONSUMER_ETL
+    LDAP_USER_ETL
+    OOZIE_EXECUTION_METADATA_ETL
+    ORACLE_DATASET_METADATA_ETL
+    PRODUCT_REPO_METADATA_ETL
+    TERADATA_DATASET_METADATA_ETL */
+--  and j.ref_id = 123
+/*  based on cfg_database or cfg_application */
+order by j.wh_etl_job_name, db_or_app_code, p.property_name;
 ```
 To log in the first time to the web UI:
 
