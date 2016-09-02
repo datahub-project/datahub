@@ -95,6 +95,7 @@ class MultiproductLoad:
 
   def merge_repo_owners_into_dataset_owners(self):
     merge_repo_owners_into_dataset_owners_cmd = '''
+    -- find owner app_id, 300 for USER, 301 for GROUP
     UPDATE stg_repo_owner stg
     JOIN (select app_id, user_id from dir_external_user_info) ldap
     ON stg.owner_name = ldap.user_id
@@ -105,16 +106,20 @@ class MultiproductLoad:
     ON stg.owner_name = ldap.group_id
     SET stg.app_id = ldap.app_id;
 
+    -- INSERT/UPDATE into dataset_owner
     INSERT INTO dataset_owner (
     dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, owner_id_type,
     owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id
     )
     SELECT * FROM (
     SELECT ds.id, ds.urn, r.owner_name n_owner_id, r.sort_id n_sort_id,
-        'urn:li:corpuser' n_namespace, r.app_id, r.owner_type n_owner_type, null n_owner_sub_type,
+        'urn:li:corpuser' n_namespace, r.app_id,
+        IF(r.owner_type = 'main', 'Producer', r.owner_type) n_owner_type,
+        null n_owner_sub_type,
         case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
-        'SCM' n_owner_source, null db_ids, case when r.app_id = 301 then 'Y' else 'N' end is_group, 'Y' is_active,
-        0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
+        'SCM' n_owner_source, null db_ids,
+        IF(r.app_id = 301, 'Y', 'N') is_group,
+        'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
     FROM (SELECT id, urn FROM dict_dataset WHERE urn like 'dalids:///%') ds
       JOIN (SELECT object_name, mapped_object_name FROM cfg_object_name_map WHERE mapped_object_type = 'scm') m
         ON m.object_name = concat('/', substring_index(substring_index(ds.urn, '/', 4), '/', -1))
@@ -133,6 +138,19 @@ class MultiproductLoad:
     namespace = COALESCE(namespace, n.n_namespace),
     wh_etl_exec_id = n.wh_etl_exec_id,
     modified_time = unix_timestamp(NOW());
+
+    -- reset dataset owner sort id
+    UPDATE dataset_owner d
+      JOIN (
+        select dataset_urn, dataset_id, owner_type, owner_id, sort_id,
+            @owner_rank := IF(@current_dataset_id = dataset_id, @owner_rank + 1, 0) rank,
+            @current_dataset_id := dataset_id
+        from dataset_owner, (select @current_dataset_id := 0, @owner_rank := 0) t
+        where dataset_urn like 'dalids:///%'
+        order by dataset_id asc, owner_type desc, sort_id asc, owner_id asc
+      ) s
+    ON d.dataset_id = s.dataset_id AND d.owner_id = s.owner_id
+    SET d.sort_id = s.rank;
     '''
 
     self.executeCommands(merge_repo_owners_into_dataset_owners_cmd)

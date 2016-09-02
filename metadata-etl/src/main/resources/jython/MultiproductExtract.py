@@ -262,7 +262,7 @@ class MultiproductLoad:
                 repo_fullname,
                 scm_type,
                 repo_id,
-                acl_name,
+                acl_name.title(),
                 owner,
                 sort_id,
                 paths,

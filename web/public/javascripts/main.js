@@ -339,3 +339,8 @@ function filterListView(category, filter)
     }
 }
 
+function initializeColumnTreeGrid()
+{
+    $('#json-table').treegrid();
+}
+
