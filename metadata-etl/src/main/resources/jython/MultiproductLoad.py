@@ -110,19 +110,19 @@ class MultiproductLoad:
     owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id
     )
     SELECT * FROM (
-    SELECT m.object_dataset_id, ds.urn, r.owner_name n_owner_id, r.sort_id n_sort_id,
+    SELECT ds.id, ds.urn, r.owner_name n_owner_id, r.sort_id n_sort_id,
         'urn:li:corpuser' n_namespace, r.app_id, r.owner_type n_owner_type, null n_owner_sub_type,
         case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
         'SCM' n_owner_source, null db_ids, case when r.app_id = 301 then 'Y' else 'N' end is_group, 'Y' is_active,
         0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
-    FROM stg_repo_owner r
-      JOIN (SELECT object_dataset_id, mapped_object_name FROM cfg_object_name_map WHERE mapped_object_type = 'scm') m
+    FROM (SELECT id, urn FROM dict_dataset WHERE urn like 'dalids:///%') ds
+      JOIN (SELECT object_name, mapped_object_name FROM cfg_object_name_map WHERE mapped_object_type = 'scm') m
+        ON m.object_name = concat('/', substring_index(substring_index(ds.urn, '/', 4), '/', -1))
+      JOIN stg_repo_owner r
         ON r.scm_repo_fullname = m.mapped_object_name
-      JOIN (SELECT id, urn FROM dict_dataset WHERE urn like 'dalids:///%') ds
-        ON m.object_dataset_id = ds.id
     ) n
     ON DUPLICATE KEY UPDATE
-    dataset_urn = values(dataset_urn),
+    dataset_urn = n.urn,
     sort_id = COALESCE(n.n_sort_id, sort_id),
     owner_type = CASE WHEN n.n_owner_type IS NULL OR owner_type >= n.n_owner_type
                     THEN owner_type ELSE n.n_owner_type END,
