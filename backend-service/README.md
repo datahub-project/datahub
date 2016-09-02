@@ -148,8 +148,3 @@ select * from wh_etl_job_property;
 select * from wh_property;
 ```
 To log in the first time to the web UI, you have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.
-
-
-
-
-
