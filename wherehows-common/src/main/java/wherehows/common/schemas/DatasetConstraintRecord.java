@@ -27,7 +27,7 @@ public class DatasetConstraintRecord extends AbstractRecord {
   String constraintExpression;
   Boolean enabled;
   List<DatasetFieldIndexRecord> referredFields;
-  Map<String, String> additionalReference;
+  Map<String, String> additionalReferences;
   Long modifiedTime;
 
   @Override
@@ -97,12 +97,12 @@ public class DatasetConstraintRecord extends AbstractRecord {
     this.referredFields = referredFields;
   }
 
-  public Map<String, String> getAdditionalReference() {
-    return additionalReference;
+  public Map<String, String> getAdditionalReferences() {
+    return additionalReferences;
   }
 
-  public void setAdditionalReference(Map<String, String> additionalReference) {
-    this.additionalReference = additionalReference;
+  public void setAdditionalReferences(Map<String, String> additionalReferences) {
+    this.additionalReferences = this.additionalReferences;
   }
 
   public Long getModifiedTime() {

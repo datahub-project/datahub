@@ -78,7 +78,7 @@ CREATE TABLE dataset_reference (
   `dataset_urn`      VARCHAR(200)       NOT NULL,
   `reference_type`   VARCHAR(20)        NOT NULL,
   `reference_format` VARCHAR(50)        NOT NULL,
-  `reference_list`   TEXT CHAR SET utf8 NOT NULL,
+  `reference_list`   TEXT CHAR SET utf8 DEFAULT NULL,
   `modified_time`    INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`, `reference_type`, `reference_format`),
@@ -126,15 +126,15 @@ CREATE TABLE dataset_constraint (
   `dataset_urn`           VARCHAR(200) NOT NULL,
   `constraint_type`       VARCHAR(20)  NOT NULL,
   `constraint_sub_type`   VARCHAR(20)  NOT NULL,
-  `constraint_name`       VARCHAR(50)  NOT NULL,
-  `constraint_expression` TEXT CHAR SET utf8 DEFAULT NULL,
+  `constraint_name`       VARCHAR(50)        DEFAULT NULL,
+  `constraint_expression` VARCHAR(200) NOT NULL,
   `enabled`               BOOLEAN      NOT NULL,
   `referred_fields`       TEXT               DEFAULT NULL,
   `additional_reference`  TEXT CHAR SET utf8 DEFAULT NULL,
   `modified_time`         INT UNSIGNED       DEFAULT NULL
   COMMENT 'the modified time in epoch',
-  PRIMARY KEY (`dataset_id`, `constraint_type`, `constraint_sub_type`, `constraint_name`),
-  UNIQUE KEY (`dataset_urn`, `constraint_type`, `constraint_sub_type`, `constraint_name`)
+  PRIMARY KEY (`dataset_id`, `constraint_type`, `constraint_sub_type`, `constraint_expression`),
+  UNIQUE KEY (`dataset_urn`, `constraint_type`, `constraint_sub_type`, `constraint_expression`)
 )
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
