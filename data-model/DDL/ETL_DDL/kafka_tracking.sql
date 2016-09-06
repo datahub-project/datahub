@@ -111,7 +111,7 @@ CREATE TABLE `stg_kafka_metastore_audit` (
   `is_data_deleted`       VARCHAR(5) DEFAULT NULL,
   `db_name`         VARCHAR(100) NOT NULL,
   `table_name`      VARCHAR(100) NOT NULL,
-  `time_partition`  VARCHAR(50) NOT NULL,
+  `time_partition`  VARCHAR(100) NOT NULL,
   `location`        VARCHAR(200) DEFAULT NULL,
   `owner`           VARCHAR(100) DEFAULT NULL,
   `create_time`     BIGINT(20) DEFAULT NULL,

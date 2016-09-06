@@ -255,18 +255,21 @@ class MultiproductLoad:
           if owners_string:
             owners = self.parse_owners(owners_string.group(1))
             paths = self.trim_path(path_string.group(1)) if path_string else None
+            sort_id = 0
             for owner in owners:
               owner_record = MultiproductRepoOwnerRecord(
                 self.app_id,
                 repo_fullname,
                 scm_type,
                 repo_id,
-                acl_name,
+                acl_name.title(),
                 owner,
+                sort_id,
                 paths,
                 self.wh_exec_id
               )
               self.repo_owner_writer.append(owner_record)
+              sort_id += 1
               owner_count += 1
             # self.logger.debug('{} - {} owners: {}'.format(repo_fullname, acl_name, len(owners)))
 
