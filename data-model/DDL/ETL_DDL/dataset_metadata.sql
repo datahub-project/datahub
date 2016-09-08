@@ -181,7 +181,7 @@ CREATE TABLE `dict_field_detail` (
   `is_distributed`     TINYINT(4)                    NULL
   COMMENT 'only in RDBMS',
   `is_recursive`       CHAR(1)                       NULL,
-  `confidential_flag`  VARCHAR(200)                  NULL,
+  `confidential_flags` VARCHAR(200)                  NULL,
   `default_value`      VARCHAR(200)                  NULL,
   `namespace`          VARCHAR(200)                  NULL,
   `java_data_type`     VARCHAR(50)                   NULL
