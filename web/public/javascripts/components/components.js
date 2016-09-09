@@ -539,11 +539,7 @@ App.DatasetCommentsComponent = Ember.Component.extend({
         _this.set('commentsLoading', false)
         var comments = data.data.comments
         comments.forEach(function(cmnt){
-          cmnt.isAuthor = false
-          cmnt.html = marked(cmnt.text).htmlSafe()
-          if(cmnt.authorUserName === $("#username").text().trim()) {
-            cmnt.isAuthor = true
-          }
+          cmnt.html = marked(cmnt.text).htmlSafe();
         })
         _this.set('comments', comments);
       }

@@ -24,4 +24,5 @@ public class DatasetComment {
     public String created;
     public String modified;
     public String type;
+    public Boolean isAuthor;
 }

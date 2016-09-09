@@ -331,7 +331,6 @@ a.list-group-item {
     -webkit-font-smoothing: antialiased;
     padding-top: 12px;
     padding-bottom: 12px;
-    text-transform: capitalize;
 }
 
 .list-group-item.active {
