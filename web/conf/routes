@@ -71,6 +71,10 @@ GET     /api/v1/datasets/:id/depends        controllers.api.v1.Dataset.getDepend
 
 GET     /api/v1/datasets/:id/references     controllers.api.v1.Dataset.getReferenceViews(id:Long)
 
+GET     /api/v1/datasets/:id/partitions     controllers.api.v1.Dataset.getDatasetPartitions(id:Long)
+
+GET     /api/v1/datasets/:id/access         controllers.api.v1.Dataset.getDatasetAccess(id:Long)
+
 GET     /api/v1/datasets/:id/properties     controllers.api.v1.Dataset.getDatasetPropertiesByID(id:Int)
 
 GET     /api/v1/datasets/:id/sample         controllers.api.v1.Dataset.getDatasetSampleDataByID(id:Int)

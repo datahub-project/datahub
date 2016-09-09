@@ -63,7 +63,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-favorite">
       <i
-      {{bind-attr class=":wh-clickable-icon :fa dataset.isFavorite:fa-heart:fa-heart-o"}}
+      class="wh-clickable-icon fa {{if dataset.isFavorite 'fa-heart'}} {{unless dataset.isFavorite 'fa-heart-o'}}"
       {{action "favorites" dataset}}
       >
       </i>
@@ -71,7 +71,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-owner">
       <i
-        {{bind-attr class=":wh-clickable-icon :fa dataset.isOwned:fa-bookmark:fa-bookmark-o"}}
+        class="wh-clickable-icon fa {{if dataset.isOwned 'fa-bookmark'}} {{unless dataset.isOwned 'fa-bookmark-o'}}"
         {{action "owned" dataset}}
       >
       </i>
@@ -79,7 +79,7 @@
 
     <script type="text/x-handlebars" id="components/dataset-watch">
       <i
-        {{bind-attr class=":wh-clickable-icon :fa dataset.watchId:fa-eye-slash:fa-eye"}}
+        class="wh-clickable-icon fa {{if dataset.watchId 'fa-eye-slash'}} {{unless dataset.watchId 'fa-eye'}}"
         {{action "watch" dataset}}
       >
       </i>
@@ -94,7 +94,7 @@
 
     <script type="text/x-handlebars" id="components/metric-watch">
       <i
-        {{bind-attr class=":fa metric.watchId:fa-eye-slash:fa-eye"}}
+        class="fa {{if metric.watchId 'fa-eye-slash'}} {{unless metric.watchId 'fa-eye'}}"
         {{action "watch" metric}}
       >
       </i>
@@ -169,7 +169,7 @@
               class="table table-bordered search-results"
               style="word-break: break-all;">
               <tbody>
-                {{#each dataset in model.data.datasets}}
+                {{#each model.data.datasets as |dataset|}}
                   <tr>
                     <td>
                       <div class="row">
@@ -182,7 +182,7 @@
                           {{#if dataset.owners}}
                           <div class="col-xs-12">
                             <span>owner:</span>
-                            {{#each owner in dataset.owners}}
+                            {{#each dataset.owners as |owner|}}
                               <p style="display:inline" title={{owner.name}}>{{ owner.userName }} </p>
                             {{/each}}
                           </div>
@@ -240,7 +240,23 @@
       </div>
     </script>
 
-    <script type="text/x-handlebars" data-template-name="schema">
+    <script type="text/x-handlebars" id="components/ember-selector">
+      <select id="ember-selector" class="form-control">
+        {{#each renderValues as |value|}}
+          {{#if value.isSelected}}
+            <option value="{{value.value}}" selected>
+              {{value.value}}
+            </option>
+          {{else}}
+            <option value="{{value.value}}">
+              {{value.value}}
+            </option>
+          {{/if}}
+        {{/each}}
+      </select>
+    </script>
+
+    <script type="text/x-handlebars" id="components/dataset-schema">
       {{#if hasSchemas}}
         <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
           <div class="col-xs-12">
@@ -250,13 +266,13 @@
               aria-label="Toggle Tabular/JSON Schema View">
               <button
                 type="button"
-                {{bind-attr class=":btn isTable:btn-primary:btn-default"}}
-                {{action "setView" "table"}}>
+                class="btn {{if isTable 'btn-primary'}} {{unless isTable 'btn-default'}}"
+                {{action "setView" "tabular"}}>
                 View As Tabular
               </button>
               <button
                 type="button"
-                {{bind-attr class=":btn isJSON:btn-primary:btn-default"}}
+                class="btn {{if isJSON 'btn-primary'}} {{unless isJSON 'btn-default'}}"
                 {{action "setView" "json"}}>
                 View As JSON
               </button>
@@ -279,8 +295,8 @@
             </tr>
           </thead>
           <tbody>
-            {{#each schema in schemas}}
-            <tr {{bind-attr class="schema.treeGridClass"}}>
+            {{#each schemas as |schema|}}
+            <tr class="{{schema.treeGridClass}}">
               <td>{{schema.fieldName}}</td>
               <td>{{schema.dataType}}</td>
               <td title="Is nullable" class="text-center">
@@ -305,7 +321,7 @@
               </td>
               <td class="commentsArea">
                 <div class="commentsArea">
-                  {{#schema-comment schema=schema datasetId=this.model.id fieldId=schema.id getSchema="getSchema"}}{{/schema-comment}}
+                  {{#schema-comment schema=schema datasetId=dataset.id fieldId=schema.id}}{{/schema-comment}}
                   {{schema.commentHtml}}
                 </div>
               </td>
@@ -322,10 +338,10 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="property">
+    <script type="text/x-handlebars" id="components/dataset-property">
       {{#if hasProperty}}
         <div>
-          {{#each item in properties}}
+          {{#each properties as |item|}}
             <div class="prop-row group">
               <div class="prop-label">{{item.key}}:</div>
               {{#if item.isSelectController}}
@@ -341,7 +357,7 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="owner">
+    <script type="text/x-handlebars" id="components/dataset-author">
       <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
         <div class="col-xs-12">
           <div class="btn-group" role="group">
@@ -355,7 +371,7 @@
             </button>
           </div>
           {{#if showMsg}}
-            <div {{bind-attr class=":alert alertType"}} role="alert">{{ownerMessage}}</div>
+            <div class="alert {{alertType}}" role="alert">{{ownerMessage}}</div>
           {{/if}}
         </div>
       </div>
@@ -372,7 +388,7 @@
           </tr>
         </thead>
         <tbody id = "sortedownertable">
-          {{#each owner in owners}}
+          {{#each owners as |owner|}}
           <tr>
             <td>{{input class="userEntity" value=owner.userName}}</td>
             <td>{{owner.name}}</td>
@@ -380,7 +396,8 @@
               {{input type="checkbox" name="isGroup" checked=owner.isGroup disabled=true}}
             </td>
             <td>
-              {{view "select" content=ownerTypes classNames="ownertypeselector" value=owner.type}}
+              {{#ember-selector values=ownerTypes selected=owner.type}}
+              {{/ember-selector}}
             </td>
             <td>
               {{input value=owner.subType}}
@@ -395,21 +412,21 @@
       </table>
     </script>
 
-    <script type="text/x-handlebars" data-template-name="sample">
+    <script type="text/x-handlebars" id="components/dataset-sample">
       {{#if hasSamples}}
         {{#if isPinot}}
           <table id="pinotsampletreegrid" class="tree table table-bordered dataset-detail-table">
             <thead>
               <tr class="results-header">
-                {{#each column in columns}}
+                {{#each columns as |column|}}
                   <th class="col-xs-2">{{column}}</th>
                 {{/each}}
               </tr>
             </thead>
             <tbody>
-              {{#each sample in samples}}
+              {{#each samples as |sample|}}
                 <tr>
-                  {{#each r in sample}}
+                  {{#each sample as |r|}}
                     <td class="wrap-all-word">{{r}}</td>
                   {{/each}}
                 </tr>
@@ -424,7 +441,7 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="impact">
+    <script type="text/x-handlebars" id="components/dataset-impact">
       {{#if hasImpacts}}
         <table id="impactAnalysisTable" class="tree table table-bordered dataset-detail-table">
           <thead>
@@ -435,12 +452,12 @@
             </tr>
           </thead>
           <tbody>
-          {{#each impact in impacts}}
+          {{#each impacts as |impact|}}
             <tr>
               <td>{{impact.level}}</td>
               <td>
                 {{#if impact.isValidDataset}}
-                  <a {{bind-attr href=impact.datasetUrl}}>
+                  <a href={{impact.datasetUrl}}>
                     {{impact.name}}
                   </a>
                 {{else}}
@@ -457,7 +474,7 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="depend">
+    <script type="text/x-handlebars" id="components/dataset-relations">
       {{#if hasDepends}}
         <table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
           <thead>
@@ -469,11 +486,11 @@
             </tr>
           </thead>
           <tbody>
-            {{#each depend in depends}}
-            <tr {{bind-attr class="depend.treeGridClass"}}>
+            {{#each depends as |depend|}}
+            <tr class="{{depend.treeGridClass}}">
               <td>
                 {{#if depend.isValidDataset}}
-                  <a {{bind-attr href=depend.datasetLink}}>
+                  <a href={{depend.datasetLink}}>
                     {{depend.objectName}}
                   </a>
                 {{else}}
@@ -499,11 +516,11 @@
             </tr>
           </thead>
           <tbody>
-            {{#each reference in references}}
-            <tr {{bind-attr class="reference.treeGridClass"}}>
+            {{#each references as |reference|}}
+            <tr class="{{reference.treeGridClass}}">
               <td>
                 {{#if reference.isValidDataset}}
-                  <a {{bind-attr href=reference.datasetLink}}>
+                  <a href={{reference.datasetLink}}>
                     {{reference.objectName}}
                   </a>
                 {{else}}
@@ -520,7 +537,44 @@
       {{/if}}
     </script>
 
-    <script type="text/x-handlebars" data-template-name="detail">
+    <script type="text/x-handlebars" id="components/dataset-access">
+      {{#if hasAccess}}
+        {{#each accessibilities as |accessibility|}}
+          <h4>Partition By: {{accessibility.partition}}</h4>
+          <table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+            <thead>
+              <tr class="results-header">
+                <th>Time</th>
+                {{#each accessibility.instanceList as |instance|}}
+                  <th>{{instance}}</th>
+                {{/each}}
+              </tr>
+            </thead>
+            <tbody>
+              {{#each accessibility.accessibilityList as |access|}}
+              <tr>
+                <td>{{access.dataTimeExpr}}</td>
+                {{#each access.itemList as |item|}}
+                  <td>
+                    {{#unless item.isPlaceHolder}}
+                      <div>
+                        <p>Log time: {{item.logTimeEpochStr}}</p>
+                        <p>Record count: {{item.recordCountStr}}</p>
+                      </div>
+                    {{/unless}}
+                  </td>
+                {{/each}}
+              </tr>
+              {{/each}}
+            </tbody>
+          </table>
+        {{/each}}
+      {{else}}
+        <p>Accessibility is not available</p>
+      {{/if}}
+    </script>
+
+    <script type="text/x-handlebars" id="components/metric-detail">
       <div id="metric" class="container-fluid">
         <div class="row-fluid">
           <div class="col-xs-6">
@@ -540,7 +594,7 @@
               </li>
               {{#if showLineage}}
               <li>
-                <a target="_blank" {{bind-attr href=lineageUrl}}>
+                <a target="_blank" href={{lineageUrl}}>
                   <i class="fa fa-sitemap"></i>
                   <span class="hidden-sm hidden-xs">
                     View Lineage
@@ -637,7 +691,7 @@
                   data-title="Enter Type"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.refIDType}}
+                  data-value={{model.refIDType}}
                 >
                 </a>
               </td>
@@ -733,7 +787,7 @@
                   data-title="Enter source"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.source}}
+                  data-value={{model.source}}
                 >
                 </a>
               </td>
@@ -751,7 +805,7 @@
                   data-title="Enter source type"
                   data-placement="right"
                   data-emptytext="Please Input"
-                  {{bind-attr data-value=model.sourceType}}
+                  data-value={{model.sourceType}}
                 >
                 </a>
               </td>
@@ -797,7 +851,7 @@
               </li>
               {{#if model.hdfsBrowserLink}}
               <li>
-                <a target="_blank" {{bind-attr href=model.hdfsBrowserLink}}
+                <a target="_blank" href={{model.hdfsBrowserLink}}
                   title="View on HDFS">
                   <i class="fa fa-database"></i>
                   <span class="hidden-sm hidden-xs">
@@ -807,7 +861,7 @@
               </li>
               {{/if}}
               <li>
-                <a target="_blank" {{bind-attr href=lineageUrl}}
+                <a target="_blank" href={{lineageUrl}}
                   title="View Lineage">
                   <i class="fa fa-sitemap"></i>
                   <span class="hidden-sm hidden-xs">
@@ -817,7 +871,7 @@
               </li>
               {{#if model.hasSchemaHistory}}
                 <li>
-                  <a target="_blank" {{bind-attr href=schemaHistoryUrl}}
+                  <a target="_blank" href={{schemaHistoryUrl}}
                     title="View Schema History">
                     <i class="fa fa-history"></i>
                     <span class="hidden-sm hidden-xs">
@@ -915,11 +969,19 @@
               Relations
             </a>
           </li>
+          <li id="access">
+            <a data-toggle="tab"
+              title="Accessibilities"
+              href="#accesstab">
+              Accessibilities
+            </a>
+          </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
             <div id="propertiestab" class="tab-pane">
-              {{view "property"}}
+              {{#dataset-property hasProperty=hasProperty properties=properties}}
+              {{/dataset-property}}
             </div>
           {{/unless}}
           <div id="commentstab" class="tab-pane">
@@ -927,21 +989,30 @@
             {{/dataset-comments}}
           </div>
           <div id="schematab" class="tab-pane active">
-            {{view "schema"}}
+            {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
+            {{/dataset-schema}}
           </div>
           <div id="ownertab" class="tab-pane">
-            {{view "owner"}}
+            {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
+            {{/dataset-author}}
           </div>
           {{#unless isSFDC}}
             <div id="sampletab" class="tab-pane">
-              {{view "sample"}}
+              {{#dataset-sample hasSamples=hasSamples isPinot=isPinot columns=columns samples=samples}}
+              {{/dataset-sample}}
             </div>
           {{/unless}}
           <div id="impacttab" class="tab-pane">
-            {{view "impact"}}
+            {{#dataset-impact hasImpacts=hasImpacts impacts=impacts}}
+            {{/dataset-impact}}
           </div>
           <div id="dependtab" class="tab-pane">
-            {{view "depend"}}
+            {{#dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
+            {{/dataset-relations}}
+          </div>
+          <div id="accesstab" class="tab-pane">
+            {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
+            {{/dataset-access}}
           </div>
         </div>
       {{else}}
@@ -959,7 +1030,8 @@
           <div id="properties" class="panel-collapse collapse" role="tabpanel" aria-labelledby="propertiesHeading">
             <div class="panel-body">
               <div class="row">
-                {{view "property"}}
+                {{#dataset-property hasProperty=hasProperty properties=properties}}
+                {{/dataset-property}}
               </div>
             </div>
           </div>
@@ -994,7 +1066,8 @@
           </div>
           <div id="schema" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="schemaHeading">
             <div class="panel-body">
-              {{view "schema"}}
+              {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
+              {{/dataset-schema}}
             </div>
           </div>
         </div>
@@ -1010,7 +1083,8 @@
           </div>
           <div id="ownership" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ownershipHeading">
             <div class="panel-body">
-              {{view "owner"}}
+              {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
+              {{/dataset-author}}
             </div>
           </div>
         </div>
@@ -1027,7 +1101,8 @@
           </div>
           <div id="sampleData" class="panel-collapse collapse" role="tabpanel" aria-labelledby="sampleHeading">
             <div class="panel-body">
-              {{view "sample"}}
+              {{#dataset-sample hasSamples=hasSamples isPinot=isPinot columns=columns samples=samples}}
+              {{/dataset-sample}}
             </div>
           </div>
         </div>
@@ -1045,7 +1120,8 @@
           </div>
           <div id="impactAnalysis" class="panel-collapse collapse" role="tabpanel" aria-labelledby="impactsHeading">
             <div class="panel-body">
-              {{view "impact"}}
+              {{#dataset-impact hasImpacts=hasImpacts impacts=impacts}}
+              {{/dataset-impact}}
             </div>
           </div>
         </div>
@@ -1061,7 +1137,25 @@
           </div>
           <div id="dependsview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="impactsHeading">
             <div class="panel-body">
-              {{view "depend"}}
+              {{#dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
+              {{/dataset-relations}}
+            </div>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="accessHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+               href="#accessview" aria-expanded="false" aria-controls="accessData">
+                Accessiblities
+              </a>
+            </h4>
+          </div>
+          <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="accessHeading">
+            <div class="panel-body">
+              {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
+              {{/dataset-access}}
             </div>
           </div>
         </div>
@@ -1139,7 +1233,7 @@
 
             <table class="table table-bordered search-results">
               <tbody>
-                {{#each metric in model.data.metrics}}
+                {{#each model.data.metrics as |metric|}}
                   <tr>
                     <td class="dataset-info">
                       <div class="row">
@@ -1186,8 +1280,10 @@
       </div>
     </script>
 
+
     <script type="text/x-handlebars" id="metric">
-      {{view "detail"}}
+      {{#metric-detail showLineage=showLineage model=model}}
+      {{/metric-detail}}
     </script>
 
     <script type="text/x-handlebars" id="search">
@@ -1196,7 +1292,7 @@
         <div class="btn-group" role="group">
           <button
             type="button"
-            {{bind-attr class=":btn :dropdown-toggle isDatasets:btn-primary:btn-default"}}
+            class="btn dropdown-toggle {{if isDatasets 'btn-primary'}} {{unless isDatasets 'btn-default'}}"
             data-toggle="dropdown"
             aria-expanded="false">
             {{datasetTitle}}
@@ -1257,19 +1353,19 @@
         </div>
         <button
           type="button"
-          {{bind-attr class=":btn isComments:btn-primary:btn-default"}}
+          class="btn {{if isComments 'btn-primary'}} {{unless isComments 'btn-default'}}"
           {{action 'switchSearchToComments' keyword}}>
           Comments
         </button>
         <button
           type="button"
-          {{bind-attr class=":btn isFlows:btn-primary:btn-default"}}
+          class="btn {{if isFlows 'btn-primary'}} {{unless isFlows 'btn-default'}}"
           {{action 'switchSearchToFlow' keyword}}>
           Flows
         </button>
         <button
           type="button"
-          {{bind-attr class=":btn isJobs:btn-primary:btn-default"}}
+          class="btn {{if isJobs 'btn-primary'}} {{unless isJobs 'btn-default'}}"
           {{action 'switchSearchToJob' keyword}}>
           Jobs
         </button>
@@ -1314,7 +1410,7 @@
               {{#if model.isFlowJob}}
               <table id="searchresults" class="search-results searchtable">
                 <tbody>
-                  {{#each flowJob in model.data}}
+                  {{#each model.data as |flowJob|}}
                   <tr class="result">
                     <td class="col-xs-12">
                       <div class="dataset-name">
@@ -1340,7 +1436,7 @@
               {{else}}
               <table id="searchresults" class="search-results searchtable">
                 <tbody>
-                  {{#each dataset in model.data}}
+                  {{#each model.data as |dataset|}}
                   <tr class="result">
                     <td class="col-xs-12">
                       <div class="dataset-name">
@@ -1428,7 +1524,7 @@
             {{#if model.isFlowJob}}
               <table id="searchresults" class="search-results searchtable">
                 <tbody>
-                  {{#each flowJob in model.data}}
+                  {{#each model.data as |flowJob|}}
                   <tr class="result">
                     <td class="col-xs-12">
                       <div class="dataset-name">
@@ -1454,7 +1550,7 @@
             {{else}}
             <table id="searchresults" class="search-results searchtable">
               <tbody>
-                {{#each dataset in model.data}}
+                {{#each model.data as |dataset|}}
                 <tr class="result">
                   <td class="col-xs-12">
                     <div class="dataset-name">
@@ -1554,7 +1650,7 @@
                 </tr>
               </thead>
               <tbody>
-                {{#each flow in model.data.flows}}
+                {{#each model.data.flows as |flow|}}
                   <tr>
                     <td class="wrap-all-word">{{ flow.path }}</td>
                     <td class="dataset-info wrap-all-word">
@@ -1613,7 +1709,7 @@
               <div class="col-xs-5 text-right">
                 <ul class="datasetDetailsLinks">
                   <li {{action 'watchUrn' urn}}>
-                    <i {{bind-attr class=":fa urnWatched:fa-eye-slash:fa-eye"}}></i>
+                    <i class="fa {{if urnWatched 'fa-eye-slash'}} {{unless urnWatched 'fa-eye'}}"></i>
                     <span class="hidden-sm hidden-xs">
                       {{#if urnWatched}}
                         Unwatch
@@ -1623,7 +1719,7 @@
                     </span>
                   </li>
                   <li>
-                    <a target="_blank" {{bind-attr href=lineageUrl}}>
+                    <a target="_blank" href={{lineageUrl}}>
                       <i class="fa fa-sitemap"></i>
                       <span class="hidden-sm hidden-xs">
                         View Lineage
@@ -1665,7 +1761,7 @@
                 </tr>
               </thead>
               <tbody>
-                {{#each job in model.data.jobs}}
+                {{#each model.data.jobs as |job|}}
                   <tr>
                     <td class="wrap-all-word">{{ job.path }}</td>
                     <td class="dataset-info wrap-all-word">
@@ -1705,8 +1801,8 @@
         </div>
       </div>
     </script>
-    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember-template-compiler.js")" type="text/javascript"></script>
-    <script src="@routes.Assets.at("vendors/ember-1.12.0/ember.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-2.6.2/ember-template-compiler.js")" type="text/javascript"></script>
+    <script src="@routes.Assets.at("vendors/ember-2.6.2/ember.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/search.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/tree.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/router.js")" type="text/javascript"></script>
@@ -1721,6 +1817,5 @@
     <script src="@routes.Assets.at("javascripts/components/components.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/components/schema-comment.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/components/editor.js")" type="text/javascript"></script>
-    <script src="@routes.Assets.at("javascripts/views/views.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/main.js")" type="text/javascript"></script>
   }

@@ -31,7 +31,8 @@ class OwnerTransform:
                         INTO TABLE {table}
                         FIELDS TERMINATED BY '\x1a' ESCAPED BY '\0'
                         LINES TERMINATED BY '\n'
-                        ({columns});
+                        ({columns})
+                        SET owner_source = 'AUDIT';
                         """
 
   _update_dataset_id_template = """
@@ -54,6 +55,7 @@ class OwnerTransform:
                           on stg.owner_id = ldap.user_id
                           SET stg.app_id = ldap.app_id,
                           stg.is_group = 'N',
+                          stg.owner_id_type = 'user',
                           stg.is_active = ldap.is_active
                           """
 
@@ -63,6 +65,7 @@ class OwnerTransform:
                           on stg.owner_id = ldap.group_id
                           SET stg.app_id = ldap.app_id,
                           stg.is_group = 'Y',
+                          stg.owner_id_type = 'group',
                           stg.is_active = 'Y'
                           """
 

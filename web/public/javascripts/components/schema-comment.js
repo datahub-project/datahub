@@ -497,7 +497,10 @@ App.SchemaCommentComponent = Ember.Component.extend({
           })
           .on('hidden.bs.modal', function(){
             _this.set('propModal', false)
-            _this.sendAction('getSchema')
+            if (_this.parentView && _this.parentView.controller)
+            {
+              _this.parentView.controller.send('getSchema')
+            }
             $("#datasetSchemaColumnCommentModal").modal('hide');
           })
       }, 300)

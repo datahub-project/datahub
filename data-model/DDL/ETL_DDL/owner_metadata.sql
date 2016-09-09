@@ -21,6 +21,8 @@ CREATE TABLE dataset_owner (
   `namespace` VARCHAR(127) COMMENT 'the namespace of the user',
   `owner_type` VARCHAR(127) COMMENT 'Producer, Consumer, Stakeholder',
   `owner_sub_type` VARCHAR(127) COMMENT 'DWH, UMP, BA, etc',
+  `owner_id_type` VARCHAR(127) COMMENT 'user, group, service, or urn',
+  `owner_source`  VARCHAR(127) COMMENT 'where the owner info is extracted: JIRA,RB,DB,FS,AUDIT',
   `db_ids` VARCHAR(127) COMMENT 'comma separated database ids',
   `is_group` CHAR(1) COMMENT 'if owner is a group',
   `is_active` CHAR(1) COMMENT 'if owner is active',
@@ -43,6 +45,8 @@ CREATE TABLE stg_dataset_owner (
   `namespace` VARCHAR(127) COMMENT 'the namespace of the user',
   `owner_type` VARCHAR(127) COMMENT 'Producer, Consumer, Stakeholder',
   `owner_sub_type` VARCHAR(127) COMMENT 'DWH, UMP, BA, etc',
+  `owner_id_type` VARCHAR(127) COMMENT 'user, group, service, or urn',
+  `owner_source`  VARCHAR(127) COMMENT 'where the owner info is extracted: JIRA,RB,DB,FS,AUDIT',
   `is_group` CHAR(1) COMMENT 'if owner is a group',
   `db_name` VARCHAR(127) COMMENT 'database name',
   `db_id` INT COMMENT 'database id',
@@ -54,7 +58,6 @@ CREATE TABLE stg_dataset_owner (
   KEY db_name_index (db_name)
 );
 
-
 CREATE TABLE stg_dataset_owner_unmatched (
   `dataset_urn` VARCHAR(200) NOT NULL,
   `owner_id` VARCHAR(127) NOT NULL,
@@ -63,6 +66,8 @@ CREATE TABLE stg_dataset_owner_unmatched (
   `namespace` VARCHAR(127) COMMENT 'the namespace of the user',
   `owner_type` VARCHAR(127) COMMENT 'Producer, Consumer, Stakeholder',
   `owner_sub_type` VARCHAR(127) COMMENT 'DWH, UMP, BA, etc',
+  `owner_id_type` VARCHAR(127) COMMENT 'user, group, role, service, or urn',
+  `owner_source`  VARCHAR(127) COMMENT 'where the owner info is extracted: JIRA,RB,DB,FS,AUDIT',
   `is_group` CHAR(1) COMMENT 'if owner is a group',
   `db_name` VARCHAR(127) COMMENT 'database name',
   `db_id` INT COMMENT 'database id',
@@ -111,4 +116,3 @@ CREATE TABLE `dir_external_group_user_map` (
   `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-

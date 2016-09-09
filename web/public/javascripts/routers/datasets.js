@@ -1,7 +1,3 @@
-function initializeColumnTreeGrid()
-{
-  $('#json-table').treegrid();
-}
 
 function initializeDependsTreeGrid()
 {
@@ -512,6 +508,23 @@ App.DatasetRoute = Ember.Route.extend({
         else
         {
           controller.set("hasDepends", false);
+        }
+      }
+    });
+
+    var datasetPartitionsUrl = 'api/v1/datasets/' + id + "/access";
+    var datasetAccessibilities = [];
+    $.get(datasetPartitionsUrl, function(data) {
+      if (data && data.status == "ok")
+      {
+        if (data.access && (data.access.length > 0))
+        {
+          controller.set("hasAccess", true);
+          controller.set("accessibilities", data.access);
+        }
+        else
+        {
+          controller.set("hasAccess", false);
         }
       }
     });
