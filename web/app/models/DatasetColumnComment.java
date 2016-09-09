@@ -23,4 +23,5 @@ public class DatasetColumnComment {
   public String created;
   public String modified;
   public boolean isDefault;
+  public Boolean isAuthor;
 }

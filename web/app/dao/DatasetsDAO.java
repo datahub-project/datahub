@@ -943,7 +943,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static ObjectNode getPagedDatasetComments(int id, int page, int size)
+	public static ObjectNode getPagedDatasetComments(String userName, int id, int page, int size)
 	{
 		ObjectNode result = Json.newObject();
 
@@ -967,6 +967,17 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 							Long.class);
 				} catch (EmptyResultDataAccessException e) {
 					Logger.error("Exception = " + e.getMessage());
+				}
+
+				if (pagedComments != null)
+				{
+					for(DatasetComment dc : pagedComments)
+					{
+						if(StringUtils.isNotBlank(userName) && userName.equalsIgnoreCase(dc.authorUserName))
+						{
+							dc.isAuthor = true;
+						}
+					}
 				}
 
 				ObjectNode resultNode = Json.newObject();
@@ -1256,7 +1267,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return message;
 	}
 
-	public static ObjectNode getPagedDatasetColumnComments(int datasetId, int columnId, int page, int size)
+	public static ObjectNode getPagedDatasetColumnComments(String userName, int datasetId, int columnId, int page, int size)
 	{
 		ObjectNode result = Json.newObject();
 
@@ -1310,6 +1321,17 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				}
 				catch (EmptyResultDataAccessException e) {
 					Logger.error("Exception = " + e.getMessage());
+				}
+
+				if (pagedComments != null)
+				{
+					for(DatasetColumnComment dc : pagedComments)
+					{
+						if(StringUtils.isNotBlank(userName) && userName.equalsIgnoreCase(dc.authorUsername))
+						{
+							dc.isAuthor = true;
+						}
+					}
 				}
 
 				resultNode.set("comments", Json.toJson(pagedComments));
