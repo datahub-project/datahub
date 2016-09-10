@@ -13,7 +13,11 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class DatasetGeographicAffinityRecord extends AbstractRecord {
@@ -37,8 +41,11 @@ public class DatasetGeographicAffinityRecord extends AbstractRecord {
   @Override
   public String toString() {
     try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
+      Map<String, String> valueMap = new HashMap<>();
+      valueMap.put("affinity", affinity);
+      valueMap.put("locations", locations.toString());
+      return new ObjectMapper().writeValueAsString(valueMap);
+    } catch (JsonProcessingException ex) {
       return null;
     }
   }

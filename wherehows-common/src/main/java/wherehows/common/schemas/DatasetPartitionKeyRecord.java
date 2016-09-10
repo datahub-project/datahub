@@ -13,28 +13,20 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
 
-public class DatasetPartitionKeyRecord extends AbstractRecord {
+public class DatasetPartitionKeyRecord {
 
   String partitionLevel;
   String partitionType;
   String timeFormat;
   String granularity;
   List<String> fieldNames;
+  List<String> partitionValues;
   Integer numberOfHashBuckets;
-
-  @Override
-  public String[] getDbColumnNames() {
-    return new String[]{"partition_level", "partition_type", "time_format", "granularity", "field_names",
-        "number_of_hash_buckets"};
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
 
   public DatasetPartitionKeyRecord() {
   }
@@ -42,8 +34,8 @@ public class DatasetPartitionKeyRecord extends AbstractRecord {
   @Override
   public String toString() {
     try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
+      return new ObjectMapper().writeValueAsString(this);
+    } catch (JsonProcessingException ex) {
       return null;
     }
   }
@@ -86,6 +78,14 @@ public class DatasetPartitionKeyRecord extends AbstractRecord {
 
   public void setFieldNames(List<String> fieldNames) {
     this.fieldNames = fieldNames;
+  }
+
+  public List<String> getPartitionValues() {
+    return partitionValues;
+  }
+
+  public void setPartitionValues(List<String> partitionValues) {
+    this.partitionValues = partitionValues;
   }
 
   public Integer getNumberOfHashBuckets() {

@@ -87,6 +87,8 @@ public class DatasetInfoDao {
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_CONSTRAINT_TABLE);
   private static final DatabaseWriter INDEX_WRITER =
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_INDEX_TABLE);
+  private static final DatabaseWriter DICT_DATASET_WRITER =
+      new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, "dict_dataset");
   private static final DatabaseWriter SCHEMA_WRITER =
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_SCHEMA_TABLE);
   private static final DatabaseWriter FIELD_DETAIL_WRITER =
@@ -183,6 +185,9 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_SCHEMA_BY_URN =
       "SELECT * FROM " + DATASET_SCHEMA_TABLE + " WHERE dataset_urn = :dataset_urn";
 
+  public static final String UPDATE_DICT_DATASET_WITH_SCHEMA_CHANGE =
+      "UPDATE dict_dataset SET `schema`=?, `schema_type`=?, `fields`=?, `source`=?, `modified_time`=? WHERE `id`=?";
+
   public static final String GET_DATASET_FIELDS_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_FIELD_DETAIL_TABLE + " WHERE dataset_id = :dataset_id";
 
@@ -211,9 +216,9 @@ public class DatasetInfoDao {
 
   public static void updateDatasetDeployment(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
-    final JsonNode deployment = root.path("deployment_info");
+    final JsonNode deployment = root.path("deploymentInfo");
 
     if (auditHeader.isMissingNode() || urnNode.isMissingNode() || deployment.isMissingNode() || !deployment.isArray()) {
       throw new IllegalArgumentException(
@@ -226,7 +231,7 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
+    // om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode deploymentInfo : deployment) {
       DatasetDeploymentRecord record = om.convertValue(deploymentInfo, DatasetDeploymentRecord.class);
@@ -256,7 +261,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetCapacity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode capacity = root.path("capacity");
 
@@ -271,7 +276,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode capacityInfo : capacity) {
       DatasetCapacityRecord record = om.convertValue(capacityInfo, DatasetCapacityRecord.class);
@@ -301,7 +305,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetTags(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode tags = root.path("tags");
 
@@ -344,9 +348,9 @@ public class DatasetInfoDao {
 
   public static void updateDatasetCaseSensitivity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
-    final JsonNode caseSensitivity = root.path("case_sensitivity");
+    final JsonNode caseSensitivity = root.path("caseSensitivity");
 
     if (auditHeader.isMissingNode() || urnNode.isMissingNode() || caseSensitivity.isMissingNode()) {
       throw new IllegalArgumentException(
@@ -359,7 +363,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     DatasetCaseSensitiveRecord record = om.convertValue(caseSensitivity, DatasetCaseSensitiveRecord.class);
     record.setDataset(datasetId, urn);
@@ -393,7 +396,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetReference(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode references = root.path("references");
 
@@ -408,7 +411,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode reference : references) {
       DatasetReferenceRecord record = om.convertValue(reference, DatasetReferenceRecord.class);
@@ -438,9 +440,9 @@ public class DatasetInfoDao {
 
   public static void updateDatasetPartition(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
-    final JsonNode partition = root.path("partition_spec");
+    final JsonNode partition = root.path("partitionSpec");
 
     if (auditHeader.isMissingNode() || urnNode.isMissingNode() || partition.isMissingNode()) {
       throw new IllegalArgumentException(
@@ -453,7 +455,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     DatasetPartitionRecord record = om.convertValue(partition, DatasetPartitionRecord.class);
     record.setDataset(datasetId, urn);
@@ -471,11 +472,13 @@ public class DatasetInfoDao {
     }
 
     // update dataset field partitioned
-    for (DatasetPartitionKeyRecord partitionKey : record.getPartitionKeys()) {
-      List<String> fieldNames = partitionKey.getFieldNames();
-      for (String fieldName : fieldNames) {
-        FIELD_DETAIL_WRITER.execute(UPDATE_DATASET_FIELD_PARTITIONED_BY_FIELDNAME,
-            new Object[]{"Y", datasetId, fieldName});
+    if (record.getPartitionKeys() != null) {
+      for (DatasetPartitionKeyRecord partitionKey : record.getPartitionKeys()) {
+        List<String> fieldNames = partitionKey.getFieldNames();
+        for (String fieldName : fieldNames) {
+          FIELD_DETAIL_WRITER.execute(UPDATE_DATASET_FIELD_PARTITIONED_BY_FIELDNAME,
+              new Object[]{"Y", datasetId, fieldName});
+        }
       }
     }
   }
@@ -496,9 +499,9 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSecurity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
-    final JsonNode security = root.path("security_spec");
+    final JsonNode security = root.path("securitySpec");
 
     if (auditHeader.isMissingNode() || urnNode.isMissingNode() || security.isMissingNode()) {
       throw new IllegalArgumentException(
@@ -511,7 +514,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     DatasetSecurityRecord record = om.convertValue(security, DatasetSecurityRecord.class);
     record.setDataset(datasetId, urn);
@@ -545,7 +547,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetOwner(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode owners = root.path("owners");
 
@@ -565,7 +567,6 @@ public class DatasetInfoDao {
     }
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     List<DatasetOwnerRecord> ownerList = new ArrayList<>();
     int sortId = 0;
@@ -618,8 +619,7 @@ public class DatasetInfoDao {
           rec.setCreatedTime(StringUtil.toLong(old.get("created_time")));
 
           // take the higher priority owner category
-          rec.setOwnerCategory(
-              OwnerType.chooseOwnerType(rec.getOwnerCategory(), (String) old.get("owner_type")));
+          rec.setOwnerCategory(OwnerType.chooseOwnerType(rec.getOwnerCategory(), (String) old.get("owner_type")));
 
           // merge owner source as comma separated list
           rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), (String) old.get("owner_source")));
@@ -695,7 +695,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetConstraint(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode constraints = root.path("constraints");
 
@@ -711,7 +711,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode constraint : constraints) {
       DatasetConstraintRecord record = om.convertValue(constraint, DatasetConstraintRecord.class);
@@ -741,7 +740,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetIndex(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode indices = root.path("indices");
 
@@ -756,7 +755,6 @@ public class DatasetInfoDao {
     final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode index : indices) {
       DatasetIndexRecord record = om.convertValue(index, DatasetIndexRecord.class);
@@ -794,7 +792,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSchema(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("audit_header");
+    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
     final JsonNode schemas = root.path("schemas");
 
@@ -813,7 +811,6 @@ public class DatasetInfoDao {
     }
 
     ObjectMapper om = new ObjectMapper();
-    om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     DatasetSchemaInfoRecord rec = om.convertValue(schemas, DatasetSchemaInfoRecord.class);
     rec.setDataset(datasetId, urn);
@@ -823,7 +820,7 @@ public class DatasetInfoDao {
     if (datasetId == 0) {
       DatasetRecord record = new DatasetRecord();
       record.setUrn(urn);
-      record.setSourceCreatedTime(rec.getCreateTime().toString());
+      record.setSourceCreatedTime("" + rec.getCreateTime() / 1000);
       record.setSchema(rec.getOriginalSchema());
       record.setSchemaType(rec.getFormat());
       record.setFields(rec.getFieldSchema().toString());
@@ -834,11 +831,15 @@ public class DatasetInfoDao {
       String[] urnPaths = urnType.abstractObjectName.split("/");
       record.setName(urnPaths[urnPaths.length - 1]);
 
-      DatabaseWriter dw = new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, "dict_dataset");
-      dw.append(record);
-      dw.close();
+      DICT_DATASET_WRITER.append(record);
+      DICT_DATASET_WRITER.close();
 
       datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    }
+    // if dataset already exist in dict_dataset, update info
+    else {
+      DICT_DATASET_WRITER.execute(UPDATE_DICT_DATASET_WITH_SCHEMA_CHANGE,
+          new Object[]{rec.getOriginalSchema(), rec.getFormat(), rec.getFieldSchema().toString(), "API", eventTime, datasetId});
     }
 
     // get old dataset fields info
@@ -870,12 +871,15 @@ public class DatasetInfoDao {
     }
     // remove old info then insert new info
     FIELD_DETAIL_WRITER.execute(DELETE_DATASET_FIELDS_BY_DATASET_ID, new Object[]{datasetId});
-    String sql = PreparedStatementUtil.prepareInsertTemplateWithColumn(DATASET_FIELD_DETAIL_TABLE,
-        rec.getFieldSchema().get(0).getFieldDetailColumns());
-    for (DatasetFieldSchemaRecord field : rec.getFieldSchema()) {
-      FIELD_DETAIL_WRITER.execute(sql, field.getFieldDetailValues());
+    if (rec.getFieldSchema().size() > 0) {
+      String sql = PreparedStatementUtil.prepareInsertTemplateWithColumn(DATASET_FIELD_DETAIL_TABLE,
+          rec.getFieldSchema().get(0).getFieldDetailColumns());
+      for (DatasetFieldSchemaRecord field : rec.getFieldSchema()) {
+        FIELD_DETAIL_WRITER.execute(sql, field.getFieldDetailValues());
+      }
     }
 
+    // insert/update new schema info
     try {
       Map<String, Object> result = getDatasetSchemaByDatasetUrn(urn);
       String[] columns = rec.getDbColumnNames();
