@@ -19,8 +19,8 @@ from wherehows.common import Constant
 
 
 class HiveLoad:
-  def __init__(self):
-    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+  def __init__(self, wh_etl_exec_id='0'):
+    self.logger = LoggerFactory.getLogger("%s[%s]" % (self.__class__.__name__, wh_etl_exec_id))
 
   def load_metadata(self):
     cursor = self.conn_mysql.cursor()
@@ -160,7 +160,7 @@ class HiveLoad:
           from stg_dict_field_detail s
                join dict_field_detail x
            on s.field_name = x.field_name
-          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+          and s.parent_path = x.parent_path
           and s.dataset_id = x.dataset_id
           where s.db_id = {db_id}
             and (x.sort_id <> s.sort_id
@@ -428,7 +428,7 @@ class HiveLoad:
 if __name__ == "__main__":
   args = sys.argv[1]
 
-  l = HiveLoad()
+  l = HiveLoad(args[Constant.WH_EXEC_ID_KEY])
 
   # set up connection
   username = args[Constant.WH_DB_USERNAME_KEY]
