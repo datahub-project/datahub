@@ -13,24 +13,15 @@
  */
 package wherehows.common.schemas;
 
-import java.util.List;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
-public class DatasetLocaleRecord extends AbstractRecord {
+public class DatasetLocaleRecord {
 
   String language;
   String country;
   String variant;
-
-  @Override
-  public String[] getDbColumnNames() {
-    return new String[]{"language", "country", "variant"};
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
 
   public DatasetLocaleRecord() {
   }
@@ -38,8 +29,8 @@ public class DatasetLocaleRecord extends AbstractRecord {
   @Override
   public String toString() {
     try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
+      return new ObjectMapper().writeValueAsString(this);
+    } catch (JsonProcessingException ex) {
       return null;
     }
   }

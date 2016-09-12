@@ -344,6 +344,11 @@ public class Dataset extends Controller
     public static Result getPagedDatasetComments(int id)
     {
         ObjectNode result = Json.newObject();
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
 
         int page = 1;
         String pageStr = request().getQueryString("page");
@@ -386,7 +391,7 @@ public class Dataset extends Controller
         }
 
         result.put("status", "ok");
-        result.set("data", DatasetsDAO.getPagedDatasetComments(id, page, size));
+        result.set("data", DatasetsDAO.getPagedDatasetComments(username, id, page, size));
         return ok(result);
     }
 
@@ -577,6 +582,12 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
 
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+
         int page = 1;
         String pageStr = request().getQueryString("page");
         if (StringUtils.isBlank(pageStr))
@@ -618,7 +629,7 @@ public class Dataset extends Controller
         }
 
         result.put("status", "ok");
-        result.set("data", DatasetsDAO.getPagedDatasetColumnComments(datasetId, columnId, page, size));
+        result.set("data", DatasetsDAO.getPagedDatasetColumnComments(username, datasetId, columnId, page, size));
         return ok(result);
     }
 

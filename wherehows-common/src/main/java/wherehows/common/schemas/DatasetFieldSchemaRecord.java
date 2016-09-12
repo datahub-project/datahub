@@ -13,6 +13,8 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
 
@@ -80,8 +82,8 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   @Override
   public String toString() {
     try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
+      return new ObjectMapper().writeValueAsString(this.getFieldValueMap());
+    } catch (Exception ex) {
       return null;
     }
   }

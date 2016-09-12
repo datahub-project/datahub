@@ -276,11 +276,7 @@ App.SchemaCommentComponent = Ember.Component.extend({
     , function(data){
         var comments = data.data.comments
         comments.forEach(function(cmnt){
-          cmnt.isAuthor = false
-          cmnt.html = marked(cmnt.text).htmlSafe()
-          if(cmnt.authorUsername === $("#username").text().trim()) {
-            cmnt.isAuthor = true
-          }
+          cmnt.html = marked(cmnt.text).htmlSafe();
         })
         _this.set('comments', comments)
         _this.set('page', data.data.page)

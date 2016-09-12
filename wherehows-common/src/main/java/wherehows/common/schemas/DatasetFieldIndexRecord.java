@@ -13,10 +13,11 @@
  */
 package wherehows.common.schemas;
 
-import java.util.List;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 
-public class DatasetFieldIndexRecord extends AbstractRecord {
+public class DatasetFieldIndexRecord {
 
   Integer position;
   String fieldPath;
@@ -24,24 +25,14 @@ public class DatasetFieldIndexRecord extends AbstractRecord {
   Integer prefixLength;
   String filter;
 
-  @Override
-  public String[] getDbColumnNames() {
-    return new String[]{"position", "field_path", "descend", "prefix_length", "filter"};
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
-
   public DatasetFieldIndexRecord() {
   }
 
   @Override
   public String toString() {
     try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
+      return new ObjectMapper().writeValueAsString(this);
+    } catch (JsonProcessingException ex) {
       return null;
     }
   }
