@@ -19,8 +19,8 @@ from wherehows.common import Constant
 
 
 class HdfsLoad:
-  def __init__(self):
-    self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+  def __init__(self, exec_id):
+    self.logger = LoggerFactory.getLogger(self.__class__.__name__ + ':' + str(exec_id))
 
   def load_metadata(self):
     """
@@ -29,12 +29,13 @@ class HdfsLoad:
     """
     cursor = self.conn_mysql.cursor()
     load_cmd = '''
-        DELETE FROM stg_dict_dataset WHERE db_id = '{db_id}';
+        DELETE FROM stg_dict_dataset WHERE db_id = {db_id};
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_dataset
         FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
-        (`name`, `schema`, properties, fields, urn, source, sample_partition_full_path, source_created_time, source_modified_time)
+        (`name`, `schema`, properties, fields, urn, source,  @dataset_type, @storage_type,
+        sample_partition_full_path, source_created_time, source_modified_time)
         SET db_id = {db_id},
         wh_etl_exec_id = {wh_etl_exec_id};
 
@@ -113,10 +114,10 @@ class HdfsLoad:
         ( `name`,
           `schema`,
           schema_type,
-          fields,
+          `fields`,
           properties,
           urn,
-          source,
+          `source`,
           location_prefix,
           parent_name,
           storage_type,
@@ -143,8 +144,8 @@ class HdfsLoad:
         from stg_dict_dataset s
         where s.db_id = {db_id}
         on duplicate key update
-          `name`=s.name, `schema`=s.schema, schema_type=s.schema_type, fields=s.fields,
-          properties=s.properties, source=s.source, location_prefix=s.location_prefix, parent_name=s.parent_name,
+          `name`=s.name, `schema`=s.schema, schema_type=s.schema_type, `fields`=s.fields,
+          properties=s.properties, `source`=s.source, location_prefix=s.location_prefix, parent_name=s.parent_name,
           storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, status_id=s.status_id,
           dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
           partition_layout_pattern_id=s.partition_layout_pattern_id, sample_partition_full_path=s.sample_partition_full_path,
@@ -267,14 +268,14 @@ class HdfsLoad:
         update dict_field_detail t join
         (
           select x.field_id, s.*
-          from stg_dict_field_detail s join dict_dataset d
-            on s.urn = d.urn
-               join dict_field_detail x
-           on s.field_name = x.field_name
-          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-          and d.id = x.dataset_id
-          where s.db_id = {db_id}
-            and (x.sort_id <> s.sort_id
+          from (select * from stg_dict_field_detail where db_id = {db_id}) s
+            join dict_dataset d
+              on s.urn = d.urn
+            join dict_field_detail x
+              on s.field_name = x.field_name
+              and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
+              and d.id = x.dataset_id
+          where (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
                 or x.data_type <> s.data_type
                 or x.data_size <> s.data_size or (x.data_size is null XOR s.data_size is null)
@@ -376,9 +377,9 @@ class HdfsLoad:
 
     -- update reference id in stagging table
     UPDATE  stg_dict_dataset_sample s
-    LEFT JOIN dict_dataset d ON s.ref_urn = d.urn
+    JOIN dict_dataset d ON s.ref_urn = d.urn
     SET s.ref_id = d.id
-    WHERE s.db_id = {db_id};
+    WHERE s.db_id = {db_id} AND s.ref_urn > '' AND s.ref_urn <> 'null';
 
     -- first insert ref_id as 0
     INSERT INTO dict_dataset_sample
@@ -389,7 +390,7 @@ class HdfsLoad:
       created
     )
     select d.id as dataset_id, s.urn, s.ref_id, s.data, now()
-    from stg_dict_dataset_sample s left join dict_dataset d on d.urn = s.urn
+    from stg_dict_dataset_sample s join dict_dataset d on d.urn = s.urn
           where s.db_id = {db_id}
     on duplicate key update
       `data`=s.data, modified=now();
@@ -411,7 +412,7 @@ class HdfsLoad:
 if __name__ == "__main__":
   args = sys.argv[1]
 
-  l = HdfsLoad()
+  l = HdfsLoad(args[Constant.WH_EXEC_ID_KEY])
 
   # set up connection
   username = args[Constant.WH_DB_USERNAME_KEY]
