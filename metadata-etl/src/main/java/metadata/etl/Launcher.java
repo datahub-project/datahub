@@ -35,6 +35,7 @@ public class Launcher {
   public static final String JOB_NAME_KEY = "job";
   public static final String REF_ID_KEY = "refId";
   public static final String WH_ETL_EXEC_ID_KEY = "whEtlId";
+  public static final String LOGGER_CONTEXT_NAME_KEY = "CONTEXT_NAME";
 
   /** command line config file location parameter key */
   private static final String CONFIG_FILE_LOCATION_KEY = "config";
@@ -53,15 +54,16 @@ public class Launcher {
     String property_file = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
     String etlJobNameString = null;
     int refId = 0;
-    long whEtlId = 0;
+    long whEtlExecId = 0;
     Properties props = new Properties();
 
     try (InputStream propFile = new FileInputStream(property_file)) {
       props.load(propFile);
       etlJobNameString = props.getProperty(JOB_NAME_KEY);
       refId = Integer.valueOf(props.getProperty(REF_ID_KEY));
-      whEtlId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
+      whEtlExecId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
 
+      System.setProperty(LOGGER_CONTEXT_NAME_KEY, etlJobNameString);
     } catch (IOException e) {
        //logger.error("property file '{}' not found" , property_file);
       e.printStackTrace();
@@ -70,7 +72,7 @@ public class Launcher {
 
     // create the etl job
     EtlJobName etlJobName = EtlJobName.valueOf(etlJobNameString);
-    EtlJob etlJob = EtlJobFactory.getEtlJob(etlJobName, refId, whEtlId, props);
+    EtlJob etlJob = EtlJobFactory.getEtlJob(etlJobName, refId, whEtlExecId, props);
 
     try {
       etlJob.run();
@@ -82,7 +84,7 @@ public class Launcher {
       System.exit(1);
     }
 
-    logger.info("whEtlId: " + whEtlId + " now stop");
+    logger.info("whEtlExecId=" + whEtlExecId + " finished.");
     System.exit(0);
 
   }

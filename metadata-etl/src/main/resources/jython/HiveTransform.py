@@ -104,8 +104,13 @@ class HiveTransform:
 
         if TableInfo.view_expended_text in prop_json:
           view_expanded_text = prop_json[TableInfo.view_expended_text]
-          text = prop_json[TableInfo.view_expended_text].replace('`', '')
-          array = HiveViewDependency.getViewDependency(text)
+          text = prop_json[TableInfo.view_expended_text].replace('`', '')	# this will be fixed after switching to Hive AST
+          array = []
+          try:
+            array = HiveViewDependency.getViewDependency(text)
+          except:
+            self.logger.error("HiveViewDependency.getViewDependency(%s) failed!" % (table['name']))
+
           l = []
           for a in array:
             l.append(a)
@@ -163,9 +168,13 @@ class HiveTransform:
           else:
             uri = "hive:///%s/%s" % (one_db_info['database'], table['dataset_name'])
           self.logger.info("Getting column definition for: %s" % (uri))
-          hcp = HiveColumnParser(table, urn = uri)
-          schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
-          field_detail_list += hcp.column_type_list
+          try:
+            hcp = HiveColumnParser(table, urn = uri)
+            schema_json = {'fields' : hcp.column_type_dict['fields'], 'type' : 'record', 'name' : table['name'], 'uri' : uri}
+            field_detail_list += hcp.column_type_list
+          except:
+            self.logger.error("HiveColumnParser(%s) failed!" % (uri))
+            schema_json = {'fields' : {}, 'type' : 'record', 'name' : table['name'], 'uri' : uri}
 
         if one_db_info['type'].lower() == 'dalids':
           dataset_urn = "dalids:///%s/%s" % (one_db_info['database'], table['dataset_name'])

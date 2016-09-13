@@ -28,6 +28,9 @@ public class Constant {
   /** The property_name field in wh_property table. Location of the folder that store interim csv file. */
   public static final String WH_APP_FOLDER_KEY = "wherehows.app_folder";
 
+  /** The property_name for logback CONTEXT_NAME. Used to set/fetch the system property */
+  public static final String LOGGER_CONTEXT_NAME_KEY = "CONTEXT_NAME";
+
   // For property_name in wh_etl_job_property table
   // Lineage
   /** The property_name field in wh_etl_job_property table. Azkaban database connection info */
