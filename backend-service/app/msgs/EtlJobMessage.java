@@ -98,6 +98,8 @@ public class EtlJobMessage {
    * @return
    */
   public String toDebugString() {
-    return "jobtype:" + this.etlJobName.name() + "\trefId:" + this.refId + "\trefIdType:" + this.refIdType + "\twhEtlJobId:" + this.whEtlJobId + "\twhEtlExecId" + this.whEtlExecId;
+    return String.format("(jobType:%1s refIdType:%2s refId:%3d whEtlJobId:%4d whEtlExecId:%5d)",
+                         this.etlJobName.name(), this.refIdType, this.refId,
+                         this.whEtlJobId, this.whEtlExecId);
   }
 }
