@@ -15,9 +15,10 @@ package models.daos;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ import wherehows.common.schemas.DatasetDeploymentRecord;
 import wherehows.common.schemas.DatasetFieldIndexRecord;
 import wherehows.common.schemas.DatasetFieldSchemaRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
+import wherehows.common.schemas.DatasetInventoryItemRecord;
 import wherehows.common.schemas.DatasetOwnerRecord;
 import wherehows.common.schemas.DatasetPartitionKeyRecord;
 import wherehows.common.schemas.DatasetPartitionRecord;
@@ -62,6 +64,7 @@ public class DatasetInfoDao {
   private static final String DATASET_INDEX_TABLE = "dataset_index";
   private static final String DATASET_SCHEMA_TABLE = "dataset_schema_info";
   private static final String DATASET_FIELD_DETAIL_TABLE = "dict_field_detail";
+  private static final String DATASET_INVENTORY_TABLE = "dataset_inventory";
   private static final String EXTERNAL_USER_TABLE = "dir_external_user_info";
   private static final String EXTERNAL_GROUP_TABLE = "dir_external_group_user_map";
 
@@ -93,6 +96,8 @@ public class DatasetInfoDao {
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_SCHEMA_TABLE);
   private static final DatabaseWriter FIELD_DETAIL_WRITER =
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_FIELD_DETAIL_TABLE);
+  private static final DatabaseWriter INVENTORY_WRITER =
+      new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_INVENTORY_TABLE);
 
   public static final String GET_DATASET_DEPLOYMENT_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_DEPLOYMENT_TABLE + " WHERE dataset_id = :dataset_id";
@@ -199,6 +204,14 @@ public class DatasetInfoDao {
 
   public static final String UPDATE_DATASET_FIELD_PARTITIONED_BY_FIELDNAME =
       "UPDATE " + DATASET_FIELD_DETAIL_TABLE + " SET is_partitioned=? WHERE dataset_id=? AND field_name=?";
+
+  public static final String GET_DATASET_INVENTORY_ITEMS =
+      "SELECT * FROM " + DATASET_INVENTORY_TABLE + " WHERE data_platform = :data_platform AND native_name = :native_name "
+          + "AND data_origin = :data_origin ORDER BY event_date DESC LIMIT :limit";
+
+  public static final String INSERT_DATASET_INVENTORY_ITEM =
+      PreparedStatementUtil.prepareInsertTemplateWithColumn("REPLACE", DATASET_INVENTORY_TABLE,
+          DatasetInventoryItemRecord.getInventoryItemColumns());
 
   public static List<Map<String, Object>> getDatasetDeploymentByDatasetId(int datasetId)
       throws DataAccessException {
@@ -898,5 +911,45 @@ public class DatasetInfoDao {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
     return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_FIELDS_BY_DATASET_ID, params);
+  }
+
+  public static List<Map<String, Object>> getDatasetInventoryItems(String dataPlatform,
+      String nativeName, String dataOrigin, int limit)
+      throws DataAccessException {
+    Map<String, Object> params = new HashMap<>();
+    params.put("data_platform", dataPlatform);
+    params.put("native_name", nativeName);
+    params.put("data_origin", dataOrigin);
+    params.put("limit", limit);
+    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_INVENTORY_ITEMS, params);
+  }
+
+  public static void updateDatasetInventory(JsonNode root)
+      throws Exception {
+    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode dataPlatform = root.path("dataPlatformUrn");
+    final JsonNode datasetList = root.path("datasetList");
+
+    if (auditHeader.isMissingNode() || dataPlatform.isMissingNode() || datasetList.isMissingNode()) {
+      throw new IllegalArgumentException(
+          "Dataset inventory info update fail, " + "Json missing necessary fields: " + root.toString());
+    }
+
+    final Long eventTime = auditHeader.get("time").asLong();
+    final String eventDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date(eventTime));
+    final String dataPlatformUrn = dataPlatform.asText();
+
+    final ObjectMapper om = new ObjectMapper();
+
+    for (JsonNode datasetItem : datasetList) {
+      try {
+        DatasetInventoryItemRecord item = om.convertValue(datasetItem, DatasetInventoryItemRecord.class);
+        item.setDataPlatformUrn(dataPlatformUrn);
+        item.setEventDate(eventDate);
+        INVENTORY_WRITER.execute(INSERT_DATASET_INVENTORY_ITEM, item.getInventoryItemValues());
+      } catch (Exception ex) {
+        Logger.debug("Dataset inventory item insertion error. ", ex);
+      }
+    }
   }
 }
