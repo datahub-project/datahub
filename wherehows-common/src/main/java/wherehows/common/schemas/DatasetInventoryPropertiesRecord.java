@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 
-public class DatasetPropertiesRecord extends AbstractRecord {
+public class DatasetInventoryPropertiesRecord extends AbstractRecord {
 
   DatasetChangeAuditStamp changeAuditStamp;
   String nativeType;
@@ -37,7 +37,7 @@ public class DatasetPropertiesRecord extends AbstractRecord {
     return null;
   }
 
-  public DatasetPropertiesRecord() {
+  public DatasetInventoryPropertiesRecord() {
   }
 
   @Override

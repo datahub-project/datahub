@@ -20,7 +20,7 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
 
   String nativeName;
   String dataOrigin;
-  DatasetPropertiesRecord datasetProperties;
+  DatasetInventoryPropertiesRecord datasetProperties;
   String dataPlatformUrn;
   String eventDate;
 
@@ -72,11 +72,11 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
     this.dataOrigin = dataOrigin;
   }
 
-  public DatasetPropertiesRecord getDatasetProperties() {
+  public DatasetInventoryPropertiesRecord getDatasetProperties() {
     return datasetProperties;
   }
 
-  public void setDatasetProperties(DatasetPropertiesRecord datasetProperties) {
+  public void setDatasetProperties(DatasetInventoryPropertiesRecord datasetProperties) {
     this.datasetProperties = datasetProperties;
   }
 
