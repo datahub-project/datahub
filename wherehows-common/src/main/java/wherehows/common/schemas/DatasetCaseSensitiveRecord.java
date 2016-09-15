@@ -13,7 +13,11 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class DatasetCaseSensitiveRecord extends AbstractRecord {
@@ -36,6 +40,19 @@ public class DatasetCaseSensitiveRecord extends AbstractRecord {
   }
 
   public DatasetCaseSensitiveRecord() {
+  }
+
+  @Override
+  public String toString() {
+    try {
+      Map<String, Object> valueMap = new HashMap<>();
+      valueMap.put("datasetName", datasetName);
+      valueMap.put("fieldName", fieldName);
+      valueMap.put("dataContent", dataContent);
+      return new ObjectMapper().writeValueAsString(valueMap);
+    } catch (Exception ex) {
+      return null;
+    }
   }
 
   public void setDataset(Integer datasetId, String datasetUrn) {

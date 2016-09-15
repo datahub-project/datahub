@@ -17,16 +17,29 @@ public class PreparedStatementUtil {
 
   /**
    * prepare SQL insert template with column names and placeholders, 'INSERT INTO table(`a`,`b`) VALUES (?,?)'
+   * @param tableName
    * @param columnNames String[]
    * @return SQL String
    */
   public static String prepareInsertTemplateWithColumn(String tableName, String[] columnNames) {
-    return "INSERT INTO " + tableName + "(`" + String.join("`,`", columnNames) + "`) VALUES " + generatePlaceholder(
+    return prepareInsertTemplateWithColumn("INSERT", tableName, columnNames);
+  }
+
+  /**
+   * prepare SQL insert template with column names and placeholders, 'INSERT/REPLACE INTO table(`a`,`b`) VALUES (?,?)'
+   * @param action INSERT or REPLACE
+   * @param tableName
+   * @param columnNames
+   * @return
+   */
+  public static String prepareInsertTemplateWithColumn(String action, String tableName, String[] columnNames) {
+    return action + " INTO " + tableName + "(`" + String.join("`,`", columnNames) + "`) VALUES " + generatePlaceholder(
         columnNames.length);
   }
 
   /**
    * prepare SQL insert template with placeholders, 'INSERT INTO table VALUES (?,?,?)'
+   * @param tableName
    * @param columnNum int
    * @return SQL String
    */
@@ -36,6 +49,7 @@ public class PreparedStatementUtil {
 
   /**
    * prepare SQL update template with placeholders: "UPDATE table SET a=?, b=? WHERE c=? AND d=?"
+   * @param tableName
    * @param columnNames String[] fields to be assigned/updated
    * @param conditions String[] condition fields
    * @return

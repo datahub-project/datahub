@@ -630,7 +630,6 @@ public class DatasetInfoController extends Controller {
     return ok(resultJson);
   }
 
-
   public static Result getDatasetSchema()
       throws SQLException {
     ObjectNode resultJson = Json.newObject();
@@ -683,6 +682,56 @@ public class DatasetInfoController extends Controller {
       DatasetInfoDao.updateDatasetSchema(root);
       resultJson.put("return_code", 200);
       resultJson.put("message", "Dataset schema updated!");
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+    return ok(resultJson);
+  }
+
+  public static Result getDatasetInventoryItems()
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+
+    String dataPlatform = request().getQueryString("dataPlatform");
+    String nativeName = request().getQueryString("nativeName");
+    String dataOrigin = request().getQueryString("dataOrigin");
+    int limit = 1;
+    try {
+      limit = Integer.parseInt(request().getQueryString("limit"));
+    } catch (NumberFormatException e) {
+    }
+
+    if (dataPlatform != null && nativeName != null && dataOrigin != null) {
+      try {
+        List<Map<String, Object>> items =
+            DatasetInfoDao.getDatasetInventoryItems(dataPlatform, nativeName, dataOrigin, limit);
+        resultJson.put("return_code", 200);
+        resultJson.set("dataset_inventory_items", Json.toJson(items));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException nativeName: " + nativeName + " , dataOrigin: " + dataOrigin, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message",
+            "dataset inventory for " + nativeName + " at " + dataOrigin + " cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    // if no parameter, return an error message
+    resultJson.put("return_code", 400);
+    resultJson.put("error_message", "No parameter provided");
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateDatesetInventory() {
+    JsonNode root = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      DatasetInfoDao.updateDatasetInventory(root);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dataset inventory updated!");
     } catch (Exception e) {
       e.printStackTrace();
       resultJson.put("return_code", 404);
