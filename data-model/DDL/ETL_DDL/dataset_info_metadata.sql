@@ -74,12 +74,12 @@ CREATE TABLE dataset_case_sensitivity (
   DEFAULT CHARSET = latin1;
 
 CREATE TABLE dataset_reference (
-  `dataset_id`       INT UNSIGNED       NOT NULL,
-  `dataset_urn`      VARCHAR(200)       NOT NULL,
-  `reference_type`   VARCHAR(20)        NOT NULL,
-  `reference_format` VARCHAR(50)        NOT NULL,
+  `dataset_id`       INT UNSIGNED NOT NULL,
+  `dataset_urn`      VARCHAR(200) NOT NULL,
+  `reference_type`   VARCHAR(20)  NOT NULL,
+  `reference_format` VARCHAR(50)  NOT NULL,
   `reference_list`   TEXT CHAR SET utf8 DEFAULT NULL,
-  `modified_time`    INT UNSIGNED DEFAULT NULL
+  `modified_time`    INT UNSIGNED       DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`, `reference_type`, `reference_format`),
   UNIQUE KEY (`dataset_urn`, `reference_type`, `reference_format`)
@@ -177,6 +177,25 @@ CREATE TABLE dataset_schema_info (
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
   UNIQUE KEY (`dataset_urn`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = latin1;
+
+CREATE TABLE dataset_inventory (
+  `event_date`                    DATE         NOT NULL,
+  `data_platform`                 VARCHAR(50)  NOT NULL,
+  `native_name`                   VARCHAR(200) NOT NULL,
+  `data_origin`                   VARCHAR(20)  NOT NULL,
+  `change_actor_urn`              VARCHAR(200)       DEFAULT NULL,
+  `change_type`                   VARCHAR(20)        DEFAULT NULL,
+  `change_time`                   BIGINT UNSIGNED    DEFAULT NULL,
+  `change_note`                   TEXT CHAR SET utf8 DEFAULT NULL,
+  `native_type`                   VARCHAR(20)        DEFAULT NULL,
+  `uri`                           VARCHAR(200)       DEFAULT NULL,
+  `dataset_name_case_sensitivity` BOOLEAN            DEFAULT NULL,
+  `field_name_case_sensitivity`   BOOLEAN            DEFAULT NULL,
+  `data_content_case_sensitivity` BOOLEAN            DEFAULT NULL,
+  PRIMARY KEY (`data_platform`, `native_name`, `data_origin`, `event_date`)
 )
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
