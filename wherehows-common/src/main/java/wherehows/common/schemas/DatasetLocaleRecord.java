@@ -13,10 +13,6 @@
  */
 package wherehows.common.schemas;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-
 public class DatasetLocaleRecord {
 
   String language;
@@ -24,15 +20,6 @@ public class DatasetLocaleRecord {
   String variant;
 
   public DatasetLocaleRecord() {
-  }
-
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
   }
 
   public String getLanguage() {

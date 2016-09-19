@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,7 @@ public abstract class AbstractRecord implements Record {
    * return all declared fields of the class, exclude inherited fields
    * @return Field[]
    */
+  @JsonIgnore
   public Field[] getAllFields() {
     return this.getClass().getDeclaredFields();
   }
@@ -65,6 +67,7 @@ public abstract class AbstractRecord implements Record {
    * @return Object[]
    * @throws IllegalAccessException
    */
+  @JsonIgnore
   public Object[] getAllValues()
       throws IllegalAccessException {
     final Field[] fields = this.getAllFields();
@@ -80,6 +83,7 @@ public abstract class AbstractRecord implements Record {
    * return the corresponding database column names to the class fields
    * @return
    */
+  @JsonIgnore
   public String[] getDbColumnNames() {
     return null;
   }
@@ -90,11 +94,12 @@ public abstract class AbstractRecord implements Record {
    * @return Object[]
    * @throws IllegalAccessException
    */
+  @JsonIgnore
   public Object[] getAllValuesToString()
       throws IllegalAccessException {
     final Object[] values = getAllValues();
     for (int i = 0; i < values.length; i++) {
-      values[i] = StringUtil.objectToString(values[i]);
+      values[i] = StringUtil.objectToJsonString(values[i]);
     }
     return values;
   }
@@ -105,6 +110,7 @@ public abstract class AbstractRecord implements Record {
    * @return Map: String-Object
    * @throws IllegalAccessException
    */
+  @JsonIgnore
   public Map<String, Object> getFieldValueMap()
       throws IllegalAccessException {
     String[] columns = this.getDbColumnNames();
