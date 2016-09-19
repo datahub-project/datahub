@@ -26,7 +26,10 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
     public static String DATASET_OWNER_SUB_TYPE_COLUMN = "owner_sub_type";
     public static String DATASET_OWNER_SORT_ID_COLUMN = "sort_id";
     public static String DATASET_OWNER_IS_GROUP_COLUMN = "is_group";
+    public static String DATASET_OWNER_ID_TYPE_COLUMN = "owner_id_type";
+    public static String DATASET_OWNER_SOURCE_COLUMN = "owner_source";
     public static String DATASET_OWNER_NAMESPACE_COLUMN = "namespace";
+    public static String DATASET_OWNER_CONFIRMED_BY_COLUMN = "confirmed_by";
 
 
     @Override
@@ -35,10 +38,12 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         String userName = rs.getString(DATASET_OWNER_ID_COLUMN);
         String namespace = rs.getString(DATASET_OWNER_NAMESPACE_COLUMN);
         String name = rs.getString(DATASET_OWNER_DISPLAY_NAME_COLUMN);
-        Boolean isGroup = rs.getBoolean(DATASET_OWNER_IS_GROUP_COLUMN);
         String type = rs.getString(DATASET_OWNER_TYPE_COLUMN);
         String subType = rs.getString(DATASET_OWNER_SUB_TYPE_COLUMN);
+        String idType = rs.getString(DATASET_OWNER_ID_TYPE_COLUMN);
+        String source = rs.getString(DATASET_OWNER_SOURCE_COLUMN);
         Integer sortId = rs.getInt(DATASET_OWNER_SORT_ID_COLUMN);
+        String confirmedBy = rs.getString(DATASET_OWNER_CONFIRMED_BY_COLUMN);
         DatasetOwner owner = new DatasetOwner();
         owner.userName = userName;
         owner.name = name;
@@ -46,7 +51,9 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         owner.sortId = sortId;
         owner.type = type;
         owner.subType = subType;
-        owner.isGroup = isGroup;
+        owner.idType = idType;
+        owner.source = source;
+        owner.confirmedBy = confirmedBy;
 
         return owner;
     }

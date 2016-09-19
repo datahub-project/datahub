@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.*;
 import java.text.SimpleDateFormat;
 
@@ -159,7 +160,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
 	private final static String GET_DATASET_OWNERS_BY_ID = "SELECT o.owner_id, u.display_name, o.sort_id, " +
-			"o.owner_type, o.namespace, o.is_group, o.owner_sub_type FROM dataset_owner o " +
+			"o.owner_type, o.namespace, o.owner_id_type, o.owner_source, o.owner_sub_type, o.confirmed_by " +
+			"FROM dataset_owner o " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"WHERE o.dataset_id = ? and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
 
@@ -206,6 +208,14 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"VALUES(?, ?, ?, ?, ?, ?, 'Y', 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE owner_type = ?, is_group = ?, is_deleted = 'N', " +
 			"sort_id = ?, modified_time= UNIX_TIMESTAMP(), owner_sub_type=?";
+
+	private final static String UPDATE_DATASET_CONFIRMED_OWNERS = "INSERT INTO dataset_owner " +
+			"(dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, " +
+			"is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, " +
+			"confirmed_by, confirmed_on) " +
+			"VALUES(?, ?, ?, ?, ?, ?, 'Y', 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?, ?, ?) " +
+			"ON DUPLICATE KEY UPDATE owner_type = ?, is_group = ?, is_deleted = 'N', " +
+			"sort_id = ?, modified_time= UNIX_TIMESTAMP(), owner_sub_type=?, confirmed_by=?, confirmed_on=?";
 
 	private final static String MARK_DATASET_OWNERS_AS_DELETED = "UPDATE dataset_owner " +
 			"set is_deleted = 'Y' WHERE dataset_id = ?";
@@ -1681,7 +1691,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	public static void updateDatasetOwnerDatabase(int datasetId, String datasetUrn, List<DatasetOwner> owners)
 	{
-		getJdbcTemplate().batchUpdate(UPDATE_DATASET_OWNERS,
+		getJdbcTemplate().batchUpdate(UPDATE_DATASET_CONFIRMED_OWNERS,
 				new BatchPreparedStatementSetter() {
 					@Override
 					public void setValues(PreparedStatement ps, int i)
@@ -1696,10 +1706,25 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 						ps.setInt(7, owner.sortId);
 						ps.setString(8, datasetUrn);
 						ps.setString(9, owner.subType);
-						ps.setString(10, owner.type);
-						ps.setString(11, owner.isGroup ? "Y" : "N");
-						ps.setInt(12, owner.sortId);
-						ps.setString(13, owner.subType);
+						ps.setString(10, owner.confirmedBy);
+						if (StringUtils.isBlank(owner.confirmedBy))
+						{
+							ps.setLong(11, 0L);
+						} else {
+							ps.setLong(11, Instant.now().getEpochSecond());
+						}
+						ps.setString(12, owner.type);
+						ps.setString(13, owner.isGroup ? "Y" : "N");
+						ps.setInt(14, owner.sortId);
+						ps.setString(15, owner.subType);
+						ps.setString(16, owner.confirmedBy);
+						if (StringUtils.isBlank(owner.confirmedBy))
+						{
+							ps.setLong(17, 0L);
+						} else {
+							ps.setLong(17, Instant.now().getEpochSecond());
+						}
+
 					}
 
 					@Override
@@ -1754,6 +1779,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 							subType = ownerNode.get("subType").asText();
 						}
 
+						String confirmedBy = "";
+						if (ownerNode.has("confirmedBy") && (!ownerNode.get("confirmedBy").isNull()))
+						{
+							confirmedBy = ownerNode.get("confirmedBy").asText();
+						}
+
 						DatasetOwner owner = new DatasetOwner();
 						owner.userName = userName;
 						owner.isGroup = isGroup;
@@ -1767,6 +1798,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 						}
 						owner.type = type;
 						owner.subType = subType;
+						owner.confirmedBy = confirmedBy;
 						owner.sortId = i;
 						owners.add(owner);
 					}
