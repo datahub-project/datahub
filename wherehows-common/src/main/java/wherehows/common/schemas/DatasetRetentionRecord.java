@@ -23,25 +23,11 @@ public class DatasetRetentionRecord extends AbstractRecord {
   String retentionWindowUnit;
 
   @Override
-  public String[] getDbColumnNames() {
-    return new String[]{"retention_type", "retention_window", "retention_window_unit"};
-  }
-
-  @Override
   public List<Object> fillAllFields() {
     return null;
   }
 
   public DatasetRetentionRecord() {
-  }
-
-  @Override
-  public String toString() {
-    try {
-      return this.getFieldValueMap().toString();
-    } catch (IllegalAccessException ex) {
-      return null;
-    }
   }
 
   public String getRetentionType() {

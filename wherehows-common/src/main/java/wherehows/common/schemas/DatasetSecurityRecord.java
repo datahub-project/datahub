@@ -43,8 +43,19 @@ public class DatasetSecurityRecord extends AbstractRecord {
   public DatasetSecurityRecord() {
   }
 
-  public void setDataset(Integer datasetId, String datasetUrn) {
+  public Integer getDatasetId() {
+    return datasetId;
+  }
+
+  public void setDatasetId(Integer datasetId) {
     this.datasetId = datasetId;
+  }
+
+  public String getDatasetUrn() {
+    return datasetUrn;
+  }
+
+  public void setDatasetUrn(String datasetUrn) {
     this.datasetUrn = datasetUrn;
   }
 

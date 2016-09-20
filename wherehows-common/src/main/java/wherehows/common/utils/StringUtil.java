@@ -13,6 +13,8 @@
  */
 package wherehows.common.utils;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -53,6 +55,17 @@ public class StringUtil {
       return obj.toString();
     } else if (obj instanceof Object[]) {
       return Arrays.toString((Object[]) obj);
+    }
+    return obj;
+  }
+
+  public static Object objectToJsonString(Object obj) {
+    if (obj instanceof Collection || obj instanceof Map || obj instanceof Object[] || obj instanceof Record) {
+      try {
+        return new ObjectMapper().writeValueAsString(obj);
+      } catch (JsonProcessingException ex) {
+        return obj;
+      }
     }
     return obj;
   }

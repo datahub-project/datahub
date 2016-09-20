@@ -13,8 +13,11 @@
  */
 package controllers;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +29,10 @@ import play.libs.Json;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
+import wherehows.common.schemas.DatasetGeographicAffinityRecord;
+import wherehows.common.schemas.DatasetRetentionRecord;
+import wherehows.common.schemas.DatasetSecurityRecord;
+import wherehows.common.utils.StringUtil;
 
 
 public class DatasetInfoController extends Controller {
@@ -399,8 +406,10 @@ public class DatasetInfoController extends Controller {
 
       try {
         Map<String, Object> security = DatasetInfoDao.getDatasetSecurityByDatasetId(datasetId);
+        DatasetSecurityRecord record = convertToDatasetSecurityRecord(security);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_security", Json.toJson(security));
+        resultJson.put("datasetId", record.getDatasetId());
+        resultJson.set("securitySpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -418,8 +427,10 @@ public class DatasetInfoController extends Controller {
       }
       try {
         Map<String, Object> security = DatasetInfoDao.getDatasetSecurityByDatasetUrn(urn);
+        DatasetSecurityRecord record = convertToDatasetSecurityRecord(security);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_security", Json.toJson(security));
+        resultJson.put("datasetId", record.getDatasetId());
+        resultJson.set("securitySpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -432,6 +443,32 @@ public class DatasetInfoController extends Controller {
     resultJson.put("return_code", 400);
     resultJson.put("error_message", "No parameter provided");
     return ok(resultJson);
+  }
+
+  private static DatasetSecurityRecord convertToDatasetSecurityRecord(Map<String, Object> map) {
+    DatasetSecurityRecord record = new DatasetSecurityRecord();
+    ObjectMapper om = new ObjectMapper();
+    try {
+      record.setDatasetId(StringUtil.toInt(map.get("dataset_id")));
+      record.setDatasetUrn((String) map.get("dataset_urn"));
+      record.setClassification(
+          om.readValue((String) map.get("classification"), new TypeReference<Map<String, Integer>>() {
+          }));
+      record.setRecordOwnerType((String) map.get("record_owner_type"));
+      record.setRecordOwner(om.readValue((String) map.get("record_owner"), new TypeReference<List<String>>() {
+      }));
+      record.setComplianceType((String) map.get("compliance_type"));
+      record.setRetentionPolicy(
+          om.readValue((String) map.get("retention_policy"), new TypeReference<DatasetRetentionRecord>() {
+          }));
+      record.setGeographicAffinity(
+          om.readValue((String) map.get("geographic_affinity"), new TypeReference<DatasetGeographicAffinityRecord>() {
+          }));
+      record.setModifiedTime((Long) map.get("modified_time"));
+    } catch (IOException ex) {
+      Logger.debug("Can't serialize DB results: security " + map.toString(), ex);
+    }
+    return record;
   }
 
   @BodyParser.Of(BodyParser.Json.class)
