@@ -43,9 +43,12 @@
             return breadcrumbs
         }
 
-        function renderBarChart(data, option)
+        function renderBarChart(obj, data, option)
         {
-            $('#barchart').empty();
+            if (!$(obj))
+                return;
+
+            $(obj).empty();
             var margin = {top: 20, right: 20, bottom: 30, left: 40},
                 width = 500 - margin.left - margin.right,
                 height = 300 - margin.top - margin.bottom;
@@ -71,7 +74,7 @@
                 .orient("left")
                 .ticks(10, "");
 
-            var svg = d3.select("#barchart").append("svg")
+            var svg = d3.select(obj).append("svg")
                 .attr("width", width + margin.left + margin.right)
                 .attr("height", height + margin.top + margin.bottom)
                 .append("g")
@@ -103,10 +106,9 @@
                 .attr("height", function(d) { return height - y(d.value); });
         }
 
-        var rendered = false;
-        var pie;
-
-        function renderPie(description, value)
+        var pie = [];
+        var rendered= [];
+        function renderPie(obj, description, value)
         {
             var currentUser = jiraController.get('currentDescriptionUser');
             var data = [
@@ -114,9 +116,9 @@
                     { label: "Other", value: currentUser.potentialDatasets - value}
                 ];
 
-            if (!rendered)
+            if (!rendered[obj])
             {
-                pie = new d3pie("pie", {
+                pie[obj] = new d3pie(obj, {
                     size: {
                         canvasHeight: 250,
                         canvasWidth: 250,
@@ -182,17 +184,17 @@
                         }
                     }
                 });
-                rendered = true;
+                rendered[obj] = true;
             }
             else
             {
-                pie.updateProp("data.content", data);
+                pie[obj].updateProp("data.content", data);
             }
 
         }
 
         var setActiveTab = function(){
-            $('#dashboardtabs a:last').tab("show");
+            $('#dashboardtabs a:first').tab("show");
         }
 
         function refreshCfDatasets(user, page, size)
@@ -239,6 +241,71 @@
             });
         }
 
+        function refreshOwnerDatasets(user, option, page, size, refresh)
+        {
+            if (!user)
+                return;
+
+            if (!page)
+                page = 1;
+            if (!size)
+                size = 10;
+
+            jiraController.set('ownerInProgress', true);
+            var datasetsUrl = '/api/v1/metadata/dataset/ownership/' + user + '?page=' +
+                page + '&size=' + size + '&option=' + option;
+
+            $.get(datasetsUrl, function(data) {
+                jiraController.set('ownerInProgress', false);
+                if (data && data.status == "ok") {
+                    var currentPage = data.page;
+                    var totalPage = data.totalPages;
+                    if (currentPage == 1)
+                    {
+                        jiraController.set('ownerFirst', true);
+                    }
+                    else
+                    {
+                        jiraController.set('ownerFirst', false);
+                    }
+                    if (currentPage == totalPage)
+                    {
+                        jiraController.set('ownerLast', true);
+                    }
+                    else
+                    {
+                        jiraController.set('ownerLast', false);
+                    }
+                    jiraController.set('ownershipDatasets', data);
+                    if (data.datasets && data.datasets.length > 0)
+                    {
+                        if (refresh)
+                        {
+                            renderPie("ownerPie", ownershipOptions[option-1].value, data.count);
+                        }
+                        jiraController.set('userNoOwnershipFields', false);
+                    }
+                    else
+                    {
+                        jiraController.set('userNoOwnershipFields', true);
+                    }
+                }
+            });
+
+            if (refresh)
+            {
+                var barDataUrl = '/api/v1/metadata/barchart/ownership/' + user + '?option=' + option;
+                $.get(barDataUrl, function(data) {
+                    if (data && data.status == "ok") {
+                        if (data.barData && data.barData.length > 0)
+                        {
+                            renderBarChart(('#ownerBarchart'), data.barData, option);
+                        }
+                    }
+                });
+            }
+        }
+
         function refreshDescDatasets(user, option, page, size, refresh)
         {
             if (!user)
@@ -278,7 +345,7 @@
                     {
                         if (refresh)
                         {
-                            renderPie(descriptionOptions[option-1].value, data.count);
+                            renderPie("pie", descriptionOptions[option-1].value, data.count);
                         }
                         jiraController.set('userNoDescriptionFields', false);
                     }
@@ -295,7 +362,7 @@
                     if (data && data.status == "ok") {
                         if (data.barData && data.barData.length > 0)
                         {
-                            renderBarChart(data.barData, option);
+                            renderBarChart(('#barchart'), data.barData, option);
                         }
                     }
                 });
@@ -324,6 +391,11 @@
             {'value':'No Fields Description', 'option': 4},
             {'value':'All Datasets', 'option': 5}];
 
+        var ownershipOptions = [
+            {'value':'Confirmed Datasets', 'option': 1},
+            {'value':'Unconfirmed Datasets', 'option': 2},
+            {'value':'All Datasets', 'option': 3}];
+
         setTimeout(setActiveTab, 500);
 
         App.DashboardRoute = Ember.Route.extend({
@@ -333,6 +405,7 @@
                 jiraController.set('breadcrumbs', breadcrumbs);
                 jiraController.set('selectedUser', selectedUser);
                 jiraController.set('descriptionOptions', descriptionOptions);
+                jiraController.set('ownershipOptions', ownershipOptions);
             }
         });
 
@@ -340,6 +413,37 @@
             setupController: function(controller, params) {
                 if (params && params.user)
                 {
+                    jiraController.set('ownerInProgress', true);
+                    var ownershipUrl = 'api/v1/metadata/dashboard/ownership/' + params.user;
+                    $.get(ownershipUrl, function(data) {
+                        jiraController.set('ownerInProgress', false);
+                        if (data && data.status == "ok") {
+                            jiraController.set('ownershipMembers', data.members);
+                            if (data.members && data.members.length > 0)
+                            {
+                                jiraController.set('userNoOwnershipMembers', false);
+                            }
+                            else
+                            {
+                                jiraController.set('userNoOwnershipMembers', true);
+                            }
+                            jiraController.set('currentOwnershipUser', data.currentUser);
+                            var breadcrumbs;
+                            if (data.currentUser.orgHierarchy)
+                            {
+                                breadcrumbs = genBreadcrumbs(data.currentUser.orgHierarchy);
+                            }
+                            else
+                            {
+                                var hierarchy = '/jweiner';
+                                breadcrumbs = genBreadcrumbs(hierarchy);
+                            }
+                            jiraController.set('breadcrumbs', breadcrumbs);
+
+                            refreshOwnerDatasets(params.user, 1, 1, 10, true);
+                        }
+                    });
+
                     jiraController.set('cfInProgress', true);
                     var confidentialUrl = 'api/v1/metadata/dashboard/confidential/' + params.user;
                     var headlessTickets;
@@ -424,6 +528,28 @@
             descFirst: false,
             descLast: false,
             actions: {
+                prevOwnerPage: function() {
+                    var cfInfo = this.get("ownershipDatasets");
+                    var user = this.get("currentOwnershipUser");
+                    if (cfInfo && user) {
+                        var currentPage = parseInt(cfInfo.page) - 1;
+                        if (currentPage > 0) {
+                            refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false);
+                        }
+                    }
+                },
+                nextOwnerPage: function() {
+                    var cfInfo = this.get("ownershipDatasets");
+                    var user = this.get("currentOwnershipUser");
+                    if (cfInfo && user) {
+                        var currentPage = parseInt(cfInfo.page) + 1;
+                        var totalPages = cfInfo.totalPages;
+                        if (currentPage <= totalPages) {
+                            refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false);
+                        }
+
+                    }
+                },
                 prevCfPage: function() {
                     var cfInfo = this.get("confidentialFieldsDatasets");
                     var user = this.get("currentConfidentialFieldsUser");
@@ -473,6 +599,13 @@
                     if (user)
                     {
                         refreshDescDatasets(user.userName, $('#descShowOption').val(), 1, 10, true);
+                    }
+                },
+                ownerOptionChanged: function() {
+                    var user = this.get("currentOwnershipUser");
+                    if (user)
+                    {
+                        refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), 1, 10, true);
                     }
                 }
             }
