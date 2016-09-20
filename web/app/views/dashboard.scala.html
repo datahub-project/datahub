@@ -38,6 +38,169 @@
             </ul>
             <div class="tab-content">
               <div id="ownershiptab" class="tab-pane">
+                <div class="row">
+                  <div class="col-xs-12 col-md-4">
+                    <h4>Dataset Ownership for {{ currentOwnershipUser.displayName }}</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total Datasets</th>
+                          <th class="text-center">Confirmed Datasets</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <img src={{currentOwnershipUser.iconUrl}} title={{currentOwnershipUser.displayName}}
+                              width="25px"
+                              height="25px"/>
+                            <a href='metadata#/dashboard/{{currentOwnershipUser.userName}}' title={{currentOwnershipUser.displayName}}>
+                              {{ currentOwnershipUser.displayName }}
+                            </a>
+                          </td>
+                          <td class="text-center">{{ currentOwnershipUser.completed }}%</td>
+                          <td class="text-center">{{ currentOwnershipUser.potentialDatasets  }}</td>
+                          <td class="text-center">{{ currentOwnershipUser.confirmed }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <h4>Ticket Roll-Up for Individual User</h4>
+                    <table class="table table-bordered table-condensed table-hover">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Name</th>
+                          <th class="text-center">Completion</th>
+                          <th class="text-center">Total Datasets</th>
+                          <th class="text-center">Confirmed Datasets</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          {{#if userNoOwnershipMembers}}
+                            <tr>
+                              <td colspan="5">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no one that reports to them.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each ownershipMembers as |user|}}
+                              <tr>
+                                <td>
+                                  <img src={{user.iconUrl}} title={{user.displayName}}
+                                    width="25px"
+                                    height="25px"/>
+                                  <a href='metadata#/dashboard/{{user.userName}}' title={{user.displayName}}>
+                                    {{ user.displayName }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ user.completed }}%</td>
+                                <td class="text-center">{{ user.potentialDatasets }}</td>
+                                <td class="text-center">{{ user.confirmed }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="col-xs-12 col-md-8">
+                    <div class="row">
+                      <div class="col-xs-9">
+                        <h4>List of Datasets</h4>
+                      </div>
+                      <div class="col-xs-3 headerBarFilter">
+                        <form class="form-inline">
+                          <select id="ownerShowOption" class="form-control" {{action "ownerOptionChanged" on="change"}}>
+                            {{#each ownershipOptions as |option index|}}
+                              {{#if index}}
+                                <option value={{option.option}}>{{option.value}}
+                                </option>
+                              {{else}}
+                                <option selected value={{option.option}}>{{option.value}}
+                                </option>
+                              {{/if}}
+                            {{/each}}
+                          </select>
+                        </form>
+                      </div>
+                    </div>
+                    <div class="row">
+                      <div id="ownerPie" class="col-xs-5"></div>
+                    </div>
+                    <div class="search-pagination">
+                      <ul class="pager">
+                        {{#unless ownerFirst}}
+                          <li class="previous">
+                            <a {{ action "prevOwnerPage" }}>
+                                &larr; Prev
+                            </a>
+                          </li>
+                        {{/unless}}
+                        <li>
+                          {{ ownershipDatasets.count }} datasets - page {{ ownershipDatasets.page }} of {{ ownershipDatasets.totalPages }}
+                        </li>
+                        {{#unless ownerLast}}
+                          <li class="next">
+                            <a {{ action "nextOwnerPage" }}>
+                              Next &rarr;
+                            </a>
+                          </li>
+                        {{/unless}}
+                      </ul>
+                    </div>
+                    <table class="table table-bordered table-condensed table-hover table-striped">
+                      <thead>
+                        <tr>
+                          <th class="text-center">Dataset</th>
+                          <th class="text-center">Owners</th>
+                          <th class="text-center">Confirmed Owners</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {{#if ownerInProgress}}
+                          <tr>
+                            <td colspan="8" class="text-center">
+                              <div class="row">
+                                <div class="col-xs-12">
+                                  <i class="fa fa-spinner spinning fa-4x">
+                                  </i>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{else}}
+                          {{#if userNoOwnershipFields}}
+                            <tr>
+                              <td colspan="8">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    This user has no datasets with confirmed owners.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else}}
+                            {{#each ownershipDatasets.datasets as |dataset|}}
+                              <tr>
+                                <td>
+                                  <a href="/#/datasets/{{dataset.datasetId}}">
+                                    {{ dataset.datasetName }}
+                                  </a>
+                                </td>
+                                <td class="text-center">{{ dataset.ownerId }}</td>
+                                <td class="text-center">{{ dataset.confirmedOwnerId }}</td>
+                              </tr>
+                            {{/each}}
+                          {{/if}}
+                        {{/if}}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
               <div id="descriptiontab" class="tab-pane">
                 <div class="row">
