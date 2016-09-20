@@ -31,6 +31,11 @@ import java.util.Map;
 public class Dashboard extends Controller
 {
 
+    public static Result getOwnershipDatasetsPercentage(String managerId)
+    {
+        return ok(DashboardDAO.getOwnershipPercentageByManagerId(managerId));
+    }
+
     public static Result getConfidentialDatasetsPercentage(String managerId)
     {
         return ok(DashboardDAO.getConfidentialPercentageByManagerId(managerId));
@@ -39,6 +44,68 @@ public class Dashboard extends Controller
     public static Result getDescriptionDatasetsPercentage(String managerId)
     {
         return ok(DashboardDAO.getDescriptionPercentageByManagerId(managerId));
+    }
+
+    public static Result getPagedOwnershipDatasets(String managerId)
+    {
+        int page = 1;
+        int option = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedOwnershipDatasets wrong page parameter. Error message: " + e.getMessage());
+                page = 1;
+            }
+        }
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedOwnershipDatasets wrong size parameter. Error message: " + e.getMessage());
+                size = 10;
+            }
+        }
+
+        String optionStr = request().getQueryString("option");
+        if (StringUtils.isBlank(optionStr))
+        {
+            option = 1;
+        }
+        else
+        {
+            try
+            {
+                option = Integer.parseInt(optionStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedDescriptionDatasets wrong option parameter. Error message: " + e.getMessage());
+                option = 1;
+            }
+        }
+
+        return ok(DashboardDAO.getPagedOwnershipDatasetsByManagerId(managerId, option, page, size));
     }
 
     public static Result getPagedConfidentialDatasets(String managerId)
@@ -144,6 +211,11 @@ public class Dashboard extends Controller
         }
 
         return ok(DashboardDAO.getPagedDescriptionDatasetsByManagerId(managerId, option, page, size));
+    }
+
+    public static Result getOwnershipBarData(String managerId)
+    {
+        return ok(DashboardDAO.getOwnershipBarChartData(managerId));
     }
 
     public static Result getDescriptionBarData(String managerId)
