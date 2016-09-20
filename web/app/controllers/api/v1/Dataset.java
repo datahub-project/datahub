@@ -20,8 +20,12 @@ import models.DatasetColumn;
 import models.DatasetDependency;
 import models.DatasetListViewNode;
 import models.ImpactDataset;
+import play.Play;
 import play.api.libs.json.JsValue;
+import play.api.mvc.SimpleResult;
+import play.libs.F;
 import play.libs.Json;
+import play.libs.WS;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -32,9 +36,15 @@ import dao.DatasetsDAO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import scala.concurrent.Future;
+
 
 public class Dataset extends Controller
 {
+    public static final String BACKEND_SERVICE_URL_KEY = "backend.service.url";
+
+    public static final String DATASET_SECURITY_PATH = "/dataset/security";
+
     public static Result getDatasetOwnerTypes()
     {
         ObjectNode result = Json.newObject();
@@ -831,4 +841,49 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static F.Promise<Result> getDatasetSecurity(int datasetId) {
+        final String backendUrl = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
+        final String queryUrl = backendUrl + DATASET_SECURITY_PATH;
+        final F.Promise<Result> resultPromise = WS.url(queryUrl)
+            .setQueryParameter("datasetId", Integer.toString(datasetId))
+            .get()
+            .map(new F.Function<WS.Response, Result>() {
+                public Result apply(WS.Response response) {
+                    return ok(response.asJson());
+                }
+            });
+        return resultPromise;
+    }
+
+    public static F.Promise<Result> updateDatasetSecurity(int datasetId) {
+        String username = session("user");
+        if (StringUtils.isNotBlank(username)) {
+            final String backendUrl = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
+            final String queryUrl = backendUrl + DATASET_SECURITY_PATH;
+
+            final ObjectNode queryNode = Json.newObject();
+            queryNode.put("datasetId", datasetId);
+            queryNode.put("securitySpec", request().body().asJson());
+
+            final F.Promise<Result> resultPromise = WS.url(queryUrl)
+                .post(queryNode)
+                .map(new F.Function<WS.Response, Result>() {
+                    public Result apply(WS.Response response) {
+                        return ok(response.asJson());
+                    }
+                });
+            return resultPromise;
+        } else {
+            ObjectNode result = Json.newObject();
+            result.put("status", "failed");
+            result.put("error", "true");
+            result.put("msg", "Unauthorized User.");
+
+            return F.Promise.promise(new F.Function0<Result>() {
+                public Result apply() {
+                    return ok(result);
+                }
+            });
+        }
+    }
 }

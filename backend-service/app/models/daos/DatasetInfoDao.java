@@ -512,31 +512,37 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSecurity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
     final JsonNode urnNode = root.path("urn");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode security = root.path("securitySpec");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || security.isMissingNode()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || security.isMissingNode()) {
       throw new IllegalArgumentException(
           "Dataset security info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Integer datasetId;
+    final String urn;
+    if (!idNode.isMissingNode()) {
+      datasetId = idNode.asInt();
+      urn = DatasetDao.getDatasetById(datasetId).get("urn").toString();
+    } else {
+      urn = urnNode.asText();
+      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    }
 
     ObjectMapper om = new ObjectMapper();
 
     DatasetSecurityRecord record = om.convertValue(security, DatasetSecurityRecord.class);
-    record.setDataset(datasetId, urn);
-    record.setModifiedTime(eventTime);
+    record.setDatasetId(datasetId);
+    record.setDatasetUrn(urn);
+    record.setModifiedTime(System.currentTimeMillis() / 1000);
     try {
-      Map<String, Object> result = getDatasetSecurityByDatasetUrn(urn);
+      Map<String, Object> result = getDatasetSecurityByDatasetId(datasetId);
       String[] columns = record.getDbColumnNames();
       Object[] columnValues = record.getAllValuesToString();
-      String[] conditions = {"dataset_urn"};
-      Object[] conditionValues = new Object[]{urn};
+      String[] conditions = {"dataset_id"};
+      Object[] conditionValues = new Object[]{datasetId};
       SECURITY_WRITER.update(columns, columnValues, conditions, conditionValues);
     } catch (EmptyResultDataAccessException ex) {
       SECURITY_WRITER.append(record);
