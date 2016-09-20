@@ -19,6 +19,7 @@ public class DatasetConfidential {
 
     public Long datasetId;
     public String ownerId;
+    public String confirmedOwnerId;
     public String datasetName;
     public List<String> confidentialFieldList;
 }
