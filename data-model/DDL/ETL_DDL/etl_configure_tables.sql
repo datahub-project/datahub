@@ -50,7 +50,7 @@ CREATE TABLE `wh_etl_job_execution` (
   COMMENT 'id of the etl job',
   `status`         VARCHAR(31)                  DEFAULT NULL
   COMMENT 'status of etl job execution',
-  `request_time`     INT(10) UNSIGNED             DEFAULT NULL
+  `request_time`   INT(10) UNSIGNED             DEFAULT NULL
   COMMENT 'request time of the execution',
   `start_time`     INT(10) UNSIGNED             DEFAULT NULL
   COMMENT 'start time of the execution',
@@ -58,6 +58,10 @@ CREATE TABLE `wh_etl_job_execution` (
   COMMENT 'end time of the execution',
   `message`        VARCHAR(1024)                DEFAULT NULL
   COMMENT 'debug information message',
+  `host_name`      VARCHAR(200)                 DEFAULT NULL
+  COMMENT 'host machine name of the job execution',
+  `process_id`     INT UNSIGNED                 DEFAULT NULL
+  COMMENT 'job execution process id',
   PRIMARY KEY (`wh_etl_exec_id`)
 )
   ENGINE = InnoDB
@@ -120,10 +124,10 @@ CREATE TABLE `cfg_application` (
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
-CREATE TABLE cfg_database  ( 
+CREATE TABLE cfg_database  (
 	db_id                  	smallint(6) UNSIGNED NOT NULL,
 	db_code                	varchar(30) COMMENT 'Unique string without space'  NOT NULL,
-	primary_dataset_type    varchar(30) COMMENT 'What type of dataset this DB supports' NOT NULL DEFAULT '*', 
+	primary_dataset_type    varchar(30) COMMENT 'What type of dataset this DB supports' NOT NULL DEFAULT '*',
 	description            	varchar(128) NOT NULL,
 	is_logical             	char(1) COMMENT 'Is a group, which contains multiple physical DB(s)'  NOT NULL DEFAULT 'N',
 	deployment_tier        	varchar(20) COMMENT 'Lifecycle/FabricGroup: local,dev,sit,ei,qa,canary,preprod,pr'  NULL DEFAULT 'prod',
@@ -146,7 +150,7 @@ ENGINE = InnoDB
 DEFAULT CHARSET = utf8
 COMMENT = 'Abstract different storage instances as databases' ;
 
-CREATE TABLE stg_cfg_object_name_map  ( 
+CREATE TABLE stg_cfg_object_name_map  (
 	object_type             	varchar(100) NOT NULL,
 	object_sub_type         	varchar(100) NULL,
 	object_name             	varchar(350) NOT NULL,
@@ -168,10 +172,10 @@ CHARACTER SET latin1
 COLLATE latin1_swedish_ci
 COMMENT = 'Map alias (when is_identical_map=Y) and view dependency' ;
 
-CREATE INDEX idx_stg_cfg_object_name_map__mappedobjectname USING BTREE 
+CREATE INDEX idx_stg_cfg_object_name_map__mappedobjectname USING BTREE
 	ON stg_cfg_object_name_map(mapped_object_name);
 
-CREATE TABLE cfg_object_name_map  ( 
+CREATE TABLE cfg_object_name_map  (
   obj_name_map_id         int(11) AUTO_INCREMENT NOT NULL,
   object_type             varchar(100) NOT NULL,
   object_sub_type         varchar(100) NULL,
@@ -196,11 +200,11 @@ ALTER TABLE cfg_object_name_map
   ADD CONSTRAINT uix_cfg_object_name_map__objectname_mappedobjectname
   UNIQUE (object_name, mapped_object_name);
 
-CREATE INDEX idx_cfg_object_name_map__mappedobjectname USING BTREE 
+CREATE INDEX idx_cfg_object_name_map__mappedobjectname USING BTREE
   ON cfg_object_name_map(mapped_object_name);
 
 
-CREATE TABLE cfg_deployment_tier  ( 
+CREATE TABLE cfg_deployment_tier  (
   tier_id      	tinyint(4) NOT NULL,
   tier_code    	varchar(25) COMMENT 'local,dev,test,qa,stg,prod' NOT NULL,
   tier_label    varchar(50) COMMENT 'display full name' NULL,
@@ -215,7 +219,7 @@ COMMENT = 'http://en.wikipedia.org/wiki/Deployment_environment';
 CREATE UNIQUE INDEX uix_cfg_deployment_tier__tiercode
 	ON cfg_deployment_tier(tier_code);
 
-CREATE TABLE cfg_data_center  ( 
+CREATE TABLE cfg_data_center  (
 	data_center_id    	smallint(6) NOT NULL DEFAULT '0',
 	data_center_code  	varchar(30) NOT NULL,
 	data_center_name  	varchar(50) NOT NULL,
@@ -237,7 +241,7 @@ CREATE UNIQUE INDEX uix_cfg_data_center__datacentercode
 	ON cfg_data_center(data_center_code);
 
 
-CREATE TABLE cfg_cluster  ( 
+CREATE TABLE cfg_cluster  (
 	cluster_id    	        smallint(6) NOT NULL DEFAULT '0',
 	cluster_code  	        varchar(80) NOT NULL,
 	cluster_short_name      varchar(50) NOT NULL,

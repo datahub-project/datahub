@@ -68,7 +68,7 @@ public class HdfsMetadataEtl extends EtlJob {
   @Override
   public void extract()
     throws Exception {
-    logger.info("Begin hdfs metadata extract!");
+    logger.info("Begin hdfs metadata extract! - " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     boolean isRemote = Boolean.valueOf(prop.getProperty(Constant.HDFS_REMOTE, "false"));
     if (isRemote) {
       extractRemote();
@@ -246,7 +246,7 @@ public class HdfsMetadataEtl extends EtlJob {
   @Override
   public void transform()
     throws Exception {
-    logger.info("hdfs metadata transform");
+    logger.info("Begin hdfs metadata transform : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     // call a python script to do the transformation
     InputStream inputStream = classLoader.getResourceAsStream("jython/HdfsTransform.py");
     interpreter.execfile(inputStream);
@@ -256,11 +256,11 @@ public class HdfsMetadataEtl extends EtlJob {
   @Override
   public void load()
     throws Exception {
-    logger.info("hdfs metadata load");
+    logger.info("Begin hdfs metadata load : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     // load into mysql
     InputStream inputStream = classLoader.getResourceAsStream("jython/HdfsLoad.py");
     interpreter.execfile(inputStream);
     inputStream.close();
-    logger.info("hdfs metadata load finished");
+    logger.info("hdfs metadata load finished : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
   }
 }

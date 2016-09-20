@@ -186,3 +186,9 @@ GET         /dataset/schema               controllers.DatasetInfoController.getD
 
 # Update schema of a dataset
 POST        /dataset/schema               controllers.DatasetInfoController.updateDatesetSchema()
+
+# Get inventory items by data platform + native name + origin + (optional) limit
+GET         /dataset/inventory            controllers.DatasetInfoController.getDatasetInventoryItems()
+
+# Update dataset inventory
+POST        /dataset/inventory            controllers.DatasetInfoController.updateDatesetInventory()

@@ -64,13 +64,16 @@ class ElasticSearchIndex():
       url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port)  + '/wherehows/field/_bulk'
       params = []
       self.wh_cursor.execute(sql)
-      rows = DbUtil.copy_dict_cursor(self.wh_cursor)
+      comment_cursor = self.wh_con.cursor()
+      description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for row in rows:
-          self.wh_cursor.execute(comment_query % long(row['field_id']))
+      for result in self.wh_cursor:
+          row = dict(zip(description, result))
+          comment_cursor.execute(comment_query % long(row['field_id']))
           comments = []
-          comment_rows = DbUtil.copy_dict_cursor(self.wh_cursor)
-          for comment_row in comment_rows:
+          comment_description = [x[0] for x in comment_cursor.description]
+          for comment_result in comment_cursor:
+            comment_row = dict(zip(comment_description, comment_result))
             comments.append(comment_row['comment'])
           params.append('{ "index": { "_id": ' +
                         str(row['field_id']) + ', "parent": ' + str(row['dataset_id']) + '  }}')
@@ -92,6 +95,8 @@ class ElasticSearchIndex():
       if len(params) > 0:
           self.bulk_insert(params, url)
 
+      comment_cursor.close()
+
   def update_comment(self, last_time=None):
     if last_time:
         sql = """
@@ -105,9 +110,10 @@ class ElasticSearchIndex():
     url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/comment/_bulk'
     params = []
     self.wh_cursor.execute(sql)
-    rows = DbUtil.copy_dict_cursor(self.wh_cursor)
     row_count = 1
-    for row in rows:
+    description = [x[0] for x in self.wh_cursor.description]
+    for result in self.wh_cursor:
+      row = dict(zip(description, result))
       params.append('{ "index": { "_id": ' + str(row['id']) + ', "parent": ' + str(row['dataset_id']) + '  }}')
       params.append(
           """{ "text": %s, "user_id": %d, "dataset_id": %d, "comment_type": "%s"}"""
@@ -132,9 +138,10 @@ class ElasticSearchIndex():
     url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/dataset/_bulk'
     params = []
     self.wh_cursor.execute(sql)
-    rows = DbUtil.copy_dict_cursor(self.wh_cursor)
+    description = [x[0] for x in self.wh_cursor.description]
     row_count = 1
-    for row in rows:
+    for result in self.wh_cursor:
+      row = dict(zip(description, result))
       params.append('{ "index": { "_id": ' + str(row['id']) + ' }}')
       params.append(
           """{ "name": "%s", "source": "%s", "urn": "%s", "location_prefix": "%s", "parent_name": "%s","schema_type": "%s", "properties": %s, "schema": %s , "fields": %s}"""
@@ -159,9 +166,10 @@ class ElasticSearchIndex():
       url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/metric/_bulk'
       params = []
       self.wh_cursor.execute(sql)
-      rows = DbUtil.copy_dict_cursor(self.wh_cursor)
+      description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for row in rows:
+      for result in self.wh_cursor:
+          row = dict(zip(description, result))
           params.append('{ "index": { "_id": ' + str(row['metric_id']) + '  }}')
           params.append(
               """{"metric_id": %d,  "metric_name": %s, "metric_description": %s, "dashboard_name": %s, "metric_group": %s, "metric_category": %s, "metric_sub_category": %s, "metric_level": %s, "metric_source_type": %s, "metric_source": %s, "metric_source_dataset_id": %d, "metric_ref_id_type": %s, "metric_ref_id": %s, "metric_type": %s, "metric_additive_type": %s, "metric_grain": %s, "metric_display_factor": %f, "metric_display_factor_sym": %s, "metric_good_direction": %s, "metric_formula": %s, "dimensions": %s, "owners": %s, "tags": %s, "urn": %s, "metric_url": %s, "wiki_url": %s, "scm_url": %s}"""
@@ -214,24 +222,26 @@ class ElasticSearchIndex():
       url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/flow_jobs/_bulk'
       params = []
       self.wh_cursor.execute(flow_sql)
-      rows = DbUtil.copy_dict_cursor(self.wh_cursor)
+      job_cursor = self.wh_con.cursor()
+      description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for row in rows:
-          self.wh_cursor.execute(job_sql %(long(row['app_id']), long(row['flow_id'])))
+      for result in self.wh_cursor:
+          row = dict(zip(description, result))
+          job_cursor.execute(job_sql %(long(row['app_id']), long(row['flow_id'])))
           jobs = []
-          job_rows = DbUtil.copy_dict_cursor(self.wh_cursor)
-          if job_rows:
-              for job_row in job_rows:
-                  jobs.append({"app_id": job_row['app_id'], "flow_id": job_row['flow_id'], "job_id": job_row['job_id'],
-                        "job_name": job_row['job_name'] if job_row['job_name'] else '',
-                        "job_path": job_row['job_path'] if job_row['job_path'] else '',
-                        "job_type_id": job_row['job_type_id'],
-                        "job_type": job_row['job_type'] if job_row['job_type'] else '',
-                        "pre_jobs": job_row['pre_jobs'] if job_row['pre_jobs'] else '',
-                        "post_jobs": job_row['post_jobs'] if job_row['post_jobs'] else '',
-                        "is_current": job_row['is_current'] if job_row['is_current'] else '',
-                        "is_first": job_row['is_first'] if job_row['is_first'] else '',
-                        "is_last": job_row['is_last'] if job_row['is_last'] else ''})
+          job_description = [x[0] for x in job_cursor.description]
+          for job_result in job_cursor:
+              job_row = dict(zip(job_description, job_result))
+              jobs.append({"app_id": job_row['app_id'], "flow_id": job_row['flow_id'], "job_id": job_row['job_id'],
+                    "job_name": job_row['job_name'] if job_row['job_name'] else '',
+                    "job_path": job_row['job_path'] if job_row['job_path'] else '',
+                    "job_type_id": job_row['job_type_id'],
+                    "job_type": job_row['job_type'] if job_row['job_type'] else '',
+                    "pre_jobs": job_row['pre_jobs'] if job_row['pre_jobs'] else '',
+                    "post_jobs": job_row['post_jobs'] if job_row['post_jobs'] else '',
+                    "is_current": job_row['is_current'] if job_row['is_current'] else '',
+                    "is_first": job_row['is_first'] if job_row['is_first'] else '',
+                    "is_last": job_row['is_last'] if job_row['is_last'] else ''})
 
           params.append('{ "index": { "_id": ' + str(long(row['flow_id'])*10000 + long(row['app_id'])) + '  }}')
           if len(jobs) > 0:
@@ -258,6 +268,8 @@ class ElasticSearchIndex():
       if len(params) > 0:
           self.logger.info('flow_jobs' + str(len(params)))
           self.bulk_insert(params, url)
+
+      job_cursor.close()
 
   def run(self):
 

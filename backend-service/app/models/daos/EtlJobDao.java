@@ -15,15 +15,21 @@ package models.daos;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import metadata.etl.models.EtlJobName;
 import metadata.etl.models.EtlJobStatus;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.support.KeyHolder;
 import play.libs.Time;
 import utils.JdbcUtil;
 import utils.JsonUtil;
 
 import java.sql.SQLException;
-import java.util.*;
 
 
 /**
@@ -53,6 +59,9 @@ public class EtlJobDao {
 
   public static final String END_RUN =
     "UPDATE wh_etl_job_execution set status = :status, message = :message, end_time = :endTime where wh_etl_exec_id = :whEtlExecId";
+
+  public static final String UPDATE_JOB_PROCESS_ID_AND_HOSTNAME =
+    "UPDATE wh_etl_job_execution SET process_id=?, host_name=? WHERE wh_etl_exec_id =?";
 
   public static final String UPDATE_JOB_STATUS =
     "UPDATE wh_etl_job SET is_active = :isActive WHERE wh_etl_job_name = :whEtlJobName and ref_id = :refId";
@@ -228,5 +237,10 @@ public class EtlJobDao {
     params.put("endTime", System.currentTimeMillis() / 1000);
     params.put("message", message);
     JdbcUtil.wherehowsNamedJdbcTemplate.update(END_RUN, params);
+  }
+
+  public static void updateJobProcessInfo(long whEtlExecId, int processId, String hostname)
+      throws DataAccessException {
+    JdbcUtil.wherehowsJdbcTemplate.update(UPDATE_JOB_PROCESS_ID_AND_HOSTNAME, processId, hostname, whEtlExecId);
   }
 }
