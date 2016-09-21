@@ -13,11 +13,8 @@
  */
 package controllers;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -29,10 +26,17 @@ import play.libs.Json;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.common.schemas.DatasetGeographicAffinityRecord;
-import wherehows.common.schemas.DatasetRetentionRecord;
+import wherehows.common.schemas.DatasetCapacityRecord;
+import wherehows.common.schemas.DatasetCaseSensitiveRecord;
+import wherehows.common.schemas.DatasetConstraintRecord;
+import wherehows.common.schemas.DatasetDeploymentRecord;
+import wherehows.common.schemas.DatasetIndexRecord;
+import wherehows.common.schemas.DatasetOwnerRecord;
+import wherehows.common.schemas.DatasetPartitionRecord;
+import wherehows.common.schemas.DatasetReferenceRecord;
+import wherehows.common.schemas.DatasetSchemaInfoRecord;
 import wherehows.common.schemas.DatasetSecurityRecord;
-import wherehows.common.utils.StringUtil;
+import wherehows.common.schemas.DatasetTagRecord;
 
 
 public class DatasetInfoController extends Controller {
@@ -45,9 +49,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> deployments = DatasetInfoDao.getDatasetDeploymentByDatasetId(datasetId);
+        List<DatasetDeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_deployment_info", Json.toJson(deployments));
+        resultJson.set("deploymentInfo", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -64,9 +68,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> deployments = DatasetInfoDao.getDatasetDeploymentByDatasetUrn(urn);
+        List<DatasetDeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_deployment_info", Json.toJson(deployments));
+        resultJson.set("deploymentInfo", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -105,9 +109,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> capacity = DatasetInfoDao.getDatasetCapacityByDatasetId(datasetId);
+        List<DatasetCapacityRecord> records = DatasetInfoDao.getDatasetCapacityByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_capacity_info", Json.toJson(capacity));
+        resultJson.set("capacity", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -124,9 +128,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> capacity = DatasetInfoDao.getDatasetCapacityByDatasetUrn(urn);
+        List<DatasetCapacityRecord> records = DatasetInfoDao.getDatasetCapacityByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_capacity_info", Json.toJson(capacity));
+        resultJson.set("capacity", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -165,9 +169,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> tags = DatasetInfoDao.getDatasetTagByDatasetId(datasetId);
+        List<DatasetTagRecord> records = DatasetInfoDao.getDatasetTagByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_tags", Json.toJson(tags));
+        resultJson.set("capacity", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -184,9 +188,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> tags = DatasetInfoDao.getDatasetTagByDatasetUrn(urn);
+        List<DatasetTagRecord> records = DatasetInfoDao.getDatasetTagByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_tags", Json.toJson(tags));
+        resultJson.set("capacity", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -225,9 +229,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        Map<String, Object> caseSensitive = DatasetInfoDao.getDatasetCaseSensitivityByDatasetId(datasetId);
+        DatasetCaseSensitiveRecord record = DatasetInfoDao.getDatasetCaseSensitivityByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_case_sensitive", Json.toJson(caseSensitive));
+        resultJson.set("caseSensitivity", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -244,9 +248,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        Map<String, Object> caseSensitive = DatasetInfoDao.getDatasetCaseSensitivityByDatasetUrn(urn);
+        DatasetCaseSensitiveRecord record = DatasetInfoDao.getDatasetCaseSensitivityByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_case_sensitive", Json.toJson(caseSensitive));
+        resultJson.set("caseSensitivity", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -285,9 +289,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> reference = DatasetInfoDao.getDatasetReferenceByDatasetId(datasetId);
+        List<DatasetReferenceRecord> records = DatasetInfoDao.getDatasetReferenceByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_reference", Json.toJson(reference));
+        resultJson.set("references", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -304,9 +308,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> reference = DatasetInfoDao.getDatasetReferenceByDatasetUrn(urn);
+        List<DatasetReferenceRecord> records = DatasetInfoDao.getDatasetReferenceByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_reference", Json.toJson(reference));
+        resultJson.set("references", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -345,9 +349,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        Map<String, Object> partition = DatasetInfoDao.getDatasetPartitionByDatasetId(datasetId);
+        DatasetPartitionRecord record = DatasetInfoDao.getDatasetPartitionByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_partition", Json.toJson(partition));
+        resultJson.set("partitionSpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -364,9 +368,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        Map<String, Object> partition = DatasetInfoDao.getDatasetPartitionByDatasetUrn(urn);
+        DatasetPartitionRecord record = DatasetInfoDao.getDatasetPartitionByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_partition", Json.toJson(partition));
+        resultJson.set("partitionSpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -405,10 +409,8 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        Map<String, Object> security = DatasetInfoDao.getDatasetSecurityByDatasetId(datasetId);
-        DatasetSecurityRecord record = convertToDatasetSecurityRecord(security);
+        DatasetSecurityRecord record = DatasetInfoDao.getDatasetSecurityByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.put("datasetId", record.getDatasetId());
         resultJson.set("securitySpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
@@ -426,10 +428,8 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        Map<String, Object> security = DatasetInfoDao.getDatasetSecurityByDatasetUrn(urn);
-        DatasetSecurityRecord record = convertToDatasetSecurityRecord(security);
+        DatasetSecurityRecord record = DatasetInfoDao.getDatasetSecurityByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.put("datasetId", record.getDatasetId());
         resultJson.set("securitySpec", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
@@ -443,32 +443,6 @@ public class DatasetInfoController extends Controller {
     resultJson.put("return_code", 400);
     resultJson.put("error_message", "No parameter provided");
     return ok(resultJson);
-  }
-
-  private static DatasetSecurityRecord convertToDatasetSecurityRecord(Map<String, Object> map) {
-    DatasetSecurityRecord record = new DatasetSecurityRecord();
-    ObjectMapper om = new ObjectMapper();
-    try {
-      record.setDatasetId(StringUtil.toInt(map.get("dataset_id")));
-      record.setDatasetUrn((String) map.get("dataset_urn"));
-      record.setClassification(
-          om.readValue((String) map.get("classification"), new TypeReference<Map<String, Integer>>() {
-          }));
-      record.setRecordOwnerType((String) map.get("record_owner_type"));
-      record.setRecordOwner(om.readValue((String) map.get("record_owner"), new TypeReference<List<String>>() {
-      }));
-      record.setComplianceType((String) map.get("compliance_type"));
-      record.setRetentionPolicy(
-          om.readValue((String) map.get("retention_policy"), new TypeReference<DatasetRetentionRecord>() {
-          }));
-      record.setGeographicAffinity(
-          om.readValue((String) map.get("geographic_affinity"), new TypeReference<DatasetGeographicAffinityRecord>() {
-          }));
-      record.setModifiedTime((Long) map.get("modified_time"));
-    } catch (IOException ex) {
-      Logger.debug("Can't serialize DB results: security " + map.toString(), ex);
-    }
-    return record;
   }
 
   @BodyParser.Of(BodyParser.Json.class)
@@ -495,9 +469,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> owners = DatasetInfoDao.getDatasetOwnerByDatasetId(datasetId);
+        List<DatasetOwnerRecord> owners = DatasetInfoDao.getDatasetOwnerByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_owner", Json.toJson(owners));
+        resultJson.set("owners", Json.toJson(owners));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -514,9 +488,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> owners = DatasetInfoDao.getDatasetOwnerByDatasetUrn(urn);
+        List<DatasetOwnerRecord> owners = DatasetInfoDao.getDatasetOwnerByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_owner", Json.toJson(owners));
+        resultJson.set("owners", Json.toJson(owners));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -555,9 +529,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> constraints = DatasetInfoDao.getDatasetConstraintByDatasetId(datasetId);
+        List<DatasetConstraintRecord> constraints = DatasetInfoDao.getDatasetConstraintByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_constraints", Json.toJson(constraints));
+        resultJson.set("constraints", Json.toJson(constraints));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -574,9 +548,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> constraints = DatasetInfoDao.getDatasetConstraintByDatasetUrn(urn);
+        List<DatasetConstraintRecord> constraints = DatasetInfoDao.getDatasetConstraintByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_constraints", Json.toJson(constraints));
+        resultJson.set("constraints", Json.toJson(constraints));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -615,9 +589,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<Map<String, Object>> indices = DatasetInfoDao.getDatasetIndexByDatasetId(datasetId);
+        List<DatasetIndexRecord> indices = DatasetInfoDao.getDatasetIndexByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_indices", Json.toJson(indices));
+        resultJson.set("indices", Json.toJson(indices));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -634,9 +608,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<Map<String, Object>> indices = DatasetInfoDao.getDatasetIndexByDatasetUrn(urn);
+        List<DatasetIndexRecord> indices = DatasetInfoDao.getDatasetIndexByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_indices", Json.toJson(indices));
+        resultJson.set("indices", Json.toJson(indices));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -675,9 +649,9 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        Map<String, Object> schema = DatasetInfoDao.getDatasetSchemaByDatasetId(datasetId);
+        DatasetSchemaInfoRecord schema = DatasetInfoDao.getDatasetSchemaByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_schema", Json.toJson(schema));
+        resultJson.set("schemas", Json.toJson(schema));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -694,9 +668,9 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        Map<String, Object> schema = DatasetInfoDao.getDatasetSchemaByDatasetUrn(urn);
+        DatasetSchemaInfoRecord schema = DatasetInfoDao.getDatasetSchemaByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_schema", Json.toJson(schema));
+        resultJson.set("schemas", Json.toJson(schema));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -745,12 +719,11 @@ public class DatasetInfoController extends Controller {
         List<Map<String, Object>> items =
             DatasetInfoDao.getDatasetInventoryItems(dataPlatform, nativeName, dataOrigin, limit);
         resultJson.put("return_code", 200);
-        resultJson.set("dataset_inventory_items", Json.toJson(items));
+        resultJson.set("datasetList", Json.toJson(items));
       } catch (EmptyResultDataAccessException e) {
-        Logger.debug("DataAccessException nativeName: " + nativeName + " , dataOrigin: " + dataOrigin, e);
         resultJson.put("return_code", 404);
         resultJson.put("error_message",
-            "dataset inventory for " + nativeName + " at " + dataOrigin + " cannot be found!");
+            "dataset inventory for " + dataPlatform + " - " + nativeName + " - " + dataOrigin + " cannot be found!");
       }
       return ok(resultJson);
     }

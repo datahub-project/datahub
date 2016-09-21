@@ -42,21 +42,19 @@ public class DatasetCaseSensitiveRecord extends AbstractRecord {
   public DatasetCaseSensitiveRecord() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      Map<String, Object> valueMap = new HashMap<>();
-      valueMap.put("datasetName", datasetName);
-      valueMap.put("fieldName", fieldName);
-      valueMap.put("dataContent", dataContent);
-      return new ObjectMapper().writeValueAsString(valueMap);
-    } catch (Exception ex) {
-      return null;
-    }
+  public Integer getDatasetId() {
+    return datasetId;
   }
 
-  public void setDataset(Integer datasetId, String datasetUrn) {
+  public void setDatasetId(Integer datasetId) {
     this.datasetId = datasetId;
+  }
+
+  public String getDatasetUrn() {
+    return datasetUrn;
+  }
+
+  public void setDatasetUrn(String datasetUrn) {
     this.datasetUrn = datasetUrn;
   }
 

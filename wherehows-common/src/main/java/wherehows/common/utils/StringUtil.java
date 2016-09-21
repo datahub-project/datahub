@@ -50,15 +50,6 @@ public class StringUtil {
     }
   }
 
-  public static Object objectToString(Object obj) {
-    if (obj instanceof Collection || obj instanceof Map || obj instanceof Record) {
-      return obj.toString();
-    } else if (obj instanceof Object[]) {
-      return Arrays.toString((Object[]) obj);
-    }
-    return obj;
-  }
-
   public static Object objectToJsonString(Object obj) {
     if (obj instanceof Collection || obj instanceof Map || obj instanceof Object[] || obj instanceof Record) {
       try {

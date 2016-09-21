@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.List;
 
 
@@ -34,12 +35,14 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
     return null;
   }
 
+  @JsonIgnore
   public static String[] getInventoryItemColumns() {
     return new String[]{"native_name", "data_origin", "data_platform", "event_date", "change_actor_urn", "change_type",
         "change_time", "change_note", "native_type", "uri", "dataset_name_case_sensitivity",
         "field_name_case_sensitivity", "data_content_case_sensitivity"};
   }
 
+  @JsonIgnore
   public Object[] getInventoryItemValues() {
     if (datasetProperties == null) {
       return new Object[]{nativeName, dataOrigin, dataPlatformUrn, eventDate, null, null, null, null, null, null, null,
