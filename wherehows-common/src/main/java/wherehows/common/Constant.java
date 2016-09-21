@@ -173,8 +173,9 @@ public class Constant {
   public static final String HIVE_SCHEMA_JSON_FILE_KEY = "hive.schema_json_file";
   public static final String HIVE_DEPENDENCY_CSV_FILE_KEY = "hive.dependency_csv_file";
   public static final String HIVE_INSTANCE_CSV_FILE_KEY = "hive.instance_csv_file";
-  // public static final String HIVE_SAMPLE_CSV_FILE_KEY = "hive.sample_csv";
+  public static final String HIVE_SAMPLE_CSV_FILE_KEY = "hive.sample_csv_file";
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
+  public static final String HIVE_HDFS_MAP_CSV_FILE_KEY = "hive.hdfs_map_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
 
   /** Property name of app id. For ETL process. ETL process will use this to identify the application */

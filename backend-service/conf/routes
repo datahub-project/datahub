@@ -11,6 +11,12 @@ GET         /assets/*file                 controllers.Assets.at(path="/public", 
 # Find a dataset's dependencies.
 GET         /dependency/dataset           controllers.DatasetController.getDatasetDependency()
 
+# Find dependent datasets, for example hive tables based on the hdfs path
+GET         /dependents/dataset/*uri      controllers.DatasetController.getDatasetDependentsByUri(uri: String)
+
+# Find a dataset's dependents.
+GET         /dataset/:id/dependents       controllers.DatasetController.getDatasetDependentsById(id: Long)
+
 # Find a dataset's schema, field and all datasets level information.
 GET         /dataset                      controllers.DatasetController.getDatasetInfo()
 
@@ -21,7 +27,7 @@ GET         /dataset/watchers             controllers.DatasetController.getDatas
 GET         /dataset/properties           controllers.DatasetController.getDatasetUrns(propertiesLike: String)
 
 
-# Insert new job data lineage
+# Insert a new dataset
 POST        /dataset                      controllers.DatasetController.addDataset()
 
 # For recent x day, which job use the target dataset as a source, or which job produce this datasets.
@@ -36,7 +42,7 @@ GET         /lineage/job/exec/flow        controllers.LineageController.getDatas
 # Given the flow path and job name, will find the upstream/downstream datasets of most recent execution of this job
 GET         /lineage/job/exec/job         controllers.LineageController.getDatasetsByJobExec(jobExecId: Long)
 
-# Insert new job data lineage
+# Insert a new job data lineage
 POST        /lineage                      controllers.LineageController.addJobLineage()
 
 #param: instance
@@ -49,13 +55,13 @@ GET         /flow/owner                   controllers.FlowController.getFlowOwne
 # Get flow schedules
 GET         /flow/schedule                controllers.FlowController.getFlowSchedules(flowPath:String)
 
-# Add new etl job
+# Add a new metadata etl job
 POST        /etl                          controllers.EtlJobController.addEtlJob()
 
-# Get etl job
+# Get a metadata etl job
 GET         /etl                          controllers.EtlJobController.getEtlJobById(id:Int)
 
-# Get etl job
+# Get all etl jobs
 GET         /etls                         controllers.EtlJobController.getAllJobs()
 
 # Update etl job property
