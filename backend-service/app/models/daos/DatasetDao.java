@@ -70,6 +70,17 @@ public class DatasetDao {
 
   public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR = "select urn from dict_dataset where properties like :properties";
 
+  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_ID = "SELECT " +
+          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "WHERE c.mapped_object_dataset_id = ?";
+
+  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_NAME = "SELECT " +
+          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type " +
+          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
+          "WHERE c.mapped_object_type = ? and " +
+          "(c.mapped_object_name = ? or c.mapped_object_name like ?)";
+
   public static Map<String, Object> getDatasetById(int datasetId)
     throws SQLException {
     Map<String, Object> params = new HashMap<>();
@@ -422,5 +433,25 @@ public class DatasetDao {
      return result;
    }
 
+   //
+   public static List<Map<String, Object>> getDatasetDependents(Long datasetId) {
+     if (datasetId > 0) {
+       return JdbcUtil.wherehowsJdbcTemplate.queryForList(GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_ID, datasetId);
+     }
+     return null;
+   }
+
+   //
+   public static List<Map<String, Object>> getDatasetDependents(String dataPlatform, String path) {
+     if (path.length() > 0 && dataPlatform.length() > 0) {
+       String child_path = path + "/%";
+       return JdbcUtil.wherehowsJdbcTemplate.queryForList(
+               GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_NAME,
+               dataPlatform,
+               path,
+               child_path);
+     }
+     return null;
+   }
 
 }
