@@ -28,15 +28,6 @@ public class DatasetFieldIndexRecord {
   public DatasetFieldIndexRecord() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
-  }
-
   public Integer getPosition() {
     return position;
   }

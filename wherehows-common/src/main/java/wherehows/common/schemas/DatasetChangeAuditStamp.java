@@ -27,15 +27,6 @@ public class DatasetChangeAuditStamp {
   public DatasetChangeAuditStamp() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
-  }
-
   public String getActorUrn() {
     return actorUrn;
   }

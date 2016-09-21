@@ -31,15 +31,6 @@ public class DatasetPartitionKeyRecord {
   public DatasetPartitionKeyRecord() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
-  }
-
   public String getPartitionLevel() {
     return partitionLevel;
   }
