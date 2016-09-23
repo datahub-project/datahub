@@ -69,6 +69,10 @@ class AppworxLineageExtract:
         self.logger.error("Get the last execution time from job_execution_data_lineage failed")
         self.last_execution_unix_time = None
 
+      ts = int(time.time())
+      if self.last_execution_unix_time is not None and (ts - self.last_execution_unix_time) > 5*60*60:
+        self.logger.info('last execution unix time is:' + str(self.last_execution_unix_time))
+        self.last_execution_unix_time = None
     return self.last_execution_unix_time
 
   def run(self):
