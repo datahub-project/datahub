@@ -23,13 +23,13 @@
     </appender>
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <!--See also http://logback.qos.ch/manual/appenders.html#RollingFileAppender-->
-        <File>/var/tmp/wherehows/${CONTEXT_NAME:-default}.log</File>
+        <File>/var/tmp/wherehows/${CONTEXT:-default}.log</File>
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n</pattern>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
             <maxIndex>10</maxIndex>
-            <FileNamePattern>/var/tmp/wherehows/${CONTEXT_NAME:-default}.log.%i</FileNamePattern>
+            <FileNamePattern>/var/tmp/wherehows/${CONTEXT:-default}.log.%i</FileNamePattern>
         </rollingPolicy>
         <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
             <MaxFileSize>5MB</MaxFileSize>

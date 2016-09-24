@@ -48,7 +48,7 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        String cmd = ConfigUtil.generateCommand(msg.getWhEtlExecId(), msg.getCmdParam(), props);
+        String cmd = ConfigUtil.generateCommand(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
         Logger.debug("run command : " + cmd);
 
         ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
