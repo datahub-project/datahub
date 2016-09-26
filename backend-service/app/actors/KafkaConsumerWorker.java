@@ -56,11 +56,11 @@ public class KafkaConsumerWorker extends UntypedActor {
     if (message.equals("Start")) {
       Logger.info("Starting Thread: " + _threadId + " for topic: " + _topic);
       final ConsumerIterator<byte[], byte[]> it = _kafkaStream.iterator();
+      final Deserializer<Object> avroDeserializer = new KafkaAvroDeserializer(_schemaRegistryRestfulClient);
 
       while (it.hasNext()) { // block for next input
         try {
           MessageAndMetadata<byte[], byte[]> msg = it.next();
-          Deserializer<Object> avroDeserializer = new KafkaAvroDeserializer(_schemaRegistryRestfulClient);
           GenericData.Record kafkaMsgRecord = (GenericData.Record) avroDeserializer.deserialize(_topic, msg.message());
           // Logger.debug("Kafka worker ThreadId " + _threadId + " Topic " + _topic + " record: " + rec);
 

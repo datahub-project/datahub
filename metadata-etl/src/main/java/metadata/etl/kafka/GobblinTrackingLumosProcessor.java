@@ -40,7 +40,6 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
   private final String PartitionEpochRegex = "(\\d+)-\\w+-\\d+";
   private final Pattern PartitionEpochPattern = Pattern.compile(PartitionEpochRegex);
 
-
   /**
    * Process a Gobblin tracking event lumos record
    * @param record
@@ -48,15 +47,17 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
    * @throws Exception
    */
   @Override
-  public Record process(GenericData.Record record, String topic) throws Exception {
+  public Record process(GenericData.Record record, String topic)
+      throws Exception {
     GobblinTrackingLumosRecord eventRecord = null;
 
-    if (record != null) {
-      final String name = (String) record.get("name");
+    if (record != null && record.get("namespace") != null && record.get("name") != null) {
+      final String name = record.get("name").toString();
+
       // only handle "DeltaPublished" and "SnapshotPublished"
       if (name.equals("DeltaPublished") || name.equals("SnapshotPublished")) {
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
+        final Map<String, String> metadata =  convertObjectMapToStringMap(record.get("metadata"));
         // logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
 
         final String jobContext = "Lumos:" + name;
@@ -116,10 +117,10 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
           }
         }
 
-        eventRecord = new GobblinTrackingLumosRecord(timestamp, cluster,
-            jobContext, projectName, flowId, jobId, execId);
-        eventRecord.setDatasetUrn(dataset, targetDirectory, partitionType, partitionName,
-            subpartitionType, subpartitionName);
+        eventRecord =
+            new GobblinTrackingLumosRecord(timestamp, cluster, jobContext, projectName, flowId, jobId, execId);
+        eventRecord.setDatasetUrn(dataset, targetDirectory, partitionType, partitionName, subpartitionType,
+            subpartitionName);
         eventRecord.setMaxDataDate(maxDataDateEpoch3, maxDataKey);
         eventRecord.setSource(datacenter, devEnv, sourceDatabase, sourceTable);
         eventRecord.setRecordCount(recordCount);

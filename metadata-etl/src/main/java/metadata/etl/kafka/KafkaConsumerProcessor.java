@@ -13,6 +13,8 @@
  */
 package metadata.etl.kafka;
 
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.avro.generic.GenericData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,9 +40,9 @@ public abstract class KafkaConsumerProcessor {
 
 
   /**
-   * Parse Integer value from a String, if null or exception, return 0
+   * Parse Long value from a String, if null or exception, return 0
    * @param text String
-   * @return int
+   * @return long
    */
   protected long parseLong(String text) {
     try {
@@ -50,4 +52,30 @@ public abstract class KafkaConsumerProcessor {
     }
   }
 
+  /**
+   * Parse Integer value from a String, if null or exception, return 0
+   * @param text String
+   * @return int
+   */
+  protected int parseInteger(String text) {
+    try {
+      return Integer.parseInt(text);
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
+  /**
+   * Convert Object with type Map<Object, Object> to Map<String, String>
+   * @param obj Object with type Map<Object, Object>
+   * @return Map <String, String>
+   */
+  protected Map<String, String> convertObjectMapToStringMap(Object obj) {
+    final Map<Object, Object> map = (Map<Object, Object>) obj;
+    final Map<String, String> metadata = new HashMap<>();
+    for (Map.Entry<Object, Object> entry : map.entrySet()) {
+      metadata.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+    }
+    return metadata;
+  }
 }
