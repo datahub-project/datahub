@@ -90,3 +90,17 @@ CREATE TABLE IF NOT EXISTS `job_execution_data_lineage` (
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1
   COMMENT = 'Lineage table' PARTITION BY HASH (app_id) PARTITIONS 8;
+
+CREATE TABLE job_attempt_source_code  (
+	application_id	int(11) NOT NULL,
+	job_id        	int(11) NOT NULL,
+	attempt_number	tinyint(4) NOT NULL,
+	script_name   	varchar(256) NULL,
+	script_path   	varchar(128) NOT NULL,
+	script_type   	varchar(16) NOT NULL,
+	script_md5_sum	binary(16) NULL,
+	created_date  	datetime NOT NULL,
+	PRIMARY KEY(application_id,job_id,attempt_number)
+)
+ENGINE = InnoDB
+DEFAULT CHARSET = utf8;
