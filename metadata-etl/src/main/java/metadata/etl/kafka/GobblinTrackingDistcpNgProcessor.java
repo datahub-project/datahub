@@ -13,12 +13,10 @@
  */
 package metadata.etl.kafka;
 
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.avro.generic.GenericData;
-import wherehows.common.schemas.ClusterInfo;
 import wherehows.common.schemas.GobblinTrackingDistcpNgRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
@@ -41,24 +39,26 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
    * @throws Exception
    */
   @Override
-  public Record process(GenericData.Record record, String topic) throws Exception {
+  public Record process(GenericData.Record record, String topic)
+      throws Exception {
     GobblinTrackingDistcpNgRecord eventRecord = null;
 
     // handle namespace "gobblin.copy.CopyDataPublisher"
-    if (record != null && record.get("namespace").equals("gobblin.copy.CopyDataPublisher")) {
-      final String name = (String) record.get("name");
+    if (record != null && record.get("namespace") != null && record.get("name") != null
+        && "gobblin.copy.CopyDataPublisher".equals(record.get("namespace").toString())) {
+      final String name = record.get("name").toString();
 
       if (name.equals("DatasetPublished")) { // || name.equals("FilePublished")) {
         // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
+        final Map<String, String> metadata = convertObjectMapToStringMap(record.get("metadata"));
 
         final String jobContext = "DistcpNG:" + name;
         final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
         final String projectName = metadata.get("azkabanProjectName");
         final String flowId = metadata.get("azkabanFlowId");
         final String jobId = metadata.get("azkabanJobId");
-        final int execId = Integer.parseInt(metadata.get("azkabanExecId"));
+        final int execId = parseInteger(metadata.get("azkabanExecId"));
         // final String metricContextId = metadata.get("metricContextID");
         // final String metricContextName = metadata.get("metricContextName");
 
@@ -83,8 +83,8 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
           }
         }
 
-        eventRecord = new GobblinTrackingDistcpNgRecord(timestamp, jobContext,
-            cluster, projectName, flowId, jobId, execId);
+        eventRecord =
+            new GobblinTrackingDistcpNgRecord(timestamp, jobContext, cluster, projectName, flowId, jobId, execId);
         eventRecord.setDatasetUrn(dataset, partitionType, partitionName);
         eventRecord.setEventInfo(upstreamTimestamp, originTimestamp, sourcePath, targetPath);
       }
