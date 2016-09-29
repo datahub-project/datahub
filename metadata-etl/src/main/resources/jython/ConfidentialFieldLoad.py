@@ -20,7 +20,7 @@ from wherehows.common import Constant
 
 class ConfidentialFieldLoad:
 
-  confidential_field_names = ["member_id", "memberid", "firstname", "first_name", "lastname", "last_name",
+  confidential_field_names = ["firstname", "first_name", "lastname", "last_name",
                               "email", "email_address", "emailaddress", "address", "birthday", "birth_day",
                               "birthdate", "birth_date", "birth_month", "birthmonth", "birthyear", "birth_year", "ssn"]
   def __init__(self):
