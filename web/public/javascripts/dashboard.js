@@ -355,6 +355,7 @@
                     }
                 }
             });
+            /*
             if (refresh)
             {
                 var barDataUrl = '/api/v1/metadata/barchart/description/' + user + '?option=' + option;
@@ -367,12 +368,80 @@
                     }
                 });
             }
+            */
+        }
+
+        function refreshIdpcDatasets(user, option, page, size, refresh)
+        {
+            if (!user)
+                return;
+
+            if (!page)
+                page = 1;
+            if (!size)
+                size = 10;
+
+            jiraController.set('idpcInProgress', true);
+            var datasetsUrl = '/api/v1/metadata/dataset/compliance/' + user + '?page=' +
+                page + '&size=' + size + '&option=' + option;
+            $.get(datasetsUrl, function(data) {
+                jiraController.set('idpcInProgress', false);
+                if (data && data.status == "ok") {
+                    var currentPage = data.page;
+                    var totalPage = data.totalPages;
+                    if (currentPage == 1)
+                    {
+                        jiraController.set('idpcFirst', true);
+                    }
+                    else
+                    {
+                        jiraController.set('idpcFirst', false);
+                    }
+                    if (currentPage == totalPage)
+                    {
+                        jiraController.set('idpcLast', true);
+                    }
+                    else
+                    {
+                        jiraController.set('idpcLast', false);
+                    }
+                    jiraController.set('complianceDatasets', data);
+                    jiraController.set('currentIdpcPage', data.page);
+                    if (data.datasets && data.datasets.length > 0)
+                    {
+                        /*
+                        if (refresh)
+                        {
+                            renderPie("pie", descriptionOptions[option-1].value, data.count);
+                        }
+                        */
+                        jiraController.set('userNoComplianceFields', false);
+                    }
+                    else
+                    {
+                        jiraController.set('userNoComplianceFields', true);
+                    }
+                }
+            });
+            /*
+            if (refresh)
+            {
+                var barDataUrl = '/api/v1/metadata/barchart/description/' + user + '?option=' + option;
+                $.get(barDataUrl, function(data) {
+                    if (data && data.status == "ok") {
+                        if (data.barData && data.barData.length > 0)
+                        {
+                            renderBarChart(('#barchart'), data.barData, option);
+                        }
+                    }
+                });
+            }
+            */
         }
 
         var jiraController = null;
         var hierarchy = '/jweiner';
         var breadcrumbs;
-        var sortOptions = ['Assignee First', 'Jira Status First', 'Directory Path First'];
         var selectedUser = {
             'userId': 'jweiner',
             'displayName': 'jweiner',
@@ -386,15 +455,24 @@
             'url': '/metadata#/dashboard/jweiner'};
         var descriptionOptions = [
             {'value':'Has Dataset Description', 'option': 1},
-            {'value':'Full Fields Description', 'option': 2},
-            {'value':'Has Fields Description', 'option': 3},
-            {'value':'No Fields Description', 'option': 4},
-            {'value':'All Datasets', 'option': 5}];
+            {'value':'No Dataset Description', 'option': 2},
+            {'value':'Full Fields Description', 'option': 3},
+            {'value':'Has Fields Description', 'option': 4},
+            {'value':'No Fields Description', 'option': 5},
+            {'value':'All Datasets', 'option': 6}];
 
         var ownershipOptions = [
             {'value':'Confirmed Datasets', 'option': 1},
             {'value':'Unconfirmed Datasets', 'option': 2},
             {'value':'All Datasets', 'option': 3}];
+
+        var idpcOptions = [
+            {'value':'Auto Purge', 'option': "AUTO_PURGE"},
+            {'value':'Custome Purge', 'option': "CUSTOM_PURGE"},
+            {'value':'Limited Retention', 'option': "LIMITED_RETENTION"},
+            {'value':'Not Applicable', 'option': "PURGE_NOT_APPLICABLE"},
+            {'value':'Unknown', 'option': "UNKNOWN"},
+            {'value':'All Datasets', 'option': "All Datasets"}];
 
         setTimeout(setActiveTab, 500);
 
@@ -406,6 +484,7 @@
                 jiraController.set('selectedUser', selectedUser);
                 jiraController.set('descriptionOptions', descriptionOptions);
                 jiraController.set('ownershipOptions', ownershipOptions);
+                jiraController.set('idpcOptions', idpcOptions);
             }
         });
 
@@ -440,14 +519,20 @@
                             }
                             jiraController.set('breadcrumbs', breadcrumbs);
 
-                            refreshOwnerDatasets(params.user, 1, 1, 10, true);
+                            var obj = $('#ownerShowOption');
+                            if (obj)
+                            {
+                                refreshOwnerDatasets(params.user, obj.val(), 1, 10, true);
+                            }
+                            else
+                            {
+                                refreshOwnerDatasets(params.user, 1, 1, 10, true);
+                            }
                         }
                     });
 
                     jiraController.set('cfInProgress', true);
                     var confidentialUrl = 'api/v1/metadata/dashboard/confidential/' + params.user;
-                    var headlessTickets;
-                    var userTickets;
                     $.get(confidentialUrl, function(data) {
                         jiraController.set('cfInProgress', false);
                         if (data && data.status == "ok") {
@@ -478,10 +563,8 @@
                     });
 
                     jiraController.set('descInProgress', true);
-                    var confidentialUrl = 'api/v1/metadata/dashboard/description/' + params.user;
-                    var headlessTickets;
-                    var userTickets;
-                    $.get(confidentialUrl, function(data) {
+                    var descriptionUrl = 'api/v1/metadata/dashboard/description/' + params.user;
+                    $.get(descriptionUrl, function(data) {
                         jiraController.set('descInProgress', false);
                         if (data && data.status == "ok") {
                             jiraController.set('descriptionOwners', data.members);
@@ -515,7 +598,45 @@
                             {
                                 refreshDescDatasets(params.user, 1, 1, 10, true);
                             }
+                        }
+                    });
 
+                    jiraController.set('idpcInProgress', true);
+                    var complianceUrl = 'api/v1/metadata/dashboard/compliance/' + params.user;
+                    $.get(complianceUrl, function(data) {
+                        jiraController.set('idpcInProgress', false);
+                        if (data && data.status == "ok") {
+                            jiraController.set('complianceOwners', data.members);
+                            if (data.members && data.members.length > 0)
+                            {
+                                jiraController.set('userNoIdpcMembers', false);
+                            }
+                            else
+                            {
+                                jiraController.set('userNoIdpcMembers', true);
+                            }
+                            jiraController.set('currentComplianceUser', data.currentUser);
+                            var breadcrumbs;
+                            if (data.currentUser.orgHierarchy)
+                            {
+                                breadcrumbs = genBreadcrumbs(data.currentUser.orgHierarchy);
+                            }
+                            else
+                            {
+                                var hierarchy = '/jweiner';
+                                breadcrumbs = genBreadcrumbs(hierarchy);
+                            }
+                            jiraController.set('breadcrumbs', breadcrumbs);
+
+                            var obj = $('#idpcShowOption');
+                            if (obj)
+                            {
+                                refreshIdpcDatasets(params.user, obj.val(), 1, 10, true);
+                            }
+                            else
+                            {
+                                refreshIdpcDatasets(params.user, idpcOptions[0].value, 1, 10, true);
+                            }
                         }
                     });
                 }
@@ -594,6 +715,28 @@
 
                     }
                 },
+                prevIdpcPage: function() {
+                    var idpcInfo = this.get("complianceDatasets");
+                    var user = this.get("currentComplianceUser");
+                    if (idpcInfo && user) {
+                        var currentPage = parseInt(idpcInfo.page) - 1;
+                        if (currentPage > 0) {
+                            refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false);
+                        }
+                    }
+                },
+                nextIdpcPage: function() {
+                    var idpcInfo = this.get("complianceDatasets");
+                    var user = this.get("currentComplianceUser");
+                    if (idpcInfo && user) {
+                        var currentPage = parseInt(idpcInfo.page) + 1;
+                        var totalPages = idpcInfo.totalPages;
+                        if (currentPage <= totalPages) {
+                            refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false);
+                        }
+
+                    }
+                },
                 optionChanged: function() {
                     var user = this.get("currentDescriptionUser");
                     if (user)
@@ -605,7 +748,14 @@
                     var user = this.get("currentOwnershipUser");
                     if (user)
                     {
-                        refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), 1, 10, true);
+                        refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), 1, 10, false);
+                    }
+                },
+                idpcOptionChanged: function() {
+                    var user = this.get("currentComplianceUser");
+                    if (user)
+                    {
+                        refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), 1, 10, true);
                     }
                 }
             }

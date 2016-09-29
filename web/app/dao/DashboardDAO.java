@@ -44,12 +44,15 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
 
     private final static String GET_OWNERSHIP_CONFIRMED_DATASETS = "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, " +
             "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, " +
-            "GROUP_CONCAT(CASE WHEN o.confirmed_by is not null THEN o.confirmed_by ELSE null END " +
+            "GROUP_CONCAT(CASE WHEN o.confirmed_by is not null and o.confirmed_by != '' THEN o.confirmed_by " +
+            "ELSE null END " +
             "ORDER BY o.confirmed_by ASC SEPARATOR ',') as confirmed_owner_id, d.name " +
             "FROM dataset_owner o " +
             "JOIN dict_dataset d ON o.dataset_id = d.id " +
             "WHERE o.dataset_id in " +
-            "(SELECT DISTINCT dataset_id FROM dataset_owner WHERE confirmed_by is not null) and o.owner_id in ( " +
+            "(SELECT DISTINCT dataset_id FROM dataset_owner " +
+            "WHERE confirmed_by is not null and confirmed_by != '' and ( is_deleted != 'Y' or is_deleted is null )) " +
+            "and o.owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
             "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
 
@@ -70,7 +73,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             "ORDER BY o.confirmed_by ASC SEPARATOR ',') as confirmed_owner_id, d.name " +
             "FROM dataset_owner o " +
             "JOIN dict_dataset d ON o.dataset_id = d.id and ( o.is_deleted != 'Y' or o.is_deleted is null ) " +
-            "WHERE o.dataset_id not in (SELECT DISTINCT dataset_id FROM dataset_owner WHERE confirmed_by is not null)" +
+            "WHERE o.dataset_id not in (SELECT DISTINCT dataset_id FROM dataset_owner " +
+            "WHERE confirmed_by is not null and confirmed_by != '' and ( is_deleted != 'Y' or is_deleted is null ))" +
             " and o.owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
             "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
@@ -88,6 +92,23 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             "dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id and " +
             "( o.is_deleted != 'Y' or o.is_deleted is null ) " +
             "WHERE o.dataset_id in ( SELECT DISTINCT dataset_id FROM comments ) and owner_id in ( " +
+            "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
+            "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
+
+    private final static String GET_DATASETS_NO_DESCRIPTION_BY_ID  = "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, " +
+            "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, d.name FROM " +
+            "dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id and " +
+            "( o.is_deleted != 'Y' or o.is_deleted is null ) " +
+            "WHERE o.dataset_id not in ( SELECT DISTINCT dataset_id FROM comments ) and owner_id in ( " +
+            "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
+            "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
+
+    private final static String GET_DATASETS_WITH_IDPC_COMPLIANCE_BY_ID  = "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, " +
+            "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, d.name FROM " +
+            "dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id and " +
+            "( o.is_deleted != 'Y' or o.is_deleted is null ) " +
+            "WHERE o.dataset_id in ( SELECT DISTINCT dataset_id FROM dataset_security WHERE compliance_type = ? ) " +
+            "and owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?) " +
             "GROUP BY o.dataset_id, d.name ORDER BY d.name LIMIT ?, ?";
 
@@ -140,15 +161,27 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             "WHERE o.dataset_id in ( SELECT DISTINCT dataset_id from comments ) and owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?)";
 
-    private final static String GET_COUNT_OF_DATASET_WITH_CONFIRMED_OWNER  = "SELECT count(DISTINCT o.dataset_id) " +
+    private final static String GET_COUNT_OF_DATASET_WITH_IDPC_PURGE  = "SELECT count(DISTINCT o.dataset_id) " +
             "as count FROM dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id and " +
             "( o.is_deleted != 'Y' or o.is_deleted is null ) " +
-            "WHERE o.confirmed_by is not null and owner_id in ( " +
+            "WHERE o.dataset_id in ( SELECT DISTINCT dataset_id from dataset_security ) and owner_id in ( " +
+            "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?)";
+
+    private final static String GET_COUNT_OF_DATASET_WITH_CONFIRMED_OWNER  = "SELECT count(DISTINCT o.dataset_id) " +
+            "as count FROM dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id " +
+            "WHERE o.dataset_id in (SELECT DISTINCT dataset_id FROM dataset_owner " +
+            "WHERE confirmed_by is not null and confirmed_by != '' and ( is_deleted != 'Y' or is_deleted is null )) " +
+            "and owner_id in ( " +
             "SELECT user_id FROM dir_external_user_info WHERE org_hierarchy = ? or org_hierarchy like ?)";
 
     private final static String GET_FIELDS_WITH_DESCRIPTION = "SELECT field_name FROM " +
             "dict_field_detail dd JOIN dict_dataset_field_comment fc ON " +
             "dd.field_id = fc.field_id and dd.dataset_id = fc.dataset_id WHERE dd.dataset_id = ?";
+
+    private final static String GET_DATASET_LEVEL_COMMENTS = "SELECT text FROM comments WHERE dataset_id = ? LIMIT 1";
+
+    private final static String GET_COMPLIANCE_TYPE_BY_DATASET_ID = "SELECT compliance_type FROM " +
+            "dataset_security WHERE dataset_id = ?";
 
     private final static String GET_CONFIDENTIAL_FIELDS = "SELECT field_name " +
             "FROM dict_pii_field WHERE dataset_id = ?";
@@ -192,6 +225,13 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
             "JOIN dataset_owner o on df.dataset_id = o.dataset_id " +
             "WHERE o.owner_id in (SELECT user_id FROM dir_external_user_info " +
             "WHERE org_hierarchy = ? or org_hierarchy like ?)) co";
+
+    private final static String IDPC_AUTO_PURGE = "AUTO_PURGE";
+    private final static String IDPC_CUSTOMER_PURGE = "CUSTOMER_PURGE";
+    private final static String IDPC_RETENTION = "RETENTION";
+    private final static String IDPC_PURGE_NA = "Not purge applicable";
+    private final static String IDPC_PURGE_UNKNOWN = "Unknown";
+    private final static String ALL_DATASETS = "All Datasets";
 
     public static ObjectNode getOwnershipPercentageByManagerId(String managerId) {
 
@@ -405,6 +445,112 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
         return resultNode;
     }
 
+    public static ObjectNode getIdpcCompliancePercentageByManagerId(String managerId) {
+
+        ObjectNode resultNode = Json.newObject();
+        ConfidentialFieldsOwner currentUser = null;
+        List<ConfidentialFieldsOwner> memberList = new ArrayList<ConfidentialFieldsOwner>();
+        if (StringUtils.isNotBlank(managerId))
+        {
+            List<LdapInfo> ldapInfoList = JiraDAO.getCurrentUserLdapInfo(managerId);
+            if (ldapInfoList != null && ldapInfoList.size() > 0)
+            {
+                LdapInfo ldapInfo = ldapInfoList.get(0);
+                if (ldapInfo != null)
+                {
+                    currentUser = new ConfidentialFieldsOwner();
+                    currentUser.displayName = ldapInfo.displayName;
+                    currentUser.iconUrl = ldapInfo.iconUrl;
+                    currentUser.managerUserId = ldapInfo.managerUserId;
+                    currentUser.orgHierarchy = ldapInfo.orgHierarchy;
+                    currentUser.userName = ldapInfo.userName;
+                    if (StringUtils.isNotBlank(ldapInfo.orgHierarchy)) {
+                        currentUser.potentialDatasets = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET,
+                                Long.class,
+                                currentUser.orgHierarchy,
+                                currentUser.orgHierarchy + "/%");
+                    }
+                    else if (managerId.equalsIgnoreCase("jweiner"))
+                    {
+                        currentUser.potentialDatasets = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET,
+                                Long.class,
+                                "/" + currentUser.userName,
+                                "/" + currentUser.userName + "/%");
+                    }
+                    if (StringUtils.isNotBlank(ldapInfo.orgHierarchy)) {
+                        currentUser.confirmed = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET_WITH_IDPC_PURGE,
+                                Long.class,
+                                currentUser.orgHierarchy,
+                                currentUser.orgHierarchy + "/%");
+                    }
+                    else if (managerId.equalsIgnoreCase("jweiner"))
+                    {
+                        currentUser.confirmed = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET_WITH_IDPC_PURGE,
+                                Long.class,
+                                "/" + currentUser.userName,
+                                "/" + currentUser.userName + "/%");
+                    }
+
+                    if (currentUser.potentialDatasets != 0)
+                    {
+                        currentUser.completed =
+                                df2.format(100.0 * currentUser.confirmed / currentUser.potentialDatasets);
+                    }
+                    else
+                    {
+                        currentUser.completed = df2.format(0.0);
+                    }
+
+                }
+            }
+            List<LdapInfo> members = JiraDAO.getFirstLevelLdapInfo(managerId);
+            if (members != null)
+            {
+                for(LdapInfo member : members)
+                {
+                    if (member != null && StringUtils.isNotBlank(member.orgHierarchy))
+                    {
+                        ConfidentialFieldsOwner owner = new ConfidentialFieldsOwner();
+                        owner.displayName = member.displayName;
+                        owner.fullName = member.fullName;
+                        owner.userName = member.userName;
+                        owner.iconUrl = member.iconUrl;
+                        owner.managerUserId = member.managerUserId;
+                        owner.orgHierarchy = member.orgHierarchy;
+                        owner.potentialDatasets = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET,
+                                Long.class,
+                                owner.orgHierarchy,
+                                owner.orgHierarchy + "/%");
+
+                        owner.confirmed = getJdbcTemplate().queryForObject(
+                                GET_COUNT_OF_DATASET_WITH_IDPC_PURGE,
+                                Long.class,
+                                owner.orgHierarchy,
+                                owner.orgHierarchy + "/%");
+                        if (owner.potentialDatasets != 0)
+                        {
+                            owner.completed = df2.format(100.0 * owner.confirmed / owner.potentialDatasets);
+                        }
+                        else
+                        {
+                            owner.completed = df2.format(0.0);
+                        }
+                        memberList.add(owner);
+                    }
+                }
+            }
+        }
+        resultNode.put("status", "ok");
+        resultNode.set("currentUser", Json.toJson(currentUser));
+        resultNode.set("members", Json.toJson(memberList));
+        return resultNode;
+    }
+
     public static ObjectNode getConfidentialPercentageByManagerId(String managerId) {
 
         ObjectNode resultNode = Json.newObject();
@@ -564,7 +710,12 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                                 datasetConfidential.datasetId = (Long) row.get("dataset_id");
                                 datasetConfidential.datasetName = (String) row.get("name");
                                 datasetConfidential.ownerId = (String) row.get("owner_id");
-                                datasetConfidential.confirmedOwnerId = (String) row.get("confirmed_owner_id");
+                                String confirmedOwnerId = (String) row.get("confirmed_owner_id");
+                                if (StringUtils.isBlank(confirmedOwnerId) && option == 1)
+                                {
+                                    confirmedOwnerId = "<other team>";
+                                }
+                                datasetConfidential.confirmedOwnerId = confirmedOwnerId;
                                 confidentialList.add(datasetConfidential);
                             }
                         }
@@ -677,6 +828,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                 ObjectNode resultNode = Json.newObject();
                 Long count = 0L;
                 List<DatasetConfidential> confidentialList = new ArrayList<DatasetConfidential>();
+                Boolean isDatasetLevel = true;
+                String description = "";
 
                 if (StringUtils.isNotBlank(managerId))
                 {
@@ -691,21 +844,34 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                             {
                                 case 1:
                                     datasetQuery = GET_DATASETS_WITH_DESCRIPTION_BY_ID;
+                                    description = "has dataset level description";
                                     break;
                                 case 2:
-                                    datasetQuery = GET_DATASETS_WITH_FULL_FIELD_DESCRIPTION_BY_ID;
+                                    datasetQuery = GET_DATASETS_NO_DESCRIPTION_BY_ID;
+                                    description = "no dataset level description";
                                     break;
                                 case 3:
-                                    datasetQuery = GET_DATASETS_WITH_ANY_FIELD_DESCRIPTION_BY_ID;
+                                    datasetQuery = GET_DATASETS_WITH_FULL_FIELD_DESCRIPTION_BY_ID;
+                                    description = "all fields have description";
+                                    isDatasetLevel = false;
                                     break;
                                 case 4:
-                                    datasetQuery = GET_DATASETS_WITH_NO_FIELD_DESCRIPTION_BY_ID;
+                                    datasetQuery = GET_DATASETS_WITH_ANY_FIELD_DESCRIPTION_BY_ID;
+                                    description = "has field description";
+                                    isDatasetLevel = false;
                                     break;
                                 case 5:
+                                    datasetQuery = GET_DATASETS_WITH_NO_FIELD_DESCRIPTION_BY_ID;
+                                    description = "no field description";
+                                    isDatasetLevel = false;
+                                    break;
+                                case 6:
                                     datasetQuery = GET_ALL_DATASETS_BY_ID;
+                                    description = "";
                                     break;
                                 default:
                                     datasetQuery = GET_ALL_DATASETS_BY_ID;
+                                    description = "";
                             }
                             List<Map<String, Object>> rows = null;
                             if (StringUtils.isNotBlank(ldapInfo.orgHierarchy)) {
@@ -742,9 +908,134 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                                 datasetConfidential.datasetName = (String) row.get("name");
                                 datasetConfidential.ownerId = (String) row.get("owner_id");
                                 if (datasetConfidential.datasetId != null && datasetConfidential.datasetId > 0) {
+                                    if (isDatasetLevel)
+                                    {
+                                        datasetConfidential.confidentialFieldList =
+                                                getJdbcTemplate().queryForList(
+                                                        GET_DATASET_LEVEL_COMMENTS,
+                                                        String.class,
+                                                        datasetConfidential.datasetId);
+                                    }
+                                    else {
+                                        datasetConfidential.confidentialFieldList =
+                                                getJdbcTemplate().queryForList(
+                                                        GET_FIELDS_WITH_DESCRIPTION,
+                                                        String.class,
+                                                        datasetConfidential.datasetId);
+                                    }
+                                }
+                                confidentialList.add(datasetConfidential);
+                            }
+                        }
+                    }
+                }
+                resultNode.put("status", "ok");
+                resultNode.put("count", count);
+                resultNode.put("page", page);
+                resultNode.put("description", description);
+                resultNode.put("itemsPerPage", size);
+                resultNode.put("isDatasetLevel", isDatasetLevel);
+                resultNode.put("totalPages", (int) Math.ceil(count / ((double) size)));
+                resultNode.set("datasets", Json.toJson(confidentialList));
+                return resultNode;
+            }
+        });
+        return result;
+    }
+
+    public static ObjectNode getPagedComplianceDatasetsByManagerId(
+            String managerId,
+            String option,
+            Integer page,
+            Integer size) {
+
+        ObjectNode result = Json.newObject();
+
+        javax.sql.DataSource ds = getJdbcTemplate().getDataSource();
+        DataSourceTransactionManager tm = new DataSourceTransactionManager(ds);
+        TransactionTemplate txTemplate = new TransactionTemplate(tm);
+        result = txTemplate.execute(new TransactionCallback<ObjectNode>()
+        {
+            public ObjectNode doInTransaction(TransactionStatus status)
+            {
+                ObjectNode resultNode = Json.newObject();
+                Long count = 0L;
+                List<DatasetConfidential> confidentialList = new ArrayList<DatasetConfidential>();
+
+                if (StringUtils.isNotBlank(managerId))
+                {
+                    List<LdapInfo> ldapInfoList = JiraDAO.getCurrentUserLdapInfo(managerId);
+                    if (ldapInfoList != null && ldapInfoList.size() > 0)
+                    {
+                        LdapInfo ldapInfo = ldapInfoList.get(0);
+                        if (ldapInfo != null)
+                        {
+                            List<Map<String, Object>> rows = null;
+                            if (StringUtils.isNotBlank(ldapInfo.orgHierarchy)) {
+
+                                if (StringUtils.isNotBlank(option) && !(option.equalsIgnoreCase(ALL_DATASETS)))
+                                {
+                                    rows = getJdbcTemplate().queryForList(
+                                            GET_DATASETS_WITH_IDPC_COMPLIANCE_BY_ID,
+                                            option,
+                                            ldapInfo.orgHierarchy,
+                                            ldapInfo.orgHierarchy + "/%",
+                                            (page - 1) * size,
+                                            size);
+                                }
+                                else
+                                {
+                                    rows = getJdbcTemplate().queryForList(
+                                            GET_ALL_DATASETS_BY_ID,
+                                            ldapInfo.orgHierarchy,
+                                            ldapInfo.orgHierarchy + "/%",
+                                            (page - 1) * size,
+                                            size);
+                                }
+
+                            }
+                            else if (managerId.equalsIgnoreCase("jweiner"))
+                            {
+                                if (StringUtils.isNotBlank(option) && !(option.equalsIgnoreCase(ALL_DATASETS)))
+                                {
+                                    rows = getJdbcTemplate().queryForList(
+                                            GET_DATASETS_WITH_IDPC_COMPLIANCE_BY_ID,
+                                            option,
+                                            "/" + ldapInfo.userName,
+                                            "/" + ldapInfo.userName + "/%",
+                                            (page - 1) * size,
+                                            size);
+                                }
+                                else
+                                {
+                                    rows = getJdbcTemplate().queryForList(
+                                            GET_ALL_DATASETS_BY_ID,
+                                            "/" + ldapInfo.userName,
+                                            "/" + ldapInfo.userName + "/%",
+                                            (page - 1) * size,
+                                            size);
+                                }
+                            }
+
+                            try {
+                                count = getJdbcTemplate().queryForObject(
+                                        "SELECT FOUND_ROWS()",
+                                        Long.class);
+                            }
+                            catch(EmptyResultDataAccessException e)
+                            {
+                                Logger.error("Exception = " + e.getMessage());
+                            }
+
+                            for (Map row : rows) {
+                                DatasetConfidential datasetConfidential = new DatasetConfidential();
+                                datasetConfidential.datasetId = (Long) row.get("dataset_id");
+                                datasetConfidential.datasetName = (String) row.get("name");
+                                datasetConfidential.ownerId = (String) row.get("owner_id");
+                                if (datasetConfidential.datasetId != null && datasetConfidential.datasetId > 0) {
                                     datasetConfidential.confidentialFieldList =
                                             getJdbcTemplate().queryForList(
-                                                    GET_FIELDS_WITH_DESCRIPTION,
+                                                    GET_COMPLIANCE_TYPE_BY_DATASET_ID,
                                                     String.class,
                                                     datasetConfidential.datasetId);
                                 }
@@ -900,7 +1191,14 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO
                             String label = Integer.toString(month) + "/" + Integer.toString(year);
                             MetadataBarData metadataBarData = new MetadataBarData();
                             metadataBarData.label = label;
-                            metadataBarData.value = value.longValue();
+                            if (value != null)
+                            {
+                                metadataBarData.value = value.longValue();
+                            }
+                            else
+                            {
+                                metadataBarData.value = 0L;
+                            }
                             barDataList.add(metadataBarData);
                         }
                     }
