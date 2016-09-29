@@ -211,11 +211,15 @@ GET     /api/v1/metadata/dashboard/confidential/:managerId      controllers.api.
 
 GET     /api/v1/metadata/dashboard/description/:managerId       controllers.api.v1.Dashboard.getDescriptionDatasetsPercentage(managerId :String)
 
+GET     /api/v1/metadata/dashboard/compliance/:managerId        controllers.api.v1.Dashboard.getIdpcComplianceDatasetsPercentage(managerId :String)
+
 GET     /api/v1/metadata/dataset/ownership/:managerId           controllers.api.v1.Dashboard.getPagedOwnershipDatasets(managerId :String)
 
 GET     /api/v1/metadata/dataset/confidential/:managerId        controllers.api.v1.Dashboard.getPagedConfidentialDatasets(managerId :String)
 
 GET     /api/v1/metadata/dataset/description/:managerId         controllers.api.v1.Dashboard.getPagedDescriptionDatasets(managerId :String)
+
+GET     /api/v1/metadata/dataset/compliance/:managerId          controllers.api.v1.Dashboard.getPagedComplianceDatasets(managerId :String)
 
 GET     /api/v1/metadata/barchart/ownership/:managerId          controllers.api.v1.Dashboard.getOwnershipBarData(managerId :String)
 
