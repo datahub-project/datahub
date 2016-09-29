@@ -20,6 +20,7 @@ import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.GobblinTrackingLumosRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
@@ -57,7 +58,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
       // only handle "DeltaPublished" and "SnapshotPublished"
       if (name.equals("DeltaPublished") || name.equals("SnapshotPublished")) {
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata =  convertObjectMapToStringMap(record.get("metadata"));
+        final Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
         // logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
 
         final String jobContext = "Lumos:" + name;

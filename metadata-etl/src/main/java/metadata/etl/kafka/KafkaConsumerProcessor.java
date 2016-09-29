@@ -64,18 +64,4 @@ public abstract class KafkaConsumerProcessor {
       return 0;
     }
   }
-
-  /**
-   * Convert Object with type Map<Object, Object> to Map<String, String>
-   * @param obj Object with type Map<Object, Object>
-   * @return Map <String, String>
-   */
-  protected Map<String, String> convertObjectMapToStringMap(Object obj) {
-    final Map<Object, Object> map = (Map<Object, Object>) obj;
-    final Map<String, String> metadata = new HashMap<>();
-    for (Map.Entry<Object, Object> entry : map.entrySet()) {
-      metadata.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
-    }
-    return metadata;
-  }
 }

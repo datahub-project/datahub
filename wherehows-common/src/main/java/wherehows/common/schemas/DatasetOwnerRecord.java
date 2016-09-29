@@ -36,12 +36,14 @@ public class DatasetOwnerRecord extends AbstractRecord {
   Long sourceTime;
   Long createdTime;
   Long modifiedTime;
+  String confirmedBy;
+  Long confirmedOn;
 
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id",
         "owner_id_type", "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_ids",
-        "source_time", "created_time", "modified_time"};
+        "source_time", "created_time", "modified_time", "confirmed_by", "confirmed_on"};
   }
 
   @Override
@@ -207,5 +209,21 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   public void setModifiedTime(Long modifiedTime) {
     this.modifiedTime = modifiedTime;
+  }
+
+  public Long getConfirmedOn() {
+    return confirmedOn;
+  }
+
+  public void setConfirmedOn(Long confirmedOn) {
+    this.confirmedOn = confirmedOn;
+  }
+
+  public String getConfirmedBy() {
+    return confirmedBy;
+  }
+
+  public void setConfirmedBy(String confirmedBy) {
+    this.confirmedBy = confirmedBy;
   }
 }

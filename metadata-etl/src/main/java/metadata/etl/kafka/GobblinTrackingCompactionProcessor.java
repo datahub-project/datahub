@@ -22,6 +22,7 @@ import wherehows.common.schemas.ClusterInfo;
 import wherehows.common.schemas.GobblinTrackingCompactionRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 /**
@@ -54,7 +55,7 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
       if (name.equals("CompactionCompleted") || name.equals("CompactionRecordCounts")) {
         // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = convertObjectMapToStringMap(record.get("metadata"));
+        final Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
 
         final String jobContext = "Gobblin:" + name;
         final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
