@@ -46,6 +46,11 @@ public class Dashboard extends Controller
         return ok(DashboardDAO.getDescriptionPercentageByManagerId(managerId));
     }
 
+    public static Result getIdpcComplianceDatasetsPercentage(String managerId)
+    {
+        return ok(DashboardDAO.getIdpcCompliancePercentageByManagerId(managerId));
+    }
+
     public static Result getPagedOwnershipDatasets(String managerId)
     {
         int page = 1;
@@ -211,6 +216,51 @@ public class Dashboard extends Controller
         }
 
         return ok(DashboardDAO.getPagedDescriptionDatasetsByManagerId(managerId, option, page, size));
+    }
+
+    public static Result getPagedComplianceDatasets(String managerId)
+    {
+        int page = 1;
+        String pageStr = request().getQueryString("page");
+        if (StringUtils.isBlank(pageStr))
+        {
+            page = 1;
+        }
+        else
+        {
+            try
+            {
+                page = Integer.parseInt(pageStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedComplianceDatasets wrong page parameter. Error message: " + e.getMessage());
+                page = 1;
+            }
+        }
+
+        String option = request().getQueryString("option");
+
+        int size = 10;
+        String sizeStr = request().getQueryString("size");
+        if (StringUtils.isBlank(sizeStr))
+        {
+            size = 10;
+        }
+        else
+        {
+            try
+            {
+                size = Integer.parseInt(sizeStr);
+            }
+            catch(NumberFormatException e)
+            {
+                Logger.error("Dashboard Controller getPagedComplianceDatasets wrong size parameter. Error message: " + e.getMessage());
+                size = 10;
+            }
+        }
+
+        return ok(DashboardDAO.getPagedComplianceDatasetsByManagerId(managerId, option, page, size));
     }
 
     public static Result getOwnershipBarData(String managerId)
