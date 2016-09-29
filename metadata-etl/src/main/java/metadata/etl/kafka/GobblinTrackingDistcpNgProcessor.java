@@ -20,6 +20,7 @@ import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.GobblinTrackingDistcpNgRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 /**
@@ -51,7 +52,7 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
       if (name.equals("DatasetPublished")) { // || name.equals("FilePublished")) {
         // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = convertObjectMapToStringMap(record.get("metadata"));
+        final Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
 
         final String jobContext = "DistcpNG:" + name;
         final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));

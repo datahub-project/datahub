@@ -698,6 +698,13 @@ public class DatasetInfoDao {
     final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode owners = root.path("owners");
+    final JsonNode ownerSourceNode = root.path("source");
+    String ownerSource = null;
+
+    if (ownerSourceNode != null && (!ownerSourceNode.isMissingNode()))
+    {
+        ownerSource = ownerSourceNode.asText();
+    }
 
     if ((idNode.isMissingNode() && urnNode.isMissingNode()) || owners.isMissingNode() || !owners.isArray()) {
       throw new IllegalArgumentException(
@@ -719,7 +726,6 @@ public class DatasetInfoDao {
     ObjectMapper om = new ObjectMapper();
 
     List<DatasetOwnerRecord> ownerList = new ArrayList<>();
-    int sortId = 0;
     for (final JsonNode owner : owners) {
       DatasetOwnerRecord record = om.convertValue(owner, DatasetOwnerRecord.class);
       record.setDatasetId(datasetId);
@@ -747,8 +753,6 @@ public class DatasetInfoDao {
       record.setIsActive(isActive);
       String ownerTypeString = record.getOwnerType();
       record.setIsGroup(ownerTypeString != null && ownerTypeString.equalsIgnoreCase("group") ? "Y" : "N");
-      sortId++;
-      record.setSortId(sortId);
 
       if (datasetId == 0 || appId == 0) {
         String sql = PreparedStatementUtil.prepareInsertTemplateWithColumn(DATASET_OWNER_UNMATCHED_TABLE,
@@ -759,29 +763,141 @@ public class DatasetInfoDao {
       }
     }
 
-    List<DatasetOwnerRecord> oldOwnerList = getDatasetOwnerByDatasetUrn(urn);
-    // merge old owner info into updated owner list
-    for (DatasetOwnerRecord rec : ownerList) {
-      for (DatasetOwnerRecord old : oldOwnerList) {
-        if (rec.getDatasetId().equals(old.getDatasetId()) && rec.getOwner()
-            .equals(old.getOwner()) && rec.getAppId().equals(old.getAppId())) {
-          rec.setDbIds(old.getDbIds());
-          rec.setCreatedTime(StringUtil.toLong(old.getCreatedTime()));
+    mergeDatasetOwners(ownerList, datasetId, urn, ownerSource);
+  }
 
-          // take the higher priority owner category
-          rec.setOwnerCategory(OwnerType.chooseOwnerType(rec.getOwnerCategory(), old.getOwnerCategory()));
+  public static void updateKafkaDatasetOwner(
+            String datasetUrn,
+            String owners,
+            String ownerSource,
+            Long sourceUnixTime)
+        throws Exception
+  {
+    if (datasetUrn == null)
+    {
+      return;
+    }
 
-          // merge owner source as comma separated list
-          rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), old.getOwnerSource()));
+    Integer datasetId = 0;
 
-          // remove from owner source?
+    try
+    {
+      datasetId = Integer.parseInt(DatasetDao.getDatasetByUrn(datasetUrn).get("id").toString());
+    }
+    catch(Exception e)
+    {
+      Logger.error("Exception in updateKafkaDatasetOwner: " + e.getMessage());
+    }
+    if (datasetId == 0)
+    {
+      return;
+    }
+
+    List<DatasetOwnerRecord> ownerList = new ArrayList<DatasetOwnerRecord>();
+    if (owners != null)
+    {
+      String[] ownerArray = owners.split(",");
+      if (ownerArray != null && ownerArray.length > 0)
+      {
+        for(int i = 0; i < ownerArray.length; i++)
+        {
+          String ownerName = null;
+          String namespace = null;
+          String ownerIdType = null;
+          String isGroup = "N";
+          String owner = ownerArray[i];
+          if (owner != null)
+          {
+            int lastIndex = owner.lastIndexOf(':');
+            if (lastIndex != -1)
+            {
+              ownerName = owner.substring(lastIndex+1);
+              namespace = owner.substring(0, lastIndex);
+              if (namespace != null && namespace.equalsIgnoreCase("urn:li:griduser"))
+              {
+                isGroup = "Y";
+                ownerIdType = "GROUP";
+              }
+              else
+              {
+                ownerIdType = "PERSON";
+              }
+            }
+            DatasetOwnerRecord record = new DatasetOwnerRecord();
+            record.setDatasetId(datasetId);
+            record.setDatasetUrn(datasetUrn);
+            record.setOwnerType("Producer");
+            record.setOwner(ownerName);
+            record.setOwnerType(ownerIdType);
+            record.setIsGroup(isGroup);
+            record.setIsActive("Y");
+            record.setNamespace(namespace);
+            record.setOwnerSource(ownerSource);
+            record.setSourceTime(sourceUnixTime);
+            record.setCreatedTime(sourceUnixTime);
+            record.setModifiedTime(System.currentTimeMillis() / 1000);
+            ownerList.add(record);
+          }
         }
       }
     }
 
+    mergeDatasetOwners(ownerList, datasetId, datasetUrn, ownerSource);
+  }
+
+  public static void mergeDatasetOwners(
+          List<DatasetOwnerRecord> newOwnerList,
+          Integer datasetId,
+          String datasetUrn,
+          String source)
+          throws Exception{
+    List<DatasetOwnerRecord> oldOwnerList = getDatasetOwnerByDatasetUrn(datasetUrn);
+    Integer sortId = 0;
+    Map<String, DatasetOwnerRecord> uniqueRecords = new HashMap<String, DatasetOwnerRecord>();
+    List<DatasetOwnerRecord> combinedList = new ArrayList<DatasetOwnerRecord>();
+    if (newOwnerList != null)
+    {
+        for(DatasetOwnerRecord owner: newOwnerList)
+        {
+            owner.setSortId(sortId++);
+            uniqueRecords.put(owner.getOwner(), owner);
+            combinedList.add(owner);
+        }
+    }
+
+    if (oldOwnerList != null)
+    {
+        for(DatasetOwnerRecord owner: newOwnerList)
+        {
+            DatasetOwnerRecord exist = uniqueRecords.get(owner.getOwner());
+            if (exist != null)
+            {
+                exist.setDbIds(owner.getDbIds());
+                exist.setCreatedTime(StringUtil.toLong(owner.getCreatedTime()));
+
+                // take the higher priority owner category
+                exist.setOwnerCategory(OwnerType.chooseOwnerType(exist.getOwnerCategory(), owner.getOwnerCategory()));
+
+                // merge owner source as comma separated list
+                exist.setOwnerSource(mergeOwnerSource(exist.getOwnerSource(), owner.getOwnerSource()));
+                exist.setConfirmedBy(owner.getConfirmedBy());
+                exist.setConfirmedOn(owner.getConfirmedOn());
+            }
+            else
+            {
+                if(!(source != null && source.equalsIgnoreCase(owner.getOwnerSource())))
+                {
+                    owner.setSortId(sortId++);
+                    uniqueRecords.put(owner.getOwner(), owner);
+                    combinedList.add(owner);
+                }
+            }
+        }
+    }
+
     // remove old info then insert new info
     OWNER_WRITER.execute(DELETE_DATASET_OWNER_BY_DATASET_ID, new Object[]{datasetId});
-    for (DatasetOwnerRecord record : ownerList) {
+    for (DatasetOwnerRecord record : combinedList) {
       OWNER_WRITER.append(record);
     }
     OWNER_WRITER.insert();

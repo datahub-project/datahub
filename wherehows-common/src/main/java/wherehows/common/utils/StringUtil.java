@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import wherehows.common.schemas.Record;
 
@@ -75,5 +76,19 @@ public class StringUtil {
 
   public static Boolean toBoolean(Object obj) {
     return obj != null ? Boolean.valueOf(obj.toString()) : null;
+  }
+
+  /**
+   * Convert Object with type Map<Object, Object> to Map<String, String>
+   * @param obj Object with type Map<Object, Object>
+   * @return Map <String, String>
+   */
+  public static Map<String, String> convertObjectMapToStringMap(Object obj) {
+    final Map<Object, Object> map = (Map<Object, Object>) obj;
+    final Map<String, String> metadata = new HashMap<>();
+    for (Map.Entry<Object, Object> entry : map.entrySet()) {
+      metadata.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+    }
+    return metadata;
   }
 }
