@@ -31,7 +31,7 @@ class ElasticSearchIndex():
                                  args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY],
                                  args[Constant.WH_DB_DRIVER_KEY])
-    self.wh_cursor = self.wh_con.cursor()
+    self.wh_cursor = self.wh_con.cursor(1)
 
   def bulk_insert(self, params, url):
     try:
@@ -64,17 +64,20 @@ class ElasticSearchIndex():
       url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port)  + '/wherehows/field/_bulk'
       params = []
       self.wh_cursor.execute(sql)
-      comment_cursor = self.wh_con.cursor()
+      comment_cursor = self.wh_con.cursor(1)
       description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for result in self.wh_cursor:
+      result = self.wh_cursor.fetchone()
+      while result:
           row = dict(zip(description, result))
           comment_cursor.execute(comment_query % long(row['field_id']))
           comments = []
           comment_description = [x[0] for x in comment_cursor.description]
-          for comment_result in comment_cursor:
+          comment_result = comment_cursor.fetchone()
+          while comment_result:
             comment_row = dict(zip(comment_description, comment_result))
             comments.append(comment_row['comment'])
+            comment_result = comment_cursor.fetchone()
           params.append('{ "index": { "_id": ' +
                         str(row['field_id']) + ', "parent": ' + str(row['dataset_id']) + '  }}')
           if len(comments) > 0:
@@ -90,10 +93,13 @@ class ElasticSearchIndex():
                    row['field_name'] if row['field_name'] else '', row['parent_path'] if row['parent_path'] else ''))
           if row_count % 1000 == 0:
               self.bulk_insert(params, url)
+              self.logger.info('dataset field ' + str(row_count))
               params = []
           row_count += 1
+          result = self.wh_cursor.fetchone()
       if len(params) > 0:
           self.bulk_insert(params, url)
+          self.logger.info('dataset field ' + str(len(params)))
 
       comment_cursor.close()
 
@@ -112,7 +118,8 @@ class ElasticSearchIndex():
     self.wh_cursor.execute(sql)
     row_count = 1
     description = [x[0] for x in self.wh_cursor.description]
-    for result in self.wh_cursor:
+    result = self.wh_cursor.fetchone()
+    while result:
       row = dict(zip(description, result))
       params.append('{ "index": { "_id": ' + str(row['id']) + ', "parent": ' + str(row['dataset_id']) + '  }}')
       params.append(
@@ -121,10 +128,13 @@ class ElasticSearchIndex():
              row['dataset_id'] if row['dataset_id'] else 0, row['comment_type'] if row['comment_type'] else ''))
       if row_count % 1000 == 0:
         self.bulk_insert(params, url)
+        self.logger.info('comment ' + str(row_count))
         params = []
       row_count += 1
+      result = self.wh_cursor.fetchone()
     if len(params) > 0:
       self.bulk_insert(params, url)
+      self.logger.info('comment ' + str(len(params)))
 
   def update_dataset(self, last_unixtime=None):
     if last_unixtime:
@@ -140,7 +150,8 @@ class ElasticSearchIndex():
     self.wh_cursor.execute(sql)
     description = [x[0] for x in self.wh_cursor.description]
     row_count = 1
-    for result in self.wh_cursor:
+    result = self.wh_cursor.fetchone()
+    while result:
       row = dict(zip(description, result))
       params.append('{ "index": { "_id": ' + str(row['id']) + ' }}')
       params.append(
@@ -152,12 +163,14 @@ class ElasticSearchIndex():
              json.dumps(row['schema'])  if row['schema'] else '', json.dumps(row['fields'])  if row['fields'] else ''))
       if row_count % 1000 == 0:
         self.bulk_insert(params, url)
-        self.logger.info('dataset' + str(row_count))
+        self.logger.info('dataset ' + str(row_count))
         params = []
       row_count += 1
+      result = self.wh_cursor.fetchone()
+
     if len(params) > 0:
       self.bulk_insert(params, url)
-      self.logger.info('dataset' + str(len(params)))
+      self.logger.info('dataset ' + str(len(params)))
 
   def update_metric(self):
       sql = """
@@ -168,7 +181,8 @@ class ElasticSearchIndex():
       self.wh_cursor.execute(sql)
       description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for result in self.wh_cursor:
+      result = self.wh_cursor.fetchone()
+      while result:
           row = dict(zip(description, result))
           params.append('{ "index": { "_id": ' + str(row['metric_id']) + '  }}')
           params.append(
@@ -201,10 +215,13 @@ class ElasticSearchIndex():
                  json.dumps(row['scm_url']) if row['scm_url'] else json.dumps('')))
           if row_count % 1000 == 0:
             self.bulk_insert(params, url)
+            self.logger.info('metric ' + str(row_count))
             params = []
           row_count += 1
+          result = self.wh_cursor.fetchone()
       if len(params) > 0:
           self.bulk_insert(params, url)
+          self.logger.info('metric ' + str(len(params)))
 
   def update_flow_jobs(self, last_unixtime=None):
       if last_unixtime:
@@ -222,15 +239,17 @@ class ElasticSearchIndex():
       url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/flow_jobs/_bulk'
       params = []
       self.wh_cursor.execute(flow_sql)
-      job_cursor = self.wh_con.cursor()
+      job_cursor = self.wh_con.cursor(1)
       description = [x[0] for x in self.wh_cursor.description]
       row_count = 1
-      for result in self.wh_cursor:
+      result = self.wh_cursor.fetchone()
+      while result:
           row = dict(zip(description, result))
           job_cursor.execute(job_sql %(long(row['app_id']), long(row['flow_id'])))
           jobs = []
           job_description = [x[0] for x in job_cursor.description]
-          for job_result in job_cursor:
+          job_result = job_cursor.fetchone()
+          while job_result:
               job_row = dict(zip(job_description, job_result))
               jobs.append({"app_id": job_row['app_id'], "flow_id": job_row['flow_id'], "job_id": job_row['job_id'],
                     "job_name": job_row['job_name'] if job_row['job_name'] else '',
@@ -242,6 +261,7 @@ class ElasticSearchIndex():
                     "is_current": job_row['is_current'] if job_row['is_current'] else '',
                     "is_first": job_row['is_first'] if job_row['is_first'] else '',
                     "is_last": job_row['is_last'] if job_row['is_last'] else ''})
+              job_result = job_cursor.fetchone()
 
           params.append('{ "index": { "_id": ' + str(long(row['flow_id'])*10000 + long(row['app_id'])) + '  }}')
           if len(jobs) > 0:
@@ -262,11 +282,12 @@ class ElasticSearchIndex():
                      row['pre_flows'] if row['pre_flows'] else ''))
           if row_count % 1000 == 0:
               self.bulk_insert(params, url)
-              self.logger.info('flow jobs' + str(row_count))
+              self.logger.info('flow jobs ' + str(row_count))
               params = []
           row_count += 1
+          result = self.wh_cursor.fetchone()
       if len(params) > 0:
-          self.logger.info('flow_jobs' + str(len(params)))
+          self.logger.info('flow_jobs ' + str(len(params)))
           self.bulk_insert(params, url)
 
       job_cursor.close()
