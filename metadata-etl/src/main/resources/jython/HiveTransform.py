@@ -185,8 +185,8 @@ class HiveTransform:
                                                 if one_db_info['type'].lower() == 'dalids'
                                                 else 'hive:///' + one_db_info['database'] + '/' + table['name'],
                                                 'grid',
-                                                'eat1',
-                                                'eat1-nertz',
+                                                '',
+                                                '',
                                                 '*',
                                                 0,
                                                 table['native_name'],

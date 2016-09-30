@@ -299,7 +299,6 @@ class HiveLoad:
         and sdi.db_id = {db_id};
 
 
-        # nzhang fix issue hive_instance.*.csv has hard-coded datacenter
         INSERT INTO dict_dataset_instance
         ( dataset_id,
           db_id,
