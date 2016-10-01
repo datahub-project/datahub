@@ -105,8 +105,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_DEPLOYMENT_BY_URN =
       "SELECT * FROM " + DATASET_DEPLOYMENT_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_DEPLOYMENT_BY_URN =
-      "DELETE FROM " + DATASET_DEPLOYMENT_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_DEPLOYMENT_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_DEPLOYMENT_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_CAPACITY_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_CAPACITY_TABLE + " WHERE dataset_id = :dataset_id";
@@ -114,8 +114,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_CAPACITY_BY_URN =
       "SELECT * FROM " + DATASET_CAPACITY_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_CAPACITY_BY_URN =
-      "DELETE FROM " + DATASET_CAPACITY_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_CAPACITY_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_CAPACITY_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_TAG_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_TAG_TABLE + " WHERE dataset_id = :dataset_id";
@@ -123,7 +123,7 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_TAG_BY_URN =
       "SELECT * FROM " + DATASET_TAG_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_TAG_BY_URN = "DELETE FROM " + DATASET_TAG_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_TAG_BY_DATASET_ID = "DELETE FROM " + DATASET_TAG_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_CASE_SENSITIVE_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_CASE_SENSITIVE_TABLE + " WHERE dataset_id = :dataset_id";
@@ -137,8 +137,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_REFERENCE_BY_URN =
       "SELECT * FROM " + DATASET_REFERENCE_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_REFERENCE_BY_URN =
-      "DELETE FROM " + DATASET_REFERENCE_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_REFERENCE_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_REFERENCE_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_PARTITION_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_PARTITION_TABLE + " WHERE dataset_id = :dataset_id";
@@ -158,8 +158,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_OWNER_BY_URN =
       "SELECT * FROM " + DATASET_OWNER_TABLE + " WHERE dataset_urn = :dataset_urn ORDER BY sort_id";
 
-  public static final String DELETE_DATASET_OWNER_BY_URN =
-      "DELETE FROM " + DATASET_OWNER_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_OWNER_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_OWNER_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_USER_BY_USER_ID = "SELECT * FROM " + EXTERNAL_USER_TABLE + " WHERE user_id = :user_id";
 
@@ -172,8 +172,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_CONSTRAINT_BY_URN =
       "SELECT * FROM " + DATASET_CONSTRAINT_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_CONSTRAINT_BY_URN =
-      "DELETE FROM " + DATASET_CONSTRAINT_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_CONSTRAINT_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_CONSTRAINT_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_INDEX_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_INDEX_TABLE + " WHERE dataset_id = :dataset_id";
@@ -181,8 +181,8 @@ public class DatasetInfoDao {
   public static final String GET_DATASET_INDEX_BY_URN =
       "SELECT * FROM " + DATASET_INDEX_TABLE + " WHERE dataset_urn = :dataset_urn";
 
-  public static final String DELETE_DATASET_INDEX_BY_URN =
-      "DELETE FROM " + DATASET_INDEX_TABLE + " WHERE dataset_urn=?";
+  public static final String DELETE_DATASET_INDEX_BY_DATASET_ID =
+      "DELETE FROM " + DATASET_INDEX_TABLE + " WHERE dataset_id=?";
 
   public static final String GET_DATASET_SCHEMA_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_SCHEMA_TABLE + " WHERE dataset_id = :dataset_id";
@@ -213,179 +213,258 @@ public class DatasetInfoDao {
       PreparedStatementUtil.prepareInsertTemplateWithColumn("REPLACE", DATASET_INVENTORY_TABLE,
           DatasetInventoryItemRecord.getInventoryItemColumns());
 
-  public static List<Map<String, Object>> getDatasetDeploymentByDatasetId(int datasetId)
+
+  private static Object[] findIdAndUrn(JsonNode idNode, JsonNode urnNode)
+      throws SQLException {
+    final Integer datasetId;
+    final String urn;
+    if (!idNode.isMissingNode()) {
+      datasetId = idNode.asInt();
+      urn = DatasetDao.getDatasetById(datasetId).get("urn").toString();
+    } else {
+      urn = urnNode.asText();
+      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    }
+    return new Object[]{datasetId, urn};
+  }
+
+  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_DATASET_ID, params);
+
+    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetDeploymentByDatasetUrn(String datasetUrn)
+  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_URN, params);
+
+    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetDeployment(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode deployment = root.path("deploymentInfo");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || deployment.isMissingNode() || !deployment.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || deployment.isMissingNode() || !deployment.isArray()) {
       throw new IllegalArgumentException(
           "Dataset deployment info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
     // om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode deploymentInfo : deployment) {
       DatasetDeploymentRecord record = om.convertValue(deploymentInfo, DatasetDeploymentRecord.class);
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       DEPLOYMENT_WRITER.append(record);
     }
 
     // remove old info then insert new info
-    DEPLOYMENT_WRITER.execute(DELETE_DATASET_DEPLOYMENT_BY_URN, new Object[]{urn});
+    DEPLOYMENT_WRITER.execute(DELETE_DATASET_DEPLOYMENT_BY_DATASET_ID, new Object[]{datasetId});
     DEPLOYMENT_WRITER.insert();
   }
 
-  public static List<Map<String, Object>> getDatasetCapacityByDatasetId(int datasetId)
+  public static List<DatasetCapacityRecord> getDatasetCapacityByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CAPACITY_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CAPACITY_BY_DATASET_ID, params);
+
+    List<DatasetCapacityRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetCapacityRecord record = new DatasetCapacityRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetCapacityByDatasetUrn(String datasetUrn)
+  public static List<DatasetCapacityRecord> getDatasetCapacityByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CAPACITY_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CAPACITY_BY_URN, params);
+
+    List<DatasetCapacityRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetCapacityRecord record = new DatasetCapacityRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetCapacity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode capacity = root.path("capacity");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || capacity.isMissingNode() || !capacity.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || capacity.isMissingNode() || !capacity.isArray()) {
       throw new IllegalArgumentException(
           "Dataset capacity info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     for (final JsonNode capacityInfo : capacity) {
       DatasetCapacityRecord record = om.convertValue(capacityInfo, DatasetCapacityRecord.class);
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       CAPACITY_WRITER.append(record);
     }
 
     // remove old info then insert new info
-    CAPACITY_WRITER.execute(DELETE_DATASET_CAPACITY_BY_URN, new Object[]{urn});
+    CAPACITY_WRITER.execute(DELETE_DATASET_CAPACITY_BY_DATASET_ID, new Object[]{datasetId});
     CAPACITY_WRITER.insert();
   }
 
-  public static List<Map<String, Object>> getDatasetTagByDatasetId(int datasetId)
+  public static List<DatasetTagRecord> getDatasetTagByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_TAG_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_TAG_BY_DATASET_ID, params);
+
+    List<DatasetTagRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetTagRecord record = new DatasetTagRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetTagByDatasetUrn(String datasetUrn)
+  public static List<DatasetTagRecord> getDatasetTagByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_TAG_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_TAG_BY_URN, params);
+
+    List<DatasetTagRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetTagRecord record = new DatasetTagRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetTags(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode tags = root.path("tags");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || tags.isMissingNode() || !tags.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || tags.isMissingNode() || !tags.isArray()) {
       throw new IllegalArgumentException(
           "Dataset tag info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     for (final JsonNode tag : tags) {
       DatasetTagRecord record = new DatasetTagRecord();
       record.setTag(tag.asText());
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       TAG_WRITER.append(record);
     }
 
     // remove old info then insert new info
-    TAG_WRITER.execute(DELETE_DATASET_TAG_BY_URN, new Object[]{urn});
+    TAG_WRITER.execute(DELETE_DATASET_TAG_BY_DATASET_ID, new Object[]{datasetId});
     TAG_WRITER.insert();
   }
 
-  public static Map<String, Object> getDatasetCaseSensitivityByDatasetId(int datasetId)
+  public static DatasetCaseSensitiveRecord getDatasetCaseSensitivityByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_CASE_SENSITIVE_BY_DATASET_ID, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_CASE_SENSITIVE_BY_DATASET_ID, params);
+
+    DatasetCaseSensitiveRecord record = new DatasetCaseSensitiveRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
-  public static Map<String, Object> getDatasetCaseSensitivityByDatasetUrn(String datasetUrn)
+  public static DatasetCaseSensitiveRecord getDatasetCaseSensitivityByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_CASE_SENSITIVE_BY_URN, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_CASE_SENSITIVE_BY_URN, params);
+
+    DatasetCaseSensitiveRecord record = new DatasetCaseSensitiveRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
   public static void updateDatasetCaseSensitivity(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode caseSensitivity = root.path("caseSensitivity");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || caseSensitivity.isMissingNode()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || caseSensitivity.isMissingNode()) {
       throw new IllegalArgumentException(
           "Dataset case_sensitivity info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     DatasetCaseSensitiveRecord record = om.convertValue(caseSensitivity, DatasetCaseSensitiveRecord.class);
-    record.setDataset(datasetId, urn);
-    record.setModifiedTime(eventTime);
+    record.setDatasetId(datasetId);
+    record.setDatasetUrn(urn);
+    record.setModifiedTime(System.currentTimeMillis() / 1000);
     try {
-      Map<String, Object> result = getDatasetCaseSensitivityByDatasetUrn(urn);
+      DatasetCaseSensitiveRecord result = getDatasetCaseSensitivityByDatasetId(datasetId);
       String[] columns = record.getDbColumnNames();
       Object[] columnValues = record.getAllValuesToString();
-      String[] conditions = {"dataset_urn"};
-      Object[] conditionValues = new Object[]{urn};
+      String[] conditions = {"dataset_id"};
+      Object[] conditionValues = new Object[]{datasetId};
       CASE_SENSITIVE_WRITER.update(columns, columnValues, conditions, conditionValues);
     } catch (EmptyResultDataAccessException ex) {
       CASE_SENSITIVE_WRITER.append(record);
@@ -393,91 +472,119 @@ public class DatasetInfoDao {
     }
   }
 
-  public static List<Map<String, Object>> getDatasetReferenceByDatasetId(int datasetId)
+  public static List<DatasetReferenceRecord> getDatasetReferenceByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_REFERENCE_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_REFERENCE_BY_DATASET_ID, params);
+
+    List<DatasetReferenceRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetReferenceRecord record = new DatasetReferenceRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetReferenceByDatasetUrn(String datasetUrn)
+  public static List<DatasetReferenceRecord> getDatasetReferenceByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_REFERENCE_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_REFERENCE_BY_URN, params);
+
+    List<DatasetReferenceRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetReferenceRecord record = new DatasetReferenceRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetReference(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode references = root.path("references");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || references.isMissingNode() || !references.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || references.isMissingNode() || !references.isArray()) {
       throw new IllegalArgumentException(
           "Dataset reference info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     for (final JsonNode reference : references) {
       DatasetReferenceRecord record = om.convertValue(reference, DatasetReferenceRecord.class);
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       REFERENCE_WRITER.append(record);
     }
 
     // remove old info then insert new info
-    REFERENCE_WRITER.execute(DELETE_DATASET_REFERENCE_BY_URN, new Object[]{urn});
+    REFERENCE_WRITER.execute(DELETE_DATASET_REFERENCE_BY_DATASET_ID, new Object[]{datasetId});
     REFERENCE_WRITER.insert();
   }
 
-  public static Map<String, Object> getDatasetPartitionByDatasetId(int datasetId)
+  public static DatasetPartitionRecord getDatasetPartitionByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_PARTITION_BY_DATASET_ID, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_PARTITION_BY_DATASET_ID, params);
+
+    DatasetPartitionRecord record = new DatasetPartitionRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
-  public static Map<String, Object> getDatasetPartitionByDatasetUrn(String datasetUrn)
+  public static DatasetPartitionRecord getDatasetPartitionByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_PARTITION_BY_URN, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_PARTITION_BY_URN, params);
+
+    DatasetPartitionRecord record = new DatasetPartitionRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
   public static void updateDatasetPartition(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode partition = root.path("partitionSpec");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || partition.isMissingNode()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || partition.isMissingNode()) {
       throw new IllegalArgumentException(
           "Dataset reference info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     DatasetPartitionRecord record = om.convertValue(partition, DatasetPartitionRecord.class);
-    record.setDataset(datasetId, urn);
-    record.setModifiedTime(eventTime);
+    record.setDatasetId(datasetId);
+    record.setDatasetUrn(urn);
+    record.setModifiedTime(System.currentTimeMillis() / 1000);
     try {
-      Map<String, Object> result = getDatasetPartitionByDatasetUrn(urn);
+      DatasetPartitionRecord result = getDatasetPartitionByDatasetId(datasetId);
       String[] columns = record.getDbColumnNames();
       Object[] columnValues = record.getAllValuesToString();
-      String[] conditions = {"dataset_urn"};
-      Object[] conditionValues = new Object[]{urn};
+      String[] conditions = {"dataset_id"};
+      Object[] conditionValues = new Object[]{datasetId};
       PARTITION_WRITER.update(columns, columnValues, conditions, conditionValues);
     } catch (EmptyResultDataAccessException ex) {
       PARTITION_WRITER.append(record);
@@ -496,18 +603,28 @@ public class DatasetInfoDao {
     }
   }
 
-  public static Map<String, Object> getDatasetSecurityByDatasetId(int datasetId)
+  public static DatasetSecurityRecord getDatasetSecurityByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SECURITY_BY_DATASET_ID, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SECURITY_BY_DATASET_ID, params);
+
+    DatasetSecurityRecord record = new DatasetSecurityRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
-  public static Map<String, Object> getDatasetSecurityByDatasetUrn(String datasetUrn)
+  public static DatasetSecurityRecord getDatasetSecurityByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SECURITY_BY_URN, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SECURITY_BY_URN, params);
+
+    DatasetSecurityRecord record = new DatasetSecurityRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
   public static void updateDatasetSecurity(JsonNode root)
@@ -521,15 +638,9 @@ public class DatasetInfoDao {
           "Dataset security info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final Integer datasetId;
-    final String urn;
-    if (!idNode.isMissingNode()) {
-      datasetId = idNode.asInt();
-      urn = DatasetDao.getDatasetById(datasetId).get("urn").toString();
-    } else {
-      urn = urnNode.asText();
-      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
-    }
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
@@ -538,7 +649,7 @@ public class DatasetInfoDao {
     record.setDatasetUrn(urn);
     record.setModifiedTime(System.currentTimeMillis() / 1000);
     try {
-      Map<String, Object> result = getDatasetSecurityByDatasetId(datasetId);
+      DatasetSecurityRecord result = getDatasetSecurityByDatasetId(datasetId);
       String[] columns = record.getDbColumnNames();
       Object[] columnValues = record.getAllValuesToString();
       String[] conditions = {"dataset_id"};
@@ -550,40 +661,60 @@ public class DatasetInfoDao {
     }
   }
 
-  public static List<Map<String, Object>> getDatasetOwnerByDatasetId(int datasetId)
+  public static List<DatasetOwnerRecord> getDatasetOwnerByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_OWNER_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_OWNER_BY_DATASET_ID, params);
+
+    List<DatasetOwnerRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetOwnerRecord record = new DatasetOwnerRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetOwnerByDatasetUrn(String datasetUrn)
+  public static List<DatasetOwnerRecord> getDatasetOwnerByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_OWNER_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_OWNER_BY_URN, params);
+
+    List<DatasetOwnerRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetOwnerRecord record = new DatasetOwnerRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetOwner(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode owners = root.path("owners");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || owners.isMissingNode() || !owners.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || owners.isMissingNode() || !owners.isArray()) {
       throw new IllegalArgumentException(
           "Dataset owner info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
     Integer datasetId = 0;
+    String urn = null;
     try {
-      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+      final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+      datasetId = (Integer) idUrn[0];
+      urn = (String) idUrn[1];
     } catch (Exception ex) {
-      Logger.debug("Can't find dataset id for " + urn);
     }
+
+    final JsonNode auditHeader = root.path("auditHeader");
+    final Long eventTime = auditHeader != null ? auditHeader.path("time").asLong() / 1000 : null;
 
     ObjectMapper om = new ObjectMapper();
 
@@ -628,20 +759,20 @@ public class DatasetInfoDao {
       }
     }
 
-    List<Map<String, Object>> oldOwnerList = getDatasetOwnerByDatasetUrn(urn);
+    List<DatasetOwnerRecord> oldOwnerList = getDatasetOwnerByDatasetUrn(urn);
     // merge old owner info into updated owner list
     for (DatasetOwnerRecord rec : ownerList) {
-      for (Map<String, Object> old : oldOwnerList) {
-        if (rec.getDatasetId().equals(StringUtil.toInt(old.get("dataset_id"))) && rec.getOwner()
-            .equals(old.get("owner_id")) && rec.getAppId().equals(StringUtil.toInt(old.get("app_id")))) {
-          rec.setDbIds((String) old.get("db_ids"));
-          rec.setCreatedTime(StringUtil.toLong(old.get("created_time")));
+      for (DatasetOwnerRecord old : oldOwnerList) {
+        if (rec.getDatasetId().equals(old.getDatasetId()) && rec.getOwner()
+            .equals(old.getOwner()) && rec.getAppId().equals(old.getAppId())) {
+          rec.setDbIds(old.getDbIds());
+          rec.setCreatedTime(StringUtil.toLong(old.getCreatedTime()));
 
           // take the higher priority owner category
-          rec.setOwnerCategory(OwnerType.chooseOwnerType(rec.getOwnerCategory(), (String) old.get("owner_type")));
+          rec.setOwnerCategory(OwnerType.chooseOwnerType(rec.getOwnerCategory(), old.getOwnerCategory()));
 
           // merge owner source as comma separated list
-          rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), (String) old.get("owner_source")));
+          rec.setOwnerSource(mergeOwnerSource(rec.getOwnerSource(), old.getOwnerSource()));
 
           // remove from owner source?
         }
@@ -649,7 +780,7 @@ public class DatasetInfoDao {
     }
 
     // remove old info then insert new info
-    OWNER_WRITER.execute(DELETE_DATASET_OWNER_BY_URN, new Object[]{urn});
+    OWNER_WRITER.execute(DELETE_DATASET_OWNER_BY_DATASET_ID, new Object[]{datasetId});
     for (DatasetOwnerRecord record : ownerList) {
       OWNER_WRITER.append(record);
     }
@@ -698,87 +829,123 @@ public class DatasetInfoDao {
     return new HashMap<>();
   }
 
-  public static List<Map<String, Object>> getDatasetConstraintByDatasetId(int datasetId)
+  public static List<DatasetConstraintRecord> getDatasetConstraintByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CONSTRAINT_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CONSTRAINT_BY_DATASET_ID, params);
+
+    List<DatasetConstraintRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetConstraintRecord record = new DatasetConstraintRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetConstraintByDatasetUrn(String datasetUrn)
+  public static List<DatasetConstraintRecord> getDatasetConstraintByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CONSTRAINT_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_CONSTRAINT_BY_URN, params);
+
+    List<DatasetConstraintRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetConstraintRecord record = new DatasetConstraintRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetConstraint(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode constraints = root.path("constraints");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || constraints.isMissingNode()
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || constraints.isMissingNode()
         || !constraints.isArray()) {
       throw new IllegalArgumentException(
           "Dataset constraints info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     for (final JsonNode constraint : constraints) {
       DatasetConstraintRecord record = om.convertValue(constraint, DatasetConstraintRecord.class);
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       CONSTRAINT_WRITER.append(record);
     }
 
     // remove old info then insert new info
-    CONSTRAINT_WRITER.execute(DELETE_DATASET_CONSTRAINT_BY_URN, new Object[]{urn});
+    CONSTRAINT_WRITER.execute(DELETE_DATASET_CONSTRAINT_BY_DATASET_ID, new Object[]{datasetId});
     CONSTRAINT_WRITER.insert();
   }
 
-  public static List<Map<String, Object>> getDatasetIndexByDatasetId(int datasetId)
+  public static List<DatasetIndexRecord> getDatasetIndexByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_INDEX_BY_DATASET_ID, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_INDEX_BY_DATASET_ID, params);
+
+    List<DatasetIndexRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetIndexRecord record = new DatasetIndexRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
-  public static List<Map<String, Object>> getDatasetIndexByDatasetUrn(String datasetUrn)
+  public static List<DatasetIndexRecord> getDatasetIndexByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_INDEX_BY_URN, params);
+    List<Map<String, Object>> results =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_INDEX_BY_URN, params);
+
+    List<DatasetIndexRecord> records = new ArrayList<>();
+    for (Map<String, Object> result : results) {
+      DatasetIndexRecord record = new DatasetIndexRecord();
+      record.convertToRecord(result);
+      records.add(record);
+    }
+    return records;
   }
 
   public static void updateDatasetIndex(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode indices = root.path("indices");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || indices.isMissingNode() || !indices.isArray()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || indices.isMissingNode() || !indices.isArray()) {
       throw new IllegalArgumentException(
           "Dataset indices info update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
-    final Integer datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
 
     ObjectMapper om = new ObjectMapper();
 
     for (final JsonNode index : indices) {
       DatasetIndexRecord record = om.convertValue(index, DatasetIndexRecord.class);
-      record.setDataset(datasetId, urn);
-      record.setModifiedTime(eventTime);
+      record.setDatasetId(datasetId);
+      record.setDatasetUrn(urn);
+      record.setModifiedTime(System.currentTimeMillis() / 1000);
       INDEX_WRITER.append(record);
 
       // update dataset field indexed
@@ -791,49 +958,61 @@ public class DatasetInfoDao {
     }
 
     // remove old info then insert new info
-    INDEX_WRITER.execute(DELETE_DATASET_INDEX_BY_URN, new Object[]{urn});
+    INDEX_WRITER.execute(DELETE_DATASET_INDEX_BY_DATASET_ID, new Object[]{datasetId});
     INDEX_WRITER.insert();
   }
 
-  public static Map<String, Object> getDatasetSchemaByDatasetId(int datasetId)
+  public static DatasetSchemaInfoRecord getDatasetSchemaByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SCHEMA_BY_DATASET_ID, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SCHEMA_BY_DATASET_ID, params);
+
+    DatasetSchemaInfoRecord record = new DatasetSchemaInfoRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
-  public static Map<String, Object> getDatasetSchemaByDatasetUrn(String datasetUrn)
+  public static DatasetSchemaInfoRecord getDatasetSchemaByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
-    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SCHEMA_BY_URN, params);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_SCHEMA_BY_URN, params);
+
+    DatasetSchemaInfoRecord record = new DatasetSchemaInfoRecord();
+    record.convertToRecord(result);
+    return record;
   }
 
   public static void updateDatasetSchema(JsonNode root)
       throws Exception {
-    final JsonNode auditHeader = root.path("auditHeader");
+    final JsonNode idNode = root.path("datasetId");
     final JsonNode urnNode = root.path("urn");
     final JsonNode schemas = root.path("schemas");
 
-    if (auditHeader.isMissingNode() || urnNode.isMissingNode() || schemas.isMissingNode()) {
+    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || schemas.isMissingNode()) {
       throw new IllegalArgumentException(
           "Dataset schemas update fail, " + "Json missing necessary fields: " + root.toString());
     }
 
-    final String urn = urnNode.asText();
-    final Long eventTime = auditHeader.path("time").asLong() / 1000; // millisecond to second
-
     Integer datasetId = 0;
+    String urn = null;
     try {
-      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+      final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+      datasetId = (Integer) idUrn[0];
+      urn = (String) idUrn[1];
     } catch (Exception ex) {
+      urn = urnNode.asText();
     }
 
     ObjectMapper om = new ObjectMapper();
 
     DatasetSchemaInfoRecord rec = om.convertValue(schemas, DatasetSchemaInfoRecord.class);
-    rec.setDataset(datasetId, urn);
-    rec.setModifiedTime(eventTime);
+    rec.setDatasetId(datasetId);
+    rec.setDatasetUrn(urn);
+    rec.setModifiedTime(System.currentTimeMillis() / 1000);
 
     // insert dataset and get ID if necessary
     if (datasetId == 0) {
@@ -842,7 +1021,7 @@ public class DatasetInfoDao {
       record.setSourceCreatedTime("" + rec.getCreateTime() / 1000);
       record.setSchema(rec.getOriginalSchema());
       record.setSchemaType(rec.getFormat());
-      record.setFields(rec.getFieldSchema().toString());
+      record.setFields((String) StringUtil.objectToJsonString(rec.getFieldSchema()));
       record.setSource("API");
 
       Urn urnType = new Urn(urn);
@@ -854,11 +1033,13 @@ public class DatasetInfoDao {
       DICT_DATASET_WRITER.close();
 
       datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
+      rec.setDatasetId(datasetId);
     }
     // if dataset already exist in dict_dataset, update info
     else {
       DICT_DATASET_WRITER.execute(UPDATE_DICT_DATASET_WITH_SCHEMA_CHANGE,
-          new Object[]{rec.getOriginalSchema(), rec.getFormat(), rec.getFieldSchema().toString(), "API", eventTime, datasetId});
+          new Object[]{rec.getOriginalSchema(), rec.getFormat(), StringUtil.objectToJsonString(rec.getFieldSchema()),
+              "API", System.currentTimeMillis() / 1000, datasetId});
     }
 
     // get old dataset fields info
@@ -900,11 +1081,11 @@ public class DatasetInfoDao {
 
     // insert/update new schema info
     try {
-      Map<String, Object> result = getDatasetSchemaByDatasetUrn(urn);
+      DatasetSchemaInfoRecord result = getDatasetSchemaByDatasetId(datasetId);
       String[] columns = rec.getDbColumnNames();
       Object[] columnValues = rec.getAllValuesToString();
-      String[] conditions = {"dataset_urn"};
-      Object[] conditionValues = new Object[]{urn};
+      String[] conditions = {"dataset_id"};
+      Object[] conditionValues = new Object[]{datasetId};
       SCHEMA_WRITER.update(columns, columnValues, conditions, conditionValues);
     } catch (EmptyResultDataAccessException ex) {
       SCHEMA_WRITER.append(rec);

@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
@@ -62,6 +63,7 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
     return null;
   }
 
+  @JsonIgnore
   public String[] getFieldDetailColumns() {
     return new String[]{"dataset_id", "sort_id", "parent_sort_id", "parent_path", "field_name", "fields_layout_id",
         "field_label", "data_type", "data_size", "data_precision", "data_fraction", "is_nullable", "is_indexed",
@@ -69,6 +71,7 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
         "comment_ids"};
   }
 
+  @JsonIgnore
   public Object[] getFieldDetailValues() {
     return new Object[]{datasetId, position, parentFieldPosition, parentPath, fieldName, 0, label, type, maxCharLength,
         precision, scale, nullable != null && nullable ? "Y" : "N", indexed != null && indexed ? "Y" : "N",
@@ -77,15 +80,6 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   }
 
   public DatasetFieldSchemaRecord() {
-  }
-
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this.getFieldValueMap());
-    } catch (Exception ex) {
-      return null;
-    }
   }
 
   public Integer getDatasetId() {

@@ -13,6 +13,7 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,11 +56,13 @@ public class DatasetOwnerRecord extends AbstractRecord {
     return allFields;
   }
 
+  @JsonIgnore
   public String[] getDbColumnForUnmatchedOwner() {
     return new String[]{"dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id", "owner_id_type",
         "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_name", "db_id", "source_time"};
   }
 
+  @JsonIgnore
   public Object[] getValuesForUnmatchedOwner() {
     return new Object[]{datasetUrn, appId, ownerCategory, ownerSubCategory, owner, ownerType, isGroup,
         isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};

@@ -380,10 +380,12 @@
         <thead>
           <tr>
             <th class="col-xs-2">User Name</th>
-            <th class="col-xs-3">Full Name</th>
-            <th class="col-xs-1">Is Group</th>
+            <th class="col-xs-2">Full Name</th>
+            <th class="col-xs-1">Owner ID Type</th>
+            <th class="col-xs-1">Owner Source</th>
             <th class="col-xs-2">Owner Type</th>
             <th class="col-xs-2">Owner Sub Type</th>
+            <th class="col-xs-1">Confirmed</th>
             <th class="col-xs-1"></th>
           </tr>
         </thead>
@@ -392,15 +394,23 @@
           <tr>
             <td>{{input class="userEntity" value=owner.userName}}</td>
             <td>{{owner.name}}</td>
-            <td>
-              {{input type="checkbox" name="isGroup" checked=owner.isGroup disabled=true}}
-            </td>
+            <td>{{owner.idType}}</td>
+            <td>{{owner.source}}</td>
             <td>
               {{#ember-selector values=ownerTypes selected=owner.type}}
               {{/ember-selector}}
             </td>
             <td>
               {{input value=owner.subType}}
+            </td>
+            <td>
+              {{#if owner.confirmedBy}}
+                <i class="fa fa-check-square-o" title="Owner confirmed by {{owner.confirmedBy}}" {{action "confirmOwner" owner false}}>
+                </i>
+              {{else}}
+                <i class="fa fa-square-o" title="Please confirmed" {{action "confirmOwner" owner true}}>
+                </i>
+              {{/if}}
             </td>
             <td>
               <i class="fa fa-trash" title="remove this owner" {{action "removeOwner" owners owner}}>

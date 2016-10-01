@@ -25,15 +25,6 @@ public class DatasetFieldPathRecord {
   public DatasetFieldPathRecord() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      return new ObjectMapper().writeValueAsString(this);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
-  }
-
   public String getFieldPath() {
     return fieldPath;
   }

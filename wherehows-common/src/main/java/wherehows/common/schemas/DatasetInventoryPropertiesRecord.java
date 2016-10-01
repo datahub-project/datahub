@@ -40,20 +40,6 @@ public class DatasetInventoryPropertiesRecord extends AbstractRecord {
   public DatasetInventoryPropertiesRecord() {
   }
 
-  @Override
-  public String toString() {
-    try {
-      Map<String, String> valueMap = new HashMap<>();
-      valueMap.put("changeAuditStamp", changeAuditStamp.toString());
-      valueMap.put("nativeType", nativeType);
-      valueMap.put("uri", uri);
-      valueMap.put("caseSensitivity", caseSensitivity.toString());
-      return new ObjectMapper().writeValueAsString(valueMap);
-    } catch (JsonProcessingException ex) {
-      return null;
-    }
-  }
-
   public DatasetChangeAuditStamp getChangeAuditStamp() {
     return changeAuditStamp;
   }

@@ -71,7 +71,7 @@ class LdapTransform:
 
   _get_manager_edge = """
                             select user_id, manager_user_id from {table} stg
-                            where app_id = {app_id}
+                            where app_id = {app_id} and manager_user_id is not null and user_id <> manager_user_id
                             """
 
   _update_hierarchy_info = """
@@ -153,14 +153,14 @@ class LdapTransform:
     query = self._get_manager_edge.format(table=t.get("table"), app_id=self.app_id)
     self.logger.debug(query)
     self.wh_cursor.execute(query)
-    pair = dict()
+    user_mgr_map = dict()
     hierarchy = dict()
 
     for row in self.wh_cursor:
-      pair[row[0]] = row[1]
+      user_mgr_map[row[0]] = row[1]
 
-    for user in pair:
-      self.find_path_for_user(user, pair, hierarchy)
+    for user in user_mgr_map:
+      self.find_path_for_user(user, user_mgr_map, hierarchy)
 
     case_org_hierarchy_template = " WHEN user_id = '{user_id}' THEN '{org_hierarchy}' "
     case_org_hierarchy_depth_template = " WHEN user_id = '{user_id}' THEN {org_hierarchy_depth} "
@@ -189,25 +189,31 @@ class LdapTransform:
     self.wh_cursor.executemany(query)
     self.wh_con.commit()
 
-  def find_path_for_user(self, start, pair, hierarchy):
+  def find_path_for_user(self, start, user_mgr_map, hierarchy):
     if start in hierarchy:
       return hierarchy[start]
 
-    if start == self.ceo_user_id:
-      return "/" + start, 0
-
-    if start is None:
+    if start is None or start == '':
       return None
 
-    next = self.find_path_for_user(pair[start], pair, hierarchy)
+    path = "/" + start
+    depth = 0
+    user = start
+    while user in user_mgr_map:
+      if user == self.ceo_user_id or user == user_mgr_map[user]:
+        break
+      user = user_mgr_map[user]
+      path = "/" + user + path
+      depth += 1
+      if user == self.ceo_user_id:
+        break
 
-    if next:
-      current = next[0] + "/" + start, next[1] + 1
-    else:
-      current = None
+    if path:
+      hierarchy[start] = (path, depth)
+    if len(hierarchy) % 1000 == 0:
+      self.logger.info("%d hierarchy path created in cache so far. [%s]" % (len(hierarchy), start))
 
-    hierarchy[start] = current
-    return current
+    return (path, depth)
 
 
 if __name__ == "__main__":

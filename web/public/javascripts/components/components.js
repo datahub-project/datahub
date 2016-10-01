@@ -204,6 +204,24 @@ App.DatasetAuthorComponent = Ember.Component.extend({
         owners.removeObject(owner);
       }
     },
+    confirmOwner: function(owner, confirm) {
+      var obj = $('#loggedInUser');
+      if (obj)
+      {
+        var loggedInUser = obj.attr("title");
+        if (loggedInUser && owner)
+        {
+          if (confirm)
+          {
+            Ember.set(owner, "confirmedBy", loggedInUser);
+          }
+          else
+          {
+            Ember.set(owner, "confirmedBy", null);
+          }
+        }
+      }
+    },
     updateOwners: function(owners) {
       _this = this;
       controller = this.get("parentController");

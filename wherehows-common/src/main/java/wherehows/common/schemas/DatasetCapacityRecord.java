@@ -23,8 +23,8 @@ public class DatasetCapacityRecord extends AbstractRecord {
   String capacityName;
   String capacityType;
   String capacityUnit;
-  String capacityLow;
-  String capacityHigh;
+  Long capacityLow;
+  Long capacityHigh;
   Long modifiedTime;
 
   @Override
@@ -41,8 +41,19 @@ public class DatasetCapacityRecord extends AbstractRecord {
   public DatasetCapacityRecord() {
   }
 
-  public void setDataset(Integer datasetId, String datasetUrn) {
+  public Integer getDatasetId() {
+    return datasetId;
+  }
+
+  public void setDatasetId(Integer datasetId) {
     this.datasetId = datasetId;
+  }
+
+  public String getDatasetUrn() {
+    return datasetUrn;
+  }
+
+  public void setDatasetUrn(String datasetUrn) {
     this.datasetUrn = datasetUrn;
   }
 
@@ -70,19 +81,19 @@ public class DatasetCapacityRecord extends AbstractRecord {
     this.capacityUnit = capacityUnit;
   }
 
-  public String getCapacityLow() {
+  public Long getCapacityLow() {
     return capacityLow;
   }
 
-  public void setCapacityLow(String capacityLow) {
+  public void setCapacityLow(Long capacityLow) {
     this.capacityLow = capacityLow;
   }
 
-  public String getCapacityHigh() {
+  public Long getCapacityHigh() {
     return capacityHigh;
   }
 
-  public void setCapacityHigh(String capacityHigh) {
+  public void setCapacityHigh(Long capacityHigh) {
     this.capacityHigh = capacityHigh;
   }
 

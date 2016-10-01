@@ -14,7 +14,11 @@
 package wherehows.common.schemas;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Date;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,5 +132,41 @@ public abstract class AbstractRecord implements Record {
       }
     }
     return map;
+  }
+
+  /**
+   * Convert database query result into AbstractRecord
+   * use column name to field mapping to assign each field
+   * @param map <String, Object>
+   */
+  @JsonIgnore
+  public void convertToRecord(Map<String, Object> map) {
+    final Field[] fields = getAllFields();
+    final String[] columns = getDbColumnNames();
+    if (fields.length != columns.length) {
+      return;
+    }
+
+    final ObjectMapper om = new ObjectMapper();
+
+    for (int i = 0; i < columns.length; i++) {
+      final Class<?> type = fields[i].getType();
+      final Object value = map.get(columns[i]);
+      try {
+        if (value == null) {
+        } else if (Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)
+            || Object[].class.isAssignableFrom(type) || Record.class.isAssignableFrom(type)) {
+          fields[i].set(this, om.readValue((String) value, om.constructType(type)));
+        } else if (Integer.class.isAssignableFrom(type)) {
+          // may need to convert from Long (database unsigned int) to Integer
+          fields[i].set(this, StringUtil.toInt(value));
+        } else if (value instanceof Date) {
+          fields[i].set(this, value.toString());
+        } else {
+          fields[i].set(this, value);
+        }
+      } catch (IllegalAccessException | IOException ex) {
+      }
+    }
   }
 }

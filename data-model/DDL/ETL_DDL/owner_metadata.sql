@@ -31,6 +31,8 @@ CREATE TABLE dataset_owner (
   `source_time` INT UNSIGNED COMMENT 'the source time in epoch',
   `created_time` INT UNSIGNED COMMENT 'the create time in epoch',
   `modified_time` INT UNSIGNED COMMENT 'the modified time in epoch',
+  `confirmed_by` VARCHAR(127) NULL,
+  `confirmed_on` INT UNSIGNED,
   wh_etl_exec_id BIGINT COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`dataset_id`, `owner_id`, `app_id`),
   UNIQUE KEY (`dataset_urn`, `owner_id`, `app_id`)
