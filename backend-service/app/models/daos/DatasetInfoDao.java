@@ -57,7 +57,7 @@ public class DatasetInfoDao {
   private static final String DATASET_CASE_SENSITIVE_TABLE = "dataset_case_sensitivity";
   private static final String DATASET_REFERENCE_TABLE = "dataset_reference";
   private static final String DATASET_PARTITION_TABLE = "dataset_partition";
-  private static final String DATASET_SECURITY_TABLE = "dataset_security";
+  private static final String DATASET_SECURITY_TABLE = "dataset_security_info";
   private static final String DATASET_OWNER_TABLE = "dataset_owner";
   private static final String DATASET_OWNER_UNMATCHED_TABLE = "stg_dataset_owner_unmatched";
   private static final String DATASET_CONSTRAINT_TABLE = "dataset_constraint";
@@ -214,18 +214,59 @@ public class DatasetInfoDao {
           DatasetInventoryItemRecord.getInventoryItemColumns());
 
 
-  private static Object[] findIdAndUrn(JsonNode idNode, JsonNode urnNode)
+  private static Object[] findIdAndUrn(Integer datasetId)
       throws SQLException {
-    final Integer datasetId;
-    final String urn;
-    if (!idNode.isMissingNode()) {
-      datasetId = idNode.asInt();
-      urn = DatasetDao.getDatasetById(datasetId).get("urn").toString();
-    } else {
-      urn = urnNode.asText();
-      datasetId = Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString());
-    }
+    final String urn = datasetId != null ? DatasetDao.getDatasetById(datasetId).get("urn").toString() : null;
     return new Object[]{datasetId, urn};
+  }
+
+  private static Object[] findIdAndUrn(String urn)
+      throws SQLException {
+    final Integer datasetId = urn != null ? Integer.valueOf(DatasetDao.getDatasetByUrn(urn).get("id").toString()) : null;
+    return new Object[]{datasetId, urn};
+  }
+
+  private static Object[] findDataset(JsonNode root) {
+    // use dataset id to find dataset first
+    final JsonNode idNode = root.path("datasetId");
+    if (!idNode.isMissingNode() && !idNode.isNull()) {
+      try {
+        final Object[] idUrn = findIdAndUrn(idNode.asInt());
+        if (idUrn[0] != null && idUrn[1] != null) {
+          return idUrn;
+        }
+      } catch (Exception ex) {
+      }
+    }
+
+    // use dataset uri to find dataset
+    final JsonNode properties = root.path("datasetProperties");
+    if (!properties.isMissingNode() && !properties.isNull()) {
+      final JsonNode uri = properties.path("uri");
+      if (!uri.isMissingNode() && !uri.isNull()) {
+        try {
+          final Object[] idUrn = findIdAndUrn(uri.asText());
+          if (idUrn[0] != null && idUrn[1] != null) {
+            return idUrn;
+          }
+        } catch (Exception ex) {
+        }
+      }
+    }
+
+    // use dataset urn to find dataset
+    final JsonNode urnNode = root.path("urn");
+    if (!urnNode.isMissingNode() && !urnNode.isNull()) {
+      try {
+        final Object[] idUrn = findIdAndUrn(urnNode.asText());
+        if (idUrn[0] != null && idUrn[1] != null) {
+          return idUrn;
+        }
+      } catch (Exception ex) {
+      }
+    }
+
+    return new Object[]{null, null};
   }
 
   public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
@@ -262,16 +303,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetDeployment(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode deployment = root.path("deploymentInfo");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || deployment.isMissingNode() || !deployment.isArray()) {
+    if (deployment.isMissingNode() || !deployment.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset deployment info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset deployment info update error, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -325,16 +366,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetCapacity(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode capacity = root.path("capacity");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || capacity.isMissingNode() || !capacity.isArray()) {
+    if (capacity.isMissingNode() || !capacity.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset capacity info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset capacity info update error, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -387,16 +428,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetTags(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode tags = root.path("tags");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || tags.isMissingNode() || !tags.isArray()) {
+    if (tags.isMissingNode() || !tags.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset tag info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset tag info update error, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -440,16 +481,21 @@ public class DatasetInfoDao {
 
   public static void updateDatasetCaseSensitivity(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
-    final JsonNode caseSensitivity = root.path("caseSensitivity");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || caseSensitivity.isMissingNode()) {
+    final JsonNode properties = root.path("datasetProperties");
+    if (properties.isMissingNode() || properties.isNull()) {
       throw new IllegalArgumentException(
-          "Dataset case_sensitivity info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset properties update fail, missing necessary fields: " + root.toString());
+    }
+    final JsonNode caseSensitivity = properties.path("caseSensitivity");
+    if (caseSensitivity.isMissingNode() || caseSensitivity.isNull()) {
+      throw new IllegalArgumentException(
+          "Dataset properties update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -506,16 +552,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetReference(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode references = root.path("references");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || references.isMissingNode() || !references.isArray()) {
+    if (references.isMissingNode() || !references.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset reference info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset reference info update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -560,16 +606,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetPartition(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode partition = root.path("partitionSpec");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || partition.isMissingNode()) {
+    if (partition.isMissingNode() || partition.isNull()) {
       throw new IllegalArgumentException(
-          "Dataset reference info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset reference info update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -629,16 +675,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSecurity(JsonNode root)
       throws Exception {
-    final JsonNode urnNode = root.path("urn");
-    final JsonNode idNode = root.path("datasetId");
     final JsonNode security = root.path("securitySpec");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || security.isMissingNode()) {
+    if (security.isMissingNode() || security.isNull()) {
       throw new IllegalArgumentException(
-          "Dataset security info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset security info update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -695,29 +741,27 @@ public class DatasetInfoDao {
 
   public static void updateDatasetOwner(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode owners = root.path("owners");
+    if (owners.isMissingNode() || !owners.isArray()) {
+      throw new IllegalArgumentException(
+          "Dataset owner info update fail, missing necessary fields: " + root.toString());
+    }
+
     final JsonNode ownerSourceNode = root.path("source");
     String ownerSource = null;
-
-    if (ownerSourceNode != null && (!ownerSourceNode.isMissingNode()))
-    {
+    if (!ownerSourceNode.isNull() && !ownerSourceNode.isMissingNode()) {
         ownerSource = ownerSourceNode.asText();
     }
 
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || owners.isMissingNode() || !owners.isArray()) {
-      throw new IllegalArgumentException(
-          "Dataset owner info update fail, " + "Json missing necessary fields: " + root.toString());
-    }
-
-    Integer datasetId = 0;
-    String urn = null;
-    try {
-      final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Integer datasetId;
+    final String urn;
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      datasetId = 0;
+      urn = root.path("datasetProperties").path("uri").asText();
+    } else {
       datasetId = (Integer) idUrn[0];
       urn = (String) idUrn[1];
-    } catch (Exception ex) {
     }
 
     final JsonNode auditHeader = root.path("auditHeader");
@@ -734,15 +778,15 @@ public class DatasetInfoDao {
       record.setCreatedTime(eventTime);
       record.setModifiedTime(System.currentTimeMillis() / 1000);
 
-      final String ownerString = record.getOwner();
+      final String ownerString = record.getOwnerUrn();
       int lastIndex = ownerString.lastIndexOf(':');
       if (lastIndex >= 0) {
-        record.setOwner(ownerString.substring(lastIndex + 1));
+        record.setOwnerUrn(ownerString.substring(lastIndex + 1));
         record.setNamespace(ownerString.substring(0, lastIndex));
       } else {
         record.setNamespace("");
       }
-      Map<String, Object> ownerInfo = getOwnerByOwnerId(record.getOwner());
+      Map<String, Object> ownerInfo = getOwnerByOwnerId(record.getOwnerUrn());
       Integer appId = 0;
       String isActive = "N";
       if (ownerInfo.containsKey("app_id")) {
@@ -766,78 +810,56 @@ public class DatasetInfoDao {
     mergeDatasetOwners(ownerList, datasetId, urn, ownerSource);
   }
 
-  public static void updateKafkaDatasetOwner(
-            String datasetUrn,
-            String owners,
-            String ownerSource,
-            Long sourceUnixTime)
-        throws Exception
-  {
-    if (datasetUrn == null)
-    {
+  public static void updateKafkaDatasetOwner(String datasetUrn, String owners, String ownerSource, Long sourceUnixTime)
+      throws Exception {
+    if (datasetUrn == null) {
       return;
     }
 
     Integer datasetId = 0;
-
-    try
-    {
+    try {
       datasetId = Integer.parseInt(DatasetDao.getDatasetByUrn(datasetUrn).get("id").toString());
-    }
-    catch(Exception e)
-    {
+    } catch (Exception e) {
       Logger.error("Exception in updateKafkaDatasetOwner: " + e.getMessage());
     }
-    if (datasetId == 0)
-    {
+    if (datasetId == 0) {
       return;
     }
 
-    List<DatasetOwnerRecord> ownerList = new ArrayList<DatasetOwnerRecord>();
-    if (owners != null)
-    {
+    List<DatasetOwnerRecord> ownerList = new ArrayList<>();
+    if (owners != null) {
       String[] ownerArray = owners.split(",");
-      if (ownerArray != null && ownerArray.length > 0)
-      {
-        for(int i = 0; i < ownerArray.length; i++)
-        {
-          String ownerName = null;
-          String namespace = null;
-          String ownerIdType = null;
-          String isGroup = "N";
-          String owner = ownerArray[i];
-          if (owner != null)
-          {
-            int lastIndex = owner.lastIndexOf(':');
-            if (lastIndex != -1)
-            {
-              ownerName = owner.substring(lastIndex+1);
-              namespace = owner.substring(0, lastIndex);
-              if (namespace != null && namespace.equalsIgnoreCase("urn:li:griduser"))
-              {
-                isGroup = "Y";
-                ownerIdType = "GROUP";
-              }
-              else
-              {
-                ownerIdType = "PERSON";
-              }
+      for (String owner : ownerArray) {
+        String ownerName = null;
+        String namespace = null;
+        String ownerIdType = null;
+        String isGroup = "N";
+        if (owner != null) {
+          int lastIndex = owner.lastIndexOf(':');
+          if (lastIndex != -1) {
+            ownerName = owner.substring(lastIndex + 1);
+            namespace = owner.substring(0, lastIndex);
+            if (namespace != null && namespace.equalsIgnoreCase("urn:li:griduser")) {
+              isGroup = "Y";
+              ownerIdType = "GROUP";
+            } else {
+              ownerIdType = "PERSON";
             }
-            DatasetOwnerRecord record = new DatasetOwnerRecord();
-            record.setDatasetId(datasetId);
-            record.setDatasetUrn(datasetUrn);
-            record.setOwnerType("Producer");
-            record.setOwner(ownerName);
-            record.setOwnerType(ownerIdType);
-            record.setIsGroup(isGroup);
-            record.setIsActive("Y");
-            record.setNamespace(namespace);
-            record.setOwnerSource(ownerSource);
-            record.setSourceTime(sourceUnixTime);
-            record.setCreatedTime(sourceUnixTime);
-            record.setModifiedTime(System.currentTimeMillis() / 1000);
-            ownerList.add(record);
           }
+          DatasetOwnerRecord record = new DatasetOwnerRecord();
+          record.setDatasetId(datasetId);
+          record.setDatasetUrn(datasetUrn);
+          record.setOwnerType("Producer");
+          record.setOwnerUrn(ownerName);
+          record.setOwnerType(ownerIdType);
+          record.setIsGroup(isGroup);
+          record.setIsActive("Y");
+          record.setNamespace(namespace);
+          record.setOwnerSource(ownerSource);
+          record.setSourceTime(sourceUnixTime);
+          record.setCreatedTime(sourceUnixTime);
+          record.setModifiedTime(System.currentTimeMillis() / 1000);
+          ownerList.add(record);
         }
       }
     }
@@ -845,54 +867,46 @@ public class DatasetInfoDao {
     mergeDatasetOwners(ownerList, datasetId, datasetUrn, ownerSource);
   }
 
-  public static void mergeDatasetOwners(
-          List<DatasetOwnerRecord> newOwnerList,
-          Integer datasetId,
-          String datasetUrn,
-          String source)
-          throws Exception{
-    List<DatasetOwnerRecord> oldOwnerList = getDatasetOwnerByDatasetUrn(datasetUrn);
-    Integer sortId = 0;
-    Map<String, DatasetOwnerRecord> uniqueRecords = new HashMap<String, DatasetOwnerRecord>();
-    List<DatasetOwnerRecord> combinedList = new ArrayList<DatasetOwnerRecord>();
-    if (newOwnerList != null)
-    {
-        for(DatasetOwnerRecord owner: newOwnerList)
-        {
-            owner.setSortId(sortId++);
-            uniqueRecords.put(owner.getOwner(), owner);
-            combinedList.add(owner);
-        }
+  private static void mergeDatasetOwners(List<DatasetOwnerRecord> newOwnerList, Integer datasetId, String datasetUrn,
+      String source)
+      throws Exception {
+    List<DatasetOwnerRecord> oldOwnerList = new ArrayList<>();
+    try {
+      oldOwnerList.addAll(getDatasetOwnerByDatasetUrn(datasetUrn));
+    } catch (Exception ex) {
     }
 
-    if (oldOwnerList != null)
-    {
-        for(DatasetOwnerRecord owner: newOwnerList)
-        {
-            DatasetOwnerRecord exist = uniqueRecords.get(owner.getOwner());
-            if (exist != null)
-            {
-                exist.setDbIds(owner.getDbIds());
-                exist.setCreatedTime(StringUtil.toLong(owner.getCreatedTime()));
+    Integer sortId = 0;
+    Map<String, DatasetOwnerRecord> uniqueRecords = new HashMap<>();
+    List<DatasetOwnerRecord> combinedList = new ArrayList<>();
+    if (newOwnerList != null) {
+      for (DatasetOwnerRecord owner : newOwnerList) {
+        owner.setSortId(sortId++);
+        uniqueRecords.put(owner.getOwnerUrn(), owner);
+        combinedList.add(owner);
+      }
+    }
 
-                // take the higher priority owner category
-                exist.setOwnerCategory(OwnerType.chooseOwnerType(exist.getOwnerCategory(), owner.getOwnerCategory()));
+    for (DatasetOwnerRecord owner : oldOwnerList) {
+      DatasetOwnerRecord exist = uniqueRecords.get(owner.getOwnerUrn());
+      if (exist != null) {
+        exist.setDbIds(owner.getDbIds());
+        exist.setCreatedTime(StringUtil.toLong(owner.getCreatedTime()));
 
-                // merge owner source as comma separated list
-                exist.setOwnerSource(mergeOwnerSource(exist.getOwnerSource(), owner.getOwnerSource()));
-                exist.setConfirmedBy(owner.getConfirmedBy());
-                exist.setConfirmedOn(owner.getConfirmedOn());
-            }
-            else
-            {
-                if(!(source != null && source.equalsIgnoreCase(owner.getOwnerSource())))
-                {
-                    owner.setSortId(sortId++);
-                    uniqueRecords.put(owner.getOwner(), owner);
-                    combinedList.add(owner);
-                }
-            }
+        // take the higher priority owner category
+        exist.setOwnerCategory(OwnerType.chooseOwnerType(exist.getOwnerCategory(), owner.getOwnerCategory()));
+
+        // merge owner source as comma separated list
+        exist.setOwnerSource(mergeOwnerSource(exist.getOwnerSource(), owner.getOwnerSource()));
+        exist.setConfirmedBy(owner.getConfirmedBy());
+        exist.setConfirmedOn(owner.getConfirmedOn());
+      } else {
+        if (!(source != null && source.equalsIgnoreCase(owner.getOwnerSource()))) {
+          owner.setSortId(sortId++);
+          uniqueRecords.put(owner.getOwnerUrn(), owner);
+          combinedList.add(owner);
         }
+      }
     }
 
     // remove old info then insert new info
@@ -979,17 +993,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetConstraint(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode constraints = root.path("constraints");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || constraints.isMissingNode()
-        || !constraints.isArray()) {
+    if (constraints.isMissingNode() || !constraints.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset constraints info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset constraints info update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -1042,16 +1055,16 @@ public class DatasetInfoDao {
 
   public static void updateDatasetIndex(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
     final JsonNode indices = root.path("indices");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || indices.isMissingNode() || !indices.isArray()) {
+    if (indices.isMissingNode() || !indices.isArray()) {
       throw new IllegalArgumentException(
-          "Dataset indices info update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset indices info update fail, missing necessary fields: " + root.toString());
     }
 
-    final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
     final Integer datasetId = (Integer) idUrn[0];
     final String urn = (String) idUrn[1];
 
@@ -1104,28 +1117,25 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSchema(JsonNode root)
       throws Exception {
-    final JsonNode idNode = root.path("datasetId");
-    final JsonNode urnNode = root.path("urn");
-    final JsonNode schemas = root.path("schemas");
-
-    if ((idNode.isMissingNode() && urnNode.isMissingNode()) || schemas.isMissingNode()) {
+    final JsonNode schema = root.path("schema");
+    if (schema.isMissingNode() || schema.isNull()) {
       throw new IllegalArgumentException(
-          "Dataset schemas update fail, " + "Json missing necessary fields: " + root.toString());
+          "Dataset schema update fail, missing necessary fields: " + root.toString());
     }
 
     Integer datasetId = 0;
     String urn = null;
-    try {
-      final Object[] idUrn = findIdAndUrn(idNode, urnNode);
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] != null && idUrn[1] != null) {
       datasetId = (Integer) idUrn[0];
       urn = (String) idUrn[1];
-    } catch (Exception ex) {
-      urn = urnNode.asText();
+    } else {
+      urn = root.path("datasetProperties").path("uri").asText();
     }
 
     ObjectMapper om = new ObjectMapper();
 
-    DatasetSchemaInfoRecord rec = om.convertValue(schemas, DatasetSchemaInfoRecord.class);
+    DatasetSchemaInfoRecord rec = om.convertValue(schema, DatasetSchemaInfoRecord.class);
     rec.setDatasetId(datasetId);
     rec.setDatasetUrn(urn);
     rec.setModifiedTime(System.currentTimeMillis() / 1000);
@@ -1135,8 +1145,8 @@ public class DatasetInfoDao {
       DatasetRecord record = new DatasetRecord();
       record.setUrn(urn);
       record.setSourceCreatedTime("" + rec.getCreateTime() / 1000);
-      record.setSchema(rec.getOriginalSchema());
-      record.setSchemaType(rec.getFormat());
+      record.setSchema(rec.getOriginalSchema().getText());
+      record.setSchemaType(rec.getOriginalSchema().getFormat());
       record.setFields((String) StringUtil.objectToJsonString(rec.getFieldSchema()));
       record.setSource("API");
 
@@ -1154,8 +1164,8 @@ public class DatasetInfoDao {
     // if dataset already exist in dict_dataset, update info
     else {
       DICT_DATASET_WRITER.execute(UPDATE_DICT_DATASET_WITH_SCHEMA_CHANGE,
-          new Object[]{rec.getOriginalSchema(), rec.getFormat(), StringUtil.objectToJsonString(rec.getFieldSchema()),
-              "API", System.currentTimeMillis() / 1000, datasetId});
+          new Object[]{rec.getOriginalSchema().getText(), rec.getOriginalSchema().getFormat(),
+              StringUtil.objectToJsonString(rec.getFieldSchema()), "API", System.currentTimeMillis() / 1000, datasetId});
     }
 
     // get old dataset fields info

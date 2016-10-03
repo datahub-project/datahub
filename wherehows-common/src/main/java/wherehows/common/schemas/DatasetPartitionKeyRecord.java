@@ -23,7 +23,7 @@ public class DatasetPartitionKeyRecord {
   String partitionLevel;
   String partitionType;
   String timeFormat;
-  String granularity;
+  String timeGranularity;
   List<String> fieldNames;
   List<String> partitionValues;
   Integer numberOfHashBuckets;
@@ -55,12 +55,12 @@ public class DatasetPartitionKeyRecord {
     this.timeFormat = timeFormat;
   }
 
-  public String getGranularity() {
-    return granularity;
+  public String getTimeGranularity() {
+    return timeGranularity;
   }
 
-  public void setGranularity(String granularity) {
-    this.granularity = granularity;
+  public void setTimeGranularity(String timeGranularity) {
+    this.timeGranularity = timeGranularity;
   }
 
   public List<String> getFieldNames() {

@@ -26,6 +26,10 @@ import wherehows.common.schemas.Record;
 
 public class MetadataChangeProcessor {
 
+  private final String[] CHANGE_ITEMS =
+      {"schema", "owners", "datasetProperties", "references", "partitionSpec", "deploymentInfo", "tags",
+          "constraints", "indices", "capacity", "securitySpec"};
+
   /**
    * Process a MetadataChangeEvent record
    * @param record GenericData.Record
@@ -36,97 +40,34 @@ public class MetadataChangeProcessor {
   public Record process(GenericData.Record record, String topic)
       throws Exception {
     if (record != null) {
-      // Logger.info("Processing Metadata Change Event record. ");
+      Logger.debug("Processing Metadata Change Event record. ");
 
       final GenericData.Record auditHeader = (GenericData.Record) record.get("auditHeader");
-      final GenericData.Array<GenericData.Record> changedItems =
-          (GenericData.Array<GenericData.Record>) record.get("changedItems");
-
       if (auditHeader == null || auditHeader.get("time") == null) {
         Logger.info("MetadataChangeEvent without auditHeader, abort process. " + record.toString());
         return null;
       }
 
-      // list change items, schema first
-      List<String> changes = new ArrayList<>();
-      for (GenericData.Record item : changedItems) {
-        switch (item.get("changeScope").toString().toLowerCase()) { // can't be null
-          case "*":
-            Collections.addAll(changes, "schemas", "owners", "references", "partitionSpec", "deploymentInfo",
-                "caseSensitivity", "tags", "constraints", "indices", "capacity", "securitySpec");
-            break;
-          case "schema":
-            if (!changes.contains("schemas")) {
-              changes.add(0, "schemas"); // add to front
-            }
-            break;
-          case "owner":
-            if (!changes.contains("owners")) {
-              changes.add("owners");
-            }
-            break;
-          case "reference":
-            if (!changes.contains("references")) {
-              changes.add("references");
-            }
-            break;
-          case "partition":
-            if (!changes.contains("partitionSpec")) {
-              changes.add("partitionSpec");
-            }
-            break;
-          case "deployment":
-            if (!changes.contains("deploymentInfo")) {
-              changes.add("deploymentInfo");
-            }
-            break;
-          case "casesensitivity":
-            if (!changes.contains("caseSensitivity")) {
-              changes.add("caseSensitivity");
-            }
-            break;
-          case "tag":
-            if (!changes.contains("tags")) {
-              changes.add("tags");
-            }
-            break;
-          case "constraint":
-            if (!changes.contains("constraints")) {
-              changes.add("constraints");
-            }
-            break;
-          case "index":
-            if (!changes.contains("indices")) {
-              changes.add("indices");
-            }
-            break;
-          case "capacity":
-            if (!changes.contains("capacity")) {
-              changes.add("capacity");
-            }
-            break;
-          case "security":
-            if (!changes.contains("securitySpec")) {
-              changes.add("securitySpec");
-            }
-            break;
-          default:
-            break;
-        }
+      final GenericData.Record datasetIdentifier = (GenericData.Record) record.get("datasetIdentifier");
+      final GenericData.Record datasetProperties = (GenericData.Record) record.get("datasetProperties");
+      final String urn = String.valueOf(record.get("urn"));
+
+      if (urn == null && (datasetProperties == null || datasetProperties.get("uri") == null)
+          && datasetIdentifier == null) {
+        Logger.info("Can't identify dataset from uri/urn/datasetIdentifier, abort process. " + record.toString());
+        return null;
       }
-      Logger.debug("Updating dataset " + changedItems.toString());
 
-      ObjectMapper mapper = new ObjectMapper();
-      JsonNode rootNode = mapper.readTree(record.toString());
+      final JsonNode rootNode = new ObjectMapper().readTree(record.toString());
 
-      for (String itemName : changes) {
+      for (String itemName : CHANGE_ITEMS) {
         // check if the corresponding change field has content
         if (record.get(itemName) == null) {
           continue;
         }
 
         switch (itemName) {
-          case "schemas":
+          case "schema":
             try {
               DatasetInfoDao.updateDatasetSchema(rootNode);
             } catch (Exception ex) {
@@ -138,6 +79,13 @@ public class MetadataChangeProcessor {
               DatasetInfoDao.updateDatasetOwner(rootNode);
             } catch (Exception ex) {
               Logger.debug("Metadata change exception: owner ", ex);
+            }
+            break;
+          case "datasetProperties":
+            try {
+              DatasetInfoDao.updateDatasetCaseSensitivity(rootNode);
+            } catch (Exception ex) {
+              Logger.debug("Metadata change exception: case sensitivity ", ex);
             }
             break;
           case "references":
@@ -159,13 +107,6 @@ public class MetadataChangeProcessor {
               DatasetInfoDao.updateDatasetDeployment(rootNode);
             } catch (Exception ex) {
               Logger.debug("Metadata change exception: deployment ", ex);
-            }
-            break;
-          case "caseSensitivity":
-            try {
-              DatasetInfoDao.updateDatasetCaseSensitivity(rootNode);
-            } catch (Exception ex) {
-              Logger.debug("Metadata change exception: case sensitivity ", ex);
             }
             break;
           case "tags":
