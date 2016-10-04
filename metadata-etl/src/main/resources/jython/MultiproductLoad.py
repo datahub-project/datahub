@@ -129,8 +129,12 @@ class MultiproductLoad:
     ON DUPLICATE KEY UPDATE
     dataset_urn = n.urn,
     sort_id = COALESCE(n.n_sort_id, sort_id),
-    owner_type = CASE WHEN n.n_owner_type IS NULL OR owner_type >= n.n_owner_type
-                    THEN owner_type ELSE n.n_owner_type END,
+    owner_type = CASE WHEN (
+      case owner_type when 'OWNER' then 20 when 'PRODUCER' then 40 when 'DELEGATE' then 60 when 'STACKHOLDER' then 80 else 100 end
+      ) <= (
+      case n.n_owner_type when 'OWNER' then 20 when 'PRODUCER' then 40 when 'DELEGATE' then 60 when 'STACKHOLDER' then 80 else 100 end
+      )
+      THEN owner_type ELSE n.n_owner_type END,
     owner_sub_type = COALESCE(owner_sub_type, n.n_owner_sub_type),
     owner_id_type = COALESCE(owner_id_type, n.n_owner_id_type),
     owner_source = CASE WHEN owner_source is null THEN 'SCM'
