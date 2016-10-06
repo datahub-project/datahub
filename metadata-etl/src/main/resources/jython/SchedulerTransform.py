@@ -33,7 +33,7 @@ class SchedulerTransform:
              "owners": {"columns": "app_id, flow_path, owner_id, wh_etl_exec_id",
                         "file": "owner.csv",
                         "table": "stg_flow_owner_permission"},
-             "schedules": {"columns": "app_id, flow_path, unit, frequency, effective_start_time, effective_end_time, ref_id, wh_etl_exec_id",
+             "schedules": {"columns": "app_id, flow_path, unit, frequency, cron_expression, effective_start_time, effective_end_time, ref_id, wh_etl_exec_id",
                            "file": "schedule.csv",
                            "table": "stg_flow_schedule"},
              "flow_execs": {"columns": "app_id, flow_name, flow_path, flow_exec_uuid, source_version, flow_exec_status, attempt_id, executed_by, start_time, end_time, wh_etl_exec_id",
