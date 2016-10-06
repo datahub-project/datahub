@@ -15,12 +15,11 @@ package wherehows.common.enums;
 
 
 public enum OwnerType {
-
-  PRODUCER(10),
-  DELEGATE(20),
-  CONSUMER(30),
-  AUDITOR(40),
-  STAKEHOLDER(50);
+  // the precedence (from high to low) is: OWNER, PRODUCER, DELEGATE, STAKEHOLDER
+  OWNER(20),
+  PRODUCER(40),
+  DELEGATE(60),
+  STAKEHOLDER(80);
 
   private int numVal;
 
@@ -45,12 +44,12 @@ public enum OwnerType {
     } catch (NullPointerException | IllegalArgumentException ex) {
     }
 
-    int type2value = 110;
+    int type2value = 100;
     try {
       type2value = OwnerType.valueOf(type2.toUpperCase()).value();
     } catch (NullPointerException | IllegalArgumentException ex) {
     }
 
-    return type1value < type2value ? type1 : type2;
+    return type1value <= type2value ? type1 : type2;
   }
 }

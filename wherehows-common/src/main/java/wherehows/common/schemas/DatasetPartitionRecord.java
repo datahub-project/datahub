@@ -20,7 +20,7 @@ public class DatasetPartitionRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
-  String totalPartitionLevel;
+  Integer totalPartitionLevel;
   String partitionSpecText;
   Boolean hasTimePartition;
   Boolean hasHashPartition;
@@ -58,11 +58,11 @@ public class DatasetPartitionRecord extends AbstractRecord {
     this.datasetUrn = datasetUrn;
   }
 
-  public String getTotalPartitionLevel() {
+  public Integer getTotalPartitionLevel() {
     return totalPartitionLevel;
   }
 
-  public void setTotalPartitionLevel(String totalPartitionLevel) {
+  public void setTotalPartitionLevel(Integer totalPartitionLevel) {
     this.totalPartitionLevel = totalPartitionLevel;
   }
 

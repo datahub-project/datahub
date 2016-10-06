@@ -27,12 +27,8 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
   String version;
   String name;
   String description;
-  String format;
-  String originalSchema;
-  Map<String, String> originalSchemaChecksum;
-  String keySchemaType;
-  String keySchemaFormat;
-  String keySchema;
+  DatasetOriginalSchemaRecord originalSchema;
+  DatasetKeySchemaRecord keySchema;
   Boolean isFieldNameCaseSensitive;
   List<DatasetFieldSchemaRecord> fieldSchema;
   List<DatasetFieldPathRecord> changeDataCaptureFields;
@@ -42,9 +38,8 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "is_latest_revision", "create_time", "revision", "version", "name",
-        "description", "format", "original_schema", "original_schema_checksum", "key_schema_type", "key_schema_format",
-        "key_schema", "is_field_name_case_sensitive", "field_schema", "change_data_capture_fields", "audit_fields",
-        "modified_time"};
+        "description", "original_schema", "key_schema", "is_field_name_case_sensitive", "field_schema",
+        "change_data_capture_fields", "audit_fields", "modified_time"};
   }
 
   @Override
@@ -119,51 +114,19 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
     this.description = description;
   }
 
-  public String getFormat() {
-    return format;
-  }
-
-  public void setFormat(String format) {
-    this.format = format;
-  }
-
-  public String getOriginalSchema() {
+  public DatasetOriginalSchemaRecord getOriginalSchema() {
     return originalSchema;
   }
 
-  public void setOriginalSchema(String originalSchema) {
+  public void setOriginalSchema(DatasetOriginalSchemaRecord originalSchema) {
     this.originalSchema = originalSchema;
   }
 
-  public Map<String, String> getOriginalSchemaChecksum() {
-    return originalSchemaChecksum;
-  }
-
-  public void setOriginalSchemaChecksum(Map<String, String> originalSchemaChecksum) {
-    this.originalSchemaChecksum = originalSchemaChecksum;
-  }
-
-  public String getKeySchemaType() {
-    return keySchemaType;
-  }
-
-  public void setKeySchemaType(String keySchemaType) {
-    this.keySchemaType = keySchemaType;
-  }
-
-  public String getKeySchemaFormat() {
-    return keySchemaFormat;
-  }
-
-  public void setKeySchemaFormat(String keySchemaFormat) {
-    this.keySchemaFormat = keySchemaFormat;
-  }
-
-  public String getKeySchema() {
+  public DatasetKeySchemaRecord getKeySchema() {
     return keySchema;
   }
 
-  public void setKeySchema(String keySchema) {
+  public void setKeySchema(DatasetKeySchemaRecord keySchema) {
     this.keySchema = keySchema;
   }
 

@@ -26,6 +26,7 @@ public class DatasetDeploymentRecord extends AbstractRecord {
   String region;
   String zone;
   String cluster;
+  String container;
   Boolean enabled;
   Map<String, String> additionalDeploymentInfo;
   Long modifiedTime;
@@ -33,7 +34,7 @@ public class DatasetDeploymentRecord extends AbstractRecord {
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "deployment_tier", "datacenter", "region", "zone", "cluster",
-        "enabled", "additional_info", "modified_time"};
+        "container", "enabled", "additional_info", "modified_time"};
   }
 
   @Override
@@ -98,6 +99,14 @@ public class DatasetDeploymentRecord extends AbstractRecord {
 
   public void setCluster(String cluster) {
     this.cluster = cluster;
+  }
+
+  public String getContainer() {
+    return container;
+  }
+
+  public void setContainer(String container) {
+    this.container = container;
   }
 
   public Boolean getEnabled() {
