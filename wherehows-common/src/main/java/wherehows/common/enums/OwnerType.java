@@ -15,7 +15,7 @@ package wherehows.common.enums;
 
 
 public enum OwnerType {
-
+  // the precedence (from high to low) is: OWNER, PRODUCER, DELEGATE, STAKEHOLDER
   OWNER(20),
   PRODUCER(40),
   DELEGATE(60),

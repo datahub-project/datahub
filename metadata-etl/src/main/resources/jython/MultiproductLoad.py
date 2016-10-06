@@ -129,6 +129,7 @@ class MultiproductLoad:
     ON DUPLICATE KEY UPDATE
     dataset_urn = n.urn,
     sort_id = COALESCE(n.n_sort_id, sort_id),
+    -- the Owner_type precedence (from high to low) is: OWNER, PRODUCER, DELEGATE, STAKEHOLDER
     owner_type = CASE WHEN (
       case owner_type when 'OWNER' then 20 when 'PRODUCER' then 40 when 'DELEGATE' then 60 when 'STACKHOLDER' then 80 else 100 end
       ) <= (

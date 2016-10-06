@@ -117,7 +117,7 @@ CREATE TABLE `dataset_security_info` (
   `record_owner_type`         VARCHAR(50)      DEFAULT NULL
   COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
-  COMMENT 'AUTO_PURGE,CUSTOM,N/A',
+  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
   `compliance_purge_entities` VARCHAR(200)     DEFAULT NULL,
   `modified_time`             INT(10) UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
