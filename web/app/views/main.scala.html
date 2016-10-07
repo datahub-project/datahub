@@ -163,6 +163,11 @@
 									class="form-control input-sm keyword-search"
 									placeholder="Enter Keywords..."
 								/>
+								<input id="schemaInput"
+									type="text"
+									class="form-control input-sm keyword-search hide"
+									placeholder="Enter Keywords..."
+								/>
 								<span class="input-group-btn">
 									<button id="searchBtn"
 										type="button"
@@ -1016,6 +1021,7 @@
       </div><!-- /.modal -->
     </script>
 
+
 		<script type="text/x-handlebars" id="components/dataset-relations">
       {{#if hasDepends}}
 			<table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
@@ -1356,6 +1362,87 @@
 				</table>
 			</div>
 		</script>
+
+    <script type="text/x-handlebars" id="components/dataset-compliance">
+
+      <div id="compliance">
+
+      {{#if hasCompliance}}
+
+        <span class="ctitle">Compliance Type</span>
+        <div class="compliance-type cmodule">
+          <span class="csubt">Choose Type</span>
+          <select class="purge">
+            <option value="select" selected>Select Purge Type</option>
+            <option value="auto">Auto Purge</option>
+            <option value="custom">Custom Purge</option>
+            <option value="retention">Retention Purge</option>
+            <option value="na">Not Applicable</option>
+          </select>
+          <select id="action" class="hide">
+            <option value="member-id">Member ID</option>
+            <option value="member-urn">Member URN</option>
+            <option value="subject-id">Subject ID</option>
+            <option value="subject-urn">Subject URN</option>
+          </select>
+        </div>
+
+        <span class="ctitle">Field Selection</span>
+        <div class="compliance-fields cmodule">
+          <div class="cfheader">
+            <div class="cfname">Field name</div>
+            <div class="cftype">Field Type</div>
+            <div class="cfaction">Field Action</div>
+          </div>
+          <div class="cfrow hide">
+            <div class="cfname"></div>
+            <div class="cftype"></div>
+            <div class="cfaction"></div>
+          </div>
+          <i id="cf-closer" class="fa fa-times-circle fa-lg hide"></i>
+        </div>
+
+        <span class="ctitle">Record Owner</span>
+        <div class="compliance-owner cmodule group">
+          <div class="memberfield">
+          	<div class="csubt">Member Identifier</div>
+          	<div class="idname"><div class="labelx">ID</div><div id="member-id" class="droppable"></div></div>
+          	<div class="urnname"><div class="labelx">URN</div><div id="member-urn" class="droppable"></div></div>
+          </div>
+          <div class="subjectfield">
+          	<div class="csubt">Subject Identifier</div>
+          	<div class="idname"><div class="labelx">ID</div><div id="subject-id" class="droppable"></div></div>
+          	<div class="urnname"><div class="labelx">URN</div><div id="subject-urn" class="droppable"></div></div>
+          </div>
+        </div>
+
+        <div class="cta">
+        	<button class="upload" disabled>Save</button>
+        	<button class="upload" disabled>Cancel</button>
+        </div>
+
+				<!--  Once our DB schema includes compliance ownership fields, display here
+				<div>
+          {{#each compliance as |item|}}
+            <div class="prop-row group">
+              <div class="prop-label">{{item.key}}:</div>
+              {{#if item.isSelectController}}
+                <div class="prop-value-query">{{item.value}}</div>
+              {{else}}
+                <div class="prop-value">{{item.value}}</div>
+              {{/if}}
+            </div>
+          {{/each}}
+        </div>
+        -->
+
+      {{else}}
+        <p>Compliance is not available</p>
+      {{/if}}
+
+      </div>
+
+    </script>
 
     <script type="text/x-handlebars" id="components/schema-comment">
       <i

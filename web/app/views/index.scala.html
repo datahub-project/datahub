@@ -684,6 +684,13 @@
               Availability
             </a>
           </li>
+          <li id="compliance">
+            <a data-toggle="tab"
+              title="Compliance"
+              href="#compliancetab">
+              Compliance
+            </a>
+          </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
@@ -725,6 +732,10 @@
           <div id="accesstab" class="tab-pane">
             {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
             {{/dataset-access}}
+          </div>
+          <div id="compliancetab" class="tab-pane">
+            {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
+            {{/dataset-compliance}}
           </div>
         </div>
       {{else}}
@@ -875,6 +886,24 @@
             </div>
           </div>
         </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="complianceHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+               href="#accessview" aria-expanded="false" aria-controls="accessData">
+                Compliance
+              </a>
+            </h4>
+          </div>
+          <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
+            <div class="panel-body">
+              {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
+              {{/dataset-compliance}}
+            </div>
+          </div>
+        </div>
+
       </div>
       {{/if}}
     </script>
