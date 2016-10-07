@@ -1,4 +1,14 @@
 (function (window, $) {
+
+  // Namespace for WhereHows UI, starting with search
+  var WH = WH || {};
+  WH.search = {};
+  WH.search.selectedCompliance = [];
+
+  // Demo: derive currently loading dataset ID from URL so that we can populate the compliance typeahead
+  var hashArr = window.location.hash.split('/'),
+      hashId = hashArr[hashArr.length - 1];
+
     $('#advsearchtabs a:first').tab("show");
     $('#datasetAdvSearchLink').addClass("active");
     String.prototype.replaceAll = function(target, replacement) {
@@ -76,6 +86,158 @@
             parent.append(content);
         }
 
+/**
+   * This method takes the result of the multi-level nested schema API and 'flattens' it into
+   * a list of datasets formatted for easy delivery to the autocomplete typeahead engine.
+   * @method processSchema
+   * @param {Obj} schemaData, nested dataset schema JSON Object
+   * @private
+   * @return {undefined}
+   */
+  function processSchema(schemaData) {
+    var concatName,
+        schemaArr = [],
+        typeArr = [],
+        schemaObj = {};
+
+
+    function processSchemaChildren(rootName, fieldObj) {
+      var concatName,
+          subRootName;
+
+      concatName = rootName + '.' + fieldObj.name;
+      if (typeof fieldObj.type !== 'object') {
+        schemaArr.push(concatName);
+        typeArr[concatName] = fieldObj.type;
+      } else {
+        if (typeof fieldObj.type[1] === 'string') {
+          schemaArr.push(concatName);
+          typeArr[concatName] = fieldObj.type[1];
+        } else if (fieldObj.type.name) {
+          concatName = concatName + '.' + fieldObj.type.name;
+          schemaArr.push(concatName);
+          typeArr[concatName] = fieldObj.type.type;
+        } else if (typeof fieldObj.type[1].type === 'string' && !fieldObj.type[1].fields) {
+          concatName = concatName + '.' + fieldObj.type[1].name;
+          schemaArr.push(concatName);
+          typeArr[concatName] = fieldObj.type[1].type;
+        } else {
+          subRootName = concatName + '.' + fieldObj.type[1].name;
+          fieldObj.type[1].fields.forEach(function(subFieldObj) {
+            processSchemaChildren(subRootName, subFieldObj);
+          });
+        }
+      }
+    }
+
+    // Create typeahead-friendly array of fields
+    schemaData.fields.forEach(function(field) {
+      if (field.type.fields) {
+        concatNameRoot = field.name + '.' + field.type.name;
+        field.type.fields.forEach(function(fieldObj) {
+          processSchemaChildren(concatNameRoot, fieldObj);
+        });
+      } else {
+        concatName = field.name;
+        schemaArr.push(concatName);
+        typeArr[concatName] = typeof field.type === 'string' ? field.type : field.type[this.length];
+      }
+    });
+
+    schemaObj.fieldList = schemaArr;
+    schemaObj.typeArr = typeArr;
+
+    return { fieldList: schemaArr, typeList: typeArr };
+  }
+
+
+  /**
+   * Set up selection of compliance ownership fields using Jquery UI Draggable/Droppable
+   * @method setUpComplianceDragDrop
+   * @param {Obj} ui, autocomplete selected object
+   * @param {Array} typeList, relational array containing a field type for each schema field
+   * @private
+   * @return {undefined}
+   */
+  function setUpComplianceDragDrop(ui, typeList) {
+    var $closeEl,
+        $newRow,
+        fieldLabel,
+        removedItem,
+        $droppedFieldEl,
+        $fieldNameEl,
+        assignCount = 0;
+
+    // Add handles to this new field name row so that we can manipulate them later
+    WH.search.selectedCompliance.push(ui.item.value);
+    $newRow = $('.cfrow:first').clone().appendTo($('.compliance-fields')).removeClass('hide');
+    $fieldNameEl = $newRow.find('.cfname').data('field', ui.item.value);
+    $newRow.find('.cfaction').addClass(ui.item.value.replace(/\./g, '-'));
+
+    // When 'x' is clicked in chosen field list...
+    $closeEl = $('#cf-closer').clone().click(function() {
+      // Remove the field from DOM and from selected fields array, where we track 'allowed' selections
+      removedItem = $(this).parent().data('field');
+      $(this).parent().parent().remove();
+      WH.search.selectedCompliance.splice($.inArray(removedItem, WH.search.selectedCompliance) , 1);
+    });
+
+    // Now, make this new dataset name draggable to elements in the scope called 'record'
+    $fieldNameEl.text(ui.item.value).draggable({
+      helper: 'clone', revert: 'invalid', scope: 'record', disabled: false
+    });
+
+    // Add a 'close this' icon, and add the field 'type' to the type column
+    $fieldNameEl.append($closeEl.removeClass('hide'));
+    $newRow.find('.cftype').text(typeList[ui.item.value]);
+
+    // Set up droppable targets and event listeners
+    $('.droppable').droppable({
+      scope: 'record',
+      hoverClass: "droppable-hover",
+      drop: function(event, ui) {
+        // Disable dragging on original field name
+        ui.draggable.addClass('dim').draggable('disable').find('#cf-closer').hide();
+
+        // Clone dragged element before it is removed, so we can add it to the compliance fields
+        $droppedFieldEl = ui.helper.clone();
+
+        // Allow reverting dragged field, which resets the original
+        $droppedFieldEl.find('#cf-closer').click(function () {
+          ui.draggable.draggable('enable').removeClass('dim').find('#cf-closer').show();
+          ui.draggable.parent().find('.cfaction').empty();
+          $(this).parent().remove();
+          if ($('.compliance-fields').find('.cfrow .cfaction').text().length === 0) {
+            $('button.upload').prop('disabled', true);
+          }
+        });
+
+        // Attach show/hide to close icon
+        $droppedFieldEl.mouseover(function () {
+          $(this).find('i').toggleClass('closer-hide', false);
+        }).mouseout(function() {
+          $(this).find('i').toggleClass('closer-hide', true);
+        });
+
+        // Append cloned dragged element to selected drop zone, removing styles to make it align
+        $(this).append($droppedFieldEl.removeAttr('style').attr('class', 'cfname landed'));
+
+        // Find and add compliance label to field selection area (visual confirmantion)
+        fieldLabel = $(this).attr('id').replace('-',' ').toUpperCase();
+        $('.compliance-fields').find('.' + $droppedFieldEl.text().replace(/\./g,'-')).text(fieldLabel);
+        if ($('.compliance-fields').find('.cfrow .cfaction').text().length > 0) {
+          $('button.upload').prop('disabled', false);
+        }
+      }
+    });
+
+    // Set up submission
+    $('button.upload').click(function(e) {
+      console.log('clicked');
+    });
+  }
+
+
     $(".searchCategory").click(function(e){
         var objs = $(".searchCategory");
         if (objs)
@@ -126,6 +288,39 @@
         });
 
         });
+
+
+  // Set up compliance field select typeahead
+  $.get('/api/v1/datasets/' + hashId, function(data) {
+    var fieldArrIndex,
+        flatSchema = processSchema(JSON.parse(data.dataset.schema));
+
+    // Instantiate typeahead for field selection
+    $('#schemaInput').autocomplete({
+      minLength: 0,
+      // Prepare the flat list of schema fields to format them for autocomplete
+      source: function(req, res) {
+        var results = $.ui.autocomplete.filter(flatSchema.fieldList, extractLast(req.term));
+        res(results.slice(0, maxReturnedResults));
+      },
+      // On selection, bring the selected field into a list below the typeahead
+      select: function(event, ui) {
+          fieldArrIndex = $.inArray(ui.item.value, WH.search.selectedCompliance);
+          // We do not want to allow selection of a field that is already in our compliance list
+          if (fieldArrIndex < 0) {
+            // Configure drag/drop UI
+            setUpComplianceDragDrop(ui, flatSchema.typeList);
+            return false;
+          }
+        }
+    });
+
+    // Trigger autocomplete 'show all' on click instead of typeahead style
+    $('#schemaInput').click(function() {
+      $(this).autocomplete("search", "");
+    });
+
+  });
 
         $.get('/api/v1/advsearch/scopes', function(data){
             $(".scopeInput").autocomplete({

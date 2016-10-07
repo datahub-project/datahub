@@ -414,3 +414,162 @@ ul.breadcrumbs a {
     border: thin rgba(0,0,0,.2) solid;
     background-color: rgba(255,255,255,.3);
 }
+
+/*------------------------------------------------------------------------------
+ * Compliance Tab
+ *----------------------------------------------------------------------------*/
+
+#compliance {
+    margin-left: 20px;
+    color: rgba(1,1,1,.7);
+}
+
+.hide {
+    visibility: hidden;
+}
+
+.ctitle {
+    line-height: 30px;
+}
+
+.cmodule {
+    border: 1px #ccc dashed;
+    background-color: rgba(225,225,225,.3);
+    width: 800px;
+    padding: 20px;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.compliance-type select {
+    margin-left: 10px;
+}
+
+#schemaInput {
+    width: 400px;
+    float: left;
+}
+
+.cfheader,
+.cfrow {
+    height: 23px;
+    border-left: 5px #f6f6f6 solid;
+}
+
+.cfheader {
+    border-bottom: 1px #ccc dashed;
+    height: 55px;
+}
+
+.cfrow {
+    margin-top: 20px;
+    border-color: #008cc9;
+}
+
+.cfname {
+    float: left;
+    padding-right: 20px;
+    padding-top: 4px;
+    text-transform: capitalize;
+    width: 487px;
+    border-left: 5px rgb(246, 246, 246) solid;
+}
+
+.cfheader .cfname {
+    width: auto;
+    margin-left: -7px;
+}
+
+.cfname.landed {
+    border: none;
+    padding-right: 10px;
+    width: auto;
+}
+
+.cfname.ui-draggable:hover {
+    cursor: move;
+}
+
+.cfname.ui-draggable-disabled:hover {
+    cursor: default;
+}
+
+.cftype,
+.cfaction {
+    float: left;
+    clear: right;
+    padding: 2px 0 0 20px;
+    margin: 3px 0 0 20px;
+    height: 25px;
+    width: 82px;
+    border-left: 1px #ccc solid;
+}
+
+.cfaction {
+    margin-left: 20px;
+    width: auto;
+}
+
+.compliance-owner .idname,
+.compliance-owner .urnname {
+    margin-left: 15px;
+}
+
+.compliance-owner .labelx {
+    float: left;
+    margin-top: 5px;
+    width: 30px;
+    text-align: right;
+}
+
+.compliance-owner .urnname {
+    clear: both;
+}
+
+.compliance-owner .draggable {
+    text-align: left;
+}
+
+.compliance-owner .droppable {
+    background-color: white;
+    width: 700px;
+    height: 32px;
+    float: left;
+    margin: 5px 0 10px 10px;
+    border: 1px #dcdcdc solid;
+    padding: 3px 5px;
+}
+
+.droppable-hover {
+    border: 1px solid #f6f6f6;
+}
+
+.compliance-owner .droppable-hover {
+    background-color: #e4e4e4;
+}
+
+.group:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.dim {
+    color: #aaa;
+}
+
+#cf-closer {
+    font-size: 1.15em;
+    line-height: 0;
+    color: #afafaf;
+    padding-left: 5px;
+}
+
+#cf-closer:hover {
+    color: #636262;
+    cursor: pointer;
+}
+
+.closer-hide {
+    color: white !important;
+}

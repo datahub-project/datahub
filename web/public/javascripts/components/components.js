@@ -166,6 +166,9 @@ App.DatasetAccessComponent = Ember.Component.extend({
 App.DatasetImpactComponent = Ember.Component.extend({
 });
 
+App.DatasetComplianceComponent = Ember.Component.extend({
+});
+
 App.DatasetAuthorComponent = Ember.Component.extend({
   actions: {
     addOwner: function(data) {
