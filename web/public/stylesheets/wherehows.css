@@ -447,3 +447,156 @@ ul.breadcrumbs a {
     margin-right: 10px;
     line-height: 2;
 }
+
+.closer-hide {
+    color: white !important;
+}
+
+.tab-body {
+    padding: .5em;
+}
+
+.tab_head {
+    padding: 15px;
+    line-height: 2;
+}
+
+.lbl {
+    display: inline-block;
+    padding: .5em;
+}
+
+.lbl > * {
+    display: inline-block;
+}
+
+.lbl__text {
+    padding: .5em;
+}
+
+
+.field-search__input {
+    display: flex;
+    flex-grow: 1;
+    width: 50%;
+}
+
+.drop-bucket {
+    width: 700px;
+}
+
+.drop-bucket__th {
+    padding: 2em;
+    background-color: #d3d3d3;
+}
+
+.drop-bucket__td {
+    padding: 0;
+    width: 70%;
+}
+
+.drop-bucket__td .activated {
+    background-color: #f0f8ff;
+}
+
+.drop-bucket__ul {
+    margin: 0;
+    padding: 0;
+}
+
+.draggable__item {
+    overflow: hidden;
+    list-style-type: none;
+    display: flex;
+    align-items: stretch;
+    background-color: #d3d3d3;
+    cursor: pointer;
+    position: relative;
+    border: 1px solid;
+    margin-bottom: 2px;
+}
+
+.draggable__item .glyphicon-remove {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+}
+
+.draggable__item.item-source {
+    cursor: move;
+}
+
+.draggable__item.item-source :before {
+    content: '.';
+    position: absolute;
+    left: 1px;
+    top: -2px;
+    font-size: 20px;
+    line-height: 26px;
+    color: #292724;
+    text-shadow: 0 5px #292724,
+    0 10px #292724,
+    5px 0 #292724,
+    5px 5px #292724,
+    5px 10px #292724,
+    10px 0 #292724,
+    10px 5px #292724,
+    10px 10px #292724;
+}
+
+.drop-bucket__td > .drop-region {
+    min-height: 70px;
+}
+
+.classification-list-help {
+    color: #8699A4;
+    margin: 5px;
+}
+
+.typeahead-matches {
+    width: 700px;
+    height: 200px;
+    overflow-y: scroll;
+    margin-bottom: 15px;
+}
+
+.typeahead-header {
+    display: flex;
+    align-items: center;
+    width: 700px;
+    border: 1px solid #d3d3d3;
+}
+
+.field-names {
+    display: flex;
+    width: 500px;
+    align-items: center;
+}
+
+.typeahead-header h4 {
+    margin: 0;
+    padding: 0 3px;
+}
+
+.field-names h4 {
+    display: flex;
+    flex-grow: 2;
+}
+
+
+.match-pill__data-type {
+    display: flex;
+    line-height: 3;
+    padding: 0 5px 0 15px;
+}
+
+.match-pill__value {
+    display: inline-block;
+    width: 500px;
+    -ms-text-overflow: ellipsis;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    line-height: 3;
+    border-right: 1px solid;
+    padding: 0 5px 0 25px;
+}
