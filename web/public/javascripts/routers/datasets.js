@@ -415,6 +415,28 @@ App.DatasetRoute = Ember.Route.extend({
                     }
                 });
 
+    var datasetComplianceUrl = 'api/v1/datasets/' + id + "/security";
+
+    // Pull schema field chooser into DOM after all has rendered
+    setTimeout(function(){
+      $('#schemaInput').insertAfter($('.cfheader .cfname')).removeClass('hide');
+    }, 3000);
+
+    // Fetch compliance API data and add to controller
+    $.get(datasetComplianceUrl, function(data) {
+      if (data && data.return_code === 200) {
+        if (data.securitySpec && data.securitySpec.complianceType) {
+          controller.set("hasCompliance", true);
+          controller.set("compliance", data.securitySpec);
+        } else {
+            controller.set("hasCompliance", false);
+        }
+      } else {
+        controller.set("hasCompliance", false);
+      }
+    });
+
+
     var datasetDependsUrl = 'api/v1/datasets/' + id + "/depends";
     $.get(datasetDependsUrl, function(data) {
       if (data && data.status == "ok")
