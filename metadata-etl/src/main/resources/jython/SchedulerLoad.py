@@ -136,15 +136,16 @@ class SchedulerLoad:
     self.wh_con.commit()
 
     cmd = """
-          INSERT INTO flow_schedule (app_id, flow_id, unit, frequency, included_instances, excluded_instances, effective_start_time, effective_end_time, is_active, ref_id,
+          INSERT INTO flow_schedule (app_id, flow_id, unit, frequency, cron_expression, included_instances, excluded_instances, effective_start_time, effective_end_time, is_active, ref_id,
            created_time, modified_time, wh_etl_exec_id)
-          SELECT app_id, flow_id, unit, frequency, included_instances, excluded_instances, effective_start_time, effective_end_time, 'Y', ref_id,
+          SELECT app_id, flow_id, unit, frequency, cron_expression, included_instances, excluded_instances, effective_start_time, effective_end_time, 'Y', ref_id,
           unix_timestamp(NOW()) created_time, NULL modified_time, wh_etl_exec_id
           FROM stg_flow_schedule s
           WHERE s.app_id = {app_id} AND s.flow_id IS NOT NULL
           ON DUPLICATE KEY UPDATE
           unit = s.unit,
           frequency = s.frequency,
+          cron_expression = s.cron_expression,
           is_active = 'Y',
           ref_id = s.ref_id,
           included_instances = s.included_instances,

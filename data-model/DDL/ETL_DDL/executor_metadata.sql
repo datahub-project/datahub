@@ -95,8 +95,8 @@ CREATE TABLE flow_job (
   job_type_id          SMALLINT COMMENT 'type id of the job',
   job_type             VARCHAR(63) COMMENT 'type of the job',
   ref_flow_id          INT UNSIGNED NULL COMMENT 'the reference flow id of the job if the job is a subflow',
-  pre_jobs             VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
-  post_jobs            VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
+  pre_jobs             VARCHAR(20000) CHAR SET latin1 COMMENT 'comma separated job ids that run before this job',
+  post_jobs            VARCHAR(20000) CHAR SET latin1 COMMENT 'comma separated job ids that run after this job',
   is_current           CHAR(1) COMMENT 'determine if it is a current job',
   is_first             CHAR(1) COMMENT 'determine if it is the first job',
   is_last              CHAR(1) COMMENT 'determine if it is the last job',
@@ -126,8 +126,8 @@ CREATE TABLE stg_flow_job (
   job_type       VARCHAR(63) COMMENT 'type of the job',
   ref_flow_id    INT UNSIGNED  NULL COMMENT 'the reference flow id of the job if the job is a subflow',
   ref_flow_path  VARCHAR(1024) COMMENT 'the reference flow path of the job if the job is a subflow',
-  pre_jobs       VARCHAR(4096) COMMENT 'comma separated job ids that run before this job',
-  post_jobs      VARCHAR(4096) COMMENT 'comma separated job ids that run after this job',
+  pre_jobs       VARCHAR(20000) CHAR SET latin1 COMMENT 'comma separated job ids that run before this job',
+  post_jobs      VARCHAR(20000) CHAR SET latin1 COMMENT 'comma separated job ids that run after this job',
   is_current     CHAR(1) COMMENT 'determine if it is a current job',
   is_first       CHAR(1) COMMENT 'determine if it is the first job',
   is_last        CHAR(1) COMMENT 'determine if it is the last job',
@@ -366,6 +366,7 @@ CREATE TABLE flow_schedule (
   COMMENT 'flow id',
   unit                 VARCHAR(31) COMMENT 'unit of time',
   frequency            INT COMMENT 'frequency of the unit',
+  cron_expression      VARCHAR(127) COMMENT 'cron expression',
   is_active            CHAR(1) COMMENT 'determine if it is an active schedule',
   included_instances   VARCHAR(127) COMMENT 'included instance',
   excluded_instances   VARCHAR(127) COMMENT 'excluded instance',
@@ -389,6 +390,7 @@ CREATE TABLE stg_flow_schedule (
   flow_path            VARCHAR(1024) COMMENT 'flow path from top level',
   unit                 VARCHAR(31) COMMENT 'unit of time',
   frequency            INT COMMENT 'frequency of the unit',
+  cron_expression      VARCHAR(127) COMMENT 'cron expression',
   included_instances   VARCHAR(127) COMMENT 'included instance',
   excluded_instances   VARCHAR(127) COMMENT 'excluded instance',
   effective_start_time INT UNSIGNED COMMENT 'effective start time of the flow execution',
@@ -438,7 +440,7 @@ CREATE TABLE stg_flow_owner_permission (
   DEFAULT CHARSET = utf8
   COMMENT = 'Scheduler owner table' PARTITION BY HASH (app_id) PARTITIONS 8;
 
-CREATE TABLE job_execution_ext_reference ( 
+CREATE TABLE job_execution_ext_reference (
 	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
 	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
 	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  DEFAULT '0',
@@ -463,11 +465,11 @@ PARTITION BY HASH(app_id)
 	PARTITION p7)
 ;
 
-CREATE INDEX idx_job_execution_ext_ref__ext_ref_id USING BTREE 
+CREATE INDEX idx_job_execution_ext_ref__ext_ref_id USING BTREE
 	ON job_execution_ext_reference(ext_ref_id);
 
 
-CREATE TABLE stg_job_execution_ext_reference ( 
+CREATE TABLE stg_job_execution_ext_reference (
 	app_id         	smallint(5) UNSIGNED COMMENT 'application id of the flow'  NOT NULL,
 	job_exec_id    	bigint(20) UNSIGNED COMMENT 'job execution id either inherit or generated'  NOT NULL,
 	attempt_id     	smallint(6) COMMENT 'job execution attempt id'  DEFAULT '0',

@@ -163,6 +163,7 @@ class OozieExtract:
                                                 row['app_path'],
                                                 row['time_unit'],
                                                 int(row['frequency']),
+                                                None,
                                                 row['start_time'],
                                                 row['end_time'],
                                                 row['ref_id'],

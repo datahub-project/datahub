@@ -224,13 +224,18 @@ class AzkabanExtract:
         # print json.dumps(row[json_column], indent=4)
 
         if row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["isRecurring"] == 'true':
-          unit = row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["period"][-1:]
-          unit = self._period_unit_table[unit]
-          frequency = int(row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["period"][:-1])
+          unit, frequency, cron_expr = None, None, None
+          period = row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["period"]
+          if period is not None and period != "null" and period[-1:] in self._period_unit_table:
+            unit = self._period_unit_table[period[-1:]]
+            frequency = int(row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["period"][:-1])
+          if "cronExpression" in row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]:
+            cron_expr = row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["cronExpression"]
           schedule_record = AzkabanFlowScheduleRecord(self.app_id,
                                                       row[json_column]["actions"][0]["actionJson"]["projectName"] + ':' + row[json_column]["actions"][0]["actionJson"]["flowName"],
                                                       unit,
                                                       frequency,
+                                                      cron_expr,
                                                       long(row[json_column]["triggerCondition"]["checkers"][0]["checkerJson"]["firstCheckTime"]) / 1000,
                                                       int(time.mktime(datetime.date(2099,12,31).timetuple())),
                                                       '0',
