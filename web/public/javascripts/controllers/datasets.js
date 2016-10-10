@@ -302,6 +302,19 @@ App.DatasetController = Ember.Controller.extend({
 
         _this.set('currentVersion', version);
     },
+    saveJson(data) {
+        const postRequest = {
+            type: 'POST',
+            url: `api/v1/datasets/${this.get('datasetId')}/security`,
+            data: JSON.stringify(data),
+            contentType: 'application/json'
+        };
+
+        // If the return_code is not 200 reject the Promise
+        return Promise.resolve(Ember.$.ajax(postRequest))
+            .then(({return_code}) => return_code === 200 ? arguments[0] : Promise.reject(return_code));
+    },
+
     actions: {
         setView: function(view) {
             switch(view) {
@@ -437,6 +450,22 @@ App.DatasetController = Ember.Controller.extend({
 
             _this.set('currentInstance', instance.dbId);
             _this.refreshVersions(instance.dbId);
+        },
+        /**
+         * Requests the security specification for the current dataset id
+         * and sets the result on the controller `securitySpec`
+         * @returns {Promise.<*>}
+         */
+        getSecuritySpec() {
+            const securitySpecUrl = `api/v1/datasets/${this.get('datasetId')}/security`;
+            Ember.$.getJSON(securitySpecUrl, ({return_code, securitySpec}) => {
+                if (return_code === 200 && typeof securitySpec === 'object') {
+                    this.set('securitySpec', securitySpec);
+                }
+            });
+        },
+        saveSecuritySpec() {
+            this.saveJson(this.get('securitySpec'));
         }
     }
 });
