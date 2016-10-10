@@ -11,12 +11,13 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
 import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.MetastoreAuditRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
@@ -25,6 +26,7 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
    * Process a Metastore Table/Partition Audit event record
    * @param record
    * @param topic
+   * @return Record
    * @throws Exception
    */
   @Override
@@ -65,7 +67,7 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
 
       final String eventType = String.valueOf(content.get("eventType"));
       final String metastoreThriftUri = String.valueOf(content.get("metastoreThriftUri"));
-      final String metastoreVersion = String.valueOf(content.get("metastoreVersion"));
+      final String metastoreVersion = StringUtil.toStringReplaceNull(content.get("metastoreVersion"), null);
       final long timestamp = (long) content.get("timestamp");
       final String isSuccessful = String.valueOf(content.get("isSuccessful"));
       final String isDataDeleted = String.valueOf(content.get("isDataDeleted"));
@@ -74,19 +76,18 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
       final GenericData.Record rec = newInfo != null ? (GenericData.Record) newInfo : (GenericData.Record) oldInfo;
       final String dbName = String.valueOf(rec.get("dbName"));
       final String tableName = String.valueOf(rec.get("tableName"));
-      final String partition = String.valueOf(rec.get("values"));
-      final String location = String.valueOf(rec.get("location"));
-      final String owner = String.valueOf(rec.get("owner"));
+      // set null / "null" partition to '?' for primary key
+      final String partition = StringUtil.toStringReplaceNull(rec.get("values"), "?");
+      final String location = StringUtil.toStringReplaceNull(rec.get("location"), null);
+      final String owner = StringUtil.toStringReplaceNull(rec.get("owner"), null);
       final long createTime = (long) rec.get("createTime");
       final long lastAccessTime = (long) rec.get("lastAccessTime");
 
       eventRecord = new MetastoreAuditRecord(server, instance, appName, eventName, eventType, timestamp);
       eventRecord.setEventInfo(metastoreThriftUri, metastoreVersion, isSuccessful, isDataDeleted);
-      // set null partition to '?' for primary key
-      eventRecord.setTableInfo(dbName, tableName, (partition != null ? partition : "?"),
-          location, owner, createTime, lastAccessTime);
-      eventRecord.setOldInfo(String.valueOf(oldInfo));
-      eventRecord.setNewInfo(String.valueOf(newInfo));
+      eventRecord.setTableInfo(dbName, tableName, partition, location, owner, createTime, lastAccessTime);
+      eventRecord.setOldInfo(StringUtil.toStringReplaceNull(oldInfo, null));
+      eventRecord.setNewInfo(StringUtil.toStringReplaceNull(newInfo, null));
     }
     return eventRecord;
   }

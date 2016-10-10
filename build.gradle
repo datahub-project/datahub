@@ -107,9 +107,9 @@ subprojects {
                             "play_java_jdbc"     : "com.typesafe.play:play-java-jdbc_2.10:2.2.4",
                             "play_cache"         : "com.typesafe.play:play-cache_2.10:2.2.4",
 
-                            "kafka"              : "org.apache.kafka:kafka_2.10:0.10.0.0",
-                            "kafka_clients"      : "org.apache.kafka:kafka-clients:0.10.0.0",
-                            "confluent_common_cfg" : "io.confluent:common-config:3.0.0"
+                            "kafka"              : "org.apache.kafka:kafka_2.10:0.10.0.1",
+                            "kafka_clients"      : "org.apache.kafka:kafka-clients:0.10.0.1",
+                            "confluent_common_cfg" : "io.confluent:common-config:3.0.1"
   ]
 
   task buildWithWarning(type: JavaCompile, dependsOn: build) {

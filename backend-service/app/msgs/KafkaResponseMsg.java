@@ -13,27 +13,31 @@
  */
 package msgs;
 
-import wherehows.common.schemas.AbstractRecord;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
- * Message wrapper for communication between KafkaConsumerMaster and KafkaConsumerWorker
+ * Generic communication message between KafkaConsumerMaster and KafkaConsumerWorker
  */
 public class KafkaResponseMsg {
-  private AbstractRecord record;
+
+  private String msgType;
   private String topic;
+  private Map<String, Object> content;
 
-  public KafkaResponseMsg(AbstractRecord record, String topic) {
-    this.record = record;
+  public KafkaResponseMsg(String msgType, String topic) {
+    this.msgType = msgType;
     this.topic = topic;
+    this.content = new HashMap<>();
   }
 
-  public AbstractRecord getRecord() {
-    return record;
+  public String getMsgType() {
+    return msgType;
   }
 
-  public void setRecord(AbstractRecord record) {
-    this.record = record;
+  public void setMsgType(String msgType) {
+    this.msgType = msgType;
   }
 
   public String getTopic() {
@@ -44,9 +48,16 @@ public class KafkaResponseMsg {
     this.topic = topic;
   }
 
-  @Override
-  public String toString() {
-    return "KafkaResponseMsg [record=" + record + ", topic=" + topic + "]";
+  public Map<String, Object> getContent() {
+    return content;
   }
 
+  public void setContent(Map<String, Object> content) {
+    this.content = content;
+  }
+
+  @Override
+  public String toString() {
+    return "KafkaResponseMsg [type=" + msgType + ", topic=" + topic + ", " + content.toString() + "]";
+  }
 }

@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -45,6 +45,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
    * Process a Gobblin tracking event lumos record
    * @param record
    * @param topic
+   * @return Record
    * @throws Exception
    */
   @Override
@@ -86,7 +87,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
           datacenter = datasourceColo;
         }
 
-        final long recordCount = parseLong(metadata.get("recordCount"));
+        final long recordCount = StringUtil.parseLong(metadata.get("recordCount"));
 
         final String partitionType = "snapshot";
         final String partition = metadata.get("partition");
@@ -94,18 +95,18 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
         String subpartitionType = null;
         String subpartitionName = null;
 
-        final long dropdate = parseLong(metadata.get("Dropdate"));
+        final long dropdate = StringUtil.parseLong(metadata.get("Dropdate"));
         long maxDataDateEpoch3 = dropdate;
         long maxDataKey = 0; // if field is null, default value 0
         if (!isPartitionRegular(partition)) {
-          maxDataKey = parseLong(getPartitionEpoch(partition));
+          maxDataKey = StringUtil.parseLong(getPartitionEpoch(partition));
         }
 
         // handle name 'SnapshotPublished'
         if (name.equals("SnapshotPublished")) {
           partitionName = partition;
           if (dropdate < 1460000000000L) {
-            maxDataDateEpoch3 = parseLong(getPartitionEpoch(targetDirectory));
+            maxDataDateEpoch3 = StringUtil.parseLong(getPartitionEpoch(targetDirectory));
           }
         }
         // handle name 'DeltaPublished'
@@ -114,7 +115,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
           subpartitionType = "_delta";
           subpartitionName = partition;
           if (dropdate < 1460000000000L) {
-            maxDataDateEpoch3 = parseLong(getPartitionEpoch(subpartitionName));
+            maxDataDateEpoch3 = StringUtil.parseLong(getPartitionEpoch(subpartitionName));
           }
         }
 
