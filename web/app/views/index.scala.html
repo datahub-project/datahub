@@ -249,21 +249,15 @@
       </div>
     </script>
 
-    <script type="text/x-handlebars" id="components/ember-selector">
-      <select id="ember-selector" class="form-control">
-        {{#each renderValues as |value|}}
-          {{#if value.isSelected}}
-            <option value="{{value.value}}" selected>
-              {{value.value}}
+<script type="text/x-handlebars" id="components/ember-selector">
+    <select class={{class}} {{action 'change' on='change'}}>
+        {{#each content as |option|}}
+            <option value="{{option.value}}" selected={{if option.isSelected 'selected' ''}}>
+                {{if option.label option.label option.value}}
             </option>
-          {{else}}
-            <option value="{{value.value}}">
-              {{value.value}}
-            </option>
-          {{/if}}
         {{/each}}
-      </select>
-    </script>
+    </select>
+</script>
 
     <script type="text/x-handlebars" id="components/dataset-schema">
       {{#if hasSchemas}}
@@ -685,12 +679,19 @@
             </a>
           </li>
           <li id="compliance">
-            <a data-toggle="tab"
-              title="Compliance"
-              href="#compliancetab">
-              Compliance
-            </a>
+              <a data-toggle="tab"
+                 title="Compliance"
+                 href="#compliancetab">
+                  Compliance
+              </a>
           </li>
+            <li id="confidential">
+                <a data-toggle="tab"
+                   title="Confidential"
+                   href="#confidentialtab">
+                    Confidential
+                </a>
+            </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
@@ -733,10 +734,22 @@
             {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
             {{/dataset-access}}
           </div>
-          <div id="compliancetab" class="tab-pane">
-            {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
-            {{/dataset-compliance}}
-          </div>
+            <div id="compliancetab" class="tab-pane">
+                {{#dataset-compliance securitySpec=securitySpec
+                                      fieldList=fieldList
+                                      typeList=typeList
+                                      onSave=(action "saveSecuritySpec")
+                                      onReset=(action "getSecuritySpec")}}
+                {{/dataset-compliance}}
+            </div>
+            <div id="confidentialtab" class="tab-pane">
+                {{#dataset-confidential securitySpec=securitySpec
+                                        fieldList=fieldList
+                                        typeList=typeList
+                                        onSave=(action "saveSecuritySpec")
+                                        onReset=(action "getSecuritySpec")}}
+                {{/dataset-confidential}}
+            </div>
         </div>
       {{else}}
       <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
@@ -897,12 +910,38 @@
             </h4>
           </div>
           <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
-            <div class="panel-body">
-              {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
-              {{/dataset-compliance}}
-            </div>
+              <div class="panel-body">
+                  {{#dataset-compliance fieldList=fieldList
+                                        typeList=typeList
+                                        securitySpec=securitySpec
+                                        onSave=(action "saveSecuritySpec")
+                                        onReset=(action "getSecuritySpec")}}
+                  {{/dataset-compliance}}
+              </div>
           </div>
         </div>
+
+          <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="confidentialHeading">
+                  <h4 class="panel-title">
+                      <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+                         href="#accessview" aria-expanded="false" aria-controls="accessData">
+                          Confidential
+                      </a>
+                  </h4>
+              </div>
+              <div id="accessview" class="panel-collapse collapse" role="tabpanel"
+                   aria-labelledby="confidentialHeading">
+                  <div class="panel-body">
+                      {{#dataset-confidential securitySpec=securitySpec
+                                              fieldList=fieldList
+                                              typeList=typeList
+                                              onSave=(action "saveSecuritySpec")
+                                              onReset=(action "getSecuritySpec")}}
+                      {{/dataset-confidential}}
+                  </div>
+              </div>
+          </div>
 
       </div>
       {{/if}}
