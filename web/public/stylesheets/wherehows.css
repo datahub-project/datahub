@@ -573,3 +573,84 @@ ul.breadcrumbs a {
 .closer-hide {
     color: white !important;
 }
+
+.tab-body {
+    padding: .5em;
+}
+
+.lbl {
+    display: inline-block;
+    padding: .5em;
+}
+
+.lbl > * {
+    display: inline-block;
+}
+
+.lbl__text {
+    padding: .5em;
+}
+
+.field-search {
+    height: 50px;
+    width: 700px;
+    margin: 1.5em 0;
+}
+
+.field-search__input {
+    height: 100%;
+}
+
+.drop-bucket {
+    width: 700px;
+}
+
+.drop-bucket__th {
+    padding: 2em;
+    background-color: #d3d3d3;
+}
+
+.drop-bucket__td {
+    padding: 0;
+    width: 70%;
+}
+
+.drop-bucket__ul {
+    margin: 0;
+    padding: 0;
+}
+
+.draggable__item {
+    -ms-text-overflow: ellipsis;
+    text-overflow: ellipsis;
+    width: 140px;
+    list-style-type: none;
+    display: inline-block;
+    background-color: #d3d3d3;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    padding: 5px 20px 5px 5px;
+    margin: 10px 5px;
+    cursor: pointer;
+    position: relative;
+}
+
+.draggable__item .glyphicon-remove {
+    position: absolute;
+    right: 3px;
+    top: 3px;
+}
+
+.drop-bucket__td > .drop-region {
+    min-height: 70px;;
+}
+
+.classification-list-help {
+    color: #8699A4;
+}
+
+.typeahead-matches {
+    width: 700px;
+    padding: 20px 5px;
+}
