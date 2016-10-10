@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -35,8 +35,9 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
 
   /**
    * Process a Gobblin tracking event distcp_ng event record
-   * @param record
+   * @param record GenericData.Record
    * @param topic
+   * @return Record
    * @throws Exception
    */
   @Override
@@ -59,12 +60,12 @@ public class GobblinTrackingDistcpNgProcessor extends KafkaConsumerProcessor {
         final String projectName = metadata.get("azkabanProjectName");
         final String flowId = metadata.get("azkabanFlowId");
         final String jobId = metadata.get("azkabanJobId");
-        final int execId = parseInteger(metadata.get("azkabanExecId"));
+        final int execId = StringUtil.parseInteger(metadata.get("azkabanExecId"));
         // final String metricContextId = metadata.get("metricContextID");
         // final String metricContextName = metadata.get("metricContextName");
 
-        final long upstreamTimestamp = parseLong(metadata.get("upstreamTimestamp"));
-        final long originTimestamp = parseLong(metadata.get("originTimestamp"));
+        final long upstreamTimestamp = StringUtil.parseLong(metadata.get("upstreamTimestamp"));
+        final long originTimestamp = StringUtil.parseLong(metadata.get("originTimestamp"));
         final String sourcePath = metadata.get("SourcePath");
         final String targetPath = metadata.get("TargetPath");
 
