@@ -41,8 +41,8 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   public Record process(GenericData.Record record, String topic)
       throws Exception {
 
-    if (record != null) {
-      String name = (String) record.get("name");
+    if (record != null && record.get("name") != null) {
+      final String name = record.get("name").toString();
       // only handle "DaliLimitedRetentionAuditor","DaliAutoPurgeAuditor" and "DsIgnoreIDPCAuditor"
       if (name.equals(DALI_LIMITED_RETENTION_AUDITOR)
           || name.equals(DALI_AUTOPURGED_AUDITOR)
@@ -52,10 +52,10 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
 
         String hasError = metadata.get("HasError");
         if (!hasError.equalsIgnoreCase("true")) {
-          String datasetUrn = metadata.get("DatasetPath");
+          String datasetPath = metadata.get("DatasetPath");
+          String datasetUrn = DATASET_URN_PREFIX + (datasetPath.startsWith("/") ? "" : "/") + datasetPath;
           String ownerUrns = metadata.get("OwnerURNs");
-          DatasetInfoDao.updateKafkaDatasetOwner(DATASET_URN_PREFIX + datasetUrn, ownerUrns, DATASET_OWNER_SOURCE,
-              timestamp);
+          DatasetInfoDao.updateKafkaDatasetOwner(datasetUrn, ownerUrns, DATASET_OWNER_SOURCE, timestamp);
         }
       }
     }

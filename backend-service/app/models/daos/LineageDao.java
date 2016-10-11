@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import models.utils.Urn;
+import utils.Urn;
 import utils.JdbcUtil;
 import wherehows.common.schemas.LineageRecord;
 import wherehows.common.utils.PartitionPatternMatcher;
