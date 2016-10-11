@@ -86,8 +86,8 @@ public class MetastoreAuditProcessor extends KafkaConsumerProcessor {
       eventRecord = new MetastoreAuditRecord(server, instance, appName, eventName, eventType, timestamp);
       eventRecord.setEventInfo(metastoreThriftUri, metastoreVersion, isSuccessful, isDataDeleted);
       eventRecord.setTableInfo(dbName, tableName, partition, location, owner, createTime, lastAccessTime);
-      eventRecord.setOldInfo(StringUtil.toStringReplaceNull(oldInfo, null));
-      eventRecord.setNewInfo(StringUtil.toStringReplaceNull(newInfo, null));
+      // eventRecord.setOldInfo(StringUtil.toStringReplaceNull(oldInfo, null));
+      // eventRecord.setNewInfo(StringUtil.toStringReplaceNull(newInfo, null));
     }
     return eventRecord;
   }

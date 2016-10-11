@@ -24,7 +24,7 @@ import kafka.consumer.KafkaStream;
 import kafka.message.MessageAndMetadata;
 
 import akka.actor.UntypedActor;
-import msgs.KafkaResponseMsg;
+import msgs.KafkaCommMsg;
 import play.Logger;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.kafka.serializers.KafkaAvroDeserializer;

@@ -19,7 +19,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import models.daos.DatasetInfoDao;
-import models.utils.Urn;
+import utils.Urn;
 import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
 import play.libs.Json;

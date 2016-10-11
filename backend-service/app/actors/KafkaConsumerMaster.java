@@ -29,11 +29,11 @@ import metadata.etl.models.EtlJobName;
 import models.daos.ClusterDao;
 import models.daos.EtlJobDao;
 
-import msgs.KafkaResponseMsg;
+import msgs.KafkaCommMsg;
 import play.Logger;
 import play.Play;
-import utils.KafkaConfig;
-import utils.KafkaConfig.Topic;
+import models.kafka.KafkaConfig;
+import models.kafka.KafkaConfig.Topic;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.utils.ClusterUtil;
@@ -132,9 +132,9 @@ public class KafkaConsumerMaster extends UntypedActor {
   @Override
   public void onReceive(Object message)
       throws Exception {
-    if (message instanceof KafkaResponseMsg) {
-      final KafkaResponseMsg kafkaMsg = (KafkaResponseMsg) message;
-      Logger.debug("Got kafka response message: " + kafkaMsg.toString());
+    if (message instanceof KafkaCommMsg) {
+      final KafkaCommMsg kafkaCommMsg = (KafkaCommMsg) message;
+      Logger.debug(kafkaCommMsg.toString());
     } else {
       unhandled(message);
     }

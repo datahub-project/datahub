@@ -19,7 +19,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import models.daos.LineageDao;
-import models.utils.Urn;
+import utils.Urn;
 import play.libs.Json;
 import play.mvc.BodyParser;
 import play.mvc.Controller;

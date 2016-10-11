@@ -20,15 +20,21 @@ import java.util.Map;
 /**
  * Generic communication message between KafkaConsumerMaster and KafkaConsumerWorker
  */
-public class KafkaResponseMsg {
+public class KafkaCommMsg {
 
+  // Message type: AUDIT, AUDIT_RESPONSE, FLUSH, FLUSH_RESPONSE, HEARTBEAT, etc
   private String msgType;
+  // Kafka topic of the worker
   private String topic;
+  // Kafka worker thread number
+  private int thread;
+  // Message content
   private Map<String, Object> content;
 
-  public KafkaResponseMsg(String msgType, String topic) {
+  public KafkaCommMsg(String msgType, String topic, int thread) {
     this.msgType = msgType;
     this.topic = topic;
+    this.thread = thread;
     this.content = new HashMap<>();
   }
 
@@ -48,6 +54,14 @@ public class KafkaResponseMsg {
     this.topic = topic;
   }
 
+  public int getThread() {
+    return thread;
+  }
+
+  public void setThread(int thread) {
+    this.thread = thread;
+  }
+
   public Map<String, Object> getContent() {
     return content;
   }
@@ -56,8 +70,13 @@ public class KafkaResponseMsg {
     this.content = content;
   }
 
+  public void putContent(String key, Object value) {
+    this.content.put(key, value);
+  }
+
   @Override
   public String toString() {
-    return "KafkaResponseMsg [type=" + msgType + ", topic=" + topic + ", " + content.toString() + "]";
+    return "KafkaCommMsg [type=" + msgType + ", topic=" + topic + ", thread=" + thread + ", content="
+        + content.toString() + "]";
   }
 }
