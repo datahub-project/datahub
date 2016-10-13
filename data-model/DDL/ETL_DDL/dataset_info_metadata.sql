@@ -17,10 +17,11 @@ CREATE TABLE dataset_deployment (
   `dataset_id`      INT UNSIGNED NOT NULL,
   `dataset_urn`     VARCHAR(200) NOT NULL,
   `deployment_tier` VARCHAR(20)  NOT NULL,
-  `datacenter`      VARCHAR(20)  NOT NULL,
+  `datacenter`      VARCHAR(20)        DEFAULT NULL,
   `region`          VARCHAR(50)        DEFAULT NULL,
   `zone`            VARCHAR(50)        DEFAULT NULL,
   `cluster`         VARCHAR(100)       DEFAULT NULL,
+  `container`       VARCHAR(100)       DEFAULT NULL,
   `enabled`         BOOLEAN      NOT NULL,
   `additional_info` TEXT CHAR SET utf8 DEFAULT NULL,
   `modified_time`   INT UNSIGNED       DEFAULT NULL
@@ -104,22 +105,27 @@ CREATE TABLE dataset_partition (
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
 
-CREATE TABLE dataset_security (
-  `dataset_id`          INT UNSIGNED NOT NULL,
-  `dataset_urn`         VARCHAR(200) NOT NULL,
-  `classification`      VARCHAR(200) DEFAULT NULL,
-  `record_owner_type`   VARCHAR(20)  DEFAULT NULL,
-  `record_owner`        VARCHAR(200) DEFAULT NULL,
-  `compliance_type`     VARCHAR(30)  DEFAULT NULL,
-  `retention_policy`    VARCHAR(200) DEFAULT NULL,
-  `geographic_affinity` VARCHAR(200) DEFAULT NULL,
-  `modified_time`       INT UNSIGNED DEFAULT NULL
+CREATE TABLE `dataset_security_info` (
+  `dataset_id`                INT(10) UNSIGNED NOT NULL,
+  `dataset_urn`               VARCHAR(200)     NOT NULL,
+  `classification`            VARCHAR(500)     DEFAULT NULL
+  COMMENT 'JSON: confidential fields',
+  `retention_policy`          VARCHAR(200)     DEFAULT NULL
+  COMMENT 'JSON: specification of retention',
+  `geographic_affinity`       VARCHAR(200)     DEFAULT NULL
+  COMMENT 'JSON: must be stored in the geo region',
+  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
+  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
+  `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
+  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
+  `compliance_purge_entities` VARCHAR(200)     DEFAULT NULL,
+  `modified_time`             INT(10) UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
-  UNIQUE KEY (`dataset_urn`)
+  UNIQUE KEY `dataset_urn` (`dataset_urn`)
 )
   ENGINE = InnoDB
-  DEFAULT CHARSET = latin1;
+  DEFAULT CHARSET = utf8;
 
 CREATE TABLE dataset_constraint (
   `dataset_id`            INT UNSIGNED NOT NULL,
@@ -163,11 +169,7 @@ CREATE TABLE dataset_schema_info (
   `version`                      VARCHAR(20)              DEFAULT NULL,
   `name`                         VARCHAR(100)             DEFAULT NULL,
   `description`                  TEXT CHAR SET utf8       DEFAULT NULL,
-  `format`                       VARCHAR(20)              DEFAULT NULL,
-  `original_schema`              TEXT                     DEFAULT NULL,
-  `original_schema_checksum`     VARCHAR(100)             DEFAULT NULL,
-  `key_schema_type`              VARCHAR(20)              DEFAULT NULL,
-  `key_schema_format`            VARCHAR(100)             DEFAULT NULL,
+  `original_schema`              MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
   `key_schema`                   MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,
   `is_field_name_case_sensitive` BOOLEAN                  DEFAULT NULL,
   `field_schema`                 MEDIUMTEXT CHAR SET utf8 DEFAULT NULL,

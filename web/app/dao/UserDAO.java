@@ -36,9 +36,8 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"(name, username, password_digest, email, password_digest_type, authentication_type) " +
 			"VALUES(?, ?, SHA1(?), ? , 'SHA1', 'default')";
 
-	private final static String CREATE_LDAP_USER = "INSERT INTO users " +
-			"(name, username, email, department_number, password_digest_type) " +
-			"VALUES(?, ?, ?, ?, 'SHA1')";
+	private final static String CREATE_LDAP_USER =
+			"INSERT INTO users (name, username, email, department_number, authentication_type) VALUES(?, ?, ?, ?, 'LDAP')";
 
 	private final static String GET_USER_COUNT = "SELECT COUNT(*) FROM users WHERE username = ?";
 
@@ -54,6 +53,9 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_ALL_COMPANY_USERS_AND_GROUPS = "SELECT DISTINCT user_id as id, " +
 			"display_name as name, 'indiviual person' as category FROM dir_external_user_info " +
 			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category FROM dir_external_group_user_map";
+
+	private final static String INSERT_USER_LOGIN_HISTORY =
+			"INSERT INTO user_login_history (username, authentication_type, `status`, message) VALUES (?, ?, ?, ?)";
 
 	private final static String PASSWORD_COLUMN = "password_digest";
 
@@ -335,5 +337,11 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			}
 		}
 		return userEntities;
+	}
+
+	public static void insertLoginHistory(String username, String loginType, String status, String message) {
+		if (username != null && loginType != null && status != null) {
+			getJdbcTemplate().update(INSERT_USER_LOGIN_HISTORY, username, loginType, status, message);
+		}
 	}
 }

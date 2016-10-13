@@ -20,6 +20,7 @@ from wherehows.common.schemas import SampleDataRecord
 from wherehows.common.writers import FileWriter
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
+from distutils.util import strtobool
 
 
 class TeradataExtract:
@@ -505,6 +506,7 @@ class TeradataExtract:
       scaned_dict = {}  # a cache of {name : {urn : _, data : _}} to avoid repeat computing
 
       if sample:
+        self.logger.info("Start collecting sample data.")
         open(sample_output_file, 'wb')
         os.chmod(sample_output_file, 0666)
         sample_file_writer = FileWriter(sample_output_file)
@@ -549,7 +551,15 @@ if __name__ == "__main__":
   e.conn_td = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   do_sample = True
   if Constant.TD_LOAD_SAMPLE in args:
-    do_sample = bool(args[Constant.TD_LOAD_SAMPLE])
+    do_sample = strtobool(args[Constant.TD_LOAD_SAMPLE])
+    # if value error from strtobool, do_sample remains as default value which is True
+
+  if do_sample:
+    if datetime.datetime.now().strftime('%a') in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
+      do_sample = True
+    else:
+      do_sample = False
+
   try:
     e.conn_td.cursor().execute(
       "SET QUERY_BAND = 'script=%s; pid=%d; ' FOR SESSION;" % ('TeradataExtract.py', os.getpid()))

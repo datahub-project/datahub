@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.List;
 import models.daos.DatasetDao;
 import models.daos.UserDao;
-import models.utils.Urn;
+import utils.Urn;
 import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
 import play.libs.Json;

@@ -18,7 +18,7 @@ package wherehows.common.schemas;
  */
 public class OozieFlowScheduleRecord extends AzkabanFlowScheduleRecord {
   public OozieFlowScheduleRecord(Integer appId, String flowPath, String frequency, Integer interval,
-    Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
-    super(appId, flowPath, frequency, interval, effectiveStartTime, effectiveEndTime, refId, whExecId);
+    String cronExpression, Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
+    super(appId, flowPath, frequency, interval, cronExpression, effectiveStartTime, effectiveEndTime, refId, whExecId);
   }
 }

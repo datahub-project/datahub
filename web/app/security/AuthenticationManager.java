@@ -39,154 +39,143 @@ import javax.naming.directory.SearchResult;
 
 public class AuthenticationManager {
 
-    public static String MASTER_LDAPURL_URL_KEY = "authentication.ldap.url";
+  public static String MASTER_LDAP_URL_KEY = "authentication.ldap.url";
+  public static String MASTER_PRINCIPAL_DOMAIN_KEY = "authentication.principal.domain";
+  public static String LDAP_CONTEXT_FACTORY_CLASS_KEY = "authentication.ldap.context_factory_class";
+  public static String LDAP_SEARCH_BASE_KEY = "authentication.ldap.search.base";
 
-    public static String MASTER_PRICIPAL_DOMAIN_KEY = "authentication.principal.domain";
+  public static String LDAP_DISPLAY_NAME_KEY = "displayName";
+  public static String LDAP_MAIL_KEY = "mail";
+  public static String LDAP_DEPARTMENT_NUMBER_KEY = "departmentNumber";
 
-    public static String LDAP_CONTEXT_FACTORY_CLASS_KEY = "authentication.ldap.context_factory_class";
-
-    public static String LDAP_DISPLAYNAME_KEY = "displayName";
-    public static String LDAP_MAIL_KEY = "mail";
-    public static String LDAP_DEPARTMENT_NUMBER_KEY = "departmentNumber";
-
-    public static void authenticateUser(String userName, String password) throws NamingException, SQLException {
-        if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("Username and password can not be blank.");
-        }
-
-        if (UserDAO.authenticate(userName, password))
-        {
-            return;
-        }
-        else
-        {
-            DirContext ctx = null;
-            try
-            {
-                Hashtable<String, String> env = buildEnvContext(userName, password);
-                ctx = new InitialDirContext(env);
-                if (!UserDAO.userExist(userName))
-                {
-                    User user = getAttributes(userName);
-                    UserDAO.addLdapUser(user);
-                }
-            }
-            catch(NamingException e)
-            {
-                Logger.error("Ldap authentication failed for user: " + userName);
-                Logger.error(e.getMessage());
-                throw(e);
-            }
-            catch(SQLException e)
-            {
-                Logger.error("Ldap authentication failed for user: " + userName);
-                Logger.error(e.getMessage());
-                throw(e);
-            }
-            finally {
-                if (ctx != null)
-                    ctx.close();
-            }
-        }
-
+  public static void authenticateUser(String userName, String password)
+      throws NamingException, SQLException {
+    if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
+      throw new IllegalArgumentException("Username and password can not be blank.");
     }
 
-    private static Hashtable<String, String> buildEnvContext(String username,
-                                                             String password) {
-        Hashtable<String, String> env = new Hashtable<String, String>(11);
-
-        env.put(Context.INITIAL_CONTEXT_FACTORY, Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY));
-        env.put(Context.PROVIDER_URL, Play.application().configuration().getString(MASTER_LDAPURL_URL_KEY));
-        env.put(Context.SECURITY_PRINCIPAL,
-                username + Play.application().configuration().getString(MASTER_PRICIPAL_DOMAIN_KEY));
-        env.put(Context.SECURITY_CREDENTIALS, password);
-        return env;
+    if (UserDAO.authenticate(userName, password)) {
+      UserDAO.insertLoginHistory(userName, "default", "SUCCESS", null);
+      return;
     }
 
-    public static Map<String, String> getUserAttributes(String userName,
-                                                        String... attributeNames) throws NamingException
-    {
-        if (StringUtils.isBlank(userName))
-        {
-            throw new IllegalArgumentException("Username and password can not be blank.");
+    final String contextFactories = Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY);
+    /*  three LDAP properties, each is a '|' separated string of same number of tokens. e.g.
+        Url: "ldaps://ldap1.abc.com:1234|ldap://ldap2.abc.com:5678"
+        Principal Domain: "@abc.com|@abc.cn"
+        Search Base: "ou=Staff Users,dc=abc,dc=com|ou=Staff Users,dc=abc,dc=cn"
+     */
+    final String[] ldapUrls = Play.application().configuration().getString(MASTER_LDAP_URL_KEY).split("\\s*\\|\\s*");
+    final String[] principalDomains =
+        Play.application().configuration().getString(MASTER_PRINCIPAL_DOMAIN_KEY).split("\\s*\\|\\s*");
+    final String[] ldapSearchBase =
+        Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
+
+    DirContext ctx = null;
+    for (int i = 0; i < ldapUrls.length; i++) {
+      try {
+        Hashtable<String, String> env =
+            buildEnvContext(userName, password, contextFactories, ldapUrls[i], principalDomains[i]);
+        ctx = new InitialDirContext(env);
+        if (!UserDAO.userExist(userName)) {
+          User user = getAttributes(ctx, ldapSearchBase[i], userName, principalDomains[i]);
+          UserDAO.addLdapUser(user);
         }
-
-        if (attributeNames.length == 0)
-        {
-            return Collections.emptyMap();
+        break;
+      } catch (NamingException e) {
+        // Logger.error("Ldap authentication failed for user " + userName + " - " + principalDomains[i] + " - " + ldapUrls[i], e);
+        UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", ldapUrls[i] + e.getMessage());
+        // if exhausted all ldap options and can't authenticate user
+        if (i >= ldapUrls.length - 1) {
+          throw e;
         }
-
-        Hashtable<String, String> env = buildEnvContext("elabldap", "2authISg00d");
-
-        DirContext ctx = new InitialDirContext(env);
-
-        Attributes matchAttr = new BasicAttributes(true);
-        BasicAttribute basicAttr =
-                new BasicAttribute("userPrincipalName", userName + "@linkedin.biz");
-        matchAttr.put(basicAttr);
-
-        NamingEnumeration<? extends SearchResult> searchResult =
-                ctx.search("ou=Staff Users,dc=linkedin,dc=biz", matchAttr, attributeNames);
-
-        if (ctx != null)
-        {
-            ctx.close();
+      } catch (SQLException e) {
+        // Logger.error("Ldap authentication SQL error for user: " + userName, e);
+        UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", ldapUrls[i] + e.getMessage());
+        throw e;
+      } finally {
+        if (ctx != null) {
+          ctx.close();
         }
+      }
+    }
+    UserDAO.insertLoginHistory(userName, "LDAP", "SUCCESS", null);
+  }
 
-        Map<String, String> result = new HashMap<String, String>();
+  private static Hashtable<String, String> buildEnvContext(String username, String password, String contextFactory,
+      String ldapUrl, String principalDomain) {
+    Hashtable<String, String> env = new Hashtable<>(11);
+    env.put(Context.INITIAL_CONTEXT_FACTORY, contextFactory);
+    env.put(Context.PROVIDER_URL, ldapUrl);
+    env.put(Context.SECURITY_PRINCIPAL, username + principalDomain);
+    env.put(Context.SECURITY_CREDENTIALS, password);
+    return env;
+  }
 
-        if (searchResult.hasMore())
-        {
-            NamingEnumeration<? extends Attribute> attributes =
-                    searchResult.next().getAttributes().getAll();
-
-            while (attributes.hasMore())
-            {
-                Attribute attr = attributes.next();
-                String attrId = attr.getID();
-                String attrValue = (String) attr.get();
-
-                result.put(attrId, attrValue);
-            }
-        }
-
-        return result;
+  public static Map<String, String> getUserAttributes(DirContext ctx, String searchBase, String userName,
+      String principalDomain, String... attributeNames)
+      throws NamingException {
+    if (StringUtils.isBlank(userName)) {
+      throw new IllegalArgumentException("Username and password can not be blank.");
     }
 
-    public static User getAttributes(String userName) throws NamingException, SQLException
-    {
-
-        Map<String, String> userDetailMap = getUserAttributes(userName,
-                LDAP_DISPLAYNAME_KEY,
-                LDAP_MAIL_KEY,
-                LDAP_DEPARTMENT_NUMBER_KEY);
-
-        String displayName = userDetailMap.get(LDAP_DISPLAYNAME_KEY);
-        displayName = displayName.trim().replaceAll(" +", " ");
-        String displaNameTokens[] = displayName.split(" ");
-        String firstName = displaNameTokens[0];
-        String lastName = displaNameTokens[1];
-        String email = userDetailMap.get(LDAP_MAIL_KEY);
-        String department = userDetailMap.get(LDAP_DEPARTMENT_NUMBER_KEY);
-        int departmentNum = 0;
-        if (StringUtils.isNotBlank(department))
-        {
-            try
-            {
-                departmentNum = Integer.parseInt(department);
-            }
-            catch(NumberFormatException e)
-            {
-                Logger.error("Convert department number failed. Error message: " + e.getMessage());
-                departmentNum = 0;
-            }
-        }
-        User user = new User();
-        user.email = email;
-        user.userName = userName;
-        user.name = firstName + " " + lastName;
-        user.departmentNum = departmentNum;
-        return user;
+    if (attributeNames.length == 0) {
+      return Collections.emptyMap();
     }
 
+    Attributes matchAttr = new BasicAttributes(true);
+    BasicAttribute basicAttr = new BasicAttribute("userPrincipalName", userName + principalDomain);
+    matchAttr.put(basicAttr);
+
+    NamingEnumeration<? extends SearchResult> searchResult = ctx.search(searchBase, matchAttr, attributeNames);
+
+    if (ctx != null) {
+      ctx.close();
+    }
+
+    Map<String, String> result = new HashMap<>();
+
+    if (searchResult.hasMore()) {
+      NamingEnumeration<? extends Attribute> attributes = searchResult.next().getAttributes().getAll();
+
+      while (attributes.hasMore()) {
+        Attribute attr = attributes.next();
+        String attrId = attr.getID();
+        String attrValue = (String) attr.get();
+
+        result.put(attrId, attrValue);
+      }
+    }
+    return result;
+  }
+
+  public static User getAttributes(DirContext ctx, String searchBase, String userName, String principalDomain)
+      throws NamingException, SQLException {
+
+    Map<String, String> userDetailMap =
+        getUserAttributes(ctx, searchBase, userName, principalDomain, LDAP_DISPLAY_NAME_KEY, LDAP_MAIL_KEY,
+            LDAP_DEPARTMENT_NUMBER_KEY);
+
+    String displayName = userDetailMap.get(LDAP_DISPLAY_NAME_KEY);
+    String[] displayNameTokens = displayName.trim().replaceAll(" +", " ").split(" ");
+    String firstName = displayNameTokens[0];
+    String lastName = displayNameTokens[1];
+    String email = userDetailMap.get(LDAP_MAIL_KEY);
+    String department = userDetailMap.get(LDAP_DEPARTMENT_NUMBER_KEY);
+    int departmentNum = 0;
+    if (StringUtils.isNotBlank(department)) {
+      try {
+        departmentNum = Integer.parseInt(department);
+      } catch (NumberFormatException e) {
+        Logger.error("Convert department number failed. Error message: " + e.getMessage());
+        departmentNum = 0;
+      }
+    }
+    User user = new User();
+    user.email = email;
+    user.userName = userName;
+    user.name = firstName + " " + lastName;
+    user.departmentNum = departmentNum;
+    return user;
+  }
 }

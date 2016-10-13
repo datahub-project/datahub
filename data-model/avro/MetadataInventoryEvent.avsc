@@ -1,0 +1,216 @@
+{
+  "type": "record",
+  "name": "MetadataInventoryEvent",
+  "namespace": "com.linkedin.events.wherehows",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "namespace": "com.linkedin.events",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "The time at which the event was emitted into Kafka.",
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The fully-qualified name of the host of this event."
+          },
+          {
+            "name": "instance",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The name of the application instance on the server. e.g. i002,stg05,group003"
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application/service from which the event is emitted."
+          },
+          {
+            "name": "messageId",
+            "type": {
+              "type": "fixed",
+              "name": "UUID",
+              "namespace": "com.linkedin.events",
+              "size": 16
+            },
+            "doc": "A unique identifier for the message."
+          }
+        ]
+      }
+    },
+    {
+      "name": "dataPlatformUrn",
+      "type": "string",
+      "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+    },
+    {
+      "name": "datasetList",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "DatasetIventoryItem",
+          "fields": [
+            {
+              "name": "nativeName",
+              "type": "string",
+              "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
+            },
+            {
+              "name": "dataOrigin",
+              "type": {
+                "type": "enum",
+                "name": "DeploymentTier",
+                "symbols": [
+                  "PROD",
+                  "CORP",
+                  "GRID",
+                  "PREPROD",
+                  "CANARY",
+                  "DMZ",
+                  "STG",
+                  "UAT",
+                  "UAT1",
+                  "UAT2",
+                  "UAT3",
+                  "QA",
+                  "QA1",
+                  "QA2",
+                  "QA3",
+                  "EI",
+                  "EI1",
+                  "EI2",
+                  "EI3",
+                  "QEI",
+                  "QEI1",
+                  "QEI2",
+                  "QEI3",
+                  "TEST",
+                  "LIT",
+                  "SIT",
+                  "INT",
+                  "DEV",
+                  "LOCAL",
+                  "ARCHIVE",
+                  "DROPBOX",
+                  "SANDBOX",
+                  "POC"
+                ]
+              },
+              "doc": "Origin/Source Tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
+              "default": "PROD"
+            },
+            {
+              "name": "datasetProperties",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "DatasetProperties",
+                  "fields": [
+                    {
+                      "name": "changeAuditStamp",
+                      "type": {
+                        "type": "record",
+                        "name": "ChangeAuditStamp",
+                        "fields": [
+                          {
+                            "name": "actorUrn",
+                            "type": "string",
+                            "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
+                          },
+                          {
+                            "name": "type",
+                            "type": "string",
+                            "doc": "CREATE, UPDATE, DELETE"
+                          },
+                          {
+                            "name": "time",
+                            "type": "long",
+                            "doc": "Epoch",
+                            "logicalType": "timestamp-millis"
+                          },
+                          {
+                            "name": "note",
+                            "type": "string",
+                            "doc": "Extra detail about the changes"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "nativeType",
+                      "type": {
+                        "type": "enum",
+                        "name": "PlatformNativeType",
+                        "symbols": [
+                          "TABLE",
+                          "VIEW",
+                          "DIRECTORY",
+                          "FILE",
+                          "INDEX",
+                          "STREAM",
+                          "BLOB",
+                          "FUNCTION",
+                          "OTHER"
+                        ]
+                      },
+                      "doc": "The native type about how the dataset is stored in the platform"
+                    },
+                    {
+                      "name": "uri",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
+                    },
+                    {
+                      "name": "caseSensitivity",
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "CaseSensitivityInfo",
+                          "fields": [
+                            {
+                              "name": "datasetName",
+                              "type": "boolean",
+                              "doc": "Is native object name CS?",
+                              "default": true
+                            },
+                            {
+                              "name": "fieldName",
+                              "type": "boolean",
+                              "doc": "Is field name CS?",
+                              "default": true
+                            },
+                            {
+                              "name": "dataContent",
+                              "type": "boolean",
+                              "doc": "Is data content CS?",
+                              "default": true
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

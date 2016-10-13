@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package utils;
+package models.kafka;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -22,6 +22,7 @@ import metadata.etl.models.EtlJobName;
 import models.daos.EtlJobPropertyDao;
 import org.apache.avro.generic.GenericData;
 import play.Logger;
+import utils.JdbcUtil;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.writers.DatabaseWriter;
 
