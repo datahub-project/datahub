@@ -224,7 +224,7 @@ App.Router.reopen({
             object_name: objectName,
             parameters: params
         };
-        //window.InternalTracking.track(trackingObject);
+        window.InternalTracking.track(trackingObject);
         return true;
     }.on('didTransition')
 });
