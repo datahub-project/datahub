@@ -37,7 +37,6 @@ import models.kafka.KafkaConfig.Topic;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.utils.ClusterUtil;
-import wherehows.common.writers.DatabaseWriter;
 
 
 /**
@@ -49,8 +48,6 @@ public class KafkaConsumerMaster extends UntypedActor {
   private static List<Integer> _kafkaJobList;
   // map of kafka job id to configs
   private static Map<Integer, KafkaConfig> _kafkaConfigs = new HashMap<>();
-  // map of topic name to DB writer
-  private static Map<String, DatabaseWriter> _topicDbWriters = new HashMap<>();
 
   @Override
   public void preStart()
@@ -77,7 +74,6 @@ public class KafkaConsumerMaster extends UntypedActor {
         final Map<String, Topic> kafkaTopics = kafkaConfig.getTopics();
 
         kafkaConfig.updateTopicProcessor();
-        _topicDbWriters.putAll(kafkaConfig.getTopicDbWriters());
 
         // create Kafka consumer connector
         Logger.info("Create Kafka Consumer with config: " + kafkaProps.toString());
