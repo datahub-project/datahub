@@ -60,7 +60,11 @@ public class AuthenticationManager {
     }
 
     final String contextFactories = Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY);
-    // three LDAP properties, each is a '|' separated string of same number of tokens.
+    /*  three LDAP properties, each is a '|' separated string of same number of tokens. e.g.
+        Url: "ldaps://ldap1.abc.com:1234|ldap://ldap2.abc.com:5678"
+        Principal Domain: "@abc.com|@abc.cn"
+        Search Base: "ou=Staff Users,dc=abc,dc=com|ou=Staff Users,dc=abc,dc=cn"
+     */
     final String[] ldapUrls = Play.application().configuration().getString(MASTER_LDAP_URL_KEY).split("\\s*\\|\\s*");
     final String[] principalDomains =
         Play.application().configuration().getString(MASTER_PRINCIPAL_DOMAIN_KEY).split("\\s*\\|\\s*");

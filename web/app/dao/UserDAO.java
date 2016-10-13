@@ -36,9 +36,8 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"(name, username, password_digest, email, password_digest_type, authentication_type) " +
 			"VALUES(?, ?, SHA1(?), ? , 'SHA1', 'default')";
 
-	private final static String CREATE_LDAP_USER = "INSERT INTO users " +
-			"(name, username, email, department_number, password_digest_type, authentication_type) " +
-			"VALUES(?, ?, ?, ?, 'SHA1', 'LDAP')";
+	private final static String CREATE_LDAP_USER =
+			"INSERT INTO users (name, username, email, department_number, authentication_type) VALUES(?, ?, ?, ?, 'LDAP')";
 
 	private final static String GET_USER_COUNT = "SELECT COUNT(*) FROM users WHERE username = ?";
 
