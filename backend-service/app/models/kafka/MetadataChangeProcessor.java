@@ -11,13 +11,10 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package utils;
+package models.kafka;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import models.daos.DatasetInfoDao;
 import org.apache.avro.generic.GenericData;
 import play.Logger;

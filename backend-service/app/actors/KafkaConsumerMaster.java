@@ -16,8 +16,6 @@ package actors;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,14 +29,13 @@ import metadata.etl.models.EtlJobName;
 import models.daos.ClusterDao;
 import models.daos.EtlJobDao;
 
-import msgs.KafkaResponseMsg;
+import msgs.KafkaCommMsg;
 import play.Logger;
 import play.Play;
-import utils.KafkaConfig;
-import utils.KafkaConfig.Topic;
+import models.kafka.KafkaConfig;
+import models.kafka.KafkaConfig.Topic;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
-import wherehows.common.schemas.AbstractRecord;
 import wherehows.common.utils.ClusterUtil;
 import wherehows.common.writers.DatabaseWriter;
 
@@ -111,7 +108,8 @@ public class KafkaConsumerMaster extends UntypedActor {
           for (final KafkaStream<byte[], byte[]> stream : streams) {
             ActorRef childActor = getContext().actorOf(
                 Props.create(KafkaConsumerWorker.class, topic, threadNumber, stream, schemaRegistryClient,
-                    kafkaConfig.getProcessorClass(topic), kafkaConfig.getProcessorMethod(topic)));
+                    kafkaConfig.getProcessorClass(topic), kafkaConfig.getProcessorMethod(topic),
+                    kafkaConfig.getDbWriter(topic)));
 
             childActor.tell("Start", getSelf());
             threadNumber++;
@@ -134,25 +132,9 @@ public class KafkaConsumerMaster extends UntypedActor {
   @Override
   public void onReceive(Object message)
       throws Exception {
-    if (message instanceof KafkaResponseMsg) {
-      final KafkaResponseMsg kafkaMsg = (KafkaResponseMsg) message;
-      final String topic = kafkaMsg.getTopic();
-      final AbstractRecord record = kafkaMsg.getRecord();
-
-      if (record != null && _topicDbWriters.containsKey(topic)) {
-        Logger.debug("Writing to DB kafka event record: " + topic);
-        final DatabaseWriter dbWriter = _topicDbWriters.get(topic);
-
-        try {
-          dbWriter.append(record);
-          // dbWriter.close();
-          dbWriter.insert();
-        } catch (SQLException | IOException e) {
-          Logger.error("Error while inserting event record: " + record, e);
-        }
-      } else {
-        Logger.error("Unknown kafka response " + kafkaMsg);
-      }
+    if (message instanceof KafkaCommMsg) {
+      final KafkaCommMsg kafkaCommMsg = (KafkaCommMsg) message;
+      Logger.debug(kafkaCommMsg.toString());
     } else {
       unhandled(message);
     }

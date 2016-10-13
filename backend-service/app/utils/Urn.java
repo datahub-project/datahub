@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package models.utils;
+package utils;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -19,7 +19,7 @@ import play.Logger;
 
 
 /**
- * Urn class used for urn convertion
+ * Urn class used for urn conversion
  * Created by zsun on 1/15/15.
  */
 public class Urn {

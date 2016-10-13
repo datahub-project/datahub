@@ -11,10 +11,8 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.avro.generic.GenericData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,36 +30,11 @@ public abstract class KafkaConsumerProcessor {
   /**
    * Abstract method 'process' to be implemented by specific processor
    * input Kafka record, process information and write to DB.
-   * @param record
+   * @param record GenericData.Record
    * @param topic
+   * @return wherehows.common.schemas.Record
    * @throws Exception
    */
   public abstract Record process(GenericData.Record record, String topic) throws Exception;
 
-
-  /**
-   * Parse Long value from a String, if null or exception, return 0
-   * @param text String
-   * @return long
-   */
-  protected long parseLong(String text) {
-    try {
-      return Long.parseLong(text);
-    } catch (NumberFormatException e) {
-      return 0;
-    }
-  }
-
-  /**
-   * Parse Integer value from a String, if null or exception, return 0
-   * @param text String
-   * @return int
-   */
-  protected int parseInteger(String text) {
-    try {
-      return Integer.parseInt(text);
-    } catch (NumberFormatException e) {
-      return 0;
-    }
-  }
 }
