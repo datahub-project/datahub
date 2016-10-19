@@ -93,6 +93,8 @@ public class Constant {
   public static final String TD_DEFAULT_DATABASE_KEY = "teradata.default_database";
   /** Optional. The property_name field in wh_etl_job_property table. Decide whether load sample data or not */
   public static final String TD_LOAD_SAMPLE = "teradata.load_sample";
+  /** The property_name field in wh_etl_job_property table. Collect sample data collection only for certain weekdays */
+  public static final String TD_COLLECT_SAMPLE_DATA_DAYS = "teradata.collect.sample.data.days";
 
   // Hdfs
   /** The property_name field in wh_etl_job_property table. Whether using remote mode or not */
@@ -206,4 +208,9 @@ public class Constant {
   public static final String GIT_PROJECT_OUTPUT_KEY = "git.project.metadata";
   public static final String PRODUCT_REPO_OUTPUT_KEY = "product.repo.metadata";
   public static final String PRODUCT_REPO_OWNER_OUTPUT_KEY = "product.repo.owner";
+
+  // code search
+  public static final String DATABASE_SCM_REPO_OUTPUT_KEY = "database.scm.repo";
+  public static final String BASE_URL_KEY = "base.url.key";
+
 }

@@ -28,6 +28,7 @@ import metadata.etl.ldap.LdapEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
 import metadata.etl.models.EtlJobName;
+import metadata.etl.git.CodeSearchMetadataEtl;
 
 
 /**
@@ -63,6 +64,8 @@ public class EtlJobFactory {
         return new OracleMetadataEtl(refId, whExecId, properties);
       case PRODUCT_REPO_METADATA_ETL:
         return new MultiproductMetadataEtl(refId, whExecId, properties);
+      case DATABASE_SCM_METADATA_ETL:
+        return new CodeSearchMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
