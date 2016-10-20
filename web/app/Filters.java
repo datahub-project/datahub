@@ -11,22 +11,19 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package controllers;
 
-import play.mvc.Security;
-import play.mvc.Http.Context;
-import play.mvc.Result;
+import javax.inject.Inject;
+import play.api.mvc.EssentialFilter;
+import play.filters.gzip.GzipFilter;
+import play.http.HttpFilters;
 
-public class Secured extends Security.Authenticator
-{
-  @Override
-  public String getUsername(Context ctx) {
-    return ctx.session().get("user");
-  }
 
-  @Override
-  public Result onUnauthorized(Context ctx)
-  {
-    return redirect(controllers.routes.Application.login());
+public class Filters implements HttpFilters {
+
+  @Inject
+  GzipFilter gzipFilter;
+
+  public EssentialFilter[] filters() {
+    return new EssentialFilter[] { gzipFilter };
   }
 }

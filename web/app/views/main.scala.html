@@ -815,6 +815,347 @@
       </div><!-- /.modal -->
     </script>
 
+		<script type="text/x-handlebars" id="components/dataset-relations">
+      {{#if hasDepends}}
+			<table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+				<thead>
+					<tr class="results-header">
+						<th class="span2">Depends on</th>
+						<th class="span1">Object Type</th>
+						<th class="span1">Object Sub Type</th>
+						<th class="span2">Level</th>
+					</tr>
+				</thead>
+				<tbody>
+            {{#each depends as |depend|}}
+					<tr class="{{depend.treeGridClass}}">
+						<td>
+                {{#if depend.isValidDataset}}
+							<a href={{depend.datasetLink}}>
+                    {{depend.objectName}}
+							</a>
+							{{else}}
+							{{depend.objectName}}
+							{{/if}}
+						</td>
+						<td>{{depend.objectType}}</td>
+						<td>{{depend.objectSubType}}</td>
+						<td>{{depend.level}}</td>
+					</tr>
+					{{/each}}
+				</tbody>
+			</table>
+			{{/if}}
+			{{#if hasReferences}}
+			<table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+				<thead>
+					<tr class="results-header">
+						<th class="span2">Referred By</th>
+						<th class="span1">Object Type</th>
+						<th class="span1">Object Sub Type</th>
+						<th class="span2">Level</th>
+					</tr>
+				</thead>
+				<tbody>
+            {{#each references as |reference|}}
+					<tr class="{{reference.treeGridClass}}">
+						<td>
+                {{#if reference.isValidDataset}}
+							<a href={{reference.datasetLink}}>
+                    {{reference.objectName}}
+							</a>
+							{{else}}
+							{{reference.objectName}}
+							{{/if}}
+						</td>
+						<td>{{reference.objectType}}</td>
+						<td>{{reference.objectSubType}}</td>
+						<td>{{reference.level}}</td>
+					</tr>
+					{{/each}}
+				</tbody>
+			</table>
+			{{/if}}
+		</script>
+
+		<script type="text/x-handlebars" id="components/dataset-access">
+      {{#if hasAccess}}
+			{{#each accessibilities as |accessibility|}}
+			<h4>Partition By: {{accessibility.partition}}</h4>
+			<table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+				<thead>
+					<tr class="results-header">
+						<th>Time</th>
+						{{#each accessibility.instanceList as |instance|}}
+						<th>{{instance}}</th>
+						{{/each}}
+					</tr>
+				</thead>
+				<tbody>
+              {{#each accessibility.accessibilityList as |access|}}
+					<tr>
+						<td>{{access.dataTimeExpr}}</td>
+						{{#each access.itemList as |item|}}
+						<td>
+                    {{#unless item.isPlaceHolder}}
+							<div>
+								<p>Log time: {{item.logTimeEpochStr}}</p>
+								<p>Record count: {{item.recordCountStr}}</p>
+							</div>
+							{{/unless}}
+						</td>
+						{{/each}}
+					</tr>
+					{{/each}}
+				</tbody>
+			</table>
+			{{/each}}
+			{{else}}
+			<p>Accessibility is not available</p>
+			{{/if}}
+		</script>
+
+		<script type="text/x-handlebars" id="components/metric-detail">
+			<div id="metric" class="container-fluid">
+				<div class="row-fluid">
+					<div class="col-xs-6">
+						<h3>{{ model.name }}</h3>
+					</div>
+					<div class="col-xs-6 text-right">
+						<ul class="datasetDetailsLinks">
+							<li>
+								<i class="fa fa-share-alt"></i>
+								<span class="hidden-sm hidden-xs">
+                  Share
+								</span>
+							</li>
+							<li>
+                {{#metric-watch metric=model showText=true getMetrics='getMetrics'}}
+								{{/metric-watch}}
+							</li>
+							{{#if showLineage}}
+							<li>
+								<a target="_blank" href={{lineageUrl}}>
+									<i class="fa fa-sitemap"></i>
+									<span class="hidden-sm hidden-xs">
+                    View Lineage
+									</span>
+								</a>
+							</li>
+							{{/if}}
+						</ul>
+					</div>
+					<div class="col-xs-12">
+            Metric Description:
+						<a
+						href="#"
+						data-name="description"
+						data-pk="{{model.id}}"
+						class="xeditable"
+						data-type="text"
+						data-placement="right"
+						data-title="Enter description"
+						data-emptytext="Please Input"
+						data-placeholder="Please Input"
+						>
+              {{model.description}}
+						</a>
+					</div>
+				</div>
+				<table class="tree table table-bordered">
+					<tbody>
+						<tr class="result">
+							<td class="span2" style="min-width:200px;">Dashboard Name</td>
+							<td>
+								<a
+								href="#"
+								data-name="dashboardName"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter dashboard name"
+								data-defaultValue="Please Input"
+								data-emptytext="Please Input"
+								data-value="{{model.dashboardName}}"
+								>
+                  {{model.dashboardName}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Category</td>
+							<td>
+								<a
+								href="#"
+								data-name="category"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter metric category"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.category}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Group</td>
+							<td>
+								<a
+								href="#"
+								data-name="group"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter group"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.group}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Type</td>
+							<td>
+								<a
+								href="#"
+								data-name="refIDType"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter Type"
+								data-placement="right"
+								data-emptytext="Please Input"
+								data-value={{model.refIDType}}
+								>
+                </a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Grain</td>
+							<td>
+								<a
+								href="#"
+								data-name="grain"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter grain"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.grain}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Formula</td>
+							<td>
+                {{ace-editor content=model.formula itemId=model.id savePath="/api/v1/metrics/{id}/update" saveParam="formula"}}
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Display Factor</td>
+							<td>
+								<a
+								href="#"
+								data-name="displayFactory"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter display factor"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.displayFactory}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Display Factor Sym</td>
+							<td>
+								<a
+								href="#"
+								data-name="displayFactorSym"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter display factor symbol"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.displayFactorSym}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Sub Category</td>
+							<td>
+								<a
+								href="#"
+								data-name="subCategory"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter sub category"
+								data-placement="right"
+								data-emptytext="Please Input"
+								>
+                  {{model.subCategory}}
+								</a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Source</td>
+							<td>
+								<a
+								href="#"
+								data-name="source"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter source"
+								data-placement="right"
+								data-emptytext="Please Input"
+								data-value={{model.source}}
+								>
+                </a>
+							</td>
+						</tr>
+						<tr class="result">
+							<td>Metric Source Type</td>
+							<td>
+								<a
+								href="#"
+								data-name="sourceType"
+								data-pk="{{model.id}}"
+								class="xeditable"
+								data-type="text"
+								data-placement="right"
+								data-title="Enter source type"
+								data-placement="right"
+								data-emptytext="Please Input"
+								data-value={{model.sourceType}}
+								>
+                </a>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</script>
+
     <script type="text/x-handlebars" id="components/schema-comment">
       <i
         class="fa fa-pencil pull-right wh-clickable-icon"

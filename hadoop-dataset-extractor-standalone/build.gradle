@@ -1,6 +1,3 @@
-apply plugin: 'java'
-version = '1.0'
-
 configurations {
   // configuration that holds jars to copy into lib
   extraLibs
@@ -9,7 +6,7 @@ configurations {
   all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
   all*.exclude group: 'log4j'
 
-  all*.resolutionStrategy { 
+  all*.resolutionStrategy {
       dependencySubstitution {
           substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
           //prefer 'log4j-over-slf4j' over 'log4j'
@@ -21,7 +18,6 @@ dependencies {
   extraLibs project(":wherehows-common")
   //extraLibs files("extralibs/linkedin-pig-0.11.1.49.jar")
   //extraLibs files("extralibs/voldemort-0.91.li1.jar")
-  extraLibs externalDependency.joda
   extraLibs externalDependency.avro_mapred
   extraLibs externalDependency.hive_exec
   extraLibs externalDependency.pig
@@ -32,7 +28,6 @@ dependencies {
   compile externalDependency.pig
   compile externalDependency.avro
   compile externalDependency.avro_mapred
-  compile externalDependency.joda
   compile externalDependency.hive_exec
   compile externalDependency.http_client
   compile externalDependency.http_core

@@ -40,7 +40,7 @@ public class DatasetController extends Controller {
     if (datasetName != null) {
       ObjectNode result = UserDao.getWatchers(datasetName);
       resultJson.put("return_code", 200);
-      resultJson.put("watchers", result);
+      resultJson.set("watchers", result);
     }
     return ok(resultJson);
   }
@@ -48,7 +48,7 @@ public class DatasetController extends Controller {
   public static Result getDatasetInfo() throws SQLException {
     ObjectNode resultJson = Json.newObject();
     String datasetIdString = request().getQueryString("datasetId");
-    if(datasetIdString != null) {
+    if (datasetIdString != null) {
       int datasetId = Integer.valueOf(datasetIdString);
 
       try {
@@ -64,8 +64,8 @@ public class DatasetController extends Controller {
     }
 
     String urn = request().getQueryString("urn");
-    if(urn != null) {
-      if(!Urn.validateUrn(urn)) {
+    if (urn != null) {
+      if (!Urn.validateUrn(urn)) {
         resultJson.put("return_code", 400);
         resultJson.put("error_message", "Urn format wrong!");
         return ok(resultJson);
@@ -129,7 +129,7 @@ public class DatasetController extends Controller {
       if (propertiesLike != null) {
         ObjectNode result = DatasetDao.getDatasetUrnForPropertiesLike(propertiesLike);
         resultJson.put("return_code", 200);
-        resultJson.put("dataset_urns", result);
+        resultJson.set("dataset_urns", result);
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -141,7 +141,7 @@ public class DatasetController extends Controller {
   }
 
   public static Result getDatasetDependentsById(Long datasetId)
-    throws SQLException {
+      throws SQLException {
     ObjectNode resultJson = Json.newObject();
     if (datasetId > 0) {
       try {
@@ -162,7 +162,7 @@ public class DatasetController extends Controller {
   }
 
   public static Result getDatasetDependentsByUri(String datasetUri)
-    throws SQLException {
+      throws SQLException {
     /* expect
      * hive:///db_name.table_name
      * hive:///db_name/table_name
@@ -173,14 +173,14 @@ public class DatasetController extends Controller {
      */
     ObjectNode resultJson = Json.newObject();
     String[] uri_parts = datasetUri.split(":");
-    if(uri_parts.length != 2){
+    if (uri_parts.length != 2) {
       resultJson.put("return_code", 400);
       resultJson.put("error_message", "Invalid dataset URI");
       return ok(resultJson);
     }
     String dataset_type = uri_parts[0];
     String dataset_path = uri_parts[1].substring(2);  // start from the 3rd slash
-    if (dataset_path.indexOf(".") > 0){
+    if (dataset_path.indexOf(".") > 0) {
       dataset_path.replace(".", "/");
     }
 
@@ -202,5 +202,4 @@ public class DatasetController extends Controller {
     resultJson.put("error_message", "No parameter provided");
     return ok(resultJson);
   }
-
 }

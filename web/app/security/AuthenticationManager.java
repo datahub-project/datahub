@@ -72,7 +72,8 @@ public class AuthenticationManager {
         Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
 
     DirContext ctx = null;
-    for (int i = 0; i < ldapUrls.length; i++) {
+    int i;
+    for (i = 0; i < ldapUrls.length; i++) {
       try {
         Hashtable<String, String> env =
             buildEnvContext(userName, password, contextFactories, ldapUrls[i], principalDomains[i]);
@@ -84,9 +85,10 @@ public class AuthenticationManager {
         break;
       } catch (NamingException e) {
         // Logger.error("Ldap authentication failed for user " + userName + " - " + principalDomains[i] + " - " + ldapUrls[i], e);
-        UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", ldapUrls[i] + e.getMessage());
+
         // if exhausted all ldap options and can't authenticate user
         if (i >= ldapUrls.length - 1) {
+          UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", e.getMessage());
           throw e;
         }
       } catch (SQLException e) {
@@ -99,7 +101,7 @@ public class AuthenticationManager {
         }
       }
     }
-    UserDAO.insertLoginHistory(userName, "LDAP", "SUCCESS", null);
+    UserDAO.insertLoginHistory(userName, "LDAP", "SUCCESS", ldapUrls[i]);
   }
 
   private static Hashtable<String, String> buildEnvContext(String username, String password, String contextFactory,

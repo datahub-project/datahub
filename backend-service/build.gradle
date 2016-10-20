@@ -1,49 +1,29 @@
 apply plugin: 'scala'
-apply plugin: 'idea'
 
 def findPlayHome(){
-    project.ext.playHome = System.getenv()['PLAY_HOME']
+    project.ext.playHome = System.getenv()['ACTIVATOR_HOME']
     if (null == project.ext.playHome) {
-        throw new GradleException('PLAY_HOME env variable not set!')
+        throw new GradleException('ACTIVATOR_HOME env variable not set!')
     }
-    project.ext.playExec = "${playHome}/play"
+    project.ext.playExec = "${playHome}/bin/activator"
 }
 
 findPlayHome()
 
-repositories{
-    mavenCentral()
-
-    // Play framework manages its own dependencies in a local Ivy repo
-    jcenter()
-    maven {
-        name "typesafe-maven-release"
-        url "https://repo.typesafe.com/typesafe/maven-releases"
-    }
-    ivy {
-        name "typesafe-ivy-release"
-        url "https://repo.typesafe.com/typesafe/ivy-releases"
-        layout "ivy"
-    }
-
-    flatDir name: 'extralibs',
-        dirs: "${projectDir}/metadata-etl/extralibs"
-}
-
 configurations {
-  // configuration that holds jars to copy into lib
-  extraLibs
-  provided
+    // configuration that holds jars to copy into lib
+    provided
 
-  all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-  all*.exclude group: 'log4j'
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j'
 
-  all*.resolutionStrategy { 
-      dependencySubstitution {
-          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
-          //prefer 'log4j-over-slf4j' over 'log4j'
-      }
-  }
+    all*.resolutionStrategy {
+        dependencySubstitution {
+            substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
+            //prefer 'log4j-over-slf4j' over 'log4j'
+            force 'com.typesafe:config:1.3.1', 'io.netty:netty:3.10.6.Final'
+        }
+    }
 }
 
 dependencies{
@@ -53,10 +33,8 @@ dependencies{
     compile project(":metadata-etl")
     compile externalDependency.play
     compile externalDependency.play_java_jdbc
-    compile externalDependency.play_ebean
-    compile externalDependency.play_cache
-    compile externalDependency.spring_context
-    compile externalDependency.spring_jdbc
+    compile externalDependency.typesafe_config
+    compile externalDependency.netty
     compile externalDependency.mockito
     compile externalDependency.slf4j_api
     compile externalDependency.jasypt

@@ -88,7 +88,7 @@ public class SampleData
                             if (dataNode != null && dataNode.isArray()) {
                                 for (JsonNode node : dataNode) {
                                     JsonNode valueNode = node.get(i);
-                                    ((ArrayNode)node).set(i, new TextNode("********"));
+                                    ((ArrayNode) node).set(i, new TextNode("********"));
                                 }
                             }
                         }
@@ -105,31 +105,31 @@ public class SampleData
                     {
                         if (sampleRowNode.has(MEMBER_ID))
                         {
-                            ((ObjectNode)sampleRowNode).put(MEMBER_ID, new TextNode("********"));
+                            ((ObjectNode) sampleRowNode).set(MEMBER_ID, new TextNode("********"));
                         }
                         if (sampleRowNode.has(TREE_ID))
                         {
                             JsonNode treeIdNode = sampleRowNode.get(TREE_ID);
                             String convertedValue = convertToHexString(treeIdNode);
-                            ((ObjectNode) sampleRowNode).put(TREE_ID, new TextNode(convertedValue));
+                            ((ObjectNode) sampleRowNode).set(TREE_ID, new TextNode(convertedValue));
                         }
                         if (sampleRowNode.has(TRACKING_ID))
                         {
                             JsonNode trackingIdNode = sampleRowNode.get(TRACKING_ID);
                             String convertedValue = convertToHexString(trackingIdNode);
-                            ((ObjectNode) sampleRowNode).put(TRACKING_ID, new TextNode(convertedValue));
+                            ((ObjectNode) sampleRowNode).set(TRACKING_ID, new TextNode(convertedValue));
                         }
                         if (sampleRowNode.has(IP_AS_BYTES))
                         {
                             JsonNode ipNode = sampleRowNode.get(IP_AS_BYTES);
                             String convertedValue = convertToHexString(ipNode);
-                            ((ObjectNode) sampleRowNode).put(IP_AS_BYTES, new TextNode(convertedValue));
+                            ((ObjectNode) sampleRowNode).set(IP_AS_BYTES, new TextNode(convertedValue));
                         }
                         if (sampleRowNode.has(IP_AS_BYTES_1))
                         {
                             JsonNode ipNode = sampleRowNode.get(IP_AS_BYTES_1);
                             String convertedValue = convertToHexString(ipNode);
-                            ((ObjectNode) sampleRowNode).put(IP_AS_BYTES_1, new TextNode(convertedValue));
+                            ((ObjectNode) sampleRowNode).set(IP_AS_BYTES_1, new TextNode(convertedValue));
                         }
                         if (sampleRowNode.has(ATTACHMENTS))
                         {
@@ -138,14 +138,14 @@ public class SampleData
                             {
                                 JsonNode payloadNode = attachmentNode.get(PAYLOAD);
                                 String value = "** " + Integer.toString(payloadNode.size()) + " bytes binary data **";
-                                ((ObjectNode) attachmentNode).put(PAYLOAD, new TextNode(value));
+                                ((ObjectNode) attachmentNode).set(PAYLOAD, new TextNode(value));
                             }
                         }
                         if (sampleRowNode.has(MEDIA))
                         {
                             JsonNode mediaNode = sampleRowNode.get(MEDIA);
                             String convertedValue = convertToHexString(mediaNode);
-                            ((ObjectNode) sampleRowNode).put(MEDIA, new TextNode(convertedValue));
+                            ((ObjectNode) sampleRowNode).set(MEDIA, new TextNode(convertedValue));
                         }
                         if (sampleRowNode.has(HEADER))
                         {
@@ -154,19 +154,19 @@ public class SampleData
                             {
                                 if (headerNode.has(MEMBER_ID))
                                 {
-                                    ((ObjectNode)headerNode).put(MEMBER_ID, new TextNode("********"));
+                                    ((ObjectNode) headerNode).set(MEMBER_ID, new TextNode("********"));
                                 }
                                 if (headerNode.has(GUID))
                                 {
                                     JsonNode guidNode = headerNode.get(GUID);
                                     String convertedValue = convertToHexString(guidNode);
-                                    ((ObjectNode) headerNode).put(GUID, new TextNode(convertedValue));
+                                    ((ObjectNode) headerNode).set(GUID, new TextNode(convertedValue));
                                 }
                                 if (headerNode.has(TREE_ID))
                                 {
                                     JsonNode headerTreeIdNode = headerNode.get(TREE_ID);
                                     String convertedValue = convertToHexString(headerTreeIdNode);
-                                    ((ObjectNode) headerNode).put(TREE_ID, new TextNode(convertedValue));
+                                    ((ObjectNode) headerNode).set(TREE_ID, new TextNode(convertedValue));
                                 }
                                 if (headerNode.has(AUDITHEADER))
                                 {
@@ -175,7 +175,7 @@ public class SampleData
                                     {
                                         JsonNode messageIdNode = auditHeaderNode.get(MESSAGE_ID);
                                         String convertedValue = convertToHexString(messageIdNode);
-                                        ((ObjectNode) auditHeaderNode).put(MESSAGE_ID, new TextNode(convertedValue));
+                                        ((ObjectNode) auditHeaderNode).set(MESSAGE_ID, new TextNode(convertedValue));
                                     }
                                 }
                             }
@@ -190,9 +190,9 @@ public class SampleData
                                 {
                                     JsonNode payloadNode = attachmentsNode.get(PAYLOAD);
                                     String value = "** " +
-                                            Integer.toString(payloadNode.size()) +
-                                            " bytes binary data **";
-                                    ((ObjectNode) attachmentsNode).put(PAYLOAD, new TextNode(value));
+                                        Integer.toString(payloadNode.size()) +
+                                        " bytes binary data **";
+                                    ((ObjectNode) attachmentsNode).set(PAYLOAD, new TextNode(value));
                                 }
                             }
                         }
@@ -203,13 +203,13 @@ public class SampleData
                             {
                                 JsonNode ipNode = requestHeaderNode.get(IP_AS_BYTES);
                                 String convertedValue = convertToHexString(ipNode);
-                                ((ObjectNode) requestHeaderNode).put(IP_AS_BYTES, new TextNode(convertedValue));
+                                ((ObjectNode) requestHeaderNode).set(IP_AS_BYTES, new TextNode(convertedValue));
                             }
                             if (requestHeaderNode != null && requestHeaderNode.has(IP_AS_BYTES_1))
                             {
                                 JsonNode ipNode = requestHeaderNode.get(IP_AS_BYTES_1);
                                 String convertedValue = convertToHexString(ipNode);
-                                ((ObjectNode) requestHeaderNode).put(IP_AS_BYTES_1, new TextNode(convertedValue));
+                                ((ObjectNode) requestHeaderNode).set(IP_AS_BYTES_1, new TextNode(convertedValue));
                             }
                         }
                     }

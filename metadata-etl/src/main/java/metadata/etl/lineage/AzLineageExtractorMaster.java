@@ -18,7 +18,7 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.dispatch.Futures;
 import akka.pattern.Patterns;
-import akka.routing.SmallestMailboxRouter;
+import akka.routing.SmallestMailboxPool;
 import akka.util.Timeout;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -83,8 +83,8 @@ public class AzLineageExtractorMaster {
     ActorSystem actorSystem = ActorSystem.create("LineageExtractor");
     int numOfActor = Integer.valueOf(prop.getProperty(Constant.LINEAGE_ACTOR_NUM, "50"));
     ActorRef lineageExtractorActor = actorSystem
-      .actorOf(Props.create(AzLineageExtractorActor.class)
-          .withRouter(new SmallestMailboxRouter(numOfActor)), "lineageExtractorActor");
+        .actorOf(new SmallestMailboxPool(numOfActor).props(Props.create(AzLineageExtractorActor.class)),
+            "lineageExtractorActor");
 
     // initialize
     //AzkabanServiceCommunicator asc = new AzkabanServiceCommunicator(prop);
