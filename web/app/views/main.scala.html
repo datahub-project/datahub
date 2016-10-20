@@ -998,12 +998,13 @@
         </div><!-- /.modal-dialog -->
       </div><!-- /.modal -->
     </script>
+        <script type="text/x-handlebars" id="components/drop-region">
+            {{yield}}
+        </script>
 
-    <script type="text/x-handlebars" id="components/dataset-compliance">
-
-      <div id="compliance">
-
-      {{#if hasCompliance}}
+        <script type="text/x-handlebars" id="components/draggable-item">
+            {{yield}}
+        </script>
 
         <span class="ctitle">Compliance Type</span>
         <div class="compliance-type cmodule">
