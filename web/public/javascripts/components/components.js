@@ -233,6 +233,182 @@ App.DatasetImpactComponent = Ember.Component.extend({
 });
 
 App.DatasetComplianceComponent = Ember.Component.extend({
+  matchingFields: [],
+  fieldList: [],
+  typeList: [],
+  complianceType: Ember.computed.alias('securitySpec.complianceType'),
+
+  /**
+   * Aliases compliancePurgeEntities on securitySpec, and transforms each nested comma-delimited identifierField string
+   * into an array of fields that can easily be iterated over. Dependency on each identifierField will update
+   * UI on updates
+   */
+  purgeEntities: Ember.computed('securitySpec.compliancePurgeEntities.@each.identifierField', function () {
+    return this.get('securitySpec.compliancePurgeEntities').map(entity => {
+      let _entity = Object.assign({}, entity);
+      _entity.identifierField = _entity.identifierField.split(',');
+      return _entity;
+    });
+  }),
+
+  init() {
+    this._super(...arguments);
+    this.fetchData();
+  },
+
+  didRender() {
+    const $typeahead = this.$('#compliance-typeahead');
+    if ($typeahead.length) {
+      this.enableTypeaheadOn($typeahead);
+    }
+  },
+
+  fetchData() {
+    function processSchema(schemaData) {
+      var concatName,
+          schemaArr = [],
+          typeArr = [],
+          schemaObj = {};
+
+
+      function processSchemaChildren(rootName, fieldObj) {
+        var concatName,
+            subRootName;
+
+        concatName = rootName + '.' + fieldObj.name;
+        if (typeof fieldObj.type !== 'object') {
+          schemaArr.push(concatName);
+          typeArr[concatName] = fieldObj.type;
+        } else {
+          if (typeof fieldObj.type[1] === 'string') {
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type[1];
+          } else if (fieldObj.type.name) {
+            concatName = concatName + '.' + fieldObj.type.name;
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type.type;
+          } else if (typeof fieldObj.type[1].type === 'string' && !fieldObj.type[1].fields) {
+            concatName = concatName + '.' + fieldObj.type[1].name;
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type[1].type;
+          } else {
+            subRootName = concatName + '.' + fieldObj.type[1].name;
+            fieldObj.type[1].fields.forEach(function (subFieldObj) {
+              processSchemaChildren(subRootName, subFieldObj);
+            });
+          }
+        }
+      }
+
+      // Create typeahead-friendly array of fields
+      schemaData.fields.forEach(function (field) {
+        if (field.type.fields) {
+          concatNameRoot = field.name + '.' + field.type.name;
+          field.type.fields.forEach(function (fieldObj) {
+            processSchemaChildren(concatNameRoot, fieldObj);
+          });
+        } else {
+          concatName = field.name;
+          schemaArr.push(concatName);
+          typeArr[concatName] = typeof field.type === 'string' ? field.type : field.type[this.length];
+        }
+      });
+
+      schemaObj.fieldList = schemaArr;
+      schemaObj.typeArr = typeArr;
+
+      return {fieldList: schemaArr, typeList: typeArr};
+    }
+
+    return Promise.resolve(Ember.$.getJSON(`api/v1/datasets/${this.get('datasetId')}`))
+        .then(({dataset: {schema}}) => {
+          const {fieldList, typeList} = processSchema(JSON.parse(schema));
+          this.get('fieldList').setObjects(fieldList);
+          this.get('typeList').setObjects(typeList);
+        });
+  },
+
+  saveJson(data) {
+    const postRequest = {
+      type: 'POST',
+      url: `api/v1/datasets/${this.get('datasetId')}/security`,
+      data: JSON.stringify(data),
+      contentType: 'application/json'
+    };
+
+    // If the return_code is not 200 reject the Promise
+    return Promise.resolve(Ember.$.ajax(postRequest))
+        .then(({return_code}) => return_code === 200 ? arguments[0] : Promise.reject(return_code));
+  },
+
+  enableTypeaheadOn(selector) {
+    selector.autocomplete({
+      source: request => {
+        const {term = ''} = request;
+        const matchingFields = $.ui.autocomplete.filter(this.get('fieldList'), term);
+        // Using setObject to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields);
+        // response(matchingFields);
+      }
+    });
+  },
+
+  /**
+   * Returns a compliancePurgeEntity matching the given Id.
+   * @param {string} id value representing the identifierType
+   * @returns {*}
+   */
+  getPurgeEntity (id) {
+    // There should be only one match in the resulting array
+    return this.get('securitySpec.compliancePurgeEntities')
+        .filter(purgeEntity => purgeEntity.identifierType === id)
+        .get('firstObject');
+  },
+
+  /**
+   * Internal abstraction for adding and removing an Id from an identifierField
+   * @param {string} name name of identifier to add/remove from identifier type
+   * @param {string} idType the identifierType for a compliancePurgeEntity
+   * @param {string} toggleOperation string representing the operation to be performed
+   * @private
+   */
+  _togglePurgeIdOnIdentifierField (name, idType, toggleOperation) {
+    const operations = ['add', 'remove'];
+    const purgeEntity = this.getPurgeEntity(idType);
+    const currentId = purgeEntity.identifierField;
+    if (!operations.includes(toggleOperation)) {
+      return;
+    }
+    const updatedIds = currentId.split(',')[`${toggleOperation}Object`](name).join(',');
+
+    Ember.set(purgeEntity, 'identifierField', updatedIds);
+  },
+
+  actions: {
+    addPurgeId(name, idType) {
+      this._togglePurgeIdOnIdentifierField(name, idType, `add`);
+    },
+
+    removePurgeId(name, idType) {
+      this._togglePurgeIdOnIdentifierField(name, idType, `remove`);
+    },
+
+    updateComplianceType ({value}) {
+      this.set('securitySpec.complianceType', value);
+    },
+
+    saveCompliance () {
+      this.saveJson(this.get('securitySpec'));
+
+      return false;
+    },
+
+    // Rolls back changes made to the compliance spec to current
+    // server state
+    resetCompliance () {
+      this.get('onReset')();
+    }
+  }
 });
 
 App.DatasetAuthorComponent = Ember.Component.extend({
