@@ -984,11 +984,11 @@
             </a>
           </li>
           <li id="compliance">
-            <a data-toggle="tab"
-              title="Compliance"
-              href="#compliancetab">
-              Compliance
-            </a>
+              <a data-toggle="tab"
+                 title="Compliance"
+                 href="#compliancetab">
+                  Compliance
+              </a>
           </li>
         </ul>
         <div class="tab-content">
@@ -1028,10 +1028,13 @@
             {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
             {{/dataset-access}}
           </div>
-          <div id="compliancetab" class="tab-pane">
-            {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
-            {{/dataset-compliance}}
-          </div>
+            <div id="compliancetab" class="tab-pane">
+                {{#dataset-compliance datasetId=datasetId
+                                      securitySpec=securitySpec
+                                      complianceTypes=complianceTypes
+                                      onReset=(action "getSecuritySpec")}}
+                {{/dataset-compliance}}
+            </div>
         </div>
       {{else}}
       <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
@@ -1188,10 +1191,13 @@
             </h4>
           </div>
           <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
-            <div class="panel-body">
-              {{#dataset-compliance hasCompliance=hasCompliance compliance=compliance}}
-              {{/dataset-compliance}}
-            </div>
+              <div class="panel-body">
+                  {{#dataset-compliance datasetId=datasetId
+                                        securitySpec=securitySpec
+                                        complianceTypes=complianceTypes
+                                        onReset=(action "getSecuritySpec")}}
+                  {{/dataset-compliance}}
+              </div>
           </div>
         </div>
 
