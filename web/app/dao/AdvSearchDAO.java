@@ -28,9 +28,9 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.Play;
-import play.libs.F;
+import play.libs.F.Promise;
 import play.libs.Json;
-import play.libs.WS;
+import play.libs.ws.*;
 
 import java.util.*;
 
@@ -94,7 +94,6 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"a.app_code, f.flow_id, f.flow_name, f.flow_path, f.flow_group FROM flow f " +
 			"JOIN cfg_application a on f.app_id = a.app_id ";
 
-
 	public final static String ADV_SEARCH_JOB = "SELECT SQL_CALC_FOUND_ROWS " +
 			"a.app_code, f.flow_name, f.flow_path, f.flow_group, j.flow_id, j.job_id, " +
 			"j.job_name, j.job_path, j.job_type " +
@@ -109,11 +108,9 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 			"metric_formula, dimensions, owners, tags, urn, metric_url, wiki_url, scm_url, 0 as watch_id " +
 			"FROM dict_business_metric ";
 
-
-
 	public static List<String> getDatasetSources()
 	{
-    	return getJdbcTemplate().queryForList(GET_DATASET_SOURCES, String.class);
+		return getJdbcTemplate().queryForList(GET_DATASET_SOURCES, String.class);
 	}
 
 	public static List<String> getDatasetScopes()
@@ -206,7 +203,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	{
 		ObjectNode resultNode = Json.newObject();
 		Long count = 0L;
-		List<Dataset> pagedDatasets = new ArrayList<Dataset>();
+		List<Dataset> pagedDatasets = new ArrayList<>();
 		ObjectNode queryNode = Json.newObject();
 		queryNode.put("from", (page-1)*size);
 		queryNode.put("size", size);
@@ -215,12 +212,12 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 
 		if (searchNode != null && searchNode.isContainerNode())
 		{
-			queryNode.put("query", searchNode);
+			queryNode.set("query", searchNode);
 		}
-		F.Promise < WS.Response> responsePromise = WS.url(
+		Promise<WSResponse> responsePromise = WS.url(
 				Play.application().configuration().getString(
 						SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
-		JsonNode responseNode = responsePromise.get().asJson();
+		JsonNode responseNode = responsePromise.get(1000).asJson();
 
 		resultNode.put("page", page);
 		resultNode.put("category", "Datasets");
@@ -277,7 +274,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	{
 		ObjectNode resultNode = Json.newObject();
 		Long count = 0L;
-		List<Metric> pagedMetrics = new ArrayList<Metric>();
+		List<Metric> pagedMetrics = new ArrayList<>();
 		ObjectNode queryNode = Json.newObject();
 		queryNode.put("from", (page-1)*size);
 		queryNode.put("size", size);
@@ -286,12 +283,12 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 
 		if (searchNode != null && searchNode.isContainerNode())
 		{
-			queryNode.put("query", searchNode);
+			queryNode.set("query", searchNode);
 		}
 
-		F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 				SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
-		JsonNode responseNode = responsePromise.get().asJson();
+		JsonNode responseNode = responsePromise.get(1000).asJson();
 
 		resultNode.put("page", page);
 		resultNode.put("category", "Metrics");
@@ -363,7 +360,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 	{
 		ObjectNode resultNode = Json.newObject();
 		Long count = 0L;
-		List<FlowJob> pagedFlows = new ArrayList<FlowJob>();
+		List<FlowJob> pagedFlows = new ArrayList<>();
 		ObjectNode queryNode = Json.newObject();
 		queryNode.put("from", (page-1)*size);
 		queryNode.put("size", size);
@@ -372,12 +369,12 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 
 		if (searchNode != null && searchNode.isContainerNode())
 		{
-			queryNode.put("query", searchNode);
+			queryNode.set("query", searchNode);
 		}
 
-		F.Promise < WS.Response> responsePromise = WS.url(Play.application().configuration().getString(
+		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 				SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
-		JsonNode responseNode = responsePromise.get().asJson();
+		JsonNode responseNode = responsePromise.get(1000).asJson();
 
 		resultNode.put("page", page);
 		resultNode.put("category", "Flows");
@@ -1435,6 +1432,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 				boolean jobNeedAndKeyword = false;
 				if (jobInList.size() > 0)
 				{
+					query += "( ";
 					int indexForJobInList = 0;
 					for (String job : jobInList)
 					{
@@ -1473,6 +1471,7 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 					}
 					query += ") ";
 				}
+				query += " ) ";
 			}
 
 			query += " LIMIT " + (page-1)*size + ", " + size;

@@ -2,16 +2,16 @@ name := "wherehows"
 
 version := "1.0-SNAPSHOT"
 
+lazy val root = (project in file(".")).enablePlugins(PlayJava, SbtTwirl)
+
+scalaVersion := "2.10.6"
+
 libraryDependencies ++= Seq(
   javaJdbc,
-  javaEbean,
+  javaWs,
   cache,
-  "mysql" % "mysql-connector-java" % "5.1.22",
-  "org.springframework" % "spring-context" % "4.1.1.RELEASE",
-  "org.springframework" % "spring-jdbc" % "4.1.1.RELEASE",
-  "org.mockito" % "mockito-core" % "1.9.5"
+  filters,
+  "mysql" % "mysql-connector-java" % "5.1.40",
+  "org.springframework" % "spring-jdbc" % "4.1.6.RELEASE",
+  "org.mockito" % "mockito-core" % "1.10.19"
 )
-
-libraryDependencies += filters
-
-play.Project.playJavaSettings

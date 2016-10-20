@@ -4,15 +4,13 @@ jdk:
   - oraclejdk8
 
 before_install:
-  # download play 2.2.4
-  - wget http://downloads.typesafe.com/play/2.2.4/play-2.2.4.zip
-  - unzip play-2.2.4.zip && rm play-2.2.4.zip && mv play-2.2.4 $HOME/
-  - export PLAY_HOME="$HOME/play-2.2.4"
-  - echo $PLAY_HOME
-
-  # change the build file stack size
-  - sed -i -e 's/-Xss1M/-Xss2M/g' $PLAY_HOME/framework/build
-  - cat $PLAY_HOME/framework/build
+  # download activator
+  - wget https://downloads.typesafe.com/typesafe-activator/1.3.11/typesafe-activator-1.3.11-minimal.zip
+  - unzip -q typesafe-activator-1.3.11-minimal.zip && rm typesafe-activator-1.3.11-minimal.zip && mv activator-1.3.11-minimal $HOME/
+  - export ACTIVATOR_HOME="$HOME/activator-1.3.11-minimal"
+  - echo $ACTIVATOR_HOME
+  # increase SBT build tool max heap size
+  - export SBT_OPTS="-Xms1G -Xmx1G -Xss2M"
 
   # elasticsearch
   - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.3/elasticsearch-2.3.3.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.3.deb && sudo service elasticsearch restart
@@ -44,4 +42,3 @@ before_script:
   - mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'travis'@'localhost'"
   - cd data-model/DDL; mysql -u root -D wherehows < create_all_tables_wrapper.sql; cd ../..
   - sleep 5
-

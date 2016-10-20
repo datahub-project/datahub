@@ -17,7 +17,7 @@ import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.actor.Scheduler;
-import akka.routing.SmallestMailboxRouter;
+import akka.routing.SmallestMailboxPool;
 import scala.concurrent.ExecutionContext;
 
 
@@ -34,7 +34,7 @@ public class ActorRegistry {
   public static ActorRef schedulerActor = actorSystem.actorOf(Props.create(SchedulerActor.class), "SchedulerActor");
 
   public static ActorRef etlJobActor =
-    actorSystem.actorOf(Props.create(EtlJobActor.class).withRouter(new SmallestMailboxRouter(10)), "EtlJobActor");
+      actorSystem.actorOf(new SmallestMailboxPool(10).props(Props.create(EtlJobActor.class)), "EtlJobActor");
 
   public static ActorRef treeBuilderActor = actorSystem.actorOf(Props.create(TreeBuilderActor.class), "TreeBuilderActor");
 

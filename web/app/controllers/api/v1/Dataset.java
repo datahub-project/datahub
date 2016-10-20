@@ -18,14 +18,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.DatasetColumn;
 import models.DatasetDependency;
-import models.DatasetListViewNode;
 import models.ImpactDataset;
 import play.Play;
-import play.api.libs.json.JsValue;
-import play.api.mvc.SimpleResult;
-import play.libs.F;
+import play.libs.F.Promise;
 import play.libs.Json;
-import play.libs.WS;
+import play.libs.ws.*;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -36,7 +33,6 @@ import dao.DatasetsDAO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import scala.concurrent.Future;
 
 
 public class Dataset extends Controller
@@ -44,6 +40,8 @@ public class Dataset extends Controller
     public static final String BACKEND_SERVICE_URL_KEY = "backend.service.url";
 
     public static final String DATASET_SECURITY_PATH = "/dataset/security";
+
+    public static final String BACKEND_URL = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
 
     public static Result getDatasetOwnerTypes()
     {
@@ -375,7 +373,7 @@ public class Dataset extends Controller
             catch(NumberFormatException e)
             {
                 Logger.error("Dataset Controller getPagedDatasetComments wrong page parameter. Error message: " +
-                        e.getMessage());
+                    e.getMessage());
                 page = 1;
             }
         }
@@ -395,7 +393,7 @@ public class Dataset extends Controller
             catch(NumberFormatException e)
             {
                 Logger.error("Dataset Controller getPagedDatasetComments wrong size parameter. Error message: " +
-                        e.getMessage());
+                    e.getMessage());
                 size = 10;
             }
         }
@@ -439,33 +437,33 @@ public class Dataset extends Controller
 
     public static Result putDatasetComment(int id, int commentId)
     {
-      String body = request().body().asText();
-      ObjectNode result = Json.newObject();
-      String username = session("user");
-      Map<String, String[]> params = request().body().asFormUrlEncoded();
+        String body = request().body().asText();
+        ObjectNode result = Json.newObject();
+        String username = session("user");
+        Map<String, String[]> params = request().body().asFormUrlEncoded();
 
-      if(StringUtils.isNotBlank(username))
-      {
-        if(DatasetsDAO.postComment(id, params, username))
+        if (StringUtils.isNotBlank(username))
         {
-          result.put("status", "success");
-          return ok(result);
+            if (DatasetsDAO.postComment(id, params, username))
+            {
+                result.put("status", "success");
+                return ok(result);
+            }
+            else
+            {
+                result.put("status", "failed");
+                result.put("error", "true");
+                result.put("msg", "Could not create comment.");
+                return badRequest(result);
+            }
         }
         else
         {
-          result.put("status", "failed");
-          result.put("error", "true");
-          result.put("msg", "Could not create comment.");
-          return badRequest(result);
+            result.put("status", "failed");
+            result.put("error", "true");
+            result.put("msg", "Unauthorized User");
+            return badRequest(result);
         }
-      }
-      else
-      {
-        result.put("status", "failed");
-        result.put("error", "true");
-        result.put("msg", "Unauthorized User");
-        return badRequest(result);
-      }
 
     }
 
@@ -613,7 +611,7 @@ public class Dataset extends Controller
             catch(NumberFormatException e)
             {
                 Logger.error("Dataset Controller getPagedDatasetColumnComments wrong page parameter. Error message: " +
-                        e.getMessage());
+                    e.getMessage());
                 page = 1;
             }
         }
@@ -633,7 +631,7 @@ public class Dataset extends Controller
             catch(NumberFormatException e)
             {
                 Logger.error("Dataset Controller getPagedDatasetColumnComments wrong size parameter. Error message: " +
-                        e.getMessage());
+                    e.getMessage());
                 size = 10;
             }
         }
@@ -702,40 +700,40 @@ public class Dataset extends Controller
         ObjectNode json = Json.newObject();
         ArrayNode res = json.arrayNode();
         JsonNode req = request().body().asJson();
-        if(req == null) {
+        if (req == null) {
             return badRequest("Expecting JSON data");
         }
-        if(req.isArray()) {
-            for(int i = 0; i < req.size(); i++) {
+        if (req.isArray()) {
+            for (int i = 0; i < req.size(); i++) {
                 JsonNode obj = req.get(i);
                 Boolean isSuccess = DatasetsDAO.assignColumnComment(
-                        obj.get("datasetId").asInt(),
-                        obj.get("columnId").asInt(),
-                        obj.get("commentId").asInt());
+                    obj.get("datasetId").asInt(),
+                    obj.get("columnId").asInt(),
+                    obj.get("commentId").asInt());
                 ObjectNode itemResponse = Json.newObject();
-                if(isSuccess) {
+                if (isSuccess) {
                     itemResponse.put("success", "true");
                 } else {
                     itemResponse.put("error", "true");
                     itemResponse.put("datasetId", datasetId);
                     itemResponse.put("columnId", columnId);
-                    itemResponse.put("commentId", obj.get("comment_id"));
+                    itemResponse.set("commentId", obj.get("comment_id"));
                 }
                 res.add(itemResponse);
             }
         } else {
             Boolean isSuccess = DatasetsDAO.assignColumnComment(
-                    datasetId,
-                    columnId,
-                    req.get("commentId").asInt());
+                datasetId,
+                columnId,
+                req.get("commentId").asInt());
             ObjectNode itemResponse = Json.newObject();
-            if(isSuccess) {
+            if (isSuccess) {
                 itemResponse.put("success", "true");
             } else {
                 itemResponse.put("error", "true");
                 itemResponse.put("datasetId", datasetId);
                 itemResponse.put("columnId", columnId);
-                itemResponse.put("commentId", req.get("commentId"));
+                itemResponse.set("commentId", req.get("commentId"));
             }
             res.add(itemResponse);
         }
@@ -761,34 +759,34 @@ public class Dataset extends Controller
 
     public static Result getSimilarColumnComments(Long datasetId, int columnId) {
         ObjectNode result = Json.newObject();
-        result.put("similar", Json.toJson(DatasetsDAO.similarColumnComments(datasetId, columnId)));
+        result.set("similar", Json.toJson(DatasetsDAO.similarColumnComments(datasetId, columnId)));
         return ok(result);
     }
 
     public static Result getSimilarColumns(int datasetId, int columnId)
     {
         ObjectNode result = Json.newObject();
-        result.put("similar", Json.toJson(DatasetsDAO.similarColumns(datasetId, columnId)));
+        result.set("similar", Json.toJson(DatasetsDAO.similarColumns(datasetId, columnId)));
         return ok(result);
     }
 
     public static Result getDependViews(Long datasetId)
     {
         ObjectNode result = Json.newObject();
-        List<DatasetDependency> depends = new ArrayList<DatasetDependency>();
+        List<DatasetDependency> depends = new ArrayList<>();
         DatasetsDAO.getDependencies(datasetId, depends);
         result.put("status", "ok");
-        result.put("depends", Json.toJson(depends));
+        result.set("depends", Json.toJson(depends));
         return ok(result);
     }
 
     public static Result getReferenceViews(Long datasetId)
     {
         ObjectNode result = Json.newObject();
-        List<DatasetDependency> references = new ArrayList<DatasetDependency>();
+        List<DatasetDependency> references = new ArrayList<>();
         DatasetsDAO.getReferences(datasetId, references);
         result.put("status", "ok");
-        result.put("references", Json.toJson(references));
+        result.set("references", Json.toJson(references));
         return ok(result);
     }
 
@@ -797,7 +795,7 @@ public class Dataset extends Controller
         ObjectNode result = Json.newObject();
         String urn = request().getQueryString("urn");
         result.put("status", "ok");
-        result.put("nodes", Json.toJson(DatasetsDAO.getDatasetListViewNodes(urn)));
+        result.set("nodes", Json.toJson(DatasetsDAO.getDatasetListViewNodes(urn)));
         return ok(result);
     }
 
@@ -805,7 +803,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("versions", Json.toJson(DatasetsDAO.getDatasetVersions(datasetId, dbId)));
+        result.set("versions", Json.toJson(DatasetsDAO.getDatasetVersions(datasetId, dbId)));
         return ok(result);
     }
 
@@ -813,7 +811,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("schema_text", Json.toJson(DatasetsDAO.getDatasetSchemaTextByVersion(datasetId, version)));
+        result.set("schema_text", Json.toJson(DatasetsDAO.getDatasetSchemaTextByVersion(datasetId, version)));
         return ok(result);
     }
 
@@ -821,7 +819,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("instances", Json.toJson(DatasetsDAO.getDatasetInstances(datasetId)));
+        result.set("instances", Json.toJson(DatasetsDAO.getDatasetInstances(datasetId)));
         return ok(result);
     }
 
@@ -829,7 +827,7 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("partitions", Json.toJson(DatasetsDAO.getDatasetPartitionGains(datasetId)));
+        result.set("partitions", Json.toJson(DatasetsDAO.getDatasetPartitionGains(datasetId)));
         return ok(result);
     }
 
@@ -837,53 +835,43 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
         result.put("status", "ok");
-        result.put("access", Json.toJson(DatasetsDAO.getDatasetAccessibilty(datasetId)));
+        result.set("access", Json.toJson(DatasetsDAO.getDatasetAccessibilty(datasetId)));
         return ok(result);
     }
 
-    public static F.Promise<Result> getDatasetSecurity(int datasetId) {
-        final String backendUrl = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
-        final String queryUrl = backendUrl + DATASET_SECURITY_PATH;
-        final F.Promise<Result> resultPromise = WS.url(queryUrl)
+    public static Promise<Result> getDatasetSecurity(int datasetId) {
+        final String queryUrl = BACKEND_URL + DATASET_SECURITY_PATH;
+        return WS.url(queryUrl)
             .setQueryParameter("datasetId", Integer.toString(datasetId))
+            .setRequestTimeout(1000)
             .get()
-            .map(new F.Function<WS.Response, Result>() {
-                public Result apply(WS.Response response) {
-                    return ok(response.asJson());
-                }
-            });
-        return resultPromise;
+            .map(response ->
+                ok(response.asJson())
+            );
     }
 
-    public static F.Promise<Result> updateDatasetSecurity(int datasetId) {
+    public static Promise<Result> updateDatasetSecurity(int datasetId) {
         String username = session("user");
         if (StringUtils.isNotBlank(username)) {
-            final String backendUrl = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
-            final String queryUrl = backendUrl + DATASET_SECURITY_PATH;
+            final String queryUrl = BACKEND_URL + DATASET_SECURITY_PATH;
 
-            final ObjectNode queryNode = Json.newObject();
-            queryNode.put("datasetId", datasetId);
-            queryNode.put("securitySpec", request().body().asJson());
+            final JsonNode queryNode = Json.newObject()
+                .put("datasetId", datasetId)
+                .set("securitySpec", request().body().asJson());
 
-            final F.Promise<Result> resultPromise = WS.url(queryUrl)
+            return WS.url(queryUrl)
+                .setRequestTimeout(1000)
                 .post(queryNode)
-                .map(new F.Function<WS.Response, Result>() {
-                    public Result apply(WS.Response response) {
-                        return ok(response.asJson());
-                    }
-                });
-            return resultPromise;
+                .map(response ->
+                    ok(response.asJson())
+                );
         } else {
-            ObjectNode result = Json.newObject();
-            result.put("status", "failed");
-            result.put("error", "true");
-            result.put("msg", "Unauthorized User.");
+            final JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Unauthorized User.");
 
-            return F.Promise.promise(new F.Function0<Result>() {
-                public Result apply() {
-                    return ok(result);
-                }
-            });
+            return Promise.promise(() -> ok(result));
         }
     }
 }

@@ -1,40 +1,14 @@
-apply plugin: 'java'
 apply plugin: 'scala'
-apply plugin: 'idea'
 
 def findPlayHome(){
-    project.ext.playHome = System.getenv()['PLAY_HOME']
+    project.ext.playHome = System.getenv()['ACTIVATOR_HOME']
     if (null == project.ext.playHome) {
-        throw new GradleException('PLAY_HOME env variable not set!')
+        throw new GradleException('ACTIVATOR_HOME env variable not set!')
     }
-    project.ext.playExec = "${playHome}/play"
+    project.ext.playExec = "${playHome}/bin/activator"
 }
 
 findPlayHome()
-
-repositories{
-    mavenCentral()
-
-    // Play framework manages its own dependencies in a local Ivy repo
-    ivy{
-        def repoDir = "${playHome}/repository/local/"
-        url repoDir
-        ivyPattern "${repoDir}/[organisation]/[module]/[revision]/[type]s/[artifact].[ext]"
-        artifactPattern "${repoDir}/[organisation]/[module]/[revision]/[type]s/[artifact].[ext]"
-        layout 'pattern'
-    }
-
-    jcenter()
-    maven {
-        name "typesafe-maven-release"
-        url "https://repo.typesafe.com/typesafe/maven-releases"
-    }
-    ivy {
-        name "typesafe-ivy-release"
-        url "https://repo.typesafe.com/typesafe/ivy-releases"
-        layout "ivy"
-    }
-}
 
 configurations{
     //Configuration containing sbt generated .class files
@@ -49,12 +23,11 @@ configurations{
 
 dependencies{
     // User defined libraries (will be copied to lib/ before `play compile`)
-    // compile 'group:name:0.1'
     compile externalDependency.play
     compile externalDependency.play_java_jdbc
-    compile externalDependency.play_ebean
+    compile externalDependency.play_java_ws
     compile externalDependency.play_cache
-    compile externalDependency.spring_context
+    compile externalDependency.play_filter
     compile externalDependency.spring_jdbc
     compile externalDependency.mockito
 
@@ -105,7 +78,7 @@ task "build" (type: Exec, dependsOn: playClean, overwrite: true) {
 }
 
 task "assemble" (type: Exec, dependsOn: playClean, overwrite: true) {
-  commandLine playExec, 'stage'
+    commandLine playExec, 'stage'
 }
 
 task "dist" (type: Exec, overwrite: true) {
@@ -115,12 +88,3 @@ task "dist" (type: Exec, overwrite: true) {
 task "check" (overwrite: true) {
   // skip gradle check of this repository
 }
-/*
-// optional: if using 'eclipse' plugin
-eclipse {
-    classpath {
-        plusConfigurations += configurations.playManaged
-        plusConfigurations += configurations.provided
-    }
-}
-*/
