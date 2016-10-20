@@ -249,21 +249,15 @@
       </div>
     </script>
 
-    <script type="text/x-handlebars" id="components/ember-selector">
-      <select id="ember-selector" class="form-control">
-        {{#each renderValues as |value|}}
-          {{#if value.isSelected}}
-            <option value="{{value.value}}" selected>
-              {{value.value}}
+<script type="text/x-handlebars" id="components/ember-selector">
+    <select class={{class}} {{action 'change' on='change'}}>
+        {{#each content as |option|}}
+            <option value="{{option.value}}" selected={{if option.isSelected 'selected' ''}}>
+                {{if option.label option.label option.value}}
             </option>
-          {{else}}
-            <option value="{{value.value}}">
-              {{value.value}}
-            </option>
-          {{/if}}
         {{/each}}
-      </select>
-    </script>
+    </select>
+</script>
 
     <script type="text/x-handlebars" id="components/dataset-schema">
       {{#if hasSchemas}}
