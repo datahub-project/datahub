@@ -9,6 +9,8 @@ before_install:
   - unzip -q typesafe-activator-1.3.11-minimal.zip && rm typesafe-activator-1.3.11-minimal.zip && mv activator-1.3.11-minimal $HOME/
   - export ACTIVATOR_HOME="$HOME/activator-1.3.11-minimal"
   - echo $ACTIVATOR_HOME
+  # increase SBT build tool max heap size
+  - export SBT_OPTS="-Xms1G -Xmx1G -Xss2M -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled"
 
   # elasticsearch
   - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.3/elasticsearch-2.3.3.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.3.deb && sudo service elasticsearch restart
