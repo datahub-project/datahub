@@ -173,7 +173,6 @@ function convertPropertiesToArray(properties)
 }
 
 var datasetController = null;
-var detailController = null;
 App.DatasetsRoute = Ember.Route.extend({
   setupController: function(controller) {
     datasetController = controller;
@@ -203,7 +202,6 @@ App.DatasetsRoute = Ember.Route.extend({
 App.DatasetRoute = Ember.Route.extend({
   setupController: function(controller, params) {
     var _this = this;
-    detailController = controller;
     currentTab = 'Datasets';
     updateActiveTab();
     var id = 0;
@@ -237,6 +235,7 @@ App.DatasetRoute = Ember.Route.extend({
           }
       }
 
+    controller.set('datasetId', id);
       var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
         if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
@@ -495,27 +494,8 @@ App.DatasetRoute = Ember.Route.extend({
                     }
                 });
 
-    var datasetComplianceUrl = 'api/v1/datasets/' + id + "/security";
-
-    // Pull schema field chooser into DOM after all has rendered
-    setTimeout(function(){
-      $('#schemaInput').insertAfter($('.cfheader .cfname')).removeClass('hide');
-    }, 3000);
-
-    // Fetch compliance API data and add to controller
-    $.get(datasetComplianceUrl, function(data) {
-      if (data && data.return_code === 200) {
-        if (data.securitySpec && data.securitySpec.complianceType) {
-          controller.set("hasCompliance", true);
-          controller.set("compliance", data.securitySpec);
-        } else {
-            controller.set("hasCompliance", false);
-        }
-      } else {
-        controller.set("hasCompliance", false);
-      }
-    });
-
+    // Update securitySpec on controller initialization
+    this.get('controller.actions.getSecuritySpec').call(controller);
 
     var datasetDependsUrl = 'api/v1/datasets/' + id + "/depends";
     $.get(datasetDependsUrl, function(data) {
@@ -535,7 +515,6 @@ App.DatasetRoute = Ember.Route.extend({
     });
 
     var datasetPartitionsUrl = 'api/v1/datasets/' + id + "/access";
-    var datasetAccessibilities = [];
     $.get(datasetPartitionsUrl, function(data) {
       if (data && data.status == "ok")
       {
