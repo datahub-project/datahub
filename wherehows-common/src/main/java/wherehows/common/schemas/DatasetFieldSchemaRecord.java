@@ -42,7 +42,6 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   String charType;
   Integer precision;
   Integer scale;
-  String confidentialFlags;
   Boolean isRecursive;
   Boolean partitioned;
   Boolean indexed;
@@ -55,7 +54,7 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
     return new String[]{"dataset_id", "position", "parent_field_position", "field_json_path", "field_path", "parent_path",
         "field_name", "label", "aliases", "type", "logical_type", "semantic_type", "abstract_type", "description",
         "nullable", "default_value", "max_byte_length", "max_char_length", "char_type", "precision", "scale",
-        "confidential_flags", "is_recursive", "partitioned", "indexed", "namespace", "default_comment_id", "comment_ids"};
+        "is_recursive", "partitioned", "indexed", "namespace", "default_comment_id", "comment_ids"};
   }
 
   @Override
@@ -67,8 +66,7 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   public String[] getFieldDetailColumns() {
     return new String[]{"dataset_id", "sort_id", "parent_sort_id", "parent_path", "field_name", "fields_layout_id",
         "field_label", "data_type", "data_size", "data_precision", "data_fraction", "is_nullable", "is_indexed",
-        "is_partitioned", "is_recursive", "confidential_flags", "default_value", "namespace", "default_comment_id",
-        "comment_ids"};
+        "is_partitioned", "is_recursive", "default_value", "namespace", "default_comment_id", "comment_ids"};
   }
 
   @JsonIgnore
@@ -76,7 +74,7 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
     return new Object[]{datasetId, position, parentFieldPosition, parentPath, fieldName, 0, label, type, maxCharLength,
         precision, scale, nullable != null && nullable ? "Y" : "N", indexed != null && indexed ? "Y" : "N",
         partitioned != null && partitioned ? "Y" : "N", isRecursive != null && isRecursive ? "Y" : "N",
-        confidentialFlags, defaultValue, namespace, defaultCommentId, commentIds};
+        defaultValue, namespace, defaultCommentId, commentIds};
   }
 
   public DatasetFieldSchemaRecord() {
@@ -248,14 +246,6 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
 
   public void setScale(Integer scale) {
     this.scale = scale;
-  }
-
-  public String getConfidentialFlags() {
-    return confidentialFlags;
-  }
-
-  public void setConfidentialFlags(String confidentialFlags) {
-    this.confidentialFlags = confidentialFlags;
   }
 
   public Boolean getRecursive() {

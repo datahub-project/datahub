@@ -11,17 +11,16 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.avro.generic.GenericData;
-import wherehows.common.schemas.ClusterInfo;
 import wherehows.common.schemas.GobblinTrackingCompactionRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 /**
@@ -38,21 +37,24 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
    * Process a Gobblin tracking event compaction record
    * @param record
    * @param topic
+   * @return Record
    * @throws Exception
    */
   @Override
-  public Record process(GenericData.Record record, String topic) throws Exception {
+  public Record process(GenericData.Record record, String topic)
+      throws Exception {
     GobblinTrackingCompactionRecord eventRecord = null;
 
     // only handle namespace "compaction.tracking.events"
-    if (record != null && record.get("namespace").equals("compaction.tracking.events")) {
-      final String name = (String) record.get("name");
+    if (record != null && record.get("namespace") != null && record.get("name") != null
+        && "compaction.tracking.events".equals(record.get("namespace").toString())) {
+      final String name = record.get("name").toString();
 
       // for event name "CompactionCompleted" or "CompactionRecordCounts"
       if (name.equals("CompactionCompleted") || name.equals("CompactionRecordCounts")) {
         // logger.info("Processing Gobblin tracking event record: " + name);
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
+        final Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
 
         final String jobContext = "Gobblin:" + name;
         final String cluster = ClusterUtil.matchClusterCode(metadata.get("clusterIdentifier"));
@@ -75,7 +77,7 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
         if (name.equals("CompactionCompleted")) {
           dataset = metadata.get("datasetUrn");
           partitionName = metadata.get("partition");
-          recordCount = parseLong(metadata.get("recordCount"));
+          recordCount = StringUtil.parseLong(metadata.get("recordCount"));
         }
         // name = "CompactionRecordCounts"
         else {
@@ -86,12 +88,12 @@ public class GobblinTrackingCompactionProcessor extends KafkaConsumerProcessor {
             partitionName = m.group(3);
           }
 
-          recordCount = parseLong(metadata.get("RegularRecordCount"));
-          lateRecordCount = parseLong(metadata.get("LateRecordCount"));
+          recordCount = StringUtil.parseLong(metadata.get("RegularRecordCount"));
+          lateRecordCount = StringUtil.parseLong(metadata.get("LateRecordCount"));
         }
 
-        eventRecord = new GobblinTrackingCompactionRecord(timestamp, jobContext,
-                cluster, projectName, flowId, jobId, execId);
+        eventRecord =
+            new GobblinTrackingCompactionRecord(timestamp, jobContext, cluster, projectName, flowId, jobId, execId);
         eventRecord.setDatasetUrn(dataset, partitionType, partitionName);
         eventRecord.setRecordCount(recordCount);
         eventRecord.setLateRecordCount(lateRecordCount);

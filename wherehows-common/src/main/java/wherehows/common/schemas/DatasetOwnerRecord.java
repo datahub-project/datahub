@@ -24,8 +24,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
   String datasetUrn;
   Integer appId;
   String ownerCategory;
-  String ownerSubCategory;
-  String owner;
+  String ownerUrn;
   String ownerType;
   String isGroup;
   String isActive;
@@ -36,19 +35,21 @@ public class DatasetOwnerRecord extends AbstractRecord {
   Long sourceTime;
   Long createdTime;
   Long modifiedTime;
+  String confirmedBy;
+  Long confirmedOn;
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id",
+    return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_id",
         "owner_id_type", "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_ids",
-        "source_time", "created_time", "modified_time"};
+        "source_time", "created_time", "modified_time", "confirmed_by", "confirmed_on"};
   }
 
   @Override
   public List<Object> fillAllFields() {
     List<Object> allFields = new ArrayList<>();
     allFields.add(datasetUrn);
-    allFields.add(owner);
+    allFields.add(ownerUrn);
     allFields.add(sortId);
     allFields.add(namespace);
     allFields.add(dbIds);
@@ -58,13 +59,13 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   @JsonIgnore
   public String[] getDbColumnForUnmatchedOwner() {
-    return new String[]{"dataset_urn", "app_id", "owner_type", "owner_sub_type", "owner_id", "owner_id_type",
+    return new String[]{"dataset_urn", "app_id", "owner_type", "owner_id", "owner_id_type",
         "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_name", "db_id", "source_time"};
   }
 
   @JsonIgnore
   public Object[] getValuesForUnmatchedOwner() {
-    return new Object[]{datasetUrn, appId, ownerCategory, ownerSubCategory, owner, ownerType, isGroup,
+    return new Object[]{datasetUrn, appId, ownerCategory, ownerUrn, ownerType, isGroup,
         isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};
   }
 
@@ -74,7 +75,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
   public DatasetOwnerRecord(String datasetUrn, String ownerId, Integer sortId, String namespace, String dbName,
       Long sourceTime) {
     this.datasetUrn = datasetUrn;
-    this.owner = ownerId;
+    this.ownerUrn = ownerId;
     this.sortId = sortId;
     this.namespace = namespace;
     this.dbIds = dbName;
@@ -113,20 +114,12 @@ public class DatasetOwnerRecord extends AbstractRecord {
     this.ownerCategory = ownerCategory;
   }
 
-  public String getOwnerSubCategory() {
-    return ownerSubCategory;
+  public String getOwnerUrn() {
+    return ownerUrn;
   }
 
-  public void setOwnerSubCategory(String ownerSubCategory) {
-    this.ownerSubCategory = ownerSubCategory;
-  }
-
-  public String getOwner() {
-    return owner;
-  }
-
-  public void setOwner(String owner) {
-    this.owner = owner;
+  public void setOwnerUrn(String ownerUrn) {
+    this.ownerUrn = ownerUrn;
   }
 
   public String getOwnerType() {
@@ -207,5 +200,21 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   public void setModifiedTime(Long modifiedTime) {
     this.modifiedTime = modifiedTime;
+  }
+
+  public Long getConfirmedOn() {
+    return confirmedOn;
+  }
+
+  public void setConfirmedOn(Long confirmedOn) {
+    this.confirmedOn = confirmedOn;
+  }
+
+  public String getConfirmedBy() {
+    return confirmedBy;
+  }
+
+  public void setConfirmedBy(String confirmedBy) {
+    this.confirmedBy = confirmedBy;
   }
 }

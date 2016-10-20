@@ -57,7 +57,6 @@ class ConfigUtil {
     FileWriter writer = new FileWriter(configFile);
     props.store(writer, "exec id : " + whEtlExecId + " job configurations");
     writer.close();
-
   }
 
   static void deletePropertiesFile(Properties props, long whEtlExecId) {
@@ -68,7 +67,7 @@ class ConfigUtil {
     }
   }
 
-  static String generateCommand(long whEtlExecId, String cmdParam, Properties etlJobProperties) {
+  static String generateCommand(EtlJobName etlJobName, long whEtlExecId, String cmdParam, Properties etlJobProperties) {
     StringBuilder sb = new StringBuilder();
     sb.append(javaCmd);
     sb.append(cmdParam).append(" ");
@@ -78,6 +77,7 @@ class ConfigUtil {
 
     String directoryPath = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
     sb.append("-Dconfig=").append(directoryPath + "/exec/" + whEtlExecId).append(".properties ");
+    sb.append("-DCONTEXT=").append(etlJobName.name()).append(" ");
 
     sb.append("metadata.etl.Launcher");
 

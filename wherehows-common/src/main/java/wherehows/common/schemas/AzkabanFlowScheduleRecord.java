@@ -25,17 +25,19 @@ public class AzkabanFlowScheduleRecord extends AbstractRecord {
   String flowPath;
   String unit;
   Integer frequency;
+  String cronExpression;
   Long effectiveStartTime;
   Long effectiveEndTime;
   String refId;
   Long whExecId;
 
   public AzkabanFlowScheduleRecord(Integer appId, String flowPath, String unit, Integer frequency,
-    Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
+      String cronExpression, Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.unit = unit;
     this.frequency = frequency;
+    this.cronExpression = cronExpression;
     this.effectiveStartTime = effectiveStartTime;
     this.effectiveEndTime = effectiveEndTime;
     this.refId = refId;
@@ -49,6 +51,7 @@ public class AzkabanFlowScheduleRecord extends AbstractRecord {
     allFields.add(flowPath);
     allFields.add(unit);
     allFields.add(frequency);
+    allFields.add(cronExpression);
     allFields.add(effectiveStartTime);
     allFields.add(effectiveEndTime);
     allFields.add(refId);

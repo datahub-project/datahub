@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.kafka;
+package models.kafka;
 
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -20,6 +20,7 @@ import org.apache.avro.generic.GenericData;
 import wherehows.common.schemas.GobblinTrackingLumosRecord;
 import wherehows.common.schemas.Record;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.StringUtil;
 
 
 public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
@@ -40,23 +41,25 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
   private final String PartitionEpochRegex = "(\\d+)-\\w+-\\d+";
   private final Pattern PartitionEpochPattern = Pattern.compile(PartitionEpochRegex);
 
-
   /**
    * Process a Gobblin tracking event lumos record
    * @param record
    * @param topic
+   * @return Record
    * @throws Exception
    */
   @Override
-  public Record process(GenericData.Record record, String topic) throws Exception {
+  public Record process(GenericData.Record record, String topic)
+      throws Exception {
     GobblinTrackingLumosRecord eventRecord = null;
 
-    if (record != null) {
-      final String name = (String) record.get("name");
+    if (record != null && record.get("namespace") != null && record.get("name") != null) {
+      final String name = record.get("name").toString();
+
       // only handle "DeltaPublished" and "SnapshotPublished"
       if (name.equals("DeltaPublished") || name.equals("SnapshotPublished")) {
         final long timestamp = (long) record.get("timestamp");
-        final Map<String, String> metadata = (Map<String, String>) record.get("metadata");
+        final Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
         // logger.info("Processing Gobblin tracking event record: " + name + ", timestamp: " + timestamp);
 
         final String jobContext = "Lumos:" + name;
@@ -84,7 +87,7 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
           datacenter = datasourceColo;
         }
 
-        final long recordCount = parseLong(metadata.get("recordCount"));
+        final long recordCount = StringUtil.parseLong(metadata.get("recordCount"));
 
         final String partitionType = "snapshot";
         final String partition = metadata.get("partition");
@@ -92,18 +95,18 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
         String subpartitionType = null;
         String subpartitionName = null;
 
-        final long dropdate = parseLong(metadata.get("Dropdate"));
+        final long dropdate = StringUtil.parseLong(metadata.get("Dropdate"));
         long maxDataDateEpoch3 = dropdate;
         long maxDataKey = 0; // if field is null, default value 0
         if (!isPartitionRegular(partition)) {
-          maxDataKey = parseLong(getPartitionEpoch(partition));
+          maxDataKey = StringUtil.parseLong(getPartitionEpoch(partition));
         }
 
         // handle name 'SnapshotPublished'
         if (name.equals("SnapshotPublished")) {
           partitionName = partition;
           if (dropdate < 1460000000000L) {
-            maxDataDateEpoch3 = parseLong(getPartitionEpoch(targetDirectory));
+            maxDataDateEpoch3 = StringUtil.parseLong(getPartitionEpoch(targetDirectory));
           }
         }
         // handle name 'DeltaPublished'
@@ -112,14 +115,14 @@ public class GobblinTrackingLumosProcessor extends KafkaConsumerProcessor {
           subpartitionType = "_delta";
           subpartitionName = partition;
           if (dropdate < 1460000000000L) {
-            maxDataDateEpoch3 = parseLong(getPartitionEpoch(subpartitionName));
+            maxDataDateEpoch3 = StringUtil.parseLong(getPartitionEpoch(subpartitionName));
           }
         }
 
-        eventRecord = new GobblinTrackingLumosRecord(timestamp, cluster,
-            jobContext, projectName, flowId, jobId, execId);
-        eventRecord.setDatasetUrn(dataset, targetDirectory, partitionType, partitionName,
-            subpartitionType, subpartitionName);
+        eventRecord =
+            new GobblinTrackingLumosRecord(timestamp, cluster, jobContext, projectName, flowId, jobId, execId);
+        eventRecord.setDatasetUrn(dataset, targetDirectory, partitionType, partitionName, subpartitionType,
+            subpartitionName);
         eventRecord.setMaxDataDate(maxDataDateEpoch3, maxDataKey);
         eventRecord.setSource(datacenter, devEnv, sourceDatabase, sourceTable);
         eventRecord.setRecordCount(recordCount);

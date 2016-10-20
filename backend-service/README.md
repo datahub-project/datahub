@@ -30,7 +30,6 @@ Folder:	/opt/wherehows
 
 Please become familiar with these pages:
 - https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
-- https://github.com/dmoore247/WhereHows  (this is my fork, used to stabilize the release)
 - https://github.com/linkedin/WhereHows
 - https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
 

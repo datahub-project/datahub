@@ -13,6 +13,8 @@
  */
 package wherehows.common.kafka.serializers;
 
+import java.util.Arrays;
+import javax.xml.bind.DatatypeConverter;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.generic.GenericDatumReader;
@@ -89,6 +91,19 @@ public abstract class AbstractKafkaAvroDeserializer extends AbstractKafkaAvroSer
    */
   protected Object deserialize(byte[] payload) throws SerializationException {
     return deserialize(false, null, null, payload, null);
+  }
+
+  /**
+   * Just like single-parameter version but take topic string as a parameter
+   *
+   * @param includeSchemaAndVersion boolean
+   * @param topic String
+   * @param payload serialized data
+   * @return the deserialized object
+   * @throws SerializationException
+   */
+  protected Object deserialize(boolean includeSchemaAndVersion, String topic, byte[] payload) throws SerializationException {
+    return deserialize(includeSchemaAndVersion, topic, null, payload, null);
   }
 
   /**
@@ -173,7 +188,9 @@ public abstract class AbstractKafkaAvroDeserializer extends AbstractKafkaAvroSer
       // avro deserialization may throw AvroRuntimeException, NullPointerException, etc
       throw new SerializationException("Error deserializing Avro message for id " + id, e);
     } catch (RestClientException e) {
-      throw new SerializationException("Error retrieving Avro schema for id " + id, e);
+      byte[] initialBytes = Arrays.copyOf(payload, 40);
+      throw new SerializationException("Error retrieving Avro schema for topic " + topic + " id " + id
+          + ", initial bytes " + DatatypeConverter.printHexBinary(initialBytes).toLowerCase(), e);
     }
   }
 
