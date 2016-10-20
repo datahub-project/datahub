@@ -20,3 +20,4 @@ backend-service/lib
 metadata-etl/src/main/resources/application.properties
 **/test/resources/*.properties
 logs/
+.DS_Store
