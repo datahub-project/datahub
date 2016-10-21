@@ -200,14 +200,76 @@ App.DatasetsRoute = Ember.Route.extend({
 });
 
 App.DatasetRoute = Ember.Route.extend({
-  setupController: function(controller, params) {
-    var _this = this;
+  setupController(controller, params) {
     currentTab = 'Datasets';
     updateActiveTab();
     var id = 0;
     var source = '';
     var urn = '';
     var name = '';
+
+    function processSchema(schemaData) {
+      var concatName,
+          schemaArr = [],
+          typeArr = [],
+          schemaObj = {};
+
+
+      function processSchemaChildren(rootName, fieldObj) {
+        var concatName,
+            subRootName;
+
+        concatName = rootName + '.' + fieldObj.name;
+        if (typeof fieldObj.type !== 'object') {
+          schemaArr.push(concatName);
+          typeArr[concatName] = fieldObj.type;
+        } else {
+          if (typeof fieldObj.type[1] === 'string') {
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type[1];
+          } else if (fieldObj.type.name) {
+            concatName = concatName + '.' + fieldObj.type.name;
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type.type;
+          } else if (typeof fieldObj.type[1].type === 'string' && !fieldObj.type[1].fields) {
+            concatName = concatName + '.' + fieldObj.type[1].name;
+            schemaArr.push(concatName);
+            typeArr[concatName] = fieldObj.type[1].type;
+          } else {
+            subRootName = concatName + '.' + fieldObj.type[1].name;
+            fieldObj.type[1].fields.forEach(function (subFieldObj) {
+              processSchemaChildren(subRootName, subFieldObj);
+            });
+          }
+        }
+      }
+
+      // Create typeahead-friendly array of fields
+      schemaData.fields.forEach(function (field) {
+        if (field.type.fields) {
+          concatNameRoot = field.name + '.' + field.type.name;
+          field.type.fields.forEach(function (fieldObj) {
+            processSchemaChildren(concatNameRoot, fieldObj);
+          });
+        } else {
+          concatName = field.name;
+          schemaArr.push(concatName);
+          typeArr[concatName] = typeof field.type === 'string' ? field.type : field.type[this.length];
+        }
+      });
+
+      schemaObj.fieldList = schemaArr;
+      schemaObj.typeArr = typeArr;
+
+      return {fieldList: schemaArr, typeList: typeArr};
+    }
+
+    const {fieldList, typeList} = processSchema(JSON.parse(params.dataset.schema));
+    controller.set('fieldList', fieldList);
+    controller.set('typeList', typeList);
+    controller.set('securitySpec', params.securitySpec);
+
+
     controller.set("hasProperty", false);
     if(params && params.id)
       {
@@ -494,9 +556,6 @@ App.DatasetRoute = Ember.Route.extend({
                     }
                 });
 
-    // Update securitySpec on controller initialization
-    this.get('controller.actions.getSecuritySpec').call(controller);
-
     var datasetDependsUrl = 'api/v1/datasets/' + id + "/depends";
     $.get(datasetDependsUrl, function(data) {
       if (data && data.status == "ok")
@@ -604,8 +663,14 @@ App.DatasetRoute = Ember.Route.extend({
           }
     });
   },
-  model: function(params) {
-    return Ember.$.getJSON('api/v1/datasets/' + params.id);
+
+  model: function ({id}) {
+    const resources = [
+      Ember.$.getJSON(`api/v1/datasets/${id}`),
+      Ember.$.getJSON(`api/v1/datasets/${id}/security`)
+    ];
+
+    return Promise.all(resources).then(([{dataset}, {securitySpec}]) => ({dataset, securitySpec}));
   },
   actions: {
     getSchema: function(){

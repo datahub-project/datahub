@@ -1055,17 +1055,92 @@
                             {{/each}}
                             </tbody>
                         </table>
+                        <div class="cta">
+                            <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                            <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+                        </div>
                     </section>
-        <div class="cta">
-            <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
-            <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
-        </div>
-      {{else}}
+                {{else}}
                     <h3>Compliance is not available</h3>
-      {{/if}}
-      </div>
+                {{/if}}
+            </div>
+        </script>
 
-    </script>
+        <script type="text/x-handlebars" id="components/dataset-confidential">
+            <div id="confidential">
+                {{#if securitySpec}}
+                    <label for="">Retention
+                        {{#ember-selector values=retentionTypes
+                                          selection=retention
+                                          selectionDidChange="updateRetentionType"}}
+                        {{/ember-selector}}
+                    </label>
+                    <label for="">Geographic Affinity
+                        {{#ember-selector values=affinityTypes
+                                          selection=geographicAffinity
+                                          selectionDidChange="updateGeographicAffinity"}}
+                        {{/ember-selector}}
+                    </label>
+                    <label for="">Record Owner Type
+                        {{#ember-selector values=recordOwnerTypes
+                                          selection=recordOwnerType
+                                          selectionDidChange="updateRecordOwnerType"}}
+                        {{/ember-selector}}
+                    </label>
+
+                    <input type="text"
+                           id="confidential-typeahead"
+                           class="form-control"
+                           placeholder="Search for field names...">
+                    <section class="typeahead-matches">
+                        {{#each matchingFields as |matchingField|}}
+                            {{#draggable-item content=matchingField class="draggable-match"}}
+                                {{matchingField}}
+                            {{/draggable-item}}
+                        {{/each}}
+                    </section>
+                    <section>
+                        <!-- TODO: Refactor as component -->
+                        <table>
+                            {{#each classification as |classifier|}}
+                                <tr>
+                                    <th>{{classifier.label}}</th>
+                                    <td>
+                                        {{#drop-region dropped="addToClassification" param=classifier.key}}
+                                            <ul>
+                                                {{#each classifier.values as |value|}}
+                                                    {{#if value}}
+                                                        <li>
+                                                            {{value}}
+                                                            <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                                                                {{action "removeFromClassification" value classifier.key
+                                                                         on='click'}}></i>
+                                                        </li>
+                                                    {{/if}}
+                                                {{/each}}
+                                            </ul>
+                                        {{/drop-region}}
+                                    </td>
+                                </tr>
+                            {{/each}}
+                        </table>
+                        <div class="cta">
+                            {{#if isApproved}}<!-- TODO: Add flag to component -->
+                                <button class="btn btn-primary" {{action 'disapproveCompliance'}}>
+                                    Remove Approval
+                                </button>
+                            {{else}}
+                                <button class="btn btn-primary" {{action 'approveCompliance'}}>Approve</button>
+                            {{/if}}
+                            <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                            <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+                        </div>
+                    </section>
+                {{else}}
+                    <h3>Confidential spec is not available</h3>
+                {{/if}}
+            </div>
+        </script>
 
     <script type="text/x-handlebars" id="components/schema-comment">
       <i
