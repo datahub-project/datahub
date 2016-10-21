@@ -234,8 +234,6 @@ App.DatasetImpactComponent = Ember.Component.extend({
 
 App.DatasetComplianceComponent = Ember.Component.extend({
   matchingFields: [],
-  fieldList: [],
-  typeList: [],
   complianceType: Ember.computed.alias('securitySpec.complianceType'),
 
   /**
@@ -251,94 +249,11 @@ App.DatasetComplianceComponent = Ember.Component.extend({
     });
   }),
 
-  init() {
-    this._super(...arguments);
-    this.fetchData();
-  },
-
   didRender() {
     const $typeahead = this.$('#compliance-typeahead');
     if ($typeahead.length) {
       this.enableTypeaheadOn($typeahead);
     }
-  },
-
-  fetchData() {
-    function processSchema(schemaData) {
-      var concatName,
-          schemaArr = [],
-          typeArr = [],
-          schemaObj = {};
-
-
-      function processSchemaChildren(rootName, fieldObj) {
-        var concatName,
-            subRootName;
-
-        concatName = rootName + '.' + fieldObj.name;
-        if (typeof fieldObj.type !== 'object') {
-          schemaArr.push(concatName);
-          typeArr[concatName] = fieldObj.type;
-        } else {
-          if (typeof fieldObj.type[1] === 'string') {
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type[1];
-          } else if (fieldObj.type.name) {
-            concatName = concatName + '.' + fieldObj.type.name;
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type.type;
-          } else if (typeof fieldObj.type[1].type === 'string' && !fieldObj.type[1].fields) {
-            concatName = concatName + '.' + fieldObj.type[1].name;
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type[1].type;
-          } else {
-            subRootName = concatName + '.' + fieldObj.type[1].name;
-            fieldObj.type[1].fields.forEach(function (subFieldObj) {
-              processSchemaChildren(subRootName, subFieldObj);
-            });
-          }
-        }
-      }
-
-      // Create typeahead-friendly array of fields
-      schemaData.fields.forEach(function (field) {
-        if (field.type.fields) {
-          concatNameRoot = field.name + '.' + field.type.name;
-          field.type.fields.forEach(function (fieldObj) {
-            processSchemaChildren(concatNameRoot, fieldObj);
-          });
-        } else {
-          concatName = field.name;
-          schemaArr.push(concatName);
-          typeArr[concatName] = typeof field.type === 'string' ? field.type : field.type[this.length];
-        }
-      });
-
-      schemaObj.fieldList = schemaArr;
-      schemaObj.typeArr = typeArr;
-
-      return {fieldList: schemaArr, typeList: typeArr};
-    }
-
-    return Promise.resolve(Ember.$.getJSON(`api/v1/datasets/${this.get('datasetId')}`))
-        .then(({dataset: {schema}}) => {
-          const {fieldList, typeList} = processSchema(JSON.parse(schema));
-          this.get('fieldList').setObjects(fieldList);
-          this.get('typeList').setObjects(typeList);
-        });
-  },
-
-  saveJson(data) {
-    const postRequest = {
-      type: 'POST',
-      url: `api/v1/datasets/${this.get('datasetId')}/security`,
-      data: JSON.stringify(data),
-      contentType: 'application/json'
-    };
-
-    // If the return_code is not 200 reject the Promise
-    return Promise.resolve(Ember.$.ajax(postRequest))
-        .then(({return_code}) => return_code === 200 ? arguments[0] : Promise.reject(return_code));
   },
 
   enableTypeaheadOn(selector) {
@@ -398,8 +313,90 @@ App.DatasetComplianceComponent = Ember.Component.extend({
     },
 
     saveCompliance () {
-      this.saveJson(this.get('securitySpec'));
+      this.get('onSave')();
+      return false;
+    },
 
+    // Rolls back changes made to the compliance spec to current
+    // server state
+    resetCompliance () {
+      this.get('onReset')();
+    }
+  }
+});
+
+App.DatasetConfidentialComponent = Ember.Component.extend({
+  matchingFields: [],
+  retention: Ember.computed.alias('securitySpec.retentionPolicy.retentionType'),
+  geographicAffinity: Ember.computed.alias('securitySpec.geographicAffinity.affinity'),
+  recordOwnerType: Ember.computed.alias('securitySpec.recordOwnerType'),
+
+  didRender() {
+    const $typeahead = this.$('#confidential-typeahead');
+    if ($typeahead.length) {
+      this.enableTypeaheadOn($typeahead);
+    }
+  },
+
+  enableTypeaheadOn(selector) {
+    selector.autocomplete({
+      source: request => {
+        const {term = ''} = request;
+        const matchingFields = $.ui.autocomplete.filter(this.get('fieldList'), term);
+        // Using setObject to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields);
+      }
+    });
+  },
+
+  get recordOwnerTypes() {
+    return ['MEMBER', 'CUSTOMER', 'JOINT', 'INTERNAL', 'COMPANY'].map(ownerType => ({
+      value: ownerType,
+      label: ownerType.toLowerCase().capitalize()
+    }));
+  },
+
+  get retentionTypes() {
+    return ['LIMITED', 'LEGAL_HOLD', 'UNLIMITED'].map(retention => ({
+      value: retention,
+      label: retention.replace('_', ' ').toLowerCase().capitalize()
+    }));
+  },
+
+  get affinityTypes() {
+    return ['LIMITED', 'EXCLUDED'].map(affinity => ({
+      value: affinity,
+      label: affinity.toLowerCase().capitalize()
+    }));
+  },
+
+  classification: Ember.computed('securitySpec.classification', function () {
+    const confidentialClassification = this.get('securitySpec.classification');
+    const classification = Object.keys(confidentialClassification);
+    const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
+
+    return classification.map(classifier => ({
+      key: classifier,
+      label: formatAsCapitalizedStringWithSpaces(classifier),
+      values: Ember.get(confidentialClassification, classifier)
+    }));
+  }),
+
+  actions: {
+    updateRetentionType({value}) {
+      this.set('securitySpec.retentionPolicy.retentionType', value);
+    },
+
+    updateGeographicAffinity({value}) {
+      this.set('securitySpec.geographicAffinity.affinity', value);
+    },
+
+    updateRecordOwnerType({value}) {
+      this.set('securitySpec.recordOwnerType', value);
+    },
+
+    saveCompliance () {
+      this.get('onSave')();
       return false;
     },
 
