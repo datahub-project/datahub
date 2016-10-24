@@ -1002,64 +1002,71 @@
         </script>
 
         <script type="text/x-handlebars" id="components/dataset-compliance">
-            <div id="compliance">
+            <div id="compliance" class="tab-body">
                 {{#if securitySpec}}
-                    <label class="ctitle">Compliance Type
+                    <label class="lbl">
+                        <span class="lbl__text">Compliance Type</span>
                         {{#ember-selector values=complianceTypes
                                           selected=complianceType
                                           selectionDidChange="updateComplianceType"}}
                         {{/ember-selector}}
                     </label>
 
-                    <input type="text"
-                           id="compliance-typeahead"
-                           class="form-control"
-                           placeholder="Search for field names...">
+                    <div class="field-search">
+                        <input type="text"
+                               id="compliance-typeahead"
+                               class="field-search__input form-control"
+                               placeholder="Search for field names...">
+                    </div>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField class="draggable-match"}}
+                            {{#draggable-item content=matchingField class="draggable__item"}}
                                 {{matchingField}}
                             {{/draggable-item}}
+                        {{else}}
+                            <span class="classification-list-help">No results found.</span>
                         {{/each}}
                     </section>
-                    <section class="purgeable-ids">
-                        <table class="purgeable-ids-table">
-                            <thead>
-                            <tr>
-                                <th>Purgeable Ids</th>
-                            </tr>
-                            </thead>
+                    <section class="drop-bucket panel panel-default">
+                        <div class="panel-heading">
+                            <h4>Purgeable Ids</h4>
+                            <sub>Add items by dragging to relevant cells below</sub>
+                        </div>
+                        <table class="table table-bordered">
                             <tbody>
                             {{#each purgeEntities as |purgeableId|}}
                                 <tr>
                                     <th>{{purgeableId.identifierType}}</th>
-                                    <td>
+                                    <td class="drop-bucket__td">
                                         {{#drop-region dropped="addPurgeId" param=purgeableId.identifierType}}
-                                            <ul class="purgeable-ids-list">
-                                                {{#each purgeableId.identifierField as |field|}}
-                                                    {{#if field}}
-                                                        <li>
-                                                            {{field}}
-                                                            <i class="glyphicon glyphicon-remove"
-                                                                {{action 'removePurgeId' field
-                                                                         purgeableId.identifierType
-                                                                         on='click'}}
-                                                               aria-hidden="true"></i>
-                                                        </li>
-                                                    {{/if}}
-                                                {{/each}}
-                                            </ul>
+                                            {{#if purgeableId.identifierField}}
+                                                <ul class="drop-bucket__ul">
+                                                    {{#each purgeableId.identifierField as |field|}}
+                                                        {{#if field}}
+                                                            <li class="draggable__item">
+                                                                {{field}}
+                                                                <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                                                                    {{action 'removePurgeId' field
+                                                                             purgeableId.identifierType
+                                                                             on='click'}}></i>
+                                                            </li>
+                                                        {{/if}}
+                                                    {{/each}}
+                                                </ul>
+                                            {{else}}
+                                                <span class="classification-list-help">Drag relevant search result items here...</span>
+                                            {{/if}}
                                         {{/drop-region}}
                                     </td>
                                 </tr>
                             {{/each}}
                             </tbody>
                         </table>
-                        <div class="cta">
-                            <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
-                            <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
-                        </div>
                     </section>
+                    <div class="cta">
+                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                        <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+                    </div>
                 {{else}}
                     <h3>Compliance is not available</h3>
                 {{/if}}
@@ -1067,75 +1074,93 @@
         </script>
 
         <script type="text/x-handlebars" id="components/dataset-confidential">
-            <div id="confidential">
+            <div id="confidential" class="tab-body">
                 {{#if securitySpec}}
-                    <label for="">Retention
+                    <label class="lbl">
+                        <span class="lbl__text">Retention</span>
                         {{#ember-selector values=retentionTypes
                                           selection=retention
                                           selectionDidChange="updateRetentionType"}}
                         {{/ember-selector}}
                     </label>
-                    <label for="">Geographic Affinity
+                    <label class="lbl">
+                        <span class="lbl__text">Geographic Affinity</span>
                         {{#ember-selector values=affinityTypes
                                           selection=geographicAffinity
                                           selectionDidChange="updateGeographicAffinity"}}
                         {{/ember-selector}}
                     </label>
-                    <label for="">Record Owner Type
+                    <label class="lbl">
+                        <span class="lbl__text">Record Owner Type</span>
                         {{#ember-selector values=recordOwnerTypes
                                           selection=recordOwnerType
                                           selectionDidChange="updateRecordOwnerType"}}
                         {{/ember-selector}}
                     </label>
 
-                    <input type="text"
-                           id="confidential-typeahead"
-                           class="form-control"
-                           placeholder="Search for field names...">
+                    <div class="field-search">
+                        <input type="text"
+                               id="confidential-typeahead"
+                               class="field-search__input form-control"
+                               placeholder="Search for field names...">
+                    </div>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField class="draggable-match"}}
+                            {{#draggable-item content=matchingField class="draggable__item"}}
                                 {{matchingField}}
                             {{/draggable-item}}
+                        {{else}}
+                            <span class="classification-list-help">No results found.</span>
                         {{/each}}
                     </section>
-                    <section>
+                    <section class="drop-bucket panel panel-default">
                         <!-- TODO: Refactor as component -->
-                        <table>
+                        <div class="panel-heading">
+                            <h4>Confidential Classification</h4>
+                            <sub>Add items by dragging to relevant cells below</sub>
+                        </div>
+                        <table class="table table-bordered">
+                            <tbody>
                             {{#each classification as |classifier|}}
                                 <tr>
                                     <th>{{classifier.label}}</th>
-                                    <td>
+                                    <td class="drop-bucket__td">
                                         {{#drop-region dropped="addToClassification" param=classifier.key}}
-                                            <ul>
-                                                {{#each classifier.values as |value|}}
-                                                    {{#if value}}
-                                                        <li>
-                                                            {{value}}
-                                                            <i class="glyphicon glyphicon-remove" aria-hidden="true"
-                                                                {{action "removeFromClassification" value classifier.key
-                                                                         on='click'}}></i>
-                                                        </li>
-                                                    {{/if}}
-                                                {{/each}}
-                                            </ul>
+                                            {{#if classifier.values}}
+                                                <ul class="drop-bucket__ul">
+                                                    {{#each classifier.values as |value|}}
+                                                        {{#if value}}
+                                                            <li class="draggable__item">
+                                                                {{value}}
+                                                                <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                                                                    {{action "removeFromClassification" value
+                                                                             classifier.key
+                                                                             on='click'}}></i>
+                                                            </li>
+                                                        {{/if}}
+                                                    {{/each}}
+                                                </ul>
+                                            {{else}}
+                                                <span class="classification-list-help">Drag relevant search result items here...</span>
+                                            {{/if}}
                                         {{/drop-region}}
                                     </td>
                                 </tr>
                             {{/each}}
+                            </tbody>
                         </table>
-                        <div class="cta">
-                            {{#if isApproved}}<!-- TODO: Add flag to component -->
-                                <button class="btn btn-primary" {{action 'disapproveCompliance'}}>
-                                    Remove Approval
-                                </button>
-                            {{else}}
-                                <button class="btn btn-primary" {{action 'approveCompliance'}}>Approve</button>
-                            {{/if}}
-                            <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
-                            <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
-                        </div>
                     </section>
+                    <div class="cta">
+                        {{#if isApproved}}<!-- TODO: Add flag to component -->
+                            <button class="btn btn-primary" {{action 'disapproveCompliance'}}>
+                                Remove Approval
+                            </button>
+                        {{else}}
+                            <button class="btn btn-primary" {{action 'approveCompliance'}}>Approve</button>
+                        {{/if}}
+                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                        <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+                    </div>
                 {{else}}
                     <h3>Confidential spec is not available</h3>
                 {{/if}}

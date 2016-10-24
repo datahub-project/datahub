@@ -388,7 +388,19 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
     }));
   }),
 
+  _toggleOnClassification(classifier, key, operation) {
+    this.get(`securitySpec.classification.${key}`)[`${operation}Object`](classifier);
+  },
+
   actions: {
+    addToClassification(classifier, classifierKey) {
+      this._toggleOnClassification(classifier, classifierKey, `add`);
+    },
+
+    removeFromClassification(classifier, classifierKey) {
+      this._toggleOnClassification(classifier, classifierKey, `remove`);
+    },
+
     updateRetentionType({value}) {
       this.set('securitySpec.retentionPolicy.retentionType', value);
     },
@@ -404,6 +416,12 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
     saveCompliance () {
       this.get('onSave')();
       return false;
+    },
+    approveCompliance () {
+      //TODO: not implemented
+    },
+    disapproveCompliance () {
+      //TODO: not implemented
     },
 
     // Rolls back changes made to the compliance spec to current
