@@ -248,10 +248,25 @@ App.DatasetComplianceComponent = Ember.Component.extend({
    * UI on updates
    */
   purgeEntities: Ember.computed('securitySpec.compliancePurgeEntities.@each.identifierField', function () {
-    return this.get('securitySpec.compliancePurgeEntities').map(entity => {
-      let _entity = Object.assign({}, entity);
-      _entity.identifierField = _entity.identifierField.split(',');
-      return _entity;
+    const compliancePurgeEntities = this.get('securitySpec.compliancePurgeEntities');
+    // Type ENUM is locally saved in the client.
+    // The user is able to add a values to the identifier types that are not provided in the schema returned by the server.
+    // Values are manually extracted from Nuage schema at develop time
+    const purgeableEntityFieldIdentifierTypes = [
+      'MEMBER_ID', 'SUBJECT_MEMBER_ID', 'URN', 'SUBJECT_URN', 'COMPANY_ID', 'GROUP_ID', 'CUSTOMER_ID'
+    ];
+
+    // Create an object list for each purgeableEntityFieldIdentifier with a mapping to label and identifierField value
+    return purgeableEntityFieldIdentifierTypes.map(identifierType => {
+      // Find entity with matching identifierType that has been remotely persisted
+      const savedPurgeEntity = compliancePurgeEntities.filterBy('identifierType', identifierType).shift();
+      const label = identifierType.replace(/_/g, ' ').toLowerCase().capitalize();
+
+      return {
+        identifierType,
+        label,
+        identifierField: savedPurgeEntity ? savedPurgeEntity.identifierField.split(',') : []
+      };
     });
   }),
 
@@ -279,30 +294,58 @@ App.DatasetComplianceComponent = Ember.Component.extend({
    * @param {string} id value representing the identifierType
    * @returns {*}
    */
-  getPurgeEntity (id) {
+  getPurgeEntity(id) {
     // There should be only one match in the resulting array
     return this.get('securitySpec.compliancePurgeEntities')
-        .filter(purgeEntity => purgeEntity.identifierType === id)
+        .filterBy('identifierType', id)
         .get('firstObject');
+  },
+
+  addPurgeEntityToComplianceEntities(identifierType) {
+    return this.get('securitySpec.compliancePurgeEntities').addObject({identifierType, identifierField: ''});
   },
 
   /**
    * Internal abstraction for adding and removing an Id from an identifierField
-   * @param {string} name name of identifier to add/remove from identifier type
+   * @param {string} fieldValue name of identifier to add/remove from identifier type
    * @param {string} idType the identifierType for a compliancePurgeEntity
    * @param {string} toggleOperation string representing the operation to be performed
+   * @returns {boolean|*} true on success
    * @private
    */
-  _togglePurgeIdOnIdentifierField (name, idType, toggleOperation) {
-    const operations = ['add', 'remove'];
-    const purgeEntity = this.getPurgeEntity(idType);
-    const currentId = purgeEntity.identifierField;
-    if (!operations.includes(toggleOperation)) {
-      return;
+  _togglePurgeIdOnIdentifierField(fieldValue, idType, toggleOperation) {
+    function updateIdentifierFieldOn(entity, updatedValue) {
+      return Ember.set(entity, 'identifierField', updatedValue);
     }
-    const updatedIds = currentId.split(',')[`${toggleOperation}Object`](name).join(',');
 
-    Ember.set(purgeEntity, 'identifierField', updatedIds);
+    const op = {
+      /**
+       * Adds the fieldValue to the specified idType if available, otherwise creates a new compliancePurgeEntity
+       * @param purgeableEntityField
+       * @returns {*|Object} the updated compliancePurgeEntity
+       */
+      add: (purgeableEntityField = this.addPurgeEntityToComplianceEntities(idType)) => {
+        const currentId = purgeableEntityField.identifierField;
+        const updatedIds = currentId.length ? currentId.split(',').addObject(fieldValue).join(',') : fieldValue;
+
+        return updateIdentifierFieldOn(purgeableEntityField, updatedIds);
+      },
+      /**
+       * Removes the fieldValue from the specified idType if available, otherwise function is no-op
+       * @param purgeableEntityField
+       * @returns {*|Object} the updated compliancePurgeEntity
+       */
+      remove: (purgeableEntityField) => {
+        if (purgeableEntityField) {
+          const currentId = purgeableEntityField.identifierField;
+          const updatedIds = currentId.length ? currentId.split(',').removeObject(fieldValue).join(',') : '';
+
+          return updateIdentifierFieldOn(purgeableEntityField, updatedIds);
+        }
+      }
+    }[toggleOperation];
+
+    return typeof op === 'function' && op(this.getPurgeEntity(idType));
   },
 
   actions: {
