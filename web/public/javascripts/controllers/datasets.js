@@ -142,12 +142,6 @@ App.DatasetController = Ember.Controller.extend({
     latestVersion:'0',
     ownerTypes: [],
     userTypes: [{name:"Corporate User", value: "urn:li:corpuser"}, {name:"Group User", value: "urn:li:griduser"}],
-    complianceTypes: [
-        {label: 'Custom Purge', value: 'CUSTOM_PURGE'},
-        {label: 'Auto Purge', value: 'AUTO_PURGE'},
-        {label: 'Retention Purge', value: 'RETENTION_PURGE'},
-        {label: 'Not Applicable', value: 'NOT_APPLICABLE'}
-    ],
     isPinot: function(){
         var model = this.get("model");
         if (model)

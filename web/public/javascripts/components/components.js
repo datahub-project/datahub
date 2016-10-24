@@ -235,6 +235,12 @@ App.DatasetImpactComponent = Ember.Component.extend({
 App.DatasetComplianceComponent = Ember.Component.extend({
   matchingFields: [],
   complianceType: Ember.computed.alias('securitySpec.complianceType'),
+  get complianceTypes() {
+    return ['CUSTOM_PURGE', 'AUTO_PURGE', 'RETENTION_PURGE', 'NOT_APPLICABLE'].map(complianceType => ({
+      value: complianceType,
+      label: complianceType.replace('_', ' ').toLowerCase().capitalize()
+    }))
+  },
 
   /**
    * Aliases compliancePurgeEntities on securitySpec, and transforms each nested comma-delimited identifierField string
