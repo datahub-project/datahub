@@ -1398,7 +1398,7 @@
                             <tbody>
                             {{#each purgeEntities as |purgeableId|}}
                                 <tr>
-                                    <th>{{purgeableId.identifierType}}</th>
+                                    <th>{{purgeableId.label}}</th>
                                     <td class="drop-bucket__td">
                                         {{#drop-region dropped="addPurgeId" param=purgeableId.identifierType}}
                                             {{#if purgeableId.identifierField}}
