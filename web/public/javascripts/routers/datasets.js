@@ -228,40 +228,34 @@ App.DatasetRoute = Ember.Route.extend({
       // Flatten nested structure if present
       return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
     };
-
-    controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(params.dataset.schema));
-    controller.set('securitySpec', params.securitySpec);
-
-
     controller.set("hasProperty", false);
-    if(params && params.id)
-      {
-        id = params.id;
-        source = params.source;
-        urn = params.urn;
-        name = params.name;
-        datasetController.set("detailview", true);
-        if (params.originalSchema)
-        {
-          Ember.set(params, 'schema', params.originalSchema);
-        }
-        controller.set('model', params);
 
+
+    if (params && params.id) {
+      ({id, source, urn, name} = params);
+      let originalSchema = params;
+
+      datasetController.set('detailview', true);
+      if (originalSchema) {
+        Ember.set(params, 'schema', originalSchema);
       }
-      else {
-        if (params.dataset)
-          {
-            id = params.dataset.id;
-            source = params.dataset.source;
-            urn = params.dataset.urn;
-            name = params.dataset.name;
-            controller.set('model', params.dataset);
-            datasetController.set("detailview", true);
-          }
-      }
+
+      controller.set('model', params);
+    } else if (params.dataset) {
+      ({dataset: {id, source, urn, name}} = params);
+
+      controller.set('model', params.dataset);
+      datasetController.set('detailview', true);
+    }
 
     controller.set('datasetId', id);
-      var instanceUrl = 'api/v1/datasets/' + id + "/instances";
+    if (params.dataset.schema || params.schema) {
+      let {schema} = params.dataset || params;
+      controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
+      controller.set('securitySpec', params.securitySpec);
+    }
+
+    var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
         if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
           controller.set("hasinstances", true);
