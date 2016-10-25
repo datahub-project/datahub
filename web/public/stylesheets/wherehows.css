@@ -615,14 +615,17 @@ ul.breadcrumbs a {
     width: 70%;
 }
 
+.drop-bucket__td .activated {
+    background-color: #f0f8ff;
+}
+
 .drop-bucket__ul {
     margin: 0;
     padding: 0;
 }
 
 .draggable__item {
-    -ms-text-overflow: ellipsis;
-    text-overflow: ellipsis;
+    overflow: hidden;
     width: 140px;
     list-style-type: none;
     display: inline-block;
@@ -648,9 +651,23 @@ ul.breadcrumbs a {
 
 .classification-list-help {
     color: #8699A4;
+    margin: 5px;
 }
 
 .typeahead-matches {
     width: 700px;
     padding: 20px 5px;
+}
+
+.match-pill__data-type {
+    display: inline-block;
+    width: 100%;
+}
+
+.match-pill__value {
+    display: inline-block;
+    width: 100%;
+    -ms-text-overflow: ellipsis;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
