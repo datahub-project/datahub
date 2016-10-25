@@ -242,6 +242,11 @@ App.DatasetComplianceComponent = Ember.Component.extend({
     }))
   },
 
+  // Cached list of dataset field names
+  datasetSchemaFieldNames: Ember.computed('datasetSchemaFieldsAndTypes', function () {
+    return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
+  }),
+
   /**
    * Aliases compliancePurgeEntities on securitySpec, and transforms each nested comma-delimited identifierField string
    * into an array of fields that can easily be iterated over. Dependency on each identifierField will update
@@ -281,10 +286,18 @@ App.DatasetComplianceComponent = Ember.Component.extend({
     selector.autocomplete({
       source: request => {
         const {term = ''} = request;
-        const matchingFields = $.ui.autocomplete.filter(this.get('fieldList'), term);
-        // Using setObject to reuse the previous matchingFields array
-        this.get('matchingFields').setObjects(matchingFields);
-        // response(matchingFields);
+        const datasetSchemaFieldsAndTypes = this.get('datasetSchemaFieldsAndTypes');
+        const matchingFields = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), term);
+        // Using setObjects to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields.map(value => {
+          const {type} = datasetSchemaFieldsAndTypes.filterBy('name', value).get('firstObject');
+          const dataType = Array.isArray(type) && type.toString().toUpperCase();
+
+          return {
+            value,
+            dataType
+          };
+        }));
       }
     });
   },
@@ -302,7 +315,8 @@ App.DatasetComplianceComponent = Ember.Component.extend({
   },
 
   addPurgeEntityToComplianceEntities(identifierType) {
-    return this.get('securitySpec.compliancePurgeEntities').addObject({identifierType, identifierField: ''});
+    this.get('securitySpec.compliancePurgeEntities').addObject({identifierType, identifierField: ''});
+    return this.getPurgeEntity(identifierType);
   },
 
   /**
@@ -379,6 +393,9 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
   retention: Ember.computed.alias('securitySpec.retentionPolicy.retentionType'),
   geographicAffinity: Ember.computed.alias('securitySpec.geographicAffinity.affinity'),
   recordOwnerType: Ember.computed.alias('securitySpec.recordOwnerType'),
+  datasetSchemaFieldNames: Ember.computed('datasetSchemaFieldsAndTypes', function () {
+    return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
+  }),
 
   didRender() {
     const $typeahead = this.$('#confidential-typeahead');
@@ -391,9 +408,18 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
     selector.autocomplete({
       source: request => {
         const {term = ''} = request;
-        const matchingFields = $.ui.autocomplete.filter(this.get('fieldList'), term);
-        // Using setObject to reuse the previous matchingFields array
-        this.get('matchingFields').setObjects(matchingFields);
+        const datasetSchemaFieldsAndTypes = this.get('datasetSchemaFieldsAndTypes');
+        const matchingFields = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), term);
+        // Using setObjects to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields.map(value => {
+          const {type} = datasetSchemaFieldsAndTypes.filterBy('name', value).get('firstObject');
+          const dataType = Array.isArray(type) && type.toString().toUpperCase();
+
+          return {
+            value,
+            dataType
+          };
+        }));
       }
     });
   },
@@ -421,10 +447,9 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
 
   classification: Ember.computed('securitySpec.classification', function () {
     const confidentialClassification = this.get('securitySpec.classification');
-    const classification = Object.keys(confidentialClassification);
     const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
-    return classification.map(classifier => ({
+    return Object.keys(confidentialClassification).map(classifier => ({
       key: classifier,
       label: formatAsCapitalizedStringWithSpaces(classifier),
       values: Ember.get(confidentialClassification, classifier)
