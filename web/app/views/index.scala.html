@@ -736,16 +736,14 @@
           </div>
             <div id="compliancetab" class="tab-pane">
                 {{#dataset-compliance securitySpec=securitySpec
-                                      fieldList=fieldList
-                                      typeList=typeList
+                                      datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
                                       onSave=(action "saveSecuritySpec")
                                       onReset=(action "getSecuritySpec")}}
                 {{/dataset-compliance}}
             </div>
             <div id="confidentialtab" class="tab-pane">
                 {{#dataset-confidential securitySpec=securitySpec
-                                        fieldList=fieldList
-                                        typeList=typeList
+                                        datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
                                         onSave=(action "saveSecuritySpec")
                                         onReset=(action "getSecuritySpec")}}
                 {{/dataset-confidential}}
@@ -911,8 +909,7 @@
           </div>
           <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
               <div class="panel-body">
-                  {{#dataset-compliance fieldList=fieldList
-                                        typeList=typeList
+                  {{#dataset-compliance datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
                                         securitySpec=securitySpec
                                         onSave=(action "saveSecuritySpec")
                                         onReset=(action "getSecuritySpec")}}
@@ -934,8 +931,7 @@
                    aria-labelledby="confidentialHeading">
                   <div class="panel-body">
                       {{#dataset-confidential securitySpec=securitySpec
-                                              fieldList=fieldList
-                                              typeList=typeList
+                                              datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
                                               onSave=(action "saveSecuritySpec")
                                               onReset=(action "getSecuritySpec")}}
                       {{/dataset-confidential}}
