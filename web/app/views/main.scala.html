@@ -1382,8 +1382,11 @@
                     </div>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField class="draggable__item"}}
-                                {{matchingField}}
+                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                                <span class="match-pill__value">{{matchingField.value}}</span>
+                                {{#if matchingField.dataType}}
+                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                {{/if}}
                             {{/draggable-item}}
                         {{else}}
                             <span class="classification-list-help">No results found.</span>
@@ -1468,8 +1471,11 @@
                     </div>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField class="draggable__item"}}
-                                {{matchingField}}
+                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                                <span class="match-pill__value">{{matchingField.value}}</span>
+                                {{#if matchingField.dataType}}
+                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                {{/if}}
                             {{/draggable-item}}
                         {{else}}
                             <span class="classification-list-help">No results found.</span>
