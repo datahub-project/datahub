@@ -154,10 +154,12 @@ App.DatasetRoute = Ember.Route.extend({
       // Flatten nested structure if present
       return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
     };
+    controller.set("hasProperty", false);
 
-    controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(params.dataset.schema));
-    controller.set('securitySpec', params.securitySpec);
 
+    if (params && params.id) {
+      ({id, source, urn, name} = params);
+      let originalSchema = params;
 
     controller.set("hasProperty", false);
 
