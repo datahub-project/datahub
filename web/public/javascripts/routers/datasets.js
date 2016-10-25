@@ -134,65 +134,28 @@ App.DatasetRoute = Ember.Route.extend({
     var urn = '';
     var name = '';
 
-    function processSchema(schemaData) {
-      var concatName,
-          schemaArr = [],
-          typeArr = [],
-          schemaObj = {};
-
-
-      function processSchemaChildren(rootName, fieldObj) {
-        var concatName,
-            subRootName;
-
-        concatName = rootName + '.' + fieldObj.name;
-        if (typeof fieldObj.type !== 'object') {
-          schemaArr.push(concatName);
-          typeArr[concatName] = fieldObj.type;
-        } else {
-          if (typeof fieldObj.type[1] === 'string') {
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type[1];
-          } else if (fieldObj.type.name) {
-            concatName = concatName + '.' + fieldObj.type.name;
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type.type;
-          } else if (typeof fieldObj.type[1].type === 'string' && !fieldObj.type[1].fields) {
-            concatName = concatName + '.' + fieldObj.type[1].name;
-            schemaArr.push(concatName);
-            typeArr[concatName] = fieldObj.type[1].type;
-          } else {
-            subRootName = concatName + '.' + fieldObj.type[1].name;
-            fieldObj.type[1].fields.forEach(function (subFieldObj) {
-              processSchemaChildren(subRootName, subFieldObj);
-            });
-          }
+    /**
+     * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
+     * @param {JSON} schema
+     * @returns {Array.<*>}
+     */
+    const getFieldNamesAndTypesFrom = schema => {
+      const getFieldTypeSet = ({fields} = {fields: []}) => fields.map(({name, type: [firstType, ...type], fields}) => {
+        if (fields) {
+          return getFieldTypeSet({fields});
         }
-      }
 
-      // Create typeahead-friendly array of fields
-      schemaData.fields.forEach(function (field) {
-        if (field.type.fields) {
-          concatNameRoot = field.name + '.' + field.type.name;
-          field.type.fields.forEach(function (fieldObj) {
-            processSchemaChildren(concatNameRoot, fieldObj);
-          });
-        } else {
-          concatName = field.name;
-          schemaArr.push(concatName);
-          typeArr[concatName] = typeof field.type === 'string' ? field.type : field.type[this.length];
-        }
+        return {
+          name,
+          type: firstType === 'null' ? type : [firstType, ...type]
+        };
       });
 
-      schemaObj.fieldList = schemaArr;
-      schemaObj.typeArr = typeArr;
+      // Flatten nested structure if present
+      return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
+    };
 
-      return {fieldList: schemaArr, typeList: typeArr};
-    }
-
-    const {fieldList, typeList} = processSchema(JSON.parse(params.dataset.schema));
-    controller.set('fieldList', fieldList);
-    controller.set('typeList', typeList);
+    controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(params.dataset.schema));
     controller.set('securitySpec', params.securitySpec);
 
 
