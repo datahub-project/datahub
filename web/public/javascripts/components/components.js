@@ -73,20 +73,86 @@ function setOwnerNameAutocomplete(controller)
 }
 
 App.EmberSelectorComponent = Ember.Component.extend({
-  init: function() {
-    this._super();
-    var values = this.get('values');
-    var selected = this.get('selected');
-    var renderValues = [];
-    if (values && values.length > 0)
-    {
-      for(var i = 0; i < values.length; i++)
-      {
-        renderValues.push({'value': values[i], 'isSelected': values[i] === selected});
+  class: 'form-control',
+  content: [],
+
+  init() {
+    this._super(...arguments);
+    this.updateContent();
+  },
+
+  onSelectionChanged: Ember.observer('selected', function () {
+    this.updateContent();
+  }),
+
+  /**
+   * Parse and transform the values list into a list of objects with the currently
+   * selected option flagged as `isSelected`
+   */
+  updateContent() {
+    let selected = this.get('selected') || '';
+    selected && (selected = String(selected).toLowerCase());
+
+    const options = this.get('values') || [];
+    const content = options.map(option => {
+      if (typeof option === 'object' && typeof option.value !== 'undefined') {
+        const isSelected = String(option.value).toLowerCase() === selected;
+        return {value: option.value, label: option.label, isSelected};
       }
 
+      return {value: option, isSelected: String(option).toLowerCase() === selected};
+    });
+
+    this.set('content', content);
+  },
+
+  actions: {
+    // Reflect UI changes in the component and bubble the `selectionDidChange` action
+    change() {
+      const {selectedIndex} = this.$('select')[0];
+      const values = this.get('values');
+      const _selected = values[selectedIndex];
+      const selected = typeof _selected.value !== 'undefined' ? _selected.value : _selected;
+
+      this.set('selected', selected);
+
+      this.sendAction('selectionDidChange', _selected);
     }
-    this.set('renderValues', renderValues);
+  }
+});
+
+// Component  wrapper for a droppable DOM region
+App.DropRegionComponent = Ember.Component.extend({
+  classNames: ['drop-region'],
+  classNameBindings: ['dragClass'],
+  dragClass: 'deactivated',
+
+  dragLeave(e) {
+    e.preventDefault();
+    this.set('dragClass', 'deactivated');
+  },
+
+  dragOver(e) {
+    e.preventDefault();
+    this.set('dragClass', 'activated');
+  },
+
+  drop (e) {
+    const data = e.dataTransfer.getData('text/data');
+    this.sendAction('dropped', data, this.get('param'));
+    this.set('dragClass', 'deactivated');
+  }
+});
+
+// Component wrapper for a draggable item
+App.DraggableItemComponent = Ember.Component.extend({
+  tagName: 'span',
+  classNames: ['draggable-item'],
+  attributeBindings: ['draggable'],
+  draggable: 'true',
+
+  dragStart(e) {
+    return e.dataTransfer.setData('text/data', this.get('content'));
   }
 });
 
@@ -167,6 +233,271 @@ App.DatasetImpactComponent = Ember.Component.extend({
 });
 
 App.DatasetComplianceComponent = Ember.Component.extend({
+  matchingFields: [],
+  complianceType: Ember.computed.alias('securitySpec.complianceType'),
+  get complianceTypes() {
+    return ['CUSTOM_PURGE', 'AUTO_PURGE', 'RETENTION_PURGE', 'NOT_APPLICABLE'].map(complianceType => ({
+      value: complianceType,
+      label: complianceType.replace('_', ' ').toLowerCase().capitalize()
+    }))
+  },
+
+  // Cached list of dataset field names
+  datasetSchemaFieldNames: Ember.computed('datasetSchemaFieldsAndTypes', function () {
+    return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
+  }),
+
+  /**
+   * Aliases compliancePurgeEntities on securitySpec, and transforms each nested comma-delimited identifierField string
+   * into an array of fields that can easily be iterated over. Dependency on each identifierField will update
+   * UI on updates
+   */
+  purgeEntities: Ember.computed('securitySpec.compliancePurgeEntities.@each.identifierField', function () {
+    const compliancePurgeEntities = this.get('securitySpec.compliancePurgeEntities');
+    // Type ENUM is locally saved in the client.
+    // The user is able to add a values to the identifier types that are not provided in the schema returned by the server.
+    // Values are manually extracted from Nuage schema at develop time
+    const purgeableEntityFieldIdentifierTypes = [
+      'MEMBER_ID', 'SUBJECT_MEMBER_ID', 'URN', 'SUBJECT_URN', 'COMPANY_ID', 'GROUP_ID', 'CUSTOMER_ID'
+    ];
+
+    // Create an object list for each purgeableEntityFieldIdentifier with a mapping to label and identifierField value
+    return purgeableEntityFieldIdentifierTypes.map(identifierType => {
+      // Find entity with matching identifierType that has been remotely persisted
+      const savedPurgeEntity = compliancePurgeEntities.filterBy('identifierType', identifierType).shift();
+      const label = identifierType.replace(/_/g, ' ').toLowerCase().capitalize();
+
+      return {
+        identifierType,
+        label,
+        identifierField: savedPurgeEntity ? savedPurgeEntity.identifierField.split(',') : []
+      };
+    });
+  }),
+
+  didRender() {
+    const $typeahead = this.$('#compliance-typeahead');
+    if ($typeahead.length) {
+      this.enableTypeaheadOn($typeahead);
+    }
+  },
+
+  enableTypeaheadOn(selector) {
+    selector.autocomplete({
+      source: request => {
+        const {term = ''} = request;
+        const datasetSchemaFieldsAndTypes = this.get('datasetSchemaFieldsAndTypes');
+        const matchingFields = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), term);
+        // Using setObjects to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields.map(value => {
+          const {type} = datasetSchemaFieldsAndTypes.filterBy('name', value).get('firstObject');
+          const dataType = Array.isArray(type) && type.toString().toUpperCase();
+
+          return {
+            value,
+            dataType
+          };
+        }));
+      }
+    });
+  },
+
+  /**
+   * Returns a compliancePurgeEntity matching the given Id.
+   * @param {string} id value representing the identifierType
+   * @returns {*}
+   */
+  getPurgeEntity(id) {
+    // There should be only one match in the resulting array
+    return this.get('securitySpec.compliancePurgeEntities')
+        .filterBy('identifierType', id)
+        .get('firstObject');
+  },
+
+  addPurgeEntityToComplianceEntities(identifierType) {
+    this.get('securitySpec.compliancePurgeEntities').addObject({identifierType, identifierField: ''});
+    return this.getPurgeEntity(identifierType);
+  },
+
+  /**
+   * Internal abstraction for adding and removing an Id from an identifierField
+   * @param {string} fieldValue name of identifier to add/remove from identifier type
+   * @param {string} idType the identifierType for a compliancePurgeEntity
+   * @param {string} toggleOperation string representing the operation to be performed
+   * @returns {boolean|*} true on success
+   * @private
+   */
+  _togglePurgeIdOnIdentifierField(fieldValue, idType, toggleOperation) {
+    function updateIdentifierFieldOn(entity, updatedValue) {
+      return Ember.set(entity, 'identifierField', updatedValue);
+    }
+
+    const op = {
+      /**
+       * Adds the fieldValue to the specified idType if available, otherwise creates a new compliancePurgeEntity
+       * @param purgeableEntityField
+       * @returns {*|Object} the updated compliancePurgeEntity
+       */
+      add: (purgeableEntityField = this.addPurgeEntityToComplianceEntities(idType)) => {
+        const currentId = purgeableEntityField.identifierField;
+        const updatedIds = currentId.length ? currentId.split(',').addObject(fieldValue).join(',') : fieldValue;
+
+        return updateIdentifierFieldOn(purgeableEntityField, updatedIds);
+      },
+      /**
+       * Removes the fieldValue from the specified idType if available, otherwise function is no-op
+       * @param purgeableEntityField
+       * @returns {*|Object} the updated compliancePurgeEntity
+       */
+      remove: (purgeableEntityField) => {
+        if (purgeableEntityField) {
+          const currentId = purgeableEntityField.identifierField;
+          const updatedIds = currentId.length ? currentId.split(',').removeObject(fieldValue).join(',') : '';
+
+          return updateIdentifierFieldOn(purgeableEntityField, updatedIds);
+        }
+      }
+    }[toggleOperation];
+
+    return typeof op === 'function' && op(this.getPurgeEntity(idType));
+  },
+
+  actions: {
+    addPurgeId(name, idType) {
+      this._togglePurgeIdOnIdentifierField(name, idType, `add`);
+    },
+
+    removePurgeId(name, idType) {
+      this._togglePurgeIdOnIdentifierField(name, idType, `remove`);
+    },
+
+    updateComplianceType ({value}) {
+      this.set('securitySpec.complianceType', value);
+    },
+
+    saveCompliance () {
+      this.get('onSave')();
+      return false;
+    },
+
+    // Rolls back changes made to the compliance spec to current
+    // server state
+    resetCompliance () {
+      this.get('onReset')();
+    }
+  }
+});
+
+App.DatasetConfidentialComponent = Ember.Component.extend({
+  matchingFields: [],
+  retention: Ember.computed.alias('securitySpec.retentionPolicy.retentionType'),
+  geographicAffinity: Ember.computed.alias('securitySpec.geographicAffinity.affinity'),
+  recordOwnerType: Ember.computed.alias('securitySpec.recordOwnerType'),
+  datasetSchemaFieldNames: Ember.computed('datasetSchemaFieldsAndTypes', function () {
+    return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
+  }),
+
+  didRender() {
+    const $typeahead = this.$('#confidential-typeahead');
+    if ($typeahead.length) {
+      this.enableTypeaheadOn($typeahead);
+    }
+  },
+
+  enableTypeaheadOn(selector) {
+    selector.autocomplete({
+      source: request => {
+        const {term = ''} = request;
+        const datasetSchemaFieldsAndTypes = this.get('datasetSchemaFieldsAndTypes');
+        const matchingFields = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), term);
+        // Using setObjects to reuse the previous matchingFields array
+        this.get('matchingFields').setObjects(matchingFields.map(value => {
+          const {type} = datasetSchemaFieldsAndTypes.filterBy('name', value).get('firstObject');
+          const dataType = Array.isArray(type) && type.toString().toUpperCase();
+
+          return {
+            value,
+            dataType
+          };
+        }));
+      }
+    });
+  },
+
+  get recordOwnerTypes() {
+    return ['MEMBER', 'CUSTOMER', 'JOINT', 'INTERNAL', 'COMPANY'].map(ownerType => ({
+      value: ownerType,
+      label: ownerType.toLowerCase().capitalize()
+    }));
+  },
+
+  get retentionTypes() {
+    return ['LIMITED', 'LEGAL_HOLD', 'UNLIMITED'].map(retention => ({
+      value: retention,
+      label: retention.replace('_', ' ').toLowerCase().capitalize()
+    }));
+  },
+
+  get affinityTypes() {
+    return ['LIMITED', 'EXCLUDED'].map(affinity => ({
+      value: affinity,
+      label: affinity.toLowerCase().capitalize()
+    }));
+  },
+
+  classification: Ember.computed('securitySpec.classification', function () {
+    const confidentialClassification = this.get('securitySpec.classification');
+    const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
+
+    return Object.keys(confidentialClassification).map(classifier => ({
+      key: classifier,
+      label: formatAsCapitalizedStringWithSpaces(classifier),
+      values: Ember.get(confidentialClassification, classifier)
+    }));
+  }),
+
+  _toggleOnClassification(classifier, key, operation) {
+    this.get(`securitySpec.classification.${key}`)[`${operation}Object`](classifier);
+  },
+
+  actions: {
+    addToClassification(classifier, classifierKey) {
+      this._toggleOnClassification(classifier, classifierKey, `add`);
+    },
+
+    removeFromClassification(classifier, classifierKey) {
+      this._toggleOnClassification(classifier, classifierKey, `remove`);
+    },
+
+    updateRetentionType({value}) {
+      this.set('securitySpec.retentionPolicy.retentionType', value);
+    },
+
+    updateGeographicAffinity({value}) {
+      this.set('securitySpec.geographicAffinity.affinity', value);
+    },
+
+    updateRecordOwnerType({value}) {
+      this.set('securitySpec.recordOwnerType', value);
+    },
+
+    saveCompliance () {
+      this.get('onSave')();
+      return false;
+    },
+    approveCompliance () {
+      //TODO: not implemented
+    },
+    disapproveCompliance () {
+      //TODO: not implemented
+    },
+
+    // Rolls back changes made to the compliance spec to current
+    // server state
+    resetCompliance () {
+      this.get('onReset')();
+    }
+  }
 });
 
 App.DatasetAuthorComponent = Ember.Component.extend({
@@ -820,4 +1151,4 @@ App.DatasetWatchComponent = Ember.Component.extend({
       })
     }
   }
-})
+});

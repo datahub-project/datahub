@@ -173,7 +173,6 @@ function convertPropertiesToArray(properties)
 }
 
 var datasetController = null;
-var detailController = null;
 App.DatasetsRoute = Ember.Route.extend({
   setupController: function(controller) {
     datasetController = controller;
@@ -201,43 +200,62 @@ App.DatasetsRoute = Ember.Route.extend({
 });
 
 App.DatasetRoute = Ember.Route.extend({
-  setupController: function(controller, params) {
-    var _this = this;
-    detailController = controller;
+  setupController(controller, params) {
     currentTab = 'Datasets';
     updateActiveTab();
     var id = 0;
     var source = '';
     var urn = '';
     var name = '';
-    controller.set("hasProperty", false);
-    if(params && params.id)
-      {
-        id = params.id;
-        source = params.source;
-        urn = params.urn;
-        name = params.name;
-        datasetController.set("detailview", true);
-        if (params.originalSchema)
-        {
-          Ember.set(params, 'schema', params.originalSchema);
+
+    /**
+     * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
+     * @param {JSON} schema
+     * @returns {Array.<*>}
+     */
+    const getFieldNamesAndTypesFrom = schema => {
+      const getFieldTypeSet = ({fields} = {fields: []}) => fields.map(({name, type: [firstType, ...type], fields}) => {
+        if (fields) {
+          return getFieldTypeSet({fields});
         }
-        controller.set('model', params);
 
-      }
-      else {
-        if (params.dataset)
-          {
-            id = params.dataset.id;
-            source = params.dataset.source;
-            urn = params.dataset.urn;
-            name = params.dataset.name;
-            controller.set('model', params.dataset);
-            datasetController.set("detailview", true);
-          }
+        return {
+          name,
+          type: firstType === 'null' ? type : [firstType, ...type]
+        };
+      });
+
+      // Flatten nested structure if present
+      return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
+    };
+    controller.set("hasProperty", false);
+
+
+    if (params && params.id) {
+      ({id, source, urn, name} = params);
+      let originalSchema = params;
+
+      datasetController.set('detailview', true);
+      if (originalSchema) {
+        Ember.set(params, 'schema', originalSchema);
       }
 
-      var instanceUrl = 'api/v1/datasets/' + id + "/instances";
+      controller.set('model', params);
+    } else if (params.dataset) {
+      ({dataset: {id, source, urn, name}} = params);
+
+      controller.set('model', params.dataset);
+      datasetController.set('detailview', true);
+    }
+
+    controller.set('datasetId', id);
+    if (params.dataset.schema || params.schema) {
+      let {schema} = params.dataset || params;
+      controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
+      controller.set('securitySpec', params.securitySpec);
+    }
+
+    var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
         if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
           controller.set("hasinstances", true);
@@ -495,28 +513,6 @@ App.DatasetRoute = Ember.Route.extend({
                     }
                 });
 
-    var datasetComplianceUrl = 'api/v1/datasets/' + id + "/security";
-
-    // Pull schema field chooser into DOM after all has rendered
-    setTimeout(function(){
-      $('#schemaInput').insertAfter($('.cfheader .cfname')).removeClass('hide');
-    }, 3000);
-
-    // Fetch compliance API data and add to controller
-    $.get(datasetComplianceUrl, function(data) {
-      if (data && data.return_code === 200) {
-        if (data.securitySpec && data.securitySpec.complianceType) {
-          controller.set("hasCompliance", true);
-          controller.set("compliance", data.securitySpec);
-        } else {
-            controller.set("hasCompliance", false);
-        }
-      } else {
-        controller.set("hasCompliance", false);
-      }
-    });
-
-
     var datasetDependsUrl = 'api/v1/datasets/' + id + "/depends";
     $.get(datasetDependsUrl, function(data) {
       if (data && data.status == "ok")
@@ -535,7 +531,6 @@ App.DatasetRoute = Ember.Route.extend({
     });
 
     var datasetPartitionsUrl = 'api/v1/datasets/' + id + "/access";
-    var datasetAccessibilities = [];
     $.get(datasetPartitionsUrl, function(data) {
       if (data && data.status == "ok")
       {
@@ -625,8 +620,14 @@ App.DatasetRoute = Ember.Route.extend({
           }
     });
   },
-  model: function(params) {
-    return Ember.$.getJSON('api/v1/datasets/' + params.id);
+
+  model: function ({id}) {
+    const resources = [
+      Ember.$.getJSON(`api/v1/datasets/${id}`),
+      Ember.$.getJSON(`api/v1/datasets/${id}/security`)
+    ];
+
+    return Promise.all(resources).then(([{dataset}, {securitySpec}]) => ({dataset, securitySpec}));
   },
   actions: {
     getSchema: function(){
