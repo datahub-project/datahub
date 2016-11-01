@@ -134,32 +134,39 @@ App.DatasetRoute = Ember.Route.extend({
     var urn = '';
     var name = '';
 
-    /**
-     * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
-     * @param {JSON} schema
-     * @returns {Array.<*>}
-     */
-    const getFieldNamesAndTypesFrom = schema => {
-      const getFieldTypeSet = ({fields} = {fields: []}) => fields.map(({name, type: [firstType, ...type], fields}) => {
-        if (fields) {
-          return getFieldTypeSet({fields});
-        }
+    const getAndUpdateSchema = id => {
+      /**
+       * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
+       * @param {JSON} schema
+       * @returns {Array.<*>}
+       */
+      const getFieldNamesAndTypesFrom = (schema = JSON.stringify({})) => {
+        const getFieldTypeSet = ({fields = []}) => fields.map(({name, type: [firstType, ...type], fields}) => {
+          if (fields) {
+            return getFieldTypeSet({fields});
+          }
 
-        return {
-          name,
-          type: firstType === 'null' ? type : [firstType, ...type]
-        };
-      });
+          return {
+            name,
+            type: firstType === 'null' ? type : [firstType, ...type]
+          };
+        });
 
-      // Flatten nested structure if present
-      return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
+        // Flatten nested structure if present
+        return [].concat(...getFieldTypeSet(JSON.parse(schema))); // TODO: cover n-th dimension, if expected
+      };
+      Promise.all([Ember.$.getJSON(`api/v1/datasets/${id}`), Ember.$.getJSON(`api/v1/datasets/${id}/security`)])
+          .then(([{dataset: {schema}}, {securitySpec}]) => {
+            schema && controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
+            controller.set('securitySpec', securitySpec);
+          });
     };
     controller.set("hasProperty", false);
 
 
     if (params && params.id) {
       ({id, source, urn, name} = params);
-      let originalSchema = params;
+      let {originalSchema = null} = params;
 
     controller.set("hasProperty", false);
 
