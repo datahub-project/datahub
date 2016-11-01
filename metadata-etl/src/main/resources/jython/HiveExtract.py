@@ -14,8 +14,11 @@
 
 from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
-import sys, os, re, json
+import sys, os, re, json, csv
 import datetime
+import SchemaUrlHelper
+from wherehows.common.writers import FileWriter
+from wherehows.common.schemas import HiveDependencyInstanceRecord
 from wherehows.common import Constant
 
 
@@ -52,7 +55,7 @@ class TableInfo:
 
 class HiveExtract:
   """
-  Extract hive metadata from hive metastore. store it in a json file
+  Extract hive metadata from hive metastore in mysql. store it in a json file
   """
   conn_hms = None
   db_dict = {}  # name : index
@@ -258,6 +261,9 @@ class HiveExtract:
       elif row_value[1]:
         full_name = row_value[1]
 
+      if row_value[15] and not row_value[14]:  # schema_url is available but missing schema_literal
+        row_value[14] = self.get_schema_literal_from_url(row_value[15])
+
       # put in schema result
       if full_name not in self.table_dict:
         schema[db_idx]['tables'].append(
@@ -277,7 +283,7 @@ class HiveExtract:
     self.logger.info("%s %6d tables processed for database %12s from SERDE_PARAM" % (
       datetime.datetime.now(), table_idx + 1, row_value[0]))
 
-  def run(self, schema_output_file, sample_output_file):
+  def run(self, schema_output_file, sample_output_file, hdfs_map_output_file):
     """
     The entrance of the class, extract schema.
     One database per time
@@ -293,6 +299,8 @@ class HiveExtract:
     # open(sample_output_file, 'wb')
     # os.chmod(sample_output_file, 0666)
     # sample_file_writer = FileWriter(sample_output_file)
+
+    self.schema_url_helper = SchemaUrlHelper()
 
     for database_name in self.databases:
       self.logger.info("Collecting hive tables in database : " + database_name)
@@ -325,8 +333,23 @@ class HiveExtract:
 
     schema_json_file.write(json.dumps(schema, indent=None) + '\n')
 
-    cur.close()
     schema_json_file.close()
+
+    # fetch hive (managed/external) table to hdfs path mapping
+    rows = []
+    hdfs_map_csv_file = open(hdfs_map_output_file, 'wb')
+    os.chmod(hdfs_map_output_file, 0666)
+    begin = datetime.datetime.now().strftime("%H:%M:%S")
+    rows = self.get_hdfs_map()
+    hdfs_map_columns = ['db_name', 'table_name', 'cluster_uri', 'abstract_hdfs_path']
+    csv_writer = csv.writer(hdfs_map_csv_file, di)
+    csv_writer.writerow(hdfs_map_columns, delimiter='\x1a', quoting=csv.QUOTE_NONE)
+    csv_writer.writerow(rows)
+    end = datetime.datetime.now().strftime("%H:%M:%S")
+    self.logger.info("Get hdfs map from SDS %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
+
+    cur.close()
+    hdfs_map_csv_file.close()
 
   def get_all_databases(self, database_white_list):
     """
@@ -343,6 +366,100 @@ class HiveExtract:
     curs.close()
     return rows
 
+  def get_schema_literal_from_url(self, schema_url):
+    """
+    fetch avro schema literal from
+    - avsc file on hdfs via hdfs/webhdfs
+    - json string in schemaregistry via http
+    :param schema_url:  e.g. hdfs://server:port/data/tracking/abc/_schema.avsc http://schema-registry-vip-1:port/schemaRegistry/schemas/latest_with_type=xyz
+    :param schema: {database : _, type : _, tables : ['name' : _, ... '' : _] }
+    :return: json string of avro schema
+    """
+    if schema_url.startswith('hdfs://') or schema_url.startswith('/') or schema_url.startswith('webhdfs://'):
+      return self.schema_url_helper.get_from_hdfs(schema_url)
+    elif scheam_url.startswith('https://') or schema_url.startswith('http://'):
+      return self.schema_url_helper.get_from_http(schema_url)
+    else:
+      self.logger.error("get_schema_literal_from_url() gets a bad input: %s" % schema_url)
+      return ''
+
+  def get_hdfs_map(self):
+    """
+    Fetch the mapping from hdfs location to hive (managed and external) table
+    :return:
+    """
+
+    hdfs_map_sql = """select db_name, tbl_name table_name, cluster_uri, --hdfs_path,
+  cast(
+  case when substring_index(hdfs_path, '/', -4) regexp '[0-9]{4}/[0-9]{2}/[0-9]{2}/[0-9]{2}'
+       then substring(hdfs_path, 1, hdfs_path_len - length(substring_index(hdfs_path, '/', -4))-1)
+       when substring_index(hdfs_path, '/', -3) regexp '[0-9]{4}/[0-9]{2}/[0-9]{2}'
+       then substring(hdfs_path, 1, hdfs_path_len - length(substring_index(hdfs_path, '/', -3))-1)
+       when substring_index(hdfs_path, '/', -1) regexp '20[0-9]{2}([\\._-]?[0-9][0-9]){2,5}'
+         or substring_index(hdfs_path, '/', -1) regexp '1[3-6][0-9]{11}(-(PT|UTC|GMT|SCN)-[0-9]+)?'
+         or substring_index(hdfs_path, '/', -1) regexp '[0-9]+([\\._-][0-9]+)?'
+         or substring_index(hdfs_path, '/', -1) regexp '[vV][0-9]+([\\._-][0-9]+)?'
+         or substring_index(hdfs_path, '/', -1) regexp '(prod|ei|qa|dev)_[0-9]+\\.[0-9]+\\.[0-9]+_20[01][0-9]([_-]?[0-9][0-9]){2,5}'
+       then substring(hdfs_path, 1, hdfs_path_len - length(substring_index(hdfs_path, '/', -1))-1)
+       when hdfs_path regexp '/datepartition=20[01][0-9]([\\._-]?[0-9][0-9]){2,3}'
+         or hdfs_path regexp '/datepartition=[[:alnum:]]+'
+       then substring(hdfs_path, 1, locate('/datepartition=', hdfs_path)-1)
+       when hdfs_path regexp '/date_sk=20[01][0-9]([\\._-]?[0-9][0-9]){2,3}'
+       then substring(hdfs_path, 1, locate('/date_sk=', hdfs_path)-1)
+       when hdfs_path regexp '/ds=20[01][0-9]([\\._-]?[0-9][0-9]){2,3}'
+       then substring(hdfs_path, 1, locate('/ds=', hdfs_path)-1)
+       when hdfs_path regexp '/dt=20[01][0-9]([\\._-]?[0-9][0-9]){2,3}'
+       then substring(hdfs_path, 1, locate('/dt=', hdfs_path)-1)
+       when hdfs_path regexp '^/[[:alnum:]]+/[[:alnum:]]+/[[:alnum:]]+/20[01][0-9]([\\._-]?[0-9][0-9]){2,5}/'
+       then concat(substring_index(hdfs_path, '/', 4), '/*',
+                   substring(hdfs_path, length(substring_index(hdfs_path, '/', 5))+1))
+       when hdfs_path regexp '^/[[:alnum:]]+/[[:alnum:]]+/20[01][0-9]([\\._-]?[0-9][0-9]){2,5}/'
+       then concat(substring_index(hdfs_path, '/', 3), '/*',
+                   substring(hdfs_path, length(substring_index(hdfs_path, '/', 4))+1))
+       when substring_index(hdfs_path, '/', -3) regexp '^(prod|ei|qa|dev)_[0-9]+\\.[0-9]+\\.[0-9]+_20[01][0-9]([\\._-]?[0-9][0-9]){2,5}/'
+       then concat(substring(hdfs_path, 1, hdfs_path_len - length(substring_index(hdfs_path, '/', -3))-1), '/*/',
+                   substring_index(hdfs_path, '/', -2))
+       when substring_index(hdfs_path, '/', -2) regexp '^(prod|ei|qa|dev)_[0-9]+\\.[0-9]+\\.[0-9]+_20[01][0-9]([\\._-]?[0-9][0-9]){2,5}/'
+       then concat(substring(hdfs_path, 1, hdfs_path_len - length(substring_index(hdfs_path, '/', -2))-1), '/*/',
+                   substring_index(hdfs_path, '/', -1))
+       else hdfs_path
+  end as char(300)) abstract_hdfs_path
+from (
+    select d.NAME DB_NAME, t.TBL_NAME,
+      substring_index(s.LOCATION, '/', 3) cluster_uri,
+      substring(s.LOCATION, length(substring_index(s.LOCATION, '/', 3))+1) hdfs_path,
+      length(s.LOCATION) - length(substring_index(s.LOCATION, '/', 3)) as hdfs_path_len
+    from SDS s
+         join TBLS t
+      on s.SD_ID = t.SD_ID
+         join DBS d
+      on t.DB_ID = d.DB_ID
+         left join PARTITIONS p
+      on t.TBL_ID = p.TBL_ID
+    where p.PART_ID is null
+      and LOCATION is not null
+    union all
+    select d.NAME DB_NAME, t.TBL_NAME,
+      substring_index(s.LOCATION, '/', 3) cluster_uri,
+      substring(s.LOCATION, length(substring_index(s.LOCATION, '/', 3))+1) hdfs_path,
+      length(s.LOCATION) - length(substring_index(s.LOCATION, '/', 3)) as hdfs_path_len
+    from SDS s
+         join (select TBL_ID, MAX(SD_ID) SD_ID from PARTITIONS group by 1) p
+      on s.SD_ID = p.SD_ID
+         join TBLS t
+      on p.TBL_ID = t.TBL_ID
+         join DBS d
+      on t.DB_ID = d.DB_ID
+    where not LOCATION like 'hdfs:%__HIVE_DEFAULT_PARTITION__%'
+) x where hdfs_path not like '/tmp/%'
+order by 1,2"""
+
+    curs = self.conn_hms.cursor()
+    curs.execute(hdfs_map_sql)
+    rows = [item[0] for item in curs.fetchall()]
+    curs.close()
+    self.logger.info("%6d Hive table => HDFS path mapping relation found." % len(rows))
+    return rows
 
 if __name__ == "__main__":
   args = sys.argv[1]
@@ -358,11 +475,22 @@ if __name__ == "__main__":
   else:
     database_white_list = ''
 
+  if Constant.HIVE_DATABASE_BLACKLIST_KEY in args:
+    database_black_list = args[Constant.HIVE_DATABASE_BLACKLIST_KEY]
+  else:
+    database_black_list = ''
+
   e = HiveExtract()
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
   try:
-    e.databases = e.get_all_databases(database_white_list)
-    e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], None)
+    e.databases = e.get_all_databases(database_white_list, database_black_list)
+    e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY], \
+          None, \
+          args[Constant.HIVE_HDFS_MAP_CSV_FILE_KEY] \
+          args[Constant.HDFS_AUTH_KERBEROS_KEY], \
+          args[Constant.DEFAULT_KERBEROS_PRINCIPAL_KEY], \
+          args[Constant.DEFAULT_KEYTAB_FILE_KEY]
+          )
   finally:
     e.conn_hms.close()
