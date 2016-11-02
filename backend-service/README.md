@@ -33,21 +33,20 @@ Please become familiar with these pages:
 - https://github.com/linkedin/WhereHows
 - https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
 
-First set env variables to Play and Gradle:
+First set env variables for Play (Activator):
 ```
 export WH_HOME=~/development/wherehows/src/deployment/
-export PLAY_HOME=~/development/play-2.2.4
-export GRADLE_HOME=~/development/gradle-2.4
-export PATH=$PATH:$GRADLE_HOME/bin:$PLAY_HOME
+export ACTIVATOR_HOME="$HOME/activator-1.3.11-minimal"
+export SBT_OPTS="-Xms1G -Xmx1G -Xss2M"
 ```
 
 ### Build:
 ```
-gradlew dist
+./gradlew build dist
 ```
 
 ### Install:
-Download/upload the distribution binaries, unzip to 
+Download/upload the distribution binaries, unzip to
 ```
 /opt/wherehows/backend-service-1.0-SNAPSHOT
 ```
@@ -118,10 +117,10 @@ export WHZ_DB_HOST=<mysql host>
 ```
 Run backend service application on port 9001 (from the backend-service folder run:
 ```
-$PLAY_HOME/play “run -Dhttp.port=9001”
+$ACTIVATOR_HOME/bin/activator “run -Dhttp.port=9001”
 ```
-In separate window, monitor 
-```tail -f /var/tmp/wherehows/wherehows.log```
+In separate window, monitor
+```tail -f $APP_HOME/logs/console.log```
 
 Open browser to ```http://<edge node>:9001/```
 This will show ‘TEST’. This is the RESTful api endpoint
@@ -131,7 +130,7 @@ Run the web ui
 cd <web ui deployment dir>
 cd web
 # <ensure the conf/*.conf files are configured>
-$PLAY_HOME/play run
+$ACTIVATOR_HOME/bin/activator run
 ```
 
 ## Next steps
@@ -148,7 +147,7 @@ select * from wh_property;
 
 select distinct wh_etl_job_name from wh_etl_job;
 
-select j.wh_etl_job_name, j.ref_id_type, j.ref_id, 
+select j.wh_etl_job_name, j.ref_id_type, j.ref_id,
        coalesce(d.db_code, a.app_code) db_or_app_code,
        j.cron_expr, p.property_name, p.property_value
 from wh_etl_job j join wh_etl_job_property p

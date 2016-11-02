@@ -65,8 +65,8 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
 2. Put a few 3rd-party jar files to **metadata-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/metadata-etl/extralibs```
 3. Go back to the **WhereHows** root directory and build all the modules: ```./gradlew build```
-4. Go back to the **WhereHows** root directory and start the metadata ETL and API service: ```cd backend-service ; $PLAY_HOME/play run```
-5. Go back to the **WhereHows** root directory and start the web front-end: ```cd web ; $PLAY_HOME/play run``` Then WhereHows UI is available at http://localhost:9000 by default. For example, ```play run -Dhttp.port=19001``` will use port 19001 to serve UI.
+4. Go back to the **WhereHows** root directory and start the metadata ETL and API service: ```cd backend-service ; $ACTIVATOR_HOME/bin/activator run```
+5. Go back to the **WhereHows** root directory and start the web front-end: ```cd web ; $ACTIVATOR_HOME/bin/activator run``` Then WhereHows UI is available at http://localhost:9000 by default. For example, ```play run -Dhttp.port=19001``` will use port 19001 to serve UI.
 
 ## Contribute
 
