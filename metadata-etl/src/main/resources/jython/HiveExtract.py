@@ -350,7 +350,7 @@ class HiveExtract:
     begin = datetime.datetime.now().strftime("%H:%M:%S")
     rows = self.get_hdfs_map()
     hdfs_map_columns = ['db_name', 'table_name', 'cluster_uri', 'abstract_hdfs_path']
-    csv_writer = csv.writer(hdfs_map_csv_file, delimiter='\t', lineterminator='\n', quoting=csv.QUOTE_NONE)
+    csv_writer = csv.writer(hdfs_map_csv_file, delimiter='\x1a', lineterminator='\n', quoting=csv.QUOTE_NONE)
     csv_writer.writerow(hdfs_map_columns)
     csv_writer.writerows(rows)
     end = datetime.datetime.now().strftime("%H:%M:%S")
