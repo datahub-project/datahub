@@ -33,6 +33,7 @@ dependencies {
   compile externalDependency.slf4j_api
   compile externalDependency.slf4j_log4j
   compile externalDependency.hive_exec
+  compile externalDependency.hadoop_hdfs
   compile externalDependency.jython
   compile externalDependency.mysql
   compile files("extralibs/mysql-connector-java-5.1.*.jar") // externalDependency.mysql
