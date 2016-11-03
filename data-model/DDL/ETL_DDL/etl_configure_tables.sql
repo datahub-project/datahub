@@ -142,7 +142,7 @@ CREATE TABLE cfg_database  (
 	jdbc_url               	varchar(1000) NULL,
 	uri                    	varchar(1000) NULL,
 	short_connection_string	varchar(50) COMMENT 'Oracle TNS Name, ODBC DSN, TDPID...' NULL,
-	last_modified          	timestamp NOT NULL,
+	last_modified          	timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	PRIMARY KEY(db_id),
         UNIQUE KEY `uix_cfg_database__dbcode` (db_code) USING HASH
 )
