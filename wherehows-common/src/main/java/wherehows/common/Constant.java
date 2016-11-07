@@ -115,7 +115,7 @@ public class Constant {
   public static final String HDFS_SAMPLE_LOCAL_PATH_KEY = "hdfs.local.sample";
   /** The property_name field in wh_etl_job_property table. The hfds sample data file location store on remote hadoop gateway */
   public static final String HDFS_SAMPLE_REMOTE_PATH_KEY = "hdfs.remote.sample";
-  /** The property_name field in wh_etl_job_property table. Hadoop cluster name */
+  /** The property_name field in wh_etl_job_property table. Hadoop cluster name in short form */
   public static final String HDFS_CLUSTER_KEY = "hdfs.cluster";
   /** The property_name field in wh_etl_job_property table. The list of directories as a start point to fetch metadata.
    * (include all of their sub directories) */
@@ -131,6 +131,8 @@ public class Constant {
   public static final String HDFS_FILE_SOURCE_MAP_KEY = "hdfs.file_path_regex_source_map";
   /** The property_name field in wh_etl_job_property table. Keytab file location */
   public static final String HDFS_REMOTE_KEYTAB_LOCATION_KEY = "hdfs.remote.keytab.location";
+  /** The property_name field in wh_etl_job_property table. hdfs default uri (IPC) */
+  public static final String HDFS_NAMENODE_IPC_URI_KEY = "hdfs.namenode.ipc.uri";
 
   /** The property_name field in wh_etl_job_property table. For dataset owner ETL. The hfds location to copy files */
   public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";
@@ -172,6 +174,7 @@ public class Constant {
   public static final String HIVE_METASTORE_PASSWORD = "hive.metastore.password";
 
   public static final String HIVE_DATABASE_WHITELIST_KEY = "hive.database_white_list";
+  public static final String HIVE_DATABASE_BLACKLIST_KEY = "hive.database_black_list";
   public static final String HIVE_SCHEMA_JSON_FILE_KEY = "hive.schema_json_file";
   public static final String HIVE_DEPENDENCY_CSV_FILE_KEY = "hive.dependency_csv_file";
   public static final String HIVE_INSTANCE_CSV_FILE_KEY = "hive.instance_csv_file";
@@ -179,6 +182,10 @@ public class Constant {
   public static final String HIVE_SCHEMA_CSV_FILE_KEY = "hive.schema_csv_file";
   public static final String HIVE_HDFS_MAP_CSV_FILE_KEY = "hive.hdfs_map_csv_file";
   public static final String HIVE_FIELD_METADATA_KEY = "hive.field_metadata";
+
+  public static final String KERBEROS_AUTH_KEY = "kerberos.auth";
+  public static final String KERBEROS_PRINCIPAL_KEY = "kerberos.principal";
+  public static final String KERBEROS_KEYTAB_FILE_KEY = "kerberos.keytab.file";
 
   /** Property name of app id. For ETL process. ETL process will use this to identify the application */
   public static final String APP_ID_KEY = "app.id";

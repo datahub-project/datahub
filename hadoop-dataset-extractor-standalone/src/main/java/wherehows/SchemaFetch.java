@@ -78,6 +78,7 @@ public class SchemaFetch {
       try {
         Configuration hdfs_conf = new Configuration();
         hdfs_conf.set("hadoop.security.authentication", "Kerberos");
+        hdfs_conf.set("dfs.namenode.kerberos.principal.pattern", "*");
         UserGroupInformation.setConfiguration(hdfs_conf);
         UserGroupInformation.loginUserFromKeytab(principal, keyLocation);
         fs = FileSystem.get(hdfs_conf);
