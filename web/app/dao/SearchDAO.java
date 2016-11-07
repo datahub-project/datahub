@@ -202,10 +202,30 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 		if (keywordNode != null)
 		{
-			queryNode.set("query", keywordNode);
+			ObjectNode funcScoreNodes = Json.newObject();
+
+			ObjectNode fieldValueFactorNode = Json.newObject();
+			fieldValueFactorNode.put("field","static_boosting_score");
+			fieldValueFactorNode.put("factor",1);
+			fieldValueFactorNode.put("modifier","square");
+			fieldValueFactorNode.put("missing",1);
+
+			funcScoreNodes.put("query", keywordNode);
+			funcScoreNodes.put("field_value_factor",fieldValueFactorNode);
+
+			ObjectNode funcScoreNodesWrapper = Json.newObject();
+			funcScoreNodesWrapper.put("function_score",funcScoreNodes);
+
+			queryNode.put("query",funcScoreNodesWrapper);
+
+			Logger.debug("The query sent to Elastic Search is: " + queryNode.toString());
+
 			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
+
+			Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
+
 		}
 
 		ObjectNode resultNode = Json.newObject();
