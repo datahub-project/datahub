@@ -308,6 +308,11 @@ class HiveExtract:
     # os.chmod(sample_output_file, 0666)
     # sample_file_writer = FileWriter(sample_output_file)
 
+    if type(kerberos_auth) == str:
+      if kerberos_auth.lower() == 'false':
+        kerberos_auth = False
+      else:
+        kerberos_auth = True 
     self.schema_url_helper = SchemaUrlHelper.SchemaUrlHelper(hdfs_namenode_ipc_uri, kerberos_auth, kerberos_principal, keytab_file)
 
     for database_name in self.databases:

@@ -77,6 +77,7 @@ class SchemaUrlHelper:
             break
 
       hdfs_conf.set("hadoop.security.authentication", "kerberos")
+      hdfs_conf.set("dfs.namenode.kerberos.principal.pattern", "*")
       UserGroupInformation.setConfiguration(hdfs_conf)
       UserGroupInformation.loginUserFromKeytab(kerberos_principal, keytab_path)
 
