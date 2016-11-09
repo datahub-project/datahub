@@ -29,7 +29,6 @@ import play.mvc.Result;
 import wherehows.common.schemas.DatasetCapacityRecord;
 import wherehows.common.schemas.DatasetCaseSensitiveRecord;
 import wherehows.common.schemas.DatasetConstraintRecord;
-import wherehows.common.schemas.DatasetDeploymentRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
 import wherehows.common.schemas.DatasetOwnerRecord;
 import wherehows.common.schemas.DatasetPartitionRecord;
@@ -37,6 +36,7 @@ import wherehows.common.schemas.DatasetReferenceRecord;
 import wherehows.common.schemas.DatasetSchemaInfoRecord;
 import wherehows.common.schemas.DatasetSecurityRecord;
 import wherehows.common.schemas.DatasetTagRecord;
+import wherehows.common.schemas.DeploymentRecord;
 
 
 public class DatasetInfoController extends Controller {
@@ -49,7 +49,7 @@ public class DatasetInfoController extends Controller {
       int datasetId = Integer.parseInt(datasetIdString);
 
       try {
-        List<DatasetDeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetId(datasetId);
+        List<DeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetId(datasetId);
         resultJson.put("return_code", 200);
         resultJson.set("deploymentInfo", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
@@ -68,7 +68,7 @@ public class DatasetInfoController extends Controller {
         return ok(resultJson);
       }
       try {
-        List<DatasetDeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetUrn(urn);
+        List<DeploymentRecord> records = DatasetInfoDao.getDatasetDeploymentByDatasetUrn(urn);
         resultJson.put("return_code", 200);
         resultJson.set("deploymentInfo", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {

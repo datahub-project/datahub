@@ -13,6 +13,9 @@
  */
 package wherehows.common.schemas;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+
 /**
  * The {@code Record} define the data interface of metadata ETL.
  * <p>
@@ -27,10 +30,12 @@ public interface Record {
   /**
    * Convert to csv string that will write to csv file
    */
+  @JsonIgnore
   public String toCsvString();
 
   /**
    * Convert to database value that will append into sql
    */
+  @JsonIgnore
   public String toDatabaseValue();
 }

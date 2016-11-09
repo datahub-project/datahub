@@ -60,13 +60,11 @@ public class HadoopJobHistoryNodeExtractor {
     String CURRENT_DIR = System.getProperty("user.dir");
     String WH_HOME = System.getenv("WH_HOME");
     String USER_HOME = System.getenv("HOME") + "/.kerberos";
-    String ETC = "/etc";
-    String TMP = "/var/tmp" + "/.kerberos";
 
-    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, USER_HOME, TMP};
+    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, USER_HOME};
 
-    for (String possition : allPositions) {
-      String gssFileName = possition + "/gss-jaas.conf";
+    for (String position : allPositions) {
+      String gssFileName = position + "/gss-jaas.conf";
       File gssFile = new File(gssFileName);
       if (gssFile.exists()) {
         logger.debug("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
@@ -76,8 +74,8 @@ public class HadoopJobHistoryNodeExtractor {
         logger.debug("can't find here: {}", gssFile.getAbsolutePath());
       }
     }
-    for (String possition : allPositions) {
-      String krb5FileName = possition + "/krb5.conf";
+    for (String position : allPositions) {
+      String krb5FileName = position + "/krb5.conf";
       File krb5File = new File(krb5FileName);
       if (krb5File.exists()) {
         logger.debug("find krb5.conf file in : {}", krb5File.getAbsolutePath());

@@ -34,7 +34,6 @@ public class LineageCombiner {
   // key is the operation + abstract name, value is the record
   private Map<String, LineageRecord> _lineageRecordMap;
 
-
   public LineageCombiner(Connection connection) {
     _lineageRecordMap = new HashMap<>();
   }
@@ -49,6 +48,30 @@ public class LineageCombiner {
       DatasetPath datasetPath = PathAnalyzer.analyze(lr.getFullObjectName());
       if (datasetPath != null) {
         lr.updateDataset(datasetPath);
+        addToMap(lr);
+      }
+    }
+  }
+
+  /**
+   * Similar to addAll but not update partition info if exist
+   * @param rawLineageRecords
+   */
+  public void addAllWoPartitionUpdate(List<LineageRecord> rawLineageRecords) {
+    for (LineageRecord lr : rawLineageRecords) {
+      DatasetPath datasetPath = PathAnalyzer.analyze(lr.getFullObjectName());
+      if (datasetPath != null) {
+        lr.setAbstractObjectName(datasetPath.abstractPath);
+        lr.setLayoutId(datasetPath.layoutId);
+        if (lr.getPartitionStart() == null) {
+          lr.setPartitionStart(datasetPath.partitionStart);
+        }
+        if (lr.getPartitionEnd() == null) {
+          lr.setPartitionEnd(datasetPath.partitionEnd);
+        }
+        if (lr.getPartitionType() == null) {
+          lr.setPartitionType(datasetPath.partitionType);
+        }
         addToMap(lr);
       }
     }
@@ -69,7 +92,7 @@ public class LineageCombiner {
    * @return A list of {@code LineageRecord} after combined.
    */
   public List<LineageRecord> getCombinedLineage() {
-    ArrayList<LineageRecord> allLineage = new ArrayList(_lineageRecordMap.values());
+    List<LineageRecord> allLineage = new ArrayList<>(_lineageRecordMap.values());
     Collections.sort(allLineage);
 
     for (int i = 0; i < allLineage.size(); i++) {

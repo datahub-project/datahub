@@ -34,6 +34,8 @@ import play.Logger;
 import play.Play;
 import models.kafka.KafkaConfig;
 import models.kafka.KafkaConfig.Topic;
+import play.db.DB;
+import wherehows.common.PathAnalyzer;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.utils.ClusterUtil;
@@ -122,6 +124,13 @@ public class KafkaConsumerMaster extends UntypedActor {
       ClusterUtil.updateClusterInfo(ClusterDao.getClusterInfo());
     } catch (Exception e) {
       Logger.error("Fail to fetch cluster info from DB ", e);
+    }
+
+    try {
+      // initialize PathAnalyzer
+      PathAnalyzer.initialize(DB.getConnection("wherehows"));
+    } catch (Exception e) {
+      Logger.error("Fail to initialize PathAnalyzer from DB wherehows.", e);
     }
   }
 
