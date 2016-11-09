@@ -257,3 +257,8 @@ COMMENT = 'https://en.wikipedia.org/wiki/Computer_cluster' ;
 CREATE UNIQUE INDEX uix_cfg_cluster__clustercode
 	ON cfg_cluster(cluster_code);
 
+CREATE TABLE IF NOT EXISTS cfg_search_score_boost (
+  `id` INT COMMENT 'dataset id',
+  `static_boosting_score` INT COMMENT 'static boosting score for elastic search',
+  PRIMARY KEY (`id`)
+) ENGINE = InnoDB DEFAULT CHARSET = latin1;
