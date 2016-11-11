@@ -80,7 +80,7 @@ class CodeSearchLoad:
         -- INSERT/UPDATE into dataset_owner
         INSERT INTO dataset_owner (
         dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, owner_id_type,
-        owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id
+        owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id, confirmed_by, confirmed_on
         )
         SELECT * FROM (
            SELECT ds.id, ds.urn,  u.user_id n_owner_id, '0' n_sort_id,
@@ -90,7 +90,8 @@ class CodeSearchLoad:
             case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
             'SCM' n_owner_source, null db_ids,
             IF(r.app_id = 301, 'Y', 'N') is_group,
-            'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
+            'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id,
+            'system' confirmed_by, unix_timestamp(NOW()) confirmed_on
           FROM dict_dataset ds
             JOIN stg_database_scm_map r
                 ON ds.urn LIKE concat(r.database_type, ':///', r.database_name,'/%')
@@ -108,7 +109,9 @@ class CodeSearchLoad:
                         WHEN owner_source LIKE '%SCM%' THEN owner_source ELSE CONCAT(owner_source, ',SCM') END,
         namespace = COALESCE(namespace, n.n_namespace),
         wh_etl_exec_id = n.wh_etl_exec_id,
-        modified_time = unix_timestamp(NOW());
+        modified_time = unix_timestamp(NOW()),
+        confirmed_by = 'system',
+        confirmed_on = unix_timestamp(NOW());
 
         -- reset dataset owner sort id
         UPDATE dataset_owner d
