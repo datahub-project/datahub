@@ -167,14 +167,16 @@ class ElasticSearchIndex():
           JOIN cfg_search_score_boost s
           WHERE d.id = s.id
           """
-    self.logger.debug('sql is ' + sql)
-    url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/dataset/_bulk'
-    params = []
-    self.wh_cursor.execute(sql)
+
+    self.execute_commands(sql)
+
     description = [x[0] for x in self.wh_cursor.description]
 
     row_count = 1
     result = self.wh_cursor.fetchone()
+
+    url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) +  '/wherehows/dataset/_bulk'
+    params = []
 
     while result:
         row = dict(zip(description, result))
@@ -319,6 +321,12 @@ class ElasticSearchIndex():
           self.bulk_insert(params, url)
 
       job_cursor.close()
+
+  def execute_commands(self, commands):
+      for cmd in commands.split(";"):
+          self.logger.info(cmd)
+          self.wh_cursor.execute(cmd)
+          self.wh_con.commit()
 
   def run(self):
 
