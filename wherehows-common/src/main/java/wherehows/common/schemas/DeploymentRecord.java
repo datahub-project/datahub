@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 
-public class DatasetDeploymentRecord extends AbstractRecord {
+public class DeploymentRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
@@ -42,7 +42,7 @@ public class DatasetDeploymentRecord extends AbstractRecord {
     return null;
   }
 
-  public DatasetDeploymentRecord() {
+  public DeploymentRecord() {
   }
 
   public Integer getDatasetId() {

@@ -28,6 +28,7 @@ import java.util.Map;
 public class CfgDao {
 
   public static final String FIND_APP_INFO_BY_NAME = "SELECT * FROM cfg_application where short_connection_string = :name";
+  public static final String FIND_APP_INFO_BY_APP_CODE = "SELECT * FROM cfg_application where app_code = :app_code";
   public static final String FIND_DB_INFO_BY_NAME = "SELECT * from cfg_database where short_connection_string = :name";
   public static final String FIND_APP_INFO_BY_ID = "SELECT * FROM cfg_application where app_id = :id";
   public static final String FIND_DB_INFO_BY_ID = "SELECT * from cfg_database where db_id = :id";
@@ -47,6 +48,13 @@ public class CfgDao {
     Map<String, Object> params = new HashMap<>();
     params.put("name", name);
     return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(FIND_APP_INFO_BY_NAME, params);
+  }
+
+  public static Map<String, Object> getAppByAppCode(String appCode)
+      throws Exception {
+    Map<String, Object> params = new HashMap<>();
+    params.put("app_code", appCode);
+    return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(FIND_APP_INFO_BY_APP_CODE, params);
   }
 
   public static Map<String, Object> getDbByName(String name) throws Exception {

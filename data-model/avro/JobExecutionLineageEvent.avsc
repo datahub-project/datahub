@@ -1,0 +1,626 @@
+{
+  "type": "record",
+  "name": "JobExecutionLineageEvent",
+  "namespace": "com.linkedin.events.metadata",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "namespace": "com.linkedin.events",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "The time at which the event was emitted into kafka."
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The fully qualified name of the host from which the event is being emitted."
+          },
+          {
+            "name": "instance",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The instance on the server from which the event is being emitted. e.g. i001"
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application from which the event is being emitted. see go/appname"
+          },
+          {
+            "name": "messageId",
+            "type": {
+              "type": "fixed",
+              "name": "UUID",
+              "namespace": "com.linkedin.events",
+              "size": 16
+            },
+            "doc": "A unique identifier for the message"
+          },
+          {
+            "name": "auditVersion",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+            "default": null
+          },
+          {
+            "name": "fabricUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+            "default": null
+          }
+        ]
+      },
+      "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
+    },
+    {
+      "name": "application",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "Application",
+          "fields": [
+            {
+              "name": "type",
+              "type": "string",
+              "doc": "The name of the application, such as Oozie, Azkaban, UC4, etc."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "doc": "The unique name of the application, which may contain appType-deployTier-name-instNum, such as OOZIE-DEV-FOO, AZKABAN-PROD-BAR-02, UC4-PROD-COOL-01, etc."
+            },
+            {
+              "name": "deploymentDetail",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "DeploymentDetail",
+                  "fields": [
+                    {
+                      "name": "deploymentTier",
+                      "type": {
+                        "type": "enum",
+                        "name": "DeploymentTier",
+                        "symbols": [
+                          "PROD",
+                          "CORP",
+                          "GRID",
+                          "PREPROD",
+                          "CANARY",
+                          "DMZ",
+                          "STG",
+                          "UAT",
+                          "UAT1",
+                          "UAT2",
+                          "UAT3",
+                          "QA",
+                          "QA1",
+                          "QA2",
+                          "QA3",
+                          "EI",
+                          "EI1",
+                          "EI2",
+                          "EI3",
+                          "QEI",
+                          "QEI1",
+                          "QEI2",
+                          "QEI3",
+                          "TEST",
+                          "LIT",
+                          "SIT",
+                          "INT",
+                          "DEV",
+                          "LOCAL",
+                          "ARCHIVE",
+                          "DROPBOX",
+                          "SANDBOX",
+                          "POC"
+                        ]
+                      },
+                      "doc": "defined in [dataOrigin], such as DEV,TEST,PROD",
+                      "default": "PROD"
+                    },
+                    {
+                      "name": "dataCenter",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "doc": "DC1, DC2, LTX3, LVA4, ...",
+                      "default": null
+                    },
+                    {
+                      "name": "region",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "doc": "Region name if applicable, such as us-central2, eu-west3",
+                      "default": null
+                    },
+                    {
+                      "name": "zone",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "doc": "Zone name or id if applicable, such as asia-east1-b, us-west1-a",
+                      "default": null
+                    },
+                    {
+                      "name": "cluster",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "doc": "Cluster name or a comma-delimited list of Servers",
+                      "default": null
+                    },
+                    {
+                      "name": "container",
+                      "type": [
+                        "null",
+                        "string"
+                      ],
+                      "doc": "Container or tenant name",
+                      "default": null
+                    },
+                    {
+                      "name": "enabled",
+                      "type": "boolean",
+                      "doc": "is the dataset instance enabled under this deployment environment",
+                      "default": true
+                    },
+                    {
+                      "name": "additionalDeploymentInfo",
+                      "type": {
+                        "type": "map",
+                        "values": "string"
+                      },
+                      "doc": "Additional deployment info, such as Zookeeper, Connection, Graphite URL, native reference ID or KEY"
+                    }
+                  ]
+                }
+              ],
+              "doc": "Where the orchestration application is deployed.",
+              "default": null
+            },
+            {
+              "name": "uri",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "The application URI/URL if available. This value is stored in cfg_connection table.",
+              "default": null
+            }
+          ]
+        }
+      ],
+      "doc": "Information about the application in which the job is executed.",
+      "default": null
+    },
+    {
+      "name": "jobExecution",
+      "type": {
+        "type": "record",
+        "name": "JobExecution",
+        "fields": [
+          {
+            "name": "name",
+            "type": "string",
+            "doc": "Job name. If job is in subflow, the parent flow names are included, such as top-level-flow/parent-flow/job-name",
+            "default": ""
+          },
+          {
+            "name": "node",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The virtual node name used to abstract the physical server.",
+            "default": null
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The fully-qualified name of the host of this event.",
+            "default": ""
+          },
+          {
+            "name": "definitionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Job Definition ID. This is available in some orchestration systems.",
+            "default": null
+          },
+          {
+            "name": "executionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Job execution ID as number",
+            "default": null
+          },
+          {
+            "name": "executionGuid",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Job execution GUID.",
+            "logicalType": "GUID"
+          },
+          {
+            "name": "topLevelFlowName",
+            "type": "string",
+            "doc": "Top-level flow name. If job is in subflow, the top-level-flow-name is captured here",
+            "default": ""
+          },
+          {
+            "name": "flowDefinitionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Flow Definition ID. This is available in some orchestration systems.",
+            "default": null
+          },
+          {
+            "name": "flowExecutionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Flow execution ID as number",
+            "default": null
+          },
+          {
+            "name": "flowExecutionGuid",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Flow execution GUID.",
+            "logicalType": "GUID"
+          },
+          {
+            "name": "attempt",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": "Retry attempt for a failed job, starting from 0"
+          },
+          {
+            "name": "startTime",
+            "type": "long",
+            "doc": "When the job starts.",
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "suspendTime",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "When the job gets suspended.",
+            "default": null,
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "endTime",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "When the job finishes.",
+            "default": null,
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "state",
+            "type": [
+              "string",
+              "null"
+            ],
+            "doc": "DISABLED, WAIT_FOR_TIME, WAIT_FOR_DATA, WAIT_FOR_RESOURCE, RUNNING, SUSPENDED, FAILED, SUCCEEDED, NO_DATA, DELETED, SKIPPED",
+            "default": "SUCCEEDED"
+          }
+        ]
+      },
+      "doc": "Job execution information, such as name, time, state."
+    },
+    {
+      "name": "inputDatasetList",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "LineageDatasetItem",
+          "fields": [
+            {
+              "name": "datasetIdentifier",
+              "type": {
+                "type": "record",
+                "name": "DatasetIdentifier",
+                "fields": [
+                  {
+                    "name": "dataPlatformUrn",
+                    "type": "string",
+                    "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+                  },
+                  {
+                    "name": "nativeName",
+                    "type": "string",
+                    "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
+                  },
+                  {
+                    "name": "dataOrigin",
+                    "type": "DeploymentTier",
+                    "doc": "Origin/Source Tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
+                    "default": "PROD"
+                  }
+                ]
+              },
+              "doc": "dataset name, platform and origin"
+            },
+            {
+              "name": "datasetUrn",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "dataset URN used in the job"
+            },
+            {
+              "name": "datasetProperties",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "DatasetProperty",
+                  "fields": [
+                    {
+                      "name": "changeAuditStamp",
+                      "type": {
+                        "type": "record",
+                        "name": "ChangeAuditStamp",
+                        "fields": [
+                          {
+                            "name": "actorUrn",
+                            "type": "string",
+                            "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
+                          },
+                          {
+                            "name": "type",
+                            "type": "string",
+                            "doc": "CREATE, UPDATE, DELETE"
+                          },
+                          {
+                            "name": "time",
+                            "type": "long",
+                            "doc": "Epoch",
+                            "logicalType": "timestamp-millis"
+                          },
+                          {
+                            "name": "note",
+                            "type": "string",
+                            "doc": "Extra detail about the changes"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "name": "nativeType",
+                      "type": {
+                        "type": "enum",
+                        "name": "PlatformNativeType",
+                        "symbols": [
+                          "TABLE",
+                          "VIEW",
+                          "DIRECTORY",
+                          "FILE",
+                          "INDEX",
+                          "STREAM",
+                          "BLOB",
+                          "FUNCTION",
+                          "OTHER"
+                        ]
+                      },
+                      "doc": "The native type about how the dataset is stored in the platform"
+                    },
+                    {
+                      "name": "uri",
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
+                    },
+                    {
+                      "name": "caseSensitivity",
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "CaseSensitivityInfo",
+                          "fields": [
+                            {
+                              "name": "datasetName",
+                              "type": "boolean",
+                              "doc": "Is native object name CS?",
+                              "default": true
+                            },
+                            {
+                              "name": "fieldName",
+                              "type": "boolean",
+                              "doc": "Is field name CS?",
+                              "default": true
+                            },
+                            {
+                              "name": "dataContent",
+                              "type": "boolean",
+                              "doc": "Is data content CS?",
+                              "default": true
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "doc": "Basic properties of a dataset"
+            },
+            {
+              "name": "partition",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "LineagePartitionRange",
+                  "fields": [
+                    {
+                      "name": "partitionType",
+                      "type": "string",
+                      "doc": "snapshot, daily, houlry, hash"
+                    },
+                    {
+                      "name": "minPartitionValue",
+                      "type": "string"
+                    },
+                    {
+                      "name": "maxPartitionValue",
+                      "type": "string"
+                    },
+                    {
+                      "name": "listPartitionValue",
+                      "type": "string"
+                    }
+                  ]
+                }
+              ],
+              "doc": "Parititon range "
+            },
+            {
+              "name": "qualifiedValues",
+              "type": {
+                "type": "array",
+                "items": "string"
+              },
+              "doc": "list of IDs or Values used as filter. e.g. the input is filtered by country code 'US' and 'UK', the output is filtered by ID 23 and 108",
+              "default": []
+            },
+            {
+              "name": "detailLineageMap",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "LineageDatasetDetailMap",
+                  "fields": [
+                    {
+                      "name": "mapDirectionType",
+                      "type": {
+                        "type": "enum",
+                        "name": "LineageMapDirectionType",
+                        "symbols": [
+                          "OUTPUT_TO_INPUT",
+                          "INPUT_TO_OUTPUT"
+                        ]
+                      },
+                      "default": "OUTPUT_TO_INPUT"
+                    },
+                    {
+                      "name": "fieldLineage",
+                      "type": {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "FieldLineage",
+                          "fields": [
+                            {
+                              "name": "fieldPath",
+                              "type": "string",
+                              "doc": "Field path which the lineage is mapped from. * means all fields",
+                              "default": "*"
+                            },
+                            {
+                              "name": "mappedToFields",
+                              "type": {
+                                "type": "array",
+                                "items": {
+                                  "type": "record",
+                                  "name": "MappedToFields",
+                                  "fields": [
+                                    {
+                                      "name": "mappedToDataset",
+                                      "type": "DatasetIdentifier"
+                                    },
+                                    {
+                                      "name": "fieldPaths",
+                                      "type": {
+                                        "type": "array",
+                                        "items": "string"
+                                      },
+                                      "default": [
+                                        "*"
+                                      ]
+                                    }
+                                  ]
+                                }
+                              },
+                              "doc": "1 field is mapped to multiple datasets and fields in those datasets"
+                            }
+                          ]
+                        }
+                      },
+                      "doc": "Field-level lineage mapping"
+                    }
+                  ]
+                }
+              ],
+              "doc": "Used to describe the detailed mapping between dataset=>dataset and field=>field",
+              "default": null
+            },
+            {
+              "name": "operation",
+              "type": "string",
+              "doc": "READ, INSERT, APPEND, UPDATE, MERGE, COMPACT, DELETE, TRUNCATE, ..."
+            }
+          ]
+        }
+      },
+      "doc": "List of input datasets",
+      "default": []
+    },
+    {
+      "name": "outputDatasetList",
+      "type": {
+        "type": "array",
+        "items": "LineageDatasetItem"
+      },
+      "doc": "List of output datasets",
+      "default": []
+    }
+  ]
+}

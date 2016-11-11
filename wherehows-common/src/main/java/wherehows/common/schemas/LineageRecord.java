@@ -123,7 +123,7 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
     allFields.add(flowPath);
 
     // add the created_date and wh_etl_exec_id
-    allFields.add(System.currentTimeMillis()/1000);
+    allFields.add(System.currentTimeMillis() / 1000);
     allFields.add(null);
     StringBuilder sb = new StringBuilder();
     for (Object o : allFields) {
@@ -132,6 +132,19 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
     }
     sb.deleteCharAt(sb.length() - 1);
     return sb.toString();
+  }
+
+  public static String[] dbColumns() {
+    return new String[]{"app_id", "flow_exec_id", "job_exec_id", "job_exec_uuid", "flow_path", "job_name",
+        "job_start_unixtime", "job_finished_unixtime", "abstracted_object_name", "full_object_name", "partition_start",
+        "partition_end", "partition_type", "layout_id", "storage_type", "source_target_type",
+        "srl_no", "source_srl_no", "operation", "created_date"};
+  }
+
+  public Object[] dbValues() {
+    return new Object[]{appId, flowExecId, jobExecId, jobExecUUID, flowPath, jobName, jobStartTime, jobEndTime,
+        abstractObjectName, fullObjectName, partitionStart, partitionEnd, partitionType, layoutId, storageType,
+        sourceTargetType, srlNo, relatedSrlNo, operation, System.currentTimeMillis() / 1000};
   }
 
   /**
@@ -214,12 +227,24 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
     this.fullObjectName = fullObjectName;
   }
 
+  public String getPartitionStart() {
+    return partitionStart;
+  }
+
   public void setPartitionStart(String partitionStart) {
     this.partitionStart = partitionStart;
   }
 
+  public String getPartitionEnd() {
+    return partitionEnd;
+  }
+
   public void setPartitionEnd(String partitionEnd) {
     this.partitionEnd = partitionEnd;
+  }
+
+  public String getPartitionType() {
+    return partitionType;
   }
 
   public void setPartitionType(String partitionType) {

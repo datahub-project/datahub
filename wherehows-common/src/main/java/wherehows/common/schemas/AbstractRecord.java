@@ -29,6 +29,7 @@ import wherehows.common.utils.StringUtil;
  * Created by zechen on 9/16/15.
  */
 public abstract class AbstractRecord implements Record {
+  @JsonIgnore
   char SEPR = 0x001A;
 
   @Override

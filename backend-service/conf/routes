@@ -45,6 +45,9 @@ GET         /lineage/job/exec/job         controllers.LineageController.getDatas
 # Insert a new job data lineage
 POST        /lineage                      controllers.LineageController.addJobLineage()
 
+# Update job execution lineage
+POST        /lineage/job/exec             controllers.LineageController.updateJobExecutionLineage()
+
 #param: instance
 #param: flowPath
 #get flow owner

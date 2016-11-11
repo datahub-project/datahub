@@ -31,7 +31,7 @@ import wherehows.common.enums.OwnerType;
 import wherehows.common.schemas.DatasetCapacityRecord;
 import wherehows.common.schemas.DatasetCaseSensitiveRecord;
 import wherehows.common.schemas.DatasetConstraintRecord;
-import wherehows.common.schemas.DatasetDeploymentRecord;
+import wherehows.common.schemas.DeploymentRecord;
 import wherehows.common.schemas.DatasetFieldIndexRecord;
 import wherehows.common.schemas.DatasetFieldSchemaRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
@@ -269,32 +269,32 @@ public class DatasetInfoDao {
     return new Object[]{null, null};
   }
 
-  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
+  public static List<DeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
     List<Map<String, Object>> results =
         JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_DATASET_ID, params);
 
-    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    List<DeploymentRecord> records = new ArrayList<>();
     for (Map<String, Object> result : results) {
-      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      DeploymentRecord record = new DeploymentRecord();
       record.convertToRecord(result);
       records.add(record);
     }
     return records;
   }
 
-  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetUrn(String datasetUrn)
+  public static List<DeploymentRecord> getDatasetDeploymentByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
     List<Map<String, Object>> results =
         JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_URN, params);
 
-    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    List<DeploymentRecord> records = new ArrayList<>();
     for (Map<String, Object> result : results) {
-      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      DeploymentRecord record = new DeploymentRecord();
       record.convertToRecord(result);
       records.add(record);
     }
@@ -320,7 +320,7 @@ public class DatasetInfoDao {
     // om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode deploymentInfo : deployment) {
-      DatasetDeploymentRecord record = om.convertValue(deploymentInfo, DatasetDeploymentRecord.class);
+      DeploymentRecord record = om.convertValue(deploymentInfo, DeploymentRecord.class);
       record.setDatasetId(datasetId);
       record.setDatasetUrn(urn);
       record.setModifiedTime(System.currentTimeMillis() / 1000);
