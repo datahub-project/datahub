@@ -21,15 +21,15 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
-  Boolean isLatestRevision;
+  Boolean isBackwardCompatible;
+  Boolean isFieldNameCaseSensitive;
   Long createTime;
   Integer revision;
   String version;
   String name;
   String description;
   DatasetOriginalSchemaRecord originalSchema;
-  DatasetKeySchemaRecord keySchema;
-  Boolean isFieldNameCaseSensitive;
+  Map<String, String> keySchema;
   List<DatasetFieldSchemaRecord> fieldSchema;
   List<DatasetFieldPathRecord> changeDataCaptureFields;
   List<DatasetFieldPathRecord> auditFields;
@@ -37,8 +37,8 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "is_latest_revision", "create_time", "revision", "version", "name",
-        "description", "original_schema", "key_schema", "is_field_name_case_sensitive", "field_schema",
+    return new String[]{"dataset_id", "dataset_urn", "is_backward_compatible", "is_field_name_case_sensitive",
+        "create_time", "revision", "version", "name", "description", "original_schema", "key_schema", "field_schema",
         "change_data_capture_fields", "audit_fields", "modified_time"};
   }
 
@@ -66,12 +66,12 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
     this.datasetUrn = datasetUrn;
   }
 
-  public Boolean getIsLatestRevision() {
-    return isLatestRevision;
+  public Boolean getIsBackwardCompatible() {
+    return isBackwardCompatible;
   }
 
-  public void setIsLatestRevision(Boolean isLatestRevision) {
-    this.isLatestRevision = isLatestRevision;
+  public void setIsBackwardCompatible(Boolean backwardCompatible) {
+    isBackwardCompatible = backwardCompatible;
   }
 
   public Long getCreateTime() {
@@ -122,11 +122,11 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
     this.originalSchema = originalSchema;
   }
 
-  public DatasetKeySchemaRecord getKeySchema() {
+  public Map<String, String> getKeySchema() {
     return keySchema;
   }
 
-  public void setKeySchema(DatasetKeySchemaRecord keySchema) {
+  public void setKeySchema(Map<String, String> keySchema) {
     this.keySchema = keySchema;
   }
 

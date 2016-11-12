@@ -28,6 +28,7 @@ import play.mvc.Controller;
 import play.mvc.Result;
 import wherehows.common.schemas.DatasetCapacityRecord;
 import wherehows.common.schemas.DatasetCaseSensitiveRecord;
+import wherehows.common.schemas.DatasetComplianceRecord;
 import wherehows.common.schemas.DatasetConstraintRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
 import wherehows.common.schemas.DatasetOwnerRecord;
@@ -171,7 +172,7 @@ public class DatasetInfoController extends Controller {
       try {
         List<DatasetTagRecord> records = DatasetInfoDao.getDatasetTagByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("capacity", Json.toJson(records));
+        resultJson.set("tags", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -190,7 +191,7 @@ public class DatasetInfoController extends Controller {
       try {
         List<DatasetTagRecord> records = DatasetInfoDao.getDatasetTagByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("capacity", Json.toJson(records));
+        resultJson.set("tags", Json.toJson(records));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);
@@ -401,6 +402,66 @@ public class DatasetInfoController extends Controller {
     return ok(resultJson);
   }
 
+  public static Result getDatasetCompliance()
+      throws SQLException {
+    ObjectNode resultJson = Json.newObject();
+    String datasetIdString = request().getQueryString("datasetId");
+    if (datasetIdString != null) {
+      int datasetId = Integer.parseInt(datasetIdString);
+
+      try {
+        DatasetComplianceRecord record = DatasetInfoDao.getDatasetComplianceByDatasetId(datasetId);
+        resultJson.put("return_code", 200);
+        resultJson.set("privacyCompliancePolicy", Json.toJson(record));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException dataset id: " + datasetId, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + datasetId + " privacy compliance info cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    String urn = request().getQueryString("urn");
+    if (urn != null) {
+      if (!Urn.validateUrn(urn)) {
+        resultJson.put("return_code", 400);
+        resultJson.put("error_message", "Urn format wrong!");
+        return ok(resultJson);
+      }
+      try {
+        DatasetComplianceRecord record = DatasetInfoDao.getDatasetComplianceByDatasetUrn(urn);
+        resultJson.put("return_code", 200);
+        resultJson.set("privacyCompliancePolicy", Json.toJson(record));
+      } catch (EmptyResultDataAccessException e) {
+        Logger.debug("DataAccessException urn: " + urn, e);
+        resultJson.put("return_code", 404);
+        resultJson.put("error_message", "dataset " + urn + " privacy compliance info cannot be found!");
+      }
+      return ok(resultJson);
+    }
+
+    // if no parameter, return an error message
+    resultJson.put("return_code", 400);
+    resultJson.put("error_message", "No parameter provided");
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateDatasetCompliance() {
+    JsonNode root = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      DatasetInfoDao.updateDatasetCompliance(root);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Dataset privacy compliance info updated!");
+    } catch (Exception e) {
+      e.printStackTrace();
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
+    return ok(resultJson);
+  }
+
   public static Result getDatasetSecurity()
       throws SQLException {
     ObjectNode resultJson = Json.newObject();
@@ -411,7 +472,7 @@ public class DatasetInfoController extends Controller {
       try {
         DatasetSecurityRecord record = DatasetInfoDao.getDatasetSecurityByDatasetId(datasetId);
         resultJson.put("return_code", 200);
-        resultJson.set("securitySpec", Json.toJson(record));
+        resultJson.set("securitySpecification", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException dataset id: " + datasetId, e);
         resultJson.put("return_code", 404);
@@ -430,7 +491,7 @@ public class DatasetInfoController extends Controller {
       try {
         DatasetSecurityRecord record = DatasetInfoDao.getDatasetSecurityByDatasetUrn(urn);
         resultJson.put("return_code", 200);
-        resultJson.set("securitySpec", Json.toJson(record));
+        resultJson.set("securitySpecification", Json.toJson(record));
       } catch (EmptyResultDataAccessException e) {
         Logger.debug("DataAccessException urn: " + urn, e);
         resultJson.put("return_code", 404);

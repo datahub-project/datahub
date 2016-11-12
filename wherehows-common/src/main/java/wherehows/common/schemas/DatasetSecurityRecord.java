@@ -23,16 +23,14 @@ public class DatasetSecurityRecord extends AbstractRecord {
   String datasetUrn;
   Map<String, List<String>> classification;
   String recordOwnerType;
-  String complianceType;
-  List<DatasetEntityRecord> compliancePurgeEntities;
   DatasetRetentionRecord retentionPolicy;
   DatasetGeographicAffinityRecord geographicAffinity;
   Long modifiedTime;
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "classification", "record_owner_type", "compliance_purge_type",
-        "compliance_purge_entities", "retention_policy", "geographic_affinity", "modified_time"};
+    return new String[]{"dataset_id", "dataset_urn", "classification", "record_owner_type", "retention_policy",
+        "geographic_affinity", "modified_time"};
   }
 
   @Override
@@ -73,22 +71,6 @@ public class DatasetSecurityRecord extends AbstractRecord {
 
   public void setRecordOwnerType(String recordOwnerType) {
     this.recordOwnerType = recordOwnerType;
-  }
-
-  public List<DatasetEntityRecord> getCompliancePurgeEntities() {
-    return compliancePurgeEntities;
-  }
-
-  public void setCompliancePurgeEntities(List<DatasetEntityRecord> compliancePurgeEntities) {
-    this.compliancePurgeEntities = compliancePurgeEntities;
-  }
-
-  public String getComplianceType() {
-    return complianceType;
-  }
-
-  public void setComplianceType(String complianceType) {
-    this.complianceType = complianceType;
   }
 
   public DatasetRetentionRecord getRetentionPolicy() {
