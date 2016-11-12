@@ -166,6 +166,12 @@ GET         /dataset/partition            controllers.DatasetInfoController.getD
 # Update partition info of a dataset
 POST        /dataset/partition            controllers.DatasetInfoController.updateDatasetPartition()
 
+# Get privacy compliance info of a dataset by either id or urn
+GET         /dataset/compliance           controllers.DatasetInfoController.getDatasetCompliance()
+
+# Update privacy compliance info of a dataset
+POST        /dataset/compliance           controllers.DatasetInfoController.updateDatasetCompliance()
+
 # Get security info of a dataset by either id or urn
 GET         /dataset/security             controllers.DatasetInfoController.getDatasetSecurity()
 

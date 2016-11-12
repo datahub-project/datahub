@@ -38,8 +38,8 @@ CREATE TABLE dataset_capacity (
   `capacity_name` VARCHAR(100) NOT NULL,
   `capacity_type` VARCHAR(50)  DEFAULT NULL,
   `capacity_unit` VARCHAR(20)  DEFAULT NULL,
-  `capacity_low`  BIGINT       DEFAULT NULL,
-  `capacity_high` BIGINT       DEFAULT NULL,
+  `capacity_low`  DOUBLE       DEFAULT NULL,
+  `capacity_high` DOUBLE       DEFAULT NULL,
   `modified_time` INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`, `capacity_name`),
@@ -105,20 +105,31 @@ CREATE TABLE dataset_partition (
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
 
-CREATE TABLE `dataset_security_info` (
+CREATE TABLE `dataset_privacy_compliance` (
+  `dataset_id`                INT(10) UNSIGNED NOT NULL,
+  `dataset_urn`               VARCHAR(200)     NOT NULL,
+  `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
+  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
+  `compliance_purge_entities` VARCHAR(200)     DEFAULT NULL,
+  `modified_time`             INT(10) UNSIGNED DEFAULT NULL
+  COMMENT 'the modified time in epoch',
+  PRIMARY KEY (`dataset_id`),
+  UNIQUE KEY `dataset_urn` (`dataset_urn`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
+CREATE TABLE `dataset_security` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
   `dataset_urn`               VARCHAR(200)     NOT NULL,
   `classification`            VARCHAR(500)     DEFAULT NULL
   COMMENT 'JSON: confidential fields',
+  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
+  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
   `retention_policy`          VARCHAR(200)     DEFAULT NULL
   COMMENT 'JSON: specification of retention',
   `geographic_affinity`       VARCHAR(200)     DEFAULT NULL
   COMMENT 'JSON: must be stored in the geo region',
-  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
-  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
-  `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
-  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
-  `compliance_purge_entities` VARCHAR(200)     DEFAULT NULL,
   `modified_time`             INT(10) UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
@@ -163,6 +174,7 @@ CREATE TABLE dataset_index (
 CREATE TABLE dataset_schema_info (
   `dataset_id`                   INT UNSIGNED NOT NULL,
   `dataset_urn`                  VARCHAR(200) NOT NULL,
+  `is_backward_compatible`       BOOLEAN                  DEFAULT NULL,
   `is_latest_revision`           BOOLEAN      NOT NULL,
   `create_time`                  BIGINT       NOT NULL,
   `revision`                     INT UNSIGNED             DEFAULT NULL,

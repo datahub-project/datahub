@@ -20,7 +20,6 @@ import java.util.Map;
 public class DatasetOriginalSchemaRecord extends AbstractRecord {
 
   String format;
-  String name;
   String text;
   Map<String, String> checksum;
 
@@ -38,14 +37,6 @@ public class DatasetOriginalSchemaRecord extends AbstractRecord {
 
   public void setFormat(String format) {
     this.format = format;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public void setName(String name) {
-    this.name = name;
   }
 
   public String getText() {

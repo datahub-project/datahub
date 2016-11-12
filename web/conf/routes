@@ -109,6 +109,10 @@ POST    /api/v1/datasets/:id/watch                  controllers.api.v1.Dataset.w
 
 DELETE  /api/v1/datasets/:id/watch/:watchId         controllers.api.v1.Dataset.unwatchDataset(id:Int, watchId:Int)
 
+GET     /api/v1/datasets/:id/compliance             controllers.api.v1.Dataset.getDatasetCompliance(id:Int)
+
+POST    /api/v1/datasets/:id/compliance             controllers.api.v1.Dataset.updateDatasetCompliance(id:Int)
+
 GET     /api/v1/datasets/:id/security               controllers.api.v1.Dataset.getDatasetSecurity(id:Int)
 
 POST    /api/v1/datasets/:id/security               controllers.api.v1.Dataset.updateDatasetSecurity(id:Int)
