@@ -1365,7 +1365,7 @@
 
         <script type="text/x-handlebars" id="components/dataset-compliance">
             <div id="compliance" class="tab-body">
-                {{#if securitySpec}}
+                {{#if privacyCompliancePolicy}}
                     <label class="lbl">
                         <span class="lbl__text">Compliance Type</span>
                         {{#ember-selector values=complianceTypes
@@ -1429,18 +1429,20 @@
                         </table>
                     </section>
                     <div class="cta">
-                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                        <button class="btn btn-primary" {{action 'saveCompliance'}}>
+                            {{if isNewPrivacyCompliancePolicy 'Create' 'Save'}}
+                        </button>
                         <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
                     </div>
                 {{else}}
-                    <h3>Compliance is not available</h3>
+                    <h3>An error occurred: Privacy Compliance Policy is not available.</h3>
                 {{/if}}
             </div>
         </script>
 
         <script type="text/x-handlebars" id="components/dataset-confidential">
             <div id="confidential" class="tab-body">
-                {{#if securitySpec}}
+                {{#if securitySpecification}}
                     <label class="lbl">
                         <span class="lbl__text">Retention</span>
                         {{#ember-selector values=retentionTypes
@@ -1519,18 +1521,21 @@
                         </table>
                     </section>
                     <div class="cta">
-                        {{#if isApproved}}<!-- TODO: Add flag to component -->
-                            <button class="btn btn-primary" {{action 'disapproveCompliance'}}>
+                        {{#if isApproved}}<!-- TODO: not yet implemented on BE -->
+                            <button class="btn btn-primary" {{action 'disapproveSecuritySpecification'}}>
                                 Remove Approval
                             </button>
                         {{else}}
-                            <button class="btn btn-primary" {{action 'approveCompliance'}}>Approve</button>
+                            <button class="btn btn-primary" {{action 'approveSecuritySpecification'}}>Approve</button>
                         {{/if}}
-                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
-                        <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+
+                        <button class="btn btn-primary" {{action 'saveSecuritySpecification'}}>
+                            {{if isNewSecuritySpecification 'Create' 'Save'}}
+                        </button>
+                        <button class="btn btn-default" {{action 'resetSecuritySpecification'}}>Reset</button>
                     </div>
                 {{else}}
-                    <h3>Confidential spec is not available</h3>
+                    <h3>An error occurred: Security Specification is not available.</h3>
                 {{/if}}
             </div>
         </script>
