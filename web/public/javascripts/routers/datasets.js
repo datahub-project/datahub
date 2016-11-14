@@ -186,7 +186,7 @@ App.DatasetRoute = Ember.Route.extend({
       securitySpecification(id) {
         Ember.$.getJSON(`api/v1/datasets/${id}/security`)
             .then(({securitySpecification = createSecuritySpecification(id), return_code}) =>
-                controller.setPropertes({
+                controller.setProperties({
                   'isNewSecuritySpecification': return_code === 404,
                   'securitySpecification': securitySpecification
                 }));
