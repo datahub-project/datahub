@@ -247,7 +247,7 @@ App.DatasetComplianceComponent = Ember.Component.extend({
     return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
   }),
 
-  matchingFields: Ember.computed('searchTerm', function () {
+  matchingFields: Ember.computed('searchTerm', 'datasetSchemaFieldsAndTypes', function () {
     if (this.get('datasetSchemaFieldsAndTypes')) {
       const searchTerm = this.get('searchTerm');
       const matches = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), searchTerm);
@@ -300,6 +300,7 @@ App.DatasetComplianceComponent = Ember.Component.extend({
 
   enableTypeaheadOn(selector) {
     selector.autocomplete({
+      minLength: 0,
       source: request => {
         const {term = ''} = request;
         this.set('searchTerm', term);
@@ -402,7 +403,7 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
     return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
   }),
 
-  matchingFields: Ember.computed('searchTerm', function () {
+  matchingFields: Ember.computed('searchTerm', 'datasetSchemaFieldsAndTypes', function () {
     if (this.get('datasetSchemaFieldsAndTypes')) {
       const searchTerm = this.get('searchTerm');
       const matches = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), searchTerm);
@@ -427,6 +428,7 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
 
   enableTypeaheadOn(selector) {
     selector.autocomplete({
+      minLength: 0,
       source: request => {
         const {term = ''} = request;
         this.set('searchTerm', term);
