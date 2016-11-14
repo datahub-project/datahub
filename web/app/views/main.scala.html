@@ -1380,18 +1380,22 @@
                         {{/ember-selector}}
                     </label>
 
-                    <div class="field-search">
-                        <input type="text"
-                               id="compliance-typeahead"
-                               class="field-search__input form-control"
-                               placeholder="Search for field names...">
-                    </div>
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="compliance-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
                                 <span class="match-pill__value">{{matchingField.value}}</span>
                                 {{#if matchingField.dataType}}
-                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
                                 {{/if}}
                             {{/draggable-item}}
                         {{else}}
@@ -1477,18 +1481,22 @@
                         {{/ember-selector}}
                     </label>
 
-                    <div class="field-search">
-                        <input type="text"
-                               id="confidential-typeahead"
-                               class="field-search__input form-control"
-                               placeholder="Search for field names...">
-                    </div>
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="compliance-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
                                 <span class="match-pill__value">{{matchingField.value}}</span>
                                 {{#if matchingField.dataType}}
-                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
                                 {{/if}}
                             {{/draggable-item}}
                         {{else}}
