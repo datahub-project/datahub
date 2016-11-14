@@ -302,17 +302,35 @@ App.DatasetController = Ember.Controller.extend({
 
         _this.set('currentVersion', version);
     },
-    saveJson(data) {
+
+    /**
+     * Given a predetermined url id, attempt to persist JSON data at url
+     * @param {string} urlId
+     * @param {object} data
+     * @returns {Promise.<object>}
+     */
+    saveJson(urlId, data) {
         const postRequest = {
             type: 'POST',
-            url: `api/v1/datasets/${this.get('datasetId')}/security`,
+            url: this.getUrlFor(urlId),
             data: JSON.stringify(data),
             contentType: 'application/json'
         };
 
         // If the return_code is not 200 reject the Promise
         return Promise.resolve(Ember.$.ajax(postRequest))
-            .then(({return_code}) => return_code === 200 ? arguments[0] : Promise.reject(return_code));
+            .then((response = {}) => response.return_code === 200 ? response : Promise.reject(response));
+    },
+
+    getUrlFor(urlId) {
+        return {
+            compliance: () => `api/v1/datasets/${this.get('datasetId')}/compliance`,
+            security: () => `api/v1/datasets/${this.get('datasetId')}/security`
+        }[urlId]();
+    },
+
+    exceptionOnSave({error_message}) {
+        console.error(`An error occurred on while updating : ${error_message}`);
     },
 
     actions: {
@@ -451,21 +469,53 @@ App.DatasetController = Ember.Controller.extend({
             _this.set('currentInstance', instance.dbId);
             _this.refreshVersions(instance.dbId);
         },
+
         /**
          * Requests the security specification for the current dataset id
          * and sets the result on the controller `securitySpec`
          * @returns {Promise.<*>}
          */
-        getSecuritySpec() {
-            const securitySpecUrl = `api/v1/datasets/${this.get('datasetId')}/security`;
-            Ember.$.getJSON(securitySpecUrl, ({return_code, securitySpec}) => {
-                if (return_code === 200 && typeof securitySpec === 'object') {
-                    this.set('securitySpec', securitySpec);
-                }
+        resetSecuritySpecification() {
+            return Ember.$.getJSON(this.getUrlFor('security'), ({return_code, securitySpecification}) => {
+                return_code === 200 && this.setProperties({
+                    'securitySpecification': securitySpecification,
+                    'isNewSecuritySpecification': false
+                });
             });
         },
-        saveSecuritySpec() {
-            this.saveJson(this.get('securitySpec'));
+
+        /**
+         * Requests the privacyCompliancePolicy for the current dataset id
+         * and sets the result on the controller `privacyCompliancePolicy` property
+         * @returns {Promise.<*>}
+         */
+        resetPrivacyCompliancePolicy() {
+            return Ember.$.getJSON(this.getUrlFor('compliance'), ({return_code, privacyCompliancePolicy}) => {
+                return_code === 200 && this.setProperties({
+                    'privacyCompliancePolicy': privacyCompliancePolicy,
+                    'isNewPrivacyCompliancePolicy': false
+                });
+            });
+        },
+
+        /**
+         * Retrieves the current version of the securitySpecification document and invokes an api to persist the document
+         * then updates controller state if successful
+         */
+        saveSecuritySpecification() {
+            this.saveJson('security', this.get('securitySpecification'))
+                .then(this.actions.resetSecuritySpecification.bind(this))
+                .catch(this.exceptionOnSave);
+        },
+
+        /**
+         * Retrieves the current version of the privacyCompliancePolicy document and invokes an api to persist the document
+         * then updates controller state if successful
+         */
+        savePrivacyCompliancePolicy() {
+            this.saveJson('compliance', this.get('privacyCompliancePolicy'))
+                .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
+                .catch(this.exceptionOnSave);
         }
     }
 });
