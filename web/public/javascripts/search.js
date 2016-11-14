@@ -106,7 +106,8 @@
         });
 
         $.get('/api/v1/autocomplete/search', function(data){
-            $('#searchInput').autocomplete({
+            const $searchInput = $('#searchInput');
+            $searchInput.autocomplete({
                 source: function( req, res ) {
                     var results = $.ui.autocomplete.filter(data.source, extractLast( req.term ));
                     res(results.slice(0,maxReturnedResults));
@@ -122,8 +123,10 @@
                     this.value = terms.join( ", " );
                     return false;
             }
-
         });
+            $searchInput.on('autocompleteselect', () => {
+                document.querySelector('#searchBtn').click();
+            });
 
         });
 
@@ -397,6 +400,14 @@
                     window.location = '/#/search?keywords=' + btoa(keyword) +
                         '&category=' + window.g_currentCategory + '&source=default&page=1'
                 }
+            }
+        });
+
+    // This is a stop gap implementation to solve the issue with handling the enter key on user search
+    document.querySelector('#searchInput')
+        .addEventListener('keypress', ({keyCode}) => {
+            if (keyCode === 13) {
+                document.querySelector('#searchBtn').click();
             }
         });
 
