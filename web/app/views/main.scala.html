@@ -1366,6 +1366,12 @@
         <script type="text/x-handlebars" id="components/dataset-compliance">
             <div id="compliance" class="tab-body">
                 {{#if privacyCompliancePolicy}}
+                    {{#if isNewPrivacyCompliancePolicy}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Privacy Compliance Policy".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
                     <label class="lbl">
                         <span class="lbl__text">Compliance Type</span>
                         {{#ember-selector values=complianceTypes
@@ -1443,6 +1449,12 @@
         <script type="text/x-handlebars" id="components/dataset-confidential">
             <div id="confidential" class="tab-body">
                 {{#if securitySpecification}}
+                    {{#if isNewSecuritySpecification}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Security Specification".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
                     <label class="lbl">
                         <span class="lbl__text">Retention</span>
                         {{#ember-selector values=retentionTypes
