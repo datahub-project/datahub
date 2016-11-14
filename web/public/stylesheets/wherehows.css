@@ -578,6 +578,11 @@ ul.breadcrumbs a {
     padding: .5em;
 }
 
+.tab_head {
+    padding: 15px;
+    line-height: 2;
+}
+
 .lbl {
     display: inline-block;
     padding: .5em;
