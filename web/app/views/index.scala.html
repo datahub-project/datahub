@@ -735,18 +735,18 @@
             {{/dataset-access}}
           </div>
             <div id="compliancetab" class="tab-pane">
-                {{#dataset-compliance securitySpec=securitySpec
-                                      datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
-                                      onSave=(action "saveSecuritySpec")
-                                      onReset=(action "getSecuritySpec")}}
-                {{/dataset-compliance}}
+                {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
+                                     isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
+                                     datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                     onSave=(action "savePrivacyCompliancePolicy")
+                                     onReset=(action "resetPrivacyCompliancePolicy")}}
             </div>
             <div id="confidentialtab" class="tab-pane">
-                {{#dataset-confidential securitySpec=securitySpec
-                                        datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
-                                        onSave=(action "saveSecuritySpec")
-                                        onReset=(action "getSecuritySpec")}}
-                {{/dataset-confidential}}
+                {{dataset-confidential securitySpecification=securitySpecification
+                                       isNewSecuritySpecification=isNewSecuritySpecification
+                                       datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                       onSave=(action "saveSecuritySpecification")
+                                       onReset=(action "resetSecuritySpecification")}}
             </div>
         </div>
       {{else}}
@@ -909,11 +909,11 @@
           </div>
           <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
               <div class="panel-body">
-                  {{#dataset-compliance datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
-                                        securitySpec=securitySpec
-                                        onSave=(action "saveSecuritySpec")
-                                        onReset=(action "getSecuritySpec")}}
-                  {{/dataset-compliance}}
+                  {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
+                                       isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
+                                       datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                       onSave=(action "savePrivacyCompliancePolicy")
+                                       onReset=(action "resetPrivacyCompliancePolicy")}}
               </div>
           </div>
         </div>
@@ -930,11 +930,11 @@
               <div id="accessview" class="panel-collapse collapse" role="tabpanel"
                    aria-labelledby="confidentialHeading">
                   <div class="panel-body">
-                      {{#dataset-confidential securitySpec=securitySpec
-                                              datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
-                                              onSave=(action "saveSecuritySpec")
-                                              onReset=(action "getSecuritySpec")}}
-                      {{/dataset-confidential}}
+                      {{dataset-confidential securitySpecification=securitySpecification
+                                             isNewSecuritySpecification=isNewSecuritySpecification
+                                             datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                             onSave=(action "saveSecuritySpecification")
+                                             onReset=(action "resetSecuritySpecification")}}
                   </div>
               </div>
           </div>
