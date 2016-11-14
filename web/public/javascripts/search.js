@@ -354,6 +354,14 @@
             }
         });
 
+  // This is a stop gap implementation to solve the issue with handling the enter key on user search
+  document.querySelector('#searchInput')
+      .addEventListener('keypress', ({keyCode}) => {
+        if (keyCode === 13) {
+          document.querySelector('#searchBtn').click();
+        }
+      });
+
         function advSearchForDataset()
         {
             var empty = true;
