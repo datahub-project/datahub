@@ -1343,7 +1343,13 @@
 
         <script type="text/x-handlebars" id="components/dataset-compliance">
             <div id="compliance" class="tab-body">
-                {{#if securitySpec}}
+                {{#if privacyCompliancePolicy}}
+                    {{#if isNewPrivacyCompliancePolicy}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Privacy Compliance Policy".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
                     <label class="lbl">
                         <span class="lbl__text">Compliance Type</span>
                         {{#ember-selector values=complianceTypes
@@ -1352,18 +1358,22 @@
                         {{/ember-selector}}
                     </label>
 
-                    <div class="field-search">
-                        <input type="text"
-                               id="compliance-typeahead"
-                               class="field-search__input form-control"
-                               placeholder="Search for field names...">
-                    </div>
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="compliance-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
                                 <span class="match-pill__value">{{matchingField.value}}</span>
                                 {{#if matchingField.dataType}}
-                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
                                 {{/if}}
                             {{/draggable-item}}
                         {{else}}
@@ -1407,18 +1417,26 @@
                         </table>
                     </section>
                     <div class="cta">
-                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
+                        <button class="btn btn-primary" {{action 'saveCompliance'}}>
+                            {{if isNewPrivacyCompliancePolicy 'Create' 'Save'}}
+                        </button>
                         <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
                     </div>
                 {{else}}
-                    <h3>Compliance is not available</h3>
+                    <h3>An error occurred: Privacy Compliance Policy is not available.</h3>
                 {{/if}}
             </div>
         </script>
 
         <script type="text/x-handlebars" id="components/dataset-confidential">
             <div id="confidential" class="tab-body">
-                {{#if securitySpec}}
+                {{#if securitySpecification}}
+                    {{#if isNewSecuritySpecification}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Security Specification".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
                     <label class="lbl">
                         <span class="lbl__text">Retention</span>
                         {{#ember-selector values=retentionTypes
@@ -1441,18 +1459,22 @@
                         {{/ember-selector}}
                     </label>
 
-                    <div class="field-search">
-                        <input type="text"
-                               id="confidential-typeahead"
-                               class="field-search__input form-control"
-                               placeholder="Search for field names...">
-                    </div>
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="compliance-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
                     <section class="typeahead-matches">
                         {{#each matchingFields as |matchingField|}}
-                            {{#draggable-item content=matchingField.value class="draggable__item"}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
                                 <span class="match-pill__value">{{matchingField.value}}</span>
                                 {{#if matchingField.dataType}}
-                                    <sub class="match-pill__data-type">Data Type: {{matchingField.dataType}}</sub>
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
                                 {{/if}}
                             {{/draggable-item}}
                         {{else}}
@@ -1497,18 +1519,21 @@
                         </table>
                     </section>
                     <div class="cta">
-                        {{#if isApproved}}<!-- TODO: Add flag to component -->
-                            <button class="btn btn-primary" {{action 'disapproveCompliance'}}>
+                        {{#if isApproved}}<!-- TODO: not yet implemented on BE -->
+                            <button class="btn btn-primary" {{action 'disapproveSecuritySpecification'}}>
                                 Remove Approval
                             </button>
                         {{else}}
-                            <button class="btn btn-primary" {{action 'approveCompliance'}}>Approve</button>
+                            <button class="btn btn-primary" {{action 'approveSecuritySpecification'}}>Approve</button>
                         {{/if}}
-                        <button class="btn btn-primary" {{action 'saveCompliance'}}>Save</button>
-                        <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+
+                        <button class="btn btn-primary" {{action 'saveSecuritySpecification'}}>
+                            {{if isNewSecuritySpecification 'Create' 'Save'}}
+                        </button>
+                        <button class="btn btn-default" {{action 'resetSecuritySpecification'}}>Reset</button>
                     </div>
                 {{else}}
-                    <h3>Confidential spec is not available</h3>
+                    <h3>An error occurred: Security Specification is not available.</h3>
                 {{/if}}
             </div>
         </script>

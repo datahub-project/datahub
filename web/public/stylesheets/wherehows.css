@@ -578,6 +578,11 @@ ul.breadcrumbs a {
     padding: .5em;
 }
 
+.tab_head {
+    padding: 15px;
+    line-height: 2;
+}
+
 .lbl {
     display: inline-block;
     padding: .5em;
@@ -591,14 +596,11 @@ ul.breadcrumbs a {
     padding: .5em;
 }
 
-.field-search {
-    height: 50px;
-    width: 700px;
-    margin: 1.5em 0;
-}
 
 .field-search__input {
-    height: 100%;
+    display: flex;
+    flex-grow: 1;
+    width: 50%;
 }
 
 .drop-bucket {
@@ -626,17 +628,14 @@ ul.breadcrumbs a {
 
 .draggable__item {
     overflow: hidden;
-    width: 140px;
     list-style-type: none;
-    display: inline-block;
+    display: flex;
+    align-items: stretch;
     background-color: #d3d3d3;
-    -webkit-border-radius: 5px;
-    -moz-border-radius: 5px;
-    border-radius: 5px;
-    padding: 5px 20px 5px 5px;
-    margin: 10px 5px;
     cursor: pointer;
     position: relative;
+    border: 1px solid;
+    margin-bottom: 2px;
 }
 
 .draggable__item .glyphicon-remove {
@@ -645,8 +644,30 @@ ul.breadcrumbs a {
     top: 3px;
 }
 
+.draggable__item.item-source {
+    cursor: move;
+}
+
+.draggable__item.item-source :before {
+    content: '.';
+    position: absolute;
+    left: 1px;
+    top: -2px;
+    font-size: 20px;
+    line-height: 26px;
+    color: #292724;
+    text-shadow: 0 5px #292724,
+    0 10px #292724,
+    5px 0 #292724,
+    5px 5px #292724,
+    5px 10px #292724,
+    10px 0 #292724,
+    10px 5px #292724,
+    10px 10px #292724;
+}
+
 .drop-bucket__td > .drop-region {
-    min-height: 70px;;
+    min-height: 70px;
 }
 
 .classification-list-help {
@@ -656,18 +677,48 @@ ul.breadcrumbs a {
 
 .typeahead-matches {
     width: 700px;
-    padding: 20px 5px;
+    height: 200px;
+    overflow-y: scroll;
+    margin-bottom: 15px;
 }
 
+.typeahead-header {
+    display: flex;
+    align-items: center;
+    width: 700px;
+    border: 1px solid #d3d3d3;
+}
+
+.field-names {
+    display: flex;
+    width: 500px;
+    align-items: center;
+}
+
+.typeahead-header h4 {
+    margin: 0;
+    padding: 0 3px;
+}
+
+.field-names h4 {
+    display: flex;
+    flex-grow: 2;
+}
+
+
 .match-pill__data-type {
-    display: inline-block;
-    width: 100%;
+    display: flex;
+    line-height: 3;
+    padding: 0 5px 0 15px;
 }
 
 .match-pill__value {
     display: inline-block;
-    width: 100%;
+    width: 500px;
     -ms-text-overflow: ellipsis;
     text-overflow: ellipsis;
     overflow: hidden;
+    line-height: 3;
+    border-right: 1px solid;
+    padding: 0 5px 0 25px;
 }
