@@ -105,27 +105,69 @@
             }
         });
 
-        $.get('/api/v1/autocomplete/search', function(data){
-            $('#searchInput').autocomplete({
-                source: function( req, res ) {
-                    var results = $.ui.autocomplete.filter(data.source, extractLast( req.term ));
-                    res(results.slice(0,maxReturnedResults));
-                },
-                focus: function() {
-                    return false;
-                },
-                select: function( event, ui ) {
-                    var terms = split( this.value );
-                    terms.pop();
-                    terms.push( ui.item.value );
-                    terms.push( "" );
-                    this.value = terms.join( ", " );
-                    return false;
-            }
+  $.get('/api/v1/autocomplete/search', function (data) {
+    const possibleMatches = data.source;
+    $('#searchInput').autocomplete({
+      source: function ({term}, res) {
+        const matchResults = $.ui.autocomplete.filter(possibleMatches, extractLast(term));
+        /**
+         * Sort the matches by giving precedence to matches that are closer in length to searchTerm and have
+         * the searchTerm occurring closer to the  start of the matching string.
+         * e.g. `merlin_frontend_trunk` should occur before `trunk_MERLIN`
+         * @param {Array} arrayOfMatches
+         * @param {String} searchTerm
+         * @returns {Array}
+         */
+        function sortMatches(arrayOfMatches, searchTerm) {
+          // Significantly! improve sort performance using the `Schwartzian transform` technique.
+          // Create a temp array so String#toLowerCase and Array#indexOf are performed once per unique match,
+          // same for match String#length.
+          // This is more efficient since the comparisonFunction can be invoked many times per element within an array.
+          const schwartzianMap = {
+            indexOfOnLowerCase: (match, idx) => ({
+              idx,
+              value: match.toLowerCase().indexOf(searchTerm)
+            }),
+            length: (match, idx) => ({idx, value: match.length})
+          };
+          // Performs the sort using the previously derived values in ascending order
+          const comparator = ({value: aValue}, {value: bValue}) => aValue - bValue;
+          // Deconstructs Schwartzian map to get back the actual matches in preferred order
+          // currying the `originalArray` for lazy evaluation allowing re-use
+          const deconstructMapUsing = originalArray => match => originalArray[match.idx];
 
-        });
+          const orderByMatchPosition = (arrayOfMatches) => arrayOfMatches
+              .map(schwartzianMap.indexOfOnLowerCase)
+              .sort(comparator)
+              .map(deconstructMapUsing(arrayOfMatches));
 
-        });
+          const orderByMatchLength = (arrayOfMatches) => arrayOfMatches
+              .map(schwartzianMap.length)
+              .sort(comparator)
+              .map(deconstructMapUsing(arrayOfMatches));
+
+          return orderByMatchLength(orderByMatchPosition(arrayOfMatches));
+        }
+
+        res(sortMatches(matchResults, term).slice(0, maxReturnedResults));
+      },
+
+      minLength: 3,
+
+      focus: () => false,
+
+      select: function (e, {item: {value}}) {
+        // On select update search input by replacing search trigger with selected auto-complete string
+        const terms = split(this.value);
+        terms.pop();
+        terms.push(value);
+        terms.push('');
+        this.value = terms.join(',');
+
+        return false;
+      }
+    }).on('autocompleteselect', () => document.querySelector('#searchBtn').click());
+  });
 
         $.get('/api/v1/advsearch/scopes', function(data){
             $(".scopeInput").autocomplete({
