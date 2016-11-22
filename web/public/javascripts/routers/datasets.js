@@ -201,9 +201,7 @@ App.DatasetsRoute = Ember.Route.extend({
 });
 
 App.DatasetRoute = Ember.Route.extend({
-  setupController: function(controller, params) {
-    var _this = this;
-    detailController = controller;
+  setupController(controller, params) {
     currentTab = 'Datasets';
     updateActiveTab();
     var id = 0;
@@ -211,31 +209,28 @@ App.DatasetRoute = Ember.Route.extend({
     var urn = '';
     var name = '';
     controller.set("hasProperty", false);
-    if(params && params.id)
-      {
-        id = params.id;
-        source = params.source;
-        urn = params.urn;
-        name = params.name;
-        datasetController.set("detailview", true);
-        if (params.originalSchema)
-        {
-          Ember.set(params, 'schema', params.originalSchema);
-        }
-        controller.set('model', params);
 
+    if (params && params.id) {
+      ({id, source, urn, name} = params);
+      let {originalSchema = null} = params;
+
+      datasetController.set('detailview', true);
+      if (originalSchema) {
+        Ember.set(params, 'schema', originalSchema);
       }
-      else {
-        if (params.dataset)
-          {
-            id = params.dataset.id;
-            source = params.dataset.source;
-            urn = params.dataset.urn;
-            name = params.dataset.name;
-            controller.set('model', params.dataset);
-            datasetController.set("detailview", true);
-          }
-      }
+
+      controller.set('model', params);
+    } else if (params.dataset) {
+      ({id, source, urn, name} = params.dataset);
+
+      controller.set('model', params.dataset);
+      datasetController.set('detailview', true);
+    }
+
+    // Don't set default zero Ids on controller
+    if (id) {
+      controller.set('datasetId', id);
+    }
 
       var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
@@ -513,7 +508,6 @@ App.DatasetRoute = Ember.Route.extend({
     });
 
     var datasetPartitionsUrl = 'api/v1/datasets/' + id + "/access";
-    var datasetAccessibilities = [];
     $.get(datasetPartitionsUrl, function(data) {
       if (data && data.status == "ok")
       {
@@ -603,8 +597,9 @@ App.DatasetRoute = Ember.Route.extend({
           }
     });
   },
-  model: function(params) {
-    return Ember.$.getJSON('api/v1/datasets/' + params.id);
+
+  model: function ({id}) {
+    return Ember.$.getJSON(`api/v1/datasets/${id}`);
   },
   actions: {
     getSchema: function(){
