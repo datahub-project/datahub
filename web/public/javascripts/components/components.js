@@ -166,11 +166,21 @@ App.DatasetAccessComponent = Ember.Component.extend({
 App.DatasetImpactComponent = Ember.Component.extend({
 });
 
+App.DatasetOwnerListComponent = Ember.Component.extend({
+  tagName: 'section',
+  classNames: ['dataset-owner-list']
+});
+
 App.DatasetAuthorComponent = Ember.Component.extend({
+  $ownerTable: null,
+
   didInsertElement() {
     this._super(...arguments);
+    // Cache reference to element on component
+    this.set('$ownerTable', this.$('[data-attribute=owner-table]'));
+
     // Apply jQuery sortable plugin to element
-    this.$('[data-attribute=owner-table]')
+    this.get('$ownerTable')
         .sortable({
           start: (e, {item}) => this.set('startPosition', item.index()),
 
@@ -189,6 +199,12 @@ App.DatasetAuthorComponent = Ember.Component.extend({
             }
           }
         });
+  },
+
+  willDestroyElement() {
+    this._super(...arguments);
+    // Removes the sortable functionality from the cached DOM element reference
+    this.get('$ownerTable').sortable('destroy');
   },
 
   actions: {
