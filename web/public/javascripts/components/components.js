@@ -167,6 +167,30 @@ App.DatasetImpactComponent = Ember.Component.extend({
 });
 
 App.DatasetAuthorComponent = Ember.Component.extend({
+  didInsertElement() {
+    this._super(...arguments);
+    // Apply jQuery sortable plugin to element
+    this.$('[data-attribute=owner-table]')
+        .sortable({
+          start: (e, {item}) => this.set('startPosition', item.index()),
+
+          update: (e, {item}) => {
+            const startPosition = this.get('startPosition');
+            const endPosition = item.index(); // New position where UI element was dropped
+            const owners = this.get('owners') || [];
+
+            // Updates the owners array to reflect the UI position changes
+            if (owners.length) {
+              const _owners = owners.slice(0);
+              const updatedOwner = _owners.splice(startPosition, 1).pop();
+              _owners.splice(endPosition, 0, updatedOwner);
+              owners.setObjects(_owners);
+              setOwnerNameAutocomplete(this.controller);
+            }
+          }
+        });
+  },
+
   actions: {
     addOwner: function(data) {
       var owners = data;

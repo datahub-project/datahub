@@ -389,7 +389,7 @@
             <th class="col-xs-1"></th>
           </tr>
         </thead>
-        <tbody id = "sortedownertable">
+        <tbody data-attribute="owner-table">
           {{#each owners as |owner|}}
           <tr>
             <td>{{input class="userEntity" value=owner.userName}}</td>
@@ -662,8 +662,7 @@
             {{/dataset-schema}}
           </div>
           <div id="ownertab" class="tab-pane">
-            {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
-            {{/dataset-author}}
+            {{dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
           </div>
           {{#unless isSFDC}}
             <div id="sampletab" class="tab-pane">
@@ -752,8 +751,7 @@
           </div>
           <div id="ownership" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ownershipHeading">
             <div class="panel-body">
-              {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
-              {{/dataset-author}}
+              {{dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
             </div>
           </div>
         </div>
