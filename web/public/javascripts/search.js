@@ -1,10 +1,30 @@
-(function (window, $) {
+(function (global, $) {
+  const searchForm = document.querySelector('#nav-keyword-search-form');
+  const searchInput = searchForm.querySelector('#searchInput');
+
+  // Prevent `enter` key on single input from triggering default form action resulting in page reload
+  searchForm && searchForm.addEventListener('submit', e => e.preventDefault());
+
+  /**
+   * Implements handler for search functionality on Navigation Bar search form.
+   * Updates location hash which will trigger Ember Search route model refresh
+   * *Unfortunately current application model does not abide by Ember recommended approach, hence manual plumbing
+   * *will be refactored in eventual `purge`
+   */
+  const handleSearchInput = function () {
+    if (searchInput) {
+      const {value: keyword} = searchInput;
+      const searchRouteHash = `#/search?keywords=${btoa(keyword)}&category=${global.g_currentCategory}&source=default&page=1`;
+      keyword && (document.location.hash = searchRouteHash);
+    }
+  };
+
   $('#advsearchtabs').find('a:first').tab('show');
   $('#datasetAdvSearchLink').addClass('active');
   String.prototype.replaceAll = function (target, replacement) {
     return this.split(target).join(replacement);
   };
-  window.g_currentCategory = 'Datasets';
+  global.g_currentCategory = 'Datasets';
   function renderAdvSearchDatasetSources(parent, sources) {
     let content = '';
     if ((!parent) || (!sources) || sources.length == 0) {
@@ -67,7 +87,7 @@
         $(objs[index]).parent().removeClass('active');
       });
     }
-    window.g_currentCategory = e.target.text;
+    global.g_currentCategory = e.target.text;
     updateSearchCategories(e.target.text);
     //$(e.target).parent().addClass( 'active' );
     e.preventDefault();
@@ -147,7 +167,7 @@
 
         return false;
       }
-    }).on('autocompleteselect', () => document.querySelector('#searchBtn').click());
+    }).on('autocompleteselect', handleSearchInput);
   });
 
   $.get('/api/v1/advsearch/scopes', function (data) {
@@ -322,24 +342,10 @@
     });
   });
 
-  $('#searchBtn').click(function () {
-    var inputObj = $('#searchInput');
-    if (inputObj) {
-      var keyword = inputObj.val();
-      if (keyword) {
-        window.location = '/#/search?keywords=' + btoa(keyword) +
-            '&category=' + window.g_currentCategory + '&source=default&page=1'
-      }
-    }
-  });
+  document.querySelector('#searchBtn').addEventListener('click', handleSearchInput);
 
   // This is a stop gap implementation to solve the issue with handling the enter key on user search
-  document.querySelector('#searchInput')
-      .addEventListener('keypress', ({keyCode}) => {
-        if (keyCode === 13) {
-          document.querySelector('#searchBtn').click();
-        }
-      });
+  document.querySelector('#searchInput').addEventListener('keypress', e => e.keyCode === 13 && handleSearchInput(e));
 
   function advSearchForDataset() {
     var empty = true;
@@ -426,7 +432,7 @@
     advSearchOpts.fields = {'any': fieldAny, 'all': fieldAll, 'not': fieldNotIn};
     advSearchOpts.comments = comments;
     advSearchOpts.sources = sources;
-    window.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+    global.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
   }
 
   function advSearchForFlow() {
@@ -489,7 +495,7 @@
     advSearchOpts.appcode = {'in': appcodeIn, 'not': appcodeNotIn};
     advSearchOpts.flow = {'in': flowIn, 'not': flowNotIn};
     advSearchOpts.job = {'in': jobIn, 'not': jobNotIn};
-    window.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+    global.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
   }
 
   $('#advSearchBtn').click(function () {
