@@ -466,7 +466,9 @@ App.DatasetRoute = Ember.Route.extend({
     });
 
     Promise.resolve($.get(`api/v1/datasets/${id}/owners`))
-        .then(({status, owners = []}) => (status === 'ok' && controller.set('owners', owners), void 0))
+        .then(({status, owners = []}) => {
+          status === 'ok' && controller.set('owners', owners);
+        })
         .then($.get.bind($, 'api/v1/party/entities'))
         .then(({status, userEntities = []}) => {
           if (status === 'ok' && userEntities.length) {
@@ -484,9 +486,10 @@ App.DatasetRoute = Ember.Route.extend({
         });
   },
 
-  model: function ({id}) {
+  model({id}) {
     return Ember.$.getJSON(`api/v1/datasets/${id}`);
   },
+
   actions: {
     getSchema: function(){
       var controller = this.get('controller')

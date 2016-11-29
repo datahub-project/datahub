@@ -414,3 +414,28 @@ ul.breadcrumbs a {
     border: thin rgba(0,0,0,.2) solid;
     background-color: rgba(255,255,255,.3);
 }
+/*-----------------------------------------------------------------------------
+ * DatasetOwnerListComponent
+ *----------------------------------------------------------------------------*/
+
+.dataset-owner-list {
+    display: flex;
+    flex-direction: column;
+    max-width: 500px;
+    padding: 15px 0;
+}
+
+.dataset-owner-list header {
+    font-size: 16px;
+}
+
+.dataset-owner-list ul {
+    display: flex;
+    list-style-type: none;
+    padding: 0;
+}
+
+.dataset-owner-list li {
+    margin-right: 15px;
+    line-height: 2;
+}
