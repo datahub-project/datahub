@@ -96,6 +96,20 @@ a.dropdown-toggle:hover {
     color: inherit;
 }
 
+.nav-help-button {
+    height: 60px;
+    display: inline-block;
+    margin-bottom: 0;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    background: none;
+}
+
 /* Uncomment when ready to replace logo
 .navbar-header:before {
     content: url(/assets/images/icons/logo-white.png);
