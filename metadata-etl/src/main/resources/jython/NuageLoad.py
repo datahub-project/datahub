@@ -119,7 +119,8 @@ class NuageLoad:
       ON stg.db_id = {db_id}
       AND stg.owner_id = ldap.user_id
     SET stg.owner_type = CASE WHEN ldap.department_id >= 4000 THEN 'Owner' ELSE 'Stakeholder' END,
-        stg.owner_sub_type = CASE WHEN ldap.department_id = 4020 THEN 'DWH' ELSE 'BA' END;
+        stg.owner_sub_type = CASE WHEN ldap.department_id = 4011 THEN 'DWH'
+                                  WHEN ldap.department_id = 5526 THEN 'BA' ELSE null END;
 
     -- insert into owner table
     INSERT INTO dataset_owner (dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type,
@@ -127,8 +128,9 @@ class NuageLoad:
     SELECT * FROM (
       SELECT dataset_id, dataset_urn, owner_id, sort_id n_sort_id, namespace, app_id,
         owner_type n_owner_type, owner_sub_type n_owner_sub_type,
-        case when app_id = 300 then 'USER' when app_id = 301 then 'GROUP' else null end n_owner_id_type, 'ETL',
-        db_id, is_group, is_active, source_time,
+        case when app_id = 300 then 'USER' when app_id = 301 then 'GROUP'
+            when namespace = 'urn:li:service' then 'SERVICE' else null end n_owner_id_type,
+        'NUAGE', db_id, is_group, is_active, source_time,
         unix_timestamp(NOW()) time_created, {wh_exec_id}
       FROM stg_dataset_owner s
       WHERE db_id = {db_id} and s.dataset_id is not null and s.owner_id > '' and app_id is not null
@@ -139,8 +141,8 @@ class NuageLoad:
     owner_type = COALESCE(owner_type, sb.n_owner_type),
     owner_sub_type = COALESCE(owner_sub_type, sb.n_owner_sub_type),
     owner_id_type = COALESCE(owner_id_type, sb.n_owner_id_type),
-    owner_source = CASE WHEN owner_source is null THEN 'ETL'
-                    WHEN owner_source LIKE '%ETL%' THEN owner_source ELSE CONCAT(owner_source, ',ETL') END,
+    owner_source = CASE WHEN owner_source is null THEN 'NUAGE'
+                    WHEN owner_source LIKE '%NUAGE%' THEN owner_source ELSE CONCAT(owner_source, ',NUAGE') END,
     app_id = sb.app_id,
     is_active = sb.is_active,
     db_ids = sb.db_id,
