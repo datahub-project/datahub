@@ -97,8 +97,6 @@ class EspressoTransform:
     for one_ver in doc['documentSchema']:
       combined_schema['valueSchema'] = json.loads(one_ver['valueSchema'])
       schema_string = json.dumps(combined_schema)
-      if len(schema_string) == 0:
-        continue
       self.conn_cursor.executemany(self.schema_history_cmd, [urn, pseudo_date_offset, schema_string])
       pseudo_date_offset -= 1
 
@@ -130,9 +128,8 @@ class EspressoTransform:
     for line in self.input_file:
       #print line
       one_table_info = json.loads(line)
-      if len(one_table_info) == 0:
-        continue
-      self.convert_espresso(one_table_info)
+      if len(one_table_info) > 0:
+        self.convert_espresso(one_table_info)
 
 
   def clean_staging(self):
