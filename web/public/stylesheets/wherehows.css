@@ -434,22 +434,16 @@ ul.breadcrumbs a {
 
 .dataset-owner-list {
     display: flex;
-    flex-direction: column;
-    max-width: 500px;
     padding: 15px 0;
 }
 
-.dataset-owner-list header {
-    font-size: 16px;
-}
-
 .dataset-owner-list ul {
-    display: flex;
+    display: inline-flex;
     list-style-type: none;
     padding: 0;
 }
 
 .dataset-owner-list li {
-    margin-right: 15px;
+    margin-right: 10px;
     line-height: 2;
 }
