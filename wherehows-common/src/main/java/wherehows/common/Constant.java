@@ -241,4 +241,8 @@ public class Constant {
   // dali
   public static final String DALI_GIT_URN_KEY = "dali.git.urn";
   public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
+
+  // Nuage
+  public static final String D2_PROXY_URL = "d2.proxy.url";
+  public static final String ESPRESSO_OUTPUT_KEY = "espresso.metadata";
 }
