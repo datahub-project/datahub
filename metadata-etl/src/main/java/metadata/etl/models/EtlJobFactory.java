@@ -15,6 +15,7 @@ package metadata.etl.models;
 
 import java.util.Properties;
 import metadata.etl.EtlJob;
+import metadata.etl.dataset.espresso.EspressoMetadataEtl;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.oracle.OracleMetadataEtl;
@@ -81,6 +82,8 @@ public class EtlJobFactory {
         return new DatasetConfidentialFieldEtl(refId, whExecId, properties);
       case DATASET_DESCRIPTION_METADATA_ETL:
         return new DatasetDescriptionEtl(refId, whExecId, properties);
+      case ESPRESSO_DATASET_METADATA_ETL:
+        return new EspressoMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
