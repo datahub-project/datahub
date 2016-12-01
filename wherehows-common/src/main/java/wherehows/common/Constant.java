@@ -245,4 +245,5 @@ public class Constant {
   // Nuage
   public static final String D2_PROXY_URL = "d2.proxy.url";
   public static final String ESPRESSO_OUTPUT_KEY = "espresso.metadata";
+  public static final String VOLDEMORT_OUTPUT_KEY = "voldemort.metadata";
 }

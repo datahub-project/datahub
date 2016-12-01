@@ -20,6 +20,7 @@ import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
+import metadata.etl.dataset.voldemort.VoldemortMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.git.MultiproductMetadataEtl;
@@ -32,7 +33,6 @@ import metadata.etl.ldap.LdapEtl;
 import metadata.etl.scheduler.appworx.AppworxExecEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
-import metadata.etl.models.EtlJobName;
 import metadata.etl.git.CodeSearchMetadataEtl;
 import metadata.etl.security.DatasetConfidentialFieldEtl;
 
@@ -84,6 +84,8 @@ public class EtlJobFactory {
         return new DatasetDescriptionEtl(refId, whExecId, properties);
       case ESPRESSO_DATASET_METADATA_ETL:
         return new EspressoMetadataEtl(refId, whExecId, properties);
+      case VOLDEMORT_DATASET_METADATA_ETL:
+        return new VoldemortMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
