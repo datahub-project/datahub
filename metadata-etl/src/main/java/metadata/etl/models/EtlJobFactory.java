@@ -18,6 +18,7 @@ import metadata.etl.EtlJob;
 import metadata.etl.dataset.espresso.EspressoMetadataEtl;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
+import metadata.etl.dataset.kafka.KafkaMetadataEtl;
 import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.dataset.voldemort.VoldemortMetadataEtl;
@@ -86,6 +87,8 @@ public class EtlJobFactory {
         return new EspressoMetadataEtl(refId, whExecId, properties);
       case VOLDEMORT_DATASET_METADATA_ETL:
         return new VoldemortMetadataEtl(refId, whExecId, properties);
+      case KAFKA_DATASET_METADATA_ETL:
+        return new KafkaMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

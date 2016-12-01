@@ -84,7 +84,7 @@ class EspressoExtract:
       req_params = 'NuageDatabaseName={}&fabric={}&type={}&subType={}'.format(name, fabric, 'ESPRESSO', sub_type)
       resp = requests.get(self.d2_proxy_url + '/nuageDatabases/' + req_params, headers=headers, verify=False)
       if resp.status_code != 200:
-        self.logger.debug('Request ERROR {}: {}'.format(resp.status_code, req_params))
+        self.logger.info('Request ERROR {}: {}'.format(resp.status_code, req_params))
         continue
       else:
         one_table_info = resp.json()
@@ -93,7 +93,7 @@ class EspressoExtract:
         self.output_file.write(json.dumps(one_table_info))
         self.output_file.write('\n')
         table_count += 1
-        self.logger.debug("{} : {}".format(table_count, name))
+        self.logger.info("{} : {}".format(table_count, name))
     self.output_file.close()
     self.logger.info('Extracted {} tables for ESPRESSO'.format(table_count))
 
