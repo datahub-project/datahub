@@ -18,7 +18,7 @@ from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 
 
-class VoldemortTransform:
+class KafkaTransform:
 
   def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
@@ -28,14 +28,14 @@ class VoldemortTransform:
     JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
     JDBC_URL = args[Constant.WH_DB_URL_KEY]
 
-    self.input_file = open(args[Constant.VOLDEMORT_OUTPUT_KEY], 'r')
+    self.input_file = open(args[Constant.KAFKA_OUTPUT_KEY], 'r')
 
     self.db_id = args[Constant.DB_ID_KEY]
     self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
     self.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
     self.conn_cursor = self.conn_mysql.cursor()
 
-    self.logger.info("Transform VOLDEMORT metadata into {}, db_id {}, wh_exec_id {}"
+    self.logger.info("Transform KAFKA metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
 
     self.schema_history_cmd = "INSERT IGNORE INTO stg_dict_dataset_schema_history (urn, modified_date, dataset_schema) " + \
@@ -49,61 +49,44 @@ class VoldemortTransform:
                      "db_name, db_id, app_id, is_active, sort_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 
-  def convert_voldemort(self, content):
+  def convert_kafka(self, content):
     '''
     convert from original content to a insert statement
     '''
-    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentDbName', 'type', 'name', 'fabric','connectionURL']  # need transformation
+    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentName', 'type', 'name', 'fabric', 'connectionURL', 'loadingErrors']  # need transformation
+    dataset_type = 'kafka'
     name = content['name']
-    urn = 'voldemort:///' + name
-    dataset_type = 'voldemort'
-    source = 'VOLDEMORT'
-    parent_name = content['parentDbName']
-    location_prefix = '/' + parent_name
-    fields = {'fields': []}
-    if 'databaseSpec' in content and 'com.linkedin.nuage.VoldemortStore' in content['databaseSpec']:
-      key_schema = json.loads(content['databaseSpec']['com.linkedin.nuage.VoldemortStore']['keySchema'])
-      fields['fields'].extend(key_schema)
-    else:
-      key_schema = None
+    parent_name = content['subType']
+    urn = 'kafka:///' + name
+    source = dataset_type
+    location_prefix = parent_name
 
-    # databaseSpec : valueSchemas : valueSchema
-    combined_schema = {
-      'name': name,
-      'doc': content['databaseSpec']['description'] if 'description' in content['databaseSpec'] else None,
-      'keySchema': key_schema,
-      'valueSchema': None
-    }
-    # different versions of valueSchema
-    pseudo_date_offset = len(content['databaseSpec']['com.linkedin.nuage.VoldemortStore']['valueSchemas'])
-    for one_ver in content['databaseSpec']['com.linkedin.nuage.VoldemortStore']['valueSchemas']:
-      combined_schema['valueSchema'] = json.loads(one_ver['valueSchema'])
-      schema_string = json.dumps(combined_schema)
-      self.conn_cursor.executemany(self.schema_history_cmd, [urn, pseudo_date_offset, schema_string])
-      pseudo_date_offset -= 1
-
-    try:
-      if 'fields' in combined_schema['valueSchema']:
-        fields['fields'].extend(combined_schema['valueSchema']['fields'])
-      elif 'items' in combined_schema['valueSchema']:
-        fields['fields'].extend(combined_schema)
-      elif isinstance(combined_schema['valueSchema'], list) and len(combined_schema['valueSchema']) > 1 and \
-              'fields' in combined_schema['valueSchema'][1]:
-        fields['fields'].extend(combined_schema['valueSchema'][1]['fields'])
-      else:
-        self.logger.debug(str(combined_schema['valueSchema']))
-    except ValueError:
-      self.logger.debug(str(combined_schema['valueSchema']))
-
+    # databaseSpec : topicSchemas : schema
+    schema_string = ''
     properties = {}
+    if 'databaseSpec' in content:
+      if 'com.linkedin.nuage.KafkaTopic' in content['databaseSpec']:
+        if 'topicSchemas' in content['databaseSpec']['com.linkedin.nuage.KafkaTopic']:
+          versions = len(content['databaseSpec']['com.linkedin.nuage.KafkaTopic']['topicSchemas'])
+          if  versions > 0:
+            schema_string = content['databaseSpec']['com.linkedin.nuage.KafkaTopic']['topicSchemas'][versions - 1]['schema']
+
     for p_key in content.keys():
       if p_key not in EXCLUDED_ATTRS_IN_PROP:
         properties[p_key] = content[p_key]
-
+    properties['deployments'] = content['databaseSpec']['com.linkedin.nuage.KafkaTopic']['deployments']
     properties['connectionURLs'] = content['connectionURL'].split(',')
+
     schema_type = 'JSON'
 
-    self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name, json.dumps(combined_schema),
+    fields = {}
+    try:
+      schema_json = json.loads(schema_string)
+      fields = {'fields': schema_json['fields']}
+    except ValueError:
+      self.logger.debug("{} doesn't contain schema fields".format(urn))
+
+    self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name, json.dumps(schema_string),
                                                     schema_type, json.dumps(properties), json.dumps(fields), source,
                                                     location_prefix, parent_name, 0])
 
@@ -112,12 +95,12 @@ class VoldemortTransform:
       for owner in content['owners']:
         id_idx = owner.rfind(':')
         self.conn_cursor.executemany(self.owner_cmd, [urn, owner[:id_idx], owner[id_idx+1:], 'Delegate', 'N',
-                                                      'voldemort', self.db_id, 0, 'Y', owner_count])
+                                                      'kafka', self.db_id, 0, 'Y', owner_count])
         owner_count += 1
 
     if "servicesList" in content:
       for service in content['servicesList']:
-        self.conn_cursor.executemany(self.owner_cmd, [urn, 'urn:li:service', service, 'Delegate', 'Y', 'voldemort',
+        self.conn_cursor.executemany(self.owner_cmd, [urn, 'urn:li:service', service, 'Delegate', 'Y', 'kafka',
                                                       self.db_id, 0, 'Y', owner_count])
         owner_count += 1
 
@@ -125,12 +108,12 @@ class VoldemortTransform:
     self.logger.debug('Transformed ' + urn)
 
 
-  def load_voldemort(self):
+  def load_kafka(self):
     for line in self.input_file:
       #print line
       one_table_info = json.loads(line)
       if len(one_table_info) > 0:
-        self.convert_voldemort(one_table_info)
+        self.convert_kafka(one_table_info)
 
 
   def clean_staging(self):
@@ -143,9 +126,9 @@ class VoldemortTransform:
     try:
       begin = datetime.datetime.now().strftime("%H:%M:%S")
       self.clean_staging()
-      self.load_voldemort()
+      self.load_kafka()
       end = datetime.datetime.now().strftime("%H:%M:%S")
-      self.logger.info("Transform VOLDEMORT metadata [%s -> %s]" % (str(begin), str(end)))
+      self.logger.info("Transform KAFKA metadata [%s -> %s]" % (str(begin), str(end)))
     finally:
       self.conn_cursor.close()
       self.conn_mysql.close()
@@ -154,5 +137,5 @@ class VoldemortTransform:
 if __name__ == "__main__":
   args = sys.argv[1]
 
-  t = VoldemortTransform(args)
+  t = KafkaTransform(args)
   t.run()
