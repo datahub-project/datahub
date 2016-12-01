@@ -53,7 +53,8 @@ class VoldemortTransform:
     '''
     convert from original content to a insert statement
     '''
-    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentDbName', 'type', 'name', 'fabric','connectionURL']  # need transformation
+    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentDbName', 'type', 'name', 'fabric', 'connectionURL', 'profiledCapacity']  # need transformation
+
     name = content['name']
     urn = 'voldemort:///' + name
     dataset_type = 'voldemort'

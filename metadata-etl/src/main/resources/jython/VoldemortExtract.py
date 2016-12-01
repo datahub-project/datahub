@@ -45,10 +45,6 @@ class VoldemortExtract:
     '''
     get VOLDEMORT metadata from nuage
     '''
-    def get_nuage_voldemort_metadata(self):
-      '''
-      get VOLDEMORT metadata from nuage
-      '''
     headers = {'Accept': 'application/json'}
     payload = {'q': 'type', 'type': 'VOLDEMORT', 'subType': 'VOLDEMORT_READ_ONLY', 'fields': 'subType,fabric,name'}
     resp = requests.get(self.d2_proxy_url + '/nuageDatabases', params=payload, headers=headers, verify=False)
@@ -74,7 +70,7 @@ class VoldemortExtract:
 
     table_count = 0
     for name, value in merged_all_tables.items():
-      if name.startswith('_') or name.lower().startswith('test') or name.lower().endswith('tmp'):
+      if name.startswith('_') or name.lower().endswith('test') or name.lower().endswith('tmp'):
         continue
       fabric = []
       if 'PROD' in value['fabrics']:

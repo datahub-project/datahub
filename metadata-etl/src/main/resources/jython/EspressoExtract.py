@@ -69,7 +69,7 @@ class EspressoExtract:
 
     table_count = 0
     for name, value in merged_all_tables.items():
-      if name.startswith('_') or name.lower().startswith('test') or name.lower().endswith('tmp'):
+      if name.startswith('_') or name.lower().endswith('test') or name.lower().endswith('tmp'):
         continue
       if 'PROD' in value['fabrics']:
         fabric = 'PROD'

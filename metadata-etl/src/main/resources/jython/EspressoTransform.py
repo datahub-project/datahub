@@ -64,7 +64,7 @@ class EspressoTransform:
         self.construct_espresso_dataset(doc, content)
 
   def construct_espresso_dataset(self, doc, content):
-    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentName', 'type', 'name', 'fabric']  # need transformation
+    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentName', 'type', 'name', 'fabric', 'profiledCapacity']  # need transformation
 
     db_name = content['name']
     doc_name = doc['name']
