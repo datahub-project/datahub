@@ -73,6 +73,7 @@ CREATE TABLE `stg_product_repo` (
   `scm_type`        VARCHAR(20) NOT NULL,
   `repo_id`         INT UNSIGNED DEFAULT NULL,
   `project`         VARCHAR(100) DEFAULT NULL,
+  `dataset_group`   VARCHAR(200) DEFAULT NULL COMMENT 'dataset group name, database name, etc',
   `owner_type`      VARCHAR(50) DEFAULT NULL,
   `owner_name`      VARCHAR(300) DEFAULT NULL COMMENT 'owner names in comma separated list',
   `multiproduct_name` VARCHAR(100) DEFAULT NULL,
@@ -88,13 +89,13 @@ CREATE TABLE `stg_repo_owner` (
   `scm_repo_fullname` VARCHAR(100) NOT NULL,
   `scm_type`        VARCHAR(20) NOT NULL,
   `repo_id`         INT DEFAULT NULL,
+  `dataset_group`   VARCHAR(200) DEFAULT NULL COMMENT 'dataset group name, database name, etc',
   `owner_type`      VARCHAR(50) DEFAULT NULL COMMENT 'which acl file this owner is in',
   `owner_name`      VARCHAR(50) DEFAULT NULL COMMENT 'one owner name',
   `sort_id`         INT UNSIGNED DEFAULT NULL,
   `paths`           TEXT CHAR SET utf8 DEFAULT NULL COMMENT 'covered paths by this acl',
   PRIMARY KEY (`scm_repo_fullname`, `scm_type`, `owner_type`, `owner_name`, `app_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = latin1;
-
 
 
 CREATE TABLE stg_database_scm_map (
