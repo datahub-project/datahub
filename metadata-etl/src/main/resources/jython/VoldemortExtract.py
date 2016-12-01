@@ -95,14 +95,14 @@ class VoldemortExtract:
           one_table_info = resp.json()
           break
         else:
-          self.logger.debug('Request ERROR {}: {}'.format(resp.status_code, req_params))
+          self.logger.info('Request ERROR {}: {}'.format(resp.status_code, req_params))
 
       if one_table_info is not None:
         one_table_info['fabrics'] = value['fabrics']
         self.output_file.write(json.dumps(one_table_info))
         self.output_file.write('\n')
         table_count += 1
-        self.logger.debug("{} : {}".format(table_count, name))
+        self.logger.info("{} : {}".format(table_count, name))
     self.output_file.close()
     self.logger.info('Extracted {} tables for VOLDEMORT'.format(table_count))
 
