@@ -66,11 +66,12 @@ class KafkaExtract:
 
     self.logger.info("Found {} topics for KAFKA TRACKING".format(len(merged_all_tables)))
 
-    skip_pattern = re.compile("^.*(test|testing|tmp)\d*$")
+    skip_pattern_startswith = re.compile("^(_|test|tmp).*$")
+    skip_pattern_endswith = re.compile("^.*(test|testing|tmp)\d*$")
 
     table_count = 0
     for name, value in merged_all_tables.items():
-      if name.startswith('_') or skip_pattern.match(name):
+      if skip_pattern_startswith.match(name) or skip_pattern_endswith.match(name):
         continue
       if 'PROD' in value['fabrics']:
         fabric = 'PROD'
