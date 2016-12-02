@@ -38,9 +38,6 @@ class KafkaTransform:
     self.logger.info("Transform KAFKA metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
 
-    self.schema_history_cmd = "INSERT IGNORE INTO stg_dict_dataset_schema_history (urn, modified_date, dataset_schema) " + \
-                              "VALUES (?, current_date - ?, ?)"
-
     self.dataset_cmd = "INSERT IGNORE INTO stg_dict_dataset (`db_id`, `dataset_type`, `urn`, `name`, `schema`, schema_type, " \
                        "properties, `fields`, `source`, location_prefix, parent_name, storage_type, created_time, wh_etl_exec_id) " + \
                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Avro', UNIX_TIMESTAMP(), ?)"
@@ -53,7 +50,8 @@ class KafkaTransform:
     '''
     convert from original content to a insert statement
     '''
-    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentName', 'type', 'name', 'fabric', 'connectionURL', 'loadingErrors']  # need transformation
+    EXCLUDED_ATTRS_IN_PROP = ['databaseSpec', 'owners', 'parentName', 'type', 'name', 'fabric', 'connectionURL',
+                              'loadingErrors', 'profiledCapacity']  # need transformation
     dataset_type = 'kafka'
     name = content['name']
     parent_name = content['subType']
@@ -86,9 +84,10 @@ class KafkaTransform:
     except ValueError:
       self.logger.debug("{} doesn't contain schema fields".format(urn))
 
-    self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name, json.dumps(schema_string),
+    self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name,
+                                                    json.dumps(schema_string) if len(schema_string) > 0 else None,
                                                     schema_type, json.dumps(properties), json.dumps(fields), source,
-                                                    location_prefix, parent_name, 0])
+                                                    location_prefix, parent_name, self.wh_etl_exec_id])
 
     owner_count = 1
     if "owners" in content:
