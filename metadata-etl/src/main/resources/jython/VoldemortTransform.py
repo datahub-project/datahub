@@ -35,7 +35,7 @@ class VoldemortTransform:
     self.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
     self.conn_cursor = self.conn_mysql.cursor()
 
-    self.logger.info("Transform ESPRESSO metadata into {}, db_id {}, wh_exec_id {}"
+    self.logger.info("Transform VOLDEMORT metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
 
     self.schema_history_cmd = "INSERT IGNORE INTO stg_dict_dataset_schema_history (urn, modified_date, dataset_schema) " + \
@@ -106,7 +106,7 @@ class VoldemortTransform:
 
     self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name, json.dumps(combined_schema),
                                                     schema_type, json.dumps(properties), json.dumps(fields), source,
-                                                    location_prefix, parent_name, 0])
+                                                    location_prefix, parent_name, self.wh_etl_exec_id])
 
     owner_count = 1
     if "owners" in content:
