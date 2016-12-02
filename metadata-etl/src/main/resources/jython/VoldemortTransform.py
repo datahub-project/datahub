@@ -105,7 +105,7 @@ class VoldemortTransform:
 
     self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, name, json.dumps(combined_schema),
                                                     schema_type, json.dumps(properties), json.dumps(fields), source,
-                                                    location_prefix, parent_name, 0])
+                                                    location_prefix, parent_name, self.wh_etl_exec_id])
 
     owner_count = 1
     if "owners" in content:
