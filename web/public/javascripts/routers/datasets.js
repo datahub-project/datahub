@@ -43,80 +43,6 @@ function formatValue(key, value){
   }
 }
 
-function setOwnerNameAutocomplete(controller)
-{
-  if (!controller)
-  {
-    return;
-  }
-
-  $('.userEntity').blur(function(data){
-    var userEntitiesMaps = controller.get("userEntitiesMaps");
-    var value = this.value;
-    if (userEntitiesMaps[value])
-    {
-      controller.set("showMsg", false);
-      var owners = controller.get("owners");
-      for(var i = 0; i < owners.length; i++)
-      {
-        if (owners[i].userName == value)
-        {
-          Ember.set(owners[i], "name", userEntitiesMaps[value]);
-          if (userEntitiesMaps[value])
-          {
-            Ember.set(owners[i], "isGroup", false);
-          }
-          else
-          {
-            Ember.set(owners[i], "isGroup", true);
-          }
-        }
-      }
-    }
-    else
-    {
-      controller.set("showMsg", true);
-      controller.set("alertType", "alert-danger");
-      controller.set("ownerMessage", "The user name '" + value + "' is invalid");
-    }
-  });
-
-  $('.userEntity').autocomplete({
-    select: function( event, ui )
-    {
-      var userEntitiesMaps = controller.get("userEntitiesMaps");
-      var value = ui.item.value;
-      if (value in userEntitiesMaps)
-      {
-        var owners = controller.get("owners");
-        for(var i = 0; i < owners.length; i++)
-        {
-          if (owners[i].userName == value)
-          {
-            controller.set("showMsg", false);
-            Ember.set(owners[i], "name", userEntitiesMaps[value]);
-            if (userEntitiesMaps[value])
-            {
-              Ember.set(owners[i], "isGroup", false);
-            }
-            else
-            {
-              Ember.set(owners[i], "isGroup", true);
-            }
-          }
-        }
-      }
-    },
-
-    source: function(request, response) {
-      var userEntitiesSource = controller.get("userEntitiesSource");
-      var results = $.ui.autocomplete.filter(userEntitiesSource, request.term);
-      response(results.slice(0, 20));
-    }
-
-  });
-}
-
 function convertPropertiesToArray(properties)
 {
   var propertyArray = [];
@@ -230,8 +156,14 @@ App.DatasetRoute = Ember.Route.extend({
      * @param {number} id
      */
     const createSecuritySpecification = id => {
+      const classification = [
+        'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
+      ].reduce((classification, classifier) => {
+        classification[classifier] = [];
+        return classification;
+      }, {});
       const securitySpecification = {
-        classification: null,
+        classification,
         datasetId: id,
         geographicAffinity: {affinity: ''},
         recordOwnerType: '',
@@ -644,67 +576,31 @@ App.DatasetRoute = Ember.Route.extend({
       }
     });
 
-    var ownershipUrl = 'api/v1/datasets/' + id + "/owners";
-    $.get(ownershipUrl, function(data) {
-          if (data && data.status == "ok")
-          {
-            var owners = [];
-            if (data.owners && (data.owners.length > 0))
-            {
-              owners = data.owners;
-            }
-            controller.set("owners", owners);
-            setTimeout(function(){
-              $( "#sortedownertable" ).sortable({
-                start: function(event, ui) {
-                  var start_pos = ui.item.index();
-                  ui.item.data('start_pos', start_pos);
-                },
-                update: function( event, ui ) {
-                  var startPos = ui.item.data('start_pos');
-                  var endPos = ui.item.index();
-                  var originalOwners = controller.get("owners");
-                  if (!originalOwners || originalOwners.length == 0)
-                  {
-                    return;
-                  }
-                  var owners = originalOwners.slice();
-                  var updatedOwner = owners[startPos];
-                  owners.splice(startPos, 1);
-                  owners.splice(endPos, 0, updatedOwner);
-                  originalOwners.setObjects(owners);
-                  setTimeout(function(){
-                    setOwnerNameAutocomplete(controller)
-                  }, 500);
-                }
-              });
+    Promise.resolve($.get(`api/v1/datasets/${id}/owners`))
+        .then(({status, owners = []}) => {
+          status === 'ok' && controller.set('owners', owners);
+        })
+        .then($.get.bind($, 'api/v1/party/entities'))
+        .then(({status, userEntities = []}) => {
+          if (status === 'ok' && userEntities.length) {
+            /**
+             * @type {Object} userEntitiesMaps hash of userEntities: label -> displayName
+             */
+            const userEntitiesMaps = userEntities.reduce((map, {label, displayName}) =>
+                (map[label] = displayName, map), {});
 
-              var allUserEntitiesUrl = 'api/v1/party/entities';
-              $.get(allUserEntitiesUrl, function(data) {
-                if (data && data.status == "ok")
-                {
-                  if (data.userEntities && (data.userEntities.length > 0))
-                  {
-                    var userEntitiesMaps = {};
-                    for (i=0; i < data.userEntities.length; i++)
-                    {
-                      userEntitiesMaps[data.userEntities[i].label] = data.userEntities[i].displayName;
-                    }
-                    var userEntitiesSource = Object.keys(userEntitiesMaps);
-                    controller.set("userEntitiesMaps", userEntitiesMaps);
-                    controller.set("userEntitiesSource", userEntitiesSource);
-                    setOwnerNameAutocomplete(controller);
-                  }
-                }
-              });
-            }, 500);
+            controller.setProperties({
+              userEntitiesSource: Object.keys(userEntitiesMaps),
+              userEntitiesMaps
+            });
           }
-    });
+        });
   },
 
-  model: function ({id}) {
+  model({id}) {
     return Ember.$.getJSON(`api/v1/datasets/${id}`);
   },
+
   actions: {
     getSchema: function(){
       var controller = this.get('controller')

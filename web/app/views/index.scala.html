@@ -360,6 +360,35 @@
       {{/if}}
     </script>
 
+<script type="text/x-handlebars" id="components/dataset-owner-list">
+  {{#if owners}}
+    <header>
+      Owners:
+      <ul>
+        {{#each owners as |owner|}}
+          <li>
+            {{#if owner.email}}
+              <a title="Email {{owner.name}} about {{datasetName}}"
+                 href="mailto:{{owner.email}}?subject=RE: Dataset {{datasetName}}">
+                {{owner.name}}
+              </a>
+            {{else}}
+              {{owner.name}}
+            {{/if}}
+          </li>
+        {{/each}}
+      </ul>
+      {{#if ownersEmailList}}
+        <span>
+          <a title="Email all dataset owners" href="mailto: {{ownersEmailList}}">Ask a question?</a>
+        </span>
+      {{/if}}
+    </header>
+  {{else}}
+    No known owners for this dataset
+  {{/if}}
+</script>
+
     <script type="text/x-handlebars" id="components/dataset-author">
       <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
         <div class="col-xs-12">
@@ -392,7 +421,7 @@
             <th class="col-xs-1"></th>
           </tr>
         </thead>
-        <tbody id = "sortedownertable">
+        <tbody data-attribute="owner-table">
           {{#each owners as |owner|}}
           <tr>
             <td>{{input class="userEntity" value=owner.userName}}</td>
@@ -566,6 +595,7 @@
             </ul>
           </div>
         </div>
+        {{dataset-owner-list owners=owners datasetName=model.name}}
         {{#if hasinstances}}
           <div class="row">
             <span class="col-xs-1">Instances:</span>
@@ -679,8 +709,12 @@
             {{/dataset-schema}}
           </div>
           <div id="ownertab" class="tab-pane">
-            {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
-            {{/dataset-author}}
+            {{dataset-author owners=owners
+                             ownerTypes=ownerTypes
+                             showMsg=showMsg
+                             alertType=alertType
+                             ownerMessage=ownerMessage
+                             parentController=this}}
           </div>
           {{#unless isSFDC}}
             <div id="sampletab" class="tab-pane">
@@ -783,8 +817,12 @@
           </div>
           <div id="ownership" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ownershipHeading">
             <div class="panel-body">
-              {{#dataset-author owners=owners ownerTypes=ownerTypes showMsg=showMsg alertType=alertType ownerMessage=ownerMessage parentController=this}}
-              {{/dataset-author}}
+              {{dataset-author owners=owners
+                               ownerTypes=ownerTypes
+                               showMsg=showMsg
+                               alertType=alertType
+                               ownerMessage=ownerMessage
+                               parentController=this}}
             </div>
           </div>
         </div>
