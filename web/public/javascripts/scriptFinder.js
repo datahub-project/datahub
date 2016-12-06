@@ -96,6 +96,7 @@
         function updateScripts(page)
         {
             var url;
+            let query;
 
             var scriptNameObj = $('#scriptName');
             var scriptName = '';
@@ -147,7 +148,8 @@
             filterOpts.jobName = jobName;
             filterOpts.committerName = committerName;
 
-            url = '/api/v1/scriptFinder/scripts?query=' + JSON.stringify(filterOpts) + '&size=10&page=' + page;
+            query = encodeURIComponent(JSON.stringify(filterOpts));
+            url = '/api/v1/scriptFinder/scripts?query=' + query + '&size=10&page=' + page;
 
             $.get(url, function(data) {
                 if (data && data.status == "ok"){
