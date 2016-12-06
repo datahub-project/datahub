@@ -156,8 +156,14 @@ App.DatasetRoute = Ember.Route.extend({
      * @param {number} id
      */
     const createSecuritySpecification = id => {
+      const classification = [
+        'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
+      ].reduce((classification, classifier) => {
+        classification[classifier] = [];
+        return classification;
+      }, {});
       const securitySpecification = {
-        classification: null,
+        classification,
         datasetId: id,
         geographicAffinity: {affinity: ''},
         recordOwnerType: '',
