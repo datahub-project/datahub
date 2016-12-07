@@ -328,7 +328,10 @@
       var keyword = inputObj.val();
       if (keyword) {
         window.location = '/#/search?keywords=' + btoa(keyword) +
-            '&category=' + window.g_currentCategory + '&source=default&page=1'
+            '&category=' + window.g_currentCategory + '&source=default&page=1';
+
+        window._paq.push(['trackSiteSearch', keyword, window.g_currentCategory, false]);
+
       }
     }
   });
