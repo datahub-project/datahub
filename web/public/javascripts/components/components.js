@@ -232,6 +232,16 @@ App.DatasetAccessComponent = Ember.Component.extend({
 App.DatasetImpactComponent = Ember.Component.extend({
 });
 
+App.DatasetOwnerListComponent = Ember.Component.extend({
+  tagName: 'section',
+  classNames: ['dataset-owner-list'],
+
+  ownersEmailList: Ember.computed('owners', function () {
+    // Reduce owner email to a string containing emails, each separated by comma
+    return this.get('owners').mapBy('email').filter(email => email).join(', ');
+  }),
+});
+
 App.DatasetComplianceComponent = Ember.Component.extend({
   searchTerm: '',
   complianceType: Ember.computed.alias('privacyCompliancePolicy.complianceType'),
@@ -458,12 +468,7 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
   },
 
   classification: Ember.computed('securitySpecification.classification', function () {
-    const classifiers = ['highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'];
-    const defaultClassification = classifiers.reduce((classification, classifier) => {
-      classification[classifier] = [];
-      return classification;
-    }, {});
-    const confidentialClassification = this.get('securitySpecification.classification') || defaultClassification;
+    const confidentialClassification = this.get('securitySpecification.classification');
     const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
     return Object.keys(confidentialClassification).map(classifier => ({
@@ -520,6 +525,41 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
 });
 
 App.DatasetAuthorComponent = Ember.Component.extend({
+  $ownerTable: null,
+
+  didInsertElement() {
+    this._super(...arguments);
+    // Cache reference to element on component
+    this.set('$ownerTable', this.$('[data-attribute=owner-table]'));
+
+    // Apply jQuery sortable plugin to element
+    this.get('$ownerTable')
+        .sortable({
+          start: (e, {item}) => this.set('startPosition', item.index()),
+
+          update: (e, {item}) => {
+            const startPosition = this.get('startPosition');
+            const endPosition = item.index(); // New position where UI element was dropped
+            const owners = this.get('owners') || [];
+
+            // Updates the owners array to reflect the UI position changes
+            if (owners.length) {
+              const _owners = owners.slice(0);
+              const updatedOwner = _owners.splice(startPosition, 1).pop();
+              _owners.splice(endPosition, 0, updatedOwner);
+              owners.setObjects(_owners);
+              setOwnerNameAutocomplete(this.controller);
+            }
+          }
+        });
+  },
+
+  willDestroyElement() {
+    this._super(...arguments);
+    // Removes the sortable functionality from the cached DOM element reference
+    this.get('$ownerTable').sortable('destroy');
+  },
+
   actions: {
     addOwner: function(data) {
       var owners = data;
