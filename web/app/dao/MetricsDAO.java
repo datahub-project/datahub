@@ -45,14 +45,15 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 			"m.metric_ref_id, m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id " +
 			"FROM dict_business_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
-      		"WHERE dashboard_name $value ORDER BY m.metric_name limit ?, ?";
+      		"WHERE (dashboard_name = ? OR (dashboard_name IS NULL AND ? IS NULL)) ORDER BY m.metric_name limit ?, ?";
 
 	private final static String SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP = "SELECT SQL_CALC_FOUND_ROWS " +
 			"m.metric_id, m.metric_name, m.metric_description, m.metric_ref_id_type, m.metric_ref_id, " +
 			"m.dashboard_name, m.metric_category, m.metric_group, IFNULL(w.id,0) as watch_id  " +
 			"FROM dict_busines_metric m " +
       		"LEFT JOIN watch w ON (m.metric_id = w.item_id AND w.item_type = 'metric' AND w.user_id = ?) " +
-      		"WHERE m.dashboard_name $dashboard and m.metric_group $group " +
+      		"WHERE (m.dashboard_name = ? OR (m.dashboard_name IS NULL AND ? IS NULL)) " +
+          "and (m.metric_group = ? OR (m.metric_group IS NULL AND ? IS NULL)) " +
 			"ORDER BY metric_name limit ?, ?";
 
 	private final static String GET_METRIC_BY_ID = "SELECT m.metric_id, m.metric_name, " +
@@ -74,7 +75,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 
   	private final static String GET_USER_ID = "SELECT id FROM users WHERE username = ?";
 
-	private final static String UPDATE_METRIC = "UPDATE dict_busines_metric SET $SET_CLAUSE WHERE metric_id = ?";
+	private final static String UPDATE_METRIC = "UPDATE dict_business_metric SET $SET_CLAUSE WHERE metric_id = ?";
 
 	public static ObjectNode getPagedMetrics(
 			String dashboardName,
@@ -97,48 +98,51 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 		{
 			public ObjectNode doInTransaction(TransactionStatus status)
 			{
-				String query = null;
+        List<Map<String, Object>> rows;
 				if (StringUtils.isBlank(dashboardName))
 				{
-					query = SELECT_PAGED_METRICS;
+          rows = jdbcTemplate.queryForList(SELECT_PAGED_METRICS, id, (page-1)*size, size);
 				}
 				else if (StringUtils.isBlank(group))
 				{
-					query = SELECT_PAGED_METRICS_BY_DASHBOARD_NAME;
+					String dbName;
 					if (dashboardName.equals("[Other]"))
 					{
-						query = query.replace("$value", "is null");
+						dbName = null;
 					}
 					else
 					{
-						query = query.replace("$value", "= '" + dashboardName + "'");
+						dbName = dashboardName;
 					}
+          rows = jdbcTemplate.queryForList(SELECT_PAGED_METRICS_BY_DASHBOARD_NAME, id, dbName, dbName,
+              (page-1)*size, size);
 				}
 				else
 				{
-					query = SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP;
+          String dbName;
 					if (dashboardName.equals("[Other]"))
 					{
-						query = query.replace("$dashboard", "is null");
+            dbName = null;
 					}
 					else
 					{
-						query = query.replace("$dashboard", "= '" + dashboardName + "'");
+            dbName = dashboardName;
 					}
+          String grp;
 					if (group.equals("[Other]"))
 					{
-						query = query.replace("$group", "is null");
+            grp = null;
 					}
 					else
 					{
-						query = query.replace("$group", "= '" + group + "'");
+            grp = group;
 					}
+          rows = jdbcTemplate.queryForList(SELECT_PAGED_METRICS_BY_DASHBOARD_AND_GROUP, id, dbName, dbName, grp, grp,
+              (page-1)*size, size);
 				}
-				List<Map<String, Object>> rows = null;
-				List<Metric> pagedMetrics = new ArrayList<Metric>();
-				rows = jdbcTemplate.queryForList(query, id, (page-1)*size, size);
-				for (Map row : rows) {
 
+				List<Metric> pagedMetrics = new ArrayList<>();
+				for (Map row : rows) {
 					Metric metric = new Metric();
 					metric.id = (int)row.get("metric_id");
 					metric.name = (String)row.get("metric_name");
@@ -148,7 +152,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 					metric.dashboardName = (String)row.get("dashboard_name");
 					metric.category = (String)row.get("metric_category");
 					metric.group = (String)row.get("metric_group");
-          			metric.watchId = (Long)row.get("watch_id");
+          metric.watchId = (Long)row.get("watch_id");
 					pagedMetrics.add(metric);
 				}
 				long count = 0;
