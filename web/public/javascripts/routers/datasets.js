@@ -246,12 +246,6 @@ App.DatasetRoute = Ember.Route.extend({
       ({id, source, urn, name} = params);
       let {originalSchema = null} = params;
 
-    controller.set("hasProperty", false);
-
-    if (params && params.id) {
-      ({id, source, urn, name} = params);
-      let {originalSchema = null} = params;
-
       datasetController.set('detailview', true);
       if (originalSchema) {
         Ember.set(params, 'schema', originalSchema);
@@ -268,9 +262,13 @@ App.DatasetRoute = Ember.Route.extend({
     // Don't set default zero Ids on controller
     if (id) {
       controller.set('datasetId', id);
+      // Creates list of partially applied functions from `fetchThenSetController` and invokes each in turn
+      Object.keys(fetchThenSetOnController)
+          .map(funcRef => fetchThenSetOnController[funcRef]['bind'](fetchThenSetOnController, id))
+          .forEach(func => func());
     }
 
-      var instanceUrl = 'api/v1/datasets/' + id + "/instances";
+    var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
         if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
           controller.set("hasinstances", true);
