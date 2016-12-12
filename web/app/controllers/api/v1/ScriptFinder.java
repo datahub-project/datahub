@@ -16,6 +16,7 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.ScriptFinderDAO;
+import java.net.URLDecoder;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
@@ -78,15 +79,17 @@ public class ScriptFinder extends Controller
                 size = 10;
             }
         }
+
         String filterOptStr = request().getQueryString("query");
         JsonNode filterOpt = null;
         try
         {
-            filterOpt = Json.parse(filterOptStr);
+            String filterOptStrDecode = URLDecoder.decode(filterOptStr, "UTF-8");
+            filterOpt = Json.parse(filterOptStrDecode);
         }
         catch (Exception e)
         {
-            Logger.error("ScriptFinder Controller getScripts wrong JSON format. Error message: " +
+            Logger.error("ScriptFinder Controller getScripts query filterOpt wrong JSON format. Error message: " +
                     e.getMessage());
             filterOpt = null;
         }
