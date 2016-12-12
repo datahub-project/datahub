@@ -14,23 +14,21 @@
 package wherehows.common.schemas;
 
 import java.util.List;
+import java.util.Map;
 
 
-public class DatasetCapacityRecord extends AbstractRecord {
+public class DatasetComplianceRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
-  String capacityName;
-  String capacityType;
-  String capacityUnit;
-  Double capacityLow;
-  Double capacityHigh;
+  String complianceType;
+  List<DatasetEntityRecord> compliancePurgeEntities;
   Long modifiedTime;
 
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "capacity_name", "capacity_type", "capacity_unit",
-        "capacity_low", "capacity_high", "modified_time"};
+    return new String[]{"dataset_id", "dataset_urn", "compliance_purge_type", "compliance_purge_entities",
+        "modified_time"};
   }
 
   @Override
@@ -38,7 +36,7 @@ public class DatasetCapacityRecord extends AbstractRecord {
     return null;
   }
 
-  public DatasetCapacityRecord() {
+  public DatasetComplianceRecord() {
   }
 
   public Integer getDatasetId() {
@@ -57,44 +55,20 @@ public class DatasetCapacityRecord extends AbstractRecord {
     this.datasetUrn = datasetUrn;
   }
 
-  public String getCapacityName() {
-    return capacityName;
+  public String getComplianceType() {
+    return complianceType;
   }
 
-  public void setCapacityName(String capacityName) {
-    this.capacityName = capacityName;
+  public void setComplianceType(String complianceType) {
+    this.complianceType = complianceType;
   }
 
-  public String getCapacityType() {
-    return capacityType;
+  public List<DatasetEntityRecord> getCompliancePurgeEntities() {
+    return compliancePurgeEntities;
   }
 
-  public void setCapacityType(String capacityType) {
-    this.capacityType = capacityType;
-  }
-
-  public String getCapacityUnit() {
-    return capacityUnit;
-  }
-
-  public void setCapacityUnit(String capacityUnit) {
-    this.capacityUnit = capacityUnit;
-  }
-
-  public Double getCapacityLow() {
-    return capacityLow;
-  }
-
-  public void setCapacityLow(Double capacityLow) {
-    this.capacityLow = capacityLow;
-  }
-
-  public Double getCapacityHigh() {
-    return capacityHigh;
-  }
-
-  public void setCapacityHigh(Double capacityHigh) {
-    this.capacityHigh = capacityHigh;
+  public void setCompliancePurgeEntities(List<DatasetEntityRecord> compliancePurgeEntities) {
+    this.compliancePurgeEntities = compliancePurgeEntities;
   }
 
   public Long getModifiedTime() {

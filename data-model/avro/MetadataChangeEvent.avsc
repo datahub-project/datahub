@@ -13,13 +13,12 @@
           {
             "name": "time",
             "type": "long",
-            "doc": "The time at which the event was emitted into Kafka.",
-            "logicalType": "timestamp-millis"
+            "doc": "The time at which the event was emitted into kafka."
           },
           {
             "name": "server",
             "type": "string",
-            "doc": "The fully-qualified name of the host of this event."
+            "doc": "The fully qualified name of the host from which the event is being emitted."
           },
           {
             "name": "instance",
@@ -27,12 +26,12 @@
               "null",
               "string"
             ],
-            "doc": "The name of the application instance on the server. e.g. i002,stg05,group003"
+            "doc": "The instance on the server from which the event is being emitted. e.g. i001"
           },
           {
             "name": "appName",
             "type": "string",
-            "doc": "The name of the application/service from which the event is emitted."
+            "doc": "The name of the application from which the event is being emitted. see go/appname"
           },
           {
             "name": "messageId",
@@ -42,10 +41,37 @@
               "namespace": "com.linkedin.events",
               "size": 16
             },
-            "doc": "A unique identifier for the message."
+            "doc": "A unique identifier for the message"
+          },
+          {
+            "name": "auditVersion",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+            "default": null
+          },
+          {
+            "name": "fabricUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+            "default": null
           }
         ]
-      }
+      },
+      "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
+    },
+    {
+      "name": "urn",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "The applicable URN - urn:li:dataset:(urn:li:dataPlatform:dali, search_mp.search_event_event, PROD), urn:salesforce:table:opportunity, arn:aws:dynamodb::<account>:table/<table>. This is the preferred identifier for a dataset."
     },
     {
       "name": "datasetIdentifier",
@@ -111,15 +137,8 @@
             }
           ]
         }
-      ]
-    },
-    {
-      "name": "urn",
-      "type": [
-        "string",
-        "null"
       ],
-      "doc": "The applicable URN - urn:li:dataset:(urn:li:dataPlatform:dali, search_mp.search_event_event, PROD), urn:salesforce:table:opportunity, arn:aws:dynamodb::<account>:table/<table>. This is the preferred identifier for a dataset."
+      "doc": "This has the same function as URN, but it can be used when the source system does not provide the URN"
     },
     {
       "name": "datasetProperties",
@@ -127,7 +146,7 @@
         "null",
         {
           "type": "record",
-          "name": "DatasetProperties",
+          "name": "DatasetProperty",
           "fields": [
             {
               "name": "changeAuditStamp",
@@ -181,10 +200,11 @@
             {
               "name": "uri",
               "type": [
-                "string",
-                "null"
+                "null",
+                "string"
               ],
-              "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
+              "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts.",
+              "default": null
             },
             {
               "name": "caseSensitivity",
@@ -218,64 +238,62 @@
             }
           ]
         }
-      ]
+      ],
+      "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, Audit Stamp"
     },
     {
       "name": "owners",
-      "type": [
-        "null",
-        {
-          "type": "array",
-          "items": {
-            "type": "record",
-            "name": "OwnerInfo",
-            "fields": [
-              {
-                "name": "ownerCategory",
-                "type": {
-                  "type": "enum",
-                  "name": "OwnerCategory",
-                  "symbols": [
-                    "OWNER",
-                    "PRODUCER",
-                    "DELEGATE",
-                    "STAKEHOLDER"
-                  ]
-                },
-                "doc": "Owner, Producer, Delegate, Stakeholder",
-                "default": "OWNER"
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "OwnerInfo",
+          "fields": [
+            {
+              "name": "ownerCategory",
+              "type": {
+                "type": "enum",
+                "name": "OwnerCategory",
+                "symbols": [
+                  "OWNER",
+                  "PRODUCER",
+                  "DELEGATE",
+                  "STAKEHOLDER"
+                ]
               },
-              {
-                "name": "ownerUrn",
-                "type": "string",
-                "doc": "urn:li:corp:ldap, urn:li:group:abc, urn:li:service:mp_name, user_id, group_name"
+              "doc": "Owner, Producer, Delegate, Stakeholder",
+              "default": "OWNER"
+            },
+            {
+              "name": "owner",
+              "type": "string",
+              "doc": "urn:li:corp:ldap, urn:li:group:abc, urn:li:service:mp_name, user_id, group_name"
+            },
+            {
+              "name": "ownerType",
+              "type": {
+                "type": "enum",
+                "name": "OwnerType",
+                "symbols": [
+                  "URN",
+                  "USER",
+                  "GROUP",
+                  "ROLE",
+                  "SERVICE"
+                ]
               },
-              {
-                "name": "ownerType",
-                "type": {
-                  "type": "enum",
-                  "name": "OwnerType",
-                  "symbols": [
-                    "USER",
-                    "GROUP",
-                    "ROLE",
-                    "SERVICE",
-                    "URN"
-                  ]
-                },
-                "doc": "user, group, role, service, or urn",
-                "default": "USER"
-              },
-              {
-                "name": "ownerSource",
-                "type": "string",
-                "doc": "JIRA,RB,DB,FS,AUDIT,NUAGE where the owner info is extracted"
-              }
-            ]
-          }
+              "doc": "user, group, role, service, or urn",
+              "default": "URN"
+            },
+            {
+              "name": "ownerSource",
+              "type": "string",
+              "doc": "JIRA,SCM,RB,DB,FS,AUDIT,NUAGE from where the owner id is extracted"
+            }
+          ]
         }
-      ],
-      "default": null
+      },
+      "default": []
     },
     {
       "name": "references",
@@ -296,7 +314,9 @@
                     "JIRA",
                     "RB",
                     "LIX",
-                    "CR"
+                    "CR",
+                    "WIKI",
+                    "SCM"
                   ]
                 }
               },
@@ -315,14 +335,11 @@
               },
               {
                 "name": "referenceList",
-                "type": [
-                  "null",
-                  {
-                    "type": "array",
-                    "items": "string"
-                  }
-                ],
-                "doc": "references[]"
+                "type": {
+                  "type": "array",
+                  "items": "string"
+                },
+                "doc": "list of reference ids, keys or uris"
               }
             ]
           }
@@ -345,7 +362,7 @@
                 "null"
               ],
               "doc": "What is the deepest partition level",
-              "default": 0
+              "default": 1
             },
             {
               "name": "partitionSpecText",
@@ -425,7 +442,8 @@
                           "type": "array",
                           "items": "string"
                         },
-                        "doc": "Partition keys (use the full field path for nested fields)"
+                        "doc": "Partition keys (use the full field path for nested fields)",
+                        "default": []
                       },
                       {
                         "name": "partitionValues",
@@ -433,7 +451,8 @@
                           "type": "array",
                           "items": "string"
                         },
-                        "doc": "For RANGE: [min, next_value); for LIST: [values...]; for Hive: [value]; for HASH: N/A"
+                        "doc": "For RANGE: [min, next_partition_min_value); for LIST: [value1, value2...], for CASE: [expr1, expr2]; for Hive: [value]; for HASH: N/A",
+                        "default": []
                       },
                       {
                         "name": "numberOfHashBuckets",
@@ -447,7 +466,7 @@
                   }
                 }
               ],
-              "doc": "Array of partition keys",
+              "doc": "Array of partition keys/fields",
               "default": null
             },
             {
@@ -547,13 +566,10 @@
     },
     {
       "name": "tags",
-      "type": [
-        "null",
-        {
-          "type": "array",
-          "items": "string"
-        }
-      ],
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
       "doc": "Tags of the dataset object"
     },
     {
@@ -565,10 +581,19 @@
           "name": "DatasetSchema",
           "fields": [
             {
-              "name": "isLatestRevision",
+              "name": "isBackwardCompatible",
+              "type": [
+                "null",
+                "boolean"
+              ],
+              "doc": "Is this reversion compatible with the previous revision? null means unknown",
+              "default": null
+            },
+            {
+              "name": "isFieldNameCaseSensitive",
               "type": "boolean",
-              "doc": "Is the latest reversion?",
-              "default": false
+              "doc": "Are the field names in schema Case Sensitive?",
+              "default": true
             },
             {
               "name": "createTime",
@@ -632,14 +657,6 @@
                     "default": "TEXT"
                   },
                   {
-                    "name": "name",
-                    "type": [
-                      "null",
-                      "string"
-                    ],
-                    "doc": "The schema name or class name if available"
-                  },
-                  {
                     "name": "text",
                     "type": "string",
                     "doc": "The raw schema content"
@@ -664,23 +681,6 @@
                   "name": "DatasetKeySchema",
                   "fields": [
                     {
-                      "name": "keyType",
-                      "type": {
-                        "type": "enum",
-                        "name": "SchemaKeyValueType",
-                        "symbols": [
-                          "NONE",
-                          "KEY",
-                          "DATABASE",
-                          "TABLE",
-                          "VALUE",
-                          "DOCUMENT"
-                        ]
-                      },
-                      "doc": "KEY is only applicable for Key-Value(redis, voldemort) and Document(monogo, espresso) datasets.",
-                      "default": "KEY"
-                    },
-                    {
                       "name": "format",
                       "type": "SchemaTextFormat",
                       "doc": "only applicable if key schema exists",
@@ -695,12 +695,6 @@
                 }
               ],
               "doc": "if dataset has dedicated key schema which is separated from the table or value part, it can be stored here"
-            },
-            {
-              "name": "isFieldNameCaseSensitive",
-              "type": "boolean",
-              "doc": "Are the field names in schema Case Sensitive?",
-              "default": true
             },
             {
               "name": "fieldSchema",
@@ -725,17 +719,17 @@
                         "default": 0
                       },
                       {
+                        "name": "fieldPath",
+                        "type": "string",
+                        "doc": "For example, <grand_grand_parent>.<grand_parent>.<parent>.<name>"
+                      },
+                      {
                         "name": "fieldJsonPath",
                         "type": [
                           "null",
                           "string"
                         ],
-                        "doc": "http://goessner.net/articles/JsonPath For example, $.store.book[0].title"
-                      },
-                      {
-                        "name": "fieldPath",
-                        "type": "string",
-                        "doc": "For example, <grand_grand_parent>.<grand_parent>.<parent>.<name>"
+                        "doc": "http://goessner.net/articles/JsonPath this is an alternative for fieldPath. For example, $.store.book[0].title"
                       },
                       {
                         "name": "label",
@@ -764,7 +758,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "logical data type, DateTime, NUMBER(15,2), GUID, Epoch(3)"
+                        "doc": "logical data type when the native type is too generic, DateTime, NUMBER(15,2), GUID, Epoch(3), Epoch(0)"
                       },
                       {
                         "name": "semanticType",
@@ -932,7 +926,7 @@
           ]
         }
       ],
-      "doc": "The schema/structure definition of a dataset. For Key-Value and Document store, dedicated Key Schema is provided.",
+      "doc": "The schema/structure definition of a dataset. For Key-Value and Document db, a dedicated KeySchema is provided. Schema includes KeySchema, OriginalSchema, FieldSchema, ChangeDataCaptureFields, AuditFields",
       "default": null
     },
     {
@@ -1126,28 +1120,41 @@
               },
               {
                 "name": "capacityType",
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "doc": "storage, read qps, write qps"
+                "type": "string",
+                "doc": "storage, read qps, write qps, response time, ...",
+                "default": "storage"
               },
               {
                 "name": "capacityUnit",
                 "type": [
                   "null",
-                  "string"
+                  {
+                    "type": "enum",
+                    "name": "CapacityMeasurementUnit",
+                    "symbols": [
+                      "BYTE",
+                      "KB",
+                      "MB",
+                      "GB",
+                      "TB",
+                      "PB",
+                      "QPS",
+                      "m",
+                      "s",
+                      "ms"
+                    ]
+                  }
                 ],
-                "doc": "KB,MB,GB,TB,QPS"
+                "doc": "measurement unit when applicable"
               },
               {
                 "name": "capacityLow",
-                "type": "long",
+                "type": "double",
                 "doc": "lower/min capacity"
               },
               {
                 "name": "capacityHigh",
-                "type": "long",
+                "type": "double",
                 "doc": "higher/max capacity"
               }
             ]
@@ -1157,75 +1164,13 @@
       "default": null
     },
     {
-      "name": "securitySpec",
+      "name": "privacyCompliancePolicy",
       "type": [
         "null",
         {
           "type": "record",
-          "name": "SecuritySpecification",
+          "name": "PrivacyCompliancePolicy",
           "fields": [
-            {
-              "name": "classification",
-              "type": [
-                "null",
-                {
-                  "type": "record",
-                  "name": "ConfidentialClassification",
-                  "fields": [
-                    {
-                      "name": "highlyConfidential",
-                      "type": {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    },
-                    {
-                      "name": "confidential",
-                      "type": {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    },
-                    {
-                      "name": "limitedDistribution",
-                      "type": {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    },
-                    {
-                      "name": "mustBeEncrypted",
-                      "type": {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    },
-                    {
-                      "name": "mustBeMasked",
-                      "type": {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    }
-                  ]
-                }
-              ],
-              "doc": "HighlyConfidential, Confidential, LimitedDistribution, MustBeEncrypted, MustBeMasked"
-            },
-            {
-              "name": "recordOwnerType",
-              "type": {
-                "type": "enum",
-                "name": "RecordOwnerType",
-                "symbols": [
-                  "MEMBER",
-                  "CUSTOMER",
-                  "JOINT",
-                  "INTERNAL",
-                  "COMPANY"
-                ]
-              }
-            },
             {
               "name": "complianceType",
               "type": {
@@ -1247,7 +1192,7 @@
                   "type": "array",
                   "items": {
                     "type": "record",
-                    "name": "PurageableEntityField",
+                    "name": "PurgeableEntityField",
                     "fields": [
                       {
                         "name": "identifierType",
@@ -1261,7 +1206,8 @@
                             "SUBJECT_URN",
                             "COMPANY_ID",
                             "GROUP_ID",
-                            "CUSTOMER_ID"
+                            "CUSTOMER_ID",
+                            "SUBJECT_CUSTOMER_ID"
                           ]
                         }
                       },
@@ -1275,62 +1221,160 @@
                 }
               ],
               "doc": "The fields which identify purgeable entities in records"
-            },
+            }
+          ]
+        }
+      ],
+      "doc": "Describe the purgeable entity fields",
+      "default": null
+    },
+    {
+      "name": "securitySpecification",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SecuritySpecification",
+          "fields": [
             {
-              "name": "retentionPolicy",
+              "name": "classification",
               "type": {
                 "type": "record",
-                "name": "RetentionSpec",
-                "namespace": "com.linkedin.common",
+                "name": "ConfidentialClassification",
                 "fields": [
                   {
-                    "name": "retentionType",
-                    "type": {
-                      "type": "enum",
-                      "name": "RetentionType",
-                      "namespace": "com.linkedin.common",
-                      "symbols": [
-                        "LIMITED",
-                        "LEGAL_HOLD",
-                        "UNLIMITED"
-                      ]
-                    },
-                    "doc": "Retention type on dataset"
-                  },
-                  {
-                    "name": "retentionWindow",
-                    "type": [
-                      "null",
-                      "long"
-                    ],
-                    "doc": "Time in (unit) how long data is retained for in case of LIMITED retention",
-                    "default": null
-                  },
-                  {
-                    "name": "retentionWindowUnit",
+                    "name": "highlyConfidential",
                     "type": [
                       "null",
                       {
-                        "type": "enum",
-                        "name": "TimePeriodUnit",
-                        "namespace": "com.linkedin.common",
-                        "symbols": [
-                          "YEAR",
-                          "MONTH",
-                          "WEEK",
-                          "DAY",
-                          "HOUR",
-                          "MINUTE",
-                          "SECOND",
-                          "MILLISECOND"
-                        ]
+                        "type": "array",
+                        "items": "string"
                       }
                     ],
-                    "doc": "",
+                    "doc": "list of highly confidential fields",
+                    "default": null
+                  },
+                  {
+                    "name": "confidential",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": "string"
+                      }
+                    ],
+                    "doc": "list of confidential fields",
+                    "default": null
+                  },
+                  {
+                    "name": "limitedDistribution",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": "string"
+                      }
+                    ],
+                    "doc": "list of limited distribution fields",
+                    "default": null
+                  },
+                  {
+                    "name": "mustBeEncrypted",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": "string"
+                      }
+                    ],
+                    "doc": "list of fields that must be encrypted",
+                    "default": null
+                  },
+                  {
+                    "name": "mustBeMasked",
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": "string"
+                      }
+                    ],
+                    "doc": "list of fields that must be masked",
                     "default": null
                   }
                 ]
+              },
+              "doc": "Classify the sensitive fields into 5 categories: HighlyConfidential, Confidential, LimitedDistribution, MustBeEncrypted, MustBeMasked. If every field is confidential, * can be used."
+            },
+            {
+              "name": "recordOwnerType",
+              "type": {
+                "type": "enum",
+                "name": "RecordOwnerType",
+                "symbols": [
+                  "MEMBER",
+                  "CUSTOMER",
+                  "JOINT",
+                  "INTERNAL",
+                  "COMPANY"
+                ]
               }
+            },
+            {
+              "name": "retentionPolicy",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "RetentionPolicy",
+                  "fields": [
+                    {
+                      "name": "retentionType",
+                      "type": {
+                        "type": "enum",
+                        "name": "RetentionType",
+                        "symbols": [
+                          "LIMITED",
+                          "LEGAL_HOLD",
+                          "UNLIMITED"
+                        ]
+                      },
+                      "doc": "Retention type on dataset"
+                    },
+                    {
+                      "name": "retentionWindow",
+                      "type": [
+                        "null",
+                        "long"
+                      ],
+                      "doc": "Time in (unit) how long data is retained for in case of LIMITED retention",
+                      "default": null
+                    },
+                    {
+                      "name": "retentionWindowUnit",
+                      "type": [
+                        "null",
+                        {
+                          "type": "enum",
+                          "name": "TimePeriodUnit",
+                          "symbols": [
+                            "YEAR",
+                            "MONTH",
+                            "WEEK",
+                            "DAY",
+                            "HOUR",
+                            "MINUTE",
+                            "SECOND",
+                            "MILLISECOND"
+                          ]
+                        }
+                      ],
+                      "default": null
+                    }
+                  ]
+                }
+              ],
+              "doc": "Retention"
             },
             {
               "name": "geographicAffinity",
@@ -1401,7 +1445,9 @@
             }
           ]
         }
-      ]
+      ],
+      "doc": "Classify the confidential specification",
+      "default": null
     }
   ]
 }

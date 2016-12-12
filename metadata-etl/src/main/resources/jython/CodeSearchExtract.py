@@ -70,7 +70,10 @@ class CodeSearchExtract:
                 # e.g. identity-mt/database/Identity/database.properties
                 #      network/database/externmembermap/database.properties
                 #      cap-backend/database/campaigns-db/database.properties
-                databases.append( {'filepath': prop_file, 'app_name': element['docData']['mp']} )
+                try:
+                    databases.append( {'filepath': prop_file, 'app_name': element['docData']['mp']} )
+                except:
+                    self.logger.error("Exception happens with prop_file {}".format(prop_file))
 
             if result['total'] < 100:
                 break

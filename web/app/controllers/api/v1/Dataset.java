@@ -39,9 +39,10 @@ public class Dataset extends Controller
 {
     public static final String BACKEND_SERVICE_URL_KEY = "backend.service.url";
 
-    public static final String DATASET_SECURITY_PATH = "/dataset/security";
-
     public static final String BACKEND_URL = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
+
+    public static final String DATASET_SECURITY_PATH = "/dataset/security";
+    public static final String DATASET_COMPLIANCE_PATH = "/dataset/compliance";
 
     public static Result getDatasetOwnerTypes()
     {
@@ -839,6 +840,42 @@ public class Dataset extends Controller
         return ok(result);
     }
 
+    public static Promise<Result> getDatasetCompliance(int datasetId) {
+        final String queryUrl = BACKEND_URL + DATASET_COMPLIANCE_PATH;
+        return WS.url(queryUrl)
+            .setQueryParameter("datasetId", Integer.toString(datasetId))
+            .setRequestTimeout(1000)
+            .get()
+            .map(response ->
+                ok(response.asJson())
+            );
+    }
+
+    public static Promise<Result> updateDatasetCompliance(int datasetId) {
+        String username = session("user");
+        if (StringUtils.isNotBlank(username)) {
+            final String queryUrl = BACKEND_URL + DATASET_COMPLIANCE_PATH;
+
+            final JsonNode queryNode = Json.newObject()
+                .put("datasetId", datasetId)
+                .set("privacyCompliancePolicy", request().body().asJson());
+
+            return WS.url(queryUrl)
+                .setRequestTimeout(1000)
+                .post(queryNode)
+                .map(response ->
+                    ok(response.asJson())
+                );
+        } else {
+            final JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Unauthorized User.");
+
+            return Promise.promise(() -> ok(result));
+        }
+    }
+
     public static Promise<Result> getDatasetSecurity(int datasetId) {
         final String queryUrl = BACKEND_URL + DATASET_SECURITY_PATH;
         return WS.url(queryUrl)
@@ -857,7 +894,7 @@ public class Dataset extends Controller
 
             final JsonNode queryNode = Json.newObject()
                 .put("datasetId", datasetId)
-                .set("securitySpec", request().body().asJson());
+                .set("securitySpecification", request().body().asJson());
 
             return WS.url(queryUrl)
                 .setRequestTimeout(1000)

@@ -45,6 +45,9 @@ GET         /lineage/job/exec/job         controllers.LineageController.getDatas
 # Insert a new job data lineage
 POST        /lineage                      controllers.LineageController.addJobLineage()
 
+# Update job execution lineage
+POST        /lineage/job/exec             controllers.LineageController.updateJobExecutionLineage()
+
 #param: instance
 #param: flowPath
 #get flow owner
@@ -162,6 +165,12 @@ GET         /dataset/partition            controllers.DatasetInfoController.getD
 
 # Update partition info of a dataset
 POST        /dataset/partition            controllers.DatasetInfoController.updateDatasetPartition()
+
+# Get privacy compliance info of a dataset by either id or urn
+GET         /dataset/compliance           controllers.DatasetInfoController.getDatasetCompliance()
+
+# Update privacy compliance info of a dataset
+POST        /dataset/compliance           controllers.DatasetInfoController.updateDatasetCompliance()
 
 # Get security info of a dataset by either id or urn
 GET         /dataset/security             controllers.DatasetInfoController.getDatasetSecurity()

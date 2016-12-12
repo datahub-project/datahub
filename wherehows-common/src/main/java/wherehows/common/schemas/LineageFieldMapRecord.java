@@ -14,44 +14,34 @@
 package wherehows.common.schemas;
 
 import java.util.List;
-import java.util.Map;
 
 
-public class DatasetOriginalSchemaRecord extends AbstractRecord {
+public class LineageFieldMapRecord extends AbstractRecord {
 
-  String format;
-  String text;
-  Map<String, String> checksum;
+  DatasetIdentifier mappedToDataset;
+  List<String> fieldPaths;
 
   @Override
   public List<Object> fillAllFields() {
     return null;
   }
 
-  public DatasetOriginalSchemaRecord() {
+  public LineageFieldMapRecord() {
   }
 
-  public String getFormat() {
-    return format;
+  public DatasetIdentifier getMappedToDataset() {
+    return mappedToDataset;
   }
 
-  public void setFormat(String format) {
-    this.format = format;
+  public void setMappedToDataset(DatasetIdentifier mappedToDataset) {
+    this.mappedToDataset = mappedToDataset;
   }
 
-  public String getText() {
-    return text;
+  public List<String> getFieldPaths() {
+    return fieldPaths;
   }
 
-  public void setText(String text) {
-    this.text = text;
-  }
-
-  public Map<String, String> getChecksum() {
-    return checksum;
-  }
-
-  public void setChecksum(Map<String, String> checksum) {
-    this.checksum = checksum;
+  public void setFieldPaths(List<String> fieldPaths) {
+    this.fieldPaths = fieldPaths;
   }
 }

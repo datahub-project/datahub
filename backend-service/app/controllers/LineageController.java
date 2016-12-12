@@ -31,7 +31,7 @@ import play.mvc.Result;
  */
 public class LineageController extends Controller {
   public static Result getJobsByDataset(String urn) throws SQLException {
-    if(!Urn.validateUrn(urn)){
+    if (!Urn.validateUrn(urn)) {
       ObjectNode resultJson = Json.newObject();
       resultJson.put("return_code", 400);
       resultJson.put("error_message", "Urn format wrong!");
@@ -141,6 +141,21 @@ public class LineageController extends Controller {
       resultJson.put("error_message", e.getMessage());
     }
 
+    return ok(resultJson);
+  }
+
+  @BodyParser.Of(BodyParser.Json.class)
+  public static Result updateJobExecutionLineage() {
+    JsonNode lineage = request().body().asJson();
+    ObjectNode resultJson = Json.newObject();
+    try {
+      LineageDao.updateJobExecutionLineage(lineage);
+      resultJson.put("return_code", 200);
+      resultJson.put("message", "Job Execution Lineage Updated!");
+    } catch (Exception e) {
+      resultJson.put("return_code", 404);
+      resultJson.put("error_message", e.getMessage());
+    }
     return ok(resultJson);
   }
 }

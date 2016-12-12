@@ -45,9 +45,9 @@ public class AzLineageExtractor {
     List<LineageRecord> oneAzkabanJobLineage = new ArrayList<>();
 
     // azkaban job name should have subflow name append in front
-    String flowSequence[] = message.azkabanJobExecution.getFlowPath().split(":")[1].split("/");
+    String[] flowSequence = message.azkabanJobExecution.getFlowPath().split(":")[1].split("/");
     String jobPrefix = "";
-    for (int i = 1; i < flowSequence.length; i ++) {
+    for (int i = 1; i < flowSequence.length; i++) {
       jobPrefix += flowSequence[i] + ":";
     }
     //String log = asc.getExecLog(azJobExec.execId, azJobExec.jobName);
@@ -56,7 +56,7 @@ public class AzLineageExtractor {
     Set<String> hadoopJobIds = AzLogParser.getHadoopJobIdFromLog(log);
 
     for (String hadoopJobId : hadoopJobIds) {
-      logger.debug("get hadoop job :{} from azkaban job : {}" +hadoopJobId, message.azkabanJobExecution.toString());
+      logger.debug("get hadoop job :{} from azkaban job : {}" + hadoopJobId, message.azkabanJobExecution.toString());
       // TODO persist this mapping?
       String confJson = message.hnne.getConfFromHadoop(hadoopJobId);
       AzJsonAnalyzer ja = new AzJsonAnalyzer(confJson, message.azkabanJobExecution,

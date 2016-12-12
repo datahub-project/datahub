@@ -30,8 +30,9 @@ import utils.JdbcUtil;
 import wherehows.common.enums.OwnerType;
 import wherehows.common.schemas.DatasetCapacityRecord;
 import wherehows.common.schemas.DatasetCaseSensitiveRecord;
+import wherehows.common.schemas.DatasetComplianceRecord;
 import wherehows.common.schemas.DatasetConstraintRecord;
-import wherehows.common.schemas.DatasetDeploymentRecord;
+import wherehows.common.schemas.DeploymentRecord;
 import wherehows.common.schemas.DatasetFieldIndexRecord;
 import wherehows.common.schemas.DatasetFieldSchemaRecord;
 import wherehows.common.schemas.DatasetIndexRecord;
@@ -57,7 +58,8 @@ public class DatasetInfoDao {
   private static final String DATASET_CASE_SENSITIVE_TABLE = "dataset_case_sensitivity";
   private static final String DATASET_REFERENCE_TABLE = "dataset_reference";
   private static final String DATASET_PARTITION_TABLE = "dataset_partition";
-  private static final String DATASET_SECURITY_TABLE = "dataset_security_info";
+  private static final String DATASET_COMPLIANCE_TABLE = "dataset_privacy_compliance";
+  private static final String DATASET_SECURITY_TABLE = "dataset_security";
   private static final String DATASET_OWNER_TABLE = "dataset_owner";
   private static final String DATASET_OWNER_UNMATCHED_TABLE = "stg_dataset_owner_unmatched";
   private static final String DATASET_CONSTRAINT_TABLE = "dataset_constraint";
@@ -80,6 +82,8 @@ public class DatasetInfoDao {
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_REFERENCE_TABLE);
   private static final DatabaseWriter PARTITION_WRITER =
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_PARTITION_TABLE);
+  private static final DatabaseWriter COMPLIANCE_WRITER =
+      new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_COMPLIANCE_TABLE);
   private static final DatabaseWriter SECURITY_WRITER =
       new DatabaseWriter(JdbcUtil.wherehowsJdbcTemplate, DATASET_SECURITY_TABLE);
   private static final DatabaseWriter OWNER_WRITER =
@@ -145,6 +149,12 @@ public class DatasetInfoDao {
 
   public static final String GET_DATASET_PARTITION_BY_URN =
       "SELECT * FROM " + DATASET_PARTITION_TABLE + " WHERE dataset_urn = :dataset_urn";
+
+  public static final String GET_DATASET_COMPLIANCE_BY_DATASET_ID =
+      "SELECT * FROM " + DATASET_COMPLIANCE_TABLE + " WHERE dataset_id = :dataset_id";
+
+  public static final String GET_DATASET_COMPLIANCE_BY_URN =
+      "SELECT * FROM " + DATASET_COMPLIANCE_TABLE + " WHERE dataset_urn = :dataset_urn";
 
   public static final String GET_DATASET_SECURITY_BY_DATASET_ID =
       "SELECT * FROM " + DATASET_SECURITY_TABLE + " WHERE dataset_id = :dataset_id";
@@ -269,32 +279,32 @@ public class DatasetInfoDao {
     return new Object[]{null, null};
   }
 
-  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
+  public static List<DeploymentRecord> getDatasetDeploymentByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_id", datasetId);
     List<Map<String, Object>> results =
         JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_DATASET_ID, params);
 
-    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    List<DeploymentRecord> records = new ArrayList<>();
     for (Map<String, Object> result : results) {
-      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      DeploymentRecord record = new DeploymentRecord();
       record.convertToRecord(result);
       records.add(record);
     }
     return records;
   }
 
-  public static List<DatasetDeploymentRecord> getDatasetDeploymentByDatasetUrn(String datasetUrn)
+  public static List<DeploymentRecord> getDatasetDeploymentByDatasetUrn(String datasetUrn)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
     params.put("dataset_urn", datasetUrn);
     List<Map<String, Object>> results =
         JdbcUtil.wherehowsNamedJdbcTemplate.queryForList(GET_DATASET_DEPLOYMENT_BY_URN, params);
 
-    List<DatasetDeploymentRecord> records = new ArrayList<>();
+    List<DeploymentRecord> records = new ArrayList<>();
     for (Map<String, Object> result : results) {
-      DatasetDeploymentRecord record = new DatasetDeploymentRecord();
+      DeploymentRecord record = new DeploymentRecord();
       record.convertToRecord(result);
       records.add(record);
     }
@@ -320,7 +330,7 @@ public class DatasetInfoDao {
     // om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
 
     for (final JsonNode deploymentInfo : deployment) {
-      DatasetDeploymentRecord record = om.convertValue(deploymentInfo, DatasetDeploymentRecord.class);
+      DeploymentRecord record = om.convertValue(deploymentInfo, DeploymentRecord.class);
       record.setDatasetId(datasetId);
       record.setDatasetUrn(urn);
       record.setModifiedTime(System.currentTimeMillis() / 1000);
@@ -649,6 +659,64 @@ public class DatasetInfoDao {
     }
   }
 
+  public static DatasetComplianceRecord getDatasetComplianceByDatasetId(int datasetId)
+      throws DataAccessException {
+    Map<String, Object> params = new HashMap<>();
+    params.put("dataset_id", datasetId);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_COMPLIANCE_BY_DATASET_ID, params);
+
+    DatasetComplianceRecord record = new DatasetComplianceRecord();
+    record.convertToRecord(result);
+    return record;
+  }
+
+  public static DatasetComplianceRecord getDatasetComplianceByDatasetUrn(String datasetUrn)
+      throws DataAccessException {
+    Map<String, Object> params = new HashMap<>();
+    params.put("dataset_urn", datasetUrn);
+    Map<String, Object> result =
+        JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_COMPLIANCE_BY_URN, params);
+
+    DatasetComplianceRecord record = new DatasetComplianceRecord();
+    record.convertToRecord(result);
+    return record;
+  }
+
+  public static void updateDatasetCompliance(JsonNode root)
+      throws Exception {
+    final JsonNode security = root.path("privacyCompliancePolicy");
+    if (security.isMissingNode() || security.isNull()) {
+      throw new IllegalArgumentException(
+          "Dataset security info update fail, missing necessary fields: " + root.toString());
+    }
+
+    final Object[] idUrn = findDataset(root);
+    if (idUrn[0] == null || idUrn[1] == null) {
+      throw new IllegalArgumentException("Cannot identify dataset from id/uri/urn: " + root.toString());
+    }
+    final Integer datasetId = (Integer) idUrn[0];
+    final String urn = (String) idUrn[1];
+
+    ObjectMapper om = new ObjectMapper();
+
+    DatasetComplianceRecord record = om.convertValue(security, DatasetComplianceRecord.class);
+    record.setDatasetId(datasetId);
+    record.setDatasetUrn(urn);
+    record.setModifiedTime(System.currentTimeMillis() / 1000);
+    try {
+      DatasetComplianceRecord result = getDatasetComplianceByDatasetId(datasetId);
+      String[] columns = record.getDbColumnNames();
+      Object[] columnValues = record.getAllValuesToString();
+      String[] conditions = {"dataset_id"};
+      Object[] conditionValues = new Object[]{datasetId};
+      COMPLIANCE_WRITER.update(columns, columnValues, conditions, conditionValues);
+    } catch (EmptyResultDataAccessException ex) {
+      COMPLIANCE_WRITER.append(record);
+      COMPLIANCE_WRITER.insert();
+    }
+  }
+
   public static DatasetSecurityRecord getDatasetSecurityByDatasetId(int datasetId)
       throws DataAccessException {
     Map<String, Object> params = new HashMap<>();
@@ -675,7 +743,7 @@ public class DatasetInfoDao {
 
   public static void updateDatasetSecurity(JsonNode root)
       throws Exception {
-    final JsonNode security = root.path("securitySpec");
+    final JsonNode security = root.path("securitySpecification");
     if (security.isMissingNode() || security.isNull()) {
       throw new IllegalArgumentException(
           "Dataset security info update fail, missing necessary fields: " + root.toString());
@@ -778,15 +846,15 @@ public class DatasetInfoDao {
       record.setCreatedTime(eventTime);
       record.setModifiedTime(System.currentTimeMillis() / 1000);
 
-      final String ownerString = record.getOwnerUrn();
+      final String ownerString = record.getOwner();
       int lastIndex = ownerString.lastIndexOf(':');
       if (lastIndex >= 0) {
-        record.setOwnerUrn(ownerString.substring(lastIndex + 1));
+        record.setOwner(ownerString.substring(lastIndex + 1));
         record.setNamespace(ownerString.substring(0, lastIndex));
       } else {
         record.setNamespace("");
       }
-      Map<String, Object> ownerInfo = getOwnerByOwnerId(record.getOwnerUrn());
+      Map<String, Object> ownerInfo = getOwnerByOwnerId(record.getOwner());
       Integer appId = 0;
       String isActive = "N";
       if (ownerInfo.containsKey("app_id")) {
@@ -850,7 +918,7 @@ public class DatasetInfoDao {
           record.setDatasetId(datasetId);
           record.setDatasetUrn(datasetUrn);
           record.setOwnerType("Producer");
-          record.setOwnerUrn(ownerName);
+          record.setOwner(ownerName);
           record.setOwnerType(ownerIdType);
           record.setIsGroup(isGroup);
           record.setIsActive("Y");
@@ -882,13 +950,13 @@ public class DatasetInfoDao {
     if (newOwnerList != null) {
       for (DatasetOwnerRecord owner : newOwnerList) {
         owner.setSortId(sortId++);
-        uniqueRecords.put(owner.getOwnerUrn(), owner);
+        uniqueRecords.put(owner.getOwner(), owner);
         combinedList.add(owner);
       }
     }
 
     for (DatasetOwnerRecord owner : oldOwnerList) {
-      DatasetOwnerRecord exist = uniqueRecords.get(owner.getOwnerUrn());
+      DatasetOwnerRecord exist = uniqueRecords.get(owner.getOwner());
       if (exist != null) {
         exist.setDbIds(owner.getDbIds());
         exist.setCreatedTime(StringUtil.toLong(owner.getCreatedTime()));
@@ -903,7 +971,7 @@ public class DatasetInfoDao {
       } else {
         if (!(source != null && source.equalsIgnoreCase(owner.getOwnerSource()))) {
           owner.setSortId(sortId++);
-          uniqueRecords.put(owner.getOwnerUrn(), owner);
+          uniqueRecords.put(owner.getOwner(), owner);
           combinedList.add(owner);
         }
       }

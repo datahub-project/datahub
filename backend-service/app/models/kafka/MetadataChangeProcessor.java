@@ -25,7 +25,7 @@ public class MetadataChangeProcessor {
 
   private final String[] CHANGE_ITEMS =
       {"schema", "owners", "datasetProperties", "references", "partitionSpec", "deploymentInfo", "tags",
-          "constraints", "indices", "capacity", "securitySpec"};
+          "constraints", "indices", "capacity", "privacyCompliancePolicy", "securitySpecification"};
 
   /**
    * Process a MetadataChangeEvent record
@@ -134,7 +134,14 @@ public class MetadataChangeProcessor {
               Logger.debug("Metadata change exception: capacity ", ex);
             }
             break;
-          case "securitySpec":
+          case "privacyCompliancePolicy":
+            try {
+              DatasetInfoDao.updateDatasetCompliance(rootNode);
+            } catch (Exception ex) {
+              Logger.debug("Metadata change exception: compliance ", ex);
+            }
+            break;
+          case "securitySpecification":
             try {
               DatasetInfoDao.updateDatasetSecurity(rootNode);
             } catch (Exception ex) {

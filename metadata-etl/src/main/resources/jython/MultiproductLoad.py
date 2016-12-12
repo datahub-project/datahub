@@ -70,7 +70,30 @@ class MultiproductLoad:
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
     LINES TERMINATED BY '\n'
     (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `project`, `owner_type`, `owner_name`,
-    `multiproduct_name`, `product_type`, `product_version`, `namespace`)
+    `multiproduct_name`, `product_type`, `product_version`, `namespace`);
+
+    -- map repo to oracle or espresso database
+    UPDATE stg_product_repo r
+    INNER JOIN
+      (select database_type, substring_index(substring_index(scm_url, '/', 5), '/', -2) repo,
+        GROUP_CONCAT(database_name SEPARATOR ', ') dataset_groups
+        from stg_database_scm_map
+        where scm_type = 'git' and database_type in ('espresso', 'oracle')
+        group by repo, database_type) d
+      ON d.repo = r.scm_repo_fullname
+        AND r.app_id = {app_id}
+    SET r.dataset_group = d.dataset_groups;
+
+    -- map dali repo to dali dataset group
+    UPDATE stg_product_repo
+    SET dataset_group = REPLACE(substring_index(LEFT(scm_repo_fullname, LENGTH(scm_repo_fullname) - 9), '/', -1), '-', '_')
+    WHERE app_id = {app_id}
+      AND project IN ('dali-datasets', 'dali-base-datasets');
+
+    UPDATE stg_product_repo
+    SET dataset_group = concat(dataset_group, '_mp, ', dataset_group, '_mp_versioned')
+    WHERE app_id = {app_id}
+      AND project IN ('dali-datasets', 'dali-base-datasets')
     '''.format(source_file=self.product_repo_file, app_id=self.app_id)
 
     self.executeCommands(load_product_repos_cmd)
@@ -86,7 +109,15 @@ class MultiproductLoad:
     INTO TABLE stg_repo_owner
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
     LINES TERMINATED BY '\n'
-    (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `owner_type`, `owner_name`, `sort_id`, `paths`)
+    (`app_id`, `wh_etl_exec_id`, `scm_repo_fullname`, `scm_type`, `repo_id`, `owner_type`, `owner_name`, `sort_id`, `paths`);
+
+    -- update dataset_group from repo
+    UPDATE stg_repo_owner ro
+    INNER JOIN stg_product_repo pr
+      ON ro.app_id = {app_id} AND pr.app_id = {app_id}
+        AND ro.scm_repo_fullname = pr.scm_repo_fullname
+        AND pr.dataset_group IS NOT NULL
+    SET ro.dataset_group = pr.dataset_group
     '''.format(source_file=self.product_repo_owner_file, app_id=self.app_id)
 
     self.executeCommands(load_product_repo_owners_cmd)
@@ -109,40 +140,38 @@ class MultiproductLoad:
     -- INSERT/UPDATE into dataset_owner
     INSERT INTO dataset_owner (
     dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type, owner_id_type,
-    owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id
+    owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id, confirmed_by, confirmed_on
     )
     SELECT * FROM (
     SELECT ds.id, ds.urn, r.owner_name n_owner_id, r.sort_id n_sort_id,
         'urn:li:corpuser' n_namespace, r.app_id,
-        IF(r.owner_type = 'main', 'Producer', r.owner_type) n_owner_type,
-        null n_owner_sub_type,
+        'Owner' n_owner_type, r.owner_type n_owner_sub_type,
         case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
         'SCM' n_owner_source, null db_ids,
         IF(r.app_id = 301, 'Y', 'N') is_group,
-        'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id
-    FROM (SELECT id, urn FROM dict_dataset WHERE urn like 'dalids:///%') ds
-      JOIN (SELECT object_name, mapped_object_name FROM cfg_object_name_map WHERE mapped_object_type = 'scm') m
-        ON m.object_name = concat('/', substring_index(substring_index(ds.urn, '/', 4), '/', -1))
+        'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id,
+        'system' confirmed_by, unix_timestamp(NOW()) confirmed_on
+    FROM (SELECT id, urn, substring_index(substring_index(urn, '/', 4), '/', -1) ds_group
+         FROM dict_dataset WHERE urn regexp '^(dalids|espresso|oracle)\:\/\/\/.*$') ds
       JOIN stg_repo_owner r
-        ON r.scm_repo_fullname = m.mapped_object_name
+        ON r.owner_type in ('main', 'espresso_avsc', 'producer', 'consumer', 'global', 'public', 'private', 'database', 'root')
+          AND FIND_IN_SET(ds.ds_group, r.dataset_group) > 0
     ) n
     ON DUPLICATE KEY UPDATE
     dataset_urn = n.urn,
     sort_id = COALESCE(n.n_sort_id, sort_id),
     -- the Owner_type precedence (from high to low) is: OWNER, PRODUCER, DELEGATE, STAKEHOLDER
-    owner_type = CASE WHEN (
-      case owner_type when 'OWNER' then 20 when 'PRODUCER' then 40 when 'DELEGATE' then 60 when 'STACKHOLDER' then 80 else 100 end
-      ) <= (
-      case n.n_owner_type when 'OWNER' then 20 when 'PRODUCER' then 40 when 'DELEGATE' then 60 when 'STACKHOLDER' then 80 else 100 end
-      )
-      THEN owner_type ELSE n.n_owner_type END,
+    -- n.n_owner_type = Owner, highest priority
+    owner_type = n.n_owner_type,
     owner_sub_type = COALESCE(owner_sub_type, n.n_owner_sub_type),
     owner_id_type = COALESCE(owner_id_type, n.n_owner_id_type),
     owner_source = CASE WHEN owner_source is null THEN 'SCM'
                     WHEN owner_source LIKE '%SCM%' THEN owner_source ELSE CONCAT(owner_source, ',SCM') END,
     namespace = COALESCE(namespace, n.n_namespace),
     wh_etl_exec_id = n.wh_etl_exec_id,
-    modified_time = unix_timestamp(NOW());
+    modified_time = unix_timestamp(NOW()),
+    confirmed_by = 'system',
+    confirmed_on = unix_timestamp(NOW());
 
     -- reset dataset owner sort id
     UPDATE dataset_owner d
@@ -151,7 +180,7 @@ class MultiproductLoad:
             @owner_rank := IF(@current_dataset_id = dataset_id, @owner_rank + 1, 0) rank,
             @current_dataset_id := dataset_id
         from dataset_owner, (select @current_dataset_id := 0, @owner_rank := 0) t
-        where dataset_urn like 'dalids:///%'
+        where dataset_urn regexp '^(dalids|espresso|oracle)\:\/\/\/.*$'
         order by dataset_id asc, owner_type desc, sort_id asc, owner_id asc
       ) s
     ON d.dataset_id = s.dataset_id AND d.owner_id = s.owner_id

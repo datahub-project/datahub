@@ -14,44 +14,43 @@
 package wherehows.common.schemas;
 
 import java.util.List;
-import java.util.Map;
 
 
-public class DatasetOriginalSchemaRecord extends AbstractRecord {
+public class DatasetIdentifier extends AbstractRecord {
 
-  String format;
-  String text;
-  Map<String, String> checksum;
+  String dataPlatformUrn;
+  String nativeName;
+  String dataOrigin;
 
   @Override
   public List<Object> fillAllFields() {
     return null;
   }
 
-  public DatasetOriginalSchemaRecord() {
+  public DatasetIdentifier() {
   }
 
-  public String getFormat() {
-    return format;
+  public String getDataPlatformUrn() {
+    return dataPlatformUrn;
   }
 
-  public void setFormat(String format) {
-    this.format = format;
+  public void setDataPlatformUrn(String dataPlatformUrn) {
+    this.dataPlatformUrn = dataPlatformUrn;
   }
 
-  public String getText() {
-    return text;
+  public String getNativeName() {
+    return nativeName;
   }
 
-  public void setText(String text) {
-    this.text = text;
+  public void setNativeName(String nativeName) {
+    this.nativeName = nativeName;
   }
 
-  public Map<String, String> getChecksum() {
-    return checksum;
+  public String getDataOrigin() {
+    return dataOrigin;
   }
 
-  public void setChecksum(Map<String, String> checksum) {
-    this.checksum = checksum;
+  public void setDataOrigin(String dataOrigin) {
+    this.dataOrigin = dataOrigin;
   }
 }

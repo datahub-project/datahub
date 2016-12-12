@@ -24,7 +24,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
   String datasetUrn;
   Integer appId;
   String ownerCategory;
-  String ownerUrn;
+  String owner;
   String ownerType;
   String isGroup;
   String isActive;
@@ -49,7 +49,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
   public List<Object> fillAllFields() {
     List<Object> allFields = new ArrayList<>();
     allFields.add(datasetUrn);
-    allFields.add(ownerUrn);
+    allFields.add(owner);
     allFields.add(sortId);
     allFields.add(namespace);
     allFields.add(dbIds);
@@ -65,7 +65,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   @JsonIgnore
   public Object[] getValuesForUnmatchedOwner() {
-    return new Object[]{datasetUrn, appId, ownerCategory, ownerUrn, ownerType, isGroup,
+    return new Object[]{datasetUrn, appId, ownerCategory, owner, ownerType, isGroup,
         isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};
   }
 
@@ -75,7 +75,7 @@ public class DatasetOwnerRecord extends AbstractRecord {
   public DatasetOwnerRecord(String datasetUrn, String ownerId, Integer sortId, String namespace, String dbName,
       Long sourceTime) {
     this.datasetUrn = datasetUrn;
-    this.ownerUrn = ownerId;
+    this.owner = ownerId;
     this.sortId = sortId;
     this.namespace = namespace;
     this.dbIds = dbName;
@@ -114,12 +114,12 @@ public class DatasetOwnerRecord extends AbstractRecord {
     this.ownerCategory = ownerCategory;
   }
 
-  public String getOwnerUrn() {
-    return ownerUrn;
+  public String getOwner() {
+    return owner;
   }
 
-  public void setOwnerUrn(String ownerUrn) {
-    this.ownerUrn = ownerUrn;
+  public void setOwner(String owner) {
+    this.owner = owner;
   }
 
   public String getOwnerType() {
