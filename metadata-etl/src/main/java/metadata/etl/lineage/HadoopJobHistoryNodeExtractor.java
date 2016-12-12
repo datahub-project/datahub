@@ -27,6 +27,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.config.Lookup;
 import org.apache.http.config.RegistryBuilder;
+import org.apache.http.impl.auth.BasicSchemeFactory;
+import org.apache.http.impl.auth.KerberosSchemeFactory;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -59,36 +61,37 @@ public class HadoopJobHistoryNodeExtractor {
 
     String CURRENT_DIR = System.getProperty("user.dir");
     String WH_HOME = System.getenv("WH_HOME");
+    String APP_HOME = System.getenv("APP_HOME");
     String USER_HOME = System.getenv("HOME") + "/.kerberos";
 
-    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, USER_HOME};
+    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, APP_HOME, USER_HOME, "/etc"};
 
     for (String position : allPositions) {
       String gssFileName = position + "/gss-jaas.conf";
       File gssFile = new File(gssFileName);
       if (gssFile.exists()) {
-        logger.debug("find gss-jaas.conf file in : {}", gssFile.getAbsolutePath());
+        logger.debug("Foud gss-jaas.conf file at: {}", gssFile.getAbsolutePath());
         System.setProperty("java.security.auth.login.config", gssFile.getAbsolutePath());
         break;
       } else {
-        logger.debug("can't find here: {}", gssFile.getAbsolutePath());
+        logger.debug("{} doesn't exist.", gssFile.getAbsolutePath());
       }
     }
     for (String position : allPositions) {
       String krb5FileName = position + "/krb5.conf";
       File krb5File = new File(krb5FileName);
       if (krb5File.exists()) {
-        logger.debug("find krb5.conf file in : {}", krb5File.getAbsolutePath());
+        logger.debug("Found krb5.conf file at: {}", krb5File.getAbsolutePath());
         System.setProperty("java.security.krb5.conf", krb5File.getAbsolutePath());
         break;
       } else {
-        logger.debug("can't find here: {}", krb5File.getAbsolutePath());
+        logger.debug("{} does't exist.", krb5File.getAbsolutePath());
       }
     }
 
     if (System.getProperty("java.security.auth.login.config") == null
       || System.getProperty("java.security.krb5.conf") == null) {
-      throw new Exception("Can't find java security config files");
+      logger.warn("Can't find Java security config [krb5.conf, gss-jass.conf] for Kerberos! Trying other authentication methods...");
     }
 
     if (logger.isTraceEnabled()) {
@@ -109,7 +112,10 @@ public class HadoopJobHistoryNodeExtractor {
     credsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials("DUMMY", null));
 
     Lookup<AuthSchemeProvider> authRegistry =
-      RegistryBuilder.<AuthSchemeProvider>create().register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory()).build();
+      RegistryBuilder.<AuthSchemeProvider>create()
+        .register(AuthSchemes.BASIC, new BasicSchemeFactory())
+        .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
+        .register(AuthSchemes.KERBEROS, new KerberosSchemeFactory()).build();
 
     httpClient =
       HttpClients.custom().setDefaultCredentialsProvider(credsProvider).setDefaultAuthSchemeRegistry(authRegistry)

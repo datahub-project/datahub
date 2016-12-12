@@ -112,6 +112,8 @@ public class AzLogParser {
   public static List<LineageRecord> getLineageFromLog(String log, AzkabanJobExecRecord azkabanJobExecRecord, Integer defaultDatabaseId) {
 
     List<LineageRecord> result = new ArrayList<>();
+    Pattern typePattern = Pattern.compile("^(\\w+):/.*");
+    String datasetType = "";
 
     for (LogLineagePattern patternObject : logLineagePatterns) {
       Pattern pattern = Pattern.compile(patternObject.regex);
@@ -127,7 +129,15 @@ public class AzLogParser {
           LineageRecord lineageRecord =
             new LineageRecord(azkabanJobExecRecord.getAppId(), azkabanJobExecRecord.getFlowExecId(),
               azkabanJobExecRecord.getJobName(), azkabanJobExecRecord.getJobExecId());
-          lineageRecord.setDatasetInfo(defaultDatabaseId, dataset, "HDFS");
+
+          Matcher typeMatcher = typePattern.matcher(dataset);
+          if (typeMatcher.matches()) {
+            datasetType = typeMatcher.group(1);
+          } else {
+            datasetType = "hdfs";
+          }
+          lineageRecord.setDatasetInfo(defaultDatabaseId, dataset, datasetType);
+
           long recordCount =
             (patternObject.recordCountIndex < 1) ? 0 : Long.valueOf(matcher.group(patternObject.recordCountIndex));
           long insertCount =

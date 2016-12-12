@@ -16,6 +16,7 @@ package metadata.etl.lineage;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import org.codehaus.jettison.json.JSONException;
+import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.PathNotFoundException;
 import wherehows.common.DatasetPath;
 import wherehows.common.schemas.AzkabanJobExecRecord;
@@ -106,22 +107,26 @@ public class AzJsonAnalyzer {
   }
 
   private List<String> parseProperties(String[] propertyNames) {
-    StringBuilder query = new StringBuilder();
+    List<String> patterns = new ArrayList<String>();
     for (String s : propertyNames) {
-      query.append("@.name==");
-      query.append(s);
-      query.append("||");
+      patterns.add(String.format("@.name=='%s'", s));
     }
-    query.delete(query.length() - 2, query.length());
+    String query = String.join("||", patterns);
     try {
       document = Configuration.defaultConfiguration().jsonProvider().parse(jobConfJson);
-      List<String> result = JsonPath.read(document, "$.conf.property[?(" + query.toString() + ")].value");
+      List<String> result = JsonPath.read(document, "$.conf.property[?(" + query + ")].value");
       return result;
     } catch (PathNotFoundException e){
       logger.error(String.format(
           "Malformat JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s",
           appId, aje.getJobExecId(), jobConfJson.substring(1,100)
           ));
+      return null;
+    } catch (InvalidPathException e) {
+      logger.error(String.format(
+          "Invalid Path Exception of JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s",
+          appId, aje.getJobExecId(), query
+      ));
       return null;
     }
   }
