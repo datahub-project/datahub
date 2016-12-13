@@ -70,7 +70,7 @@ public class HadoopJobHistoryNodeExtractor {
       String gssFileName = position + "/gss-jaas.conf";
       File gssFile = new File(gssFileName);
       if (gssFile.exists()) {
-        logger.debug("Foud gss-jaas.conf file at: {}", gssFile.getAbsolutePath());
+        logger.debug("Found gss-jaas.conf file at: {}", gssFile.getAbsolutePath());
         System.setProperty("java.security.auth.login.config", gssFile.getAbsolutePath());
         break;
       } else {

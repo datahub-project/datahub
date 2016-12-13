@@ -88,6 +88,7 @@ public class AzJsonAnalyzer {
   // The string could be a comma separated file path.
   public List<String> sepCommaString(List<String> originalStrings) {
     List<String> result = new ArrayList<>();
+    if (null == originalStrings) return result;
     for (String concatedString : originalStrings) {
       result.addAll(DatasetPath.separatedDataset(concatedString));
     }
