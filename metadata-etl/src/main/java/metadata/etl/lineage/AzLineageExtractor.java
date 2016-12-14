@@ -56,7 +56,7 @@ public class AzLineageExtractor {
     Set<String> hadoopJobIds = AzLogParser.getHadoopJobIdFromLog(log);
 
     for (String hadoopJobId : hadoopJobIds) {
-      logger.debug("get hadoop job :{} from azkaban job : {}" + hadoopJobId, message.azkabanJobExecution.toString());
+      logger.debug("Get Hadoop job config: {} from Azkaban job: {}" + hadoopJobId, message.azkabanJobExecution.toString());
       // TODO persist this mapping?
       String confJson = message.hnne.getConfFromHadoop(hadoopJobId);
       AzJsonAnalyzer ja = new AzJsonAnalyzer(confJson, message.azkabanJobExecution,
@@ -82,12 +82,15 @@ public class AzLineageExtractor {
    */
   public static void extract(AzExecMessage message)
     throws Exception {
-    List<LineageRecord> result = extractLineage(message);
-
-    for (LineageRecord lr : result) {
-      message.databaseWriter.append(lr);
+    try{
+      List<LineageRecord> result = extractLineage(message);
+      for (LineageRecord lr : result) {
+        message.databaseWriter.append(lr);
+      }
+      logger.info(String.format("%03d lineage records extracted from [%s]", result.size(), message.toString()));
+      message.databaseWriter.flush();
+    } catch (Exception e) {
+      logger.error(String.format("Failed to extract lineage info from [%s].\n%s", message.toString(), e.getMessage()));
     }
-    logger.debug("Find " + result.size() + " Lineage record in execution " + message.toString());
-    message.databaseWriter.flush();
   }
 }
