@@ -1,0 +1,245 @@
+{
+  "mappings": {
+    "metric": {
+      "properties": {
+        "dashboard_name": {
+          "type": "string"
+        },
+        "dimensions": {
+          "type": "string"
+        },
+        "metric_additive_type": {
+          "type": "string"
+        },
+        "metric_category": {
+          "type": "string"
+        },
+        "metric_description": {
+          "type": "string"
+        },
+        "metric_display_factor": {
+          "type": "double"
+        },
+        "metric_display_factor_sym": {
+          "type": "string"
+        },
+        "metric_formula": {
+          "type": "string"
+        },
+        "metric_good_direction": {
+          "type": "string"
+        },
+        "metric_grain": {
+          "type": "string"
+        },
+        "metric_group": {
+          "type": "string"
+        },
+        "metric_id": {
+          "type": "long"
+        },
+        "metric_level": {
+          "type": "string"
+        },
+        "metric_name": {
+          "type": "string"
+        },
+        "metric_ref_id": {
+          "type": "string"
+        },
+        "metric_ref_id_type": {
+          "type": "string"
+        },
+        "metric_source": {
+          "type": "string"
+        },
+        "metric_source_dataset_id": {
+          "type": "long"
+        },
+        "metric_source_type": {
+          "type": "string"
+        },
+        "metric_sub_category": {
+          "type": "string"
+        },
+        "metric_type": {
+          "type": "string"
+        },
+        "metric_url": {
+          "type": "string"
+        },
+        "owners": {
+          "type": "string"
+        },
+        "scm_url": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "string"
+        },
+        "urn": {
+          "type": "string"
+        },
+        "wiki_url": {
+          "type": "string"
+        }
+      }
+    },
+    "field": {
+      "_parent": {
+        "type": "dataset"
+      },
+      "_routing": {
+        "required": true
+      },
+      "properties": {
+        "comments": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "long"
+        },
+        "field_name": {
+          "type": "string"
+        },
+        "parent_path": {
+          "type": "string"
+        },
+        "sort_id": {
+          "type": "long"
+        }
+      }
+    },
+    "comment": {
+      "_parent": {
+        "type": "dataset"
+      },
+      "_routing": {
+        "required": true
+      },
+      "properties": {
+        "comment_type": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "long"
+        },
+        "text": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "long"
+        }
+      }
+    },
+    "dataset": {
+      "properties": {
+        "fields": {
+          "type": "string"
+        },
+        "location_prefix": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent_name": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        },
+        "schema_type": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "static_boosting_score": {
+          "type": "long"
+        },
+        "urn": {
+          "type": "string"
+        }
+      }
+    },
+    "flow_jobs": {
+      "properties": {
+        "app_code": {
+          "type": "string"
+        },
+        "app_id": {
+          "type": "long"
+        },
+        "flow_group": {
+          "type": "string"
+        },
+        "flow_id": {
+          "type": "long"
+        },
+        "flow_level": {
+          "type": "long"
+        },
+        "flow_name": {
+          "type": "string"
+        },
+        "flow_path": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "string"
+        },
+        "is_scheduled": {
+          "type": "string"
+        },
+        "jobs": {
+          "type": "nested",
+          "properties": {
+            "app_id": {
+              "type": "short"
+            },
+            "flow_id": {
+              "type": "long"
+            },
+            "is_current": {
+              "type": "string"
+            },
+            "is_first": {
+              "type": "string"
+            },
+            "is_last": {
+              "type": "string"
+            },
+            "job_id": {
+              "type": "long"
+            },
+            "job_name": {
+              "type": "string"
+            },
+            "job_path": {
+              "type": "string"
+            },
+            "job_type": {
+              "type": "string"
+            },
+            "job_type_id": {
+              "type": "short"
+            },
+            "post_jobs": {
+              "type": "string"
+            },
+            "pre_jobs": {
+              "type": "string"
+            }
+          }
+        },
+        "pre_flows": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

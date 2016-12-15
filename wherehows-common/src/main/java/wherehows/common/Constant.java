@@ -196,6 +196,7 @@ public class Constant {
 
   public static final String WH_ELASTICSEARCH_URL_KEY = "wh.elasticsearch.url";
   public static final String WH_ELASTICSEARCH_PORT_KEY = "wh.elasticsearch.port";
+  public static final String WH_ELASTICSEARCH_INDEX_KEY = "wh.elasticsearch.index";
 
   // Oracle
   public static final String ORA_DB_USERNAME_KEY = "oracle.db.username";
