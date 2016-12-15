@@ -73,6 +73,13 @@ public class PathAnalyzer {
     DatasetPath datasetPath = new DatasetPath();
     datasetPath.fullPath = fullPath;
 
+    // remove the "dalids://" or "hive://" header
+    Pattern daliPattern = Pattern.compile("(dalids|hive):///(\\w.*/)?(\\w.*)(\\.|/)(\\w.*)$");
+    Matcher daliMatcher = daliPattern.matcher(fullPath);
+    if (daliMatcher.matches()) {
+      fullPath = String.format( "/%s/%s", daliMatcher.group(3), daliMatcher.group(5) );
+    }
+
     // remove the "hdfs://.../" header
     Pattern headerPattern = Pattern.compile("hdfs://.*:\\d{4}(/.*)");
     Matcher headerMatcher = headerPattern.matcher(fullPath);
@@ -81,7 +88,7 @@ public class PathAnalyzer {
     }
 
     // remove 'tmp' folder
-    if (fullPath.startsWith("/tmp/")) {
+    if (fullPath.startsWith("/tmp/") || fullPath.startsWith("/temp/")) {
       return null;
     }
 
