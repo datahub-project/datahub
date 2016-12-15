@@ -230,7 +230,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"(text, user_id, dataset_id, created, modified, comment_type) VALUES(?, ?, ?, NOW(), NOW(), ?)";
 
 	private final static String GET_WATCHED_URN_ID = "SELECT id FROM watch " +
-			"WHERE user_id = ? and item_type = 'urn' and urn = '$URN'";
+			"WHERE user_id = ? and item_type = 'urn' and urn = ?";
 
 	private final static String GET_WATCHED_DATASET_ID = "SELECT id FROM watch " +
 			"WHERE user_id = ? and item_id = ? and item_type = 'dataset'";
@@ -1092,7 +1092,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		if (userId != null && userId !=0)
 		{
 			List<Map<String, Object>> rows = null;
-			rows = getJdbcTemplate().queryForList(GET_WATCHED_URN_ID.replace("$URN", urn), userId);
+			rows = getJdbcTemplate().queryForList(GET_WATCHED_URN_ID, userId, urn);
 			if (rows != null)
 			{
 				for (Map row : rows) {
@@ -1151,7 +1151,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			rows = getJdbcTemplate().queryForList(GET_WATCHED_DATASET_ID, userId, datasetId);
 			if (rows != null && rows.size() > 0)
 			{
-				message = "watch item is already exist";
+				message = "watch item already exist";
 			}
 			else
 			{
@@ -1245,7 +1245,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		if (userId != null && userId !=0)
 		{
 			List<Map<String, Object>> rows = null;
-			rows = getJdbcTemplate().queryForList(GET_WATCHED_URN_ID.replace("$URN", urn), userId);
+			rows = getJdbcTemplate().queryForList(GET_WATCHED_URN_ID, userId, urn);
 			if (rows != null && rows.size() > 0)
 			{
 				message = "watch item is already exist";
