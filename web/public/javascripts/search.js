@@ -16,6 +16,9 @@
       const {value: keyword} = searchInput;
       const searchRouteHash = `#/search?keywords=${btoa(keyword)}&category=${global.g_currentCategory}&source=default&page=1`;
       keyword && (document.location.hash = searchRouteHash);
+
+      // Piwik track search keyword
+      _paq.push(['trackSiteSearch', keyword, global.g_currentCategory, false]);
     }
   };
 
