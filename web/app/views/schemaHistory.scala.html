@@ -1,5 +1,5 @@
-@(user: String, isInternal:Boolean)
-  @main(user, "", isInternal) {
+@(user: String, isInternal:Boolean, piwikSiteId: Integer)
+  @main(user, "", isInternal, piwikSiteId) {
   <link rel="stylesheet" media="screen" href="@routes.Assets.at("vendors/jsondiffpatch-master/html.css")">
   <link rel="stylesheet" media="screen" href="@routes.Assets.at("vendors/jsondiffpatch-master/annotated.css")">
   <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/scriptFinder.css")">
