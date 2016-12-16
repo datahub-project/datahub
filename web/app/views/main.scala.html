@@ -1955,21 +1955,29 @@
       {{/if}}
     </script>
 
-		<!-- Piwik -->
-		<script type="text/javascript">
-				var _paq = _paq || [];
-				_paq.push(['trackPageView']);
-				_paq.push(['enableLinkTracking']);
-				(function() {
-					var u="//piwik.corp.linkedin.com/piwik/";
-					_paq.push(['setTrackerUrl', u+'piwik.php']);
-					_paq.push(['setSiteId', 93]);
-					var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-					g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
-				})();
-		</script>
-		<noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=94" style="border:0;" alt="" /></p></noscript>
-		<!-- End Piwik Code -->
+            <!-- Piwik -->
+        <script type="text/javascript">
+        var _paq = _paq || [];
 
-  </body>
+        @if(user) {
+        // Sets user name for user tracking on Piwik once logged in
+        _paq.push(['setUserId', '@user']);
+        }
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function () {
+            var u = "//piwik.corp.linkedin.com/piwik/";
+            _paq.push(['setTrackerUrl', u + 'piwik.php']);
+            _paq.push(['setSiteId', @piwikSiteId]);
+            var d = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+            g.type = 'text/javascript';
+            g.async = true;
+            g.defer = true;
+            g.src = u + 'piwik.js';
+            s.parentNode.insertBefore(g, s);
+        })();
+        </script>
+        <noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=94" style="border: 0;" alt="" /></p></noscript>
+            <!-- End Piwik Code -->
+	</body>
 </html>
