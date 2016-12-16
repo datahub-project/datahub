@@ -1,5 +1,5 @@
-@(user: String, isInternal:Boolean, lineageType: String, lineageID: Integer, application: String, project: String, flow:String)
-  @main(user, "", isInternal) {
+@(user: String, isInternal:Boolean, lineageType: String, lineageID: Integer, application: String, project: String, flow:String, piwikSiteId: Integer)
+  @main(user, "", isInternal, piwikSiteId) {
     <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/lineage.css")">
     <link rel="stylesheet" media="screen" href="@routes.Assets.at("stylesheets/lineage-search.css")">
     <link rel="stylesheet" media="screen" href="@routes.Assets.at("vendors/dagre-d3/css/tipsy.css")">
