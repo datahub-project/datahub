@@ -92,7 +92,7 @@
 							</ul>
 						</li>
 					</ul>
-					<form class="navbar-form navbar-left" role="search">
+					<form class="navbar-form navbar-left" role="search" id="nav-keyword-search-form">
 						<div class="row">
 							<div id="searchcategorybtngroup" class="btn-group" role="group">
 							    <button style="height: 30px;margin-right:-4px;"
@@ -177,6 +177,28 @@
 							</ul>
 						</li>
 					</ul>
+
+        <div class="nav nabar-nav navbar-right nav-help-menu dropdown">
+          <button class="nav-help-button dropdown-toggle"
+              type="button" id="nav-help-dropdown"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              title="WhereHows Help"
+              aria-expanded="true">
+                Help
+                <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
+                <i class="fa fa-angle-down" aria-hidden="true"></i>
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="nav-help-dropdown">
+            <li>
+              <a href="https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Metadata+Coverage"
+                 title="Metadata Coverage"
+                 target="_blank">
+                     Metadata Coverage
+              </a>
+            </li>
+          </ul>
+        </div>
 				} else {
 					<form class="navbar-form navbar-right" method="POST"
 						action="@routes.Application.authenticate()?csrfToken=@csrfToken">
