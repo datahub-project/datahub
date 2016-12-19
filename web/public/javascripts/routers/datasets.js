@@ -180,10 +180,10 @@ App.DatasetRoute = Ember.Route.extend({
     const fetchThenSetOnController = {
       privacyCompliancePolicy(id) {
         Ember.$.getJSON(`api/v1/datasets/${id}/compliance`)
-            .then(({privacyCompliance = createPrivacyCompliancePolicy(), return_code}) =>
+            .then(({privacyCompliancePolicy = createPrivacyCompliancePolicy(), return_code}) =>
                 controller.setProperties({
-                  'isNewPrivacyCompliancePolicy': return_code === 404,
-                  'privacyCompliancePolicy': privacyCompliance
+                  privacyCompliancePolicy,
+                  'isNewPrivacyCompliancePolicy': return_code === 404
                 }));
 
         return this;
@@ -193,8 +193,8 @@ App.DatasetRoute = Ember.Route.extend({
         Ember.$.getJSON(`api/v1/datasets/${id}/security`)
             .then(({securitySpecification = createSecuritySpecification(id), return_code}) =>
                 controller.setProperties({
-                  'isNewSecuritySpecification': return_code === 404,
-                  'securitySpecification': securitySpecification
+                  securitySpecification,
+                  'isNewSecuritySpecification': return_code === 404
                 }));
 
         return this;
