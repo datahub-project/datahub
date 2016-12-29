@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.AdvSearchDAO;
 import dao.SearchDAO;
+import java.net.URLDecoder;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.Play;
@@ -98,7 +99,20 @@ public class AdvSearch extends Controller
     {
         ObjectNode result = Json.newObject();
         String searchOptStr = request().getQueryString("searchOpts");
-        JsonNode searchOpt = Json.parse(searchOptStr);
+
+        JsonNode searchOpt = null;
+        try
+        {
+            String searchOptStrDecode = URLDecoder.decode(searchOptStr, "UTF-8");
+            searchOpt = Json.parse(searchOptStrDecode);
+        }
+        catch (Exception e)
+        {
+            Logger.error("Advanced Search Controller search() searchOpts wrong JSON format. Error message: " +
+                e.getMessage());
+            searchOpt = null;
+        }
+
         int page = 1;
         int size = 10;
         String pageStr = request().getQueryString("page");
