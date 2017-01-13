@@ -1,43 +1,46 @@
-curl -XPUT '$YOUR_INDEX_URL:9200/wherehows' -d '
-{
-  "mappings": {
-    "dataset": {},
-    "comment": {
-      "_parent": {
-        "type": "dataset"
-      }
-    },
-    "field": {
-      "_parent": {
-        "type": "dataset"
-      }
-    }
-  }
-}
-'
 
-curl -XPUT '$YOUR_INDEX_URL:9200/wherehows/flow_jobs/_mapping' -d '
+https://www.elastic.co/guide/index.html
+
+```
+export ELASTICSEARCH_SERVER_URL=http://localhost:9200
+```
+
+create index and put mappings
+```
+curl -XPUT '$ELASTICSEARCH_SERVER_URL/wherehows_v1' --data @index_mapping.json
+
+```
+
+create index alias 
+Using aliases has allowed us to continue using elasticsearch without a huge operational nightmare
+this allows switching transparently between one index and another on a running cluster
+Here we use wherehows as alias for different versions, newer indexes such as wherehows_v2 can be created, populated and then points to wherehows, as a public index interface
+```
+curl -XPUT '$ELASTICSEARCH_SERVER_URL/_aliases' -d '
 {
-  "flow_jobs": {
-    "properties": {
-      "jobs": {
-        "type": "nested",
-        "properties": {
-          "job_name":    { "type": "string"  },
-          "job_path": { "type": "string"  },
-          "job_type": { "type": "string"  },
-          "pre_jobs": { "type": "string"  },
-          "post_jobs": { "type": "string"  },
-          "is_current": { "type": "string"  },
-          "is_first": { "type": "string"  },
-          "is_last": { "type": "string"  },
-          "job_type_id": { "type": "short"   },
-      "app_id": { "type": "short"   },
-      "flow_id": { "type": "long"   },
-      "job_id": { "type": "long"   }
-        }
+  "actions": [
+    {
+      "add": {
+        "index": "wherehows_v1",
+        "alias": "wherehows"
       }
     }
-  }
-}
-'
+  ]
+}'
+```
+
+query index/type mapping
+```
+$ELASTICSEARCH_SERVER_URL/wherehows/_mapping/dataset
+$ELASTICSEARCH_SERVER_URL/wherehows/_mapping/comment
+$ELASTICSEARCH_SERVER_URL/wherehows/_mapping/flow_jobs
+$ELASTICSEARCH_SERVER_URL/wherehows/_mapping/field
+$ELASTICSEARCH_SERVER_URL/wherehows/_mapping/metric
+
+$ELASTICSEARCH_SERVER_URL:9200/wherehows/_mapping/
+```
+
+delete an index
+```
+curl -XDELETE '$ELASTICSEARCH_SERVER_URL:9200/wherehows'
+```

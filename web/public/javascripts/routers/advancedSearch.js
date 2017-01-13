@@ -17,12 +17,14 @@ App.AdvsearchRoute = Ember.Route.extend({
     }
   },
   model: function(params) {
+    let query;
     var advsearchController = this.controllerFor('advsearch')
     advsearchController.set('loading', true)
     var q = convertQueryStringToObject()
     currentTab = 'Datasets';
     updateActiveTab();
-    var url = 'api/v1/advsearch/search?searchOpts=' + atob(q.query) + '&page=' + params.page;
+    query = encodeURIComponent(atob(q.query));
+    var url = 'api/v1/advsearch/search?searchOpts=' + query + '&page=' + params.page;
     $.get(url, function(data) {
       if (data && data.status == "ok") {
         for(var index = 0; index < data.result.data.length; index++) {

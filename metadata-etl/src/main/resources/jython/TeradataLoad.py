@@ -14,6 +14,7 @@
 
 import sys
 from com.ziclix.python.sql import zxJDBC
+from distutils.util import strtobool
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 
@@ -226,7 +227,7 @@ class TeradataLoad:
         ; -- run time : ~2min
 
         delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
-    
+
         -- update the old record if some thing changed
         update dict_field_detail t join
         (
@@ -394,9 +395,13 @@ if __name__ == "__main__":
   l.input_field_file = args[Constant.TD_FIELD_METADATA_KEY]
   l.input_sampledata_file = args[Constant.TD_SAMPLE_OUTPUT_KEY]
 
-  do_sample = True # default load sample
+  do_sample = False
   if Constant.TD_LOAD_SAMPLE in args:
-    do_sample = bool(args[Constant.TD_LOAD_SAMPLE])
+    do_sample = strtobool(args[Constant.TD_LOAD_SAMPLE])
+
+  if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
+    do_sample = False
+
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
