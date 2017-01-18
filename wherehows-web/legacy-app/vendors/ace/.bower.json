@@ -1,0 +1,28 @@
+{
+  "name": "ace-builds-bower-patched",
+  "version": "1.2.2",
+  "homepage": "https://github.com/echoAlexey/ace-builds",
+  "authors": [],
+  "description": "Patched Ace Builds with Bower.json",
+  "main": [
+    "./src/ace.js",
+    "./src/mode-xml.js",
+    "./src/theme-eclipse.js",
+    "./src/ext-language_tools.js",
+    "./src/snippets/xml.js"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*"
+  ],
+  "_release": "1.2.2",
+  "_resolution": {
+    "type": "version",
+    "tag": "v1.2.2",
+    "commit": "96719409198fd5599ffbd131096c2fdc5086e17e"
+  },
+  "_source": "git://github.com/echoAlexey/ace-builds.git",
+  "_target": "~1.2.2",
+  "_originalSource": "ace-builds-bower-patched",
+  "_direct": true
+}
