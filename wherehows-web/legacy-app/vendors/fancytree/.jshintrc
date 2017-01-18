@@ -1,0 +1,29 @@
+
+{
+	"bitwise": true,
+	"camelcase": true,
+	"curly": true,
+	"eqeqeq": true,
+	"expr": true,
+	"immed": true,
+	"latedef": true,
+	"newcap": true,
+	"noarg": true,
+	"nonew": true,
+	"onevar": true,
+	"quotmark": "double",
+	"trailing": true,
+	"undef": true,
+	"unused": "vars",
+
+	"boss": true,
+	"eqnull": true,
+	"evil": false,
+	"smarttabs": true,
+
+	"browser": true,
+	"globals": {
+		"define": true,
+		"jQuery": true
+	}
+}
