@@ -1,0 +1,179 @@
+/*!
+ * Fancytree "bootstrap" skin.
+ *
+ * DON'T EDIT THE CSS FILE DIRECTLY, since it is automatically generated from
+ * the LESS templates.
+ */
+
+// Import common styles
+@import "../skin-common.less";
+
+
+/*******************************************************************************
+ * Styles specific to this skin.
+ *
+ * This section is automatically generated from the `ui-fancytree.less` template.
+ ******************************************************************************/
+
+
+// local vars
+@fancy-my-icon-size: 16px;
+
+// Override the variable after the import. 
+// NOTE: Variables are always resolved as the last definition, even if it is 
+// after where it is used.
+@fancy-use-sprites: false;
+@fancy-hide-connectors: true;
+@fancy-icon-width: 1em;
+@fancy-icon-height: 1em;
+@fancy-line-height: 1em;
+@fancy-icon-margin-left: 0.5em;
+
+ul.fancytree-container ul {
+	padding: 0 0 0 1.5em;
+	margin: 0;
+}
+/* Prevent focus frame */
+.fancytree-container:focus {
+	outline: none; 
+}
+ 
+/////
+// Original bootstrap colors (http://getbootstrap.com/css/#responsive-utilities)
+@gray-darker:  lighten(#000, 13.5%); // #222
+@gray-dark:    lighten(#000, 20%);   // #333
+@gray:         lighten(#000, 33.5%); // #555
+@gray-light:   lighten(#000, 60%);   // #999
+@gray-lighter: lighten(#000, 93.5%); // #eee
+
+@brand-primary: #428bca;
+@brand-success: #5cb85c;
+@brand-info:    #5bc0de;
+@brand-warning: #f0ad4e;
+@brand-danger:  #d9534f;
+
+@border-radius-base:  4px;
+@border-radius-large: 6px;
+@border-radius-small: 3px;
+/////////////
+
+span.fancytree-title {
+	border: @fancy-node-border-width solid transparent;  // avoid jumping, when a border is added on hover
+	border-radius: @border-radius-small;
+	outline-radius: @border-radius-small;
+	padding-left: 8px;
+}
+// span.fancytree-title {
+// 	border-radius: @border-radius-small;
+// }
+// Inactive tree:
+span.fancytree-node.fancytree-selected span.fancytree-title { // selected nodes inside inactive tree
+	background-color: lighten(@brand-success, 10%);
+	border-color: lighten(@brand-success, 10%);
+}
+span.fancytree-node.fancytree-active span.fancytree-title { // active nodes inside inactive tree
+	background-color: lighten(@brand-primary, 10%);
+}
+span.fancytree-node.fancytree-active.fancytree-selected span.fancytree-title { // active nodes inside inactive tree
+	color: lighten(@brand-success, 10%);
+	// border-color: lighten(@brand-success, 10%);
+	// outline: 2px solid lighten(@brand-success, 10%);
+}
+// Active tree:
+.fancytree-container.fancytree-treefocus {
+	span.fancytree-title:hover {
+		background-color: lighten(@brand-primary, 42%);
+	}
+	span.fancytree-node.fancytree-focused span.fancytree-title {
+		border-color: @brand-primary;
+	}
+	span.fancytree-node.fancytree-selected span.fancytree-title {
+		background-color: @brand-success;
+	}
+	span.fancytree-node.fancytree-active span.fancytree-title {
+		background-color: @brand-primary;
+		border-color: @brand-primary;
+	}
+	span.fancytree-node.fancytree-active.fancytree-selected span.fancytree-title {
+		color: @brand-success;
+		// border-color: @brand-success;
+		// outline: 2px solid @brand-success;
+	}
+}
+
+/*******************************************************************************
+ * 'table' extension
+ */
+table.fancytree-ext-table tbody {
+	tr td {
+	  border: 1px solid @gray-lighter;
+	}
+	// span.fancytree-node,
+	// span.fancytree-node:hover { // undo standard tree css
+	// 	border: none;
+	// 	background: none;
+	// }
+	// // Title get's a white background, when hovered. Undo standard node formatting
+	// span.fancytree-title:hover {
+	//   border: none;
+	//   background: inherit;
+	//   background: transparent;
+	//   background: none;
+	//   filter: none;
+	// }
+	// dimmed, if inside inactive tree
+	tr.fancytree-selected {  
+		background-color: lighten(@brand-success, 10%);
+		span.fancytree-node {
+			background-color: lighten(@brand-success, 10%);
+		}
+		span.fancytree-title {
+			background-color: lighten(@brand-success, 10%); // green title, even when active
+		}
+	}
+	tr.fancytree-active {  // dimmed, if inside inactive tree
+		background-color: lighten(@brand-primary, 10%);
+		span.fancytree-node {
+			background-color: lighten(@brand-primary, 10%);
+		}
+	}
+}
+
+table.fancytree-ext-table.fancytree-treefocus tbody {
+	tr:hover  {
+		background-color: lighten(@brand-primary, 42%);
+	    // outline: 1px solid @brand-primary;
+	}
+	tr.fancytree-focused span.fancytree-title {
+		outline: 1px dotted @brand-primary;
+	}
+	tr.fancytree-active:hover,
+	tr.fancytree-selected:hover {
+		// background-color: #CBE8F6;
+	 //    outline: 1px solid #26A0DA;
+	}
+	tr.fancytree-selected {
+		background-color: @brand-success;
+		span.fancytree-node {
+			background-color: @brand-success;
+		}
+		span.fancytree-title {
+			background-color: @brand-success; // green title, even when active
+		}
+	}
+	tr.fancytree-active {
+		background-color: @brand-primary;
+		span.fancytree-node {
+			background-color: @brand-primary;
+		}
+	}
+}
+/*------------------------------------------------------------------------------
+ * 'wide' extension
+ *----------------------------------------------------------------------------*/
+ul.fancytree-container span.fancytree-node span.fancytree-title,
+ul.fancytree-ext-wide span.fancytree-node span.fancytree-title {
+	-moz-box-sizing: content-box; // bootstrap sets content box
+	-webkit-box-sizing: content-box;
+	box-sizing: content-box;
+}

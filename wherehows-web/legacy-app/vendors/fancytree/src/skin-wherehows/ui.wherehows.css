@@ -1,0 +1,110 @@
+/*******************************************************************************
+ * Common Styles for Custom Fancytree 'skin-wherehows' Skin.
+ ******************************************************************************/
+/*------------------------------------------------------------------------------
+ * Helpers
+ *----------------------------------------------------------------------------*/
+.ui-helper-hidden {
+  display: none;
+}
+/*------------------------------------------------------------------------------
+ * Container and UL / LI
+ *----------------------------------------------------------------------------*/
+ul.fancytree-container {
+
+}
+ul.fancytree-container ul {
+  padding: 0;
+}
+ul.fancytree-container li.fancytree-lastsib,
+ul.fancytree-container li:first-child span {
+  border: none;
+}
+
+/*------------------------------------------------------------------------------
+ * Node titles and highlighting
+ *----------------------------------------------------------------------------*/
+span.fancytree-node {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-top: 1px #efefef solid;
+  color: rgba(1,1,1,.4);
+}
+
+span.fancytree-node:hover {
+  background-color: #e7f6fd;
+  border-color: #e7f6fd;
+  cursor: pointer;
+  color: rgba(0,140,201,.8);
+  color: #555;
+}
+
+span.fancytree-title {
+  color: inherit;
+  font-size: 14px;
+  letter-spacing: .02em;
+  font-weight: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+span.fancytree-node.fancytree-active {
+  border: none !important;
+  background-color: #e7f6fd !important;
+}
+
+span.fancytree-active .fancytree-title {
+  color: rgba(0,140,201,.8);
+  font-weight: bold;
+}
+
+span.fancytree-node.level1 {
+  padding-left: 8px;
+}
+
+span.level2 {
+  padding-left: 20px;
+}
+
+span.level3 {
+  padding-left: 35px;
+}
+
+span.level4 {
+  padding-left: 45px;
+}
+
+span.level5 {
+  padding-left: 55px;
+}
+
+/*------------------------------------------------------------------------------
+ * Expander icon : hide for nodes with no children
+ *----------------------------------------------------------------------------*/
+span.fancytree-has-children .fancytree-expander {
+  font-size: 15px;
+  color: #a7a6a6;
+  background: none;
+  margin-top: 1px;
+  margin-left: 1px;
+}
+
+span.fancytree-has-children.fancytree-active .fancytree-expander {
+  color: rgba(0,140,201,.6);
+}
+
+span.fancytree-has-children.fancytree-active .fancytree-expander:hover {
+  color: rgba(0,140,201,1);
+}
+
+span.fancytree-has-children .fancytree-expander:hover {
+  color: #34b3e4;
+}
+
+span.fancytree-expanded span.glyphicon-plus-sign:before {
+  content: "\e082";
+}
+
+span.fancytree-exp-n span.glyphicon-plus-sign:before,
+span.fancytree-exp-nl span.glyphicon-plus-sign:before {
+  display: none;
+}
