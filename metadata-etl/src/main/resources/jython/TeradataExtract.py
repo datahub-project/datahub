@@ -15,12 +15,11 @@
 from com.ziclix.python.sql import zxJDBC
 import sys, os, re, json
 import datetime
-import commands
+from distutils.util import strtobool
 from wherehows.common.schemas import SampleDataRecord
 from wherehows.common.writers import FileWriter
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-from distutils.util import strtobool
 
 
 class TeradataExtract:
@@ -549,16 +548,12 @@ if __name__ == "__main__":
 
   e = TeradataExtract()
   e.conn_td = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
-  do_sample = True
+  do_sample = False
   if Constant.TD_LOAD_SAMPLE in args:
     do_sample = strtobool(args[Constant.TD_LOAD_SAMPLE])
-    # if value error from strtobool, do_sample remains as default value which is True
 
-  if do_sample:
-    if datetime.datetime.now().strftime('%a') in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
-      do_sample = True
-    else:
-      do_sample = False
+  if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
+    do_sample = False
 
   try:
     e.conn_td.cursor().execute(
