@@ -52,25 +52,45 @@ public class EtlJobActor extends UntypedActor {
         Logger.debug("run command : " + cmd);
 
         ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
-        process = Runtime.getRuntime().exec(cmd);
+        int retry = 0;
+        int execResult = 0;
+        String line;
 
-        // update process id and hostname for started job
-        EtlJobDao.updateJobProcessInfo(msg.getWhEtlExecId(), getPid(process), getHostname());
+        while (retry < 3) {
+          long startTime = System.currentTimeMillis();
+          process = Runtime.getRuntime().exec(cmd);
 
-        InputStream stdout = process.getInputStream();
-        InputStreamReader isr = new InputStreamReader(stdout);
-        BufferedReader br = new BufferedReader(isr);
-        String line = null;
-        while ((line = br.readLine()) != null) {
-          Logger.info(line);
+          // update process id and hostname for started job
+          EtlJobDao.updateJobProcessInfo(msg.getWhEtlExecId(), getPid(process), getHostname());
+
+          InputStream stdout = process.getInputStream();
+          InputStreamReader isr = new InputStreamReader(stdout);
+          BufferedReader br = new BufferedReader(isr);
+          while ((line = br.readLine()) != null) {
+            Logger.info(line);
+          }
+
+          // wait until this process finished.
+          execResult = process.waitFor();
+          long elapsedTime = System.currentTimeMillis() - startTime;
+
+          // For process error such as ImportError or ArgumentError happening shortly after starting, retry
+          if (execResult == 2 && elapsedTime < 10000) {
+            retry++;
+            Logger.error("*** Process + " + getPid(process) + " failed, status: " + execResult + ". Retry " + retry);
+
+            if (process.isAlive()) {
+              process.destroy();
+            }
+            Thread.sleep(60000);
+          } else {
+            break;
+          }
         }
-
-        // wait until this process finished.
-        int execResult = process.waitFor();
 
         // if the process failed, log the error and throw exception
         if (execResult > 0) {
-          br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+          BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
           String errString = "Error Details:\n";
           while ((line = br.readLine()) != null)
             errString = errString.concat(line).concat("\n");
