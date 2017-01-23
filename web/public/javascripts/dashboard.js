@@ -384,7 +384,7 @@
             jiraController.set('idpcInProgress', true);
             var datasetsUrl = '/api/v1/metadata/dataset/compliance/' + user + '?page=' +
                 page + '&size=' + size + '&option=' + option;
-            $.get(datasetsUrl, function(data) {
+            Promise.resolve($.get(datasetsUrl, function(data) {
                 jiraController.set('idpcInProgress', false);
                 if (data && data.status == "ok") {
                     var currentPage = data.page;
@@ -422,6 +422,8 @@
                         jiraController.set('userNoComplianceFields', true);
                     }
                 }
+            })).catch(function () {
+                jiraController.set('idpcInProgress', false);
             });
             /*
             if (refresh)
