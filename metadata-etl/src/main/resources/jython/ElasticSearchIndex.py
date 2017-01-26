@@ -202,7 +202,7 @@ class ElasticSearchIndex():
           static_boosting_score = 65;
 
           SELECT d.*,
-              COALESCE(s.static_boosting_score,0) as static_boosting_score
+              COALESCE(s.static_boosting_score,1) as static_boosting_score
           FROM dict_dataset d
           LEFT JOIN cfg_search_score_boost s
           ON d.id = s.id
