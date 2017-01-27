@@ -25,15 +25,12 @@ from wherehows.common.utils import AzkabanJobExecUtil
 from wherehows.common import Constant
 from wherehows.common.enums import SchedulerType
 from com.ziclix.python.sql import zxJDBC
-import os
-import DbUtil
-import sys
-import gzip
-import StringIO
-import json
-import datetime
-import time
 from org.slf4j import LoggerFactory
+import os, sys, json, gzip
+import StringIO
+import datetime, time
+import DbUtil
+
 
 class AzkabanExtract:
 

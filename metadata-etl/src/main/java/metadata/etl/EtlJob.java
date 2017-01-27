@@ -175,6 +175,7 @@ public abstract class EtlJob {
   public void run()
     throws Exception {
     setup();
+    logger.info("PySystem path: " + interpreter.getSystemState().path.toString());
     extract();
     transform();
     load();

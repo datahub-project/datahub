@@ -14,12 +14,9 @@
 
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
-import DbUtil
-import sys
-import json
-import urllib
-import urllib2
 from org.slf4j import LoggerFactory
+import sys, json
+import urllib2
 
 
 class ElasticSearchIndex():

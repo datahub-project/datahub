@@ -78,9 +78,12 @@ public class Launcher {
       etlJob.run();
     } catch (Exception e) {
       StringWriter sw = new StringWriter();
-      PrintWriter pw = new PrintWriter(sw);
-      e.printStackTrace(pw);
-      logger.error(sw.toString());
+      e.printStackTrace(new PrintWriter(sw));
+      String errorString = sw.toString();
+      logger.error(errorString);
+      if (errorString.contains("IndexError") || errorString.contains("ImportError")) {
+        System.exit(2);
+      }
       System.exit(1);
     }
 
