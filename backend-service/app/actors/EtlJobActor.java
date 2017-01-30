@@ -82,7 +82,7 @@ public class EtlJobActor extends UntypedActor {
             if (process.isAlive()) {
               process.destroy();
             }
-            Thread.sleep(60000);
+            Thread.sleep(10000);
           } else {
             break;
           }
