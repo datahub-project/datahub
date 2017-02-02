@@ -20,20 +20,13 @@ from wherehows.common.schemas import AppworxFlowExecRecord
 from wherehows.common.schemas import AppworxJobExecRecord
 from wherehows.common.schemas import AppworxFlowScheduleRecord
 from wherehows.common.schemas import AppworxFlowOwnerRecord
-from wherehows.common.enums import AzkabanPermission
 from wherehows.common import Constant
 from wherehows.common.enums import SchedulerType
 from com.ziclix.python.sql import zxJDBC
-import os
-import DbUtil
-import sys
-import gzip
-import StringIO
-import json
-import datetime
-import time
-import re
 from org.slf4j import LoggerFactory
+import os, sys, re
+import DbUtil
+
 
 class AppworxExtract:
 
@@ -44,8 +37,8 @@ class AppworxExtract:
                         'w': 'WEEK'}
 
   def get_connection(self, host, port, sid, username, password, driver):
-      jdbc_url = "jdbc:oracle:thin:@%(host)s:%(port)s:%(sid)s" % locals()
-      return zxJDBC.connect(jdbc_url, username, password, driver)
+    jdbc_url = "jdbc:oracle:thin:@%(host)s:%(port)s:%(sid)s" % locals()
+    return zxJDBC.connect(jdbc_url, username, password, driver)
 
   def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
@@ -57,11 +50,11 @@ class AppworxExtract:
                                  args[Constant.WH_DB_DRIVER_KEY])
     self.wh_cursor = self.wh_con.cursor()
     self.aw_con = self.get_connection(args[Constant.AW_DB_URL_KEY],
-                                    args[Constant.AW_DB_PORT_KEY],
-                                    args[Constant.AW_DB_NAME_KEY],
-                                    args[Constant.AW_DB_USERNAME_KEY],
-                                    args[Constant.AW_DB_PASSWORD_KEY],
-                                    args[Constant.AW_DB_DRIVER_KEY])
+                                      args[Constant.AW_DB_PORT_KEY],
+                                      args[Constant.AW_DB_NAME_KEY],
+                                      args[Constant.AW_DB_USERNAME_KEY],
+                                      args[Constant.AW_DB_PASSWORD_KEY],
+                                      args[Constant.AW_DB_DRIVER_KEY])
     self.aw_cursor = self.aw_con.cursor()
     self.lookback_period = args[Constant.AW_EXEC_ETL_LOOKBACK_KEY]
     self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
@@ -85,8 +78,8 @@ class AppworxExtract:
         rows = DbUtil.dict_cursor(self.wh_cursor)
         if rows:
           for row in rows:
-            self.last_execution_unix_time = row['last_time']
-            break;
+            self.last_execution_unix_time = long(row['last_time'])
+            break
       except:
         self.logger.error("Get the last execution time from job_execution failed")
         self.last_execution_unix_time = None
@@ -96,9 +89,11 @@ class AppworxExtract:
   def run(self):
     self.logger.info("Begin Appworx Extract")
     try:
-      self.collect_flow_jobs(self.metadata_folder + "/flow.csv", self.metadata_folder + "/job.csv", self.metadata_folder + "/dag.csv")
+      self.collect_flow_jobs(self.metadata_folder + "/flow.csv", self.metadata_folder + "/job.csv",
+                             self.metadata_folder + "/dag.csv")
       self.collect_flow_owners(self.metadata_folder + "/owner.csv")
-      self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.metadata_folder + "/job_exec.csv", self.lookback_period)
+      self.collect_flow_execs(self.metadata_folder + "/flow_exec.csv", self.metadata_folder + "/job_exec.csv",
+                              self.lookback_period)
       self.collect_flow_schedules(self.metadata_folder + "/schedule.csv")
       self.logger.info("Finish Appworx Extract")
     finally:
@@ -108,52 +103,43 @@ class AppworxExtract:
       self.wh_con.close()
 
   def collect_flow_jobs(self, flow_file, job_file, dag_file):
-    self.logger.info("collect flow&jobs")
+    self.logger.info("collect flow&jobs [last_execution_unix_time=%s lookback_period=%s]"
+                     % (self.last_execution_unix_time, self.lookback_period))
     timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
     self.aw_cursor.execute(timezone)
     schema = "ALTER SESSION SET CURRENT_SCHEMA=APPWORX"
     self.aw_cursor.execute(schema)
     if self.last_execution_unix_time:
-      query = \
-        """SELECT J.*, R.RUNS
-           FROM SO_JOB_TABLE J JOIN (
-           SELECT SO_JOB_SEQ, COUNT(*) as RUNS
-           FROM 
-           ( SELECT SO_JOB_SEQ FROM SO_JOB_HISTORY
-             WHERE cast((FROM_TZ(CAST(SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date)
-                   >= (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400)
-             UNION ALL
-             SELECT SO_JOB_SEQ FROM SO_JOB_QUEUE
-             WHERE SO_STATUS_NAME IN ('RUNNING', 'FINISHED')
-           )
-           GROUP BY SO_JOB_SEQ
-           ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
-           WHERE SO_COMMAND_TYPE = 'CHAIN'
-        """ % long(self.last_execution_unix_time)
+      time_filter = "(DATE '1970-01-01' - INTERVAL '8' HOUR) + (%d - 3600) / 86400" % long(
+        self.last_execution_unix_time)
     else:
-      query = \
-        """SELECT J.*, R.RUNS
-           FROM SO_JOB_TABLE J JOIN (
-           SELECT SO_JOB_SEQ, COUNT(*) as RUNS
-           FROM 
-           ( SELECT SO_JOB_SEQ FROM SO_JOB_HISTORY
-             WHERE SO_JOB_FINISHED >= SYSDATE - %d
-             UNION ALL
-             SELECT SO_JOB_SEQ FROM SO_JOB_QUEUE
-             WHERE SO_STATUS_NAME IN ('RUNNING', 'FINISHED')
-           )
-           GROUP BY SO_JOB_SEQ
-           ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
-           WHERE SO_COMMAND_TYPE = 'CHAIN'
-        """ % int(self.lookback_period)
+      time_filter = "SYSDATE - %d" % int(self.lookback_period)
+    flow_query = \
+      """SELECT J.SO_JOB_SEQ, J.SO_APPLICATION, J.SO_MODULE, R.LAST_CHAIN_ID
+         FROM SO_JOB_TABLE J JOIN (
+         SELECT SO_JOB_SEQ, MAX(SO_CHAIN_ID) as LAST_CHAIN_ID
+         FROM
+         ( SELECT SO_JOB_SEQ, SO_CHAIN_ID FROM SO_JOB_HISTORY
+           WHERE SO_JOB_FINISHED >= %s
+             AND SO_CHILD_COUNT > 0
+           UNION ALL
+           SELECT SO_JOB_SEQ, SO_CHAIN_ID FROM SO_JOB_QUEUE
+           WHERE SO_STATUS_NAME IN ('INITIATED', 'RUNNING', 'FINISHED')
+             AND SO_CHILD_COUNT > 0
+         )
+         GROUP BY SO_JOB_SEQ
+         ) R ON J.SO_JOB_SEQ = R.SO_JOB_SEQ
+         WHERE SO_COMMAND_TYPE = 'CHAIN'
+         ORDER BY 2,3
+      """ % time_filter
     job_query = \
-        """SELECT d.SO_TASK_NAME, d.SO_CHAIN_ORDER, d.SO_PREDECESSORS as PREDECESSORS, d.SO_DET_SEQ as JOB_ID,
-            t.* FROM SO_CHAIN_DETAIL d
-            JOIN SO_JOB_TABLE t ON d.SO_JOB_SEQ = t.SO_JOB_SEQ
-            WHERE d.SO_CHAIN_SEQ = %d 
-            ORDER BY d.SO_CHAIN_ORDER
-        """
-    self.aw_cursor.execute(query)
+      """SELECT d.SO_TASK_NAME, d.SO_CHAIN_ORDER, d.SO_PREDECESSORS as PREDECESSORS, d.SO_DET_SEQ as JOB_ID,
+          t.* FROM SO_CHAIN_DETAIL d
+          JOIN SO_JOB_TABLE t ON d.SO_JOB_SEQ = t.SO_JOB_SEQ
+          WHERE d.SO_CHAIN_SEQ = %d
+          ORDER BY d.SO_CHAIN_ORDER
+      """
+    self.aw_cursor.execute(flow_query)
     rows = DbUtil.dict_cursor(self.aw_cursor)
     flow_writer = FileWriter(flow_file)
     job_writer = FileWriter(job_file)
@@ -202,12 +188,12 @@ class AppworxExtract:
           if predecessors:
             for predecessor in predecessors:
               dag_edge = AppworxFlowDagRecord(self.app_id,
-                                             long(row['SO_JOB_SEQ']),
-                                             flow_path,
-                                             0,
-                                             flow_path + '/' + predecessor,
-                                             flow_path + '/' + job['SO_TASK_NAME'],
-                                             self.wh_exec_id)
+                                              long(row['SO_JOB_SEQ']),
+                                              flow_path,
+                                              0,
+                                              flow_path + '/' + predecessor,
+                                              flow_path + '/' + job['SO_TASK_NAME'],
+                                              self.wh_exec_id)
               dag_writer.append(dag_edge)
       row_count += 1
 
@@ -221,7 +207,8 @@ class AppworxExtract:
     dag_writer.close()
 
   def collect_flow_execs(self, flow_exec_file, job_exec_file, look_back_period):
-    self.logger.info("collect flow&job executions")
+    self.logger.info("collect flow&job executions [last_execution_unix_time=%s lookback_period=%s]"
+                     % (self.last_execution_unix_time, self.lookback_period))
     flow_exec_writer = FileWriter(flow_exec_file)
     job_exec_writer = FileWriter(job_exec_file)
     timezone = "ALTER SESSION SET TIME_ZONE = 'US/Pacific'"
@@ -237,11 +224,15 @@ class AppworxExtract:
            ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
            to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
            U.SO_USER_NAME FROM SO_JOB_TABLE J
-           JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
+           JOIN (
+             SELECT * FROM SO_JOB_HISTORY WHERE SO_JOB_FINISHED >= DATE '1970-01-01' - interval '8' hour + (%d - 3600) / 86400
+                                            AND SO_CHILD_COUNT > 0
+             UNION ALL
+             SELECT * FROM SO_JOB_QUEUE WHERE SO_STATUS_NAME IN ('INITIATED', 'RUNNING', 'FINISHED')
+                                          AND SO_CHILD_COUNT > 0
+           ) H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-           WHERE cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
-           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400) and
-           J.SO_COMMAND_TYPE = 'CHAIN' """ % self.last_execution_unix_time
+           WHERE J.SO_COMMAND_TYPE = 'CHAIN' """ % long(self.last_execution_unix_time)
     else:
       flow_cmd = \
         """SELECT J.SO_JOB_SEQ, J.SO_MODULE, J.SO_APPLICATION, H.SO_STATUS_NAME, H.SO_JOBID, H.SO_CHAIN_ID,
@@ -250,11 +241,21 @@ class AppworxExtract:
            ROUND((cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
            to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as JOB_FINISHED,
            U.SO_USER_NAME FROM SO_JOB_TABLE J
-           JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
+           JOIN (
+             SELECT * FROM SO_JOB_HISTORY WHERE SO_JOB_FINISHED >= SYSDATE - %d
+                                            AND SO_CHILD_COUNT > 0
+             UNION ALL
+             SELECT * FROM SO_JOB_QUEUE WHERE SO_STATUS_NAME IN ('INITIATED', 'RUNNING', 'FINISHED')
+                                          AND SO_CHILD_COUNT > 0
+           ) H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-           WHERE H.SO_JOB_FINISHED >= SYSDATE - %d and
-           J.SO_COMMAND_TYPE = 'CHAIN' """ % int(self.lookback_period)
+           WHERE J.SO_COMMAND_TYPE = 'CHAIN' """ % int(self.lookback_period)
 
+    ''' SO_CHAIN_ID = :flow_exec_id will find all job executions under the top level flow
+
+        select SO_EXECUTE_ORDER, SO_JOBID, SO_PARENTS_JOBID, SO_DIRECT_PARENT_JOBID, SO_CHAIN_ID
+        from so_job_history where SO_JOBID = SO_CHAIN_ID or SO_PARENTS_JOBID <> SO_CHAIN_ID
+    '''
     if self.last_execution_unix_time:
       job_cmd = \
         """SELECT D.SO_TASK_NAME, U.SO_USER_NAME, H.SO_STATUS_NAME, H.SO_JOBID, D.SO_DET_SEQ as JOB_ID,
@@ -265,9 +266,8 @@ class AppworxExtract:
            FROM SO_JOB_HISTORY H
            JOIN SO_CHAIN_DETAIL D ON D.SO_CHAIN_SEQ = H.SO_CHAIN_SEQ AND D.SO_DET_SEQ = H.SO_DET_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-           WHERE cast((FROM_TZ(CAST(H.SO_JOB_FINISHED as timestamp), 'US/Pacific') at time zone 'GMT') as date) >=
-           (TO_DATE('1970-01-01','YYYY-MM-DD') + (%d - 3600) / 86400) and
-           H.SO_PARENTS_JOBID = %d and H.SO_CHAIN_ID = %d"""
+           WHERE --H.SO_JOB_FINISHED >= DATE '1970-01-01' - interval '8' hour + (%d - 3600) / 86400) and
+           H.SO_CHAIN_ID = %d"""
     else:
       job_cmd = \
         """SELECT D.SO_TASK_NAME, U.SO_USER_NAME, H.SO_STATUS_NAME, H.SO_JOBID, D.SO_DET_SEQ as JOB_ID,
@@ -279,9 +279,12 @@ class AppworxExtract:
            JOIN SO_CHAIN_DETAIL D ON D.SO_CHAIN_SEQ = H.SO_CHAIN_SEQ AND D.SO_DET_SEQ = H.SO_DET_SEQ
            LEFT JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
            WHERE H.SO_JOB_FINISHED >= SYSDATE - %d and
-           H.SO_PARENTS_JOBID = %d and H.SO_CHAIN_ID = %d"""
+           H.SO_CHAIN_ID = %d"""
 
-    self.aw_cursor.execute(flow_cmd)
+    try:
+      self.aw_cursor.execute(flow_cmd)
+    except Exception as e:
+      self.logger.error(e + "\n" + flow_cmd)
 
     rows = DbUtil.dict_cursor(self.aw_cursor)
     row_count = 0
@@ -291,10 +294,11 @@ class AppworxExtract:
       flow_attempt = 0
       flow_exec_id = 0
       try:
-        flow_attempt = int(float(str(so_flow_id - int(so_flow_id))[1:])*100)
+        flow_attempt = int(float(str(so_flow_id - int(so_flow_id))[1:]) * 100)
         flow_exec_id = int(so_flow_id)
       except Exception as e:
         self.logger.error(e)
+      self.logger.debug("processing flow_exec_id: %8d" % flow_exec_id)
 
       flow_exec_record = AppworxFlowExecRecord(self.app_id,
                                                long(row['SO_JOB_SEQ']),
@@ -304,17 +308,17 @@ class AppworxExtract:
                                                flow_exec_id,
                                                row['SO_STATUS_NAME'],
                                                flow_attempt,
-                                               row['SO_USER_NAME'],
+                                               row['SO_USER_NAME'] if row['SO_USER_NAME'] else '',
                                                long(row['JOB_STARTED']),
-                                               long(row['JOB_FINISHED']),
+                                               long(row['JOB_FINISHED'] if row['JOB_FINISHED'] else 0),
                                                self.wh_exec_id)
       flow_exec_writer.append(flow_exec_record)
 
       new_appworx_cursor = self.aw_con.cursor()
       if self.last_execution_unix_time:
-        new_appworx_cursor.execute(job_cmd % (self.last_execution_unix_time, flow_exec_id, long(row['SO_CHAIN_ID'])))
+        new_appworx_cursor.execute(job_cmd % (long(self.last_execution_unix_time), flow_exec_id))
       else:
-        new_appworx_cursor.execute(job_cmd % (int(self.lookback_period), flow_exec_id, long(row['SO_CHAIN_ID'])))
+        new_appworx_cursor.execute(job_cmd % (int(self.lookback_period), flow_exec_id))
       job_rows = DbUtil.dict_cursor(new_appworx_cursor)
 
       for job in job_rows:
@@ -322,7 +326,7 @@ class AppworxExtract:
         job_attempt = 0
         job_exec_id = 0
         try:
-          job_attempt = int(float(str(so_job_id - int(so_job_id))[1:])*100)
+          job_attempt = int(float(str(so_job_id - int(so_job_id))[1:]) * 100)
           job_exec_id = int(so_job_id)
         except Exception as e:
           self.logger.error(e)
@@ -360,14 +364,14 @@ class AppworxExtract:
     self.aw_cursor.execute(schema)
     schedule_writer = FileWriter(schedule_file)
     query = \
-        """SELECT J.SO_APPLICATION, J.SO_MODULE, S.AW_SCH_NAME, S.AW_SCH_INTERVAL, S.AW_ACTIVE,
-           ROUND((cast((FROM_TZ(CAST(S.AW_SCH_START as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
-           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_STARTED,
-           ROUND((cast((FROM_TZ(CAST(S.AW_SCH_END as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
-           to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_END
-           FROM SO_JOB_TABLE J
-           JOIN AW_MODULE_SCHED S ON J.SO_JOB_SEQ = S.AW_JOB_SEQ
-           WHERE J.SO_COMMAND_TYPE = 'CHAIN' AND S.AW_ACTIVE = 'Y' """
+      """SELECT J.SO_APPLICATION, J.SO_MODULE, S.AW_SCH_NAME, S.AW_SCH_INTERVAL, S.AW_ACTIVE,
+         ROUND((cast((FROM_TZ(CAST(S.AW_SCH_START as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+         to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_STARTED,
+         ROUND((cast((FROM_TZ(CAST(S.AW_SCH_END as timestamp), 'US/Pacific') at time zone 'GMT') as date) -
+         to_date('01-JAN-1970','DD-MON-YYYY'))* (86400)) as EFFECT_END
+         FROM SO_JOB_TABLE J
+         JOIN AW_MODULE_SCHED S ON J.SO_JOB_SEQ = S.AW_JOB_SEQ
+         WHERE J.SO_COMMAND_TYPE = 'CHAIN' AND S.AW_ACTIVE = 'Y' """
     self.aw_cursor.execute(query)
     rows = DbUtil.dict_cursor(self.aw_cursor)
     for row in rows:
@@ -391,10 +395,10 @@ class AppworxExtract:
     self.aw_cursor.execute(schema)
     user_writer = FileWriter(owner_file)
     query = \
-        """SELECT DISTINCT J.SO_JOB_SEQ, J.SO_MODULE, J.SO_APPLICATION, U.SO_USER_NAME FROM SO_JOB_TABLE J
-             JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
-             JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
-             WHERE J.SO_COMMAND_TYPE = 'CHAIN' """
+      """SELECT DISTINCT J.SO_JOB_SEQ, J.SO_MODULE, J.SO_APPLICATION, U.SO_USER_NAME FROM SO_JOB_TABLE J
+           JOIN SO_JOB_HISTORY H ON J.SO_JOB_SEQ = H.SO_JOB_SEQ
+           JOIN SO_USER_TABLE U ON H.SO_USER_SEQ = U.SO_USER_SEQ
+           WHERE J.SO_COMMAND_TYPE = 'CHAIN' """
     self.aw_cursor.execute(query)
     rows = DbUtil.dict_cursor(self.aw_cursor)
 
