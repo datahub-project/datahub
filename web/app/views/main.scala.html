@@ -1154,8 +1154,7 @@
 					</div>
 					<div class="col-xs-12">
             Metric Description:
-						<a
-						href="#"
+						<p
 						data-name="description"
 						data-pk="{{model.id}}"
 						class="xeditable"
@@ -1166,7 +1165,7 @@
 						data-placeholder="Please Input"
 						>
               {{model.description}}
-						</a>
+						</p>
 					</div>
 				</div>
 				<table class="tree table table-bordered">
@@ -1193,73 +1192,65 @@
 						<tr class="result">
 							<td>Metric Category</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="category"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
 								data-placement="right"
 								data-title="Enter metric category"
-								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.category}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Group</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="group"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter group"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.group}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Type</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="refIDType"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
 								data-placement="right"
 								data-title="Enter Type"
-								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.refIDType}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Grain</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="grain"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter grain"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.grain}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
@@ -1271,91 +1262,81 @@
 						<tr class="result">
 							<td>Metric Display Factor</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="displayFactory"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter display factor"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.displayFactory}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Display Factor Sym</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="displayFactorSym"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter display factor symbol"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.displayFactorSym}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Sub Category</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="subCategory"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter sub category"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.subCategory}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Source</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="source"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter source"
 								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.source}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Source Type</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="sourceType"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter source type"
 								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.sourceType}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 					</tbody>
@@ -1977,7 +1958,7 @@
             s.parentNode.insertBefore(g, s);
         })();
         </script>
-        <noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=94" style="border: 0;" alt="" /></p></noscript>
+        <noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=@piwikSiteId" style="border: 0;" alt="" /></p></noscript>
             <!-- End Piwik Code -->
 	</body>
 </html>
