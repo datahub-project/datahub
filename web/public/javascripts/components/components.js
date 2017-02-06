@@ -468,7 +468,13 @@ App.DatasetConfidentialComponent = Ember.Component.extend({
   },
 
   classification: Ember.computed('securitySpecification.classification', function () {
-    const confidentialClassification = this.get('securitySpecification.classification');
+    const defaultClassification = [
+      'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
+    ].reduce((classification, classifier) => {
+      classification[classifier] = [];
+      return classification;
+    }, {});
+    const confidentialClassification = this.get('securitySpecification.classification') || defaultClassification;
     const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
     return Object.keys(confidentialClassification).map(classifier => ({
