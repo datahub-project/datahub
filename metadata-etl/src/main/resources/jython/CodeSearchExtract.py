@@ -128,23 +128,27 @@ class CodeSearchExtract:
                 self.logger.info("Search request {}".format(prop_file))
 
             code = result['elements'][0]['docData']['code']
-            code_dict = dict(line.split("=", 1) for line in code.strip().splitlines())
-            if "database.name" in code_dict:
+            try:
+                code_dict = dict(line.split("=", 1) for line in code.strip().splitlines())
+
                 db['database_name'] = code_dict['database.name']
-            if "database.type" in code_dict:
                 db['database_type'] = code_dict['database.type']
 
-            owner_record = SCMOwnerRecord(
-                db['scm_url'],
-                db['database_name'],
-                db['database_type'],
-                db['app_name'],
-                db['filepath'],
-                db['committers'],
-                db['scm_type']
-            )
-            owner_count += 1
-            self.code_search_committer_writer.append(owner_record)
+                owner_record = SCMOwnerRecord(
+                    db['scm_url'],
+                    db['database_name'],
+                    db['database_type'],
+                    db['app_name'],
+                    db['filepath'],
+                    db['committers'],
+                    db['scm_type']
+                )
+                owner_count += 1
+                self.code_search_committer_writer.append(owner_record)
+            except Exception as e:
+                self.logger.error(e)
+                self.logger.error("Exception happens with code {}".format(code))
+
 
         self.code_search_committer_writer.close()
         self.logger.info('Finish Fetching committers, total {} committers entries'.format(committers_count))
