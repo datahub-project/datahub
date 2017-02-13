@@ -1,0 +1,192 @@
+#nodeInfoSplitter{
+  overflow: auto;
+}
+
+.search {
+  position: relative;
+  float: right;
+
+  background-color: transparent;
+  opacity: 0.8;
+}
+
+.search-selection {
+  position: relative;
+  float: left;
+
+  background-color: transparent;
+  opacity: 0.8;
+}
+
+.search .search-field {
+  padding-left: 30px;
+  padding-right: 30px;
+  margin-bottom: 12px;
+  height: 24px;
+  font-size: 16px;
+  font-weight: 200;
+  letter-spacing: 0.1em;
+  background-color: transparent;
+}
+.search .search-field:hover,
+.search .search-field:focus {
+  background-color: rgba(255,255,255,0.9);
+}
+.search i {
+  font-style: normal;
+  position: absolute;
+  outline: none;
+
+  -webkit-transition: color .2s;
+     -moz-transition: color .2s;
+       -o-transition: color .2s;
+          transition: color .2s;
+}
+.search i .description {
+  position:absolute;
+  left:-10000px;
+  top:auto;
+  width:1px;
+  height:1px;
+}
+.search-icon {
+  top: 10px;
+  left: 10px;
+}
+.search .search-clear {
+  top: 8px;
+  right: 12px;
+  cursor: pointer;
+}
+
+.selection {
+  position: absolute;
+  top: 14px;
+  left: 34px;
+  width:280px;
+}
+
+.search .search-submit {
+  right: -25px;
+  top: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  outline: none;
+}
+.search i:hover,
+.search .search-field:focus ~ i {
+  color: #009cc7;
+}
+
+.search .search-results {
+  display: none;
+  list-style: none;
+  margin: 0;
+  max-height: 400px;
+  overflow-y: scroll;
+  background-color: rgba(255,255,255,0.9);
+  border-radius: 2px;
+
+  -webkit-box-shadow: 0px 0px 5px -2px #000;
+     -moz-box-shadow: 0px 0px 5px -2px #000;
+       -o-box-shadow: 0px 0px 5px -2px #000;
+          box-shadow: 0px 0px 5px -2px #000;
+}
+.search .search-results li {
+  padding: 8px 12px 6px 12px;
+  border-bottom: 1px solid rgba(200,200,200,0.5);
+  border-right: 1px solid rgba(200,200,200,0.5);
+  cursor: pointer;
+  outline: none;
+}
+.search .search-results li:last-child {
+  border-bottom: none;
+}
+.search .search-results li.result-selected {
+  background-color: rgba(200,200,200,0.3);
+}
+.search .search-results li:hover,
+.search .search-results li:focus {
+  -webkit-box-shadow: 0px 0px 10px -2px #009cc7;
+     -moz-box-shadow: 0px 0px 10px -2px #009cc7;
+       -o-box-shadow: 0px 0px 10px -2px #009cc7;
+          box-shadow: 0px 0px 10px -2px #009cc7;
+}
+.overlay{
+  width:100%;
+}
+g.type-TK > rect {
+  fill: #00ffd0;
+}
+
+.graph-faded .node:not(.highlighted){
+  fill-opacity: .1;
+  stroke-opacity: .15;
+}
+
+.graph-faded .node.highlighted{
+  fill: 1;
+  fill-opacity: 1;
+}
+
+.graph-faded .edgePath:not(.highlighted){
+  fill-opacity: .1;
+  stroke-opacity: .15;
+}
+
+.graph-faded .edgePath.highlighted{
+  fill: 1;
+  fill-opacity: 1;
+}
+
+.graph-faded .edgeLabel:not(.highlighted){
+  fill-opacity: .1;
+  stroke-opacity: .15;
+}
+
+.graph-faded .edgeLabel.highlighted{
+  fill: 1;
+  fill-opacity: 1;
+}
+
+text {
+  font-weight: 300;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serf;
+  font-size: 12px;
+}
+
+.node rect {
+  stroke: #999;
+}
+
+.edgePath path {
+  stroke: #333;
+  stroke-width: 1.5px;
+  fill: none;
+}
+
+.table{
+  max-height: 500px;
+  table-layout: fixed;
+  overflow-y: scroll;
+}
+.table tbody tr.highlight td {
+    background-color: #add8e6;
+}
+.table i {
+    margin-top: 2px;
+    float: right;
+    opacity: 0.6;
+    filter: alpha(opacity = 60);
+}
+
+.table i:hover,
+.table i:focus {
+    opacity: 0.8;
+    filter: alpha(opacity = 80);
+}
+
+.wrap-all-word {
+  word-wrap: break-word;
+  word-break:break-all;
+}
