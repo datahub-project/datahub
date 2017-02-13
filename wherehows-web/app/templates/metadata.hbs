@@ -1,0 +1,695 @@
+<div class="col-xs-12">
+  <div class="row">
+    <div class="col-xs-12">
+      <h3>Metadata Dashboard</h3>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-12 well well-sm">
+      <ul class="breadcrumbs">
+        {{#each breadcrumbs as |crumb|}}
+          <li>
+            <a href={{crumb.urn}} title={{crumb.title }}>
+              {{ crumb.title }}
+            </a>
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+  </div>
+  <ul id="dashboardtabs" class="nav nav-tabs">
+    <li id="ownershippage">
+      <a id="ownershiplink" data-toggle="tab" href="#ownershiptab">Ownership</a>
+    </li>
+    <li id="descriptionpage">
+      <a id="descriptionlink" data-toggle="tab" href="#descriptiontab">Description</a>
+    </li>
+    <li id="idpcpage">
+      <a id="idpctablink" data-toggle="tab" href="#idpctab">IDPC Compliance</a>
+    </li>
+    <li id="confidentialpage">
+      <a id="confidentiallink" data-toggle="tab" href="#confidentialtab">Confidential Fields</a>
+    </li>
+  </ul>
+  <div class="tab-content">
+    <div id="ownershiptab" class="tab-pane">
+      <div class="row">
+        <div class="col-xs-12 col-md-4">
+          <h4>Dataset Ownership for {{ currentOwnershipUser.displayName }}</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Datasets</th>
+              <th class="text-center">Confirmed Datasets</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td>
+                <img src={{currentOwnershipUser.iconUrl}} title={{currentOwnershipUser.displayName}}
+                     width="25px"
+                     height="25px"/>
+                <a href='metadata#/dashboard/{{currentOwnershipUser.userName}}'
+                   title={{currentOwnershipUser.displayName}}>
+                  {{ currentOwnershipUser.displayName }}
+                </a>
+              </td>
+              <td class="text-center">{{ currentOwnershipUser.completed }}%</td>
+              <td class="text-center">{{ currentOwnershipUser.potentialDatasets  }}</td>
+              <td class="text-center">{{ currentOwnershipUser.confirmed }}</td>
+            </tr>
+            </tbody>
+          </table>
+          <h4>Ticket Roll-Up for Individual User</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Datasets</th>
+              <th class="text-center">Confirmed Datasets</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if userNoOwnershipMembers}}
+              <tr>
+                <td colspan="5">
+                  <div class="row">
+                    <div class="col-xs-12 text-center">
+                      This user has no one that reports to them.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#each ownershipMembers as |user|}}
+                <tr>
+                  <td>
+                    <img src={{user.iconUrl}} title={{user.displayName}}
+                         width="25px"
+                         height="25px"/>
+                    <a href='metadata#/dashboard/{{user.userName}}' title={{user.displayName}}>
+                      {{ user.displayName }}
+                    </a>
+                  </td>
+                  <td class="text-center">{{ user.completed }}%</td>
+                  <td class="text-center">{{ user.potentialDatasets }}</td>
+                  <td class="text-center">{{ user.confirmed }}</td>
+                </tr>
+              {{/each}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+        <div class="col-xs-12 col-md-8">
+          <div class="row">
+            <div class="col-xs-9">
+              <h4>List of Datasets</h4>
+            </div>
+            <div class="col-xs-3 headerBarFilter">
+              <form class="form-inline">
+                <select id="ownerShowOption" class="form-control" {{action "ownerOptionChanged" on="change"}}>
+                  {{#each ownershipOptions as |option index|}}
+                    {{#if index}}
+                      <option value={{option.option}}>{{option.value}}
+                      </option>
+                    {{else}}
+                      <option selected value={{option.option}}>{{option.value}}
+                      </option>
+                    {{/if}}
+                  {{/each}}
+                </select>
+              </form>
+            </div>
+          </div>
+          <div class="row">
+            <div id="ownerPie" class="col-xs-5"></div>
+          </div>
+          <div class="search-pagination">
+            <ul class="pager">
+              {{#unless ownerFirst}}
+                <li class="previous">
+                  <a {{ action "prevOwnerPage" }}>
+                    &larr; Prev
+                  </a>
+                </li>
+              {{/unless}}
+              <li>
+                {{ ownershipDatasets.count }} datasets - page {{ ownershipDatasets.page }}
+                of {{ ownershipDatasets.totalPages }}
+              </li>
+              {{#unless ownerLast}}
+                <li class="next">
+                  <a {{ action "nextOwnerPage" }}>
+                    Next &rarr;
+                  </a>
+                </li>
+              {{/unless}}
+            </ul>
+          </div>
+          <table class="table table-bordered table-condensed table-hover table-striped">
+            <thead>
+            <tr>
+              <th class="text-center">Dataset</th>
+              <th class="text-center">Owners</th>
+              <th class="text-center">Confirmed Owners</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if ownerInProgress}}
+              <tr>
+                <td colspan="8" class="text-center">
+                  <div class="row">
+                    <div class="col-xs-12">
+                      <i class="fa fa-spinner spinning fa-4x">
+                      </i>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#if userNoOwnershipFields}}
+                <tr>
+                  <td colspan="8">
+                    <div class="row">
+                      <div class="col-xs-12 text-center">
+                        This user has no datasets with confirmed owners.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {{else}}
+                {{#each ownershipDatasets.datasets as |dataset|}}
+                  <tr>
+                    <td>
+                      <a href="/#/datasets/{{dataset.datasetId}}">
+                        {{ dataset.datasetName }}
+                      </a>
+                    </td>
+                    <td class="text-center">{{ dataset.ownerId }}</td>
+                    <td class="text-center">{{ dataset.confirmedOwnerId }}</td>
+                  </tr>
+                {{/each}}
+              {{/if}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="descriptiontab" class="tab-pane">
+      <div class="row">
+        <div class="col-xs-12 col-md-4">
+          <h4>Dataset Description for {{ currentDescriptionUser.displayName }}</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Datasets</th>
+              <th class="text-center">Has Description</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td>
+                <img src={{currentDescriptionUser.iconUrl}} title={{currentDescriptionUser.displayName}}
+                     width="25px"
+                     height="25px"/>
+                <a href='metadata#/dashboard/{{currentDescriptionUser.userName}}'
+                   title={{currentDescriptionUser.displayName}}>
+                  {{ currentDescriptionUser.displayName }}
+                </a>
+              </td>
+              <td class="text-center">{{ currentDescriptionUser.completed }}%</td>
+              <td class="text-center">{{ currentDescriptionUser.potentialDatasets  }}</td>
+              <td class="text-center">{{ currentDescriptionUser.confirmed }}</td>
+            </tr>
+            </tbody>
+          </table>
+          <h4>Ticket Roll-Up for Individual User</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Datasets</th>
+              <th class="text-center">Has Description</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if userNoDescMembers}}
+              <tr>
+                <td colspan="5">
+                  <div class="row">
+                    <div class="col-xs-12 text-center">
+                      This user has no one that reports to them.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#each descriptionOwners as |user|}}
+                <tr>
+                  <td>
+                    <img src={{user.iconUrl}} title={{user.displayName}}
+                         width="25px"
+                         height="25px"/>
+                    <a href='metadata#/dashboard/{{user.userName}}' title={{user.displayName}}>
+                      {{ user.displayName }}
+                    </a>
+                  </td>
+                  <td class="text-center">{{ user.completed }}%</td>
+                  <td class="text-center">{{ user.potentialDatasets }}</td>
+                  <td class="text-center">{{ user.confirmed }}</td>
+                </tr>
+              {{/each}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+        <div class="col-xs-12 col-md-8">
+          <div class="row">
+            <div class="col-xs-9">
+              <h4>List of Datasets</h4>
+            </div>
+            <div class="col-xs-3 headerBarFilter">
+              <form class="form-inline">
+                <select id="descShowOption" class="form-control" {{action "optionChanged" on="change"}}>
+                  {{#each descriptionOptions as |option index|}}
+                    {{#if index}}
+                      <option value={{option.option}}>{{option.value}}
+                      </option>
+                    {{else}}
+                      <option selected value={{option.option}}>{{option.value}}
+                      </option>
+                    {{/if}}
+                  {{/each}}
+                </select>
+              </form>
+            </div>
+          </div>
+          <div class="row">
+            <div id="pie" class="col-xs-5"></div>
+            <div id="barchart" class="col-xs-7"></div>
+          </div>
+          <div class="search-pagination">
+            <ul class="pager">
+              {{#unless descFirst}}
+                <li class="previous">
+                  <a {{ action "prevDescPage" }}>
+                    &larr; Prev
+                  </a>
+                </li>
+              {{/unless}}
+              <li>
+                {{ descriptionDatasets.count }} datasets {{ descriptionDatasets.description }} -
+                page {{ descriptionDatasets.page }} of {{ descriptionDatasets.totalPages }}
+              </li>
+              {{#unless descLast}}
+                <li class="next">
+                  <a {{ action "nextDescPage" }}>
+                    Next &rarr;
+                  </a>
+                </li>
+              {{/unless}}
+            </ul>
+          </div>
+          <table class="table table-bordered table-condensed table-hover table-striped">
+            <thead>
+            <tr>
+              <th class="text-center">Dataset</th>
+              {{#if descriptionDatasets.isDatasetLevel}}
+                <th class="text-center">Description</th>
+              {{else}}
+                <th class="text-center">Fields With Description</th>
+              {{/if}}
+              <th class="text-center">Owners</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if descInProgress}}
+              <tr>
+                <td colspan="8" class="text-center">
+                  <div class="row">
+                    <div class="col-xs-12">
+                      <i class="fa fa-spinner spinning fa-4x">
+                      </i>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#if userNoDescriptionFields}}
+                <tr>
+                  <td colspan="8">
+                    <div class="row">
+                      <div class="col-xs-12 text-center">
+                        This user has no datasets with confidential fields.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {{else}}
+                {{#each descriptionDatasets.datasets as |dataset|}}
+                  <tr>
+                    <td>
+                      <a href="/#/datasets/{{dataset.datasetId}}">
+                        {{ dataset.datasetName }}
+                      </a>
+                    </td>
+                    <td class="text-center" style="word-break: break-all;">
+                      {{ dataset.confidentialFieldList }}
+                    </td>
+                    <td class="text-center">{{ dataset.ownerId }}</td>
+                  </tr>
+                {{/each}}
+              {{/if}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="idpctab" class="tab-pane">
+      <div class="row">
+        <div class="col-xs-12 col-md-4">
+          <h4>IDPC Compliance for {{ currentComplianceUser.displayName }}</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Potential</th>
+              <th class="text-center">Has Purge Option</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td>
+                <img src={{currentComplianceUser.iconUrl}} title={{currentComplianceUser.displayName}}
+                     width="25px"
+                     height="25px"/>
+                <a href='metadata#/dashboard/{{currentComplianceUser.userName}}'
+                   title={{currentComplianceUser.displayName}}>
+                  {{ currentComplianceUser.displayName }}
+                </a>
+              </td>
+              <td class="text-center">{{ currentComplianceUser.completed }}%</td>
+              <td class="text-center">{{ currentComplianceUser.potentialDatasets  }}</td>
+              <td class="text-center">{{ currentComplianceUser.confirmed }}</td>
+            </tr>
+            </tbody>
+          </table>
+          <h4>Ticket Roll-Up for Individual User</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Potential</th>
+              <th class="text-center">Has Purge Option</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if userNoIdpcMembers}}
+              <tr>
+                <td colspan="5">
+                  <div class="row">
+                    <div class="col-xs-12 text-center">
+                      This user has no one that reports to them.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#each complianceOwners as |user|}}
+                <tr>
+                  <td>
+                    <img src={{user.iconUrl}} title={{user.displayName}}
+                         width="25px"
+                         height="25px"/>
+                    <a href='metadata#/dashboard/{{user.userName}}' title={{user.displayName}}>
+                      {{ user.displayName }}
+                    </a>
+                  </td>
+                  <td class="text-center">{{ user.completed }}%</td>
+                  <td class="text-center">{{ user.potentialDatasets }}</td>
+                  <td class="text-center">{{ user.confirmed }}</td>
+                </tr>
+              {{/each}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+        <div class="col-xs-12 col-md-8">
+          <div class="row">
+            <div class="col-xs-9">
+              <h4>List of Datasets</h4>
+            </div>
+            <div class="col-xs-3 headerBarFilter">
+              <form class="form-inline">
+                <select id="idpcShowOption" class="form-control" {{action "idpcOptionChanged" on="change"}}>
+                  {{#each idpcOptions as |option index|}}
+                    {{#if index}}
+                      <option value={{option.option}}>{{option.value}}
+                      </option>
+                    {{else}}
+                      <option selected value={{option.option}}>{{option.value}}
+                      </option>
+                    {{/if}}
+                  {{/each}}
+                </select>
+              </form>
+            </div>
+          </div>
+          <div class="search-pagination">
+            <ul class="pager">
+              {{#unless idpcFirst}}
+                <li class="previous">
+                  <a {{ action "prevIdpcPage" }}>
+                    &larr; Prev
+                  </a>
+                </li>
+              {{/unless}}
+              <li>
+                {{ complianceDatasets.count }} datasets - page {{ complianceDatasets.page }}
+                of {{ complianceDatasets.totalPages }}
+              </li>
+              {{#unless idpcLast}}
+                <li class="next">
+                  <a {{ action "nextIdpcPage" }}>
+                    Next &rarr;
+                  </a>
+                </li>
+              {{/unless}}
+            </ul>
+          </div>
+          <table class="table table-bordered table-condensed table-hover table-striped">
+            <thead>
+            <tr>
+              <th class="text-center">Dataset</th>
+              <th class="text-center">Purge Option</th>
+              <th class="text-center">Owners</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if idpcInProgress}}
+              <tr>
+                <td colspan="8" class="text-center">
+                  <div class="row">
+                    <div class="col-xs-12">
+                      <i class="fa fa-spinner spinning fa-4x">
+                      </i>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#if userNoComplianceFields}}
+                <tr>
+                  <td colspan="8">
+                    <div class="row">
+                      <div class="col-xs-12 text-center">
+                        This user has no datasets with IDPC compliance information.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {{else}}
+                {{#each complianceDatasets.datasets as |dataset|}}
+                  <tr>
+                    <td>
+                      <a href="/#/datasets/{{dataset.datasetId}}">
+                        {{ dataset.datasetName }}
+                      </a>
+                    </td>
+                    <td class="text-center">
+                      {{ dataset.confidentialFieldList }}
+                    </td>
+                    <td class="text-center">{{ dataset.ownerId }}</td>
+                  </tr>
+                {{/each}}
+              {{/if}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="confidentialtab" class="tab-pane">
+      <div class="row">
+        <div class="col-xs-12 col-md-4">
+          <h4>Confidential Fields for {{ currentConfidentialFieldsUser.displayName }}</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Potential</th>
+              <th class="text-center">Confirmed</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+              <td>
+                <img src={{currentConfidentialFieldsUser.iconUrl}} title={{currentConfidentialFieldsUser.displayName}}
+                     width="25px"
+                     height="25px"/>
+                <a href='metadata#/dashboard/{{currentConfidentialFieldsUser.userName}}'
+                   title={{currentConfidentialFieldsUser.displayName}}>
+                  {{ currentConfidentialFieldsUser.displayName }}
+                </a>
+              </td>
+              <td class="text-center">{{ currentConfidentialFieldsUser.completed }}%</td>
+              <td class="text-center">{{ currentConfidentialFieldsUser.potentialDatasets  }}</td>
+              <td class="text-center">{{ currentConfidentialFieldsUser.confirmed }}</td>
+            </tr>
+            </tbody>
+          </table>
+          <h4>Ticket Roll-Up for Individual User</h4>
+          <table class="table table-bordered table-condensed table-hover">
+            <thead>
+            <tr>
+              <th class="text-center">Name</th>
+              <th class="text-center">Completion</th>
+              <th class="text-center">Total Potential</th>
+              <th class="text-center">Confirmed</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if userNoCfMembers}}
+              <tr>
+                <td colspan="5">
+                  <div class="row">
+                    <div class="col-xs-12 text-center">
+                      This user has no one that reports to them.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#each confidentialFieldsOwners as |user|}}
+                <tr>
+                  <td>
+                    <img src={{user.iconUrl}} title={{user.displayName}}
+                         width="25px"
+                         height="25px"/>
+                    <a href='metadata#/dashboard/{{user.userName}}' title={{user.displayName}}>
+                      {{ user.displayName }}
+                    </a>
+                  </td>
+                  <td class="text-center">{{ user.completed }}%</td>
+                  <td class="text-center">{{ user.potentialDatasets }}</td>
+                  <td class="text-center">{{ user.confirmed }}</td>
+                </tr>
+              {{/each}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+        <div class="col-xs-12 col-md-8">
+          <div class="row">
+            <div class="col-xs-9">
+              <h4>List of Potential Datasets</h4>
+            </div>
+          </div>
+          <div class="search-pagination">
+            <ul class="pager">
+              {{#unless cfFirst}}
+                <li class="previous">
+                  <a {{ action "prevCfPage" }}>
+                    &larr; Prev
+                  </a>
+                </li>
+              {{/unless}}
+              <li>
+                {{ confidentialFieldsDatasets.count }} datasets - page {{ confidentialFieldsDatasets.page }}
+                of {{ confidentialFieldsDatasets.totalPages }}
+              </li>
+              {{#unless cfLast}}
+                <li class="next">
+                  <a {{ action "nextCfPage" }}>
+                    Next &rarr;
+                  </a>
+                </li>
+              {{/unless}}
+            </ul>
+          </div>
+          <table class="table table-bordered table-condensed table-hover table-striped">
+            <thead>
+            <tr>
+              <th class="text-center">Dataset</th>
+              <th class="text-center">Fields</th>
+              <th class="text-center">Owners</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{#if cfInProgress}}
+              <tr>
+                <td colspan="8" class="text-center">
+                  <div class="row">
+                    <div class="col-xs-12">
+                      <i class="fa fa-spinner spinning fa-4x">
+                      </i>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {{else}}
+              {{#if userNoConfidentialFields}}
+                <tr>
+                  <td colspan="8">
+                    <div class="row">
+                      <div class="col-xs-12 text-center">
+                        This user has no datasets with confidential fields.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {{else}}
+                {{#each confidentialFieldsDatasets.datasets as |dataset|}}
+                  <tr>
+                    <td>
+                      <a href="/#/datasets/{{dataset.datasetId}}">
+                        {{ dataset.datasetName }}
+                      </a>
+                    </td>
+                    <td class="text-center">
+                      {{ dataset.confidentialFieldList }}
+                    </td>
+                    <td class="text-center">{{ dataset.ownerId }}</td>
+                  </tr>
+                {{/each}}
+              {{/if}}
+            {{/if}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{outlet}}
