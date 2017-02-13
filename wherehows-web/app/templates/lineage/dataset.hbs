@@ -1,0 +1,59 @@
+<div>
+  <div id="graphSplitter" class="splitter-panel">
+    <div style="height:100%; width:100%;position:relative;min-height:800px; overflow:hidden;">
+      <!--@if(lineageType != "chains" && lineageType != "azkaban" && lineageType != "appworx"){-->
+      <button id="uplevelbtn" title="next level of upstream" style="background-color: transparent;opacity: 0.5;"
+              class="btn pull-left"><i class="fa fa-caret-square-o-left"></i></button>
+      <button id="downlevelbtn" title="next level of downstream" style="background-color: transparent;opacity: 0.5;"
+              class="btn pull-left"><i class="fa fa-caret-square-o-right"></i></button>
+      <!--}-->
+
+      <button id="chainselectorbtn" title="select the chains"
+              style="display:none;background-color: transparent;opacity: 0.5;" class="btn pull-left">
+        <i class="fa fa-random"></i>
+      </button>
+      <button id="rotationgraphbtn" title="rotate the graph" style="background-color: transparent;opacity: 0.5;"
+              class="btn pull-left">
+        <i class="fa fa-repeat"></i>
+      </button>
+      <h4 id="title"></h4>
+      <input id="lineageType" style="display: none;" value={{lineageType}}>
+      <input id="lineageID" style="display: none;" value={{lineageID}}>
+      <input id="application" style="display: none;" value={{application}}>
+      <input id="project" style="display: none;" value={{project}}>
+      <input id="flow" style="display: none;" value={{flow}}>
+      <div id="controls" class="search">
+        <input id="searchfield" title="Search" tabindex="1" class="search-field" type="text">
+        <i class="search-icon fa fa-search"></i>
+        <i id="search-clear" title="Clear search" tabindex="1" class="search-clear">✕<span class="description">Clear search</span></i>
+        <i title="Submit search" tabindex="1" style="display:none;" class="search-submit fa fa-arrow-right"><span
+            class="description">Submit search</span></i>
+      </div>
+      <div id="loading" style="position:absolute;top:12px;left:500px;display: none;"><i
+          class="fa fa-spinner spinning fa-4x"></i></div>
+      <!--@if(lineageType == "chains") {-->
+      <!--<div id='chainComboBox'></div>-->
+      <!--}-->
+      <div id="canvas" tabindex="0" style="width: 100%;">
+        <svg id="svg-canvas" width="1024"></svg>
+      </div>
+    </div>
+  </div>
+
+  <div id="nodeInfoSplitter">
+    <ul id="nodeInfoTab" class="nav nav-tabs">
+      <li id="datatabpage"><a id="datatablink" data-toggle="tab" href="#datanodestab">Data</a></li>
+      <li id="jobtabpage"><a id="jobtablink" data-toggle="tab" href="#jobnodestab">Job</a></li>
+    </ul>
+    <div class="tab-content">
+      <div id="datanodestab" class="tab-pane">
+        <table id="lineagedatatable" class="table table-bordered">
+        </table>
+      </div>
+      <div id="jobnodestab" class="tab-pane">
+        <table id="lineagejobtable" class="table table-bordered">
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
