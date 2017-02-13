@@ -1,0 +1,10 @@
+<i class="wh-clickable-icon fa {{if dataset.watchId 'fa-eye-slash'}} {{unless dataset.watchId 'fa-eye'}}"
+  {{action "watch" dataset}}>
+</i>
+{{#if showText}}
+  {{#if dataset.watchId}}
+    Unwatch
+  {{else}}
+    Watch
+  {{/if}}
+{{/if}}
