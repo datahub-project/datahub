@@ -1,0 +1,60 @@
+{{#if hasDepends}}
+  <table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+    <thead>
+    <tr class="results-header">
+      <th class="span2">Depends on</th>
+      <th class="span1">Object Type</th>
+      <th class="span1">Object Sub Type</th>
+      <th class="span2">Level</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each depends as |depend|}}
+      <tr class="{{depend.treeGridClass}}">
+        <td>
+          {{#if depend.isValidDataset}}
+            <a href={{depend.datasetLink}}>
+              {{depend.objectName}}
+            </a>
+          {{else}}
+            {{depend.objectName}}
+          {{/if}}
+        </td>
+        <td>{{depend.objectType}}</td>
+        <td>{{depend.objectSubType}}</td>
+        <td>{{depend.level}}</td>
+      </tr>
+    {{/each}}
+    </tbody>
+  </table>
+{{/if}}
+{{#if hasReferences}}
+  <table id="references-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+    <thead>
+    <tr class="results-header">
+      <th class="span2">Referred By</th>
+      <th class="span1">Object Type</th>
+      <th class="span1">Object Sub Type</th>
+      <th class="span2">Level</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each references as |reference|}}
+      <tr class="{{reference.treeGridClass}}">
+        <td>
+          {{#if reference.isValidDataset}}
+            <a href={{reference.datasetLink}}>
+              {{reference.objectName}}
+            </a>
+          {{else}}
+            {{reference.objectName}}
+          {{/if}}
+        </td>
+        <td>{{reference.objectType}}</td>
+        <td>{{reference.objectSubType}}</td>
+        <td>{{reference.level}}</td>
+      </tr>
+    {{/each}}
+    </tbody>
+  </table>
+{{/if}}
