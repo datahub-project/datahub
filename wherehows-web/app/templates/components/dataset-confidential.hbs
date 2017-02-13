@@ -1,0 +1,108 @@
+<div id="confidential" class="tab-body">
+  {{#if securitySpecification}}
+    {{#if isNewSecuritySpecification}}
+      <h5 class="bg-info tab_head">
+        This dataset does not have an associated "Security Specification".<br>
+        To create one update fields as required and click the "Create" button below.
+      </h5>
+    {{/if}}
+    <label class="lbl">
+      <span class="lbl__text">Retention</span>
+      {{#ember-selector values=retentionTypes
+                        selection=retention
+                        selectionDidChange="updateRetentionType"}}
+      {{/ember-selector}}
+    </label>
+    <label class="lbl">
+      <span class="lbl__text">Geographic Affinity</span>
+      {{#ember-selector values=affinityTypes
+                        selection=geographicAffinity
+                        selectionDidChange="updateGeographicAffinity"}}
+      {{/ember-selector}}
+    </label>
+    <label class="lbl">
+      <span class="lbl__text">Record Owner Type</span>
+      {{#ember-selector values=recordOwnerTypes
+                        selection=recordOwnerType
+                        selectionDidChange="updateRecordOwnerType"}}
+      {{/ember-selector}}
+    </label>
+
+    <header class="typeahead-header">
+      <div class="field-names">
+        <h4>Field Names</h4>
+        <input type="text"
+               id="confidential-typeahead"
+               class="field-search__input form-control"
+               placeholder="Filter field names...">
+      </div>
+      <h4>Data Type</h4>
+    </header>
+    <section class="typeahead-matches">
+      {{#each matchingFields as |matchingField|}}
+        {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
+          <span class="match-pill__value">{{matchingField.value}}</span>
+          {{#if matchingField.dataType}}
+            <span class="match-pill__data-type">{{matchingField.dataType}}</span>
+          {{/if}}
+        {{/draggable-item}}
+      {{else}}
+        <span class="classification-list-help">No results found.</span>
+      {{/each}}
+    </section>
+    <section class="drop-bucket panel panel-default">
+      <!-- TODO: Refactor as component -->
+      <div class="panel-heading">
+        <h4>Confidential Classification</h4>
+        <sub>Add items by dragging to relevant cells below</sub>
+      </div>
+      <table class="table table-bordered">
+        <tbody>
+        {{#each classification as |classifier|}}
+          <tr>
+            <th>{{classifier.label}}</th>
+            <td class="drop-bucket__td">
+              {{#drop-region dropped="addToClassification" param=classifier.key}}
+                {{#if classifier.values}}
+                  <ul class="drop-bucket__ul">
+                    {{#each classifier.values as |value|}}
+                      {{#if value}}
+                        <li class="draggable__item">
+                          {{value}}
+                          <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                            {{action "removeFromClassification" value
+                                     classifier.key
+                                     on='click'}}></i>
+                        </li>
+                      {{/if}}
+                    {{/each}}
+                  </ul>
+                {{else}}
+                  <span class="classification-list-help">Drag relevant search result items here...</span>
+                {{/if}}
+              {{/drop-region}}
+            </td>
+          </tr>
+        {{/each}}
+        </tbody>
+      </table>
+    </section>
+    <div class="cta">
+      {{#if isApproved}}<!-- TODO: not yet implemented on BE -->
+        <button class="btn btn-primary" {{action 'disapproveSecuritySpecification'}}>
+          Remove Approval
+        </button>
+      {{else}}
+        <button class="btn btn-primary" {{action 'approveSecuritySpecification'}}>Approve</button>
+      {{/if}}
+
+      <button class="btn btn-primary" {{action 'saveSecuritySpecification'}}>
+        {{if isNewSecuritySpecification 'Create' 'Save'}}
+      </button>
+      <button class="btn btn-default" {{action 'resetSecuritySpecification'}}>Reset</button>
+    </div>
+  {{else}}
+    <h3>An error occurred: Security Specification is not available.</h3>
+  {{/if}}
+</div>
+{{yield}}
