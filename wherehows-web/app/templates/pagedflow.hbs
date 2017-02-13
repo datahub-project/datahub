@@ -1,0 +1,102 @@
+<div id="flow" class="container-fluid">
+  <div class="row-fluid">
+    <div class="span9">
+      <div class="well well-sm">
+        <div class="row">
+          <div class="col-xs-11">
+            <ul class="breadcrumbs">
+              {{#each breadcrumbs as |crumb|}}
+                <li>
+                  <a title="{{crumb.title}}" href="#/flows/{{crumb.urn}}">
+                    {{crumb.title}}
+                  </a>
+                </li>
+              {{/each}}
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-xs-7">
+          <h3> {{ model.data.flow }}</h3>
+        </div>
+        <div class="col-xs-5 text-right">
+          <ul class="datasetDetailsLinks">
+            <li {{action 'watchUrn' urn}}>
+              <i class="fa {{if urnWatched 'fa-eye-slash'}} {{unless urnWatched 'fa-eye'}}"></i>
+              <span class="hidden-sm hidden-xs">
+                {{#if urnWatched}}
+                  Unwatch
+                {{else}}
+                  Watch
+                {{/if}}
+              </span>
+            </li>
+            <li>
+              <a target="_blank" href={{lineageUrl}}>
+                <i class="fa fa-sitemap"></i>
+                <span class="hidden-sm hidden-xs">
+                        View Lineage
+                      </span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-pagination">
+        <ul class="pager">
+          {{#unless first}}
+            <li class="previous">
+              {{#link-to 'pagedflow' previousPage (query-params urn=urn)}}
+                &larr; Prev
+              {{/link-to}}
+            </li>
+          {{/unless}}
+          <li>
+            {{ model.data.count }} jobs - page {{ model.data.page }} of {{ model.data.totalPages }}
+          </li>
+          {{#unless last}}
+            <li class="next">
+              {{#link-to 'pagedflow' nextPage (query-params urn=urn)}}
+                Next &rarr;
+              {{/link-to}}
+            </li>
+          {{/unless}}
+        </ul>
+      </div>
+      <table class="table table-bordered search-results">
+        <thead>
+        <tr class="results-header">
+          <th class="span3">Job Path</th>
+          <th class="span2">Job Name</th>
+          <th class="span1">Job Type</th>
+          <th class="span3">Created Time</th>
+          <th class="span3">Modified Time</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{#each model.data.jobs as |job|}}
+          <tr>
+            <td class="wrap-all-word">{{ job.path }}</td>
+            <td class="dataset-info wrap-all-word">
+              {{#if job.refFlowId}}
+                {{#link-to 'pagedflow' job.refFlowId 1 (query-params urn=job.refFlowGroup)}}
+                  {{job.name}}
+                {{/link-to}}
+              {{else}}
+                {{job.name}}
+              {{/if}}
+            </td>
+            <td>{{ job.type }}</td>
+            <td>{{ job.created }}</td>
+            <td>{{ job.modified }}</td>
+          </tr>
+        {{/each}}
+        </tbody>
+      </table>
+    </div>
+    <div class="span9">
+      {{outlet}}
+    </div>
+  </div>
+</div>
