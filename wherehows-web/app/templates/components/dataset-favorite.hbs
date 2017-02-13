@@ -1,0 +1,4 @@
+<i class="wh-clickable-icon fa {{if dataset.isFavorite 'fa-heart'}} {{unless dataset.isFavorite 'fa-heart-o'}}"
+  {{action "favorites" dataset}}>
+  {{yield}}
+</i>
