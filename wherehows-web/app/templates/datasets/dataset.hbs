@@ -1,0 +1,231 @@
+<div id="dataset">
+  <div class="well well-sm">
+    <div class="row">
+      <div class="col-xs-11">
+        <ul class="breadcrumbs">
+          {{#each breadcrumbs as |crumb|}}
+            <li>
+              {{#dynamic-link params=crumb title=crumb.text}}
+                {{crumb.text}}
+              {{/dynamic-link}}
+            </li>
+          {{/each}}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-5">
+      <h3>{{ model.name }}</h3>
+    </div>
+    <div class="col-xs-7 text-right">
+      <ul class="datasetDetailsLinks">
+        <li>
+          {{#dataset-favorite dataset=model action="didFavorite"}}
+          {{/dataset-favorite}}
+          <span class="hidden-sm hidden-xs">
+            {{#if model.isFavorite}}
+              Unfavorite
+            {{else}}
+              Favorite
+            {{/if}}
+          </span>
+        </li>
+        {{#if model.hdfsBrowserLink}}
+          <li>
+            <a target="_blank" href={{model.hdfsBrowserLink}}
+                title="View on HDFS">
+            <i class="fa fa-database"></i>
+            <span class="hidden-sm hidden-xs">
+                    HDFS
+                  </span>
+            </a>
+          </li>
+        {{/if}}
+        <li>
+          {{#link-to 'lineage.dataset' model.id title='View Lineage'}}
+            <i class="fa fa-sitemap"></i>
+            <span class="hidden-sm hidden-xs">Lineage</span>
+          {{/link-to}}
+        </li>
+        {{#if model.hasSchemaHistory}}
+          <li>
+            <a target="_blank" href={{schemaHistoryUrl}}
+                title="View Schema History">
+            <i class="fa fa-history"></i>
+            <span class="hidden-sm hidden-xs">
+                      Schema History
+                    </span>
+            </a>
+          </li>
+        {{/if}}
+        <li>
+          {{#dataset-watch dataset=model getDatasets="getDataset"}}
+          {{/dataset-watch}}
+          <span class="hidden-xs hidden-sm">
+            {{#if model.isWatched}}
+              Unwatch
+            {{else}}
+              Watch
+            {{/if}}
+          </span>
+        </li>
+      </ul>
+    </div>
+  </div>
+  {{dataset-owner-list owners=owners datasetName=model.name}}
+  {{#if hasinstances}}
+    <div class="row">
+      <span class="col-xs-1">Instances:</span>
+      <div class="btn-toolbar col-xs-11" role="toolbar">
+        {{#each instances as |instance index|}}
+          <div class="btn-group" role="group">
+            {{#if index}}
+              <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-default instance-btn" {{action
+                  "updateInstance" instance}}>
+                {{ instance.dbCode }}
+              </button>
+            {{else}}
+              <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-primary instance-btn" {{action
+                  "updateInstance" instance}}>
+                {{ instance.dbCode }}
+              </button>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </div>
+  {{/if}}
+  {{#if hasversions}}
+    <div class="row">
+      <span class="col-xs-1">Versions:</span>
+      <div class="btn-toolbar col-xs-11" role="toolbar">
+        {{#each versions as |version index|}}
+          <div class="btn-group" role="group">
+            {{#if index}}
+              <button type="button" data-value="{{ version }}" class="btn btn-default version-btn" {{action
+                  "updateVersion" version}}>
+                {{ version }}
+              </button>
+            {{else}}
+              <button type="button" data-value="{{ version }}" class="btn btn-primary version-btn" {{action
+                  "updateVersion" version}}>
+                {{ version }}
+              </button>
+            {{/if}}
+          </div>
+        {{/each}}
+      </div>
+    </div>
+  {{/if}}
+</div>
+<ul class="nav nav-tabs nav-justified">
+  {{#unless isPinot}}
+    <li id="properties">
+      <a data-toggle="tab" href="#propertiestab">
+        Properties
+      </a>
+    </li>
+  {{/unless}}
+  <li id="properties">
+    <a data-toggle="tab" href="#commentstab">
+      Comments
+    </a>
+  </li>
+  <li id="schemas" class="active"><a data-toggle="tab" href="#schematab">Schema</a></li>
+  <li id="ownership"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
+  {{#unless isSFDC}}
+    <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
+  {{/unless}}
+  <li id="impacts">
+    <a data-toggle="tab"
+       title="Down Stream Impact Analysis"
+       href="#impacttab">
+      Downstream
+    </a>
+  </li>
+  <li id="depends">
+    <a data-toggle="tab"
+       title="Relations"
+       href="#dependtab">
+      Relations
+    </a>
+  </li>
+  <li id="access">
+    <a data-toggle="tab"
+       title="Accessibilities"
+       href="#accesstab">
+      Availability
+    </a>
+  </li>
+  <li id="compliance">
+    <a data-toggle="tab"
+       title="Compliance"
+       href="#compliancetab">
+      Compliance
+    </a>
+  </li>
+  <li id="confidential">
+    <a data-toggle="tab"
+       title="Confidential"
+       href="#confidentialtab">
+      Confidential
+    </a>
+  </li>
+</ul>
+<div class="tab-content">
+  {{#unless isPinot}}
+    <div id="propertiestab" class="tab-pane">
+      {{#dataset-property hasProperty=hasProperty properties=properties}}
+      {{/dataset-property}}
+    </div>
+  {{/unless}}
+  <div id="commentstab" class="tab-pane">
+    {{#dataset-comments dataset=this}}
+    {{/dataset-comments}}
+  </div>
+  <div id="schematab" class="tab-pane active">
+    {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
+    {{/dataset-schema}}
+  </div>
+  <div id="ownertab" class="tab-pane">
+    {{dataset-author owners=owners
+                     ownerTypes=ownerTypes
+                     showMsg=showMsg
+                     alertType=alertType
+                     ownerMessage=ownerMessage
+                     parentController=this}}
+  </div>
+  {{#unless isSFDC}}
+    <div id="sampletab" class="tab-pane">
+      {{#dataset-sample hasSamples=hasSamples isPinot=isPinot columns=columns samples=samples}}
+      {{/dataset-sample}}
+    </div>
+  {{/unless}}
+  <div id="impacttab" class="tab-pane">
+    {{#dataset-impact hasImpacts=hasImpacts impacts=impacts}}
+    {{/dataset-impact}}
+  </div>
+  <div id="dependtab" class="tab-pane">
+    {{#dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
+    {{/dataset-relations}}
+  </div>
+  <div id="accesstab" class="tab-pane">
+    {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
+    {{/dataset-access}}
+  </div>
+  <div id="compliancetab" class="tab-pane">
+    {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
+                         isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
+                         datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                         onSave=(action "savePrivacyCompliancePolicy")
+                         onReset=(action "resetPrivacyCompliancePolicy")}}
+  </div>
+  <div id="confidentialtab" class="tab-pane">
+    {{dataset-confidential securitySpecification=securitySpecification
+                           isNewSecuritySpecification=isNewSecuritySpecification
+                           datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                           onSave=(action "saveSecuritySpecification")
+                           onReset=(action "resetSecuritySpecification")}}
+  </div>
+</div>
