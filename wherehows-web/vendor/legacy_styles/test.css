@@ -1,0 +1,32 @@
+h1, h2, h3, h4, h5 {
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+body {
+  font-size: 12px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+p {
+  margin: 5px 0;
+}
+
+h1 {
+  font-size: 28px;
+}
+
+h2 {
+  font-size: 22px;
+}
+
+h3 {
+  font-size: 18px;
+}
+
+#foo, #bar {
+  border: 1px solid #CCC;
+  padding: 20px;
+  margin: 10px 0;
+  border-radius: 5px;
+}
