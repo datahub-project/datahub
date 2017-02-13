@@ -1,0 +1,85 @@
+<div id="compliance" class="tab-body">
+  {{#if privacyCompliancePolicy}}
+    {{#if isNewPrivacyCompliancePolicy}}
+      <h5 class="bg-info tab_head">
+        This dataset does not have an associated "Privacy Compliance Policy".<br>
+        To create one update fields as required and click the "Create" button below.
+      </h5>
+    {{/if}}
+    <label class="lbl">
+      <span class="lbl__text">Compliance Type</span>
+      {{#ember-selector values=complianceTypes
+                        selected=complianceType
+                        selectionDidChange="updateComplianceType"}}
+      {{/ember-selector}}
+    </label>
+
+    <header class="typeahead-header">
+      <div class="field-names">
+        <h4>Field Names</h4>
+        <input type="text"
+               id="compliance-typeahead"
+               class="field-search__input form-control"
+               placeholder="Filter field names...">
+      </div>
+      <h4>Data Type</h4>
+    </header>
+    <section class="typeahead-matches">
+      {{#each matchingFields as |matchingField|}}
+        {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
+          <span class="match-pill__value">{{matchingField.value}}</span>
+          {{#if matchingField.dataType}}
+            <span class="match-pill__data-type">{{matchingField.dataType}}</span>
+          {{/if}}
+        {{/draggable-item}}
+      {{else}}
+        <span class="classification-list-help">No results found.</span>
+      {{/each}}
+    </section>
+    <section class="drop-bucket panel panel-default">
+      <div class="panel-heading">
+        <h4>Purgeable Ids</h4>
+        <sub>Add items by dragging to relevant cells below</sub>
+      </div>
+      <table class="table table-bordered">
+        <tbody>
+        {{#each purgeEntities as |purgeableId|}}
+          <tr>
+            <th>{{purgeableId.label}}</th>
+            <td class="drop-bucket__td">
+              {{#drop-region dropped="addPurgeId" param=purgeableId.identifierType}}
+                {{#if purgeableId.identifierField}}
+                  <ul class="drop-bucket__ul">
+                    {{#each purgeableId.identifierField as |field|}}
+                      {{#if field}}
+                        <li class="draggable__item">
+                          {{field}}
+                          <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                            {{action 'removePurgeId' field
+                                     purgeableId.identifierType
+                                     on='click'}}></i>
+                        </li>
+                      {{/if}}
+                    {{/each}}
+                  </ul>
+                {{else}}
+                  <span class="classification-list-help">Drag relevant search result items here...</span>
+                {{/if}}
+              {{/drop-region}}
+            </td>
+          </tr>
+        {{/each}}
+        </tbody>
+      </table>
+    </section>
+    <div class="cta">
+      <button class="btn btn-primary" {{action 'saveCompliance'}}>
+        {{if isNewPrivacyCompliancePolicy 'Create' 'Save'}}
+      </button>
+      <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+    </div>
+  {{else}}
+    <h3>An error occurred: Privacy Compliance Policy is not available.</h3>
+  {{/if}}
+</div>
+{{yield}}
