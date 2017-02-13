@@ -1,0 +1,16 @@
+{{#if hasProperty}}
+  <div>
+    {{#each properties as |item|}}
+      <div class="prop-row group">
+        <div class="prop-label">{{item.key}}:</div>
+        {{#if item.isSelectController}}
+          <div class="prop-value-query">{{item.value}}</div>
+        {{else}}
+          <div class="prop-value">{{item.value}}</div>
+        {{/if}}
+      </div>
+    {{/each}}
+  </div>
+{{else}}
+  <p>Property is not available</p>
+{{/if}}
