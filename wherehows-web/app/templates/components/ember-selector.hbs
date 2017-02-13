@@ -1,0 +1,8 @@
+{{log 'TODO: Add label'}}
+<select class={{class}} {{action 'change' on='change'}}>
+  {{#each content as |option|}}
+    <option value="{{option.value}}" selected={{if option.isSelected 'selected' ''}}>
+      {{if option.label option.label option.value}}
+    </option>
+  {{/each}}
+</select>
