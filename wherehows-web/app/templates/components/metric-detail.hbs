@@ -1,0 +1,238 @@
+<div id="metric" class="container-fluid">
+  <div class="row-fluid">
+    <div class="col-xs-6">
+      <h3>{{ model.name }}</h3>
+    </div>
+    <div class="col-xs-6 text-right">
+      <ul class="datasetDetailsLinks">
+        <li>
+          <i class="fa fa-share-alt"></i>
+          <span class="hidden-sm hidden-xs">
+                  Share
+								</span>
+        </li>
+        <li>
+          {{#metric-watch metric=model showText=true getMetrics='getMetrics'}}
+          {{/metric-watch}}
+        </li>
+        {{#if showLineage}}
+          <li>
+            <a target="_blank" href={{lineageUrl}}>
+              <i class="fa fa-sitemap"></i>
+              <span class="hidden-sm hidden-xs">
+                    View Lineage
+									</span>
+            </a>
+          </li>
+        {{/if}}
+      </ul>
+    </div>
+    <div class="col-xs-12">
+      Metric Description:
+      <a
+          href="#"
+          data-name="description"
+          data-pk="{{model.id}}"
+          class="xeditable"
+          data-type="text"
+          data-placement="right"
+          data-title="Enter description"
+          data-emptytext="Please Input"
+          data-placeholder="Please Input"
+      >
+        {{model.description}}
+      </a>
+    </div>
+  </div>
+  <table class="tree table table-bordered">
+    <tbody>
+    <tr class="result">
+      <td class="span2" style="min-width:200px;">Dashboard Name</td>
+      <td>
+        <a
+            href="#"
+            data-name="dashboardName"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter dashboard name"
+            data-defaultValue="Please Input"
+            data-emptytext="Please Input"
+            data-value="{{model.dashboardName}}"
+        >
+          {{model.dashboardName}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Category</td>
+      <td>
+        <a
+            href="#"
+            data-name="category"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter metric category"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.category}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Group</td>
+      <td>
+        <a
+            href="#"
+            data-name="group"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter group"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.group}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Type</td>
+      <td>
+        <a
+            href="#"
+            data-name="refIDType"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter Type"
+            data-placement="right"
+            data-emptytext="Please Input"
+            data-value={{model.refIDType}}
+        >
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Grain</td>
+      <td>
+        <a
+            href="#"
+            data-name="grain"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter grain"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.grain}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Formula</td>
+      <td>
+        {{ace-editor content=model.formula itemId=model.id savePath="/api/v1/metrics/{id}/update" saveParam="formula"}}
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Display Factor</td>
+      <td>
+        <a
+            href="#"
+            data-name="displayFactory"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter display factor"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.displayFactory}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Display Factor Sym</td>
+      <td>
+        <a
+            href="#"
+            data-name="displayFactorSym"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter display factor symbol"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.displayFactorSym}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Sub Category</td>
+      <td>
+        <a
+            href="#"
+            data-name="subCategory"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter sub category"
+            data-placement="right"
+            data-emptytext="Please Input"
+        >
+          {{model.subCategory}}
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Source</td>
+      <td>
+        <a
+            href="#"
+            data-name="source"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter source"
+            data-placement="right"
+            data-emptytext="Please Input"
+            data-value={{model.source}}
+        >
+        </a>
+      </td>
+    </tr>
+    <tr class="result">
+      <td>Metric Source Type</td>
+      <td>
+        <a
+            href="#"
+            data-name="sourceType"
+            data-pk="{{model.id}}"
+            class="xeditable"
+            data-type="text"
+            data-placement="right"
+            data-title="Enter source type"
+            data-placement="right"
+            data-emptytext="Please Input"
+            data-value={{model.sourceType}}
+        >
+        </a>
+      </td>
+    </tr>
+    </tbody>
+  </table>
+</div>
