@@ -1,0 +1,117 @@
+<div id="pagedDatasets">
+  <div class="row">
+    <div class="col-xs-12">
+      {{#unless detailview}}
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-11">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    {{#link-to 'datasets.page' crumb.urn title=crumb.title}}
+                      {{crumb.title}}
+                    {{/link-to}}
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="search-pagination">
+          <ul class="pager">
+            {{#unless first}}
+              <li class="previous">
+                {{#if urn}}
+                  {{#link-to 'datasets.name.subpage' currentName previousPage (query-params urn=urn)}}
+                    &larr; Prev
+                  {{/link-to}}
+                {{else}}
+                  {{#link-to 'datasets.page' previousPage}}
+                    &larr; Prev
+                  {{/link-to}}
+                {{/if}}
+              </li>
+            {{/unless}}
+            <li>
+              {{ model.data.count }} datasets - page {{ model.data.page }} of {{ model.data.totalPages }}
+            </li>
+            {{#unless last}}
+              <li class="next">
+                {{#if urn}}
+                  {{#link-to 'datasets.name.subpage' currentName nextPage (query-params urn=urn)}}
+                    Next &rarr;
+                  {{/link-to}}
+                {{else}}
+                  {{#link-to 'datasets.page' nextPage}}
+                    Next &rarr;
+                  {{/link-to}}
+                {{/if}}
+              </li>
+            {{/unless}}
+          </ul>
+        </div>
+      {{/unless}}
+      {{#unless detailview}}
+        <table class="table table-bordered search-results" style="word-break: break-all;">
+          <tbody>
+          {{#each model.data.datasets as |dataset|}}
+            <tr>
+              <td>
+                <div class="row">
+                  <div class="col-md-8">
+                    <div class="col-xs-12">
+                      {{#link-to 'datasets.dataset' dataset}}
+                        {{ dataset.name }}
+                      {{/link-to}}
+                    </div>
+                    {{#if dataset.owners}}
+                      <div class="col-xs-12">
+                        <span>owner:</span>
+                        {{#each dataset.owners as |owner|}}
+                          <p style="display:inline" title={{owner.name}}>{{ owner.userName }}</p>
+                        {{/each}}
+                      </div>
+                    {{/if}}
+                    {{#if dataset.formatedModified}}
+                      <div class="col-xs-12">
+                        <span>last modified:</span>
+                        {{ dataset.formatedModified }}
+                      </div>
+                    {{/if}}
+                  </div>
+                  <div class="col-md-4 text-right">
+                    <ul class="datasetTableLinks">
+                      <li class="text-center no-link">
+                        <span class="source">
+                          {{ dataset.source }}
+                        </span>
+                      </li>
+                      <li class="text-center" title="ownership">
+                        {{dataset-owner dataset=dataset action="owned"}}
+                      </li>
+                      <li class="text-center" title="favorite">
+                        {{dataset-favorite dataset=dataset action="didFavorite"}}
+                      </li>
+                      <li class="text-center" title="watch">
+                        {{dataset-watch dataset=dataset getDatasets='getDatasets'}}
+                      </li>
+                      <li class="text-center">
+                        <a href="/lineage/dataset/{{dataset.id}}" title="lineage for {{dataset.name}}">
+                          <i class="fa fa-sitemap"></i>
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {{/each}}
+          </tbody>
+        </table>
+      {{/unless}}
+    </div>
+    <div class="col-xs-12">
+      {{outlet}}
+    </div>
+  </div>
+</div>
