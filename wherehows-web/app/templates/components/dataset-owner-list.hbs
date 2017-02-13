@@ -1,0 +1,26 @@
+{{#if owners}}
+  <header>
+    Owners:
+    <ul>
+      {{#each owners as |owner|}}
+        <li>
+          {{#if owner.email}}
+            <a title="Email {{owner.name}} about {{datasetName}}"
+               href="mailto:{{owner.email}}?subject=RE: Dataset {{datasetName}}">
+              {{owner.name}}
+            </a>
+          {{else}}
+            {{owner.name}}
+          {{/if}}
+        </li>
+      {{/each}}
+    </ul>
+    {{#if ownersEmailList}}
+      <span>
+          <a title="Email all dataset owners" href="mailto: {{ownersEmailList}}">Ask a question?</a>
+        </span>
+    {{/if}}
+  </header>
+{{else}}
+  No known owners for this dataset
+{{/if}}
