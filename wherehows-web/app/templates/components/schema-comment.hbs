@@ -1,0 +1,392 @@
+<i
+    class="fa fa-pencil pull-right wh-clickable-icon"
+  {{action "openModal"}}
+></i>
+{{#if propModal}}
+  <div class="modal fade" id="datasetSchemaColumnCommentModal" tabindex="-1" role="dialog" aria-labelledby="Dataset Schema Column Comments">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" aria-label="Close" {{action "closeModal"}}>
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 class="modal-title">Comments for <b>{{schema.fieldName}}</b></h4>
+        </div>
+        <div class="modal-body">
+          {{#if loading}}
+            <div class="row text-center">
+              <div class="col-xs-10 col-xs-offset-1 text-center">
+                <i class="fa fa-spinner spinning fa-4x"></i>
+              </div>
+            </div>
+          {{else}}
+            {{#if comments}}
+              {{#each comments as |comment|}}
+                <div class="row">
+                  <div class="col-xs-10 col-xs-offset-1 well comment">
+                    {{#if comment.isDefault}}
+                      <div class="bs-docs-example">
+                        <i class="fa fa-star active"></i>
+                        Default
+                      </div>
+                    {{/if}}
+                    <div class="text wrap-all-word comment-text commentsArea">
+                      {{comment.html}}
+                    </div>
+                    <div class="meta">
+                      <a href="#" class="author">{{comment.authorName}}</a>
+                      <span class="date">{{comment.created }}</span>
+                      <div class="pull-right actions">
+                        <i
+                            class="fa fa-arrow-circle-o-up wh-clickable-icon"
+                            title="Promote to Default Comment"
+                          {{action "setDefault" comment}}
+                        >
+                        </i>
+                        {{#if comment.isAuthor}}
+                          <i
+                              class="fa fa-pencil wh-clickable-icon"
+                              title="Edit"
+                            {{action "editMode" comment}}
+                          >
+                          </i>
+                          <i
+                              class="fa fa-trash wh-clickable-icon"
+                              title="Remove"
+                            {{action "remove" comment}}
+                          >
+                          </i>
+                        {{/if}}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {{/each}}
+            {{else}}
+              <div class="row">
+                <div class="col-xs-10 col-xs-offset-1 well text-center">
+                  No Comments
+                </div>
+              </div>
+            {{/if}}
+          {{/if}}
+          {{#if multiFields}}
+            <div class="row">
+              <div class="col-xs-12">
+                <div>
+                  <ul class="nav nav-tabs" role="tablist">
+                    <li role="presentation" class="active">
+                      <a href="#similarColumns-view" aria-controls="similarColumns-view" role="tab" data-toggle="tab">
+                        Datasets for <b>{{schema.fieldName}}</b>
+                      </a>
+                    </li>
+                    <li role="presentation">
+                      <a href="#similarColumns-selected" aria-controls="similarColumns-selected" role="tab" data-toggle="tab">
+                        Selected ({{selectedSimilarColumns.length}})
+                      </a>
+                    </li>
+                  </ul>
+                  <div class="tab-content" style="overflow-x:hidden; overflow-y: auto; height:400px;">
+                    <div role="tabpanel" class="tab-pane active" id="similarColumns-view">
+                      <nav>
+                        <ul class="pager">
+                          <li class="previous">
+                            <a href="#" {{action "similarColumnsPrevPage"}}>Prev</a>
+                          </li>
+                          <li>
+                            {{ similarColumns.count }} comments - page {{ similarColumns.page }} of {{ similarColumns.totalPages }}
+                          </li>
+                          <li class="next">
+                            <a href="#" {{action "similarColumnsNextPage"}}>Next</a>
+                          </li>
+                        </ul>
+                      </nav>
+                      <table class="table table-striped table-bordered" style="word-break: break-all;">
+                        <thead>
+                        <tr>
+                          <th class="text-center col-xs-1">
+                            {{#if similarColumns.selectedAll}}
+                              <input type="checkbox" checked {{action "selectAllSimilarColumn" false}} />
+                            {{else}}
+                              <input type="checkbox" {{action "selectAllSimilarColumn" true}} />
+                            {{/if}}
+                          </th>
+                          <th class="text-center col-xs-2">Dataset Name</th>
+                          <th class="text-center col-xs-2">Source</th>
+                          <th class="text-center col-xs-2">Data Type</th>
+                          <th class="text-center col-xs-5">Default Comment</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {{#unless similarColumns.count}}
+                          {{#if similarColumns.loading}}
+                            <tr>
+                              <td colspan="5">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    <i
+                                        class="fa fa-spinner spinning 2x"
+                                    ></i>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{else }}
+                            <tr>
+                              <td colspan="5">
+                                <div class="row">
+                                  <div class="col-xs-12 text-center">
+                                    No Similar Columns.
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          {{/if}}
+                        {{/unless}}
+                        {{#each similarColumns.data as |similar index|}}
+                          <tr>
+                            <td class="text-center">
+                              {{#if similar.selected}}
+                                <input type="checkbox" checked {{action "selectSimilarColumn" similar index}} />
+                              {{else}}
+                                <input type="checkbox" {{action "selectSimilarColumn" similar index}} />
+                              {{/if}}
+                            </td>
+                            <td>{{similar.datasetName}}</td>
+                            <td>{{similar.source}}</td>
+                            <td>{{similar.dataType}}</td>
+                            <td>{{similar.html}}</td>
+                          </tr>
+                        {{/each}}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div role="tabpanel" class="tab-pane" id="similarColumns-selected">
+                      <table class="table table-striped table-bordered" style="word-break: break-all;">
+                        <thead>
+                        <tr>
+                          <th class="text-center col-xs-1">
+                          </th>
+                          <th class="text-center col-xs-2">Dataset Name</th>
+                          <th class="text-center col-xs-2">Source</th>
+                          <th class="text-center col-xs-2">Data Type</th>
+                          <th class="text-center col-xs-5">Default Comment</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {{#unless selectedSimilarColumns}}
+                          <tr>
+                            <td colspan="5">
+                              <div class="row">
+                                <div class="col-xs-12 text-center">
+                                  No Similar Columns Selected.
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        {{/unless}}
+                        {{#each selectedSimilarColumns as |similar index|}}
+                          <tr>
+                            <td class="text-center">
+                              {{#if similar.selected}}
+                                <input type="checkbox" checked {{action "selectSimilarColumn" similar index}} />
+                              {{else}}
+                                <input type="checkbox" {{action "selectSimilarColumn" similar index}} />
+                              {{/if}}
+                            </td>
+                            <td>{{similar.datasetName}}</td>
+                            <td>{{similar.source}}</td>
+                            <td>{{similar.dataType}}</td>
+                            <td>{{similar.html}}</td>
+                          </tr>
+                        {{/each}}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {{/if}}
+          {{#unless promotionFlow}}
+            <div>
+              <ul class="nav nav-tabs" role="tablist">
+                <li role="presentation" class="active">
+                  <a
+                      href="#datasetSchemaComment-write"
+                      aria-controls="datasetSchemaComment-write"
+                      role="tab"
+                      data-toggle="tab"
+                    {{action "setTab" "write"}}>
+                    Write
+                  </a>
+                </li>
+                <li role="presentation">
+                  <a
+                      href="#datasetSchemaComment-preview"
+                      aria-controls="datasetSchemaComment-preview"
+                      role="tab"
+                      data-toggle="tab"
+                    {{action "setTab" "preview"}}>
+                    Preview
+                  </a>
+                </li>
+                <li role="presentation">
+                  <a
+                      href="#datasetSchemaComment-similar"
+                      aria-controls="datasetSchemaComment-similar"
+                      role="tab"
+                      data-toggle="tab"
+                    {{action "setTab" "similar"}}
+                  >
+                    Comments for Similar Fields
+                  </a>
+                </li>
+              </ul>
+              <div class="tab-content">
+                <div
+                    role="tabpanel"
+                    class="tab-pane active"
+                    id="datasetSchemaComment-write">
+                  <div class="meldown_wrap" style="width: 787px;">
+                    <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_delimiter">
+                    </div>
+                    <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_delimiter">
+                    </div>
+                    <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_delimiter">
+                    </div>
+                    <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
+                    </div>
+                    <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
+                    </div>
+                  </div>
+                  {{textarea id="datasetschemacomment" value=comment.text name="text" class="form-control" focus-out="updatePreview"}}
+                </div>
+                <div
+                    role="tabpanel"
+                    class="tab-pane commentsArea"
+                    id="datasetSchemaComment-preview">
+                </div>
+                <div
+                    role="tabpanel"
+                    class="tab-pane"
+                    id="datasetSchemaComment-similar">
+                  <div class="row">
+                    <div class="col-xs-12 text-center">
+                      <table class="table table-striped" style="word-break: break-all;">
+                        <thead>
+                        <tr>
+                          <th class="col-xs-1"></th>
+                          <th class="col-xs-9">Comment</th>
+                          <th class="col-xs-2 text-center">Count</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {{#each similarComments as |comment index|}}
+                          <tr>
+                            <td>
+                              <input
+                                  type="radio"
+                                  name="selectedComment"
+                                  value={{index}}
+                              />
+                            </td>
+                            <td class="text-left">{{comment.html}}</td>
+                            <td>{{comment.count}}</td>
+                          </tr>
+                        {{/each}}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {{/unless}}
+          {{#if commentError}}
+            <div class="alert alert-danger alert-dismissible" role="alert">
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              {{errorMsg}}
+            </div>
+          {{/if}}
+        </div>
+        <div class="modal-footer">
+          {{#unless promotionFlow}}
+            {{#unless similarFlow}}
+              <button type="button" class="btn btn-primary" {{action "create"}}>
+                Submit
+              </button>
+            {{/unless}}
+            {{#if similarFlow}}
+              <button type="button" class="btn btn-primary" {{action "promote"}}>
+                Set As Default Comment
+              </button>
+            {{/if}}
+          {{/unless}}
+          {{#if promotionFlow}}
+            {{#unless multiFields}}
+              <button
+                  class="btn btn-primary"
+                {{action "promote"}}
+              >
+                This Dataset
+              </button>
+              <button
+                  class="btn btn-warning"
+                {{action "setMultifields"}}
+              >
+                Multiple Datasets
+              </button>
+            {{/unless}}
+          {{/if}}
+          {{#unless isEdit}}
+            {{#if promotionFlow}}
+              {{#if multiFields}}
+                <button
+                    class="btn btn-primary"
+                  {{action "promote"}}
+                >
+                  Promote
+                  {{#if promoteLoading}}
+                    <i
+                        class="fa fa-spinner spinning"
+                    >
+                    </i>
+                  {{/if}}
+                </button>
+              {{/if}}
+            {{/if}}
+          {{/unless}}
+
+          <button
+              type="button"
+              class="btn btn-default"
+              data-dismiss="modal"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{{/if}}
