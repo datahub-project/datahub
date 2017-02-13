@@ -1,0 +1,107 @@
+<div id="pagedMetrics">
+  <div class="row">
+    <div class="col-xs-12">
+      {{#unless detailview}}
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-11">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    {{#link-to 'metrics.metricspage' crumb.urn title=crumb.title}}
+                      {{crumb.title}}
+                    {{/link-to}}
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="search-pagination">
+          <ul class="pager">
+            {{#unless first}}
+              <li class="previous">
+                {{#if group}}
+                  {{#link-to 'metrics.metricname.metricgroup.metricnamesubpage' dashboard group previousPage}}
+                    &larr; Prev
+                  {{/link-to}}
+                {{else}}
+                  {{#if dashboard}}
+                    {{#link-to 'metrics.metricname.metricnamepage' dashboard previousPage}}
+                      &larr; Prev
+                    {{/link-to}}
+                  {{else}}
+                    {{#link-to 'metrics.metricspage' previousPage}}
+                      &larr; Prev
+                    {{/link-to}}
+                  {{/if}}
+                {{/if}}
+              </li>
+            {{/unless}}
+            <li>
+              {{ model.data.count }} metrics - page {{ model.data.page }} of {{ model.data.totalPages }}
+            </li>
+            {{#unless last}}
+              <li class="next">
+                {{#if group}}
+                  {{#link-to 'metrics.metricname.metricgroup.metricnamesubpage' dashboard group nextPage}}
+                    Next &rarr;
+                  {{/link-to}}
+                {{else}}
+                  {{#if dashboard}}
+                    {{#link-to 'metrics.metricname.metricnamepage' dashboard nextPage}}
+                      Next &rarr;
+                    {{/link-to}}
+                  {{else}}
+                    {{#link-to 'metrics.metricspage' nextPage}}
+                      Next &rarr;
+                    {{/link-to}}
+                  {{/if}}
+                {{/if}}
+              </li>
+            {{/unless}}
+          </ul>
+        </div>
+      {{/unless}}
+      {{#unless detailview}}
+        <table class="table table-bordered search-results">
+          <tbody>
+          {{#each model.data.metrics as |metric|}}
+            <tr>
+              <td class="dataset-info">
+                <div class="row">
+                  <div class="col-xs-8">
+                    {{#link-to 'metrics.metric' metric}}
+                      {{metric.name}}
+                    {{/link-to}}
+                    <br/>
+                    {{ metric.group }} - {{ metric.dashboardName }}
+                    <br/>
+                    {{ metric.description }}
+                  </div>
+                  <div class="col-xs-4 text-right">
+                    <ul class="datasetTableLinks">
+                      <li class="text-center">
+                        {{metric-watch metric=metric getMetrics='getMetrics'}}
+                      </li>
+                      <li class="text-center">
+                        <a href="/lineage/metric/{{metric.id}}" title="{{metric.name}}">
+                          <i class="fa fa-sitemap"></i>
+                        </a>
+                      </li>
+                    </ul>
+
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {{/each}}
+          </tbody>
+        </table>
+      {{/unless}}
+    </div>
+    <div class="col-xs-12">
+      {{outlet}}
+    </div>
+  </div>
+</div>
