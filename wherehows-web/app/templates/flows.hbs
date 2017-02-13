@@ -1,0 +1,95 @@
+{{#if flowView}}
+  <div id="flowspage">
+    <div class="row">
+      <div class="col-xs-12">
+        <div class="well well-sm">
+          <div class="row">
+            <div class="col-xs-11">
+              <ul class="breadcrumbs">
+                {{#each breadcrumbs as |crumb|}}
+                  <li>
+                    {{#link-to 'flows.flowspage' crumb.urn title=crumb.title}}
+                      {{crumb.title}}
+                    {{/link-to}}
+                  </li>
+                {{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="search-pagination">
+          <ul class="pager">
+            {{#unless first}}
+              <li class="previous">
+                {{#if queryParams}}
+                  {{#link-to 'flows.flowsname.flowssubpage' currentName previousPage (query-params urn=queryParams)}}
+                    &larr; Prev
+                  {{/link-to}}
+                {{else}}
+                  {{#link-to 'flows.flowspage' previousPage}}
+                    &larr; Prev
+                  {{/link-to}}
+                {{/if}}
+              </li>
+            {{/unless}}
+            <li>
+              {{ model.data.count }} flows - page {{ model.data.page }} of {{ model.data.totalPages }}
+            </li>
+            {{#unless last}}
+              <li class="next">
+                {{#if queryParams}}
+                  {{#link-to 'flows.flowsname.flowssubpage' currentName nextPage (query-params urn=queryParams)}}
+                    Next &rarr;
+                  {{/link-to}}
+                {{else}}
+                  {{#link-to 'flows.flowspage' nextPage}}
+                    Next &rarr;
+                  {{/link-to}}
+                {{/if}}
+              </li>
+            {{/unless}}
+          </ul>
+        </div>
+        <table class="table table-bordered search-results">
+          <thead>
+          <tr class="results-header">
+            <th class="col-xs-3">Flow Path</th>
+            <th class="col-xs-2">Flow Name</th>
+            <th class="col-xs-1">Flow Level</th>
+            <th class="col-xs-1">Job Count</th>
+            <th class="col-xs-2">Created Time</th>
+            <th class="col-xs-2">Modified Time</th>
+          </tr>
+          </thead>
+          <tbody>
+          {{#each model.data.flows as |flow|}}
+            <tr>
+              <td class="wrap-all-word">{{ flow.path }}</td>
+              <td class="dataset-info wrap-all-word">
+                {{#link-to 'flows.flowsname.flow.pagedflow' flow.appCode flow.id 1 (query-params urn=flow.group)}}
+                  {{flow.name}}
+                {{/link-to}}
+              </td>
+              <td>{{ flow.level }}</td>
+              <td>{{ flow.jobCount }}</td>
+              <td>{{ flow.created }}</td>
+              <td>{{ flow.modified }}</td>
+            </tr>
+          {{/each}}
+          </tbody>
+        </table>
+      </div>
+      <div class="col-xs-12">
+        {{outlet}}
+      </div>
+    </div>
+  </div>
+{{else}}
+  <div id="pagedJobs">
+    <div class="row">
+      <div class="col-xs-12">
+        {{outlet}}
+      </div>
+    </div>
+  </div>
+{{/if}}
