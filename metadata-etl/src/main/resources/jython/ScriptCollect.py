@@ -14,9 +14,9 @@
 
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
+from org.slf4j import LoggerFactory
 import DbUtil
 import sys
-from org.slf4j import LoggerFactory
 
 
 class ScriptCollect():
