@@ -14,22 +14,15 @@
 
 from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
-import ConfigParser, os
-import DbUtil
-from pyparsing import *
-import sys
-import hashlib
-import gzip
-import StringIO
-import json
-import datetime
-import time
-import re
 from org.slf4j import LoggerFactory
 from AppworxLogParser import AppworxLogParser
 from PigLogParser import PigLogParser
 from BteqLogParser import BteqLogParser
+import sys, os, re, time
+import DbUtil
+import hashlib
 import ParseUtil
+
 
 class AppworxLineageExtract:
 
@@ -46,6 +39,7 @@ class AppworxLineageExtract:
     self.local_script_path = args[Constant.AW_LOCAL_SCRIPT_PATH]
     self.remote_script_path = args[Constant.AW_REMOTE_SCRIPT_PATH]
     self.aw_archive_dir = args[Constant.AW_ARCHIVE_DIR]
+    # self.aw_log_url = args[Constant.AW_LOG_URL]
     self.bteq_source_target_override = args[Constant.AW_BTEQ_SOURCE_TARGET_OVERRIDE]
     self.metric_override = args[Constant.AW_METRIC_OVERRIDE]
     self.skip_already_parsed = args[Constant.AW_SKIP_ALREADY_PARSED]
@@ -106,17 +100,19 @@ class AppworxLineageExtract:
 
   def get_log_file_name(self, module_name, days_offset=1):
     if self.last_execution_unix_time:
-      query =  \
+      query = \
         """select je.*, fj.job_type, fl.flow_path,
-           CONCAT('%s',CONCAT(CONCAT(DATE_FORMAT(FROM_UNIXTIME(je.start_time), '%%Y%%m%%d'),'/o'),
-             CONCAT(je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0), '.gz'))) as gzipped_file_name
+           CONCAT('o', je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0)) as log_file_name,
+           CONCAT('%s', DATE_FORMAT(FROM_UNIXTIME(je.end_time), '%%Y%%m%%d'), '/',
+                  CONCAT('o', je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0)), '.gz') as gzipped_file_name
            from job_execution je
            JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and fj.is_current = 'Y' and
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
            WHERE je.app_id = %d
-           and je.end_time >= UNIX_TIMESTAMP(DATE_SUB(from_unixtime(%d), INTERVAL 1 HOUR))
-           and UPPER(fj.job_type) = '%s'
+           and je.end_time >= %d - 3660
+           and fj.job_type = '%s'
+           ORDER BY je.flow_exec_id DESC, je.job_exec_id
         """
       self.logger.info(query % (self.aw_archive_dir, self.app_id, long(self.last_execution_unix_time), module_name))
       self.aw_cursor.execute(query %
@@ -124,19 +120,21 @@ class AppworxLineageExtract:
     else:
       query = \
         """select je.*, fj.job_type, fl.flow_path,
-           CONCAT('%s',CONCAT(CONCAT(DATE_FORMAT(FROM_UNIXTIME(je.start_time), '%%Y%%m%%d'),'/o'),
-             CONCAT(je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0), '.gz'))) as gzipped_file_name
+           CONCAT('o', je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0)) as log_file_name,
+           CONCAT('%s', DATE_FORMAT(FROM_UNIXTIME(je.end_time), '%%Y%%m%%d'), '/',
+                  CONCAT('o', je.job_exec_id, '.', LPAD(je.attempt_id, 2, 0)), '.gz') as gzipped_file_name
            from job_execution je
            JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and fj.is_current = 'Y' and
            je.job_id = fj.job_id
            JOIN flow fl on fj.app_id = fl.app_id and fj.flow_id = fl.flow_id
-           WHERE je.app_id = %d  and
-           from_unixtime(je.end_time) >= CURRENT_DATE - INTERVAL %d HOUR and UPPER(fj.job_type) = '%s'
+           WHERE je.app_id = %d and je.job_exec_status in ('FINISHED', 'SUCCEEDED', 'OK')
+           and je.end_time >= unix_timestamp(CURRENT_DATE - INTERVAL %d DAY) and fj.job_type = '%s'
+           ORDER BY je.flow_exec_id DESC, je.job_exec_id
         """
       self.logger.info(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
       self.aw_cursor.execute(query % (self.aw_archive_dir, self.app_id, int(self.look_back_days), module_name))
     job_rows = DbUtil.copy_dict_cursor(self.aw_cursor)
-    self.logger.info(str(len(job_rows)))
+    self.logger.info("%d job executions will be scanned for lineage" % len(job_rows))
 
     return job_rows
 
@@ -426,7 +424,7 @@ class AppworxLineageExtract:
         self.logger.error(str(sys.exc_info()[0]))
 
   def process_li_shell_gw(self):
-    self.logger.info("process process_li_shell_gw")
+    self.logger.info("process li_shell_gw")
     parameter_query = \
         """
         SELECT param_value
@@ -643,7 +641,7 @@ class AppworxLineageExtract:
 
 
   def process_li_hadoop(self):
-    self.logger.info("process li_pig")
+    self.logger.info("process li_hadoop")
     rows = self.get_log_file_name(module_name='LI_HADOOP')
     for row in rows:
       try:
@@ -693,8 +691,7 @@ class AppworxLineageExtract:
             source_database_id = int(self.db_lookup(tab['source_database']))
 
             full_table_name = \
-              tab['source_schema'] + \
-              ('.' if tab['source_schema'] is not None else '') + \
+              (tab['source_schema'] + '.' if tab['source_schema'] is not None else '') + \
               tab['source_table_name']
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
@@ -704,7 +701,7 @@ class AppworxLineageExtract:
                                   'source', int(srl), 0, 0, 'JDBC Read',
                                   0, int(row['wh_etl_exec_id']) ))
             source_srl_no = srl
-            srl = srl + 1
+            srl += 1
             self.aw_cursor.execute(update_staging_lineage_query %
                                  (int(row['app_id']), int(row['flow_exec_id']), int(row['job_exec_id']),
                                   row['flow_path'], row['job_name'], int(row['start_time']), int(row['end_time']),
@@ -714,10 +711,10 @@ class AppworxLineageExtract:
                                   tab['end_partition'] if tab['frequency'] != 'snapshot' else None,
                                   tab['frequency'], tab['frequency'],
                                   'HDFS',
-                                  'target', int(srl), int(source_srl_no), int(source_srl_no), 'JDBC Write',
+                                  'target', int(srl), int(source_srl_no), int(source_srl_no), 'HDFS Write',
                                   int(tab['record_count']), int(row['wh_etl_exec_id']) ))
 
-            srl = srl + 1
+            srl += 1
         elif results['script_type'] == 'CMD':
           db_id = self.db_lookup(results['cluster'])
 
