@@ -12,31 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-from wherehows.common.writers import FileWriter
-from wherehows.common.schemas import AppworxFlowRecord
-from wherehows.common.schemas import AppworxJobRecord
-from wherehows.common.schemas import AppworxFlowDagRecord
-from wherehows.common.schemas import AppworxFlowExecRecord
-from wherehows.common.schemas import AppworxJobExecRecord
-from wherehows.common.schemas import AppworxFlowScheduleRecord
-from wherehows.common.schemas import AppworxFlowOwnerRecord
-from wherehows.common.enums import AzkabanPermission
-from wherehows.common import Constant
-from wherehows.common.enums import SchedulerType
-from com.ziclix.python.sql import zxJDBC
 from pyparsing import *
-import ParseUtil
-import os
-import ast
-import DbUtil
-import sys
-import gzip
-import StringIO
-import json
-import datetime
-import time
-import re
 from org.slf4j import LoggerFactory
+import os, sys, gzip, re, ast
+import ParseUtil
+
 
 ParserElement.enablePackrat()
 
