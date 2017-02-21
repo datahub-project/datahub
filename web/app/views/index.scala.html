@@ -359,7 +359,20 @@
         <p>Property is not available</p>
       {{/if}}
     </script>
+<script type="text/x-handlebars" id="components/search-feedback">
+  <p class="search-feedback-text">
+    {{unless feedBackCollected "To help us improve search result relevance, please tell us if these results are helpful?"
+    "Thank you for your feedback!"}}
+  </p>
 
+  <button class="btn btn-primary" {{action 'didProvideFeedback' 'good'}} title="Helpful">
+    <i class="fa fa-thumbs-up fa-2x" aria-label="Positive feedback thumbs up icon"></i>
+  </button>
+
+  <button class="btn btn-secondary" {{action 'didProvideFeedback' 'bad'}} title="Not helpful">
+    <i class="fa fa-thumbs-down fa-2x" aria-label="Negative feedback thumbs down icon"></i>
+  </button>
+</script>
 <script type="text/x-handlebars" id="components/dataset-owner-list">
   {{#if owners}}
     <header>
@@ -1170,6 +1183,8 @@
           Jobs
         </button>
       </div>
+
+      {{search-feedback}}
 
       <div id="pagedSearchResults">
         <div class="row">

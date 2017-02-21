@@ -600,3 +600,20 @@ ul.breadcrumbs a {
     border-right: 1px solid;
     padding: 0 5px 0 25px;
 }
+
+.search-feedback {
+  display: flex;
+  padding: 10px 0;
+}
+
+.search-feedback .search-feedback-text {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 10px;
+}
+
+.search-feedback .btn {
+  margin-left: 5px;
+}
