@@ -121,6 +121,62 @@ App.EmberSelectorComponent = Ember.Component.extend({
   }
 });
 
+App.SearchFeedbackComponent = Ember.Component.extend({
+  tagName: 'section',
+  classNames: ['search-feedback'],
+  feedBackCollected: false,
+
+  /**
+   * Given a url string, parse the query paramters and extract the value of the
+   * requested name
+   * @param {String} name the identifier of the query param to extract from the url
+   * @param {String} [url] string representing the url to extract named query value from
+   * @returns {String|null} returns the string value or null if the query parameter does not exist
+   */
+  getUrlParameterByName(name, url) {
+    let regex;
+    let results;
+    if (!url) {
+        url = document.location.href;
+    }
+    name = name.replace(/[\[\]]/g, '\\$&');
+    regex = new RegExp(`[?&]${name}(=([^&#]*)|&|#|$)`);
+    results = regex.exec(url);
+
+    if (!results) {
+      return null;
+    }
+
+    if (!results[2]) {
+      return '';
+    }
+
+    return decodeURIComponent(results[2].replace(/\+/g, ' '));
+  },
+
+  /**
+   * Track the value of the feedback provided using Piwik
+   * @param {String} feedback string value of the feeback provided
+   */
+  trackFeebackValue(feedback = '') {
+    let keywords = this.getUrlParameterByName('keywords');
+
+    if (keywords) {
+      keywords = atob(keywords);
+      _paq.push(['setCustomVariable', 1, 'searchResultFeedback', `${keywords}:${feedback}`, 'page']);
+      _paq.push(['trackPageView']);
+
+      this.toggleProperty('feedBackCollected');
+    }
+  },
+
+  actions: {
+    didProvideFeedback(value) {
+      this.trackFeebackValue(value);
+    }
+  }
+});
+
 // Component  wrapper for a droppable DOM region
 App.DropRegionComponent = Ember.Component.extend({
   classNames: ['drop-region'],
