@@ -221,11 +221,51 @@ App.DatasetRoute = Ember.Route.extend({
                  */
                 function getFieldTypeMappingArray({schema: {fields: nestedFields = []} = {schema: {}}, fields}) {
                   fields = Array.isArray(fields) ? fields : nestedFields;
+                   /**
+                   * Flattens the nested field structure in the security specification schema while retaining
+                   * the top-level field type
+                   * @param fields
+                   * @returns {Array.<Object>}
+                   */
+                  function flattenFields(fields) {
+                    return fields.reduce((fieldsMemo, field) => {
+                      const parentType = field.type;
+                      const parentTypeString = Object.prototype.toString.call(parentType);
+                      let nestedFields;
+
+                      if (parentType && parentTypeString === '[object Object]' && Array.isArray(parentType.fields)) {
+                        nestedFields = parentType.fields;
+                        fieldsMemo.push(Object.assign({}, {name: field.name, type: parseTypeString(field.type)}));
+                      }
+
+                      return fieldsMemo.concat(nestedFields ? flattenFields(nestedFields) : field);
+                    }, []);
+                  }
+
+                  /**
+                   * Takes a type value which may be a string, array, object and parses out the string value
+                   * @param {Object|Array|String} type a representation of the data type for a field
+                   * @returns {Array.<String>}
+                   */
+                  function parseTypeString(type) {
+                    if (Array.isArray(type)) {
+                      type.includes('null') && type.splice(type.indexOf('null'), 1);
+                      if (Object.prototype.toString.call(type[0]) === '[object Object]') {
+                        return [type.type || 'record'];
+                      }
+                    }
+
+                    if (Object.prototype.toString.call(type) === '[object Object]') {
+                      return [type.type || 'record'];
+                    }
+
+                    return [].concat(type);
+                  }
 
                   // As above, field may contain a label with string property or a name property
-                  return fields.map(({label: {string} = {}, name, type}) => ({
+                  return flattenFields(fields).map(({label: {string} = {}, name, type}) => ({
                     name: string || name,
-                    type: Array.isArray(type) ? (type[0] === 'null' ? type.slice(1) : type) : [type]
+                    type: parseTypeString(type)
                   }));
                 }
 
