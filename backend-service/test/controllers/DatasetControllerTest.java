@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static play.test.Helpers.*;
-import static org.junit.Assert.*;
+import static org.fest.assertions.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 
@@ -73,12 +73,20 @@ public class DatasetControllerTest {
     }
 
     @Test
-    public void testDataset() throws Exception {
+    public void testDataset()
+    {
         ObjectNode inputJson = Json.newObject();
         inputJson.put("dataset_uri", "dalids:///feedimpressionevent_mp/feedimpressionevent");
-        ObjectNode resultNode = DatasetDao.getDatasetDependency(
-                inputJson);
-        assertTrue(resultNode.isContainerNode());
+        try
+        {
+            ObjectNode resultNode = DatasetDao.getDatasetDependency(
+                    inputJson);
+            assertThat(resultNode.isContainerNode());
+        }
+        catch (Exception e)
+        {
+            assertThat(false);
+        }
     }
 
     @AfterClass

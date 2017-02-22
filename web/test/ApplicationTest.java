@@ -2,8 +2,9 @@ import org.junit.*;
 
 import play.twirl.api.Content;
 
+
 import static play.test.Helpers.*;
-import static org.junit.Assert.*;
+import static org.fest.assertions.api.Assertions.*;
 
 
 public class ApplicationTest {
@@ -13,7 +14,7 @@ public class ApplicationTest {
     @Test
     public void renderTemplate() {
         Content html = views.html.index.render(TEST_USER, FAKE_CSRF_TOKEN, true, 1234);
-        assertEquals(contentType(html), "text/html");
+        assertThat(contentType(html)).isEqualTo("text/html");
     }
 
 

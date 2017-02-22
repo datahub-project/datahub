@@ -23,12 +23,7 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Properties;
 
-import static org.hamcrest.core.StringContains.containsString;
-import static org.hamcrest.core.StringEndsWith.endsWith;
-import static org.hamcrest.core.StringStartsWith.startsWith;
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
-
+import static org.fest.assertions.api.Assertions.*;
 
 public class ConfigUtilTest {
 
@@ -38,11 +33,11 @@ public class ConfigUtilTest {
     String command = ConfigUtil.generateCommand(EtlJobName.HADOOP_DATASET_METADATA_ETL, 0L, "", new Properties());
 
     // then:
-    assertThat(command, allOf(
-            startsWith("java -cp "),
-            containsString(" -Dconfig=/var/tmp/wherehows/exec/0.properties "),
-            containsString(" -DCONTEXT=HADOOP_DATASET_METADATA_ETL "),
-            endsWith(" metadata.etl.Launcher")));
+    assertThat(command)
+            .startsWith("java -cp ")
+            .contains(" -Dconfig=/var/tmp/wherehows/exec/0.properties ")
+            .contains(" -DCONTEXT=HADOOP_DATASET_METADATA_ETL ")
+            .endsWith(" metadata.etl.Launcher");
   }
 
   @Test
@@ -57,11 +52,11 @@ public class ConfigUtilTest {
     String command = ConfigUtil.generateCommand(EtlJobName.LDAP_USER_ETL, 1L, "", etlJobProperties);
 
     // then:
-    assertThat(command, allOf(
-            startsWith("java -cp "),
-            containsString(" -Dconfig=" + applicationDirectory + "/exec/1.properties "),
-            containsString(" -DCONTEXT=LDAP_USER_ETL "),
-            endsWith(" metadata.etl.Launcher")));
+    assertThat(command)
+            .startsWith("java -cp ")
+            .contains(" -Dconfig=" + applicationDirectory + "/exec/1.properties ")
+            .contains(" -DCONTEXT=LDAP_USER_ETL ")
+            .endsWith(" metadata.etl.Launcher");
   }
 
   @Test
@@ -79,10 +74,10 @@ public class ConfigUtilTest {
 
     // then:
     final String content = Files.toString(propertiesFile, Charset.defaultCharset());
-    assertThat(content, allOf(
-            containsString("p1=v1"),
-            containsString("p2=v2"),
-            containsString("p3=v3")));
+    assertThat(content)
+            .contains("p1=v1")
+            .contains("p2=v2")
+            .contains("p3=v3");
   }
 
   @Test
@@ -93,19 +88,20 @@ public class ConfigUtilTest {
     final File propertiesFile = createTemporaryPropertiesFile(whEtlExecId, etlJobProperties);
 
     // expect:
-    assertFalse(propertiesFile.exists());
+    assertThat(propertiesFile).doesNotExist();
 
     // when:
-    ConfigUtil.generateProperties(EtlJobName.AZKABAN_EXECUTION_METADATA_ETL, 2, whEtlExecId, etlJobProperties);
+    final EtlJobName etlJobName = EtlJobName.valueOf("AZKABAN_EXECUTION_METADATA_ETL");
+    ConfigUtil.generateProperties(etlJobName, 2, whEtlExecId, etlJobProperties);
 
     // then:
-    assertTrue(propertiesFile.exists());
+    assertThat(propertiesFile).exists();
 
     // when:
     ConfigUtil.deletePropertiesFile(etlJobProperties, whEtlExecId);
 
     // then:
-    assertFalse(propertiesFile.exists());
+    assertThat(propertiesFile).doesNotExist();
   }
 
   private File createTemporaryPropertiesFile(long whEtlExecId, Properties etlJobProperties) {
