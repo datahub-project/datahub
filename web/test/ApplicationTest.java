@@ -1,9 +1,9 @@
 import org.junit.*;
 
-import play.mvc.*;
+import play.twirl.api.Content;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.junit.Assert.*;
 
 
 public class ApplicationTest {
@@ -12,8 +12,8 @@ public class ApplicationTest {
     private static String FAKE_CSRF_TOKEN = "token";
     @Test
     public void renderTemplate() {
-        Content html = views.html.index.render(TEST_USER, FAKE_CSRF_TOKEN);
-        assertThat(contentType(html)).isEqualTo("text/html");
+        Content html = views.html.index.render(TEST_USER, FAKE_CSRF_TOKEN, true, 1234);
+        assertEquals(contentType(html), "text/html");
     }
 
 

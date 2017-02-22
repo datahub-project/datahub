@@ -5,11 +5,11 @@ import controllers.api.v1.Dataset;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import play.Logger;
 import play.libs.Json;
 
-import play.mvc.Content;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.FakeApplication;
@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 
@@ -63,91 +63,91 @@ public class ControllersTest {
     public void testDataset()
     {
         Result result = controllers.api.v1.Dataset.getPagedDatasets();
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
+        assertTrue(node.isContainerNode());
+        assertEquals(node.get("status").asText(), "ok");
         JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
+        assertTrue(dataNode.isContainerNode());
         long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
+        assertTrue(count > 0);
         JsonNode datasetsNode = dataNode.get("datasets");
-        assertThat(datasetsNode.isArray());
+        assertTrue(datasetsNode.isArray());
         JsonNode firstDatasetNode = ((ArrayNode) datasetsNode).get(0);
-        assertThat(firstDatasetNode.isContainerNode());
+        assertTrue(firstDatasetNode.isContainerNode());
         Integer datasetId = firstDatasetNode.get("id").asInt();
         String name = firstDatasetNode.get("name").asText();
-        assertThat(datasetId > 0);
+        assertTrue(datasetId > 0);
 
         result = controllers.api.v1.Dataset.getDatasetByID(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode datasetNode = Json.parse(contentAsString(result));
-        assertThat(datasetNode.isContainerNode());
-        assertThat(datasetNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(datasetNode.isContainerNode());
+        assertEquals(datasetNode.get("status").asText(), "ok");
         JsonNode detailNode = datasetNode.get("dataset");
-        assertThat(detailNode.isContainerNode());
+        assertTrue(detailNode.isContainerNode());
         String datasetName = detailNode.get("name").asText();
-        assertThat(datasetName.equals(name));
+        assertEquals(datasetName, name);
 
         result = controllers.api.v1.Dataset.getDatasetColumnsByID(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode columnsNode = Json.parse(contentAsString(result));
-        assertThat(columnsNode.isContainerNode());
-        //assertThat(columnsNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(columnsNode.isContainerNode());
+        //assertEquals(columnsNode.get("status").asText(), "ok");
 
         result = controllers.api.v1.Dataset.getDatasetPropertiesByID(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode propertiesNode = Json.parse(contentAsString(result));
-        assertThat(propertiesNode.isContainerNode());
-        assertThat(propertiesNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(propertiesNode.isContainerNode());
+        assertEquals(propertiesNode.get("status"), "ok");
 
         result = controllers.api.v1.Dataset.getDatasetImpactAnalysisByID(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode impactsNode = Json.parse(contentAsString(result));
-        assertThat(impactsNode.isContainerNode());
-        assertThat(impactsNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(impactsNode.isContainerNode());
+        assertEquals(impactsNode.get("status"), "ok");
 
         result = controllers.api.v1.Dataset.getDatasetSampleDataByID(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode sampleNode = Json.parse(contentAsString(result));
-        assertThat(sampleNode.isContainerNode());
-        //assertThat(sampleNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(sampleNode.isContainerNode());
+        //assertEquals(sampleNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getDatasetInstances(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getDatasetInstances((long)datasetId);
+        assertEquals(status(result), OK);
         JsonNode instanceNode = Json.parse(contentAsString(result));
-        assertThat(instanceNode.isContainerNode());
-        assertThat(instanceNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(instanceNode.isContainerNode());
+        assertEquals(instanceNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId, DB_ID);
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getDatasetVersions((long)datasetId, DB_ID);
+        assertEquals(status(result), OK);
         JsonNode versionNode = Json.parse(contentAsString(result));
-        assertThat(versionNode.isContainerNode());
-        assertThat(versionNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(versionNode.isContainerNode());
+        assertEquals(versionNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getReferenceViews(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getReferenceViews((long)datasetId);
+        assertEquals(status(result), OK);
         JsonNode referenceNode = Json.parse(contentAsString(result));
-        assertThat(referenceNode.isContainerNode());
-        assertThat(referenceNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(referenceNode.isContainerNode());
+        assertEquals(referenceNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getDependViews(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getDependViews((long)datasetId);
+        assertEquals(status(result), OK);
         JsonNode dependsNode = Json.parse(contentAsString(result));
-        assertThat(dependsNode.isContainerNode());
-        assertThat(dependsNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(dependsNode.isContainerNode());
+        assertEquals(dependsNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(datasetId, '0.0.1');
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getDatasetSchemaTextByVersion((long)datasetId, "0.0.1");
+        assertEquals(status(result), OK);
         JsonNode schemaTextNode = Json.parse(contentAsString(result));
-        assertThat(schemaTextNode.isContainerNode());
-        assertThat(schemaTextNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(schemaTextNode.isContainerNode());
+        assertEquals(schemaTextNode.get("status").asText(), "ok");
 
-        result = controllers.api.v1.Dataset.getDatasetAccess(datasetId)
-        assertThat(status(result)).isEqualTo(OK);
+        result = controllers.api.v1.Dataset.getDatasetAccess((long)datasetId);
+        assertEquals(status(result), OK);
         JsonNode accessNode = Json.parse(contentAsString(result));
-        assertThat(accessNode.isContainerNode());
-        assertThat(accessNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(accessNode.isContainerNode());
+        assertEquals(accessNode.get("status").asText(), "ok");
     }
 
     /*
@@ -187,65 +187,65 @@ public class ControllersTest {
     public void testFlow()
     {
         Result result = controllers.api.v1.Flow.getPagedProjects("AZKABAN-SAMPLE");
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
+        assertTrue(node.isContainerNode());
+        assertEquals(node.get("status").asText(), "ok");
         JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
+        assertTrue(dataNode.isContainerNode());
         long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
+        assertTrue(count > 0);
         JsonNode projectsNode = dataNode.get("projects");
-        assertThat(projectsNode.isArray());
+        assertTrue(projectsNode.isArray());
         JsonNode firstProjectNode = ((ArrayNode) projectsNode).get(0);
-        assertThat(firstProjectNode.isContainerNode());
+        assertTrue(firstProjectNode.isContainerNode());
         String name = firstProjectNode.get("name").asText();
 
         result = controllers.api.v1.Flow.getPagedFlows("AZKABAN-SAMPLE", name);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
     }
 
     @Ignore("need config") @Test
     public void testScriptFinder()
     {
         Result result = controllers.api.v1.ScriptFinder.getScripts();
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
+        assertTrue(node.isContainerNode());
+        assertEquals(node.get("status").asText(), "ok");
         JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
+        assertTrue(dataNode.isContainerNode());
         long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
+        assertTrue(count > 0);
     }
 
     @Ignore("need config") @Test
     public void testSchemaHistory()
     {
         Result result = controllers.api.v1.SchemaHistory.getPagedDatasets();
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
+        assertTrue(node.isContainerNode());
+        assertEquals(node.get("status").asText(), "ok");
         JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
+        assertTrue(dataNode.isContainerNode());
         long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
+        assertTrue(count > 0);
 
         JsonNode datasetsNode = dataNode.get("datasets");
-        assertThat(datasetsNode.isArray());
+        assertTrue(datasetsNode.isArray());
         JsonNode firstDatasetNode = ((ArrayNode) datasetsNode).get(0);
-        assertThat(firstDatasetNode.isContainerNode());
+        assertTrue(firstDatasetNode.isContainerNode());
         int datasetId = firstDatasetNode.get("id").asInt();
-        assertThat(datasetId > 0);
+        assertTrue(datasetId > 0);
 
         result = controllers.api.v1.SchemaHistory.getSchemaHistory(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
+        assertEquals(status(result), OK);
         JsonNode historyNode = Json.parse(contentAsString(result));
-        assertThat(historyNode.isContainerNode());
-        assertThat(historyNode.get("status").asText()).isEqualTo("ok");
+        assertTrue(historyNode.isContainerNode());
+        assertEquals(historyNode.get("status").asText(), "ok");
         JsonNode historyDataNode = node.get("data");
-        assertThat(historyDataNode.isArray());
+        assertTrue(historyDataNode.isArray());
     }
 
     @AfterClass

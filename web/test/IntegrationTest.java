@@ -1,9 +1,9 @@
 import org.junit.*;
 
-import play.libs.WS;
+import play.libs.ws.WS;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.junit.Assert.*;
 
 public class IntegrationTest {
 
@@ -12,7 +12,7 @@ public class IntegrationTest {
 
         running(testServer(3333), new Runnable() {
             public void run() {
-                assertThat(WS.url("http://localhost:3333").get().get(1000*60).getStatus()).isEqualTo(OK);
+                assertEquals(WS.url("http://localhost:3333").get().get(1000*60).getStatus(), OK);
             }
         });
     }
