@@ -35,7 +35,7 @@ import wherehows.common.schemas.LineageRecord;
 /**
  * Created by zsun on 9/13/15.
  */
-@Test(groups = {"wherehows.common"})
+@Test(groups = {"needConfig"})
 public class LineageCombinerTest {
   final static String TEST_PROP_FILE_NAME = "wherehows-common-test.properties";
   LineageCombiner lineageCombiner;
