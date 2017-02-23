@@ -5,6 +5,7 @@ import play.libs.ws.WS;
 import static play.test.Helpers.*;
 import static org.fest.assertions.api.Assertions.*;
 
+@Ignore
 public class IntegrationTest {
 
     @Test
