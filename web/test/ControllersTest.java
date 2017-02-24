@@ -5,11 +5,11 @@ import controllers.api.v1.Dataset;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import play.Logger;
 import play.libs.Json;
 
-import play.mvc.Content;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.FakeApplication;
@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.fest.assertions.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 
@@ -113,37 +113,37 @@ public class ControllersTest {
         assertThat(sampleNode.isContainerNode());
         //assertThat(sampleNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDatasetInstances(datasetId);
+        result = controllers.api.v1.Dataset.getDatasetInstances(datasetId.longValue());
         assertThat(status(result)).isEqualTo(OK);
         JsonNode instanceNode = Json.parse(contentAsString(result));
         assertThat(instanceNode.isContainerNode());
         assertThat(instanceNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId, DB_ID);
+        result = controllers.api.v1.Dataset.getDatasetVersions(datasetId.longValue(), DB_ID);
         assertThat(status(result)).isEqualTo(OK);
         JsonNode versionNode = Json.parse(contentAsString(result));
         assertThat(versionNode.isContainerNode());
         assertThat(versionNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getReferenceViews(datasetId);
+        result = controllers.api.v1.Dataset.getReferenceViews(datasetId.longValue());
         assertThat(status(result)).isEqualTo(OK);
         JsonNode referenceNode = Json.parse(contentAsString(result));
         assertThat(referenceNode.isContainerNode());
         assertThat(referenceNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDependViews(datasetId);
+        result = controllers.api.v1.Dataset.getDependViews(datasetId.longValue());
         assertThat(status(result)).isEqualTo(OK);
         JsonNode dependsNode = Json.parse(contentAsString(result));
         assertThat(dependsNode.isContainerNode());
         assertThat(dependsNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(datasetId, '0.0.1');
+        result = controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(datasetId.longValue(), "0.0.1");
         assertThat(status(result)).isEqualTo(OK);
         JsonNode schemaTextNode = Json.parse(contentAsString(result));
         assertThat(schemaTextNode.isContainerNode());
         assertThat(schemaTextNode.get("status").asText()).isEqualTo("ok");
 
-        result = controllers.api.v1.Dataset.getDatasetAccess(datasetId)
+        result = controllers.api.v1.Dataset.getDatasetAccess(datasetId.longValue());
         assertThat(status(result)).isEqualTo(OK);
         JsonNode accessNode = Json.parse(contentAsString(result));
         assertThat(accessNode.isContainerNode());
