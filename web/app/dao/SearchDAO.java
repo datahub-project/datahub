@@ -218,13 +218,13 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 			queryNode.put("query",funcScoreNodesWrapper);
 
-			Logger.debug("The query sent to Elastic Search is: " + queryNode.toString());
+			Logger.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
 			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
 
-			Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
+			// Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
 
 		}
 
@@ -324,6 +324,9 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		if (keywordNode != null)
 		{
 			queryNode.set("query", keywordNode);
+
+			Logger.info(" === elasticSearchMetricByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
+
 			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 					SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
@@ -434,6 +437,9 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		if (keywordNode != null)
 		{
 			queryNode.set("query", keywordNode);
+
+			Logger.info(" === elasticSearchFlowByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
+
 			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 					SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
