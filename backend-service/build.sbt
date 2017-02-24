@@ -23,3 +23,5 @@ libraryDependencies ++= Seq(
   "org.easytesting" % "fest-assert-core" % "2.0M8"
 ).map(_.exclude("log4j", "log4j"))
   .map(_.exclude("org.slf4j", "slf4j-log4j12"))
+
+jacoco.settings

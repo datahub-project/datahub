@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 /**
  * Created by zsun on 9/21/15.
  */
+@Test(groups = {"needConfig"})
 public class AzDbCommunicatorTest {
   AzDbCommunicator adc;
 
@@ -34,7 +35,6 @@ public class AzDbCommunicatorTest {
     adc = new AzDbCommunicator(prop);
   }
 
-  @Test(groups = {"needConfig"})
   public void getExecLogTest()
     throws IOException, SQLException {
     int execId = 870536;

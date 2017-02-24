@@ -32,6 +32,7 @@ import wherehows.common.schemas.AzkabanJobExecRecord;
 /**
  * Created by zsun on 9/9/15.
  */
+@Test(groups = {"needConfig"})
 public class AzJobCheckerTest {
 
   AzJobChecker ajc;
@@ -44,7 +45,6 @@ public class AzJobCheckerTest {
     ajc = new AzJobChecker(prop);
   }
 
-  @Test(groups = {"needConfig"})
   public void getRecentFinishedJobFromFlowTest()
     throws SQLException, IOException {
     List<AzkabanJobExecRecord> results = ajc.getRecentFinishedJobFromFlow();
@@ -56,7 +56,6 @@ public class AzJobCheckerTest {
     Assert.assertNotNull(results);
   }
 
-  @Test(groups = {"needConfig"})
   public void getRecentFinishedJobFromFlowTest2()
       throws SQLException, IOException {
     List<AzkabanJobExecRecord> results = ajc.getRecentFinishedJobFromFlow(2, 1448916456L);
@@ -68,7 +67,6 @@ public class AzJobCheckerTest {
     Assert.assertNotNull(results);
   }
 
-  @Test(groups = {"needConfig"})
   public void parseNestedJsonTest()
       throws IOException, URISyntaxException {
 
