@@ -22,6 +22,7 @@ configurations.all {
 
 subprojects {
   apply plugin: 'java'
+  apply plugin: 'jacoco'
   apply plugin: 'idea'
   apply plugin: 'eclipse'
   apply plugin: 'com.github.hierynomus.license'
@@ -80,6 +81,15 @@ subprojects {
     testLogging {
       showStandardStreams = true
     }
+  }
+
+  jacocoTestReport {
+      dependsOn excludegroup
+      reports {
+          xml.enabled false
+          csv.enabled false
+      }
+      executionData = files("$buildDir/jacoco/excludegroup.exec")
   }
 
   ext.externalDependency = ["mysql"               : "mysql:mysql-connector-java:5.1.40",
