@@ -16,3 +16,5 @@ libraryDependencies ++= Seq(
   "org.mockito" % "mockito-core" % "1.10.19",
   "org.easytesting" % "fest-assert-core" % "2.0M8"
 )
+
+jacoco.settings
