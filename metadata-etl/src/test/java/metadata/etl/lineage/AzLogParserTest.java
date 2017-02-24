@@ -33,6 +33,7 @@ import wherehows.common.schemas.LineageRecord;
 /**
  * Created by zsun on 9/24/15.
  */
+@Test(groups = {"needConfig"})
 public class AzLogParserTest {
 
   private final int TEST_APP_ID = -1;
@@ -50,7 +51,6 @@ public class AzLogParserTest {
     AzLogParser.initialize(conn);
   }
 
-  @Test(groups = {"needConfig"})
   public void getHadoopJobIdFromLogTest() {
     String logSample = "9-08-2015 03:02:16 PDT hadoop-datasets-stats_sizeAggr INFO - INFO  map 26% reduce 0%\n" +
       "29-08-2015 03:02:16 PDT hadoop-datasets-stats_sizeAggr INFO - INFO  map 30% reduce 0%\n" +
@@ -78,7 +78,6 @@ public class AzLogParserTest {
 
   }
 
-  @Test(groups = {"needConfig"})
   public void getLineageFromLogTest() {
     String logSample = "asfdasdfsadf Moving from staged path[asdf] to final resting place[/tm/b/c] sdaf dsfasdfasdf";
     AzkabanJobExecRecord sampleExecution = new AzkabanJobExecRecord(TEST_APP_ID, "someJobName", (long) 0, 0, 0, "S", "path");

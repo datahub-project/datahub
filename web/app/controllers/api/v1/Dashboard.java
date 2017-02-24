@@ -44,26 +44,26 @@ public class Dashboard extends Controller {
 
     public static Result getPagedOwnershipDatasets(String managerId) {
         String platform = request().getQueryString("platform");
-        int option = parseQueryString(request().getQueryString("option"), 1);
-        int page = parseQueryString(request().getQueryString("page"), 1);
-        int size = parseQueryString(request().getQueryString("size"), 10);
+        int option = parseInt(request().getQueryString("option"), 1);
+        int page = parseInt(request().getQueryString("page"), 1);
+        int size = parseInt(request().getQueryString("size"), 10);
 
         return ok(DashboardDAO.getPagedOwnershipDatasetsByManagerId(managerId, platform, option, page, size));
     }
 
     public static Result getPagedConfidentialDatasets(String managerId) {
         String platform = request().getQueryString("platform");
-        int page = parseQueryString(request().getQueryString("page"), 1);
-        int size = parseQueryString(request().getQueryString("size"), 10);
+        int page = parseInt(request().getQueryString("page"), 1);
+        int size = parseInt(request().getQueryString("size"), 10);
 
         return ok(DashboardDAO.getPagedConfidentialDatasetsByManagerId(managerId, platform, page, size));
     }
 
     public static Result getPagedDescriptionDatasets(String managerId) {
         String platform = request().getQueryString("platform");
-        int option = parseQueryString(request().getQueryString("option"), 1);
-        int page = parseQueryString(request().getQueryString("page"), 1);
-        int size = parseQueryString(request().getQueryString("size"), 10);
+        int option = parseInt(request().getQueryString("option"), 1);
+        int page = parseInt(request().getQueryString("page"), 1);
+        int size = parseInt(request().getQueryString("size"), 10);
 
         return ok(DashboardDAO.getPagedDescriptionDatasetsByManagerId(managerId, platform, option, page, size));
     }
@@ -71,8 +71,8 @@ public class Dashboard extends Controller {
     public static Result getPagedComplianceDatasets(String managerId) {
         String platform = request().getQueryString("platform");
         String option = request().getQueryString("option");
-        int page = parseQueryString(request().getQueryString("page"), 1);
-        int size = parseQueryString(request().getQueryString("size"), 10);
+        int page = parseInt(request().getQueryString("page"), 1);
+        int size = parseInt(request().getQueryString("size"), 10);
 
         return ok(DashboardDAO.getPagedComplianceDatasetsByManagerId(managerId, platform, option, page, size));
     }
@@ -82,12 +82,12 @@ public class Dashboard extends Controller {
     }
 
     public static Result getDescriptionBarData(String managerId) {
-        int option = parseQueryString(request().getQueryString("option"), 1);
+        int option = parseInt(request().getQueryString("option"), 1);
 
         return ok(DashboardDAO.getDescriptionBarChartData(managerId, option));
     }
 
-    private static int parseQueryString(String queryString, int defaultValue) {
+    private static int parseInt(String queryString, int defaultValue) {
         if (!StringUtils.isBlank(queryString)) {
             try {
                 return Integer.parseInt(queryString);

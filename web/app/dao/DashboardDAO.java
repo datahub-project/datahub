@@ -39,7 +39,7 @@ import play.libs.Json;
 
 public class DashboardDAO extends AbstractMySQLOpenSourceDAO {
 
-    private static DecimalFormat df2 = new DecimalFormat("##0.##");
+    private static final DecimalFormat df2 = new DecimalFormat("##0.##");
 
     private final static String GET_CONFIDENTIAL_DATASETS_FILTER_PLATFORM =
         "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, d.name, "
@@ -345,11 +345,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO {
 
         if (StringUtils.isNotBlank(userId)) {
             List<LdapInfo> ldapInfoList = JiraDAO.getCurrentUserLdapInfo(userId);
-            if (ldapInfoList != null && ldapInfoList.size() > 0) {
-                LdapInfo ldapInfo = ldapInfoList.get(0);
-                if (ldapInfo != null) {
-                    currentUser = getUserStat(ldapInfo, platform, totalDatasetQuery, qualifyingDatasetQuery);
-                }
+            if (ldapInfoList != null && ldapInfoList.size() > 0 && ldapInfoList.get(0) != null) {
+                currentUser = getUserStat(ldapInfoList.get(0), platform, totalDatasetQuery, qualifyingDatasetQuery);
             }
             List<LdapInfo> members = JiraDAO.getFirstLevelLdapInfo(userId);
             if (members != null) {
