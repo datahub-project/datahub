@@ -13,13 +13,16 @@
  */
 package models;
 
-import java.util.List;
+public class DashboardOwnerStat {
 
-public class DatasetConfidential {
-
-    public Long datasetId;
-    public String ownerId;
-    public String confirmedOwnerId;
-    public String datasetName;
-    public List<String> confidentialFieldList;
+    public String userName;
+    public String fullName;
+    public String displayName;
+    public String email;
+    public String managerUserId;
+    public String orgHierarchy;
+    public String iconUrl;
+    public Long potentialDatasets;
+    public Long qualifiedDatasets;
+    public String completeRate;
 }
