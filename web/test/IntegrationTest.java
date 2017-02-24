@@ -1,9 +1,9 @@
 import org.junit.*;
 
-import play.libs.WS;
+import play.libs.ws.WS;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.fest.assertions.api.Assertions.*;
 
 public class IntegrationTest {
 
