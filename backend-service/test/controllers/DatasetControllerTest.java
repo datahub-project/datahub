@@ -34,7 +34,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static play.test.Helpers.*;
-import static org.junit.Assert.assertThat;
+import static org.fest.assertions.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 
