@@ -181,7 +181,7 @@ public class DatasetController extends Controller {
     String dataset_type = uri_parts[0];
     String dataset_path = uri_parts[1].substring(2);  // start from the 3rd slash
     if (dataset_path.indexOf(".") > 0) {
-      dataset_path.replace(".", "/");
+      dataset_path = dataset_path.replace(".", "/");
     }
 
     if (dataset_path != null) {

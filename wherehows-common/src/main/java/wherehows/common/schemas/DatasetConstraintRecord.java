@@ -113,7 +113,7 @@ public class DatasetConstraintRecord extends AbstractRecord {
   }
 
   public void setAdditionalReferences(Map<String, String> additionalReferences) {
-    this.additionalReferences = this.additionalReferences;
+    this.additionalReferences = additionalReferences;
   }
 
   public Long getModifiedTime() {
