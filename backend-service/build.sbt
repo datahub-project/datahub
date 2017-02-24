@@ -19,6 +19,7 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-api" % "1.7.21",
   "org.jasypt" % "jasypt" % "1.9.2",
   "org.apache.kafka" % "kafka_2.10" % "0.10.0.1",
-  "org.apache.kafka" % "kafka-clients" % "0.10.0.1"
+  "org.apache.kafka" % "kafka-clients" % "0.10.0.1",
+  "org.easytesting" % "fest-assert-core" % "2.0M8"
 ).map(_.exclude("log4j", "log4j"))
   .map(_.exclude("org.slf4j", "slf4j-log4j12"))

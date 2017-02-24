@@ -54,6 +54,11 @@ task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
     commandLine playExec, 'compile'
 }
 
+task "playTest" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'test'
+}
+
+
 task "playClean" (type: Exec) {
     commandLine playExec, 'clean'
 }

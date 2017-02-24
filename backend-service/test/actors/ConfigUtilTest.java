@@ -23,19 +23,20 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Properties;
 
-import static org.junit.Assert.assertThat;
+import static org.fest.assertions.api.Assertions.*;
 
 public class ConfigUtilTest {
 
   @Test
   public void shouldGenerateEtlJobDefaultCommand() {
     // when:
-    String command = ConfigUtil.generateCommand(0L, "", new Properties());
+    String command = ConfigUtil.generateCommand(EtlJobName.HADOOP_DATASET_METADATA_ETL, 0L, "", new Properties());
 
     // then:
     assertThat(command)
             .startsWith("java -cp ")
             .contains(" -Dconfig=/var/tmp/wherehows/exec/0.properties ")
+            .contains(" -DCONTEXT=HADOOP_DATASET_METADATA_ETL ")
             .endsWith(" metadata.etl.Launcher");
   }
 
@@ -48,12 +49,13 @@ public class ConfigUtilTest {
     etlJobProperties.put(Constant.WH_APP_FOLDER_KEY, applicationDirectory);
 
     // when:
-    String command = ConfigUtil.generateCommand(1L, "", etlJobProperties);
+    String command = ConfigUtil.generateCommand(EtlJobName.LDAP_USER_ETL, 1L, "", etlJobProperties);
 
     // then:
     assertThat(command)
             .startsWith("java -cp ")
             .contains(" -Dconfig=" + applicationDirectory + "/exec/1.properties ")
+            .contains(" -DCONTEXT=LDAP_USER_ETL ")
             .endsWith(" metadata.etl.Launcher");
   }
 
@@ -68,8 +70,7 @@ public class ConfigUtilTest {
     final File propertiesFile = createTemporaryPropertiesFile(whEtlExecId, etlJobProperties);
 
     // when:
-    final EtlJobName etlJobName = EtlJobName.valueOf("HIVE_DATASET_METADATA_ETL");
-    ConfigUtil.generateProperties(etlJobName, 2, whEtlExecId, etlJobProperties);
+    ConfigUtil.generateProperties(EtlJobName.HIVE_DATASET_METADATA_ETL, 2, whEtlExecId, etlJobProperties);
 
     // then:
     final String content = Files.toString(propertiesFile, Charset.defaultCharset());
