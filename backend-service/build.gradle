@@ -66,6 +66,10 @@ task "playClean" (type: Exec) {
     commandLine playExec, 'clean'
 }
 
+task "playCoverage" (type: Exec) {
+    commandLine playExec, 'jacoco:cover'
+}
+
 sourceSets.main{
     java.srcDir 'app'
     compileClasspath += configurations.provided

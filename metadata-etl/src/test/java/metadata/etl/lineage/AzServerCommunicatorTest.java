@@ -26,6 +26,7 @@ import wherehows.common.Constant;
 /**
  * Created by zsun on 8/29/15.
  */
+@Test(groups = {"needConfig"})
 public class AzServerCommunicatorTest {
   AzServiceCommunicator asc;
   Properties prop;
@@ -37,7 +38,6 @@ public class AzServerCommunicatorTest {
     asc = new AzServiceCommunicator(prop);
   }
 
-  @Test(groups = {"needConfig"})
   public void testGetExecLog()
     throws Exception {
 
@@ -50,7 +50,6 @@ public class AzServerCommunicatorTest {
     Assert.assertEquals("27-08-2015", log);
   }
 
-  @Test(groups = {"needConfig"})
   public void testGetSessionId()
     throws Exception {
 
@@ -61,7 +60,6 @@ public class AzServerCommunicatorTest {
     Assert.assertTrue(!response.equals(""));
   }
 
-  @Test(groups = {"needConfig"})
   public void getHadoopID()
     throws Exception {
     int execId = 843164;
