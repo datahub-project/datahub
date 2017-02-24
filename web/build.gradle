@@ -58,6 +58,9 @@ task "playTest" (type: Exec, dependsOn: playCompile) {
     commandLine playExec, 'test'
 }
 
+task "playCoverage" (type: Exec) {
+    commandLine playExec, 'jacoco:cover'
+}
 
 task "playClean" (type: Exec) {
     commandLine playExec, 'clean'

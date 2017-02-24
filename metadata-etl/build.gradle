@@ -51,7 +51,6 @@ task copyFiles(type: Copy, dependsOn: compileJava) {
   include 'schemaFetch.jar'
 }
 
-
 sourceSets {
   main {
     java {
