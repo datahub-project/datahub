@@ -15,8 +15,11 @@ package models;
 
 import java.util.List;
 
-public class MetadataBarData {
+public class DashboardDataset {
 
-    public String label;
-    public Long value;
+    public Long datasetId;
+    public String ownerId;
+    public String confirmedOwnerId;
+    public String datasetName;
+    public List<String> fields;
 }
