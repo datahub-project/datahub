@@ -13,16 +13,9 @@
  */
 package models;
 
-public class ConfidentialFieldsOwner {
 
-    public String userName;
-    public String fullName;
-    public String displayName;
-    public String email;
-    public String managerUserId;
-    public String orgHierarchy;
-    public String iconUrl;
-    public Long potentialDatasets;
-    public Long confirmed;
-    public String completed;
+public class DashboardBarData {
+
+    public String label;
+    public Long value;
 }
