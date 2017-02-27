@@ -87,15 +87,17 @@ class KafkaExtract:
       if resp.status_code != 200:
         self.logger.info('Request ERROR {}: {}'.format(resp.status_code, req_params))
         continue
-      else:
-        one_table_info = resp.json()
 
-      if one_table_info is not None:
+      try:
+        one_table_info = resp.json()
         one_table_info['fabrics'] = value['fabrics']
         self.output_file.write(json.dumps(one_table_info))
         self.output_file.write('\n')
         table_count += 1
         self.logger.info("{} : {}".format(table_count, name))
+      except Exception as e:
+        self.logger.error(str(e) + '. Request: ' + req_params)
+
     self.output_file.close()
     self.logger.info('Extracted {} topics for KAFKA'.format(table_count))
 
