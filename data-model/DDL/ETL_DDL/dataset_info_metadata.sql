@@ -175,7 +175,6 @@ CREATE TABLE dataset_schema_info (
   `dataset_id`                   INT UNSIGNED NOT NULL,
   `dataset_urn`                  VARCHAR(200) NOT NULL,
   `is_backward_compatible`       BOOLEAN                  DEFAULT NULL,
-  `is_latest_revision`           BOOLEAN      NOT NULL,
   `create_time`                  BIGINT       NOT NULL,
   `revision`                     INT UNSIGNED             DEFAULT NULL,
   `version`                      VARCHAR(20)              DEFAULT NULL,
