@@ -915,12 +915,12 @@
           <div class="panel-heading" role="tab" id="complianceHeading">
             <h4 class="panel-title">
               <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
-               href="#accessview" aria-expanded="false" aria-controls="accessData">
+               href="#complianceview" aria-expanded="false" aria-controls="accessData">
                 Compliance
               </a>
             </h4>
           </div>
-          <div id="accessview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
+          <div id="complianceview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
               <div class="panel-body">
                   {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
                                        isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
@@ -935,12 +935,12 @@
               <div class="panel-heading" role="tab" id="confidentialHeading">
                   <h4 class="panel-title">
                       <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
-                         href="#accessview" aria-expanded="false" aria-controls="accessData">
+                         href="#confidentialview" aria-expanded="false" aria-controls="accessData">
                           Confidential
                       </a>
                   </h4>
               </div>
-              <div id="accessview" class="panel-collapse collapse" role="tabpanel"
+              <div id="confidentialview" class="panel-collapse collapse" role="tabpanel"
                    aria-labelledby="confidentialHeading">
                   <div class="panel-body">
                       {{dataset-confidential securitySpecification=securitySpecification
