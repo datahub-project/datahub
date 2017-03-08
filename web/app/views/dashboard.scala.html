@@ -22,6 +22,17 @@
                 </ul>
               </div>
             </div>
+            {{#if platforms}}
+            <div class="row platform-filter">
+              <span class="col-xs-1">Platforms:</span>
+
+              {{#each platforms as |platform|}}
+                {{#link-to "user" (query-params platform=platform) class="btn btn-default"}}
+                  {{capitalize platform}}
+                {{/link-to}}
+              {{/each}}
+            </div>
+            {{/if}}
             <ul id="dashboardtabs" class="nav nav-tabs">
               <li id="ownershippage">
                 <a id="ownershiplink" data-toggle="tab" href="#ownershiptab">Ownership</a>

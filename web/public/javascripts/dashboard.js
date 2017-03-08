@@ -3,6 +3,10 @@
 
         App = Ember.Application.create({rootElement: "#content"});
 
+      App.CapitalizeHelper = Ember.Helper.helper(function ([string]) {
+        return Ember.String.htmlSafe(string.capitalize());
+      });
+
         if (Ember.Debug && typeof Ember.Debug.registerDeprecationHandler === 'function') {
             Ember.Debug.registerDeprecationHandler(function(message, options, next) {
                 if (options && options.id && options.id == 'ember-routing.router-resource') {
