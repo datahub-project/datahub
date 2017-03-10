@@ -13,7 +13,6 @@
  */
 package dao;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 
@@ -27,9 +26,9 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import play.Logger;
-import play.Play;
 import play.libs.Json;
 import utils.Lineage;
+
 
 public class LineageDAO extends AbstractMySQLOpenSourceDAO
 {
@@ -278,7 +277,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 					{
 						if (target.partition_end != null)
 						{
-							if (target.partition_end == node.partition_end)
+							if (target.partition_end.equals(node.partition_end))
 							{
 								existNode = target;
 								break;
