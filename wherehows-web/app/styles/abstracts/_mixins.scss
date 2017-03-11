@@ -1,0 +1,38 @@
+/// Contains all application level Sass mixins
+
+/// Event wrapper
+/// @param {Bool} $self [false] - Whether or not to include current selector
+/// @link https://twitter.com/csswizardry/status/478938530342006784
+@mixin on-event($self: false) {
+  @if $self {
+    &,
+    &:hover,
+    &:active,
+    &:focus {
+      @content;
+    }
+  } @else {
+    &:hover,
+    &:active,
+    &:focus {
+      @content;
+    }
+  }
+}
+
+/// Make a context based selector a little more friendly
+/// @param {String} $context
+@mixin when-inside($context) {
+  #{$context} & {
+    @content;
+  }
+}
+
+/// Sets equal width and height properties, and 50% border radius
+/// @param {Size} $size width and height for the image
+@mixin round-image($size) {
+  width: $size;
+  height: $size;
+  max-width: 100%;
+  border-radius: 50%;
+}
