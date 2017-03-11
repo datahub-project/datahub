@@ -1,0 +1,9 @@
+/**
+ * Allow bootstrap dropdown items to be rendered when the mouse hovers over
+ * the .dropdown trigger
+ */
+@media (min-width: 979px) {
+  .dropdown:hover > .dropdown-menu {
+    display: block;
+  }
+}
