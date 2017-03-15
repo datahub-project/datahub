@@ -1,0 +1,17 @@
+apply plugin: 'license'
+
+ext.licenseFile = file('.license_header.txt')
+
+subprojects {
+  apply plugin: 'com.github.hierynomus.license'
+
+  license {
+    header licenseFile
+
+    exclude "**/*.scala.html"
+    exclude "**/jython/requests/**"
+    exclude "**/pyparsing.py"
+    excludes(["**/*.json", "**/*.avsc", "**/*.avro", "**/*.conf", "**/*.yaml", "**/*.xml"])
+    excludes(["**/*.txt", "**/*.csv", "**/*.md"])
+  }
+}
