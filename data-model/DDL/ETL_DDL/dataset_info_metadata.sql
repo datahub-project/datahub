@@ -110,8 +110,8 @@ CREATE TABLE `dataset_privacy_compliance` (
   `dataset_urn`               VARCHAR(200)     NOT NULL,
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
   COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
-  `compliance_purge_entities` VARCHAR(200)     DEFAULT NULL,
-  `modified_time`             INT(10) UNSIGNED DEFAULT NULL
+  `compliance_purge_entities` VARCHAR(2000)    DEFAULT NULL,
+  `modified_time`             INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
   UNIQUE KEY `dataset_urn` (`dataset_urn`)
@@ -130,7 +130,7 @@ CREATE TABLE `dataset_security` (
   COMMENT 'JSON: specification of retention',
   `geographic_affinity`       VARCHAR(200)     DEFAULT NULL
   COMMENT 'JSON: must be stored in the geo region',
-  `modified_time`             INT(10) UNSIGNED DEFAULT NULL
+  `modified_time`             INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
   UNIQUE KEY `dataset_urn` (`dataset_urn`)

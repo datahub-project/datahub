@@ -31,23 +31,23 @@ public class SchemaHistoryDAO extends AbstractMySQLOpenSourceDAO{
 
 	private final static String GET_PAGED_SCHEMA_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"DISTINCT dataset_id, urn, " +
-			"MAX(DATE_FORMAT(modified_date,'%Y-%m-%d')) as modified_date FROM dict_dataset_schema_history " +
-			"WHERE dataset_id is not null GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+			"DATE_FORMAT(MAX(modified_date), '%Y-%m-%d') as modified_date FROM dict_dataset_schema_history " +
+			"WHERE dataset_id is not null GROUP BY 1,2 ORDER BY urn LIMIT ?, ?";
 
 	private final static String GET_SPECIFIED_SCHEMA_DATASET  = "SELECT SQL_CALC_FOUND_ROWS " +
 			"DISTINCT dataset_id, urn, " +
-			"MAX(DATE_FORMAT(modified_date,'%Y-%m-%d')) as modified_date FROM dict_dataset_schema_history " +
-			"WHERE dataset_id = ? GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+			"DATE_FORMAT(MAX(modified_date), '%Y-%m-%d') as modified_date FROM dict_dataset_schema_history " +
+			"WHERE dataset_id = ? GROUP BY 1,2 ORDER BY urn LIMIT ?, ?";
 
 	private final static String GET_PAGED_SCHEMA_DATASET_WITH_FILTER  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"DISTINCT dataset_id, urn, DATE_FORMAT(modified_date,'%Y-%m-%d') as modified_date " +
+			"DISTINCT dataset_id, urn, DATE_FORMAT(MAX(modified_date), '%Y-%m-%d') as modified_date " +
 			"FROM dict_dataset_schema_history WHERE dataset_id is not null and urn LIKE ? " +
-            "GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+			"GROUP BY 1,2 ORDER BY urn LIMIT ?, ?";
 
 	private final static String GET_SPECIFIED_SCHEMA_DATASET_WITH_FILTER  = "SELECT SQL_CALC_FOUND_ROWS " +
-			"DISTINCT dataset_id, urn, DATE_FORMAT(modified_date,'%Y-%m-%d') as modified_date " +
+			"DISTINCT dataset_id, urn, DATE_FORMAT(MAX(modified_date), '%Y-%m-%d') as modified_date " +
 			"FROM dict_dataset_schema_history WHERE dataset_id = ? and urn LIKE ? " +
-			"GROUP BY 1 ORDER BY urn LIMIT ?, ?";
+			"GROUP BY 1,2 ORDER BY urn LIMIT ?, ?";
 
 	private final static String GET_SCHEMA_HISTORY_BY_DATASET_ID = "SELECT DATE_FORMAT(modified_date,'%Y-%m-%d') " +
             "as modified_date, `schema` FROM dict_dataset_schema_history WHERE dataset_id = ? ORDER BY 1";
