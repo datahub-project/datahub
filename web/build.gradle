@@ -19,9 +19,6 @@ configurations{
     //Libraries needed at compilation time but not to be
     //exported as part of the distribution
     provided
-
-    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    all*.exclude group: 'log4j', module: 'log4j'
 }
 
 dependencies{
@@ -39,6 +36,41 @@ dependencies{
     // playManaged files('target/scala-2.9.1/classes_managed')
 }
 
+configurations {
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j', module: 'log4j'
+}
+
+clean {
+    delete "lib/"
+}
+
+task copyPlayLibs(type: Copy){
+    from configurations.provided
+    into 'lib'
+}
+
+task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
+    commandLine playExec, 'compile'
+}
+
+task "playTest" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'test'
+}
+
+task "playCoverage" (type: Exec) {
+    commandLine playExec, 'jacoco:cover'
+}
+
+task "playClean" (type: Exec) {
+    commandLine playExec, 'clean'
+}
+
+sourceSets.main{
+    java.srcDir 'app'
+    compileClasspath += configurations.provided
+}
+
 // optional: if using 'idea' plugin
 idea {
     module{
@@ -47,47 +79,20 @@ idea {
     }
 }
 
-task copyPlayLibs(type: Copy){
-    from configurations.provided
-    into 'lib'
-}
-
-task compileJava (overwrite: true, type: Exec, dependsOn: copyPlayLibs) {
-    commandLine playExec, 'compile'
-}
-
-task test (overwrite: true, type: Exec, dependsOn: compileJava) {
-    commandLine playExec, 'jacoco:cover'
-}
-
-jacocoTestReport {
-    dependsOn "test"
-    sourceDirectories = files("src/main/java")
-    classDirectories = files("target/scala-2.10/classes")
-    executionData = files("target/scala-2.10/jacoco/jacoco.exec")
-}
-
-sourceSets.main{
-    java.srcDir 'app'
-    compileClasspath += configurations.provided
-}
-
 // delegate gradle java task to play command
 
-task clean (overwrite: true, type: Exec) {
-    delete "lib/"
-    delete "build/"
-    commandLine playExec, 'clean'
-}
-
-task "build" (type: Exec, dependsOn: clean, overwrite: true) {
+task "build" (type: Exec, dependsOn: playClean, overwrite: true) {
     commandLine playExec, 'stage'
 }
 
-task "assemble" (type: Exec, dependsOn: clean, overwrite: true) {
+task "assemble" (type: Exec, dependsOn: playClean, overwrite: true) {
     commandLine playExec, 'stage'
 }
 
 task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
+}
+
+task "check" (overwrite: true) {
+  // skip gradle check of this repository
 }
