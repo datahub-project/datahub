@@ -45,11 +45,8 @@ dependencies{
     provided project(":metadata-etl")
 }
 
-// optional: if using 'idea' plugin
-idea {
-    module{
-        scopes.PROVIDED.plus += [configurations.provided]
-    }
+clean {
+    delete "lib/"
 }
 
 task copyPlayLibs(type: Copy){
@@ -57,19 +54,20 @@ task copyPlayLibs(type: Copy){
     into 'lib'
 }
 
-task compileJava (overwrite: true, type: Exec, dependsOn: copyPlayLibs) {
+task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
     commandLine playExec, 'compile'
 }
 
-task test (overwrite: true, type: Exec, dependsOn: compileJava) {
-    commandLine playExec, 'jacoco:cover'
+task "playTest" (type: Exec, dependsOn: playCompile) {
+    commandLine playExec, 'test'
 }
 
-jacocoTestReport {
-    dependsOn "test"
-    sourceDirectories = files("src/main/java")
-    classDirectories = files("target/scala-2.10/classes")
-    executionData = files("target/scala-2.10/jacoco/jacoco.exec")
+task "playClean" (type: Exec) {
+    commandLine playExec, 'clean'
+}
+
+task "playCoverage" (type: Exec) {
+    commandLine playExec, 'jacoco:cover'
 }
 
 sourceSets.main{
@@ -77,21 +75,20 @@ sourceSets.main{
     compileClasspath += configurations.provided
 }
 
-task clean (overwrite: true, type: Exec) {
-    delete "lib/"
-    commandLine playExec, 'clean'
+// optional: if using 'idea' plugin
+idea {
+    module{
+        scopes.PROVIDED.plus += [configurations.provided]
+    }
 }
 
-task "build" (type: Exec, dependsOn: clean, overwrite: true) {
+task "build" (type: Exec, dependsOn: [playClean, playCompile], overwrite: true) {
     commandLine playExec, 'stage'
 }
 
-task "assemble" (type: Exec, dependsOn: clean, overwrite: true) {
-    commandLine playExec, 'stage'
-}
-
-task "dist" (type: Exec, dependsOn: copyPlayLibs, overwrite: true) {
+task "dist" (type: Exec, overwrite: true) {
     commandLine playExec, 'dist'
 }
 
-
+task "check" (overwrite: true) {
+}
