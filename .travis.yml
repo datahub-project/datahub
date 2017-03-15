@@ -42,3 +42,6 @@ before_script:
   - mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'travis'@'localhost'"
   - cd data-model/DDL; mysql -u root -D wherehows < create_all_tables_wrapper.sql; cd ../..
   - sleep 5
+
+after_success:
+- ./gradlew jacocoFullReport coveralls
