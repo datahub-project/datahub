@@ -32,7 +32,7 @@ class DatasetTreeBuilder:
     conn_mysql = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
     cur = conn_mysql.cursor()
     try:
-      query = "select distinct id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p from dict_dataset order by urn"
+      query = "select distinct id, concat(SUBSTRING_INDEX(urn, ':///', 1), '/', SUBSTRING_INDEX(urn, ':///', -1)) p from dict_dataset order by 2"
       cur.execute(query)
       datasets = cur.fetchall()
       self.dataset_dict = dict()

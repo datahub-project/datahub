@@ -335,18 +335,18 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"FROM cfg_object_name_map WHERE mapped_object_name = ?";
 
 	private final static String GET_DATASET_LISTVIEW_TOP_LEVEL_NODES = "SELECT DISTINCT " +
-			"SUBSTRING_INDEX(urn, ':///', 1) as name, 0 as id, " +
-			"concat(SUBSTRING_INDEX(urn, ':///', 1), ':///') as urn FROM dict_dataset order by 1";
+			"SUBSTRING_INDEX(urn, ':///', 1) as `name`, 0 as id, " +
+			"LEFT(urn, INSTR(urn, ':///') + 3) as urn FROM dict_dataset order by 1";
 
-	private final static String GET_DATASET_LISTVIEW_NODES_BY_URN = "SELECT distinct " +
-			"SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1) as name, " +
+	private final static String GET_DATASET_LISTVIEW_NODES_BY_URN = "SELECT DISTINCT " +
+			"SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1) as `name`, " +
 			"concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) as urn, " +
 			"s.id FROM dict_dataset d LEFT JOIN dict_dataset s " +
 			"ON s.urn = concat(?, SUBSTRING_INDEX(SUBSTRING_INDEX(d.urn, ?, -1), '/', 1)) " +
-			"WHERE d.urn LIKE ? ORDER BY d.urn";
+			"WHERE d.urn LIKE ? ORDER BY 2";
 
-	private final static String GET_DATASET_VERSIONS = "SELECT DISTINCT version " +
-			"FROM dict_dataset_instance WHERE dataset_id = ? and version != '0' ORDER BY version_sort_id DESC";
+	private final static String GET_DATASET_VERSIONS = "SELECT DISTINCT `version` " +
+			"FROM dict_dataset_instance WHERE dataset_id = ? and `version` != '0' ORDER BY 1 DESC";
 
 	private final static String GET_DATASET_NATIVE_NAME = "SELECT native_name " +
 			"FROM dict_dataset_instance WHERE dataset_id = ? ORDER BY version_sort_id DESC limit 1";
@@ -1991,7 +1991,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			node.datasetId = (Long) row.get(DatasetWithUserRowMapper.DATASET_ID_COLUMN);
 			node.nodeName = (String) row.get(DatasetWithUserRowMapper.DATASET_NAME_COLUMN);
 			String nodeUrn = (String) row.get(DatasetWithUserRowMapper.DATASET_URN_COLUMN);
-			if (node.datasetId !=null && node.datasetId > 0)
+			if (node.datasetId != null && node.datasetId > 0)
 			{
 				node.nodeUrl = "#/datasets/" + node.datasetId;
 			}
