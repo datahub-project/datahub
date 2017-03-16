@@ -71,6 +71,15 @@ subprojects {
       name "confluent-maven-release"
       url 'http://packages.confluent.io/maven/'
     }
+    ivy {
+      url 'http://artifactory.corp.linkedin.com:8081/artifactory/repo'
+      layout 'pattern', {
+        ivy '[organisation]/[module]/[revision]/[module]-[revision].ivy'
+        artifact '[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]'
+        m2compatible = true
+      }
+    }
+    mavenLocal()
   }
 
   task excludegroup(type: Test) {

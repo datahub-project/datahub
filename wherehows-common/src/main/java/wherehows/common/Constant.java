@@ -248,4 +248,7 @@ public class Constant {
   public static final String ESPRESSO_OUTPUT_KEY = "espresso.metadata";
   public static final String VOLDEMORT_OUTPUT_KEY = "voldemort.metadata";
   public static final String KAFKA_OUTPUT_KEY = "kafka.metadata";
+
+  // metadata-store restli server
+  public static final String WH_RESTLI_SERVER_URL = "wherehows.restli.server.url";
 }
