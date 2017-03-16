@@ -25,12 +25,6 @@ dependencies {
   compile 'com.linkedin.pegasus:restli-client:6.0.12'
   compile 'com.linkedin.pegasus:r2-netty:6.0.12'
   // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'dataTemplate'
-  compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'dataTemplate'
-  compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'restClient'
-}
-
-task startRestLiClient(type: JavaExec) {
-  main = 'com.oracle.RestLiDatasetClient'
-  // jvmArgs = ["-Xdebug", "-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005"] // uncomment to enable remote debugging on port 5005
-  classpath = sourceSets.main.runtimeClasspath
+  // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'restClient'
+  compile fileTree(dir: 'extralibs', include: ['*.jar']) // externalDependency.oracle/teradata/gsp
 }

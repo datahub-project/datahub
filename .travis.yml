@@ -18,6 +18,7 @@ before_install:
   # extralibs
   - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
   - mkdir -p metadata-etl/extralibs; unzip extralibs.zip -d metadata-etl/extralibs
+  - mkdir -p restli-client/extralibs; unzip extralibs.zip -d restli-client/extralibs
 
 cache:
   directories:
@@ -42,3 +43,6 @@ before_script:
   - mysql -u root -e "GRANT ALL PRIVILEGES ON *.* TO 'travis'@'localhost'"
   - cd data-model/DDL; mysql -u root -D wherehows < create_all_tables_wrapper.sql; cd ../..
   - sleep 5
+
+after_success:
+- ./gradlew jacocoFullReport coveralls
