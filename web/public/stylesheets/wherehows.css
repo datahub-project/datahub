@@ -616,4 +616,19 @@ ul.breadcrumbs a {
 
 .search-feedback .btn {
   margin-left: 5px;
+
+}
+
+.platform-filter {
+    margin-bottom: 5px;
+}
+
+.platform-filter .btn {
+    margin-left: 5px;
+}
+
+.platform-filter .btn.active {
+    color: #fff;
+    background-color: #337ab7;
+    border-color: #2e6da4;
 }

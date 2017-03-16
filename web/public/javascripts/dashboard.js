@@ -3,6 +3,10 @@
 
         App = Ember.Application.create({rootElement: "#content"});
 
+      App.CapitalizeHelper = Ember.Helper.helper(function ([string]) {
+        return Ember.String.htmlSafe(string.capitalize());
+      });
+
         if (Ember.Debug && typeof Ember.Debug.registerDeprecationHandler === 'function') {
             Ember.Debug.registerDeprecationHandler(function(message, options, next) {
                 if (options && options.id && options.id == 'ember-routing.router-resource') {
@@ -20,7 +24,7 @@
 
         App.IndexRoute = Ember.Route.extend({
             redirect: function() {
-                this.transitionTo('user', "jweiner");
+              this.transitionTo('user', 'jweiner', {queryParams: {platform: 'espresso'}});
             }
         });
 
@@ -197,63 +201,45 @@
             $('#dashboardtabs a:first').tab("show");
         }
 
-        function refreshCfDatasets(user, page, size)
-        {
-            if (!user)
-                return;
+      function refreshCfDatasets(user, page = 1, size = 10, {platform} = {}) {
+        if (user) {
+          const platformQuery = platform ? `&platform=${platform}` : '';
+          const datasetsUrl = `/api/v1/metadata/dataset/confidential/${user}?page=${page}&size=${size}${platformQuery}`;
 
-            if (!page)
-                page = 1;
-            if (!size)
-                size = 10;
-            var datasetsUrl = '/api/v1/metadata/dataset/confidential/' + user + '?page=' + page + '&size=' + size;
-            $.get(datasetsUrl, function(data) {
+          $.get(datasetsUrl, function (data) {
                 if (data && data.status == "ok") {
-                    var currentPage = data.page;
-                    var totalPage = data.totalPages;
-                    if (currentPage == 1)
-                    {
-                        jiraController.set('cfFirst', true);
-                    }
-                    else
-                    {
-                        jiraController.set('cfFirst', false);
-                    }
-                    if (currentPage == totalPage)
-                    {
-                        jiraController.set('cfLast', true);
-                    }
-                    else
-                    {
-                        jiraController.set('cfLast', false);
-                    }
-                    jiraController.set('confidentialFieldsDatasets', data);
-                    jiraController.set('currentCfPage', data.page);
-                    if (data.datasets && data.datasets.length > 0)
-                    {
-                        jiraController.set('userNoConfidentialFields', false);
-                    }
-                    else
-                    {
-                        jiraController.set('userNoConfidentialFields', true);
-                    }
+                  var currentPage = data.page;
+                  var totalPage = data.totalPages;
+                  if (currentPage == 1) {
+                    jiraController.set('cfFirst', true);
+                  } else {
+                    jiraController.set('cfFirst', false);
+                  }
+                  if (currentPage == totalPage) {
+                    jiraController.set('cfLast', true);
+                  } else {
+                    jiraController.set('cfLast', false);
+                  }
+                  jiraController.set('confidentialFieldsDatasets', data);
+                  jiraController.set('currentCfPage', data.page);
+                  if (data.datasets && data.datasets.length > 0) {
+                    jiraController.set('userNoConfidentialFields', false);
+                  } else {
+                    jiraController.set('userNoConfidentialFields', true);
+                  }
                 }
-            });
+          });
         }
+      }
 
-        function refreshOwnerDatasets(user, option, page, size, refresh)
-        {
-            if (!user)
-                return;
+      function refreshOwnerDatasets(user, option, page = 1, size = 10, refresh, {platform} = {}) {
+        if (user) {
+          const platformQuery = platform ? `&platform=${platform}` : '';
+          const optionQuery = option ? `&option=${option}` : '';
+          const baseUrl = '/api/v1/metadata/dataset/ownership';
+          const datasetsUrl = `${baseUrl}/${user}?page=${page}&size=${size}${optionQuery}${platformQuery}`;
 
-            if (!page)
-                page = 1;
-            if (!size)
-                size = 10;
-
-            jiraController.set('ownerInProgress', true);
-            var datasetsUrl = '/api/v1/metadata/dataset/ownership/' + user + '?page=' +
-                page + '&size=' + size + '&option=' + option;
+          jiraController.set('ownerInProgress', true);
 
             $.get(datasetsUrl, function(data) {
                 jiraController.set('ownerInProgress', false);
@@ -292,69 +278,55 @@
                 }
             });
 
-            if (refresh)
-            {
-                var barDataUrl = '/api/v1/metadata/barchart/ownership/' + user + '?option=' + option;
-                $.get(barDataUrl, function(data) {
-                    if (data && data.status == "ok") {
-                        if (data.barData && data.barData.length > 0)
-                        {
-                            renderBarChart(('#ownerBarchart'), data.barData, option);
-                        }
-                    }
-                });
-            }
-        }
-
-        function refreshDescDatasets(user, option, page, size, refresh)
-        {
-            if (!user)
-                return;
-
-            if (!page)
-                page = 1;
-            if (!size)
-                size = 10;
-            jiraController.set('descInProgress', true);
-            var datasetsUrl = '/api/v1/metadata/dataset/description/' + user + '?page=' +
-                page + '&size=' + size + '&option=' + option;
-            $.get(datasetsUrl, function(data) {
-                jiraController.set('descInProgress', false);
-                if (data && data.status == "ok") {
-                    var currentPage = data.page;
-                    var totalPage = data.totalPages;
-                    if (currentPage == 1)
-                    {
-                        jiraController.set('descFirst', true);
-                    }
-                    else
-                    {
-                        jiraController.set('descFirst', false);
-                    }
-                    if (currentPage == totalPage)
-                    {
-                        jiraController.set('descLast', true);
-                    }
-                    else
-                    {
-                        jiraController.set('descLast', false);
-                    }
-                    jiraController.set('descriptionDatasets', data);
-                    jiraController.set('currentDescPage', data.page);
-                    if (data.datasets && data.datasets.length > 0)
-                    {
-                        if (refresh)
-                        {
-                            renderPie("pie", descriptionOptions[option-1].value, data.count);
-                        }
-                        jiraController.set('userNoDescriptionFields', false);
-                    }
-                    else
-                    {
-                        jiraController.set('userNoDescriptionFields', true);
-                    }
+          if (refresh) {
+            var barDataUrl = '/api/v1/metadata/barchart/ownership/' + user + '?option=' + option;
+            $.get(barDataUrl, function (data) {
+              if (data && data.status == "ok") {
+                if (data.barData && data.barData.length > 0) {
+                  renderBarChart(('#ownerBarchart'), data.barData, option);
                 }
+              }
             });
+          }
+        }
+      }
+
+      function refreshDescDatasets(user, option, page = 1, size = 10, refresh, {platform} = {}) {
+        if (user) {
+          const platformQuery = platform ? `&platform=${platform}` : '';
+          const optionQuery = option ? `&option=${option}` : '';
+          const datasetsUrl = `/api/v1/metadata/dataset/confidential/${user}?page=${page}&size=${size}${optionQuery}${platformQuery}`;
+
+          jiraController.set('descInProgress', true);
+
+          $.get(datasetsUrl, function (data) {
+            jiraController.set('descInProgress', false);
+            if (data && data.status == "ok") {
+              var currentPage = data.page;
+              var totalPage = data.totalPages;
+              if (currentPage == 1) {
+                jiraController.set('descFirst', true);
+              } else {
+                jiraController.set('descFirst', false);
+              }
+              if (currentPage == totalPage) {
+                jiraController.set('descLast', true);
+              } else {
+                jiraController.set('descLast', false);
+              }
+              jiraController.set('descriptionDatasets', data);
+              jiraController.set('currentDescPage', data.page);
+              if (data.datasets && data.datasets.length > 0) {
+                if (refresh) {
+                  renderPie("pie", descriptionOptions[option - 1].value, data.count);
+                }
+                jiraController.set('userNoDescriptionFields', false);
+              } else {
+                jiraController.set('userNoDescriptionFields', true);
+              }
+            }
+          });
+
             /*
             if (refresh)
             {
@@ -370,76 +342,65 @@
             }
             */
         }
+      }
 
-        function refreshIdpcDatasets(user, option, page, size, refresh)
-        {
-            if (!user)
-                return;
+      function refreshIdpcDatasets(user, option, page = 1, size = 10, refresh, {platform} = {}) {
+        if (user) {
+          const platformQuery = platform ? `&platform=${platform}` : '';
+          const optionQuery = option ? `&option=${option}` : '';
+          const baseUrl = '/api/v1/metadata/dataset/compliance';
+          const datasetsUrl = `${baseUrl}/${user}?page=${page}&size=${size}${optionQuery}${platformQuery}`;
 
-            if (!page)
-                page = 1;
-            if (!size)
-                size = 10;
+          jiraController.set('idpcInProgress', true);
 
-            jiraController.set('idpcInProgress', true);
-            var datasetsUrl = '/api/v1/metadata/dataset/compliance/' + user + '?page=' +
-                page + '&size=' + size + '&option=' + option;
-            Promise.resolve($.get(datasetsUrl, function(data) {
+          Promise.resolve($.get(datasetsUrl, function (data) {
                 jiraController.set('idpcInProgress', false);
                 if (data && data.status == "ok") {
-                    var currentPage = data.page;
-                    var totalPage = data.totalPages;
-                    if (currentPage == 1)
-                    {
-                        jiraController.set('idpcFirst', true);
-                    }
-                    else
-                    {
-                        jiraController.set('idpcFirst', false);
-                    }
-                    if (currentPage == totalPage)
-                    {
-                        jiraController.set('idpcLast', true);
-                    }
-                    else
-                    {
-                        jiraController.set('idpcLast', false);
-                    }
-                    jiraController.set('complianceDatasets', data);
-                    jiraController.set('currentIdpcPage', data.page);
-                    if (data.datasets && data.datasets.length > 0)
-                    {
-                        /*
-                        if (refresh)
-                        {
-                            renderPie("pie", descriptionOptions[option-1].value, data.count);
-                        }
-                        */
-                        jiraController.set('userNoComplianceFields', false);
-                    }
-                    else
-                    {
-                        jiraController.set('userNoComplianceFields', true);
-                    }
+                  var currentPage = data.page;
+                  var totalPage = data.totalPages;
+                  if (currentPage == 1) {
+                    jiraController.set('idpcFirst', true);
+                  } else {
+                    jiraController.set('idpcFirst', false);
+                  }
+                  if (currentPage == totalPage) {
+                    jiraController.set('idpcLast', true);
+                  } else {
+                    jiraController.set('idpcLast', false);
+                  }
+                  jiraController.set('complianceDatasets', data);
+                  jiraController.set('currentIdpcPage', data.page);
+                  if (data.datasets && data.datasets.length > 0) {
+                      /*
+                       if (refresh)
+                       {
+                       renderPie("pie", descriptionOptions[option-1].value, data.count);
+                       }
+                       */
+                    jiraController.set('userNoComplianceFields', false);
+                  } else {
+                    jiraController.set('userNoComplianceFields', true);
+                  }
                 }
-            })).catch(function () {
+          })).catch(function () {
                 jiraController.set('idpcInProgress', false);
-            });
+          });
             /*
-            if (refresh)
-            {
-                var barDataUrl = '/api/v1/metadata/barchart/description/' + user + '?option=' + option;
-                $.get(barDataUrl, function(data) {
-                    if (data && data.status == "ok") {
-                        if (data.barData && data.barData.length > 0)
-                        {
-                            renderBarChart(('#barchart'), data.barData, option);
-                        }
-                    }
-                });
-            }
-            */
+             if (refresh)
+             {
+             var barDataUrl = '/api/v1/metadata/barchart/description/' + user + '?option=' + option;
+             $.get(barDataUrl, function(data) {
+             if (data && data.status == "ok") {
+             if (data.barData && data.barData.length > 0)
+             {
+             renderBarChart(('#barchart'), data.barData, option);
+             }
+             }
+             });
+             }
+             */
         }
+      }
 
         var jiraController = null;
         var hierarchy = '/jweiner';
@@ -491,11 +452,28 @@
         });
 
         App.UserRoute = Ember.Route.extend({
-            setupController: function(controller, params) {
-                if (params && params.user)
-                {
-                    jiraController.set('ownerInProgress', true);
-                    var ownershipUrl = 'api/v1/metadata/dashboard/ownership/' + params.user;
+          queryParams: {
+            platform: {
+              refreshModel: true
+            }
+          },
+
+          setupController: function (controller, {user, platform}) {
+            const metadataTypes = ['ownership', 'confidential', 'description', 'compliance'];
+            const platformQuery = platform ? `?platform=${platform}` : '';
+            const metadataUrlFor = type => metadataTypes.includes(type) ?
+              `api/v1/metadata/dashboard/${type}/${user}${platformQuery}` :
+              null;
+
+            if (user) {
+              const [
+                ownershipUrl,
+                confidentialUrl,
+                descriptionUrl,
+                complianceUrl
+              ] = metadataTypes.map(metadataUrlFor);
+
+              jiraController.set('ownerInProgress', true);
                     $.get(ownershipUrl, function(data) {
                         jiraController.set('ownerInProgress', false);
                         if (data && data.status == "ok") {
@@ -524,17 +502,16 @@
                             var obj = $('#ownerShowOption');
                             if (obj)
                             {
-                                refreshOwnerDatasets(params.user, obj.val(), 1, 10, true);
+                              refreshOwnerDatasets(user, obj.val(), 1, 10, true, {platform});
                             }
                             else
                             {
-                                refreshOwnerDatasets(params.user, 1, 1, 10, true);
+                              refreshOwnerDatasets(user, 1, 1, 10, true, {platform});
                             }
                         }
                     });
 
                     jiraController.set('cfInProgress', true);
-                    var confidentialUrl = 'api/v1/metadata/dashboard/confidential/' + params.user;
                     $.get(confidentialUrl, function(data) {
                         jiraController.set('cfInProgress', false);
                         if (data && data.status == "ok") {
@@ -560,12 +537,11 @@
                             }
                             jiraController.set('breadcrumbs', breadcrumbs);
 
-                            refreshCfDatasets(params.user, 1, 10);
+                          refreshCfDatasets(user, 1, 10, {platform});
                         }
                     });
 
                     jiraController.set('descInProgress', true);
-                    var descriptionUrl = 'api/v1/metadata/dashboard/description/' + params.user;
                     $.get(descriptionUrl, function(data) {
                         jiraController.set('descInProgress', false);
                         if (data && data.status == "ok") {
@@ -594,17 +570,16 @@
                             var obj = $('#descShowOption');
                             if (obj)
                             {
-                                refreshDescDatasets(params.user, obj.val(), 1, 10, true);
+                              refreshDescDatasets(user, obj.val(), 1, 10, true, {platform});
                             }
                             else
                             {
-                                refreshDescDatasets(params.user, 1, 1, 10, true);
+                              refreshDescDatasets(user, 1, 1, 10, true, {platform});
                             }
                         }
                     });
 
                     jiraController.set('idpcInProgress', true);
-                    var complianceUrl = 'api/v1/metadata/dashboard/compliance/' + params.user;
                     $.get(complianceUrl, function(data) {
                         jiraController.set('idpcInProgress', false);
                         if (data && data.status == "ok") {
@@ -633,11 +608,11 @@
                             var obj = $('#idpcShowOption');
                             if (obj)
                             {
-                                refreshIdpcDatasets(params.user, obj.val(), 1, 10, true);
+                              refreshIdpcDatasets(user, obj.val(), 1, 10, true, {platform});
                             }
                             else
                             {
-                                refreshIdpcDatasets(params.user, idpcOptions[0].value, 1, 10, true);
+                              refreshIdpcDatasets(user, idpcOptions[0].value, 1, 10, true, {platform});
                             }
                         }
                     });
@@ -650,118 +625,169 @@
             cfLast: false,
             descFirst: false,
             descLast: false,
+          platforms: [
+            'espresso',
+            'oracle',
+            'kafka'
+          ],
+
+          user: Ember.inject.controller(),
+
             actions: {
                 prevOwnerPage: function() {
-                    var cfInfo = this.get("ownershipDatasets");
-                    var user = this.get("currentOwnershipUser");
+                  const {
+                    'user.platform': platform,
+                    ownershipDatasets: cfInfo,
+                    currentOwnershipUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'ownershipDatasets', 'currentOwnershipUser');
+
                     if (cfInfo && user) {
                         var currentPage = parseInt(cfInfo.page) - 1;
                         if (currentPage > 0) {
-                            refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false);
+                          refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false, {platform});
                         }
                     }
                 },
                 nextOwnerPage: function() {
-                    var cfInfo = this.get("ownershipDatasets");
-                    var user = this.get("currentOwnershipUser");
+                  const {
+                    'user.platform': platform,
+                    ownershipDatasets: cfInfo,
+                    currentOwnershipUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'ownershipDatasets', 'currentOwnershipUser');
+
                     if (cfInfo && user) {
                         var currentPage = parseInt(cfInfo.page) + 1;
                         var totalPages = cfInfo.totalPages;
                         if (currentPage <= totalPages) {
-                            refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false);
+                          refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), currentPage, 10, false, {platform});
                         }
 
                     }
                 },
                 prevCfPage: function() {
-                    var cfInfo = this.get("confidentialFieldsDatasets");
-                    var user = this.get("currentConfidentialFieldsUser");
+                  const {
+                    'user.platform': platform,
+                    confidentialFieldsDatasets: cfInfo,
+                    currentConfidentialFieldsUser: user
+                  } = Ember.getProperties(
+                    this, 'user.platform', 'confidentialFieldsDatasets', 'currentConfidentialFieldsUser'
+                  );
+
                     if (cfInfo && user) {
                         var currentPage = parseInt(cfInfo.page) - 1;
                         if (currentPage > 0) {
-                            refreshCfDatasets(user.userName, currentPage, 10);
+                          refreshCfDatasets(user.userName, currentPage, 10, {platform});
                         }
                     }
                 },
                 nextCfPage: function() {
-                    var cfInfo = this.get("confidentialFieldsDatasets");
-                    var user = this.get("currentConfidentialFieldsUser");
+                  const {
+                    'user.platform': platform,
+                    confidentialFieldsDatasets: cfInfo,
+                    currentConfidentialFieldsUser: user
+                  } = Ember.getProperties(
+                    this, 'user.platform', 'confidentialFieldsDatasets', 'currentConfidentialFieldsUser'
+                  );
                     if (cfInfo && user) {
                         var currentPage = parseInt(cfInfo.page) + 1;
                         var totalPages = cfInfo.totalPages;
                         if (currentPage <= totalPages) {
-                            refreshCfDatasets(user.userName, currentPage, 10);
+                          refreshCfDatasets(user.userName, currentPage, 10, {platform});
                         }
-
                     }
                 },
                 prevDescPage: function() {
-                    var descInfo = this.get("descriptionDatasets");
-                    var user = this.get("currentDescriptionUser");
+                  const {
+                    'user.platform': platform,
+                    descriptionDatasets: descInfo,
+                    currentDescriptionUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'descriptionDatasets', 'currentDescriptionUser');
+
                     if (descInfo && user) {
                         var currentPage = parseInt(descInfo.page) - 1;
                         if (currentPage > 0) {
-                            refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10, false);
+                          refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10, false, {platform});
                         }
                     }
                 },
                 nextDescPage: function() {
-                    var descInfo = this.get("descriptionDatasets");
-                    var user = this.get("currentDescriptionUser");
+                  const {
+                    'user.platform': platform,
+                    descriptionDatasets: descInfo,
+                    currentDescriptionUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'descriptionDatasets', 'currentDescriptionUser');
+
                     if (descInfo && user) {
                         var currentPage = parseInt(descInfo.page) + 1;
                         var totalPages = descInfo.totalPages;
                         if (currentPage <= totalPages) {
-                            refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10, false);
+                          refreshDescDatasets(user.userName, $('#descShowOption').val(), currentPage, 10, false, {platform});
                         }
-
                     }
                 },
                 prevIdpcPage: function() {
-                    var idpcInfo = this.get("complianceDatasets");
-                    var user = this.get("currentComplianceUser");
+                  const {
+                    'user.platform': platform,
+                    complianceDatasets: idpcInfo,
+                    currentComplianceUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'complianceDatasets', 'currentComplianceUser');
+
+
                     if (idpcInfo && user) {
                         var currentPage = parseInt(idpcInfo.page) - 1;
                         if (currentPage > 0) {
-                            refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false);
+                          refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false, {platform});
                         }
                     }
                 },
                 nextIdpcPage: function() {
-                    var idpcInfo = this.get("complianceDatasets");
-                    var user = this.get("currentComplianceUser");
+                  const {
+                    'user.platform': platform,
+                    complianceDatasets: idpcInfo,
+                    currentComplianceUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'complianceDatasets', 'currentComplianceUser');
+
                     if (idpcInfo && user) {
                         var currentPage = parseInt(idpcInfo.page) + 1;
                         var totalPages = idpcInfo.totalPages;
                         if (currentPage <= totalPages) {
-                            refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false);
+                          refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), currentPage, 10, false, {platform});
                         }
-
                     }
                 },
                 optionChanged: function() {
-                    var user = this.get("currentDescriptionUser");
-                    if (user)
-                    {
-                        refreshDescDatasets(user.userName, $('#descShowOption').val(), 1, 10, true);
-                    }
+                  const {
+                    'user.platform': platform,
+                    currentDescriptionUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'currentDescriptionUser');
+
+                  if (user) {
+                    refreshDescDatasets(user.userName, $('#descShowOption').val(), 1, 10, true, {platform});
+                  }
                 },
+
                 ownerOptionChanged: function() {
-                    var user = this.get("currentOwnershipUser");
-                    if (user)
-                    {
-                        refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), 1, 10, false);
-                    }
+                  const {
+                    'user.platform': platform,
+                    currentOwnershipUser: user
+                  } = Ember.getProperties(this, 'user.platform', 'currentOwnershipUser');
+
+                  if (user) {
+                    refreshOwnerDatasets(user.userName, $('#ownerShowOption').val(), 1, 10, false, {platform});
+                  }
                 },
-                idpcOptionChanged: function() {
-                    var user = this.get("currentComplianceUser");
-                    if (user)
-                    {
-                        refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), 1, 10, true);
-                    }
+
+              idpcOptionChanged: function () {
+                const {
+                  platform,
+                  currentOwnershipUser: user
+                } = Ember.getProperties(this, 'user.platform', 'currentComplianceUser');
+
+                if (user) {
+                  refreshIdpcDatasets(user.userName, $('#idpcShowOption').val(), 1, 10, true, {platform});
                 }
+              }
             }
         });
     });
-
 })(jQuery)

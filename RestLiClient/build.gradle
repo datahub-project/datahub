@@ -24,7 +24,7 @@ repositories {
 dependencies {
   compile 'com.linkedin.pegasus:restli-client:6.0.12'
   compile 'com.linkedin.pegasus:r2-netty:6.0.12'
-  // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.15', configuration:'dataTemplate'
+  // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'dataTemplate'
   compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'dataTemplate'
   compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'restClient'
 }

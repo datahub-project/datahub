@@ -226,6 +226,9 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		{
 			queryNode.set("query", searchNode);
 		}
+
+		Logger.info(" === AdvSearchDAO::elasticSearch === The query sent to Elastic Search is: " + queryNode.toString());
+
 		Promise<WSResponse> responsePromise = WS.url(
 				Play.application().configuration().getString(
 						SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
@@ -297,6 +300,8 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		{
 			queryNode.set("query", searchNode);
 		}
+
+		Logger.info(" === AdvSearchDAO::elasticSearchMetric === The query sent to Elastic Search is: " + queryNode.toString());
 
 		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 				SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
@@ -383,6 +388,8 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 		{
 			queryNode.set("query", searchNode);
 		}
+
+		Logger.info(" === AdvSearchDAO::elasticSearchFlowJobs === The query sent to Elastic Search is: " + queryNode.toString());
 
 		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
 				SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
