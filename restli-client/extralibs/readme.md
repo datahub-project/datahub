@@ -1,8 +1,5 @@
-Please get the extra library files from linkedin artifactory:
-metadata-store-api-rest-client-0.1.26.jar
-metadata-store-api-data-template-0.1.26.jar
-models-data-template-16.0.4.jar
-resource-identity-urn-3.0.5.jar
+Please get the extra library files, which may not be available in Maven/TypeSafe repository or Artifactory, and put them here. For example:
 
-
-
+* https://downloads.teradata.com/download/connectivity/jdbc-driver
+* http://download.oracle.com/otn/utilities_drivers/jdbc/121010/ojdbc7.jar
+* http://download.oracle.com/otn/utilities_drivers/jdbc/121010/orai18n.jar
