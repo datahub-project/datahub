@@ -15,7 +15,7 @@
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-import sys, os, datetime
+import sys, datetime
 
 
 class OracleLoad:
@@ -159,24 +159,25 @@ class OracleLoad:
 
         analyze table {field_comments};
 
+        -- update stg_dict_field_detail dataset_id
+        update stg_dict_field_detail sf, dict_dataset d
+        set sf.dataset_id = d.id where sf.urn = d.urn
+        and sf.db_id = {db_id};
+        delete from stg_dict_field_detail
+        where db_id = {db_id} and dataset_id is null;  -- remove if not match to dataset
+
         -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
-        create temporary table if not exists t_deleted_fields (primary key (field_id))
-          select x.field_id
-            from stg_dict_field_detail s
-              join {dict_dataset} i
-                on s.urn = i.urn
-                and s.db_id = {db_id}
-              right join {dict_field_detail} x
-                on i.id = x.dataset_id
-                and s.field_name = x.field_name
-                and s.parent_path = x.parent_path
-          where s.field_name is null
-            and x.dataset_id in (
-                       select d.id dataset_id
-                       from stg_dict_field_detail k join {dict_dataset} d
-                         on k.urn = d.urn
-                        and k.db_id = {db_id}
-            )
+        create temporary table if not exists t_deleted_fields (primary key (field_id)) ENGINE=MyISAM
+          SELECT x.field_id
+          FROM (select dataset_id, field_name, parent_path from stg_dict_field_detail where db_id = {db_id}) s
+          RIGHT JOIN
+            ( select dataset_id, field_id, field_name, parent_path from dict_field_detail
+              where dataset_id in (select dataset_id from stg_dict_field_detail where db_id = {db_id})
+            ) x
+            ON s.dataset_id = x.dataset_id
+            AND s.field_name = x.field_name
+            AND s.parent_path = x.parent_path
+          WHERE s.field_name is null
         ; -- run time : ~2min
 
         delete from {dict_field_detail} where field_id in (select field_id from t_deleted_fields);
@@ -186,12 +187,10 @@ class OracleLoad:
         (
           select x.field_id, s.*
           from stg_dict_field_detail s
-          join {dict_dataset} d
-            on s.urn = d.urn
           join {dict_field_detail} x
             on s.field_name = x.field_name
             and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-            and d.id = x.dataset_id
+            and s.dataset_id = x.dataset_id
           where s.db_id = {db_id}
             and (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
@@ -224,12 +223,11 @@ class OracleLoad:
           field_name, namespace, data_type, data_size, is_nullable, default_value, modified
         )
         select
-          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
+          sf.dataset_id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
           sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value, now()
-        from stg_dict_field_detail sf join {dict_dataset} d
-          on sf.urn = d.urn
+        from stg_dict_field_detail sf
              left join {dict_field_detail} t
-          on d.id = t.dataset_id
+          on sf.dataset_id = t.dataset_id
           and sf.field_name = t.field_name
           and sf.parent_path = t.parent_path
         where db_id = {db_id} and t.field_id is null
@@ -242,13 +240,12 @@ class OracleLoad:
 
         -- insert
         insert into stg_dict_dataset_field_comment
-        select t.field_id field_id, fc.id comment_id,  d.id dataset_id, {db_id}
-                from stg_dict_field_detail sf join {dict_dataset} d
-                  on sf.urn = d.urn
+        select t.field_id field_id, fc.id comment_id,  sf.dataset_id dataset_id, {db_id}
+                from stg_dict_field_detail sf
                       join {field_comments} fc
                   on sf.description = fc.comment
                       join {dict_field_detail} t
-                  on d.id = t.dataset_id
+                  on sf.dataset_id = t.dataset_id
                  and sf.field_name = t.field_name
                  and sf.parent_path = t.parent_path
         where sf.db_id = {db_id};
@@ -290,7 +287,7 @@ class OracleLoad:
     (urn,ref_urn,data)
     SET db_id = {db_id};
 
-    -- update reference id in stagging table
+    -- update reference id in staging table
     UPDATE  stg_dict_dataset_sample s
     LEFT JOIN {dict_dataset} d ON s.ref_urn = d.urn
     SET s.ref_id = d.id
