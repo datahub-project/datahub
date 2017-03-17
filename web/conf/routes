@@ -147,6 +147,8 @@ POST    /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.f
 
 DELETE  /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
 
+GET     /api/v1/ownership/datasets/:userId          controllers.api.v1.Dataset.getDatasetOwnedBy(userId: String)
+
 POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.ownDataset(id:Int)
 
 DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
