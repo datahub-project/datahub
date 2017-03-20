@@ -1,4 +1,4 @@
-#Linkedin Wherehows - a Metadata data warehouse
+# Linkedin Wherehows - a Metadata data warehouse
 
 Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
@@ -16,7 +16,7 @@ Configuration notes:
 MySQL database for the Wherehows metadata database
 ```
 host:	<mysqlhost>
-db:		wherehows
+db:     wherehows
 user:	wherehows
 pass:	wherehows
 ```
@@ -33,13 +33,6 @@ Please become familiar with these pages:
 - https://github.com/linkedin/WhereHows
 - https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
 
-First set env variables for Play (Activator):
-```
-export WH_HOME=~/development/wherehows/src/deployment/
-export ACTIVATOR_HOME="$HOME/activator-1.3.11-minimal"
-export SBT_OPTS="-Xms1G -Xmx1G -Xss2M"
-```
-
 ### Build:
 ```
 ./gradlew build dist
@@ -48,7 +41,7 @@ export SBT_OPTS="-Xms1G -Xmx1G -Xss2M"
 ### Install:
 Download/upload the distribution binaries, unzip to
 ```
-/opt/wherehows/backend-service-1.0-SNAPSHOT
+/opt/wherehows/wherehows-backend
 ```
 
 Create temp space for wherehows
@@ -58,7 +51,7 @@ sudo chmod a+rw /var/tmp/wherehows
 ```
 
 ```
-cd /opt/wherehows/backend-service-1.0-SNAPSHOT
+cd /opt/wherehows/wherehows-backend
 ```
 Ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the mysql host property for wherehows database (on <mysqlhost>). The initial SQL:
 ~~~~
@@ -96,7 +89,7 @@ Host	 <metastore host>
 Port	 3306
 Username hive
 Password hive
-URL		 jdbc:mysql://<metastore host>:3306/metastore
+URL	 jdbc:mysql://<metastore host>:3306/metastore
 ```
 Set the hive metastore driver class to ```com.mysql.jdbc.Driver```
 other properties per configuration.
@@ -117,7 +110,7 @@ export WHZ_DB_HOST=<mysql host>
 ```
 Run backend service application on port 9001 (from the backend-service folder run:
 ```
-$ACTIVATOR_HOME/bin/activator “run -Dhttp.port=9001”
+JAVA_OPTS='-Dhttp.port=9001' ./bin/playBinary
 ```
 In separate window, monitor
 ```tail -f $APP_HOME/logs/console.log```
@@ -130,7 +123,7 @@ Run the web ui
 cd <web ui deployment dir>
 cd web
 # <ensure the conf/*.conf files are configured>
-$ACTIVATOR_HOME/bin/activator run
+./bin/playBinary
 ```
 
 ## Next steps

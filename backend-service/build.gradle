@@ -1,19 +1,24 @@
-apply plugin: 'scala'
+apply plugin: 'play'
 
-def findPlayHome(){
-    project.ext.playHome = System.getenv()['ACTIVATOR_HOME']
-    if (null == project.ext.playHome) {
-        throw new GradleException('ACTIVATOR_HOME env variable not set!')
-    }
-    project.ext.playExec = "${playHome}/bin/activator"
+// Change this to listen on a different port
+project.ext.httpPort = 19000
+
+dependencies{
+    // User defined libraries (will be copied to lib/ before `play compile`)
+    play project(":wherehows-common")
+    play project(":metadata-etl")
+
+    play externalDependency.play_java_jdbc
+    play externalDependency.slf4j_api
+    play externalDependency.jasypt
+    play externalDependency.kafka
+    play externalDependency.kafka_clients
+
+    playTest 'org.easytesting:fest-assert-core:2.0M10'
+    playTest externalDependency.mockito
 }
 
-findPlayHome()
-
 configurations {
-    // configuration that holds jars to copy into lib
-    provided
-
     all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     all*.exclude group: 'log4j'
 
@@ -26,69 +31,26 @@ configurations {
     }
 }
 
-dependencies{
-    // User defined libraries (will be copied to lib/ before `play compile`)
-    // compile 'group:name:0.1'
-    compile project(":wherehows-common")
-    compile project(":metadata-etl")
-    compile externalDependency.play
-    compile externalDependency.play_java_jdbc
-    compile externalDependency.typesafe_config
-    compile externalDependency.netty
-    compile externalDependency.mockito
-    compile externalDependency.slf4j_api
-    compile externalDependency.jasypt
-    compile externalDependency.kafka
-    compile externalDependency.kafka_clients
-
-    provided project(":wherehows-common")
-    provided project(":metadata-etl")
+tasks.withType(PlayRun) {
+    httpPort = project.ext.httpPort
 }
 
-clean {
-    delete "lib/"
-}
+model {
+    components {
+        play {
+            platform play: '2.4.8', scala: '2.10'
 
-task copyPlayLibs(type: Copy){
-    from configurations.provided
-    into 'lib'
-}
-
-task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
-    commandLine playExec, 'compile'
-}
-
-task "playTest" (type: Exec, dependsOn: playCompile) {
-    commandLine playExec, 'test'
-}
-
-task "playClean" (type: Exec) {
-    commandLine playExec, 'clean'
-}
-
-task "playCoverage" (type: Exec) {
-    commandLine playExec, 'jacoco:cover'
-}
-
-sourceSets.main{
-    java.srcDir 'app'
-    compileClasspath += configurations.provided
-}
-
-// optional: if using 'idea' plugin
-idea {
-    module{
-        scopes.PROVIDED.plus += [configurations.provided]
+            binaries.all {
+                tasks.withType(PlatformScalaCompile) {
+                    scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
+                }
+            }
+        }
     }
-}
 
-task "build" (type: Exec, dependsOn: [playClean, playCompile], overwrite: true) {
-    commandLine playExec, 'stage'
-}
-
-task "dist" (type: Exec, overwrite: true) {
-    commandLine playExec, 'dist'
-}
-
-task "check" (overwrite: true) {
+    distributions {
+        playBinary {
+            baseName = "wherehows-backend"
+        }
+    }
 }
