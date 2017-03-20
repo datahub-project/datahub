@@ -16,14 +16,15 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dao.ReturnCode;
 import models.DatasetColumn;
 import models.DatasetDependency;
 import models.ImpactDataset;
+import org.apache.commons.lang3.math.NumberUtils;
 import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.libs.ws.*;
-import play.mvc.BodyParser;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.Logger;
@@ -233,33 +234,30 @@ public class Dataset extends Controller
         return ok(result);
     }
 
-    public static Result updateDatasetOwners(int id)
-    {
-        String body = request().body().asText();
+    public static Result updateDatasetOwners(int id) {
         ObjectNode result = Json.newObject();
         String username = session("user");
         Map<String, String[]> params = request().body().asFormUrlEncoded();
 
-        if (StringUtils.isNotBlank(username))
-        {
-            if (DatasetsDAO.updateDatasetOwners(id, params, username))
-            {
+        if (StringUtils.isNotBlank(username)) {
+            ReturnCode code = DatasetsDAO.updateDatasetOwners(id, params, username);
+
+            if (code == ReturnCode.Success) {
                 result.put("status", "success");
-            }
-            else
-            {
+            } else if (code == ReturnCode.RuleViolation) {
+                result.put("status", "failed");
+                result.put("error", "true");
+                result.put("msg", "Less than 2 confirmed owners.");
+            } else {
                 result.put("status", "failed");
                 result.put("error", "true");
                 result.put("msg", "Could not update dataset owners.");
             }
-        }
-        else
-        {
+        } else {
             result.put("status", "failed");
             result.put("error", "true");
             result.put("msg", "Unauthorized User.");
         }
-
         return ok(result);
     }
 
@@ -306,6 +304,19 @@ public class Dataset extends Controller
             result.put("status", "failed");
         }
 
+        return ok(result);
+    }
+
+    public static Result getDatasetOwnedBy(String userId) {
+        ObjectNode result = Json.newObject();
+        int page = NumberUtils.toInt(request().getQueryString("page"), 1);
+        int size = NumberUtils.toInt(request().getQueryString("size"), 10);
+
+        if (StringUtils.isNotBlank(userId)) {
+            result = DatasetsDAO.getDatasetOwnedBy(userId, page, size);
+        } else {
+            result.put("status", "failed, no user");
+        }
         return ok(result);
     }
 

@@ -54,8 +54,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO {
     private final static String GET_OWNERSHIP_CONFIRMED_DATASETS_FILTER_PLATFORM =
         "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, d.name, "
             + "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, "
-            + "GROUP_CONCAT(CASE WHEN o.confirmed_by is not null and o.confirmed_by != '' THEN o.confirmed_by ELSE null END "
-            + "ORDER BY o.confirmed_by ASC SEPARATOR ',') as confirmed_owner_id "
+            + "GROUP_CONCAT(CASE WHEN o.confirmed_by > '' THEN o.owner_id ELSE null END "
+            + "ORDER BY o.owner_id ASC SEPARATOR ',') as confirmed_owner_id "
             + "FROM dataset_owner o JOIN dict_dataset d ON d.urn like ? and o.dataset_id = d.id "
             + "WHERE o.dataset_id in "
             + "(SELECT DISTINCT dataset_id FROM dataset_owner "
@@ -67,8 +67,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO {
     private final static String GET_OWNERSHIP_DATASETS_FILTER_PLATFORM =
         "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, d.name, "
             + "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, "
-            + "GROUP_CONCAT(CASE WHEN o.confirmed_by is not null THEN o.confirmed_by ELSE null END "
-            + "ORDER BY o.confirmed_by ASC SEPARATOR ',') as confirmed_owner_id "
+            + "GROUP_CONCAT(CASE WHEN o.confirmed_by > '' THEN o.owner_id ELSE null END "
+            + "ORDER BY o.owner_id ASC SEPARATOR ',') as confirmed_owner_id "
             + "FROM dataset_owner o JOIN dict_dataset d "
             + "ON d.urn like ? and o.dataset_id = d.id and (o.is_deleted != 'Y' or o.is_deleted is null) "
             + "WHERE o.owner_id in ( "
@@ -78,8 +78,8 @@ public class DashboardDAO extends AbstractMySQLOpenSourceDAO {
     private final static String GET_OWNERSHIP_UNCONFIRMED_DATASETS_FILTER_PLATFORM =
         "SELECT SQL_CALC_FOUND_ROWS o.dataset_id, d.name, "
             + "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, "
-            + "GROUP_CONCAT(CASE WHEN o.confirmed_by is not null THEN o.confirmed_by ELSE null END "
-            + "ORDER BY o.confirmed_by ASC SEPARATOR ',') as confirmed_owner_id "
+            + "GROUP_CONCAT(CASE WHEN o.confirmed_by > '' THEN o.owner_id ELSE null END "
+            + "ORDER BY o.owner_id ASC SEPARATOR ',') as confirmed_owner_id "
             + "FROM dataset_owner o JOIN dict_dataset d "
             + "ON d.urn like ? and o.dataset_id = d.id and (o.is_deleted != 'Y' or o.is_deleted is null) "
             + "WHERE o.dataset_id not in (SELECT DISTINCT dataset_id FROM dataset_owner "
