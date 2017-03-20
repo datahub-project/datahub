@@ -46,7 +46,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 {
 	public final static String HDFS_BROWSER_URL_KEY = "dataset.hdfs_browser.link";
 
-
 	private final static String SELECT_PAGED_DATASET  = "SELECT " +
 			"d.id, d.name, d.urn, d.source, d.properties, d.schema, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
@@ -181,6 +180,20 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String UNFAVORITE_A_DATASET =
 			"DELETE FROM favorites WHERE user_id = ? and dataset_id = ?";
+
+	private final static String GET_OWNERSHIP_DATASETS =
+			"SELECT SQL_CALC_FOUND_ROWS o.dataset_id, d.urn, "
+					+ "GROUP_CONCAT(o.owner_id ORDER BY o.owner_id ASC SEPARATOR ',') as owner_id, "
+					+ "GROUP_CONCAT(CASE WHEN o.confirmed_by > '' THEN o.owner_id ELSE null END "
+					+ "ORDER BY o.owner_id ASC SEPARATOR ',') as confirmed_owner_id "
+					+ "FROM dataset_owner o JOIN dict_dataset d ON o.dataset_id = d.id "
+					+ "WHERE o.dataset_id in "
+					+ "(select dataset_id from dataset_owner "
+					+ "where owner_id = ? and (is_deleted != 'Y' or is_deleted is null)) "
+					+ "GROUP BY o.dataset_id, d.urn ORDER BY d.urn LIMIT ?, ?";
+
+	private final static String GET_OWNERSHIP_DATASETS_COUNT =
+			"SELECT COUNT(*) FROM dataset_owner WHERE owner_id = ? and (is_deleted != 'Y' or is_deleted is null) ";
 
 	private final static String GET_DATASET_OWNERS = "SELECT o.owner_id, o.namespace, " +
 			"o.owner_type, o.owner_sub_type, " +
@@ -319,7 +332,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"AND ddfc.field_id = dfd.field_id AND ddfc.is_default = 1 " +
 			"LEFT JOIN field_comments fc ON ddfc.comment_id = fc.id " +
 			"WHERE dfd.dataset_id <> ? AND dfd.field_name = ? ORDER BY d.name asc";
-
 
 	private final static String GET_DATASET_OWNER_TYPES = "SELECT DISTINCT owner_type " +
 			"FROM dataset_owner WHERE owner_type is not null";
@@ -579,6 +591,45 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			}
 		});
 		return result;
+	}
+
+	private static long getPagedDatasetsOwnedBy(String userId, int page, int size, List<Map<String, Object>> rows) {
+		long count = 0;
+		if (StringUtils.isNotBlank(userId)) {
+			rows.addAll(getJdbcTemplate().queryForList(GET_OWNERSHIP_DATASETS, userId, (page - 1) * size, size));
+
+			try {
+				//count = getJdbcTemplate().queryForObject("SELECT FOUND_ROWS()", Long.class);
+				count = getJdbcTemplate().queryForObject(GET_OWNERSHIP_DATASETS_COUNT, new String[]{userId}, Long.class);
+			} catch (EmptyResultDataAccessException e) {
+				Logger.error("Exception = " + e.getMessage());
+			}
+		}
+		return count;
+	}
+
+	public static ObjectNode getDatasetOwnedBy(String userId, int page, int size) {
+		List<Map<String, Object>> rows = new ArrayList<>(size);
+		long count = getPagedDatasetsOwnedBy(userId, page, size, rows);
+
+		List<DashboardDataset> datasets = new ArrayList<>();
+		for (Map row : rows) {
+			DashboardDataset dataset = new DashboardDataset();
+			dataset.datasetId = (Long) row.get("dataset_id");
+			dataset.datasetName = (String) row.get("urn");
+			dataset.ownerId = (String) row.get("owner_id");
+			dataset.confirmedOwnerId = (String) row.get("confirmed_owner_id");
+			datasets.add(dataset);
+		}
+
+		ObjectNode resultNode = Json.newObject()
+				.put("status", "ok")
+				.put("count", count)
+				.put("page", page)
+				.put("itemsPerPage", size)
+				.put("totalPages", (int) Math.ceil(count / ((double) size)));
+		resultNode.set("datasets", Json.toJson(datasets));
+		return resultNode;
 	}
 
 	public static ObjectNode ownDataset(int id, String user)
@@ -1733,96 +1784,70 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		);
 	}
 
-	public static boolean updateDatasetOwners(int datasetId, Map<String, String[]> ownersMap, String user)
-	{
-		boolean result = true;
-		if ((ownersMap == null) || ownersMap.size() == 0)
-		{
-			return false;
+	public static ReturnCode updateDatasetOwners(int datasetId, Map<String, String[]> ownersMap, String user) {
+		// ownerMap should contain mapping 'owners': ['ownerInfoJsonString']
+		if (ownersMap == null || !ownersMap.containsKey("owners") || ownersMap.get("owners") == null
+				|| ownersMap.get("owners").length == 0) {
+			return ReturnCode.MissingFields;
 		}
 
-		List<DatasetOwner> owners = new ArrayList<DatasetOwner>();
-		if (ownersMap.containsKey("owners")) {
-			String[] textArray = ownersMap.get("owners");
-			if (textArray != null && textArray.length > 0)
-			{
-				JsonNode node = Json.parse(textArray[0]);
-				for(int i = 0; i < node.size(); i++) {
-					JsonNode ownerNode = node.get(i);
-					if (ownerNode != null)
-					{
-						String userName = "";
-						if (ownerNode.has("userName"))
-						{
-							userName = ownerNode.get("userName").asText();
-						}
-						if (StringUtils.isBlank(userName))
-						{
-							continue;
-						}
-						Boolean isGroup = false;
-						if (ownerNode.has("isGroup"))
-						{
-							isGroup = ownerNode.get("isGroup").asBoolean();
-						}
-						String type = "";
-						if (ownerNode.has("type") && (!ownerNode.get("type").isNull()))
-						{
-							type = ownerNode.get("type").asText();
-						}
-						String subType = "";
-						if (ownerNode.has("subType") && (!ownerNode.get("subType").isNull()))
-						{
-							subType = ownerNode.get("subType").asText();
-						}
+		String[] textArray = ownersMap.get("owners");
+		final JsonNode node = Json.parse(textArray[0]);
 
-						String confirmedBy = "";
-						if (ownerNode.has("confirmedBy") && (!ownerNode.get("confirmedBy").isNull()))
-						{
-							confirmedBy = ownerNode.get("confirmedBy").asText();
-						}
+		List<DatasetOwner> owners = new ArrayList<>();
+		int confirmedCount = 0;
 
-						DatasetOwner owner = new DatasetOwner();
-						owner.userName = userName;
-						owner.isGroup = isGroup;
-						if (isGroup)
-						{
-							owner.namespace = "urn:li:griduser";
-						}
-						else
-						{
-							owner.namespace = "urn:li:corpuser";
-						}
-						owner.type = type;
-						owner.subType = subType;
-						owner.confirmedBy = confirmedBy;
-						owner.sortId = i;
-						owners.add(owner);
-					}
+		for(int i = 0; i < node.size(); i++) {
+			final JsonNode ownerNode = node.get(i);
+			if (ownerNode != null) {
+				String userName = ownerNode.has("userName") ? ownerNode.get("userName").asText() : "";
+				if (StringUtils.isBlank(userName)) {
+					continue;
+				}
+
+				Boolean isGroup = ownerNode.has("isGroup") && ownerNode.get("isGroup").asBoolean();
+				String type = ownerNode.has("type") && !ownerNode.get("type").isNull() ? ownerNode.get("type").asText() : "";
+				String subType =
+						ownerNode.has("subType") && !ownerNode.get("subType").isNull() ? ownerNode.get("subType").asText() : "";
+				String confirmedBy =
+						ownerNode.has("confirmedBy") && !ownerNode.get("confirmedBy").isNull()
+								? ownerNode.get("confirmedBy").asText() : "";
+
+				DatasetOwner owner = new DatasetOwner();
+				owner.userName = userName;
+				owner.isGroup = isGroup;
+				owner.namespace = isGroup ? "urn:li:griduser" : "urn:li:corpuser";
+				owner.type = type;
+				owner.subType = subType;
+				owner.confirmedBy = confirmedBy;
+				owner.sortId = i;
+				owners.add(owner);
+
+				if (StringUtils.isNotBlank(confirmedBy)) {
+					confirmedCount++;
 				}
 			}
 		}
 
+    // enforce at least two confirmed owner for a dataset before making any changes
+		if (confirmedCount < 2) {
+			return ReturnCode.RuleViolation;
+		}
+
+		// first mark existing owners as deleted, new owners will be updated later
 		getJdbcTemplate().update(MARK_DATASET_OWNERS_AS_DELETED, datasetId);
-		if (owners.size() > 0)
-		{
+
+		if (owners.size() > 0) {
 			String urn = null;
-			try
-			{
-				urn = (String)getJdbcTemplate().queryForObject(
-						GET_DATASET_URN_BY_ID,
-						String.class,
-						datasetId);
-			}
-			catch(EmptyResultDataAccessException e)
-			{
+			try {
+				urn = getJdbcTemplate().queryForObject(GET_DATASET_URN_BY_ID,	String.class,	datasetId);
+			} catch(EmptyResultDataAccessException e)	{
 				Logger.error("Dataset updateDatasetOwners get urn failed, id = " + datasetId);
 				Logger.error("Exception = " + e.getMessage());
 			}
 			updateDatasetOwnerDatabase(datasetId, urn, owners);
 		}
-
-		return result;
+		return ReturnCode.Success;
 	}
 
 	public static void getDependencies(
