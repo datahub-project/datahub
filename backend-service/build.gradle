@@ -1,7 +1,8 @@
-apply plugin: 'play'
+apply from: '../gradle/scripts/play.gradle'
 
 // Change this to listen on a different port
 project.ext.httpPort = 19000
+project.ext.playBinaryBaseName = "wherehows-backend"
 
 dependencies{
     // User defined libraries (will be copied to lib/ before `play compile`)
@@ -27,30 +28,6 @@ configurations {
             substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
             //prefer 'log4j-over-slf4j' over 'log4j'
             force 'com.typesafe:config:1.3.1', 'io.netty:netty:3.10.6.Final'
-        }
-    }
-}
-
-tasks.withType(PlayRun) {
-    httpPort = project.ext.httpPort
-}
-
-model {
-    components {
-        play {
-            platform play: '2.4.8', scala: '2.10'
-
-            binaries.all {
-                tasks.withType(PlatformScalaCompile) {
-                    scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
-                }
-            }
-        }
-    }
-
-    distributions {
-        playBinary {
-            baseName = "wherehows-backend"
         }
     }
 }
