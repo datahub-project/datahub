@@ -1,39 +1,18 @@
-apply plugin: 'scala'
+apply plugin: 'play'
 
-def findPlayHome(){
-    project.ext.playHome = System.getenv()['ACTIVATOR_HOME']
-    if (null == project.ext.playHome) {
-        throw new GradleException('ACTIVATOR_HOME env variable not set!')
-    }
-    project.ext.playExec = "${playHome}/bin/activator"
-}
-
-findPlayHome()
-
-configurations{
-    //Configuration containing sbt generated .class files
-    //This is needed for IDEs, because they cannot compile
-    //play templates by themselves.
-    playManaged
-
-    //Libraries needed at compilation time but not to be
-    //exported as part of the distribution
-    provided
-}
+// Change this to listen on a different port
+project.ext.httpPort = 9000
 
 dependencies{
-    // User defined libraries (will be copied to lib/ before `play compile`)
-    compile externalDependency.play
-    compile externalDependency.play_java_jdbc
-    compile externalDependency.play_java_ws
-    compile externalDependency.play_cache
-    compile externalDependency.play_filter
-    compile externalDependency.spring_jdbc
-    compile externalDependency.mockito
+    play externalDependency.play_java_ws
+    play externalDependency.play_java_jdbc
+    play externalDependency.play_filter
+    play externalDependency.play_cache
+    play externalDependency.spring_jdbc
+    play externalDependency.mysql
 
-    provided project(":wherehows-common")
-
-    // playManaged files('target/scala-2.9.1/classes_managed')
+    playTest 'org.easytesting:fest-assert-core:2.0M10'
+    playTest externalDependency.mockito
 }
 
 configurations {
@@ -41,58 +20,26 @@ configurations {
     all*.exclude group: 'log4j', module: 'log4j'
 }
 
-clean {
-    delete "lib/"
+tasks.withType(PlayRun) {
+    httpPort = project.ext.httpPort
 }
 
-task copyPlayLibs(type: Copy){
-    from configurations.provided
-    into 'lib'
-}
+model {
+    components {
+        play {
+            platform play: '2.4.8', scala: '2.10'
 
-task "playCompile" (type: Exec, dependsOn: copyPlayLibs) {
-    commandLine playExec, 'compile'
-}
-
-task "playTest" (type: Exec, dependsOn: playCompile) {
-    commandLine playExec, 'test'
-}
-
-task "playCoverage" (type: Exec) {
-    commandLine playExec, 'jacoco:cover'
-}
-
-task "playClean" (type: Exec) {
-    commandLine playExec, 'clean'
-}
-
-sourceSets.main{
-    java.srcDir 'app'
-    compileClasspath += configurations.provided
-}
-
-// optional: if using 'idea' plugin
-idea {
-    module{
-        scopes.COMPILE.plus += [configurations.playManaged]
-        scopes.PROVIDED.plus += [configurations.provided]
+            binaries.all {
+                tasks.withType(PlatformScalaCompile) {
+                    scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
+                }
+            }
+        }
     }
-}
 
-// delegate gradle java task to play command
-
-task "build" (type: Exec, dependsOn: playClean, overwrite: true) {
-    commandLine playExec, 'stage'
-}
-
-task "assemble" (type: Exec, dependsOn: playClean, overwrite: true) {
-    commandLine playExec, 'stage'
-}
-
-task "dist" (type: Exec, overwrite: true) {
-    commandLine playExec, 'dist'
-}
-
-task "check" (overwrite: true) {
-  // skip gradle check of this repository
+    distributions {
+        playBinary {
+            baseName = "wherehows-frontend"
+        }
+    }
 }

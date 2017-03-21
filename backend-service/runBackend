@@ -1,2 +1,2 @@
-export _JAVA_OPTIONS="-Xms1024m -Xmx2048m"
-target/universal/stage/bin/backend-service -Dhttp.port=19001
+export JAVA_OPTS="-Xms1024m -Xmx2048m -Dhttp.port=19001"
+build/stage/wherehows-backend/bin/playBinary
