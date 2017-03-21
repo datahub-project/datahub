@@ -1,7 +1,8 @@
-apply plugin: 'play'
+apply from: '../gradle/scripts/play.gradle'
 
 // Change this to listen on a different port
 project.ext.httpPort = 9000
+project.ext.playBinaryBaseName = "wherehows-frontend"
 
 dependencies{
     play externalDependency.play_java_ws
@@ -18,28 +19,4 @@ dependencies{
 configurations {
     all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     all*.exclude group: 'log4j', module: 'log4j'
-}
-
-tasks.withType(PlayRun) {
-    httpPort = project.ext.httpPort
-}
-
-model {
-    components {
-        play {
-            platform play: '2.4.8', scala: '2.10'
-
-            binaries.all {
-                tasks.withType(PlatformScalaCompile) {
-                    scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
-                }
-            }
-        }
-    }
-
-    distributions {
-        playBinary {
-            baseName = "wherehows-frontend"
-        }
-    }
 }
