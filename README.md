@@ -27,26 +27,7 @@ New to Wherehows? Check out the [Getting Started Guide][GS]
 
 ### Preparation
 
-First, please get Play Framework (Activator) in place.
-```
-# Download Activator
-wget https://downloads.typesafe.com/typesafe-activator/1.3.11/typesafe-activator-1.3.11-minimal.zip
-
-# Unzip, Remove zipped folder, move play folder to $HOME
-unzip -q typesafe-activator-1.3.11-minimal.zip && rm typesafe-activator-1.3.11-minimal.zip && mv activator-1.3.11-minimal $HOME/
-
-# Add ACTIVATOR_HOME, GRADLE_HOME. Update Path to include new gradle, alias to counteract issues
-echo 'export ACTIVATOR_HOME="$HOME/activator-1.3.11-minimal"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-You need to increase the SBT build tool max heap size for building web module
-```
-echo 'export SBT_OPTS="-Xms1G -Xmx1G -Xss2M"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-Second, please [setup the metadata repository][DB] in MySQL.
+First, please [setup the metadata repository][DB] in MySQL.
 ```
 CREATE DATABASE wherehows
   DEFAULT CHARACTER SET utf8
@@ -64,9 +45,9 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
 2. Put a few 3rd-party jar files to **metadata-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/metadata-etl/extralibs```
-3. Go back to the **WhereHows** root directory and build all the modules: ```./gradlew build```
-4. Go back to the **WhereHows** root directory and start the metadata ETL and API service: ```cd backend-service ; $ACTIVATOR_HOME/bin/activator run```
-5. Go back to the **WhereHows** root directory and start the web front-end: ```cd web ; $ACTIVATOR_HOME/bin/activator run``` Then WhereHows UI is available at http://localhost:9000 by default. For example, ```$ACTIVATOR_HOME/bin/activator run -Dhttp.port=19001``` will use port 19001 to serve UI.
+3. From the **WhereHows** root directory and build all the modules: ```./gradlew build```
+4. Start the metadata ETL and API service: ```./gradlew backend-service:runPlayBinary```
+5. In a new terminal, start the web front-end: ```./gradlew web:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```web/build.gradle```.
 
 ## Contribute
 
