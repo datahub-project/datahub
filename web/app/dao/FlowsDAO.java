@@ -79,8 +79,8 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String GET_PAGED_JOBS_BY_APP_ID_AND_FLOW_ID = "select SQL_CALC_FOUND_ROWS " +
 			"j.job_id, MAX(j.last_source_version), j.job_name, j.job_path, j.job_type, j.ref_flow_id, " +
-			"FROM_UNIXTIME(j.created_time) as created_time, " +
-			"FROM_UNIXTIME(j.modified_time) as modified_time, f.flow_name, l.flow_group " +
+			"FROM_UNIXTIME(MIN(j.created_time)) as created_time, " +
+			"FROM_UNIXTIME(MAX(j.modified_time)) as modified_time, f.flow_name, l.flow_group " +
 			"FROM flow_job j JOIN flow f on j.app_id = f.app_id and j.flow_id = f.flow_id " +
 			"LEFT JOIN flow l on j.app_id = l.app_id and j.ref_flow_id = l.flow_id " +
 			"WHERE j.app_id = ? and j.flow_id = ? GROUP BY j.job_id, j.job_name, " +
@@ -88,11 +88,11 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO
 			"f.flow_name ORDER BY j.job_id LIMIT ?, ?";
 
 	private final static String GET_FLOW_TREE_APPLICATON_NODES = "SELECT DISTINCT ca.app_code " +
-			"From flow f JOIN cfg_application ca ON f.app_id = ca.app_id ORDER by app_code";
+			"From flow f JOIN cfg_application ca ON f.app_id = ca.app_id ORDER by 1";
 
 	private final static String GET_FLOW_TREE_PROJECT_NODES = "SELECT DISTINCT IFNULL(f.flow_group, 'ROOT') " +
 			"FROM flow f JOIN cfg_application ca ON f.app_id = ca.app_id " +
-			"WHERE (is_active is null or is_active = 'Y') and ca.app_code = ? ORDER BY flow_group";
+			"WHERE (is_active is null or is_active = 'Y') and ca.app_code = ? ORDER BY 1";
 
 	private final static String GET_FLOW_TREE_FLOW_NODES = "SELECT DISTINCT f.flow_id, f.flow_name FROM flow f " +
 			"JOIN cfg_application ca ON f.app_id = ca.app_id " +

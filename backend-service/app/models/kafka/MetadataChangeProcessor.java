@@ -53,6 +53,13 @@ public class MetadataChangeProcessor {
           && datasetIdentifier == null) {
         Logger.info("Can't identify dataset from uri/urn/datasetIdentifier, abort process. " + record.toString());
         return null;
+      } else if (urn != null) {
+        Logger.debug("URN: " + urn);
+      } else if (datasetProperties != null && datasetProperties.get("uri") != null) {
+        Logger.debug("URI: " + datasetProperties.get("uri"));
+      } else {
+        Logger.debug(
+            "Dataset Identifier: " + datasetIdentifier.get("dataPlatformUrn") + datasetIdentifier.get("nativeName"));
       }
 
       final JsonNode rootNode = new ObjectMapper().readTree(record.toString());

@@ -123,7 +123,6 @@ class CodeSearchExtract:
                     db['committers'] = self.get_svn_committers(schema_in_repo)
                     committers_count +=1
                     self.logger.info("Committers for {} => {}".format(schema_in_repo,db['committers']))
-
             else:
                 self.logger.info("Search request {}".format(prop_file))
 
@@ -146,9 +145,8 @@ class CodeSearchExtract:
                 owner_count += 1
                 self.code_search_committer_writer.append(owner_record)
             except Exception as e:
-                self.logger.error(e)
+                self.logger.error(str(e))
                 self.logger.error("Exception happens with code {}".format(code))
-
 
         self.code_search_committer_writer.close()
         self.logger.info('Finish Fetching committers, total {} committers entries'.format(committers_count))
@@ -184,12 +182,12 @@ class CodeSearchExtract:
                         if apvr not in committers:
                             committers.append(apvr)
 
-
             if len(committers) > 0:
                 self.logger.debug(" {}, ' => ', {}".format(svn_repo_path,committers))
                 break
 
         return ','.join(committers)
+
 
 if __name__ == "__main__":
     args = sys.argv[1]
