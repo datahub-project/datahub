@@ -29,6 +29,14 @@ subprojects {
       csv.enabled false
     }
   }
+
+  plugins.withType(PlayPlugin).whenPluginAdded {
+    jacocoTestReport {
+        executionData = files("${buildDir}/jacoco/testPlayBinary.exec")
+        sourceDirectories = files("app")
+        classDirectories = files("${buildDir}/playBinary/classes")
+    }
+  }
 }
 
 // Configure the coveralls task to read the aggregated JaCoCo report
