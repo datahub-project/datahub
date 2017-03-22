@@ -163,3 +163,7 @@ base.url.key=
 # dali
 dali.git.urn=
 git.committer.blacklist=
+
+# wherehows metadata store restli server
+wherehows.restli.server.url=
+

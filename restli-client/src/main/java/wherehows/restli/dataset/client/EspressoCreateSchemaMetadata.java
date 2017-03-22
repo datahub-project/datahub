@@ -34,6 +34,10 @@ import com.linkedin.restli.client.RestClient;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.common.IdResponse;
+import com.linkedin.restli.client.Response;
+import com.linkedin.restli.client.RestLiResponseException;
+import com.linkedin.r2.RemoteInvocationException;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,14 +72,16 @@ public class EspressoCreateSchemaMetadata {
         .setForeignKeysSpecs(new ForeignKeySpecMap());
 
     try {
+
       IdResponse<ComplexResourceKey<SchemaMetadataKey, EmptyRecord>> response =
           _restClient.sendRequest(_schemaMetadataBuilders.create().input(newSchemaMetadata).actorParam(new Urn(iUrn)).build()).getResponseEntity();
+      Thread.sleep(10000);
 
-      System.out.println(response.getId().getKey());
-    } catch (Exception e) {
-      System.out.println(_schemaMetadataBuilders.create().input(newSchemaMetadata).build());
-      System.out.println(e.fillInStackTrace());
+    } catch (RemoteInvocationException ex) {
+      RestLiResponseException ex2 = (RestLiResponseException)ex;
+      System.out.println(ex2.getDecodedResponse().getHeader("X-LI-R2-W-IC-1-serviceCallTraceData"));
     }
+
 
   }
 
