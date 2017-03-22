@@ -34,6 +34,7 @@ import org.codehaus.jackson.JsonParseException;
 import org.codehaus.jackson.map.JsonMappingException;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.node.ArrayNode;
+import org.codehaus.jackson.node.ObjectNode;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.common.Constant;
 import wherehows.common.utils.JdbcConnection;
@@ -73,7 +74,6 @@ public class EspressoPopulateSchemaMetadataEtl extends EtlJob {
     final Client r2Client = new TransportClientAdapter(http.getClient(Collections.<String, String>emptyMap()));
     RestClient _restClient = new RestClient(r2Client, restLiServerURL);
     logger.debug("restLiServerURL is: " + restLiServerURL);
-    System.out.println("restLiServerURL is: " + restLiServerURL);
 
     NamedParameterJdbcTemplate
         lNamedParameterJdbcTemplate = JdbcConnection.getNamedParameterJdbcTemplate(driverClassName,url,dbUserName,dbPassword);
@@ -93,45 +93,78 @@ public class EspressoPopulateSchemaMetadataEtl extends EtlJob {
 
       String urn = (String) row.get("urn");
       String lDatasetName = urn.substring(12).replace('/','.');
-      String lSchemaName = lDatasetName; // TO CHECK? IS THIS EXPECTED?
+      String lSchemaName = lDatasetName;
       String lOwnerName = ownerQueryResult.get("namespace") + ":" + ownerQueryResult.get("owner_id");
 
       String lSchemaJsonString = (String)row.get("schema");
 
       logger.info("The populating schema is: " + lSchemaJsonString);
-      String lTableSchemaData = " ";
-      String lDocumentSchemaData = " ";
+      String lTableSchemaData = null;
+      String lDocumentSchemaData = null;
 
       try {
+
         ObjectMapper mapper = new ObjectMapper();
         JsonNode rootNode = mapper.readTree(lSchemaJsonString);
 
         ArrayNode keySchemaNode = (ArrayNode) rootNode.get("keySchema");
-        if (keySchemaNode!= null) {
+        ObjectNode tableSchemaNode = mapper.createObjectNode();
+        ArrayNode resourceKeyPartsNode = mapper.createArrayNode();
+
+        if (keySchemaNode!= null)
+        {
           Iterator<JsonNode> slaidsIterator = keySchemaNode.getElements();
-          while (slaidsIterator.hasNext()) {
+          while (slaidsIterator.hasNext())
+          {
             JsonNode oneElementNode = slaidsIterator.next();
-            lTableSchemaData = mapper.writeValueAsString(oneElementNode);
+            resourceKeyPartsNode.add(oneElementNode);
           }
-        }
 
-        JsonNode valueSchemaNode = rootNode.path("valueSchema");
-        if (valueSchemaNode != null) {
-          lDocumentSchemaData = mapper.writeValueAsString(valueSchemaNode);
-        }
+          String name = "";
+          String doc = "";
+          if (rootNode.has("name") && rootNode.has("doc"))
+          {
+            name = rootNode.get("name").toString();
+            doc = rootNode.get("doc").toString();
 
+            tableSchemaNode.put("name",name);
+            tableSchemaNode.put("doc",doc);
+            tableSchemaNode.put("schemaType","TableSchema");
+            tableSchemaNode.put("recordType","/schemata/document/DUMMY/DUMMY");
+            tableSchemaNode.put("version",1);
+            tableSchemaNode.put("resourceKeyParts",resourceKeyPartsNode);
+
+            lTableSchemaData = tableSchemaNode.toString();
+          }
+          else
+          {
+            logger.info("Missing name or doc field. Corrupted schema : " + lSchemaName);
+          }
+         }
+
+
+          JsonNode valueSchemaNode = rootNode.get("valueSchema");
+          if (valueSchemaNode != null && valueSchemaNode.has("name"))
+          {
+            lDocumentSchemaData = valueSchemaNode.toString();
+          }
+          else
+          {
+            logger.info("ValueSchema is missing name field in schema : " + lSchemaName);
+          }
       }
       catch (JsonParseException e) { e.printStackTrace(); }
       catch (JsonMappingException e) { e.printStackTrace(); }
       catch (IOException e) { e.printStackTrace(); }
 
-      if (lTableSchemaData != null && lDocumentSchemaData != null) // not found then create, avoid committing transaction error. Is this necessary?
+      if (lTableSchemaData != null && lDocumentSchemaData != null)
       {
         try {
           logger.info("table schema: " + lTableSchemaData);
           logger.info("valueSchema: " + lDocumentSchemaData);
+          System.out.println("lSchemaName is " + lSchemaName);
 
-          lRestClient.create(_restClient, lSchemaName,lTableSchemaData,lDocumentSchemaData,lDatasetName,lOwnerName); //"urn:li:corpuser:gmohanas"
+          lRestClient.create(_restClient, lSchemaName,lTableSchemaData,lDocumentSchemaData,lDatasetName,lOwnerName);
         } catch (Exception e) {
           logger.error(e.toString());
         }
