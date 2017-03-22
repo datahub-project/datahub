@@ -37,4 +37,4 @@ before_script:
   - sleep 5
 
 after_success:
-- ./gradlew test jacocoFullReport coveralls
+- ./gradlew jacocoFullReport coveralls
