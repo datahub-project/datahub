@@ -57,8 +57,8 @@ class EspressoTransform:
     '''
     if 'tableSchemas' in content['databaseSpec']['com.linkedin.nuage.EspressoDatabase']:
       for doc in content['databaseSpec']['com.linkedin.nuage.EspressoDatabase']['tableSchemas']:
-        if 'documentSchema' not in doc:
-          self.logger.info("documentSchema not exist in Espresso json [tableSchemas] section: " + json.dumps(doc))
+        if 'key' not in doc:
+          self.logger.info("[key] not found in json [tableSchema] section in '%s': %s", (content['name'], json.dumps(doc)))
           continue
         # different documents inside the Espresso DB
         self.construct_espresso_dataset(doc, content)
@@ -75,7 +75,10 @@ class EspressoTransform:
     parent_name = db_name
     schema_type = 'JSON'
     key_list = json.loads(doc['key'])
-    fields = {'fields': key_list}
+    fields = []
+    for key_field in key_list:
+      key_field['name'] = 'key:' + key_field['name']
+      fields.extend(key_field)
 
     properties = {}
     for p_key in content.keys():
@@ -92,19 +95,27 @@ class EspressoTransform:
       'keySchema': key_list,
       'valueSchema': None
     }
-    # different versions of valueSchema
-    pseudo_date_offset = len(doc['documentSchema'])
-    for one_ver in doc['documentSchema']:
-      combined_schema['valueSchema'] = json.loads(one_ver['valueSchema'])
+
+    if 'documentSchema' in doc:
+      # different versions of valueSchema
+      pseudo_date_offset = len(doc['documentSchema'])
+      for one_ver in doc['documentSchema']:
+        combined_schema['valueSchema'] = json.loads(one_ver['valueSchema'])
+        schema_string = json.dumps(combined_schema)
+        self.conn_cursor.executemany(self.schema_history_cmd, [urn, pseudo_date_offset, schema_string])
+        pseudo_date_offset -= 1
+
+      # append fields defined in the last version of valueSchema
+      fields.extend(combined_schema['valueSchema']['fields'])
+    else:
+      pseudo_date_offset = 1
       schema_string = json.dumps(combined_schema)
       self.conn_cursor.executemany(self.schema_history_cmd, [urn, pseudo_date_offset, schema_string])
-      pseudo_date_offset -= 1
 
-    fields['fields'].extend(combined_schema['valueSchema']['fields'])
 
     self.conn_cursor.executemany(self.dataset_cmd, [self.db_id, dataset_type, urn, doc_name, json.dumps(combined_schema),
-                                                    schema_type, json.dumps(properties), json.dumps(fields), source,
-                                                    location_prefix, parent_name, self.wh_etl_exec_id])
+                                                    schema_type, json.dumps(properties), json.dumps({'fields': fields}),
+                                                    source, location_prefix, parent_name, self.wh_etl_exec_id])
 
     owner_count = 1
     if "owners" in content:
