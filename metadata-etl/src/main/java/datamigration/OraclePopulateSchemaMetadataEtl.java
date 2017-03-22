@@ -46,7 +46,7 @@ public class OraclePopulateSchemaMetadataEtl extends EtlJob {
 
   public static final String GET_OWNER_BY_ID = "SELECT * FROM dataset_owner WHERE dataset_urn like :platform limit 1";
   public final static String GET_DATASETS_NAME_LIKE_PLAT =
-      "SELECT * FROM dict_dataset WHERE urn like :platform limit 1";
+      "SELECT * FROM dict_dataset WHERE urn like :platform";
 
   /** The property_name field in wh_property table for WhereHows database connection information */
   public String driverClassName = prop.getProperty(Constant.WH_DB_DRIVER_KEY);
