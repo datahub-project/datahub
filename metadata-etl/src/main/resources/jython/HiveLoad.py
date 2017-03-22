@@ -23,7 +23,6 @@ class HiveLoad:
     self.logger = LoggerFactory.getLogger("%s[%s]" % (self.__class__.__name__, wh_etl_exec_id))
 
   def load_metadata(self):
-    cursor = self.conn_mysql.cursor()
     load_cmd = """
         DELETE FROM stg_dict_dataset WHERE db_id = {db_id};
 
@@ -97,18 +96,15 @@ class HiveLoad:
         ;
         """.format(source_file=self.input_schema_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
-    for state in load_cmd.split(";"):
-      self.logger.info(state)
-      cursor.execute(state)
-      self.conn_mysql.commit()
-    cursor.close()
+    self.executeCommands(load_cmd)
+    self.logger.info("Load dataset metadata.")
+
 
   def load_field(self):
     """
     Load fields
     :return:
     """
-    cursor = self.conn_mysql.cursor()
     load_cmd = """
         DELETE FROM stg_dict_field_detail WHERE db_id = {db_id};
 
@@ -125,30 +121,26 @@ class HiveLoad:
         , description=nullif(@description,'null')
         , last_modified=now();
 
-        -- update dataset_id
+        -- update stg_dict_field_detail dataset_id
         update stg_dict_field_detail sf, dict_dataset d
         set sf.dataset_id = d.id where sf.urn = d.urn
         and sf.db_id = {db_id};
+        delete from stg_dict_field_detail
+        where db_id = {db_id} and dataset_id is null;  -- remove if not match to dataset
 
         -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
         -- join with dict_dataset to avoid right join using index. (using index will slow down the query)
-        create temporary table if not exists t_deleted_fields (primary key (field_id))
-          select x.field_id
-            from stg_dict_field_detail s
-              join dict_dataset i
-                on s.urn = i.urn
-                and s.db_id = {db_id}
-              right join dict_field_detail x
-                on i.id = x.dataset_id
-                and s.field_name = x.field_name
-                and s.parent_path = x.parent_path
-          where s.field_name is null
-            and x.dataset_id in (
-                       select d.id dataset_id
-                       from stg_dict_field_detail k join dict_dataset d
-                         on k.urn = d.urn
-                        and k.db_id = {db_id}
-            )
+        create temporary table if not exists t_deleted_fields (primary key (field_id)) ENGINE=MyISAM
+          SELECT x.field_id
+          FROM (select dataset_id, field_name, parent_path from stg_dict_field_detail where db_id = {db_id}) s
+          RIGHT JOIN
+            ( select dataset_id, field_id, field_name, parent_path from dict_field_detail
+              where dataset_id in (select dataset_id from stg_dict_field_detail where db_id = {db_id})
+            ) x
+            ON s.dataset_id = x.dataset_id
+            AND s.field_name = x.field_name
+            AND s.parent_path = x.parent_path
+          WHERE s.field_name is null
         ; -- run time : ~2min
 
         delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
@@ -190,7 +182,7 @@ class HiveLoad:
 
         -- insert new ones
         CREATE TEMPORARY TABLE IF NOT EXISTS t_existed_field
-        ( primary key (urn, sort_id, db_id) )
+        ( primary key (urn, sort_id, db_id) ) ENGINE=MyISAM
         AS (
         SELECT sf.urn, sf.sort_id, sf.db_id, count(*) field_count
         FROM stg_dict_field_detail sf
@@ -203,8 +195,7 @@ class HiveLoad:
         group by 1,2,3
         );
 
-
-       insert ignore into dict_field_detail (
+        insert ignore into dict_field_detail (
           dataset_id, fields_layout_id, sort_id, parent_sort_id, parent_path,
           field_name, namespace, data_type, data_size, is_nullable, default_value,
            modified
@@ -239,7 +230,6 @@ class HiveLoad:
           where field_id in (select field_id from stg_dict_dataset_field_comment)
         and is_default = 1 ) and db_id = {db_id};
 
-
         -- doesn't have this comment before, insert into it and set as default
         insert ignore into dict_dataset_field_comment
         select sd.field_id, sd.comment_id, sd.dataset_id, 1 from stg_dict_dataset_field_comment sd
@@ -248,7 +238,6 @@ class HiveLoad:
          and d.comment_id = sd.comment_id
         where d.comment_id is null
         and sd.db_id = {db_id};
-
 
         insert into field_comments (
           user_id, comment, created, modified, comment_crc32_checksum
@@ -266,20 +255,15 @@ class HiveLoad:
 
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 
-    # didn't load into final table for now
+    self.executeCommands(load_cmd)
+    self.logger.info("Load dataset fields.")
 
-    for state in load_cmd.split(";"):
-      self.logger.info(state)
-      cursor.execute(state)
-      self.conn_mysql.commit()
-    cursor.close()
 
   def load_dataset_instance(self):
       """
       Load dataset instance
       :return:
       """
-      cursor = self.conn_mysql.cursor()
       load_cmd = """
         DELETE FROM stg_dict_dataset_instance WHERE db_id = {db_id};
 
@@ -337,21 +321,15 @@ class HiveLoad:
             ;
         """.format(source_file=self.input_instance_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
+      self.executeCommands(load_cmd)
+      self.logger.info("Load dataset instance.")
 
-      # didn't load into final table for now
-
-      for state in load_cmd.split(";"):
-          self.logger.info(state)
-          cursor.execute(state)
-          self.conn_mysql.commit()
-      cursor.close()
 
   def load_dataset_dependencies(self):
       """
-      Load dataset instance
+      Load dataset dependencies
       :return:
       """
-      cursor = self.conn_mysql.cursor()
       load_cmd = """
         DELETE FROM stg_cfg_object_name_map;
         LOAD DATA LOCAL INFILE '{source_file}'
@@ -372,7 +350,7 @@ class HiveLoad:
         -- create to be deleted table
         DROP TEMPORARY table IF EXISTS t_deleted_depend;
 
-        CREATE TEMPORARY TABLE t_deleted_depend
+        CREATE TEMPORARY TABLE t_deleted_depend ENGINE=MyISAM
         AS (
         SELECT DISTINCT c.obj_name_map_id
           FROM cfg_object_name_map c LEFT JOIN stg_cfg_object_name_map s
@@ -420,12 +398,15 @@ class HiveLoad:
         """.format(source_file=self.input_dependency_file)
 
       # didn't load into final table for now
+      self.executeCommands(load_cmd)
+      self.logger.info("Load dataset dependencies.")
 
-      for state in load_cmd.split(";"):
-          self.logger.info(state)
-          cursor.execute(state)
+
+  def executeCommands(self, commands):
+      for cmd in commands.split(";"):
+          self.logger.debug(cmd)
+          self.conn_cursor.execute(cmd)
           self.conn_mysql.commit()
-      cursor.close()
 
 
 if __name__ == "__main__":
@@ -446,10 +427,11 @@ if __name__ == "__main__":
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+  l.conn_cursor = l.conn_mysql.cursor()
 
   if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
     lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
-    l.conn_mysql.cursor().execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+    l.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
   try:
     l.load_metadata()
