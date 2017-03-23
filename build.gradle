@@ -50,3 +50,10 @@ apply from: 'gradle/scripts/license.gradle'
 task wrapper(type: Wrapper) {
   gradleVersion = '2.14'
 }
+
+if (project.hasProperty('overrideBuildEnvironment')) {
+  //The property is automatically passed to the Gradle build when the project is built at LinkedIn
+  //The property contains the file path to a script plugin that 'adapts' this OS project to LinkedIn
+  //In order to adapt the project, we need to apply this script plugin:
+  apply from: project.overrideBuildEnvironment
+}
