@@ -74,7 +74,7 @@ Want to contribute? Check out the [Contributors Guide][CON]
 
 ## Community
 
-Want help? Check out the [Google Groups][LIST]
+Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 
 
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
@@ -85,3 +85,4 @@ Want help? Check out the [Google Groups][LIST]
 [DDL]: https://github.com/linkedin/WhereHows/tree/master/data-model/DDL
 [DB]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#set-up-your-database
 [LIST]: https://groups.google.com/forum/#!forum/wherehows
+[GITTER]: https://gitter.im/wherehows
