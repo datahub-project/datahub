@@ -652,19 +652,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			}
 		}
 
-		String urn = null;
-		try
-		{
-			urn = (String)getJdbcTemplate().queryForObject(
-					GET_DATASET_URN_BY_ID,
-					String.class,
-					id);
-		}
-		catch(EmptyResultDataAccessException e)
-		{
-			Logger.error("Dataset ownDataset get urn failed, id = " + id);
-			Logger.error("Exception = " + e.getMessage());
-		}
+		String urn = getDatasetUrnById(id);
 		int status = getJdbcTemplate().update(
 				UPDATE_DATASET_OWNERS,
 				id,
@@ -754,6 +742,15 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		}
 		resultNode.set("owners", Json.toJson(owners));
 		return resultNode;
+	}
+
+	public static String getDatasetUrnById(int dataset_id) {
+		try {
+			return getJdbcTemplate().queryForObject(GET_DATASET_URN_BY_ID, String.class, dataset_id);
+		} catch(EmptyResultDataAccessException e) {
+			Logger.error("Can not find URN for dataset id: " + dataset_id + ", Exception: " + e.getMessage());
+		}
+		return null;
 	}
 
 	public static Dataset getDatasetByID(int id, String user)
@@ -922,21 +919,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	public static List<ImpactDataset> getImpactAnalysisByID(int id)
 	{
-		String urn = null;
-
-		try
-		{
-			urn = (String)getJdbcTemplate().queryForObject(
-					GET_DATASET_URN_BY_ID,
-					String.class,
-					id);
-		}
-		catch(EmptyResultDataAccessException e)
-		{
-			Logger.error("Dataset getImpactAnalysisByID get urn failed, id = " + id);
-			Logger.error("Exception = " + e.getMessage());
-		}
-
+		String urn = getDatasetUrnById(id);
 		return LineageDAO.getImpactDatasetsByUrn(urn);
 	}
 
@@ -1838,13 +1821,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		getJdbcTemplate().update(MARK_DATASET_OWNERS_AS_DELETED, datasetId);
 
 		if (owners.size() > 0) {
-			String urn = null;
-			try {
-				urn = getJdbcTemplate().queryForObject(GET_DATASET_URN_BY_ID,	String.class,	datasetId);
-			} catch(EmptyResultDataAccessException e)	{
-				Logger.error("Dataset updateDatasetOwners get urn failed, id = " + datasetId);
-				Logger.error("Exception = " + e.getMessage());
-			}
+			String urn = getDatasetUrnById(datasetId);
 			updateDatasetOwnerDatabase(datasetId, urn, owners);
 		}
 		return ReturnCode.Success;
