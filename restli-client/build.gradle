@@ -1,30 +1,8 @@
-apply plugin: 'java'
-
-/*
-repositories {
-  mavenCentral()
-  ivy {
-    url 'http://artifactory.corp.linkedin.com:8081/artifactory/repo'
-    layout 'pattern', {
-      ivy '[organisation]/[module]/[revision]/[module]-[revision].ivy'
-      artifact '[organisation]/[module]/[revision]/[artifact]-[revision](-[classifier]).[ext]'
-      m2compatible = true
-    }
-  }
-  mavenLocal()
-//  maven {
-//    url 'http://artifactory.corp.linkedin.com:8081/artifactory/SI'
-//  }
-//  flatDir {
-//    dirs 'extralibs'
-//  }
-}
-*/
-
 dependencies {
   compile 'com.linkedin.pegasus:restli-client:6.0.12'
   compile 'com.linkedin.pegasus:r2-netty:6.0.12'
+  // if used within LinkedIn, uncomment the following two lines and comment the extralibs to use the latest artifacts
   // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'dataTemplate'
   // compile group:'com.linkedin.metadata-store', name:'metadata-store-api', version:'0.1.+', configuration:'restClient'
-  compile fileTree(dir: 'extralibs', include: ['*.jar']) // externalDependency.oracle/teradata/gsp
+  compile fileTree(dir: 'extralibs', include: ['*.jar'])
 }

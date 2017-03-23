@@ -23,3 +23,14 @@ model {
         }
     }
 }
+
+// used for Intellij to recognized play project
+idea {
+    module {
+        sourceDirs += file("app")
+        testSourceDirs += file("test")
+        scopes.COMPILE = [plus: [configurations.play], minus: []]
+        scopes.RUNTIME = [plus: [configurations.playRun], minus: [configurations.play]]
+        scopes.TEST = [plus: [configurations.playTest], minus: [configurations.playRun]]
+    }
+}
