@@ -5,6 +5,8 @@ project.ext.httpPort = 9000
 project.ext.playBinaryBaseName = "wherehows-frontend"
 
 dependencies{
+    play project(':restli-client')
+
     play externalDependency.play_java_ws
     play externalDependency.play_java_jdbc
     play externalDependency.play_filter
