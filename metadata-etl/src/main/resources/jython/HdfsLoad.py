@@ -27,7 +27,6 @@ class HdfsLoad:
     Load dataset metadata into final table
     :return: nothing
     """
-    cursor = self.conn_mysql.cursor()
     load_cmd = '''
         DELETE FROM stg_dict_dataset WHERE db_id = {db_id};
 
@@ -197,15 +196,11 @@ class HdfsLoad:
           ;
         '''.format(source_file=self.input_file, db_id=self.db_id, wh_etl_exec_id=self.wh_etl_exec_id)
 
-    for state in load_cmd.split(";"):
-      self.logger.debug(state)
-      cursor.execute(state)
-      self.conn_mysql.commit()
-    cursor.close()
+    self.executeCommands(load_cmd)
     self.logger.info("finish loading hdfs metadata db_id={db_id} to dict_dataset".format(db_id=self.db_id))
 
+
   def load_field(self):
-    cursor = self.conn_mysql.cursor()
     load_field_cmd = '''
         DELETE FROM stg_dict_field_detail where db_id = {db_id};
 
@@ -242,24 +237,25 @@ class HdfsLoad:
 
         analyze table field_comments;
 
+        -- update stg_dict_field_detail dataset_id
+        update stg_dict_field_detail sf, dict_dataset d
+        set sf.dataset_id = d.id where sf.urn = d.urn
+        and sf.db_id = {db_id};
+        delete from stg_dict_field_detail
+        where db_id = {db_id} and dataset_id is null;  -- remove if not match to dataset
+
         -- delete old record if it does not exist in this load batch anymore (but have the dataset id)
-        create temporary table if not exists t_deleted_fields (primary key (field_id))
-          select x.field_id
-            from stg_dict_field_detail s
-              join dict_dataset i
-                on s.urn = i.urn
-                and s.db_id = {db_id}
-              right join dict_field_detail x
-                on i.id = x.dataset_id
-                and s.field_name = x.field_name
-                and s.parent_path = x.parent_path
-          where s.field_name is null
-            and x.dataset_id in (
-                       select d.id dataset_id
-                       from stg_dict_field_detail k join dict_dataset d
-                         on k.urn = d.urn
-                        and k.db_id = {db_id}
-            )
+        create temporary table if not exists t_deleted_fields (primary key (field_id)) ENGINE=MyISAM
+          SELECT x.field_id
+          FROM (select dataset_id, field_name, parent_path from stg_dict_field_detail where db_id = {db_id}) s
+          RIGHT JOIN
+            ( select dataset_id, field_id, field_name, parent_path from dict_field_detail
+              where dataset_id in (select dataset_id from stg_dict_field_detail where db_id = {db_id})
+            ) x
+            ON s.dataset_id = x.dataset_id
+            AND s.field_name = x.field_name
+            AND s.parent_path = x.parent_path
+          WHERE s.field_name is null
         ; -- run time : ~2min
 
         delete from dict_field_detail where field_id in (select field_id from t_deleted_fields);
@@ -269,12 +265,10 @@ class HdfsLoad:
         (
           select x.field_id, s.*
           from (select * from stg_dict_field_detail where db_id = {db_id}) s
-            join dict_dataset d
-              on s.urn = d.urn
             join dict_field_detail x
               on s.field_name = x.field_name
               and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-              and d.id = x.dataset_id
+              and s.dataset_id = x.dataset_id
           where (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
                 or x.data_type <> s.data_type
@@ -307,12 +301,11 @@ class HdfsLoad:
            modified
         )
         select
-          d.id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
+          sf.dataset_id, 0, sf.sort_id, sf.parent_sort_id, sf.parent_path,
           sf.field_name, sf.namespace, sf.data_type, sf.data_size, sf.is_nullable, sf.default_value, now()
-        from stg_dict_field_detail sf join dict_dataset d
-          on sf.urn = d.urn
+        from stg_dict_field_detail sf
              left join dict_field_detail t
-          on d.id = t.dataset_id
+          on sf.dataset_id = t.dataset_id
          and sf.field_name = t.field_name
          and sf.parent_path = t.parent_path
         where db_id = {db_id} and t.field_id is null
@@ -325,13 +318,12 @@ class HdfsLoad:
 
         -- insert
         insert into stg_dict_dataset_field_comment
-        select t.field_id field_id, fc.id comment_id,  d.id dataset_id, {db_id}
-                from stg_dict_field_detail sf join dict_dataset d
-                  on sf.urn = d.urn
+        select t.field_id field_id, fc.id comment_id, sf.dataset_id dataset_id, {db_id}
+                from stg_dict_field_detail sf
                       join field_comments fc
                   on sf.description = fc.comment
                       join dict_field_detail t
-                  on d.id = t.dataset_id
+                  on sf.dataset_id = t.dataset_id
                  and sf.field_name = t.field_name
                  and sf.parent_path = t.parent_path
         where sf.db_id = {db_id};
@@ -357,15 +349,12 @@ class HdfsLoad:
         DELETE FROM stg_dict_field_detail where db_id = {db_id};
 
         '''.format(source_file=self.input_field_file, db_id=self.db_id)
-    for state in load_field_cmd.split(";"):
-      self.logger.debug(state)
-      cursor.execute(state)
-      self.conn_mysql.commit()
-    cursor.close()
+
+    self.executeCommands(load_field_cmd)
     self.logger.info("finish loading hdfs metadata db_id={db_id} to dict_field_detail".format(db_id=self.db_id))
 
+
   def load_sample(self):
-    cursor = self.conn_mysql.cursor()
     load_sample_cmd = '''
     DELETE FROM stg_dict_dataset_sample where db_id = {db_id};
 
@@ -375,11 +364,11 @@ class HdfsLoad:
     (urn,ref_urn,data)
     SET db_id = {db_id};
 
-    -- update reference id in stagging table
-    UPDATE  stg_dict_dataset_sample s
+    -- update reference id in staging table
+    UPDATE stg_dict_dataset_sample s
     JOIN dict_dataset d ON s.ref_urn = d.urn
     SET s.ref_id = d.id
-    WHERE s.db_id = {db_id} AND s.ref_urn > '' AND s.ref_urn <> 'null';
+    WHERE s.db_id = {db_id} AND s.ref_urn > '';
 
     -- first insert ref_id as 0
     INSERT INTO dict_dataset_sample
@@ -401,12 +390,16 @@ class HdfsLoad:
     SET d.ref_id = s.ref_id
     WHERE s.db_id = {db_id} AND d.ref_id = 0;
     '''.format(source_file=self.input_sample_file, db_id=self.db_id)
-    for state in load_sample_cmd.split(";"):
-      self.logger.debug(state)
-      cursor.execute(state)
-      self.conn_mysql.commit()
-    cursor.close()
+
+    self.executeCommands(load_sample_cmd)
     self.logger.info("finish loading hdfs sample data db_id={db_id} to dict_dataset_sample".format(db_id=self.db_id))
+
+
+  def executeCommands(self, commands):
+    for cmd in commands.split(";"):
+      self.logger.debug(cmd)
+      self.conn_cursor.execute(cmd)
+      self.conn_mysql.commit()
 
 
 if __name__ == "__main__":
@@ -426,10 +419,11 @@ if __name__ == "__main__":
   l.db_id = args[Constant.DB_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+  l.conn_cursor = l.conn_mysql.cursor()
 
   if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
     lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
-    l.conn_mysql.cursor().execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+    l.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
   try:
     l.load_metadata()
