@@ -16,6 +16,9 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.dataset.SchemaField;
+import com.linkedin.dataset.SchemaFieldArray;
+import dao.MetadataStoreDao;
 import dao.ReturnCode;
 import models.DatasetColumn;
 import models.DatasetDependency;
@@ -144,23 +147,38 @@ public class Dataset extends Controller
         return ok(result);
     }
 
-    public static Result getDatasetColumnsByID(int id)
-    {
+    public static Result getDatasetColumnsByID(int id) {
         List<DatasetColumn> datasetColumnList = DatasetsDAO.getDatasetColumnsByID(id);
 
         ObjectNode result = Json.newObject();
-
-        if (datasetColumnList != null && datasetColumnList.size() > 0)
-        {
+        if (datasetColumnList != null && datasetColumnList.size() > 0) {
             result.put("status", "ok");
             result.set("columns", Json.toJson(datasetColumnList));
+            return ok(result);
         }
-        else
-        {
+
+        SchemaFieldArray datasetFields = null;
+        if (datasetColumnList == null || datasetColumnList.size() == 0) {
+            String urn = DatasetsDAO.getDatasetUrnById(id);
+            if (urn != null && urn.length() > 6) {
+                try {
+                    datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
+                } catch (Exception e) {
+                    Logger.debug("Can't find schema for URN: " + urn + ", Exception: " + e.getMessage());
+                }
+            } else {
+                Logger.debug("Dataset id " + id + " not found.");
+            }
+        }
+
+        if (datasetFields != null && datasetFields.size() > 0) {
+            datasetColumnList = MetadataStoreDao.datasetColumnsMapper(datasetFields);
+            result.put("status", "ok");
+            result.set("columns", Json.toJson(datasetColumnList));
+        } else {
             result.put("status", "error");
             result.put("message", "record not found");
         }
-
         return ok(result);
     }
 

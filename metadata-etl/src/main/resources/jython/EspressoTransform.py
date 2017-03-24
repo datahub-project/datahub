@@ -78,7 +78,7 @@ class EspressoTransform:
     fields = []
     for key_field in key_list:
       key_field_with_prefix = key_field.copy()
-      key_field_with_prefix["name"] = 'key:' + key_field_with_prefix['name']
+      key_field_with_prefix["name"] = 'key:' + key_field_with_prefix["name"]
       fields.append(key_field_with_prefix)
 
     properties = {}
