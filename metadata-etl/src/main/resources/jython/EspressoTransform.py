@@ -77,8 +77,9 @@ class EspressoTransform:
     key_list = json.loads(doc['key'])
     fields = []
     for key_field in key_list:
-      key_field['name'] = 'key:' + key_field['name']
-      fields.extend(key_field)
+      key_field_with_prefix = key_field.copy()
+      key_field_with_prefix["name"] = 'key:' + key_field_with_prefix["name"]
+      fields.append(key_field_with_prefix)
 
     properties = {}
     for p_key in content.keys():
