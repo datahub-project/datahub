@@ -15,6 +15,7 @@ package utils;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 
 import play.Logger;
@@ -109,6 +110,25 @@ public class Search
                 "}" +
             "}";
 
+    private final static String suggesterQueryTemplateSub =
+            "{" +
+              "\"text\": \"$SEARCHKEYWORD\", " +
+              "\"simple_phrase\": { " +
+                "\"phrase\": { " +
+                  "\"field\": \"$FIELD\", " +
+                  "\"size\": 1, " +
+                  "\"direct_generator\": [ " +
+                    "{ " +
+                      "\"field\": \"$FIELD\", " +
+                      "\"suggest_mode\": \"always\", " +
+                      "\"min_word_length\": 1 " +
+                    "}" +
+                   "]" +
+                  "}" +
+                "}" +
+             "}";
+
+
     public final static String DATASET_CATEGORY = "datasets";
 
     public final static String METRIC_CATEGORY = "metrics";
@@ -118,6 +138,33 @@ public class Search
     public final static String FLOW_CATEGORY = "flows";
 
     public final static String JOB_CATEGORY = "jobs";
+
+    public static ObjectNode generateElasticSearchPhraseSuggesterQuery(String category, String field, String searchKeyword)
+    {
+        if (StringUtils.isBlank(searchKeyword))
+        return null;
+
+        String queryTemplate = suggesterQueryTemplateSub;
+        String query= queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
+
+        if (StringUtils.isNotBlank(field))
+        {
+          query = query.replace("$FIELD", field.toLowerCase());
+        }
+
+        ObjectNode suggestNode = Json.newObject();
+        ObjectNode textNode = Json.newObject();
+        try {
+          textNode = (ObjectNode) new ObjectMapper().readTree(query);
+          suggestNode.put("suggest", textNode);
+        }
+        catch (Exception e)
+        {
+          Logger.error("suggest Exception = " + e.getMessage());
+        }
+        Logger.info("suggestNode is " + suggestNode.toString());
+        return suggestNode;
+    }
 
     public static ObjectNode generateElasticSearchQueryString(String category, String source, String keywords)
     {
