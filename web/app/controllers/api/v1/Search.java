@@ -39,6 +39,34 @@ public class Search extends Controller
         return ok(result);
     }
 
+    public static Result getSearchAutoCompleteForDataset()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("source", Json.toJson(SearchDAO.getAutoCompleteListForDataset()));
+
+        return ok(result);
+    }
+
+    public static Result getSearchAutoCompleteForMetric()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("source", Json.toJson(SearchDAO.getAutoCompleteListForMetric()));
+
+        return ok(result);
+    }
+
+    public static Result getSearchAutoCompleteForFlow()
+    {
+        ObjectNode result = Json.newObject();
+        result.put("status", "ok");
+        result.set("source", Json.toJson(SearchDAO.getAutoCompleteListForFlow()));
+
+        return ok(result);
+    }
+
+
     public static Result searchByKeyword()
     {
         ObjectNode result = Json.newObject();
