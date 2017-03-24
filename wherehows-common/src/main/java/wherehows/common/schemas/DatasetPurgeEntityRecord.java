@@ -16,17 +16,19 @@ package wherehows.common.schemas;
 import java.util.List;
 
 
-public class DatasetEntityRecord extends AbstractRecord {
+public class DatasetPurgeEntityRecord extends AbstractRecord {
 
   String identifierType;
   String identifierField;
+  String logicalType;
+  Boolean isSubject;
 
   @Override
   public List<Object> fillAllFields() {
     return null;
   }
 
-  public DatasetEntityRecord() {
+  public DatasetPurgeEntityRecord() {
   }
 
   public String getIdentifierType() {
@@ -43,5 +45,21 @@ public class DatasetEntityRecord extends AbstractRecord {
 
   public void setIdentifierField(String identifierField) {
     this.identifierField = identifierField;
+  }
+
+  public String getLogicalType() {
+    return logicalType;
+  }
+
+  public void setLogicalType(String logicalType) {
+    this.logicalType = logicalType;
+  }
+
+  public Boolean getIsSubject() {
+    return isSubject;
+  }
+
+  public void setIsSubject(Boolean isSubject) {
+    this.isSubject = isSubject;
   }
 }

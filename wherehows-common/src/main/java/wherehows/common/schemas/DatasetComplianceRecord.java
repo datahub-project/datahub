@@ -14,7 +14,6 @@
 package wherehows.common.schemas;
 
 import java.util.List;
-import java.util.Map;
 
 
 public class DatasetComplianceRecord extends AbstractRecord {
@@ -22,7 +21,7 @@ public class DatasetComplianceRecord extends AbstractRecord {
   Integer datasetId;
   String datasetUrn;
   String complianceType;
-  List<DatasetEntityRecord> compliancePurgeEntities;
+  List<DatasetPurgeEntityRecord> compliancePurgeEntities;
   Long modifiedTime;
 
   @Override
@@ -63,11 +62,11 @@ public class DatasetComplianceRecord extends AbstractRecord {
     this.complianceType = complianceType;
   }
 
-  public List<DatasetEntityRecord> getCompliancePurgeEntities() {
+  public List<DatasetPurgeEntityRecord> getCompliancePurgeEntities() {
     return compliancePurgeEntities;
   }
 
-  public void setCompliancePurgeEntities(List<DatasetEntityRecord> compliancePurgeEntities) {
+  public void setCompliancePurgeEntities(List<DatasetPurgeEntityRecord> compliancePurgeEntities) {
     this.compliancePurgeEntities = compliancePurgeEntities;
   }
 
