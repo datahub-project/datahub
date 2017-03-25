@@ -17,7 +17,7 @@ export default Service.extend({
    * @returns {void|Transition|EmberStates.Transition}
    */
   showSearchResults(args) {
-    let {keyword} = args;
+    let { keyword } = args;
 
     // Transition to search route only if value is not null or void
     if (!isBlank(keyword)) {
@@ -26,7 +26,7 @@ export default Service.extend({
       keyword = encode(keyword);
 
       return applicationRoute.transitionTo('search', {
-        queryParams: {keyword}
+        queryParams: { keyword }
       });
     }
   }
