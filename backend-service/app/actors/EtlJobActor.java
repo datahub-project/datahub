@@ -15,6 +15,7 @@ package actors;
 
 import akka.actor.UntypedActor;
 import java.net.UnknownHostException;
+import java.util.List;
 import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
@@ -48,7 +49,8 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        String cmd = ConfigUtil.generateCommand(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
+        final List<String> cmd =
+            ConfigUtil.generateCommand(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
         Logger.debug("run command : " + cmd);
 
         ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
@@ -58,7 +60,7 @@ public class EtlJobActor extends UntypedActor {
 
         while (retry < 3) {
           long startTime = System.currentTimeMillis();
-          process = Runtime.getRuntime().exec(cmd);
+          process = Runtime.getRuntime().exec(cmd.toArray(new String[0]));
 
           // update process id and hostname for started job
           EtlJobDao.updateJobProcessInfo(msg.getWhEtlExecId(), getPid(process), getHostname());
