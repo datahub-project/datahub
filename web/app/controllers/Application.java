@@ -25,6 +25,11 @@ import play.mvc.Security;
 import utils.Tree;
 import views.html.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import play.libs.Json;
+import play.mvc.BodyParser;
+
 import static play.data.Form.form;
 import org.apache.commons.lang3.StringUtils;
 import security.AuthenticationManager;
@@ -170,32 +175,48 @@ public class Application extends Controller
         return ok(login.render(csrfToken, isInternal, piwikSiteId));
     }
 
-    public static Result authenticate()
-    {
-        DynamicForm loginForm = form().bindFromRequest();
-        String username = loginForm.get("username");
-        String password = loginForm.get("password");
+    @BodyParser.Of(BodyParser.Json.class)
+    public static Result authenticate() {
+        // Create a new reponse ObjectNode to return when authenticate
+        //   requst is successful
+        ObjectNode response = Json.newObject();
+        JsonNode json = request().body().asJson();
+        // Extract username and password as String from JsonNode,
+        //   null if they are not strings
+        String username = json.findPath("username").textValue();
+        String password = json.findPath("password").textValue();
 
-        if (StringUtils.isBlank(username) || StringUtils.isBlank(password))
-        {
-            flash("error", "Invalid username or password");
-            return redirect(controllers.routes.Application.login());
+        if (username == null || StringUtils.isBlank(username)) {
+            return badRequest("Missing or invalid [username]");
+        }
+        if (password == null || StringUtils.isBlank(password)) {
+            return badRequest("Missing or invalid [credentials]");
         }
 
-        try
-        {
+        // Create a uuid string for this session if one doesn't already exist
+        //   to be appended to the Result object
+        String uuid = session("uuid");
+        if (uuid == null) {
+            uuid = java.util.UUID.randomUUID().toString();
+            session("uuid", uuid);
+        }
+
+        try {
             AuthenticationManager.authenticateUser(username, password);
+        } catch (Exception e) {
+            return badRequest("Invalid credentials");
         }
-        catch (Exception e)
-        {
-            Logger.error("Authentication failed for user " + username);
-            Logger.error(e.getMessage());
-            flash("error", "Invalid username or password");
-            return redirect(controllers.routes.Application.login());
-        }
+
         session().clear();
-        session("user", username);
-        return redirect(controllers.routes.Application.index());
+
+        // Contruct an ObjectNode with the username and uuid token to be sent with the response
+        ObjectNode data = Json.newObject();
+        data.put("username", username);
+        data.put("uuid", uuid);
+        response.put("status", "ok");
+        response.put("data", data);
+
+        return ok(response);
     }
 
     public static Result signUp()
@@ -230,8 +251,7 @@ public class Application extends Controller
     public static Result logout()
     {
         session().clear();
-        flash("success", "You've been logged out");
-        return redirect(controllers.routes.Application.login());
+        return ok();
     }
 
     public static Result loadTree(String key)
