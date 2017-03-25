@@ -1,64 +1,86 @@
 import Ember from 'ember';
-import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
+import AuthenticatedRouteMixin
+  from 'ember-simple-auth/mixins/authenticated-route-mixin';
+import buildUrl from 'wherehows-web/utils/build-url';
 
-export default Ember.Route.extend(AuthenticatedRouteMixin, {
-  queryParams: {
-    category: {
-      refreshModel: true
-    },
-    keywords: {
-      refreshModel: true
-    },
-    source: {
-      refreshModel: true
-    },
-    page: {
-      refreshModel: true
-    }
-  },
-  model: function (params) {
-    this.controller.set('loading', true);
-    var q;
-    if (params) {
-      q = params;
-    }
-    else {
-      q = convertQueryStringToObject();
-    }
+const {
+  Route,
+  isBlank,
+  $: { getJSON }
+} = Ember;
+const queryParams = ['keyword', 'category', 'page', 'source'];
+// TODO: DSS-6581 Create URL retrieval module
+const urlRoot = '/api/v1/search';
 
-    var keyword = atob(q.keywords);
-    var url = 'api/v1/search' + '?page=' + params.page + "&keyword=" + keyword;
-    if (q.category) {
-      url += ("&category=" + q.category.toLowerCase());
-      currentTab = q.category.toProperCase();
-      updateActiveTab();
-    }
-    if (q.source) {
-      url += '&source=' + q.source;
-    }
-    $.get(url, data => {
-      if (data && data.status == "ok") {
-        var result = data.result;
-        var keywords = result.keywords;
-        window.g_currentCategory = result.category;
-        updateSearchCategories(result.category);
-        for (var index = 0; index < result.data.length; index++) {
-          var schema = result.data[index].schema;
-          if (schema) {
-            result.data[index].originalSchema = schema;
-            highlightResults(result.data, index, keyword);
-          }
-        }
-        this.controller.set('model', result);
-        this.controller.set('keyword', keyword);
-        this.controller.set('isMetric', false);
-        if (result.data.length > 0) {
-          this.controller.set('showNoResult', false);
-        } else {
-          this.controller.set('showNoResult', true);
-        }
-        this.controller.set('loading', false)
-      }
+export default Route.extend(AuthenticatedRouteMixin, {
+  // Set `refreshModel` for each queryParam to true
+  //  so each url state change results in a full transition
+  queryParams: (() =>
+    queryParams.reduce(
+      (queryParams, param) => {
+        queryParams[param] = { refreshModel: true };
+
+        return queryParams;
+      },
+      {}
+    ))(),
+
+  /**
+   * Applies the returned results object as the route model and sets
+   *   keyword property on the route controller
+   * @param {Object} controller search route controller
+   * @param {Object} model search results
+   */
+  setupController(controller, model) {
+    const { keywords } = model;
+
+    controller.setProperties({
+      model,
+      keyword: keywords
     });
+  },
+
+  /**
+   *
+   * @param params
+   */
+  model(params = {}) {
+    const searchUrl = queryParams.reduce(
+      (url, queryParam) => {
+        const queryValue = params[queryParam];
+        if (!isBlank(queryValue)) {
+          return buildUrl(url, queryParam, queryValue);
+        }
+
+        return url;
+      },
+      urlRoot
+    );
+
+    return Promise.resolve(getJSON(searchUrl))
+      .then(({ status, result }) => {
+        if (status === 'ok') {
+          const {
+            keywords,
+            data
+          } = result;
+
+          data.forEach((datum, index, data) => {
+            const { schema } = datum;
+            if (schema) {
+              datum.originalSchema = schema;
+              // TODO: DSS-6122 refactor global reference and function
+              window.highlightResults(data, index, keywords);
+            }
+          });
+
+          return result;
+        }
+
+        return Promise.reject(
+          new Error(`Request for ${searchUrl} failed with: ${status}`)
+        );
+      })
+      .catch(() => ({}));
   }
 });
