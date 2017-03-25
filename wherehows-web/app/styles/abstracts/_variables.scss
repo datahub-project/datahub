@@ -2,35 +2,82 @@
 
 /// Regular font family
 /// @type List
-$text-font-stack: 'Source Sans Pro', 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif !default;
+$text-font-stack: (
+  'Source Sans Pro',
+  'Helvetica',
+  'Arial',
+  sans-serif
+) !default;
+
+/// Color Scheme
+/// @type Map
+/// @prop {String} key - Scheme name
+/// @prop {Map} hue - a qualifying hue for the enclosing color
+$color-scheme: (
+  red: (
+    red5: rgb(255, 44, 51)
+  ),
+  green: (
+    green5: rgb(70, 154, 31)
+  ),
+  blue: (
+    oxford: rgb(53, 75, 87),
+    curious: rgb(26, 161, 217)
+  ),
+  grey: (
+    light: rgb(237, 237, 237),
+    dark: rgb(68, 68, 68),
+    mid: rgb(153, 153, 153)
+  ),
+  black: (
+    dune: rgb(41, 39, 36)
+  ),
+  white: (
+    base: rgb(255, 255, 255),
+    catskill: rgb(243, 247, 249)
+  )
+);
 
 //===============
-/// Colors
+/// Theming Colors
 //===============
 
 /// Main brand color
 /// @type Color
-$brand-color: rgb(53, 75, 87) !default;
+$brand-color: set-color(blue, oxford);
+
+/// Secondary color
+/// @type Color
+$secondary-color: set-color(white, catskill);
 
 /// Copy text color
 /// @type Color
-$text-color: rgb(34, 34, 34) !default;
+$text-color: set-color(black, dune);
+
+/// Copy text color
+/// @type Color
+$text-invert-color: tint($text-color, 90%);
 
 /// Copy link color
 /// @type Color
-$link-color: rgb(26, 161, 217) !default;
+$link-color: set-color(blue, curious);
 
 /// Container's maximum width
 /// @type Length
 $max-width: 1180px !default;
 
+/// Navigation minimum height
+/// @type Length
+$nav-min-height: 50px !default;
+
 /// Breakpoints map
 /// @prop {String} keys - Keys are identifiers mapped to a given length
 /// @prop {Map} values - Values are actual breakpoints expressed in pixels
 $breakpoints: (
-        'small': 320px,
-        'medium': 768px,
-        'large': 1024px,
+  'small': (min-width: 320px),
+  'medium': (min-width: 768px),
+  'large': (min-width: 979px),
+  'huge': (min-width: 1024px)
 ) !default;
 
 /// Z-indexes map, gathering all Z layers of the application
@@ -38,10 +85,11 @@ $breakpoints: (
 /// @prop {String} key - Layer’s name
 /// @prop {Number} value - Z value mapped to the key
 $z-indexes: (
-        'modal': 5000,
-        'dropdown': 4000,
-        'default': 1,
-        'below': -1,
+  'toast': 6000,
+  'modal': 5000,
+  'dropdown': 4000,
+  'default': 0,
+  'below': -1
 ) !default;
 
 /// Absolute URL where all assets are served from

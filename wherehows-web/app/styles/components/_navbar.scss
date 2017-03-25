@@ -1,9 +1,42 @@
 /**
+ * Override Bootstrap navigation class, .navbar, ruleset
+ */
+.navbar {
+  /**
+   * Explicitly sets the .navbar min-height to a shared value
+   */
+  min-height: $nav-min-height;
+  &-inverse {
+    /**
+     * Overrides the styling for navbar
+     */
+    background-color: $brand-color;
+    border-color: $brand-color;
+  }
+  .navbar-nav {
+    > .active {
+      /**
+       * Overrides the navbar styles on anchor elements
+       */
+      > a {
+        @include on-event(true) {
+          background-color: inherit;
+        }
+      }
+    }
+  }
+}
+
+/**
  * Allow bootstrap dropdown items to be rendered when the mouse hovers over
  * the .dropdown trigger
  */
-@media (min-width: 979px) {
-  .dropdown:hover > .dropdown-menu {
-    display: block;
+.dropdown {
+  @include respond-to('large') {
+    &:hover {
+      > .dropdown-menu {
+        display: block;
+      }
+    }
   }
 }
