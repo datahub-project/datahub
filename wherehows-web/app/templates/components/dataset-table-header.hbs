@@ -1,0 +1,9 @@
+<tr>
+  {{yield (hash
+            column=(component tableColumnComponent
+              sortDirection=(readonly sortDirection)
+              sortColumnWithName=(readonly sortColumnWithName)
+              sortDidChange=sortDidChange
+            )
+          )}}
+</tr>
