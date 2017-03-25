@@ -38,3 +38,9 @@ bower_components
 /libpeerconnection.log
 npm-debug.log*
 testem.log
+
+# idea *.ts files
+typings/
+
+# vscode
+jsconfig.json
