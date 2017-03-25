@@ -29,6 +29,7 @@
     "ember-cli-htmlbars": "^1.0.10",
     "ember-cli-inject-live-reload": "^1.4.1",
     "ember-cli-jshint": "^2.0.1",
+    "ember-cli-moment-shim": "3.0.1",
     "ember-cli-qunit": "^3.0.1",
     "ember-cli-release": "^0.2.9",
     "ember-cli-sri": "^2.1.0",
@@ -38,6 +39,7 @@
     "ember-data": "^2.10.0",
     "ember-export-application-global": "^1.0.5",
     "ember-load-initializers": "^0.5.1",
+    "ember-pikaday": "2.2.1",
     "ember-resolver": "^2.0.3",
     "eyeglass": "^1.2.1",
     "eyeglass-restyle": "^1.0.19",
@@ -49,6 +51,9 @@
   "private": true,
   "dependencies": {
     "dynamic-link": "^0.2.1",
-    "ember-simple-auth": "^1.2.0"
+    "ember-aupac-typeahead": "2.1.2",
+    "ember-radio-button": "^1.1.1",
+    "ember-simple-auth": "^1.2.0",
+    "ember-truth-helpers": "1.3.0"
   }
 }
