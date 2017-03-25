@@ -1,14 +1,48 @@
 import Ember from 'ember';
 
-export default Ember.Controller.extend({
+const {
+  Controller,
+  computed,
+  get,
+  set,
+  String: {capitalize}
+} = Ember;
+
+const sources = [
+  'all',
+  'dali',
+  'espresso',
+  'hive',
+  'hdfs',
+  'kafka',
+  'oracle',
+  'teradata',
+  'voldemort'
+];
+
+export default Controller.extend({
   queryParams: [
-    'keywords',
+    'keyword',
     'category',
     'source',
     'page'
   ],
-  keywords: null,
-  category: null,
+  keyword: '',
+  category: 'datasets',
+  source: 'all',
+  page: 1,
+
+  sources: computed('source', function () {
+    return sources.map(source => ({
+      name: 'source',
+      value: source,
+      label: capitalize(source),
+      group: String(get(this, 'source')).toLowerCase()
+    }))
+  }),
+
+  isMetric: false,
+
   datasetTitle: function () {
     var model = this.get("model");
     if (model && model.source) {
@@ -63,11 +97,6 @@ export default Ember.Controller.extend({
     }
     return false;
   }.property('model.category'),
-  source: null,
-  page: null,
-  loading: true,
-  showNoResult: false,
-  isMetric: false,
   previousPage: function () {
     var model = this.get("model");
     if (model && model.page) {
@@ -127,58 +156,18 @@ export default Ember.Controller.extend({
       return false;
     }
   }.property('model.page'),
+
   actions: {
-    switchSearchToMetric: function (keyword) {
-      this.transitionToRoute
-      ('search'
-          , {
-            queryParams: {
-              category: 'Metrics'
-              , keywords: this.get('keywords')
-              , page: 1
-              , source: null
-            }
-          }
-      )
+    sourceDidChange(groupName, value) {
+      set(this, groupName, value);
     },
-    switchSearchToFlow: function (keyword) {
-      this.transitionToRoute
-      ('search'
-          , {
-            queryParams: {
-              category: 'Flows'
-              , keywords: this.get('keywords')
-              , page: 1
-              , source: null
-            }
-          }
-      )
+
+    startDateDidChange(date = null) {
+      set(this, 'startDate', date);
     },
-    switchSearchToJob: function (keyword) {
-      this.transitionToRoute
-      ('search'
-          , {
-            queryParams: {
-              category: 'Jobs'
-              , keywords: this.get('keywords')
-              , page: 1
-              , source: null
-            }
-          }
-      )
-    },
-    switchSearchToComments: function (keyword) {
-      this.transitionToRoute
-      ('search'
-          , {
-            queryParams: {
-              category: 'Comments'
-              , keyword: this.get('keywords')
-              , page: 1
-              , source: null
-            }
-          }
-      )
+
+    endDateDidChange(date = null) {
+      set(this, 'endDate', date);
     }
   }
 });
