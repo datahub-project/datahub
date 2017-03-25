@@ -1,0 +1,93 @@
+@import "restyle";
+
+@include restyle-define(button, (
+  // Button Component Variables
+        restyle-var(height): 32px,
+        restyle-var(horizontal-padding): 16px,
+        restyle-var(main-color): $secondary-color,
+        restyle-var(background-color): $secondary-color,
+        restyle-var(font-size): 1.7rem,
+        restyle-var(font-weight): 600,
+        restyle-var(text-color): $text-color,
+        restyle-var(border-radius): 2px,
+        background-color: restyle-var(background-color),
+        border: 0,
+        border-radius: restyle-var(border-radius),
+        box-sizing: border-box,
+        color: restyle-var(text-color),
+        cursor: pointer,
+        display: inline-block,
+        font-size: restyle-var(font-size),
+        font-weight: restyle-var(font-weight),
+        font-family: inherit,
+        height: restyle-var(height),
+        line-height: restyle-var(height),
+        overflow: hidden,
+        outline: 0,
+        padding: 0 restyle-var(horizontal-padding),
+        position: relative,
+        text-align: center,
+        text-decoration: none,
+        vertical-align: middle,
+        z-index: z(default),
+        restyle-modifiers: (
+                small: (
+                        restyle-var(font-size): 1.5rem,
+                        restyle-var(height): 24px,
+                        restyle-var(horizontal-padding): 16px,
+                ),
+                medium: (
+                  // Default
+                ),
+                large: (
+                        restyle-var(font-size): 1.7rem,
+                        restyle-var(height): 40px,
+                        restyle-var(horizontal-padding): 24px
+                ),
+                x-large: (
+                        restyle-var(font-size): 2.1rem,
+                        restyle-var(height): 48px,
+                        restyle-var(horizontal-padding): 32px,
+                        restyle-var(font-weight): normal
+                ),
+                tertiary: (
+                        restyle-var(main-color): transparent
+                ),
+                secondary: (
+                        restyle-var(background-color): transparent,
+                        restyle-var(text-color): $text-invert-color,
+                        restyle-var(box-shadow-size): inset 0 0 0 1px,
+                        restyle-var(box-shadow-size-hover): inset 0 0 0 2px,
+                        restyle-var(box-shadow-size-active): inset 0 0 0 3px,
+                        restyle-var(font-weight): 300,
+                        box-shadow: (
+                                restyle-var(box-shadow-size) restyle-var(main-color),
+                                restyle-var(box-shadow-size-hover) transparent,
+                                restyle-var(box-shadow-size-active) transparent
+                        )
+                )
+        )
+));
+
+.nacho-button {
+  @include restyle(button);
+
+  &--x-large {
+    @include restyle(x-large button);
+  }
+
+  &--large {
+    @include restyle(large button);
+  }
+
+  &--small {
+    @include restyle(small button);
+  }
+
+  &--secondary {
+    @include restyle(secondary button);
+  }
+  &--tertiary {
+    @include restyle(tertiary button);
+  }
+}
