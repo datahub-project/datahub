@@ -2,66 +2,6 @@
     margin-top: 40px !important;
 }
 
-body {
-    margin-bottom: 30px;
-}
-
-#mainContent {
-    margin-top: 60px;
-    width: 99%;
-}
-a.navbar-brand {
-    text-transform: uppercase;
-    font-weight: 100;
-    letter-spacing: 0.4em;
-    font-size: 1.4em;
-    line-height: 1.4em;
-    color: #aaa;
-    padding: 15px 8px 22px 8px;
-    background: none;
-    text-shadow: 1px 1px 2px #000;
-}
-
-.navbar-fixed-top {
-    height: 60px;
-}
-
-.navbar-nav > li.active > a {
-    padding: 20px 9px 19px;
-    height: 60px;
-}
-
-.navbar-nav > li > a {
-    height: 60px;
-    padding: 20px 9px 19px;
-}
-
-.navbar form .navbar-form {
-    padding-top: 15px;
-}
-
-@media (min-width: 786px) {
-    .navbar-right {
-        margin-right: 0px;
-    }
-}
-
-footer .pull-right {
-    margin-right: 5px;
-}
-
-.footer {
-    border-top: 2px solid #a9a9a9;
-    background: #f0f0f0 !important;
-    height: 30px;
-    width: 100%;
-}
-
-.footer p.pull-right{
-    margin-right: 5px;
-    margin-top: 10px;
-}
-
 .datasetViewer .table .row {
     width: 95%;
     margin-left: 5px;
@@ -127,32 +67,7 @@ footer .pull-right {
 .json-formatter-row .toggler.open:after {
     -webkit-transform: rotate(90deg);
 }
-/*
-table th.active .sorting {
-  display: none;
-}
-table th:not(.active) .asc {
-  display: none;
-}
-table th:not(.active) .desc {
-  display: none;
-}
-table th .sortingArea {
-  float: right;
-}
-table th .sorting {
-  background: url(data:image/gif;base64,R0lGODlhCwALAJEAAAAAAP///xUVFf///yH5BAEAAAMALAAAAAALAAsAAAIUnC2nKLnT4or00PvyrQwrPzUZshQAOw==) no-repeat center right transparent;
-  padding: 0.2em;
-}
-table th .asc {
-  background: url(data:image/gif;base64,R0lGODlhCwALAJEAAAAAAP///xUVFf///yH5BAEAAAMALAAAAAALAAsAAAIRnC2nKLnT4or00Puy3rx7VQAAOw==) no-repeat center right transparent;
-  padding: 0.2em;
-}
-table th .desc {
-  background: url(data:image/gif;base64,R0lGODlhCwALAJEAAAAAAP///xUVFf///yH5BAEAAAMALAAAAAALAAsAAAIPnI+py+0/hJzz0IruwjsVADs=) no-repeat center right transparent;
-  padding: 0.2em;
-}
-*/
+
 #datasetLineage {
     height: 100%;
     width: 100%;
@@ -199,18 +114,6 @@ table tr td {
     min-height: 200px;
     min-width: 600px;
     width: 100%;
-}
-
-#navbar {
-    background: #222;
-}
-
-.navbar-form.navbar-left {
-    margin-top: 15px;
-}
-
-.navbar-left > button {
-    margin-top: 15px;
 }
 
 .searchResults h2 {
@@ -292,21 +195,6 @@ table tr td {
 .adjusted_jqxExpander{
     margin-top: -5px;
     margin-bottom: 5px;
-}
-
-#tabSplitter{
-    overflow: auto;
-}
-
-#mainSplitter {
-    width: 100.8% !important;
-}
-
-#contentSplitter{
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-left: 5px;
-    padding-right: 5px;
 }
 
 .datasetDetailsLinks {
@@ -426,13 +314,6 @@ table tr td {
     color: #337AB7;
 }
 
-
-
-#mainSplitter {
-    min-width:  600px;
-    min-height: 300px;
-    height: 800px;
-}
 .vsplitbar {
     width: 5px;
     background: #aaa;
