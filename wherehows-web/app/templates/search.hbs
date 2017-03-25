@@ -1,119 +1,43 @@
-<div class="btn-group" role="group">
-  <p style="display:inline;float:left;margin-right:5px;margin-top:6px;"><b>Filter By:</b></p>
-  <div class="btn-group" role="group">
-    <button type="button"
-            class="btn dropdown-toggle {{if isDatasets 'btn-primary'}} {{unless isDatasets 'btn-default'}}"
-            data-toggle="dropdown"
-            aria-expanded="false">
-      {{datasetTitle}}
-      <span class="caret"></span>
-    </button>
-    <ul class="dropdown-menu" role="menu">
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="all" page=1)}}
-          All
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="HDFS" page=1)}}
-          HDFS
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Oracle" page=1)}}
-          Oracle
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Teradata" page=1)}}
-          Teradata
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Espresso" page=1)}}
-          Espresso
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Salesforce" page=1)}}
-          Salesforce
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Kafka" page=1)}}
-          Kafka
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Pinot" page=1)}}
-          Pinot
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="Hive" page=1)}}
-          Hive
-        {{/link-to}}
-      </li>
-      <li>
-        {{#link-to 'search' (query-params category="Datasets" source="External" page=1)}}
-          External
-        {{/link-to}}
-      </li>
-    </ul>
-  </div>
-  <button type="button"
-          class="btn {{if isComments 'btn-primary'}} {{unless isComments 'btn-default'}}"
-    {{action 'switchSearchToComments' keyword}}>
-    Comments
-  </button>
-  <button type="button"
-          class="btn {{if isMetrics 'btn-primary'}} {{unless isMetrics 'btn-default'}}"
-    {{action 'switchSearchToMetric' keyword}}>
-    Metrics
-  </button>
-  <button type="button"
-          class="btn {{if isFlows 'btn-primary'}} {{unless isFlows 'btn-default'}}"
-    {{action 'switchSearchToFlow' keyword}}>
-    Flows
-  </button>
-  <button type="button"
-          class="btn {{if isJobs 'btn-primary'}} {{unless isJobs 'btn-default'}}"
-    {{action 'switchSearchToJob' keyword}}>
-    Jobs
-  </button>
-</div>
+<div class="row">
+  <div class="col-md-3">
+    {{#search/filter-rail as |rail|}}
+      {{rail.radioGroup
+        radioOptions=sources
+        title="Source"
+        changed=(action "sourceDidChange")}}
 
-<div id="pagedSearchResults">
-  <div class="row">
-    <div class="col-xs-12">
+    {{!--Api for date range not currently available--}}
+    {{!--rail.dateRange
+      startDateChanged=(action 'startDateDidChange')
+      endDateChanged=(action 'endDateDidChange')--}}
+    {{/search/filter-rail}}
+  </div>
+  <div class="col-md-9">
+    <section class="search-results page-section-container">
       {{#if model.count}}
         <div class="search-pagination">
           <ul class="pager">
             {{#unless first}}
               <li class="previous">
-                {{#link-to 'search' (query-params categroy=category source=source page=previousPage)}}
+                {{#link-to 'search'
+                           (query-params categroy=category source=source page=previousPage)}}
                   &larr; Prev
                 {{/link-to}}
               </li>
             {{/unless}}
             <li>
-              {{ model.count }} results - page {{ model.page }} of {{ model.totalPages }}
+              {{ model.count }} results - page {{ model.page }}
+              of {{ model.totalPages }}
             </li>
             {{#unless last}}
               <li class="next">
-                {{#link-to 'search' (query-params categroy=category source=source page=nextPage)}}
+                {{#link-to 'search'
+                           (query-params categroy=category source=source page=nextPage)}}
                   Next &rarr;
                 {{/link-to}}
               </li>
             {{/unless}}
           </ul>
-        </div>
-      {{/if}}
-      {{#if loading}}
-        <div class="row">
-          <div class="col-xs-12 text-center">
-            <i class="fa fa-spinner spinning fa-4x"></i>
-          </div>
         </div>
       {{/if}}
       {{#if model.count}}
@@ -131,7 +55,8 @@
                   </div>
                   <p>{{ flowJob.path }}</p>
                   <p>source: {{ flowJob.appCode }}</p>
-                  <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                  <div class="schematext"
+                       style="margin-top:5px;margin-bottom: 10px;">
                     {{ flowJob.schema }}
                   </div>
                 </td>
@@ -153,7 +78,7 @@
                       {{/link-to}}
                     {{else}}
                       <i class="fa fa-database"></i>
-                      {{#link-to 'dataset' dataset.id}}
+                      {{#link-to 'datasets.dataset' dataset.id}}
                         {{{dataset.name}}}
                       {{/link-to}}
                     {{/if}}
@@ -166,7 +91,8 @@
                   {{else}}
                     <p>source: Metric</p>
                   {{/if}}
-                  <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                  <div class="schematext"
+                       style="margin-top:5px;margin-bottom: 10px;">
                     {{{ dataset.schema }}}
                   </div>
                 </td>
@@ -180,9 +106,6 @@
           <h4>No items found</h4>
         {{/if}}
       {{/if}}
-    </div>
-    <div class="col-xs-12">
-      {{outlet}}
-    </div>
+    </section>
   </div>
 </div>
