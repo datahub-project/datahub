@@ -9,7 +9,7 @@ export default Ember.Component.extend({
     this.updateContent();
   },
 
-  onSelectionChanged: Ember.observer('selected', function () {
+  onSelectionChanged: Ember.observer('selected', 'values', function () {
     this.updateContent();
   }),
 
