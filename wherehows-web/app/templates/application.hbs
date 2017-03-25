@@ -1,6 +1,19 @@
-<section class="container-fluid">
-  {{partial 'navbar'}}
-  {{partial 'navbar-advsearch'}}
-  {{partial 'main'}}
-  {{partial 'footer'}}
-</section>
+{{#if session.isAuthenticated}}
+  {{partial "navbar"}}
+  {{#hero-container}}
+    <header class="nacho-hero__header">
+      Search for datasets, metrics and flows
+    </header>
+    <section class="nacho-hero__content">
+      {{search-bar-form
+        keywordSource=sourceKeywords
+        didSearch=(action "didSearch")}}
+    </section>
+  {{/hero-container}}
+  <section class="container">
+    {{partial "main"}}
+  </section>
+{{else}}
+  {{outlet}}
+{{/if}}
+{{partial "footer"}}
