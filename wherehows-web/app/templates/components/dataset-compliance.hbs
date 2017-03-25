@@ -1,5 +1,5 @@
 <div id="compliance" class="tab-body">
-  {{#if privacyCompliancePolicy}}
+  {{!--{{#if privacyCompliancePolicy}}
     {{#if isNewPrivacyCompliancePolicy}}
       <h5 class="bg-info tab_head">
         This dataset does not have an associated "Privacy Compliance Policy".<br>
@@ -80,6 +80,117 @@
     </div>
   {{else}}
     <h3>An error occurred: Privacy Compliance Policy is not available.</h3>
+  {{/if}}--}}
+  <section class="metadata-prompt" id="has-member">
+    <header>
+      <p>Can any fields in this dataset's schema be used to identify a member?</p>
+    </header>
+    <span>
+      {{#radio-button-composer
+        value=true
+        name="has-member"
+        groupValue=(readonly radioSelection.memberId)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        Yes
+      {{/radio-button-composer}}
+      {{#radio-button-composer
+        value=false
+        name="has-member"
+        groupValue=(readonly radioSelection.memberId)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        No
+      {{/radio-button-composer}}
+    </span>
+  </section>
+
+  {{#if showSubjectMemberIdPrompt}}
+    <section class="metadata-prompt" id="has-subject-member">
+      <header>
+        <p>
+          If there are no owner member fields, does each record in this dataset belong to a specific member or members?
+        </p>
+      </header>
+      <span>
+        {{#radio-button-composer
+          value=true
+          name="has-subject-member"
+          groupValue=(readonly radioSelection.subjectMemberId)
+          changed=(action 'didChangePrivacyIdentifiable')}}
+          Yes
+        {{/radio-button-composer}}
+        {{#radio-button-composer
+          value=false
+          name="has-subject-member"
+          groupValue=(readonly radioSelection.subjectMemberId)
+          changed=(action 'didChangePrivacyIdentifiable')}}
+          No
+        {{/radio-button-composer}}
+    </span>
+    </section>
   {{/if}}
+
+  {{#if showUrnIdPrompt}}
+    <section class="metadata-prompt" id="has-urn">
+      <header>
+        <p>When a record in this dataset is deleted, do any fields identify records from other dependent datasets that
+          should be deleted?</p>
+      </header>
+      <span>
+        {{#radio-button-composer
+          value=true
+          name="has-urn"
+          groupValue=(readonly radioSelection.urnId)
+          changed="didChangePrivacyIdentifiable"}}
+          Yes
+        {{/radio-button-composer}}
+        {{#radio-button-composer
+          value=false
+          name="has-urn"
+          groupValue=(readonly radioSelection.urnId)
+          changed="didChangePrivacyIdentifiable"}}
+          No
+        {{/radio-button-composer}}
+    </span>
+    </section>
+  {{/if}}
+
+  {{#if showOrgIdPrompt}}
+    <section class="metadata-prompt" id="has-org">
+      <header>
+        <p>Do fields in the schema contain the ID of an organization?</p>
+      </header>
+      <span>
+        {{#radio-button-composer
+          value=true
+          name="has-organization"
+          groupValue=(readonly radioSelection.orgId)
+          changed="didChangePrivacyIdentifiable"}}
+          Yes
+        {{/radio-button-composer}}
+        {{#radio-button-composer
+          value=false
+          name="has-organization"
+          groupValue=(readonly radioSelection.orgId)
+          changed="didChangePrivacyIdentifiable"}}
+          No
+        {{/radio-button-composer}}
+    </span>
+    </section>
+  {{/if}}
+
+  {{dataset-schema-table
+    sortColumnWithName=sortColumnWithName
+    filterBy=filterBy
+    sortDirection=sortDirection
+    searchTerm=searchTerm
+    fields=complianceFields
+    fieldFormats=identifierTypes
+    onFormatChange=(action "onFieldFormatChange")
+    onPrivacyChange=(action "onFieldPrivacyChange")}}
+
+  <button class="btn btn-primary" {{action "saveCompliance"}}>
+    {{if isNewPrivacyCompliancePolicy "Create New Policy" "Confirm Privacy Fields"}}
+  </button>
+  <button class="btn btn-default" {{action "resetCompliance"}}>Reset</button>
 </div>
 {{yield}}
