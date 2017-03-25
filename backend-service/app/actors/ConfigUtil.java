@@ -73,13 +73,14 @@ class ConfigUtil {
     sb.append(cmdParam).append(" ");
 
     String classPath = System.getProperty("java.class.path");
-    sb.append("-cp").append(" '").append(classPath).append("' ");
+    sb.append("-cp ").append(classPath);
 
     String directoryPath = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
-    sb.append("-Dconfig=").append(directoryPath + "/exec/" + whEtlExecId).append(".properties ");
-    sb.append("-DCONTEXT=").append(etlJobName.name()).append(" ");
+    String configFile = directoryPath + "/exec/" + whEtlExecId + ".properties";
+    sb.append(" -Dconfig=").append(configFile);
+    sb.append(" -DCONTEXT=").append(etlJobName.name());
 
-    sb.append("metadata.etl.Launcher");
+    sb.append(" metadata.etl.Launcher");
 
     return sb.toString();
   }
