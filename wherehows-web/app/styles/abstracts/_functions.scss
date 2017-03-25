@@ -33,7 +33,12 @@
 /// @return {Number}
 /// @require $z-indexes
 @function z($layer) {
-  @return map-get($z-indexes, $layer);
+  @if map-has-key($z-indexes, $layer) {
+    @return map-get($z-indexes, $layer);
+  }
+
+  @warn '#{$layer} not found in `$z-indexes`';
+  @return null;
 }
 
 /// Progressively add black as you decrease the proportion of the color
@@ -52,4 +57,13 @@
 /// @return {Color}
 @function tint($color, $percentage) {
   @return mix(white, $color, $percentage);
+}
+
+/// Retrieves a color from the map $color-sheme
+/// @param {Color} $color - the color to get from the map
+/// @param {Hue} $hue - the hue to get from the specified color map
+/// @return {Color}
+/// @require $color-scheme
+@function set-color($color, $hue) {
+  @return map-get(map-get($color-scheme, $color), $hue);
 }

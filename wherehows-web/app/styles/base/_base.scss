@@ -7,9 +7,13 @@ html {
   box-sizing: border-box;
 }
 
+/**
+ * Apply padding to top and bottom to account for navigation and footer
+ */
 body {
-  padding-top: 54px;
-  padding-bottom: 50px;
+  padding-top: $nav-min-height;
+  padding-bottom: $nav-min-height;
+  background-color: set-color(white, catskill);
 }
 
 /**
@@ -26,10 +30,10 @@ body {
  * Basic styles for links
  */
 a {
-  color: $brand-color;
+  color: $link-color;
   text-decoration: none;
 
-  @include on-event {
+  @include on-event() {
     color: $text-color;
     text-decoration: none;
   }
