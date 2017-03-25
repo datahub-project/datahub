@@ -1,94 +1,90 @@
 import Ember from 'ember';
+import {
+  createPrivacyCompliancePolicy,
+  createSecuritySpecification
+} from 'wherehows-web/utils/datasets/functions';
 
-export default Ember.Route.extend({
+const {
+  Route,
+  get,
+  set,
+  setProperties,
+  isPresent,
+  $: { getJSON }
+} = Ember;
+// TODO: DSS-6581 Create URL retrieval module
+const datasetsUrlRoot = '/api/v1/datasets';
+const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
+const ownerTypeUrlRoot = '/api/v1/owner/types';
+const userSettingsUrlRoot = '/api/v1/user/me';
+const partyEntitiesUrl = '/api/v1/party/entities';
+const getDatasetColumnUrl = id => `${datasetUrl(id)}/columns`;
+const getDatasetPropertiesUrl = id => `${datasetUrl(id)}/properties`;
+const getDatasetSampleUrl = id => `${datasetUrl(id)}/sample`;
+const getDatasetImpactAnalysisUrl = id => `${datasetUrl(id)}/impacts`;
+const getDatasetDependsUrl = id => `${datasetUrl(id)}/depends`;
+const getDatasetPartitionsUrl = id => `${datasetUrl(id)}/access`;
+const getDatasetReferencesUrl = id => `${datasetUrl(id)}/references`;
+const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
+const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
+const getDatasetVersionUrl = (id, dbId) =>
+  `${datasetUrl(id)}/versions/db/${dbId}`;
+const getDatasetSecurityUrl = id => `${datasetUrl(id)}/security`;
+const getDatasetComplianceUrl = id => `${datasetUrl(id)}/compliance`;
+
+let getDatasetColumn;
+
+export default Route.extend({
+  //TODO: DSS-6632 Correct server-side if status:error and record not found but response is 200OK
   setupController(controller, model) {
     currentTab = 'Datasets';
-    updateActiveTab();
+    window.updateActiveTab();
+    let source = '';
     var id = 0;
-    var source = '';
     var urn = '';
-    var name = '';
-    let instanceUrl;
-    let propertiesUrl;
-    const ownerTypeUrl = '/api/v1/owner/types';
-
-
-    /**
-     * Builds a privacyCompliancePolicy map with default / unset values for non null properties
-     */
-    const createPrivacyCompliancePolicy = () => {
-      // TODO: Move to a more accessible location, this app does not use modules at the moment, so potentially
-      // ->TODO: registering it as factory
-      const complianceTypes = ['AUTO_PURGE', 'CUSTOM_PURGE', 'LIMITED_RETENTION', 'PURGE_NOT_APPLICABLE'];
-      const policy = {
-        //default to first item in compliance types list
-        complianceType: complianceTypes.get('firstObject'),
-        compliancePurgeEntities: []
-      };
-
-      // Ensure we deep clone map to prevent mutation from consumers
-      return JSON.parse(JSON.stringify(policy));
-    };
-
-    /**
-     * Builds a securitySpecification map with default / unset values for non null properties as per avro schema
-     * @param {number} id
-     */
-    const createSecuritySpecification = id => {
-      const classification = [
-        'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
-      ].reduce((classification, classifier) => {
-        classification[classifier] = [];
-        return classification;
-      }, {});
-      const securitySpecification = {
-        classification,
-        datasetId: id,
-        geographicAffinity: {affinity: ''},
-        recordOwnerType: '',
-        retentionPolicy: {retentionType: ''}
-      };
-
-      return JSON.parse(JSON.stringify(securitySpecification));
-    };
 
     /**
      * Series of chain-able functions invoked to set set properties on the controller required for dataset tab sections
      * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
      */
     const fetchThenSetOnController = {
-      privacyCompliancePolicy(id) {
-        Ember.$.getJSON(`/api/v1/datasets/${id}/compliance`)
-            .then(({privacyCompliancePolicy = createPrivacyCompliancePolicy(), return_code}) =>
-                controller.setProperties({
-                  privacyCompliancePolicy,
-                  'isNewPrivacyCompliancePolicy': return_code === 404
-                }));
+      privacyCompliancePolicy(id, controller) {
+        Promise.resolve(getJSON(getDatasetComplianceUrl(id))).then(({
+          privacyCompliancePolicy = createPrivacyCompliancePolicy(),
+          return_code
+        }) =>
+          setProperties(controller, {
+            privacyCompliancePolicy,
+            isNewPrivacyCompliancePolicy: return_code === 404
+          }));
 
         return this;
       },
 
-      securitySpecification(id) {
-        Ember.$.getJSON(`/api/v1/datasets/${id}/security`)
-            .then(({securitySpecification = createSecuritySpecification(id), return_code}) =>
-                controller.setProperties({
-                  securitySpecification,
-                  'isNewSecuritySpecification': return_code === 404
-                }));
+      securitySpecification(id, controller) {
+        Promise.resolve(getJSON(getDatasetSecurityUrl(id))).then(({
+          securitySpecification = createSecuritySpecification(id),
+          return_code
+        }) =>
+          setProperties(controller, {
+            securitySpecification,
+            isNewSecuritySpecification: return_code === 404
+          }));
 
         return this;
       },
 
-      datasetSchemaFieldNamesAndTypes(id) {
-        Ember.$.getJSON(`/api/v1/datasets/${id}`)
-            .then(({dataset: {schema} = {schema: undefined}} = {}) => {
-              /**
+      datasetSchemaFieldNamesAndTypes(id, controller) {
+        Promise.resolve(getJSON(datasetUrl(id))).then(({
+          dataset: { schema } = { schema: undefined }
+        } = {}) => {
+          /**
                * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
                * @param {JSON} schema
                * @returns {Array.<*>}
                */
-              function getFieldNamesAndTypesFrom(schema = JSON.stringify({})) {
-                /**
+          function getFieldNamesAndTypesFrom(schema = JSON.stringify({})) {
+            /**
                  * schema argument may contain property with name `fields` or `fields` may be nested in `schema` object
                  * with same name.
                  * Unfortunately shape is inconsistent depending of dataset queried.
@@ -98,41 +94,49 @@ export default Ember.Route.extend({
                  * @param {Array} [fields]
                  * @returns {Array.<*>}
                  */
-                function getFieldTypeMappingArray({schema: {fields: nestedFields = []} = {schema: {}}, fields}) {
-                  fields = Array.isArray(fields) ? fields : nestedFields;
+            function getFieldTypeMappingArray(
+              { schema: { fields: nestedFields = [] } = { schema: {} }, fields }
+            ) {
+              fields = Array.isArray(fields) ? fields : nestedFields;
 
-                  // As above, field may contain a label with string property or a name property
-                  return fields.map(({label: {string} = {}, name, type}) => ({
-                    name: string || name,
-                    type: Array.isArray(type) ? (type[0] === 'null' ? type.slice(1) : type) : [type]
-                  }));
-                }
+              // As above, field may contain a label with string property or a name property
+              return fields.map(({ label: { string } = {}, name, type }) => ({
+                name: string || name,
+                type: Array.isArray(type)
+                  ? type[0] === 'null' ? type.slice(1) : type
+                  : [type]
+              }));
+            }
 
-                schema = JSON.parse(schema);
-                return [].concat(...getFieldTypeMappingArray(schema));
-              }
+            schema = JSON.parse(schema);
+            return [...getFieldTypeMappingArray(schema)];
+          }
 
-              controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
-            });
+          set(
+            controller,
+            'datasetSchemaFieldsAndTypes',
+            getFieldNamesAndTypesFrom(schema)
+          );
+        });
 
         return this;
       }
     };
 
-    controller.set("hasProperty", false);
+    set(controller, 'hasProperty', false);
 
     if (model && model.id) {
-      ({id, source, urn, name} = model);
-      let {originalSchema = null} = model;
+      ({ id, source, urn } = model);
+      let { originalSchema = null } = model;
 
       this.controllerFor('datasets').set('detailview', true);
       if (originalSchema) {
-        Ember.set(model, 'schema', originalSchema);
+        set(model, 'schema', originalSchema);
       }
 
       controller.set('model', model);
     } else if (model.dataset) {
-      ({id, source, urn, name} = model.dataset);
+      ({ id, source, urn } = model.dataset);
 
       controller.set('model', model.dataset);
       this.controllerFor('datasets').set('detailview', true);
@@ -143,41 +147,60 @@ export default Ember.Route.extend({
       controller.set('datasetId', id);
       // Creates list of partially applied functions from `fetchThenSetController` and invokes each in turn
       Object.keys(fetchThenSetOnController)
-          .map(funcRef => fetchThenSetOnController[funcRef]['bind'](fetchThenSetOnController, id))
-          .forEach(func => func());
+        .map(funcRef =>
+          fetchThenSetOnController[funcRef]['bind'](
+            fetchThenSetOnController,
+            id,
+            controller
+          ))
+        .forEach(func => func());
     }
 
-    instanceUrl = '/api/v1/datasets/' + id + '/instances';
-    $.get(instanceUrl, function (data) {
-      if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
-        controller.set("hasinstances", true);
-        controller.set("instances", data.instances);
-        controller.set("currentInstance", data.instances[0]);
-        controller.set("latestInstance", data.instances[0]);
-        var versionUrl = '/api/v1/datasets/' + id + "/versions/db/" + data.instances[0].dbId;
-        $.get(versionUrl, function (data) {
-          if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
-            controller.set("hasversions", true);
-            controller.set("versions", data.versions);
-            controller.set("currentVersion", data.versions[0]);
-            controller.set("latestVersion", data.versions[0]);
-          }
-          else {
-            controller.set("hasversions", false);
-            controller.set("currentVersion", '0');
-            controller.set("latestVersion", '0');
-          }
+    Promise.resolve(getJSON(getDatasetInstanceUrl(id)))
+      .then(({ status, instances = [] }) => {
+        if (status === 'ok' && instances.length) {
+          const [firstInstance = {}] = instances;
+          const { dbId } = firstInstance;
+
+          setProperties(controller, {
+            instances,
+            hasinstances: true,
+            currentInstance: firstInstance,
+            latestInstance: firstInstance
+          });
+
+          return Promise.resolve(
+            getJSON(getDatasetVersionUrl(id, dbId))
+          ).then(({ status, versions = [] }) => {
+            if (status === 'ok' && versions.length) {
+              const [firstVersion] = versions;
+
+              setProperties(controller, {
+                versions,
+                hasversions: true,
+                currentVersion: firstVersion,
+                latestVersion: firstVersion
+              });
+            }
+
+            return Promise.reject(
+              new Error('Dataset versions request failed.')
+            );
+          });
+        }
+
+        return Promise.reject(new Error('Dataset instances request failed.'));
+      })
+      .catch(() => {
+        setProperties(controller, {
+          hasinstances: false,
+          hasversions: false,
+          currentInstance: '0',
+          latestInstance: '0',
+          currentVersion: '0',
+          latestVersion: '0'
         });
-      }
-      else {
-        controller.set("hasinstances", false);
-        controller.set("currentInstance", '0');
-        controller.set("latestInstance", '0');
-        controller.set("hasversions", false);
-        controller.set("currentVersion", '0');
-        controller.set("latestVersion", '0');
-      }
-    });
+      });
 
     if (urn) {
       var index = urn.lastIndexOf('/');
@@ -240,229 +263,260 @@ export default Ember.Route.extend({
       controller.set("breadcrumbs", breadcrumbs);
     }
 
-    $.get(ownerTypeUrl, function (data) {
-      if (data && data.status == "ok") {
-        controller.set("ownerTypes", data.ownerTypes);
+    Promise.resolve(getJSON(ownerTypeUrlRoot)).then(
+      ({ status, ownerTypes }) =>
+        status === 'ok' && set(controller, 'ownerTypes', ownerTypes)
+    );
+
+    Promise.resolve(getJSON(userSettingsUrlRoot)).then(({ status, user }) => {
+      if (status === 'ok') {
+        // TODO: DSS-6633 Remove `data.user.userSetting.detailDefaultView` from
+        //   '/api/v1/user/me'  endpoint
+        controller.set('currentUser', user);
       }
     });
 
-    var userSettingsUrl = '/api/v1/user/me';
-    $.get(userSettingsUrl, function (data) {
-      var tabview;
-      if (data && data.status == "ok") {
-        controller.set("currentUser", data.user);
-        if (data.user && data.user.userSetting && data.user.userSetting.detailDefaultView) {
-          if (data.user.userSetting.detailDefaultView == 'tab') {
-            tabview = true;
-          }
-        }
-      }
-      controller.set("tabview", true);
-    });
+    getDatasetColumn = id =>
+      Promise.resolve(getJSON(getDatasetColumnUrl(id)))
+        .then(({ status, columns }) => {
+          if (status === 'ok') {
+            if (columns && columns.length) {
+              const columnsWithHTMLComments = columns.map(column => {
+                const { comment } = column;
 
-    var columnUrl = '/api/v1/datasets/' + id + "/columns";
-    $.get(columnUrl, function (data) {
-      if (data && data.status == "ok") {
-        if (data.columns && (data.columns.length > 0)) {
-          controller.set("hasSchemas", true);
-
-          data.columns = data.columns.map(function (item, idx) {
-            if (item.comment) {
-              item.commentHtml = marked(item.comment).htmlSafe()
-            }
-            return item
-          })
-          controller.set("schemas", data.columns);
-          controller.buildJsonView();
-          setTimeout(initializeColumnTreeGrid, 500);
-        } else {
-          controller.set("hasSchemas", false);
-          controller.set("schemas", null);
-          controller.buildJsonView();
-        }
-      } else {
-        controller.set("hasSchemas", false);
-        controller.set("schemas", null);
-        controller.buildJsonView();
-      }
-    });
-
-    if (source.toLowerCase() != 'pinot') {
-      propertiesUrl = '/api/v1/datasets/' + id + "/properties";
-      $.get(propertiesUrl, function (data) {
-        if (data && data.status == "ok") {
-          if (data.properties) {
-            var propertyArray = convertPropertiesToArray(data.properties);
-            if (propertyArray && propertyArray.length > 0) {
-              controller.set("hasProperty", true);
-              controller.set("properties", propertyArray);
-            } else {
-              controller.set("hasProperty", false);
-            }
-          }
-        } else {
-          controller.set("hasProperty", false);
-        }
-      });
-    }
-
-    var sampleUrl;
-    if (source.toLowerCase() == 'pinot') {
-      sampleUrl = '/api/v1/datasets/' + id + "/properties";
-      $.get(sampleUrl, function (data) {
-        if (data && data.status == "ok") {
-          if (data.properties && data.properties.elements && (data.properties.elements.length > 0)
-              && data.properties.elements[0] && data.properties.elements[0].columnNames
-              && (data.properties.elements[0].columnNames.length > 0)) {
-            controller.set("hasSamples", true);
-            controller.set("samples", data.properties.elements[0].results);
-            controller.set("columns", data.properties.elements[0].columnNames);
-          } else {
-            controller.set("hasSamples", false);
-          }
-        } else {
-          controller.set("hasSamples", false);
-        }
-      });
-    }
-    else {
-      sampleUrl = '/api/v1/datasets/' + id + "/sample";
-      $.get(sampleUrl, function (data) {
-        if (data && data.status == "ok") {
-          if (data.sampleData && data.sampleData.sample && (data.sampleData.sample.length > 0)) {
-            controller.set("hasSamples", true);
-            var tmp = {};
-            var count = data.sampleData.sample.length
-            var d = data.sampleData.sample
-            for (var i = 0; i < count; i++) {
-              tmp['record ' + i] = d[i]
-            }
-            var node = JsonHuman.format(tmp)
-            setTimeout(function () {
-              var json_human = document.getElementById('datasetSampleData-json-human');
-              if (json_human) {
-                if (json_human.children && json_human.children.length > 0) {
-                  json_human.removeChild(json_human.childNodes[json_human.children.length - 1]);
+                if (comment) {
+                  // TODO: DSS-6122 Refactor global function reference
+                  column.commentHtml = window.marked(comment).htmlSafe();
                 }
 
-                json_human.appendChild(node)
-              }
-            }, 500);
-          } else {
-            controller.set("hasSamples", false);
+                return column;
+              });
+
+              controller.set('hasSchemas', true);
+              controller.set('schemas', columnsWithHTMLComments);
+
+              // TODO: DSS-6122 Refactor direct method invocation on controller
+              controller.buildJsonView();
+              // TODO: DSS-6122 Refactor setTimeout,
+              //   global function reference
+              setTimeout(window.initializeColumnTreeGrid, 500);
+            }
+
+            return;
           }
-        } else {
-          controller.set("hasSamples", false);
+          return Promise.reject(new Error('Dataset columns request failed.'));
+        })
+        .catch(() =>
+          setProperties(controller, {
+            hasSchemas: false,
+            schemas: null
+          }));
+
+    getDatasetColumn(id);
+
+    if (source.toLowerCase() !== 'pinot') {
+      Promise.resolve(getJSON(getDatasetPropertiesUrl(id)))
+        .then(({ status, properties }) => {
+          if (status === 'ok' && properties) {
+            const propertyArray = window.convertPropertiesToArray(
+              properties
+            ) || [];
+            if (propertyArray.length) {
+              controller.set('hasProperty', true);
+
+              return controller.set('properties', propertyArray);
+            }
+          }
+
+          return Promise.reject(
+            new Error('Dataset properties request failed.')
+          );
+        })
+        .catch(() => controller.set('hasProperty', false));
+
+      Promise.resolve(getJSON(getDatasetSampleUrl(id)))
+        .then(({ status, sampleData = {} }) => {
+          if (status === 'ok') {
+            const { sample = [] } = sampleData;
+            const { length } = sample;
+            if (length) {
+              const samplesObject = sample.reduce(
+                (sampleObject, record, index) =>
+                  ((sampleObject[`record${index}`] = record), sampleObject),
+                {}
+              );
+              // TODO: DSS-6122 Refactor global function reference
+              const node = window.JsonHuman.format(samplesObject);
+
+              controller.set('hasSamples', true);
+
+              // TODO: DSS-6122 Refactor setTimeout
+              setTimeout(
+                function() {
+                  const jsonHuman = document.getElementById(
+                    'datasetSampleData-json-human'
+                  );
+                  if (jsonHuman) {
+                    if (jsonHuman.children && jsonHuman.children.length) {
+                      jsonHuman.removeChild(
+                        jsonHuman.childNodes[jsonHuman.children.length - 1]
+                      );
+                    }
+
+                    jsonHuman.appendChild(node);
+                  }
+                },
+                500
+              );
+            }
+
+            return;
+          }
+
+          return Promise.reject(new Error('Dataset sample request failed.'));
+        })
+        .catch(() => set(controller, 'hasSamples', false));
+    }
+
+    if (source.toLowerCase() === 'pinot') {
+      Promise.resolve(getJSON(getDatasetPropertiesUrl(id))).then(({
+        status,
+        properties = {}
+      }) => {
+        if (status === 'ok') {
+          const { elements = [] } = properties;
+          const [{ columnNames = [], results } = {}] = elements;
+
+          if (columnNames.length) {
+            return setProperties(controller, {
+              hasSamples: true,
+              samples: results,
+              columns: columnNames
+            });
+          }
         }
+
+        return Promise.reject(new Error('Dataset properties request failed.'));
       });
     }
 
-    var impactAnalysisUrl = '/api/v1/datasets/' + id + "/impacts";
-    $.get(impactAnalysisUrl, function (data) {
-      if (data && data.status == "ok") {
-        if (data.impacts && (data.impacts.length > 0)) {
-          controller.set("hasImpacts", true);
-          controller.set("impacts", data.impacts);
-        } else {
-          controller.set("hasImpacts", false);
-        }
-      }
-    });
-
-    var datasetDependsUrl = '/api/v1/datasets/' + id + "/depends";
-    $.get(datasetDependsUrl, function (data) {
-      if (data && data.status == "ok") {
-        if (data.depends && (data.depends.length > 0)) {
-          controller.set("hasDepends", true);
-          controller.set("depends", data.depends);
-          setTimeout(initializeDependsTreeGrid, 500);
-        } else {
-          controller.set("hasDepends", false);
-        }
-      }
-    });
-
-    var datasetPartitionsUrl = '/api/v1/datasets/' + id + "/access";
-    $.get(datasetPartitionsUrl, function (data) {
-      if (data && data.status == "ok") {
-        if (data.access && (data.access.length > 0)) {
-          controller.set("hasAccess", true);
-          controller.set("accessibilities", data.access);
-        } else {
-          controller.set("hasAccess", false);
-        }
-      }
-    });
-
-    var datasetReferencesUrl = '/api/v1/datasets/' + id + "/references";
-    $.get(datasetReferencesUrl, function (data) {
-      if (data && data.status == "ok") {
-        if (data.references && (data.references.length > 0)) {
-          controller.set("hasReferences", true);
-          controller.set("references", data.references);
-          setTimeout(initializeReferencesTreeGrid, 500);
-        } else {
-          controller.set("hasReferences", false);
-        }
-      }
-    });
-
-    Promise.resolve($.get(`/api/v1/datasets/${id}/owners`))
-        .then(({status, owners = []}) => {
-          status === 'ok' && controller.set('owners', owners);
-        })
-        .then($.get.bind($, '/api/v1/party/entities'))
-        .then(({status, userEntities = []}) => {
-          if (status === 'ok' && userEntities.length) {
-            /**
-             * @type {Object} userEntitiesMaps hash of userEntities: label -> displayName
-             */
-            const userEntitiesMaps = userEntities.reduce((map, {label, displayName}) =>
-                (map[label] = displayName, map), {});
-
-            controller.setProperties({
-              userEntitiesSource: Object.keys(userEntitiesMaps),
-              userEntitiesMaps
+    Promise.resolve(getJSON(getDatasetImpactAnalysisUrl(id)))
+      .then(({ status, impacts = [] }) => {
+        if (status === 'ok') {
+          if (impacts.length) {
+            return setProperties(controller, {
+              hasImpacts: true,
+              impacts: impacts
             });
           }
-        });
-  },
+        }
 
-  model: ({dataset_id}) => Ember.$.getJSON(`/api/v1/datasets/${dataset_id}`),
+        return Promise.reject(
+          new Error('Dataset impact analysis request failed.')
+        );
+      })
+      .catch(() => set(controller, 'hasImpacts', false));
 
-  actions: {
-    getSchema: function () {
-      var controller = this.get('controller')
-      var id = this.get('controller.model.id')
-      var columnUrl = '/api/v1/datasets/' + id + "/columns";
-      controller.set("isTable", true);
-      controller.set("isJSON", false);
-      $.get(columnUrl, function (data) {
-        if (data && data.status == "ok") {
-          if (data.columns && (data.columns.length > 0)) {
-            controller.set("hasSchemas", true);
-            data.columns = data.columns.map(function (item, idx) {
-              item.commentHtml = marked(item.comment).htmlSafe()
-              return item
-            })
-            controller.set("schemas", data.columns);
-            setTimeout(initializeColumnTreeGrid, 500);
-          }
-          else {
-            controller.set("hasSchemas", false);
+    Promise.resolve(getJSON(getDatasetDependsUrl(id)))
+      .then(({ status, depends = [] }) => {
+        if (status === 'ok') {
+          if (depends.length) {
+            // TODO: DSS-6122 Refactor setTimeout,
+            //   global function reference
+            setTimeout(window.initializeDependsTreeGrid, 500);
+            return setProperties(controller, {
+              depends,
+              hasDepends: true
+            });
           }
         }
-        else {
-          controller.set("hasSchemas", false);
+
+        return Promise.reject(new Error('Dataset depends request failed.'));
+      })
+      .catch(() => set(controller, 'hasDepends', false));
+
+    Promise.resolve(getJSON(getDatasetPartitionsUrl(id)))
+      .then(({ status, access = [] }) => {
+        if (status === 'ok' && access.length) {
+          return setProperties(controller, {
+            hasAccess: true,
+            accessibilities: access
+          });
+        }
+
+        return Promise.reject(new Error('Dataset partitions request failed.'));
+      })
+      .catch(() => set(controller, 'hasAccess', false));
+
+    Promise.resolve(getJSON(getDatasetReferencesUrl(id)))
+      .then(({ status, references = [] }) => {
+        if (status === 'ok' && references.length) {
+          setTimeout(window.initializeReferencesTreeGrid, 500);
+
+          return setProperties(controller, {
+            references,
+            hasReferences: true
+          });
+        }
+
+        return Promise.reject(new Error('Dataset references request failed.'));
+      })
+      .catch(() => set(controller, 'hasReferences', false));
+
+    Promise.resolve(getJSON(getDatasetOwnersUrl(id)))
+      .then(({ status, owners = [] }) => {
+        status === 'ok' && set(controller, 'owners', owners);
+      })
+      .then(() => getJSON(partyEntitiesUrl))
+      .then(({ status, userEntities = [] }) => {
+        if (status === 'ok' && userEntities.length) {
+          /**
+           * @type {Object} userEntitiesMaps hash of userEntities: label -> displayName
+           */
+          const userEntitiesMaps = userEntities.reduce(
+            (map, { label, displayName }) => ((map[label] = displayName), map),
+            {}
+          );
+
+          setProperties(controller, {
+            userEntitiesMaps,
+            userEntitiesSource: Object.keys(userEntitiesMaps)
+          });
         }
       });
-    },
-    getDataset: function () {
-      $.get('/api/v1/datasets/' + this.get('controller.model.id'), data => {
-        if (data.status == "ok") {
-          this.set('controller.model', data.dataset)
-        }
+  },
+
+  model: ({ dataset_id }) => {
+    const datasetUrl = `${datasetsUrlRoot}/${dataset_id}`;
+
+    return Promise.resolve(getJSON(datasetUrl))
+      .then(({ status, dataset }) => {
+        return status === 'ok' && isPresent(dataset)
+          ? dataset
+          : Promise.reject(
+              new Error(`Request for ${datasetUrl} failed with: ${status}`)
+            );
       })
+      .catch(() => ({}));
+  },
+
+  actions: {
+    getSchema: function() {
+      const controller = get(this, 'controller');
+      const id = get(controller, 'model.id');
+
+      set(controller, 'isTable', true);
+      set(controller, 'isJSON', false);
+      typeof getDatasetColumn === 'function' && getDatasetColumn(id);
+    },
+
+    getDataset() {
+      Promise.resolve(
+        getJSON(datasetUrl(this.get('controller.model.id')))
+      ).then(
+        ({ status, dataset }) =>
+          status === 'ok' && set(this, 'controller.model', dataset)
+      );
     }
   }
 });
