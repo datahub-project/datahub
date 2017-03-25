@@ -1,0 +1,10 @@
+/// Search bar height
+$height: 40px;
+
+.nacho-global-search {
+  color: $text-color;
+
+  &__text-input {
+    height: $height;
+  }
+}
