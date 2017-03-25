@@ -1,5 +1,5 @@
 <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
-  <div class="container-fluid">
+  <div class="container">
     <div class="navbar-header">
       <button class="navbar-toggle collapsed" aria-expanded="false" aria-controls="navbar">
         <span class="sr-only">Toggle navigation</span>
@@ -15,16 +15,15 @@
 
     <div class="collapse navbar-collapse" id="main-navbar">
       <ul class="nav navbar-nav navbar-left">
-        {{search-bar-form}}
       </ul>
 
       <ul class="nav navbar-nav navbar-right">
-        {{#nav-link 'datasets' tagName="li"}}Datasets{{/nav-link}}
-        {{#nav-link 'metrics' tagName="li"}}Metrics{{/nav-link}}
-        {{#nav-link 'flows' tagName="li"}}Flows{{/nav-link}}
-
         <li class="dropdown">
-          <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+          <a class="dropdown-toggle"
+             data-toggle="dropdown"
+             role="button"
+             aria-haspopup="true"
+             aria-expanded="false">
             <i class="caret"></i>
             Tools
           </a>
@@ -51,7 +50,14 @@
             <li>
               <a href="https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Metadata+Coverage"
                  title="Metadata Coverage"
-                 target="_blank">Metadata Coverage</a>
+                 target="_blank">
+                See Metadata Coverage
+              </a>
+            </li>
+            <li>
+              {{#link-to 'help.feedback'}}
+                Provide Feedback?
+              {{/link-to}}
             </li>
             <li role="separator" class="divider"></li>
 
@@ -61,189 +67,4 @@
       </ul>
     </div>
   </div>
-  <!--
-    <div id="main-navbar" class="navbar-collapse collapse" aria-expanded="false">
-      @if(user) {
-      <ul class="nav navbar-nav navbar-left category-header">
-        <li id="toolslink" class="dropdown" dropdown>
-          <a class="dropdown-toggle"
-             data-toggle="dropdown"
-             role="button"
-             style="color : #808080"
-             aria-expand="false"
-             dropdown-toggle>
-            Tools
-            <i class="fa fa-angle-down"></i>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            @if(isInternal) {
-            <li>
-              <a href="/metadata">
-                                              <span>
-                                                  Metadata Dashboard
-                                              </span>
-              </a>
-            </li>
-            <li>
-              <a href="/scriptFinder">
-                                              <span>
-                                                  Script Finder
-                                              </span>
-              </a>
-            </li>
-            }
-            <li>
-              <a href="/schemaHistory">
-                                          <span>
-                                              Schema History
-                                          </span>
-              </a>
-            </li>
-            @if(isInternal) {
-            <li>
-              <a href="/idpc">
-                                              <span>
-                                                  IDPC
-                                              </span>
-              </a>
-            </li>
-            }
-          </ul>
-        </li>
-      </ul>
-      <form class="navbar-form navbar-left" role="search" id="nav-keyword-search-form">
-        <div class="row">
-          <div id="searchcategorybtngroup" class="btn-group" role="group">
-            <button style="height: 30px;margin-right:-4px;"
-                    type="button"
-                    data-toggle="dropdown"
-                    aria-expanded="false">
-              <i id="categoryIcon" class="fa fa-database"></i>
-              <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-
-              <li id="categoryDatasets" class="active">
-                <a href="#" class="searchCategory">Datasets</a>
-              </li>
-              <li id="categoryComments">
-                <a href="#" class="searchCategory">Comments</a>
-              </li>
-              <li id="categoryMetrics">
-                <a href="#" class="searchCategory">Metrics</a>
-              </li>
-              <li id="categoryFlows">
-                <a href="#" class="searchCategory">Flows</a>
-              </li>
-              <li id="categoryJobs">
-                <a href="#" class="searchCategory">Jobs</a>
-              </li>
-            </ul>
-          </div>
-          <div class="input-group">
-            <input id="searchInput"
-                   type="text"
-                   class="form-control input-sm keyword-search"
-                   placeholder="Enter Keywords..."
-            />
-            <span class="input-group-btn">
-                                      <button id="searchBtn"
-                            type="button"
-                            class="btn btn-sm btn-primary"
-                    >
-                                          <i class="fa fa-search"></i>
-                                      </button>
-                                  </span>
-          </div>
-        </div>
-      </form>
-      <div class="nav nabar-nav navbar-left">
-        <button
-            class="btn btn-link btn-sm"
-            data-toggle="modal"
-            data-target="#myModal"
-            title="Advanced Search"
-            aria-label="Advanced Search"
-        >
-          Advanced
-        </button>
-      </div>
-      <ul class="nav navbar-nav navbar-right">
-        <li class="dropdown" dropdown>
-          <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expand="false" dropdown-toggle>
-            <i class="fa fa-angle-down"></i>
-          </a>
-          <div id="loggedInUser" title=@user class="usericon"></div>
-          <ul class="dropdown-menu" role="menu">
-            <li>
-              <a id="settingsbtn" role="button">
-                <i class="fa fa-gear"></i>
-                Settings
-              </a>
-            </li>
-            <li>
-              <a href="@routes.Application.logout()" title="Log out">
-                <i class="fa fa-sign-out"></i>
-                Logout
-              </a>
-            </li>
-          </ul>
-        </li>
-      </ul>
-
-      <div class="nav nabar-nav navbar-right nav-help-menu dropdown">
-        <button class="nav-help-button dropdown-toggle"
-                type="button" id="nav-help-dropdown"
-                data-toggle="dropdown"
-                aria-haspopup="true"
-                title="WhereHows Help"
-                aria-expanded="true">
-          Help
-          <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
-          <i class="fa fa-angle-down" aria-hidden="true"></i>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="nav-help-dropdown">
-          <li>
-            <a href="https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Metadata+Coverage"
-               title="Metadata Coverage"
-               target="_blank">
-              Metadata Coverage
-            </a>
-          </li>
-        </ul>
-      </div>
-      } else {
-      <form class="navbar-form navbar-right" method="POST"
-            action="@routes.Application.authenticate()?csrfToken=@csrfToken">
-        <div class="form-group">
-          <input
-              id="username"
-              type="text"
-              placeholder="username"
-              name="username"
-              class="form-control"
-          />
-        </div>
-        <div class="form-group">
-          <input
-              id="password"
-              type="password"
-              placeholder="password"
-              name="password"
-              class="form-control"
-          />
-        </div>
-        <button type="submit" class="btn btn-primary">Sign In</button>
-        <button type="button"
-                class="btn btn-link"
-                data-toggle="modal"
-                data-target="#signUpModal"
-                title="Sign Up"
-                aria-label="Sign Up">
-          Not a Member Yet? Join Now!
-        </button>
-      </form>
-      }
-    </div>
-    -->
 </nav>
