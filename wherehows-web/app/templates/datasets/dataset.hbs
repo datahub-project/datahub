@@ -1,19 +1,4 @@
 <div id="dataset">
-  <div class="well well-sm">
-    <div class="row">
-      <div class="col-xs-11">
-        <ul class="breadcrumbs">
-          {{#each breadcrumbs as |crumb|}}
-            <li>
-              {{#dynamic-link params=crumb title=crumb.text}}
-                {{crumb.text}}
-              {{/dynamic-link}}
-            </li>
-          {{/each}}
-        </ul>
-      </div>
-    </div>
-  </div>
   <div class="row">
     <div class="col-xs-5">
       <h3>{{ model.name }}</h3>
