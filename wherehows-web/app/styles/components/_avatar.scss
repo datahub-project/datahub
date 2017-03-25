@@ -1,6 +1,5 @@
-$avatar-size: 24px;
+$avatar-size: 18px;
 
 .user-avatar {
-  width: $avatar-size;
-  height: $avatar-size;
+  @include round-image($avatar-size);
 }

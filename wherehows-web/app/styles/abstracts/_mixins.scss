@@ -36,3 +36,50 @@
   max-width: 100%;
   border-radius: 50%;
 }
+
+/// Breakpoint manager
+/// @param {String} $breakpoint - a string that maps to a breakpoint key in $breakpoints
+/// @requires $breakpoints
+@mixin respond-to($breakpoint) {
+  $breakpoint-query: map-get($breakpoints, $breakpoint);
+
+  @if $breakpoint-query {
+    $query: if(
+                    type-of($breakpoint-query) == 'string',
+                    unquote($breakpoint-query),
+                    inspect($breakpoint-query)
+    );
+
+    @media #{$query} {
+      @content;
+    }
+  } @else {
+    @error 'Could not find `#{$breakpoint}` in `$breakpoints`';
+  }
+}
+
+/// Applies flex styles that center an elements contents  on the main and cross axes
+///   i.e. vertically and horizontally
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/// Applies flex box centering using the flex-center mixin,
+///   but sets the main axis to column
+@mixin flex-column-center {
+  @include flex-center;
+  flex-direction: column;
+}
+
+/// Applies full -screen dimensions to the specified element
+@mixin full-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  overflow-y: auto;
+}
