@@ -1,0 +1,50 @@
+{{#dataset-table fields=fields
+                 sortColumnWithName=sortColumnWithName
+                 filterBy=filterBy
+                 sortDirection=sortDirection
+                 class="table"
+                 searchTerm=searchTerm as |table|}}
+  <input type="text"
+         title="Filter fields"
+         placeholder="Filter fields"
+         value="{{table.searchTerm}}"
+         oninput={{action table.filterDidChange value="target.value"}}>
+  {{#table.head as |head|}}
+    {{#head.column columnName="name"}}Field{{/head.column}}
+    {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+    {{#head.column}}Member Identifier?{{/head.column}}
+    {{#head.column}}Field Format{{/head.column}}
+  {{/table.head}}
+  {{#table.body as |body|}}
+    {{#each
+      (slice table.beginOffset table.endOffset (sort-by table.sortBy table.data)) as |field|}}
+      {{#body.row as |row|}}
+        {{#row.cell}}
+          {{field.name}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{field.type}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{input type="checkbox" checked=field.hasPrivacyData change=(action "onPrivacyChange" field)}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{ember-selector values=fieldFormats
+                           disabled=(not field.hasPrivacyData)
+                           selected=field.format
+                           selectionDidChange=(action "onFormatChange" field)}}
+        {{/row.cell}}
+      {{/body.row}}
+    {{/each}}
+  {{/table.body}}
+  {{#table.foot}}
+    {{dataset-table-pager data=table.data
+                          page=table.page
+                          limit=table.limit
+                          pageLengths=table.pageLengths
+                          beginOffset=table.beginOffset
+                          endOffset=table.endOffset
+                          onLimitChanged=table.onLimitChanged
+                          onPageChanged=table.onPageChanged}}
+  {{/table.foot}}
+{{/dataset-table}}

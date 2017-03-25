@@ -1,0 +1,37 @@
+<div class="form-group nacho-global-search">
+  <div class="input-group">
+    <div class="input-group-btn">
+      <button type="button"
+              class="btn btn-default dropdown-toggle nacho-button--large"
+              data-toggle="dropdown"
+              aria-haspopup="true"
+              aria-expanded="false">
+        <span class="caret" aria-label="Advanced Search"></span>
+      </button>
+
+      <ul class="dropdown-menu">
+      </ul>
+    </div>
+
+    <label for="search-input" class="sr-only">Search</label>
+
+    {{aupac-typeahead
+      action=(action (mut search))
+      autoFocus=true
+      allowFreeInput=true
+      source=keywordSource
+      async=true
+      limit=20
+      minLength=3
+      placeholder="Search by keywords... ex. pagekey"
+      class="form-control nacho-global-search__text-input"}}
+
+    <span class="input-group-btn">
+        <button class="btn btn-default nacho-button--large"
+                id="global-search-button"
+                type="submit" {{action "search"}}>
+          <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+        </button>
+      </span>
+  </div>
+</div>
