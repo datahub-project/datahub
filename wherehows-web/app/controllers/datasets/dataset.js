@@ -10,6 +10,7 @@ export default Ember.Controller.extend({
   currentVersion: '0',
   latestVersion: '0',
   ownerTypes: [],
+  datasetSchemaFieldsAndTypes: [],
   userTypes: [{name: "Corporate User", value: "urn:li:corpuser"}, {name: "Group User", value: "urn:li:griduser"}],
   isPinot: function () {
     var model = this.get("model");
@@ -170,8 +171,8 @@ export default Ember.Controller.extend({
 
   getUrlFor(urlId) {
     return {
-      compliance: () => `api/v1/datasets/${this.get('datasetId')}/compliance`,
-      security: () => `api/v1/datasets/${this.get('datasetId')}/security`
+      compliance: () => `/api/v1/datasets/${this.get('datasetId')}/compliance`,
+      security: () => `/api/v1/datasets/${this.get('datasetId')}/security`
     }[urlId]();
   },
 
