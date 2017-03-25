@@ -263,9 +263,14 @@ export default Route.extend({
       controller.set("breadcrumbs", breadcrumbs);
     }
 
+    // Get the list of ownerTypes from endpoint,
+    //   then prevent display of the `consumer`
+    //   insert on controller
     Promise.resolve(getJSON(ownerTypeUrlRoot)).then(
-      ({ status, ownerTypes }) =>
-        status === 'ok' && set(controller, 'ownerTypes', ownerTypes)
+      ({status, ownerTypes = []}) => {
+        ownerTypes = ownerTypes.filter(ownerType => String(ownerType).toLowerCase() !== 'consumer');
+        status === 'ok' && set(controller, 'ownerTypes', ownerTypes);
+      }
     );
 
     Promise.resolve(getJSON(userSettingsUrlRoot)).then(({ status, user }) => {
@@ -306,8 +311,7 @@ export default Route.extend({
           }
           return Promise.reject(new Error('Dataset columns request failed.'));
         })
-        .catch(() =>
-          setProperties(controller, {
+        .catch(() => setProperties(controller, {
             hasSchemas: false,
             schemas: null
           }));
@@ -463,6 +467,7 @@ export default Route.extend({
       })
       .catch(() => set(controller, 'hasReferences', false));
 
+    // Retrieve the current owners of the dataset and store on the controller
     Promise.resolve(getJSON(getDatasetOwnersUrl(id)))
       .then(({ status, owners = [] }) => {
         status === 'ok' && set(controller, 'owners', owners);
