@@ -1,6 +1,13 @@
 import Ember from 'ember';
 
-export default Ember.Component.extend({
+const {
+  Component,
+  set
+} = Ember;
+
+const userNameEditableClass = 'dataset-author-cell--editing';
+
+export default Component.extend({
   $ownerTable: null,
 
   didInsertElement() {
@@ -37,6 +44,40 @@ export default Ember.Component.extend({
   },
 
   actions: {
+    /**
+     * Handles the user intention to update the owner userName, by
+     *   adding a class signifying edit to the DOM td classList.
+     *   The click event is handled on the TD which is the parent
+     *   of the target label.
+     * @param {DOMTokenList} classList passed in from the HTMLBars template
+     *   currentTarget.classList
+     */
+    willEditUserName(classList) {
+      // Add the className so the input element is visible in the DOM
+      classList.add(userNameEditableClass);
+    },
+
+    /**
+     * Mutates the owner.userName property, setting it to the value entered
+     *   in the table field
+     * @param {Object} owner the owner object rendered for this table row
+     * @param {String|void} value user entered value from the ui
+     * @param {Node} parentNode DOM node wrapping the target user input field
+     *   this is expected to be a TD node
+     */
+    editUserName(owner, {target: {value, parentNode = {}}}) {
+      const {nodeName, classList} = parentNode;
+      if (value) {
+        set(owner, 'userName', value);
+      }
+
+      // The containing TD should have the className that allows the user
+      //   to see the input element, remove this to revert to readonly mode
+      if (String(nodeName).toLowerCase() === 'td') {
+        classList.remove(userNameEditableClass);
+      }
+    },
+
     addOwner: function (data) {
       var owners = data;
       var controller = this.get("parentController");
