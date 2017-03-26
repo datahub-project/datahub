@@ -1,5 +1,11 @@
 @import "restyle";
 
+@function shade-color($color) {
+  @return (
+          font-color: shade($color, 5%)
+  );
+}
+
 @include restyle-define(button, (
   // Button Component Variables
         restyle-var(height): 32px,
@@ -30,7 +36,18 @@
         text-decoration: none,
         vertical-align: middle,
         z-index: z(default),
+        restyle-states:(
+                disabled: (
+                        pointer: not-allowed
+                ),
+                hover: (
+                        restyle-function(shade-color): restyle-var(background-color)
+                )
+        ),
         restyle-modifiers: (
+                'with a border': (
+                        border: 1px solid restyle-var(text-color)
+                ),
                 small: (
                         restyle-var(font-size): 1.5rem,
                         restyle-var(height): 24px,
@@ -80,6 +97,10 @@
     @include restyle(large button);
   }
 
+  &--large-inverse {
+    @include restyle(large button with a border);
+  }
+
   &--small {
     @include restyle(small button);
   }
@@ -87,7 +108,16 @@
   &--secondary {
     @include restyle(secondary button);
   }
+
+  &--secondary-inverse {
+    @include restyle(secondary button with a border);
+  }
+
   &--tertiary {
     @include restyle(tertiary button);
+  }
+
+  &--inverse {
+    @include restyle(button with a border);
   }
 }

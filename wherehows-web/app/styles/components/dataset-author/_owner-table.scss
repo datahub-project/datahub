@@ -1,8 +1,18 @@
 $user-name-width: 170px;
 
+.ownership-actions {
+  margin-bottom: 10px;
+}
+
 .dataset-author-cell {
   max-width: $user-name-width;
   width: $user-name-width;
+
+  &__input {
+    width: 100%;
+    height: 100%;
+    outline: none;
+  }
 
   &__name-tag {
     position: relative;
@@ -28,7 +38,6 @@ $user-name-width: 170px;
     width: 100%;
     height: 100%;
     outline: none;
-    border: 0;
   }
 
   &--editing {
