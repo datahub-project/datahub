@@ -9,12 +9,30 @@ const {
   inject: {service}
 } = Ember;
 
+// Class to toggle readonly mode vs edit mode
 const userNameEditableClass = 'dataset-author-cell--editing';
+//  Required minimum confirmed owners needed to update the list of owners
 const minRequiredConfirmed = 2;
+const _defaultOwnerProps = {
+  userName: 'New Owner',
+  email: null,
+  name: '',
+  isGroup: false,
+  namespace: 'urn:li:griduser',
+  type: 'Producer',
+  subType: null,
+  sortId: 0,
+  source: ''
+};
 
 export default Component.extend({
   // Inject the currentUser service to retrieve logged in userName
-  currentUser: service(),
+  sessionUser: service('current-user'),
+
+  loggedInUserName() {
+    return get(this, 'sessionUser.userName') ||
+      get(this, 'sessionUser.currentUser.userName');
+  },
 
   $ownerTable: null,
 
@@ -96,34 +114,43 @@ export default Component.extend({
       }
     },
 
-    addOwner: function (data) {
-      var owners = data;
-      var controller = this.get("parentController");
-      var currentUser = this.get("currentUser");
-      var addedOwner = {
-        "userName": "Owner", "email": null, "name": "", "isGroup": false,
-        "namespace": "urn:li:griduser", "type": "Producer", "subType": null, "sortId": 0
-      };
-      var userEntitiesSource = controller.get("userEntitiesSource");
-      var userEntitiesMaps = controller.get("userEntitiesMaps");
-      var exist = false;
-      if (owners && owners.length > 0) {
-        owners.forEach(function (owner) {
-          if (owner.userName == addedOwner.userName) {
-            exist = true;
-          }
-        });
+    /**
+     * Adds a candidate owner to the list of updated owners to be potentially
+     *   propagated to the server.
+     *   If the owner already exists in the list of currentOwners, this is a no-op.
+     *   Also, sets the errorMessage to reflect this occurrence.
+     * @return {Array.<Object>|void}
+     */
+    addOwner: function () {
+      // Make a copy of the list of current owners
+      const currentOwners = [...getWithDefault(this, 'owners', [])];
+      // Make a shallow copy for the new user. A shallow copy is fine,
+      //  since the properties are scalars.
+      const newOwner = Object.assign({}, _defaultOwnerProps);
+      // Case insensitive regular exp to check that the username is not in
+      //  the current list of owners
+      const regex = new RegExp(`.*${newOwner.userName}.*`, 'i');
+      let updatedOwners = [];
+
+      const ownerAlreadyExists = currentOwners.mapBy('userName').some(userName => regex.test(userName));
+
+      if (!ownerAlreadyExists) {
+        updatedOwners = [newOwner, ...currentOwners];
+        return set(this, 'owners', updatedOwners);
       }
-      if (!exist) {
-        owners.unshiftObject(addedOwner);
+
+      set(
+        this,
+        'errorMessage',
+        `Uh oh! There is already a user with the username ${newOwner.userName} in the list of owners.`
+      );
+
+      // TODO: refactor in next commit
         setTimeout(function () {
-          setOwnerNameAutocomplete(controller)
+          // setOwnerNameAutocomplete(controller)
         }, 500);
-      }
-      else {
-        console.log("The owner is already exist");
-      }
     },
+
     removeOwner: function (owners, owner) {
       if (owners && owner) {
         owners.removeObject(owner);
@@ -141,8 +168,7 @@ export default Component.extend({
      */
     confirmOwner(owner, {target: {checked} = false}) {
       // Attempt to get the userName from the currentUser service
-      const userName = get(this, 'currentUser.userName') ||
-        get(this, 'currentUser.user.userName');
+      const userName = get(this, 'loggedInUserName')();
 
       // If checked, assign userName otherwise, null
       const isConfirmedBy = checked ? userName : null;
