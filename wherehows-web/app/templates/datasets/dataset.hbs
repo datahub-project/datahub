@@ -174,12 +174,13 @@
     {{/dataset-schema}}
   </div>
   <div id="ownertab" class="tab-pane">
-    {{dataset-author owners=owners
-                     ownerTypes=ownerTypes
-                     showMsg=showMsg
-                     alertType=alertType
-                     ownerMessage=ownerMessage
-                     parentController=this}}
+    {{dataset-author
+      owners=owners
+      ownerTypes=ownerTypes
+      showMsg=showMsg
+      alertType=alertType
+      ownerMessage=ownerMessage
+      save=(action "saveOwnerChanges")}}
   </div>
   {{#unless isSFDC}}
     <div id="sampletab" class="tab-pane">

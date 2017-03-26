@@ -1,9 +1,10 @@
 <section class="ownership-actions">
   <button class="nacho-button nacho-button--large-inverse"
           title={{if requiredMinNotConfirmed
-                     "Need at least two confirmed owners to make changes" "Save Changes"}}
-          disabled={{requiredMinNotConfirmed}}
-    {{action "updateOwners" owners}}>
+                     "Need at least two confirmed owners to make changes"
+                     "Save Changes"}}
+            disabled={{requiredMinNotConfirmed}}
+    {{action "updateOwners"}}>
     Save Changes
   </button>
 
@@ -15,9 +16,13 @@
   </button>
 </section>
 
-    {{#if showMsg}}
-      <div class="alert {{alertType}}" role="alert">{{ownerMessage}}</div>
-    {{/if}}
+{{#if errorMessage}}
+  <div class="alert alert-danger" role="alert">{{errorMessage}}</div>
+{{/if}}
+
+{{#if actionMessage}}
+  <div class="alert alert-success" role="alert">{{actionMessage}}</div>
+{{/if}}
 
 <table class="nacho-table nacho-table--bordered">
   <thead>
@@ -70,7 +75,7 @@
                 title={{if (contains (w "SCM") (w owner.source))
                            "Remove from source" "Remove"}}
                   disabled={{contains (w "SCM") (w owner.source)}}
-          {{action "removeOwner" owners owner}}>
+          {{action "removeOwner" owner}}>
           <i class="fa fa-trash"
              aria-label="Remove Owner"></i>
         </button>

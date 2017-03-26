@@ -1,5 +1,17 @@
 import Ember from 'ember';
 
+const {
+  get,
+  getWithDefault,
+  $: {post}
+} = Ember;
+
+// TODO: DSS-6581 Create URL retrieval module
+const datasetsUrlRoot = '/api/v1/datasets';
+const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
+const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
+
+
 export default Ember.Controller.extend({
   hasProperty: false,
   hasImpacts: false,
@@ -181,6 +193,35 @@ export default Ember.Controller.extend({
   },
 
   actions: {
+    /**
+     * Takes the list up updated owner and posts to the server
+     * @param {Ember.Array} updatedOwners the list of owner to send
+     * @returns {Promise.<T>}
+     */
+    saveOwnerChanges(updatedOwners) {
+      const datasetId = get(this, 'model.id');
+      const csrfToken = getWithDefault(this, 'csrfToken', '').replace('/', '');
+
+      return Promise.resolve(
+        post({
+          url: getDatasetOwnersUrl(datasetId),
+          headers: {
+            'Csrf-Token': csrfToken
+          },
+          data: {
+            csrfToken,
+            owners: JSON.stringify(updatedOwners)
+          }
+        }).then(({status = 'failed', msg = 'An error occurred.'}) => {
+          if (status === 'success') {
+            return {status: 'ok'};
+          }
+
+          Promise.reject({status, msg});
+        })
+      );
+    },
+
     setView: function (view) {
       switch (view) {
         case "tabular":
@@ -202,79 +243,6 @@ export default Ember.Controller.extend({
           $('#json-viewer').hide();
           $('#json-table').show();
       }
-    },
-    addOwner: function (data) {
-      var owners = data;
-      var currentUser = this.get("currentUser");
-      var addedOwner = {
-        "userName": "Owner", "email": null, "name": "", "isGroup": false,
-        "namespace": "urn:li:griduser", "type": "Producer", "subType": null, "sortId": 0
-      };
-      var userEntitiesSource = this.get("userEntitiesSource");
-      var userEntitiesMaps = this.get("userEntitiesMaps");
-      var exist = false;
-      if (owners && owners.length > 0) {
-        owners.forEach(function (owner) {
-          if (owner.userName == addedOwner.userName) {
-            exist = true;
-          }
-        });
-      }
-      var controller = this;
-      if (!exist) {
-        owners.unshiftObject(addedOwner);
-        setTimeout(function () {
-          setOwnerNameAutocomplete(controller)
-        }, 500);
-      }
-      else {
-        console.log("The owner is already exist");
-      }
-    },
-    removeOwner: function (owners, owner) {
-      if (owners && owner) {
-        owners.removeObject(owner);
-      }
-    },
-    updateOwners: function (owners) {
-      _this = this;
-      var showMsg = this.get("showMsg");
-      if (showMsg) {
-        return;
-      }
-      var model = this.get("model");
-      if (!model || !model.id) {
-        return;
-      }
-      var url = "/api/v1/datasets/" + model.id + "/owners";
-      var token = $("#csrfToken").val().replace('/', '');
-      $.ajax({
-        url: url,
-        method: 'POST',
-        header: {
-          'Csrf-Token': token
-        },
-        data: {
-          csrfToken: token,
-          owners: JSON.stringify(owners)
-        }
-      }).done(function (data, txt, xhr) {
-        if (data.status == "success") {
-          _this.set('showMsg', true);
-          _this.set('alertType', "alert-success");
-          _this.set('ownerMessage', "Ownership successfully updated.");
-        }
-        else {
-          _this.set('showMsg', true);
-          _this.set('alertType', "alert-danger");
-          _this.set('ownerMessage', "Ownership update failed.");
-        }
-
-      }).fail(function (xhr, txt, error) {
-        _this.set('showMsg', true);
-        _this.set('alertType', "alert-danger");
-        _this.set('ownerMessage', "Ownership update failed.");
-      })
     },
     updateVersion: function (version) {
       this.changeVersion(version);
