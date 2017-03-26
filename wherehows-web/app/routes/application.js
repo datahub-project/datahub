@@ -11,7 +11,7 @@ const {
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
-  currentUser: service(),
+  sessionUser: service('current-user'),
 
   /**
    * Attempt to load the current user
@@ -38,7 +38,7 @@ export default Route.extend(ApplicationRouteMixin, {
    * @private
    */
   _loadCurrentUser() {
-    return get(this, 'currentUser')
+    return get(this, 'sessionUser')
       .load()
       .catch(() => get(this, 'session').invalidate());
   },
