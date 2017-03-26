@@ -1,8 +1,9 @@
 @import "avatar";
 @import "navbar";
 @import "hero";
+@import "dataset-author/all";
 
-@import "nacho-button";
-@import "nacho-global-search";
-@import "nacho-filter-rail";
-@import "nacho-table";
+@import "nacho/nacho-button";
+@import "nacho/nacho-global-search";
+@import "nacho/nacho-filter-rail";
+@import "nacho/nacho-table";
