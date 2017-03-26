@@ -31,7 +31,19 @@
   <tbody data-attribute="owner-table">
   {{#each owners as |owner|}}
     <tr>
-      <td>{{input class="userEntity" value=owner.userName}}</td>
+      <td class="dataset-author-cell"
+          onclick={{action "willEditUserName" value="currentTarget.classList"}}>
+        <label class="dataset-author-cell__name-tag">
+          {{owner.userName}}
+        </label>
+        <input class="userEntity dataset-author-cell__user-name"
+               type="text"
+               placeholder="username"
+               autofocus="autofocus"
+               title="{{owner.userName}}"
+               value="{{owner.userName}}"
+               onblur={{action "editUserName" owner}}/>
+      </td>
       <td>{{owner.name}}</td>
       <td>{{owner.idType}}</td>
       <td>{{owner.source}}</td>

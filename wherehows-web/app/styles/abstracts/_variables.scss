@@ -9,6 +9,13 @@ $text-font-stack: (
   sans-serif
 ) !default;
 
+/// font family for font-awesome
+///@type list
+$font-awesome-stack: (
+  'FontAwesome',
+  sans-serif
+);
+
 /// Color Scheme
 /// @type Map
 /// @prop {String} key - Scheme name
