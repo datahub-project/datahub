@@ -177,8 +177,8 @@ public class Application extends Controller
 
     @BodyParser.Of(BodyParser.Json.class)
     public static Result authenticate() {
-        // Create a new reponse ObjectNode to return when authenticate
-        //   requst is successful
+        // Create a new response ObjectNode to return when authenticate
+        //   request is successful
         ObjectNode response = Json.newObject();
         JsonNode json = request().body().asJson();
         // Extract username and password as String from JsonNode,
