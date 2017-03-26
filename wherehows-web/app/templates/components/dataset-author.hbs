@@ -1,5 +1,5 @@
-<div class="row" style="margin-top: 5px; margin-bottom: 5px;">
-  <div class="col-xs-12">
+<div class="row">
+  <div>
     <div class="btn-group" role="group">
       <button id="addownerbtn" type="button" class="btn btn-default" {{action "addOwner" owners}}>
         <i class="fa fa-plus" title="add an owner">
@@ -15,17 +15,17 @@
     {{/if}}
   </div>
 </div>
-<table class="table table-striped">
+<table class="nacho-table nacho-table--bordered">
   <thead>
   <tr>
-    <th class="col-xs-2">User Name</th>
-    <th class="col-xs-2">Full Name</th>
-    <th class="col-xs-1">Owner ID Type</th>
-    <th class="col-xs-1">Owner Source</th>
-    <th class="col-xs-2">Owner Type</th>
-    <th class="col-xs-2">Owner Sub Type</th>
-    <th class="col-xs-1">Confirmed</th>
-    <th class="col-xs-1"></th>
+    <th>User Name</th>
+    <th>Full Name</th>
+    <th>ID Type</th>
+    <th>Source</th>
+    <th>Owner Type</th>
+    <th>Owner Sub Type</th>
+    <th>Confirmed</th>
+    <th>Remove</th>
   </tr>
   </thead>
   <tbody data-attribute="owner-table">
@@ -36,8 +36,7 @@
       <td>{{owner.idType}}</td>
       <td>{{owner.source}}</td>
       <td>
-        {{#ember-selector values=ownerTypes selected=owner.type}}
-        {{/ember-selector}}
+        {{ember-selector values=ownerTypes selected=owner.type}}
       </td>
       <td>
         {{input value=owner.subType}}
