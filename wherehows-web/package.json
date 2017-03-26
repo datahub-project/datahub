@@ -52,6 +52,7 @@
   "dependencies": {
     "dynamic-link": "^0.2.1",
     "ember-aupac-typeahead": "2.1.2",
+    "ember-cli-string-helpers": "1.0.0",
     "ember-radio-button": "^1.1.1",
     "ember-simple-auth": "^1.2.0",
     "ember-truth-helpers": "1.3.0"

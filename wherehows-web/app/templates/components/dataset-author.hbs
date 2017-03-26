@@ -1,5 +1,7 @@
 <section class="ownership-actions">
   <button class="nacho-button nacho-button--large-inverse"
+          title={{if requiredMinNotConfirmed
+                     "Need at least two confirmed owners to make changes" "Save Changes"}}
           disabled={{requiredMinNotConfirmed}}
     {{action "updateOwners" owners}}>
     Save Changes
@@ -32,7 +34,7 @@
   </thead>
   <tbody data-attribute="owner-table">
   {{#each owners as |owner|}}
-    <tr>
+    <tr class="dataset-author-row">
       <td class="dataset-author-cell"
           onclick={{action "willEditUserName" value="currentTarget.classList"}}>
         <label class="dataset-author-cell__name-tag">
@@ -40,7 +42,7 @@
         </label>
         <input class="userEntity dataset-author-cell__user-name"
                type="text"
-               placeholder="username"
+               placeholder="Enter Username"
                autofocus="autofocus"
                title="{{owner.userName}}"
                value="{{owner.userName}}"
@@ -58,13 +60,20 @@
       </td>
       <td>
         {{input type="checkbox"
-                title=(if owner.confirmedBy owner.confirmedBy 'Not confirmed')
+                title=(if owner.confirmedBy owner.confirmedBy "Not confirmed")
                 checked=(readonly owner.confirmedBy)
                 change=(action "confirmOwner" owner)}}
       </td>
       <td>
-        <i class="fa fa-trash" title="remove this owner" {{action "removeOwner" owners owner}}>
-        </i>
+
+        <button class="nacho-button nacho-button--small"
+                title={{if (contains (w "SCM") (w owner.source))
+                           "Remove from source" "Remove"}}
+                  disabled={{contains (w "SCM") (w owner.source)}}
+          {{action "removeOwner" owners owner}}>
+          <i class="fa fa-trash"
+             aria-label="Remove Owner"></i>
+        </button>
       </td>
     </tr>
   {{/each}}
