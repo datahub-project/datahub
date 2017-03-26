@@ -13,6 +13,9 @@
  */
 package actors;
 
+import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
+import java.util.List;
 import metadata.etl.Launcher;
 import metadata.etl.models.EtlJobName;
 import wherehows.common.Constant;
@@ -21,6 +24,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Properties;
+
+import static org.apache.commons.lang3.StringUtils.*;
 
 
 /**
@@ -67,21 +72,21 @@ class ConfigUtil {
     }
   }
 
-  static String generateCommand(EtlJobName etlJobName, long whEtlExecId, String cmdParam, Properties etlJobProperties) {
-    StringBuilder sb = new StringBuilder();
-    sb.append(javaCmd);
-    sb.append(cmdParam).append(" ");
-
+  static List<String> generateCommand(EtlJobName etlJobName, long whEtlExecId, String cmdParam,
+      Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
-    sb.append("-cp ").append(classPath);
-
     String directoryPath = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
     String configFile = directoryPath + "/exec/" + whEtlExecId + ".properties";
-    sb.append(" -Dconfig=").append(configFile);
-    sb.append(" -DCONTEXT=").append(etlJobName.name());
 
-    sb.append(" metadata.etl.Launcher");
+    String[] cmdParams = isNotBlank(cmdParam) ? cmdParam.trim().split(" ") : new String[0];
 
-    return sb.toString();
+    return new ImmutableList.Builder<String>().add(javaCmd)
+        .addAll(Arrays.asList(cmdParams))
+        .add("-cp").add(classPath)
+        .add("-Dconfig=" + configFile)
+        .add("-DCONTEXT=" + etlJobName.name())
+        .add("-Dlogback.configurationFile=etl_logback.xml")
+        .add("metadata.etl.Launcher")
+        .build();
   }
 }
