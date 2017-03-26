@@ -1,7 +1,12 @@
 $user-name-width: 170px;
+$zebra: set-color(grey, light);
 
 .ownership-actions {
   margin-bottom: 10px;
+}
+
+.dataset-author-row:nth-child(odd) {
+  background-color: tint($zebra, 80%);
 }
 
 .dataset-author-cell {
