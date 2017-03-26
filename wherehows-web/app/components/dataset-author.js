@@ -1,14 +1,32 @@
 import Ember from 'ember';
 
 const {
+  set,
+  get,
+  getWithDefault,
+  computed,
   Component,
-  set
+  inject: {service}
 } = Ember;
 
 const userNameEditableClass = 'dataset-author-cell--editing';
+const minRequiredConfirmed = 2;
 
 export default Component.extend({
+  // Inject the currentUser service to retrieve logged in userName
+  currentUser: service(),
+
   $ownerTable: null,
+
+  // Returns a list of owners with truthy value for their confirmedBy attribute
+  confirmedOwners: computed('owners.@each.confirmedBy', function () {
+    return getWithDefault(this, 'owners', []).filter(
+      ({confirmedBy}) => confirmedBy
+    );
+  }),
+
+  // Checks that the number of confirmedOwners is < minRequiredConfirmed
+  requiredMinNotConfirmed: computed.lt('confirmedOwners.length', minRequiredConfirmed),
 
   didInsertElement() {
     this._super(...arguments);
@@ -40,7 +58,7 @@ export default Component.extend({
   willDestroyElement() {
     this._super(...arguments);
     // Removes the sortable functionality from the cached DOM element reference
-    this.get('$ownerTable').sortable('destroy');
+    get(this, '$ownerTable').sortable('destroy');
   },
 
   actions: {
@@ -111,20 +129,52 @@ export default Component.extend({
         owners.removeObject(owner);
       }
     },
-    confirmOwner: function (owner, confirm) {
-      var obj = $('#loggedInUser');
-      if (obj) {
-        var loggedInUser = obj.attr("title");
-        if (loggedInUser && owner) {
-          if (confirm) {
-            Ember.set(owner, "confirmedBy", loggedInUser);
-          }
-          else {
-            Ember.set(owner, "confirmedBy", null);
-          }
-        }
+
+    /**
+     * Sets the checked confirmedBy property on an owner, when the user
+     *   indicates this thought the UI, and if their username is
+     *   available.
+     * @param {Object} owner the owner object to update
+     * @prop {String|null|void} owner.confirmedBy flag indicating userName
+     *   that confirmed ownership, or null or void otherwise
+     * @param {Boolean = false} checked flag for the current ui checked state
+     */
+    confirmOwner(owner, {target: {checked} = false}) {
+      // Attempt to get the userName from the currentUser service
+      const userName = get(this, 'currentUser.userName') ||
+        get(this, 'currentUser.user.userName');
+
+      // If checked, assign userName otherwise, null
+      const isConfirmedBy = checked ? userName : null;
+      const currentOwners = get(this, 'owners');
+
+      // Ensure that the provided owner is in the list of currentOwners
+      if (currentOwners.includes(owner)) {
+        const ownerPosition = currentOwners.indexOf(owner);
+        // If we have a non blank userName in confirmedBy
+        //  assign to owner, otherwise assign a toggled blank.
+        //  A toggled blank is necessary as a state change device, since
+        //  Ember does a deep comparison of object properties when deciding
+        //  to perform a re-render. We could also use a device such as a hidden
+        //  field with a randomized value.
+        //  This helps to ensure our UI checkbox is consistent with our world
+        //  state.
+        const currentConfirmation = get(owner, 'confirmedBy');
+        let nextBlank = currentConfirmation === null ? void 0 : null;
+
+        set(owner, 'confirmedBy', isConfirmedBy ? isConfirmedBy : nextBlank);
+
+        // Non-mutative array insertion
+        const updatedOwners = [
+          ...currentOwners.slice(0, ownerPosition),
+          owner,
+          ...currentOwners.slice(ownerPosition + 1)
+        ];
+
+        currentOwners.setObjects(updatedOwners);
       }
     },
+
     updateOwners: function (owners) {
       let controller = this.get("parentController");
       var showMsg = controller.get("showMsg");

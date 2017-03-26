@@ -1,20 +1,22 @@
-<div class="row">
-  <div>
-    <div class="btn-group" role="group">
-      <button id="addownerbtn" type="button" class="btn btn-default" {{action "addOwner" owners}}>
-        <i class="fa fa-plus" title="add an owner">
-        </i>
-      </button>
-      <button type="button" class="btn btn-default" {{action "updateOwners" owners}}>
-        <i class="fa fa-save" title="save the change">
-        </i>
-      </button>
-    </div>
+<section class="ownership-actions">
+  <button class="nacho-button nacho-button--large-inverse"
+          disabled={{requiredMinNotConfirmed}}
+    {{action "updateOwners" owners}}>
+    Save Changes
+  </button>
+
+  <button class="nacho-button nacho-button--large"
+    {{action "addOwner" owners}}>
+    <i class="fa fa-plus" title="Add an Owner">
+    </i>
+    Add an Owner
+  </button>
+</section>
+
     {{#if showMsg}}
       <div class="alert {{alertType}}" role="alert">{{ownerMessage}}</div>
     {{/if}}
-  </div>
-</div>
+
 <table class="nacho-table nacho-table--bordered">
   <thead>
   <tr>
@@ -51,17 +53,14 @@
         {{ember-selector values=ownerTypes selected=owner.type}}
       </td>
       <td>
-        {{input value=owner.subType}}
+        {{input class="dataset-author-cell__input"
+                value=owner.subType}}
       </td>
       <td>
-        {{#if owner.confirmedBy}}
-          <i class="fa fa-check-square-o" title="Owner confirmed by {{owner.confirmedBy}}" {{action "confirmOwner" owner
-                                                                                                    false}}>
-          </i>
-        {{else}}
-          <i class="fa fa-square-o" title="Please confirmed" {{action "confirmOwner" owner true}}>
-          </i>
-        {{/if}}
+        {{input type="checkbox"
+                title=(if owner.confirmedBy owner.confirmedBy 'Not confirmed')
+                checked=(readonly owner.confirmedBy)
+                change=(action "confirmOwner" owner)}}
       </td>
       <td>
         <i class="fa fa-trash" title="remove this owner" {{action "removeOwner" owners owner}}>
