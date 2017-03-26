@@ -2,7 +2,7 @@
 
 @function shade-color($color) {
   @return (
-          font-color: shade($color, 5%)
+          background-color: shade($color, 5%)
   );
 }
 
@@ -16,6 +16,7 @@
         restyle-var(font-weight): 600,
         restyle-var(text-color): $text-color,
         restyle-var(border-radius): 2px,
+
         background-color: restyle-var(background-color),
         border: 0,
         border-radius: restyle-var(border-radius),
@@ -36,14 +37,14 @@
         text-decoration: none,
         vertical-align: middle,
         z-index: z(default),
-        restyle-states:(
-                disabled: (
-                        pointer: not-allowed
-                ),
-                hover: (
-                        restyle-function(shade-color): restyle-var(background-color)
-                )
+
+        '&:hover': (
+                restyle-function(shade-color): restyle-var(background-color)
         ),
+        '&:disabled': (
+                cursor: not-allowed
+        ),
+
         restyle-modifiers: (
                 'with a border': (
                         border: 1px solid restyle-var(text-color)
