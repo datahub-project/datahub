@@ -1,0 +1,43 @@
+$user-name-width: 170px;
+
+.dataset-author-cell {
+  max-width: $user-name-width;
+  width: $user-name-width;
+
+  &__name-tag {
+    position: relative;
+    margin: 0;
+    padding-right: 20px;
+    font-weight: 100;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+
+    &::after {
+      content: '\f040';
+      position: absolute;
+      top: 0;
+      right: 0;
+      font-family: $font-awesome-stack;
+    }
+  }
+
+  &__user-name {
+    display: none;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    border: 0;
+  }
+
+  &--editing {
+    .dataset-author-cell__name-tag {
+      display: none;
+    }
+
+    .dataset-author-cell__user-name {
+      display: block;
+    }
+  }
+}
