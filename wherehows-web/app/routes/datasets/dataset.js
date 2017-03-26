@@ -268,7 +268,9 @@ export default Route.extend({
     //   insert on controller
     Promise.resolve(getJSON(ownerTypeUrlRoot)).then(
       ({status, ownerTypes = []}) => {
-        ownerTypes = ownerTypes.filter(ownerType => String(ownerType).toLowerCase() !== 'consumer');
+        ownerTypes = ownerTypes.filter(ownerType => String(ownerType).toLowerCase() !== 'consumer')
+          .sort((a, b) => a.localeCompare(b));
+
         status === 'ok' && set(controller, 'ownerTypes', ownerTypes);
       }
     );
