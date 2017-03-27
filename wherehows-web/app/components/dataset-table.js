@@ -10,6 +10,7 @@ const {
 
 export default Component.extend({
   tagName: 'table',
+  classNames: ['nacho-table nacho-table--bordered'],
   tableHeaderComponent: 'dataset-table-header',
   tableBodyComponent: 'dataset-table-body',
   tableRowComponent: 'dataset-table-row',
