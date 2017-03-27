@@ -5,8 +5,13 @@ export default Ember.Component.extend({
     onFormatChange() {
       this.sendAction('onFormatChange', ...arguments);
     },
+
     onPrivacyChange() {
       this.sendAction('onPrivacyChange', ...arguments);
+    },
+
+    onSubjectChange() {
+      this.sendAction('onSubjectChange', ...arguments);
     }
   }
 });
