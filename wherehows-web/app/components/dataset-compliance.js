@@ -5,6 +5,7 @@ const {
   computed,
   set,
   get,
+  isBlank,
   getWithDefault
 } = Ember;
 
@@ -110,11 +111,11 @@ export default Component.extend({
     updatedCompliance.every(entity => fieldFormats.includes(get(entity, 'identifierType'))),
 
   actions: {
-    onFieldFormatChange({name: fieldName}, {value: format}) {
-      return this.changeFieldFormat(fieldName, format);
+    onFieldFormatChange({identifierField: fieldName}, {value: format}) {
+      return this.changeFieldLogicalType(fieldName, format);
     },
 
-    onFieldPrivacyChange({name: fieldName, hasPrivacyData}) {
+    onFieldPrivacyChange({identifierField: fieldName, hasPrivacyData}) {
       const toggle = !hasPrivacyData ? 'add' : 'remove';
 
       return this.toggleFieldOnComplianceList(fieldName, toggle);
