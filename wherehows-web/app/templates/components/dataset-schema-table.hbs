@@ -4,15 +4,19 @@
                  sortDirection=sortDirection
                  class="table"
                  searchTerm=searchTerm as |table|}}
-  <input type="text"
-         title="Filter fields"
-         placeholder="Filter fields"
-         value="{{table.searchTerm}}"
-         oninput={{action table.filterDidChange value="target.value"}}>
+  <caption>
+    <input
+      type="text"
+      title="Filter fields"
+      placeholder="Filter fields"
+      value="{{table.searchTerm}}"
+      oninput={{action table.filterDidChange value="target.value"}}>
+  </caption>
   {{#table.head as |head|}}
-    {{#head.column columnName="name"}}Field{{/head.column}}
+    {{#head.column columnName="identifierField"}}Field{{/head.column}}
     {{#head.column columnName="dataType"}}Data Type{{/head.column}}
     {{#head.column}}Member Identifier?{{/head.column}}
+    {{#head.column}}Is Subject Field?{{/head.column}}
     {{#head.column}}Field Format{{/head.column}}
   {{/table.head}}
   {{#table.body as |body|}}
@@ -20,13 +24,17 @@
       (slice table.beginOffset table.endOffset (sort-by table.sortBy table.data)) as |field|}}
       {{#body.row as |row|}}
         {{#row.cell}}
-          {{field.name}}
+          {{field.identifierField}}
         {{/row.cell}}
         {{#row.cell}}
-          {{field.type}}
+          {{field.dataType}}
         {{/row.cell}}
         {{#row.cell}}
           {{input type="checkbox" checked=field.hasPrivacyData change=(action "onPrivacyChange" field)}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{input type="checkbox" checked=field.isSubject
+                  change=(action "onSubjectChange" field)}}
         {{/row.cell}}
         {{#row.cell}}
           {{ember-selector values=fieldFormats
