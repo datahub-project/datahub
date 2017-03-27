@@ -121,6 +121,18 @@ export default Component.extend({
       return this.toggleFieldOnComplianceList(fieldName, toggle);
     },
 
+    /**
+     * Toggles the isSubject property of a member identifiable field
+     * @param {Object} field
+     */
+    onMemberFieldSubjectChange(field) {
+      const {isSubject} = field;
+
+      if (field && 'isSubject' in field) {
+        set(field, 'isSubject', !isSubject);
+      }
+    },
+
     saveCompliance () {
       const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(get(this, 'complianceEntities'));
 
