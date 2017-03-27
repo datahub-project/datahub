@@ -32,6 +32,7 @@ public enum EtlJobName {
   PRODUCT_REPO_METADATA_ETL(EtlType.OPERATION, RefIdType.APP),
   KAFKA_CONSUMER_ETL(EtlType.OPERATION, RefIdType.DB),
   DATABASE_SCM_METADATA_ETL(EtlType.OPERATION, RefIdType.APP),
+  DRUID_METADATA_ETL(EtlType.OPERATION, RefIdType.APP);
   ;
 
   EtlType etlType;

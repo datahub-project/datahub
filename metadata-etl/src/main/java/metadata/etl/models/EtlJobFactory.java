@@ -66,6 +66,8 @@ public class EtlJobFactory {
         return new MultiproductMetadataEtl(refId, whExecId, properties);
       case DATABASE_SCM_METADATA_ETL:
         return new CodeSearchMetadataEtl(refId, whExecId, properties);
+      case DRUID_METADATA_ETL:
+        return new DruidMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }
