@@ -203,14 +203,14 @@
   <div id="compliancetab" class="tab-pane">
     {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
                          isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
-                         datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                         schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
                          onSave=(action "savePrivacyCompliancePolicy")
                          onReset=(action "resetPrivacyCompliancePolicy")}}
   </div>
   <div id="confidentialtab" class="tab-pane">
     {{dataset-confidential securitySpecification=securitySpecification
                            isNewSecuritySpecification=isNewSecuritySpecification
-                           datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                           schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
                            onSave=(action "saveSecuritySpecification")
                            onReset=(action "resetSecuritySpecification")}}
   </div>
