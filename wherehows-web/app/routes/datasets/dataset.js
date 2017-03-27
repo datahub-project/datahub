@@ -309,10 +309,13 @@ export default Route.extend({
               setTimeout(window.initializeColumnTreeGrid, 500);
             }
 
-            return;
+            return columns;
           }
+
           return Promise.reject(new Error('Dataset columns request failed.'));
         })
+        .then(columns => columns.map(({dataType, fieldName}) => ({dataType, fieldName})))
+        .then(set.bind(Ember, controller, 'schemaFieldNamesMappedToDataTypes'))
         .catch(() => setProperties(controller, {
             hasSchemas: false,
             schemas: null
