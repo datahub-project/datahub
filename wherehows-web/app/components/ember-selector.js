@@ -1,7 +1,7 @@
 import Ember from 'ember';
 
 export default Ember.Component.extend({
-  class: 'form-control',
+  classNames: ['nacho-select'],
   content: [],
 
   init() {

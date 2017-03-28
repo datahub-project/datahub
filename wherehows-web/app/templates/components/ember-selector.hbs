@@ -1,5 +1,5 @@
 {{!-- TODO: DSS-6122 Add label for select--}}
-<select class={{class}} {{action "change" on="change"}} disabled={{disabled}}>
+<select {{action "change" on="change"}} disabled={{disabled}}>
   {{#each content as |option|}}
     <option value="{{option.value}}" selected={{option.isSelected}}>
       {{if option.label option.label option.value}}
