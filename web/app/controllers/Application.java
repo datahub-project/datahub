@@ -193,6 +193,8 @@ public class Application extends Controller
             return badRequest("Missing or invalid [credentials]");
         }
 
+        session().clear();
+
         // Create a uuid string for this session if one doesn't already exist
         //   to be appended to the Result object
         String uuid = session("uuid");
@@ -207,8 +209,9 @@ public class Application extends Controller
             return badRequest("Invalid credentials");
         }
 
-        session().clear();
 
+        // Adds the username to the session cookie
+        session("user", username);
         // Contruct an ObjectNode with the username and uuid token to be sent with the response
         ObjectNode data = Json.newObject();
         data.put("username", username);
