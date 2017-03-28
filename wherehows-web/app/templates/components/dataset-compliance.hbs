@@ -14,7 +14,7 @@
   </section>
 
   <section class="metadata-prompt" id="has-member">
-    <header>
+    <header class="metadata-prompt__header">
       <p>Can any fields in this dataset's schema be used to identify a member?</p>
     </header>
     <span>
@@ -41,38 +41,47 @@
     sortDirection=sortDirection
     searchTerm=searchTerm
     fields=memberComplianceEntities
-    fieldFormats=identifierTypes
+    fieldFormats=logicalTypes
     onFormatChange=(action "onFieldFormatChange")
     onSubjectChange=(action "onMemberFieldSubjectChange")
     onPrivacyChange=(action "onFieldPrivacyChange")}}
 
   {{#if showOrgPrompt}}
     <section class="metadata-prompt" id="has-org">
-      <header>
+      <header class="metadata-prompt__header">
         <p>Do fields in the schema contain the ID of an organization?</p>
       </header>
       <span>
-        {{#radio-button-composer
-          value=true
-          name="has-organization"
-          groupValue=(readonly userIndicatesDatasetHas.org)
-          changed="didChangePrivacyIdentifiable"}}
-          Yes
-        {{/radio-button-composer}}
+      {{#radio-button-composer
+        value=true
+        name="has-org"
+        groupValue=(readonly userIndicatesDatasetHas.org)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        Yes
+      {{/radio-button-composer}}
         {{#radio-button-composer
           value=false
-          name="has-organization"
+          name="has-org"
           groupValue=(readonly userIndicatesDatasetHas.org)
-          changed="didChangePrivacyIdentifiable"}}
+          changed=(action 'didChangePrivacyIdentifiable')}}
           No
         {{/radio-button-composer}}
     </span>
     </section>
+    {{dataset-table-org-compliance
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy
+      sortDirection=sortDirection
+      searchTerm=searchTerm
+      fields=orgComplianceEntities
+      fieldFormats=logicalTypes
+      onFormatChange=(action "onFieldFormatChange")
+      onPrivacyChange=(action "onFieldPrivacyChange")}}
   {{/if}}
 
   {{#if showGroupPrompt}}
     <section class="metadata-prompt" id="has-group">
-      <header>
+      <header class="metadata-prompt__header">
         <p>Do fields in the schema contain the ID of a group?</p>
       </header>
       <span>
@@ -80,18 +89,27 @@
           value=true
           name="has-group"
           groupValue=(readonly userIndicatesDatasetHas.group)
-          changed="didChangePrivacyIdentifiable"}}
+          changed=(action 'didChangePrivacyIdentifiable')}}
           Yes
         {{/radio-button-composer}}
         {{#radio-button-composer
           value=false
           name="has-urn"
           groupValue=(readonly userIndicatesDatasetHas.group)
-          changed="didChangePrivacyIdentifiable"}}
+          changed=(action 'didChangePrivacyIdentifiable')}}
           No
         {{/radio-button-composer}}
     </span>
     </section>
+    {{dataset-table-group-compliance
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy
+      sortDirection=sortDirection
+      searchTerm=searchTerm
+      fields=groupComplianceEntities
+      fieldFormats=logicalTypes
+      onFormatChange=(action "onFieldFormatChange")
+      onPrivacyChange=(action "onFieldPrivacyChange")}}
   {{/if}}
 </div>
 {{yield}}
