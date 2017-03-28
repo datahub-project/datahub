@@ -8,7 +8,9 @@ const {
 } = Ember;
 
 export default Component.extend({
-  tagName: 'section',
+  tagName: '',
+
+  classNames: ['nacho-pager'],
 
   pages: computed('data', 'limit', function() {
     const { data, limit: rowsPerPage = 1 } = getProperties(
