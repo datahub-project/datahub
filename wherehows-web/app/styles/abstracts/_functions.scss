@@ -41,6 +41,20 @@
   @return null;
 }
 
+/// Get a font-weight from the $font-weight map
+/// @param {String} $style - the font-style to look up
+/// @param {Number} $weight - number for the previous style to be looked up
+/// @return {Number}
+/// @require $font-weights
+@function fw($style, $weight) {
+  @if map-has-key($font-weights, $style) {
+    @return map-get(map-get($font-weights, $style), $weight);
+  }
+
+  @warn '#{$style} not found in `$font-weights` list';
+  @return null;
+}
+
 /// Progressively add black as you decrease the proportion of the color
 /// Provides more subtle transitions than darken
 /// @param {Color} $color - color to shade
