@@ -1,121 +1,137 @@
 import Ember from 'ember';
 
-export default Ember.Component.extend({
+const {
+  get,
+  set,
+  isBlank,
+  computed,
+  getWithDefault,
+  Component
+} = Ember;
+
+// String constant identifying the classified fields on the security spec
+const sourceClassificationKey = 'securitySpecification.classification';
+const classifiers = [
+  'confidential',
+  'highlyConfidential',
+  'limitedDistribution',
+  'mustBeEncrypted',
+  'mustBeMasked'
+];
+/**
+ * Takes a string, returns a formatted string. Niche , single use case
+ * for now, so no need to make into a helper
+ * @param {String} string
+ */
+const formatAsCapitalizedStringWithSpaces = string =>
+  string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
+
+export default Component.extend({
+  sortColumnWithName: 'identifierField',
+  filterBy: 'identifierField',
+  sortDirection: 'asc',
   searchTerm: '',
-  retention: Ember.computed.alias('securitySpecification.retentionPolicy.retentionType'),
-  geographicAffinity: Ember.computed.alias('securitySpecification.geographicAffinity.affinity'),
-  recordOwnerType: Ember.computed.alias('securitySpecification.recordOwnerType'),
-  datasetSchemaFieldNames: Ember.computed('datasetSchemaFieldsAndTypes', function () {
-    return this.get('datasetSchemaFieldsAndTypes').mapBy('name');
+
+  // Map classifiers to options better consumed by  drop down
+  classifiers: ['', ...classifiers].map(value => ({
+    value,
+    label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Please Select'
+  })),
+
+  /**
+   * Creates a lookup table of fieldNames to classification
+   *   Also, the expectation is that the association from fieldName -> classification
+   *   is one-to-one hence no check to ensure a fieldName gets clobbered
+   *   in the lookup assignment
+   */
+  fieldNameToClass: computed(`${sourceClassificationKey}`, function () {
+    const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
+    // Creates a lookup table of fieldNames to classification
+    //   Also, the expectation is that the association from fieldName -> classification
+    //   is one-to-one hence no check to ensure a fieldName gets clobbered
+    //   in the lookup assignment
+    return Object.keys(sourceClasses).reduce((lookup, classificationKey) =>
+        // For the provided classificationKey, iterate over it's fieldNames,
+        //   and assign the classificationKey to the fieldName in the table
+        (sourceClasses[classificationKey] || []).reduce((lookup, fieldName) => {
+          // cKey -> 1...fieldNameList => fieldName -> cKey
+          lookup[fieldName] = classificationKey;
+          return lookup;
+        }, lookup),
+      {}
+    );
   }),
 
-  matchingFields: Ember.computed('searchTerm', 'datasetSchemaFieldsAndTypes', function () {
-    if (this.get('datasetSchemaFieldsAndTypes')) {
-      const searchTerm = this.get('searchTerm');
-      const matches = $.ui.autocomplete.filter(this.get('datasetSchemaFieldNames'), searchTerm);
-      return matches.map(value => {
-        const {type} = this.get('datasetSchemaFieldsAndTypes').filterBy('name', value).get('firstObject');
-        const dataType = Array.isArray(type) && type.toString().toUpperCase();
-
-        return {
-          value,
-          dataType
-        };
-      });
+  /**
+   * Lists all the dataset fields found in the `columns` api, and intersects
+   *   each with the currently classified field names in
+   *   securitySpecification.classification or null if not found
+   */
+  classificationDataFields: computed(
+    `${sourceClassificationKey}.${classifiers}`,
+    'fieldNameToClass',
+    'schemaFieldNamesMappedToDataTypes',
+    function () {
+      // Set default or if already in policy, retrieve current values from
+      //   privacyCompliancePolicy.compliancePurgeEntities
+      return getWithDefault(
+        this, 'schemaFieldNamesMappedToDataTypes', []
+      ).map(({fieldName, dataType}) => ({
+        dataType,
+        identifierField: fieldName,
+        classification: get(this, `fieldNameToClass.${fieldName}`) || null
+      }));
     }
-  }),
-
-  didRender() {
-    const $typeahead = $('#confidential-typeahead') || [];
-    if ($typeahead.length) {
-      this.enableTypeaheadOn($typeahead);
-    }
-  },
-
-  enableTypeaheadOn(selector) {
-    selector.autocomplete({
-      minLength: 0,
-      source: request => {
-        const {term = ''} = request;
-        this.set('searchTerm', term);
-      }
-    });
-  },
-
-  get recordOwnerTypes() {
-    return ['MEMBER', 'CUSTOMER', 'JOINT', 'INTERNAL', 'COMPANY'].map(ownerType => ({
-      value: ownerType,
-      label: ownerType.toLowerCase().capitalize()
-    }));
-  },
-
-  get retentionTypes() {
-    return ['LIMITED', 'LEGAL_HOLD', 'UNLIMITED'].map(retention => ({
-      value: retention,
-      label: retention.replace('_', ' ').toLowerCase().capitalize()
-    }));
-  },
-
-  get affinityTypes() {
-    return ['LIMITED', 'EXCLUDED'].map(affinity => ({
-      value: affinity,
-      label: affinity.toLowerCase().capitalize()
-    }));
-  },
-
-  classification: Ember.computed('securitySpecification.classification', function () {
-    const confidentialClassification = this.get('securitySpecification.classification');
-    const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
-
-    return Object.keys(confidentialClassification).map(classifier => ({
-      key: classifier,
-      label: formatAsCapitalizedStringWithSpaces(classifier),
-      values: Ember.get(confidentialClassification, classifier)
-    }));
-  }),
-
-  _toggleOnClassification(classifier, key, operation) {
-    this.get(`securitySpecification.classification.${key}`)[`${operation}Object`](classifier);
-  },
+  ),
 
   actions: {
-    addToClassification(classifier, classifierKey) {
-      this._toggleOnClassification(classifier, classifierKey, `add`);
+    /**
+     * Toggles the provided identifierField onto a classification list
+     *   on securitySpecification.classification, identified by the provided
+     *   classKey.
+     * @param {String} identifierField field on the dataset
+     * @param {String} classKey the name of the class to add, or potentially
+     *   remove the identifierField from
+     */
+    updateClassification({identifierField}, {value: classKey}) {
+      const currentClass = get(this, `fieldNameToClass.${identifierField}`);
+      // Since the association from identifierField -> classification is 1-to-1
+      //  ensure that we do not currently have this identifierField
+      // in any other classification lists by checking that the lookup is void
+      if (!isBlank(currentClass)) {
+        // Get the current classification list
+        const currentClassification = get(
+          this, `${sourceClassificationKey}.${currentClass}`
+        );
+        // Remove identifierField from list
+        currentClassification.removeObject(identifierField);
+      }
+
+      if (classKey) {
+        // Get the candidate list
+        let classification = get(this, `${sourceClassificationKey}.${classKey}`);
+        // In the case that the list is not pre-populated,
+        //  the value will be the default null, array ops won't work here
+        //  ...so make array
+        if (!classification) {
+          classification = set(this, `${sourceClassificationKey}.${classKey}`, []);
+        }
+
+        // Finally perform operation
+        classification.addObject(identifierField);
+      }
     },
 
-    removeFromClassification(classifier, classifierKey) {
-      this._toggleOnClassification(classifier, classifierKey, `remove`);
-    },
-
-    updateRetentionType({value}) {
-      this.set('securitySpecification.retentionPolicy.retentionType', value);
-    },
-
-    updateGeographicAffinity({value}) {
-      this.set('securitySpecification.geographicAffinity.affinity', value);
-    },
-
-    updateRecordOwnerType({value}) {
-      this.set('securitySpecification.recordOwnerType', value);
-    },
-
-    saveSecuritySpecification () {
-      this.get('onSave')();
+    // Notify controller to propagate changes
+    saveSecuritySpecification() {
+      get(this, 'onSave')();
       return false;
-    },
-
-    approveCompliance () {
-      //TODO: not implemented
-    },
-
-    disapproveCompliance () {
-      //TODO: not implemented
     },
 
     // Rolls back changes made to the compliance spec to current
     // server state
-    resetSecuritySpecification () {
-      this.get('onReset')();
+    resetSecuritySpecification() {
+      get(this, 'onReset')();
     }
   }
 });
