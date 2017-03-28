@@ -56,7 +56,7 @@ export default Component.extend({
   // Map logicalTypes to options consumable by ui
   logicalTypes: ['', ...logicalTypes].map(value => ({
     value,
-    label: value ? value.capitalize() : 'Please select'
+    label: value ? value.capitalize() : 'Please Select'
   })),
 
   /**
