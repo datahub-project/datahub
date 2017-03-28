@@ -53,14 +53,16 @@
       {{/each}}
     {{/table.body}}
     {{#table.foot}}
-      {{dataset-table-pager data=table.data
-                            page=table.page
-                            limit=table.limit
-                            pageLengths=table.pageLengths
-                            beginOffset=table.beginOffset
-                            endOffset=table.endOffset
-                            onLimitChanged=table.onLimitChanged
-                            onPageChanged=table.onPageChanged}}
+      {{dataset-table-pager
+        data=table.data
+        page=table.page
+        limit=table.limit
+        pageLengths=table.pageLengths
+        beginOffset=table.beginOffset
+        endOffset=table.endOffset
+        onLimitChanged=table.onLimitChanged
+        pagerColSpan=2
+        onPageChanged=table.onPageChanged}}
     {{/table.foot}}
   {{/dataset-table}}
 </div>

@@ -39,14 +39,17 @@
       {{/body.row}}
     {{/each}}
   {{/table.body}}
-  {{#table.foot}}
-    {{dataset-table-pager data=table.data
-                          page=table.page
-                          limit=table.limit
-                          pageLengths=table.pageLengths
-                          beginOffset=table.beginOffset
-                          endOffset=table.endOffset
-                          onLimitChanged=table.onLimitChanged
-                          onPageChanged=table.onPageChanged}}
+  {{#table.foot as |foot|}}
+    {{dataset-table-pager
+      data=table.data
+      page=table.page
+      limit=table.limit
+      pageLengths=table.pageLengths
+      beginOffset=table.beginOffset
+      endOffset=table.endOffset
+      onLimitChanged=table.onLimitChanged
+      onPageChanged=table.onPageChanged
+      pagerSpan=foot.pagerSpan
+      pagerColSpan=4}}
   {{/table.foot}}
 {{/dataset-table}}

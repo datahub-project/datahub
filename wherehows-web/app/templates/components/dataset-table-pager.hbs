@@ -1,19 +1,33 @@
-<article>
-  <p>Page:</p>
-  {{ember-selector values=pages selected=page selectionDidChange="changePage"}}
-</article>
+<td colspan={{pagerColSpan}}>
+  <section class="nacho-pager">
+    <span class="nacho-pager__section">
+      <p class="nacho-pager__desc">Page</p>
+      {{ember-selector
+        values=pages
+        selected=page
+        class="nacho-pager__select"
+        selectionDidChange="changePage"}}
+    </span>
 
-<article>
-  <p>Rows per page:</p>
-  {{ember-selector values=pageLengths selected=limit selectionDidChange="changeLimit"}}
-</article>
+    <span class="nacho-pager__section">
+      <p class="nacho-pager__desc">Rows</p>
+      {{ember-selector
+        values=pageLengths
+        selected=limit
+        class="nacho-pager__select"
+        selectionDidChange="changeLimit"}}
+    </span>
 
-<div>
-  <button {{action "onDecrementPage"}}>
-    <i aria-label="Sorting arrow" class="glyphicon glyphicon-arrow-left"></i>
-  </button>
+    <span class="nacho-pager__section">
+      <button class="nacho-button" {{action "onDecrementPage"}}>
+        <i aria-label="Sorting arrow"
+           class="glyphicon glyphicon-chevron-left"></i>
+      </button>
 
-  <button {{action "onIncrementPage"}}>
-    <i aria-label="Sorting arrow" class="glyphicon glyphicon-arrow-right"></i>
-  </button>
-</div>
+      <button class="nacho-button" {{action "onIncrementPage"}}>
+        <i aria-label="Sorting arrow"
+           class="glyphicon glyphicon-chevron-right"></i>
+      </button>
+    </span>
+  </section>
+</td>
