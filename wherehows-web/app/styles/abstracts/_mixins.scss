@@ -83,3 +83,18 @@
   text-align: center;
   overflow-y: auto;
 }
+
+/// Temp implementation before Auto Prefixer is installed
+/// @link https://github.com/postcss/autoprefixer
+
+/// Vendor prefix helper
+/// @param {String} $property - CSS property to be prefixed
+/// @param {*} $value to be prefixed
+/// @param {List} $prefixes prepend prefixes
+@mixin prefix($property, $value, $prefixes: ()) {
+  @each $prefix in $prefixes {
+    -#{$prefix}-#{$property}: $value;
+  }
+
+  #{$property}: $value;
+}
