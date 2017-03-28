@@ -28,7 +28,7 @@ const complianceEntitiesMatchingType = type => {
 };
 
 export default Component.extend({
-  sortColumnWithName: 'name',
+  sortColumnWithName: 'identifierField',
   filterBy: 'identifierField',
   sortDirection: 'asc',
   searchTerm: '',
