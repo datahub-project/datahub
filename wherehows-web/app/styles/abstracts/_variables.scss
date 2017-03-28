@@ -16,6 +16,13 @@ $font-awesome-stack: (
   sans-serif
 );
 
+/// Font family for bootstrap glyphicons
+/// @type list
+$glyphicons-stack: (
+  'Glyphicons Halflings',
+  sans-serif
+);
+
 $font-weights: (
         normal:(
                 2: 200,
