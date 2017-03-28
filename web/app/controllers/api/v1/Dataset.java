@@ -148,31 +148,32 @@ public class Dataset extends Controller
     }
 
     public static Result getDatasetColumnsByID(int id) {
-        List<DatasetColumn> datasetColumnList = DatasetsDAO.getDatasetColumnsByID(id);
-
         ObjectNode result = Json.newObject();
-        if (datasetColumnList != null && datasetColumnList.size() > 0) {
-            result.put("status", "ok");
-            result.set("columns", Json.toJson(datasetColumnList));
+
+        String urn = DatasetsDAO.getDatasetUrnById(id);
+        if (urn == null || urn.length() < 6) {
+            Logger.debug("Dataset id " + id + " not found.");
+            result.put("status", "error");
+            result.put("message", "Dataset id not found");
             return ok(result);
         }
 
+        // try to access dataset fields from Metadata Store schemaMetadata first
         SchemaFieldArray datasetFields = null;
-        if (datasetColumnList == null || datasetColumnList.size() == 0) {
-            String urn = DatasetsDAO.getDatasetUrnById(id);
-            if (urn != null && urn.length() > 6) {
-                try {
-                    datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
-                } catch (Exception e) {
-                    Logger.debug("Can't find schema for URN: " + urn + ", Exception: " + e.getMessage());
-                }
-            } else {
-                Logger.debug("Dataset id " + id + " not found.");
-            }
+        try {
+            datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
+        } catch (Exception e) {
+            Logger.debug("Can't find schema for URN: " + urn + ", Exception: " + e.getMessage());
         }
 
+        List<DatasetColumn> datasetColumnList;
         if (datasetFields != null && datasetFields.size() > 0) {
             datasetColumnList = MetadataStoreDao.datasetColumnsMapper(datasetFields);
+        } else { // get fields from WH db if nothing in Metadata store
+            datasetColumnList = DatasetsDAO.getDatasetColumnsByID(id);
+        }
+
+        if (datasetColumnList != null && datasetColumnList.size() > 0) {
             result.put("status", "ok");
             result.set("columns", Json.toJson(datasetColumnList));
         } else {
