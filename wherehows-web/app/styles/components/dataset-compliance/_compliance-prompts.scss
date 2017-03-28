@@ -1,0 +1,20 @@
+/**
+ * Prompt for privacy compliance
+ */
+.metadata-prompt {
+  margin-top: 40px;
+
+  /**
+   * Overrides default styles
+   */
+  .ember-radio-button {
+    display: inline-block;
+    width: 60px;
+    cursor: pointer;
+  }
+
+  &__header {
+    font-size: 24px;
+    font-weight: fw(normal, 2);
+  }
+}
