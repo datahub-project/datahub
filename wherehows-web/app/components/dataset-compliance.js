@@ -210,12 +210,24 @@ export default Component.extend({
       }
     },
 
-    saveCompliance () {
-      const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(get(this, 'complianceEntities'));
+    /**
+     * Updates the state flags that transition the prompts from one to the next
+     * @param {String} sectionName name of the section that was changed
+     * @param {Boolean} isPrivacyIdentifiable flag indicating that a section has
+     *   or does not have privacy identifier
+     */
+    didChangePrivacyIdentifiable(sectionName, isPrivacyIdentifiable) {
+      const section = {
+        'has-group': 'group',
+        'has-org': 'org',
+        'has-member': 'member'
+      }[sectionName];
 
-      if (allEntitiesHaveValidFormat) {
-        return this.get('onSave')();
-      }
+      return set(
+        this,
+        `userIndicatesDatasetHas.${section}`,
+        isPrivacyIdentifiable
+      );
     },
 
     // Rolls back changes made to the compliance spec to current
