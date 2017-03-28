@@ -157,11 +157,33 @@ export default Component.extend({
           )
         );
       }
-    }[toggle];
+    }[toggle]();
   },
 
-  ensureTypeContainsFormat: (updatedCompliance) =>
-    updatedCompliance.every(entity => fieldFormats.includes(get(entity, 'identifierType'))),
+  /**
+   * Checks that each privacyCompliancePolicy.compliancePurgeEntities has
+   *  a valid identifierType
+   * @param {Ember.Array} sourceEntities compliancePurgeEntities
+   * @return {Boolean} has or does not
+   */
+  ensureTypeContainsFormat: sourceEntities =>
+    sourceEntities.every(entity =>
+      ['MEMBER', 'ORGANIZATION', 'GROUP'].includes(
+        get(entity, 'identifierType')
+      )),
+
+  /**
+   * Checks that each privacyCompliancePolicy.compliancePurgeEntities has
+   *  a valid logicalType
+   * @param {Ember.Array}sourceEntities compliancePurgeEntities
+   * @return {Boolean|*} Contains or does not
+   */
+  ensureTypeContainsLogicalType: sourceEntities => {
+    const logicalTypes = logicalTypes.map(type => type.toUpperCase());
+
+    return sourceEntities.every(entity =>
+      logicalTypes.includes(get(entity, 'logicalType')));
+  },
 
   actions: {
     /**
@@ -228,6 +250,22 @@ export default Component.extend({
         `userIndicatesDatasetHas.${section}`,
         isPrivacyIdentifiable
       );
+    },
+
+    /**
+     * If all validity checks are passed, invoke onSave action on controller
+     */
+    saveCompliance() {
+      const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(
+        get(this, complianceListKey)
+      );
+      const allEntitiesHaveValidLogicalType = this.ensureTypeContainsLogicalType(
+        get(this, complianceListKey)
+      );
+
+      if (allEntitiesHaveValidFormat && allEntitiesHaveValidLogicalType) {
+        return this.get('onSave')();
+      }
     },
 
     // Rolls back changes made to the compliance spec to current
