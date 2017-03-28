@@ -16,6 +16,21 @@ $font-awesome-stack: (
   sans-serif
 );
 
+$font-weights: (
+        normal:(
+                2: 200,
+                3: 300,
+                4: 400,
+                6:600
+        ),
+        italic:(
+                2: 200,
+                3:300,
+                4:400,
+                6:600
+        )
+);
+
 /// Color Scheme
 /// @type Map
 /// @prop {String} key - Scheme name
