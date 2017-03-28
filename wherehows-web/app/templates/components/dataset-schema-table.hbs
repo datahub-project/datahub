@@ -2,7 +2,6 @@
                  sortColumnWithName=sortColumnWithName
                  filterBy=filterBy
                  sortDirection=sortDirection
-                 class="table"
                  searchTerm=searchTerm as |table|}}
   <caption>
     <input
@@ -16,7 +15,7 @@
     {{#head.column columnName="identifierField"}}Field{{/head.column}}
     {{#head.column columnName="dataType"}}Data Type{{/head.column}}
     {{#head.column}}Member Identifier?{{/head.column}}
-    {{#head.column}}Is Field Subject Owner?{{/head.column}}
+    {{#head.column}}Is this field a Subject Owner?{{/head.column}}
     {{#head.column}}Field Format{{/head.column}}
   {{/table.head}}
   {{#table.body as |body|}}
@@ -39,9 +38,10 @@
                   change=(action "onSubjectChange" field)}}
         {{/row.cell}}
         {{#row.cell}}
+
           {{ember-selector values=fieldFormats
                            disabled=(not field.hasPrivacyData)
-                           selected=field.format
+                           selected=field.logicalType
                            selectionDidChange=(action "onFormatChange" field)}}
         {{/row.cell}}
       {{/body.row}}
