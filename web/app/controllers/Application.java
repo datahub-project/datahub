@@ -40,6 +40,16 @@ public class Application extends Controller
     private static String LINKEDIN_INTERNAL_KEY = "linkedin.internal";
     private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
 
+    /**
+     * Serves the index view for any given path
+     * @param path takes a path string, which essentially is ignored
+     *             routing is managed client side
+     * @return {Result}
+     */
+    public static Result serveAsset(String path) {
+        return ok(index.render());
+    }
+
     @Security.Authenticated(Secured.class)
     public static Result index()
     {
@@ -52,7 +62,7 @@ public class Application extends Controller
         }
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(index.render(username, csrfToken, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -65,7 +75,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(lineage.render(username, isInternal, "chains", 0, null, null, null, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -78,7 +88,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(lineage.render(username, isInternal, "dataset", id, null, null, null, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -91,7 +101,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(lineage.render(username, isInternal, "metric", id, null, null, null, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -110,7 +120,7 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(lineage.render(username, isInternal, type, 0, application.replace(" ", "."), project, flow, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -123,7 +133,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(schemaHistory.render(username, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -137,7 +147,7 @@ public class Application extends Controller
             username = "";
         }
 
-        return ok(scriptFinder.render(username, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -150,7 +160,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(idpc.render(username, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     @Security.Authenticated(Secured.class)
@@ -163,7 +173,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(dashboard.render(username, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     public static Result login()
@@ -172,7 +182,7 @@ public class Application extends Controller
         Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(login.render(csrfToken, isInternal, piwikSiteId));
+        return ok(index.render());
     }
 
     @BodyParser.Of(BodyParser.Json.class)
@@ -248,7 +258,7 @@ public class Application extends Controller
             flash("error", e.getMessage());
         }
 
-        return redirect(controllers.routes.Application.login());
+        return ok(index.render());
     }
 
     public static Result logout()
