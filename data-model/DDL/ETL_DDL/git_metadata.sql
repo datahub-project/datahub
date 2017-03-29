@@ -90,23 +90,22 @@ CREATE TABLE `stg_repo_owner` (
   `scm_type`        VARCHAR(20) NOT NULL,
   `repo_id`         INT DEFAULT NULL,
   `dataset_group`   VARCHAR(200) DEFAULT NULL COMMENT 'dataset group name, database name, etc',
-  `owner_type`      VARCHAR(50) DEFAULT NULL COMMENT 'which acl file this owner is in',
-  `owner_name`      VARCHAR(50) DEFAULT NULL COMMENT 'one owner name',
+  `owner_type`      VARCHAR(50) NOT NULL COMMENT 'which acl file this owner is in',
+  `owner_name`      VARCHAR(50) NOT NULL COMMENT 'one owner name',
   `sort_id`         INT UNSIGNED DEFAULT NULL,
   `paths`           TEXT CHAR SET utf8 DEFAULT NULL COMMENT 'covered paths by this acl',
   PRIMARY KEY (`scm_repo_fullname`, `scm_type`, `owner_type`, `owner_name`, `app_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = latin1;
 
-
 CREATE TABLE stg_database_scm_map (
-  `database_name` VARCHAR(100) COMMENT 'database name',
-  `database_type` VARCHAR(50) COMMENT 'database type',
-  `app_name` VARCHAR(127) COMMENT 'the name of application',
-  `scm_type` VARCHAR(50) COMMENT 'scm type',
-  `scm_url` VARCHAR(127) COMMENT 'scm url',
-  `committers` VARCHAR(500) COMMENT 'committers',
-  `filepath` VARCHAR(200) COMMENT 'filepath',
-  `app_id` INT COMMENT 'application id of the namesapce',
+  `database_name`   VARCHAR(100) NOT NULL COMMENT 'database name',
+  `database_type`   VARCHAR(50) NOT NULL COMMENT 'database type',
+  `app_name`        VARCHAR(127) NOT NULL COMMENT 'the name of application',
+  `scm_type`        VARCHAR(50) NOT NULL COMMENT 'scm type',
+  `scm_url`         VARCHAR(127) DEFAULT NULL COMMENT 'scm url',
+  `committers`      VARCHAR(500) DEFAULT NULL COMMENT 'committers',
+  `filepath`        VARCHAR(200) DEFAULT NULL COMMENT 'filepath',
+  `app_id`          SMALLINT(5) UNSIGNED COMMENT 'application id of the namesapce',
   `wh_etl_exec_id`  BIGINT COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`database_type`,`database_name`,`scm_type`,`app_name`)
 ) ENGINE = InnoDB DEFAULT CHARSET = latin1;
