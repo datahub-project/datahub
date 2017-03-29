@@ -117,8 +117,8 @@
       Comments
     </a>
   </li>
-  <li id="schemas" class="active"><a data-toggle="tab" href="#schematab">Schema</a></li>
-  <li id="ownership"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
+  <li id="schemas"><a data-toggle="tab" href="#schematab">Schema</a></li>
+  <li id="ownership" class="active"><a data-toggle="tab" href="#ownertab">Ownership</a></li>
   {{#unless isSFDC}}
     <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
   {{/unless}}
@@ -169,11 +169,11 @@
     {{#dataset-comments dataset=this}}
     {{/dataset-comments}}
   </div>
-  <div id="schematab" class="tab-pane active">
+  <div id="schematab" class="tab-pane">
     {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
     {{/dataset-schema}}
   </div>
-  <div id="ownertab" class="tab-pane">
+  <div id="ownertab" class="tab-pane active">
     {{dataset-author
       owners=owners
       ownerTypes=ownerTypes
