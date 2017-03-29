@@ -305,7 +305,7 @@ export default Ember.Controller.extend({
      * then updates controller state if successful
      */
     saveSecuritySpecification() {
-      this.saveJson('security', this.get('securitySpecification'))
+      return this.saveJson('security', this.get('securitySpecification'))
           .then(this.actions.resetSecuritySpecification.bind(this))
           .catch(this.exceptionOnSave);
     },
@@ -315,7 +315,7 @@ export default Ember.Controller.extend({
      * then updates controller state if successful
      */
     savePrivacyCompliancePolicy() {
-      this.saveJson('compliance', this.get('privacyCompliancePolicy'))
+      return this.saveJson('compliance', this.get('privacyCompliancePolicy'))
           .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
           .catch(this.exceptionOnSave);
     }

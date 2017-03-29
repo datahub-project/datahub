@@ -6,6 +6,7 @@ const {
   isBlank,
   computed,
   getWithDefault,
+  setProperties,
   Component
 } = Ember;
 
@@ -18,6 +19,10 @@ const classifiers = [
   'mustBeEncrypted',
   'mustBeMasked'
 ];
+
+// TODO: DSS-6671 Extract to constants module
+const successUpdating = 'Your changes have been successfully saved!';
+const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
 /**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
@@ -50,16 +55,17 @@ export default Component.extend({
     //   Also, the expectation is that the association from fieldName -> classification
     //   is one-to-one hence no check to ensure a fieldName gets clobbered
     //   in the lookup assignment
-    return Object.keys(sourceClasses).reduce((lookup, classificationKey) =>
-        // For the provided classificationKey, iterate over it's fieldNames,
-        //   and assign the classificationKey to the fieldName in the table
-        (sourceClasses[classificationKey] || []).reduce((lookup, fieldName) => {
-          // cKey -> 1...fieldNameList => fieldName -> cKey
-          lookup[fieldName] = classificationKey;
-          return lookup;
-        }, lookup),
-      {}
-    );
+    return Object.keys(sourceClasses)
+      .reduce((lookup, classificationKey) =>
+          // For the provided classificationKey, iterate over it's fieldNames,
+          //   and assign the classificationKey to the fieldName in the table
+          (sourceClasses[classificationKey] || []).reduce((lookup, fieldName) => {
+            // cKey -> 1...fieldNameList => fieldName -> cKey
+            lookup[fieldName] = classificationKey;
+            return lookup;
+          }, lookup),
+        {}
+      );
   }),
 
   /**
@@ -84,6 +90,32 @@ export default Component.extend({
     }
   ),
 
+  /**
+   * TODO: DSS-6672 Extract to notifications service
+   * Helper method to update user when an async server update to the
+   * security specification is handled.
+   * @param {XMLHttpRequest|Promise|jqXHR|*} request the server request
+   */
+  whenRequestCompletes(request) {
+    Promise.resolve(request)
+      .then(({return_code}) => {
+        // The server api currently responds with an object containing
+        //   a return_code when complete
+        return return_code === 200 ?
+          setProperties(this, {
+            message: successUpdating,
+            alertType: 'success'
+          }) :
+          Promise.reject(`Reason code for this is ${return_code}`);
+      })
+      .catch((err = '') => {
+        setProperties(this, {
+          message: `${failedUpdating} \n ${err}`,
+          alertType: 'danger'
+        });
+      });
+  },
+
   actions: {
     /**
      * Toggles the provided identifierField onto a classification list
@@ -101,7 +133,8 @@ export default Component.extend({
       if (!isBlank(currentClass)) {
         // Get the current classification list
         const currentClassification = get(
-          this, `${sourceClassificationKey}.${currentClass}`
+          this,
+          `${sourceClassificationKey}.${currentClass}`
         );
         // Remove identifierField from list
         currentClassification.removeObject(identifierField);
@@ -109,7 +142,10 @@ export default Component.extend({
 
       if (classKey) {
         // Get the candidate list
-        let classification = get(this, `${sourceClassificationKey}.${classKey}`);
+        let classification = get(
+          this,
+          `${sourceClassificationKey}.${classKey}`
+        );
         // In the case that the list is not pre-populated,
         //  the value will be the default null, array ops won't work here
         //  ...so make array
@@ -122,16 +158,22 @@ export default Component.extend({
       }
     },
 
-    // Notify controller to propagate changes
+    /**
+     * Notify controller to propagate changes
+     * @return {Boolean}
+     */
     saveSecuritySpecification() {
-      get(this, 'onSave')();
+      this.whenRequestCompletes(get(this, 'onSave')());
+
       return false;
     },
 
-    // Rolls back changes made to the compliance spec to current
-    // server state
+    /**
+     * Rolls back changes made to the compliance spec to current
+     * server state
+     */
     resetSecuritySpecification() {
-      get(this, 'onReset')();
+      this.whenRequestCompletes(get(this, 'onReset')());
     }
   }
 });
