@@ -1,0 +1,65 @@
+{
+  "name": "jquery-jsonview",
+  "version": "1.2.2",
+  "description": "jQuery plugin for display pretty JSON.",
+  "main": "dist/jquery.jsonview.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/yesmeck/jquery-jsonview.git"
+  },
+  "keywords": [
+    "json"
+  ],
+  "author": "Meck <yesmeck@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yesmeck/jquery-jsonview/issues"
+  },
+  "homepage": "https://github.com/yesmeck/jquery-jsonview",
+  "devDependencies": {
+    "mocha": "^1.18.2",
+    "coffee-script": "^1.7.1",
+    "gulp": "^3.8.11",
+    "gulp-coffee": "^1.4.1",
+    "gulp-util": "^2.2.14",
+    "gulp-ruby-sass": "^0.4.0",
+    "gulp-concat": "^2.2.0",
+    "gulp-mocha": "^0.4.1",
+    "gulp-preprocess": "^1.0.1"
+  },
+  "jqueryJSON": {
+    "title": "jQuery JSONView",
+    "author": {
+      "name": "Meck",
+      "url": "http://yesmeck.com"
+    },
+    "licenses": [
+      {
+        "type": "MIT",
+        "url": "https://github.com/jquery/jquery-color/blob/2.1.2/MIT-LICENSE.txt"
+      }
+    ],
+    "docs": "https://github.com/yesmeck/jquery-jsonview#readme",
+    "demo": "http://blog.yesmeck.com/jquery-jsonview/",
+    "dependencies": {
+      "jquery": "*"
+    }
+  },
+  "bowerJSON": {
+    "authors": [
+      "Meck <yesmeck@gmail.com>"
+    ],
+    "ignore": [
+      "node_modules",
+      "bower_components",
+      "test",
+      "tests"
+    ],
+    "dependencies": {
+      "jquery": "*"
+    }
+  }
+}

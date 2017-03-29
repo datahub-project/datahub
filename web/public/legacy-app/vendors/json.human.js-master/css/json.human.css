@@ -1,0 +1,118 @@
+.jh-root, .jh-type-object, .jh-type-array, .jh-key, .jh-value, .jh-root tr{
+    -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+    -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+    box-sizing: border-box;         /* Opera/IE 8+ */
+    font-weight: bold;
+}
+
+.jh-key, .jh-value{
+    margin: 0;
+    padding: 0.2em;
+    font-weight: bold;
+}
+
+.jh-value{
+    border-left: 1px solid #ddd;
+}
+
+.jh-type-number{
+    text-align: center;
+    color: #5286BC;
+}
+
+.jh-type-bool-true{
+    text-align: center;
+    color: #5A811C;
+}
+
+.jh-type-bool-false{
+    text-align: center;
+    color: #D45317;
+}
+
+.jh-type-bool-image {
+    width: 20px;
+    height: 20px;
+    margin-right: 5px;
+    vertical-align: bottom;
+}
+
+.jh-type-string{
+    font-style: italic;
+    color: #6E6E6E;
+}
+
+.jh-array-key{
+    font-style: italic;
+    font-size: small;
+    text-align: center;
+    width: 40px;
+}
+
+.jh-object-key, .jh-array-key{
+    color: #444;
+    vertical-align: top;
+}
+
+.jh-type-object > tbody > tr:nth-child(odd), .jh-type-array > tr:nth-child(odd){
+    background-color: #f5f5f5;
+}
+
+.jh-type-object > tbody >  tr:nth-child(even), .jh-type-array > tr:nth-child(even){
+    background-color: #fff;
+}
+
+.jh-type-object, .jh-type-array{
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.jh-root{
+    border: 1px solid #ccc;
+    margin: 0.2em;
+}
+
+th.jh-key{
+    text-align: left;
+}
+
+.jh-type-object > tr, .jh-type-array > tr{
+    border: 1px solid #ddd;
+    border-bottom: none;
+}
+
+.jh-type-object > tbody > tr:last-child, .jh-type-array > tr:last-child{
+    border-bottom: 1px solid #ddd;
+}
+
+.jh-type-object > tbody > tr:hover, .jh-type-array > tr:hover{
+    border: 1px solid #F99927;
+}
+
+.jh-empty{
+    font-style: italic;
+    color: #999;
+    font-size: small;
+}
+
+.jh-a {
+    text-decoration: none;
+}
+
+.jh-a:hover{
+    text-decoration: underline;
+}
+
+.jh-a span.jh-type-string {
+    text-decoration: none;
+    color : #268ddd;
+    font-style: normal;
+}
+
+.jh-root {
+    max-width: 1000px;
+}
+
+th.jh-key.jh-object-key {
+    width: 50px;
+}
