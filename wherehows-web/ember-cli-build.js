@@ -6,6 +6,16 @@ const MergeTrees = require('broccoli-merge-trees');
 
 module.exports = function(defaults) {
   const app = new EmberApp(defaults, {
+    storeConfigInMeta: false,
+
+    SRI: {
+      enabled: false
+    },
+
+    fingerprint: {
+      enabled: false
+    },
+
     'ember-cli-bootstrap-sassy': {
       js: ['dropdown', 'collapse', 'tab']
     },
@@ -13,19 +23,36 @@ module.exports = function(defaults) {
       options: {
         exclude: ['**/vendor.js', 'legacy-app/**']
       }
+    },
+
+    outputPaths: {
+      app: {
+        html: 'index.html',
+
+        css: {
+          app: '/assets/wherehows-web.css'
+        },
+
+        js: '/assets/wherehows-web.js'
+      },
+
+      vendor: {
+        css: '/assets/vendor.css',
+        js: '/assets/vendor.js'
+      }
     }
   });
 
-  const faFontTree = new Funnel('bower_components/font-awesome/fonts', {
+  const faFontTree = new Funnel('bower_components/font-awesome', {
     srcDir: '/',
-    include: ['**/*.woff2', '**/*.woff', '**/*.ttf'],
-    destDir: '/fonts'
+    include: ['**/*.woff2', '**/*.woff', '**/*.ttf', '**/font-awesome.min.css'],
+    destDir: '/'
   });
 
   const bsFontTree = new Funnel('bower_components/bootstrap/dist/fonts', {
     srcDir: '/',
     include: ['**/*.woff2', '**/*.woff', '**/*.ttf'],
-    destDir: '/fonts'
+    destDir: '/assets/fonts'
   });
 
   const treegridImgTree = new Funnel('bower_components/jquery-treegrid/img', {

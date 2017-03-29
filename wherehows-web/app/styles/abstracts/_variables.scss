@@ -28,13 +28,13 @@ $font-weights: (
                 2: 200,
                 3: 300,
                 4: 400,
-                6:600
+                6: 600
         ),
         italic:(
                 2: 200,
-                3:300,
-                4:400,
-                6:600
+                3: 300,
+                4: 400,
+                6: 600
         )
 );
 
@@ -123,4 +123,4 @@ $z-indexes: (
 
 /// Absolute URL where all assets are served from
 /// @type String
-$base-url: '/assets/' !default;
+$base-url: '/assets/assets/' !default;
