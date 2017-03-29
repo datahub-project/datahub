@@ -1,0 +1,88 @@
+/*!
+ * Fancytree "XP" skin.
+ *
+ * DON'T EDIT THE CSS FILE DIRECTLY, since it is automatically generated from
+ * the LESS templates.
+ */
+
+// Import common styles
+@import "../skin-common.less";
+
+
+/*******************************************************************************
+ * Styles specific to this skin.
+ *
+ * This section is automatically generated from the `ui-fancytree.less` template.
+ ******************************************************************************/
+
+// Override the variable after the import. 
+// NOTE: Variables are always resolved as the last definition, even if it is 
+// after where it is used.
+@fancy-use-sprites: true;  // false: suppress all background positions
+@fancy-hide-connectors: false; // true: show vertical connector lines
+@fancy-icon-width: 16px;
+@fancy-icon-height: 16px;
+@fancy-icon-margin-left: 3px;
+@fancy-node-border-width: 0;
+
+/*******************************************************************************
+ * Tree container
+ */
+ul.fancytree-container {
+	li {
+		background-image: url("vline.gif");
+		background-position: 0 0;
+	}
+	// Suppress lines for last child node
+	li.fancytree-lastsib {
+		background-image: none;
+	}
+}
+// Suppress lines if level is fixed expanded (option minExpandLevel)
+ul.fancytree-no-connector > li {
+	background-image: none;
+}
+
+/*******************************************************************************
+ * Node titles
+ */
+
+span.fancytree-title {
+  border: @fancy-node-border-width solid transparent;  // avoid jumping, when a border is added on hover
+}
+span.fancytree-title:hover {
+	background-color: #F2F7FD; // light blue
+	border-color: #B8D6FB; // darker light blue
+}
+span.fancytree-focused span.fancytree-title {
+	outline: 1px dotted black;
+	background-color: #EFEBDE; // gray
+}
+.fancytree-folder span.fancytree-title {
+	font-weight: bold;
+}
+.fancytree-selected span.fancytree-title {
+	color: green;
+	font-style: italic;
+}
+.fancytree-active span.fancytree-title {
+	background-color: #3169C6 !important;
+	color: white !important; // @ IE6 
+}
+
+/*******************************************************************************
+ * 'table' extension
+ */
+table.fancytree-ext-table {
+	border-collapse: collapse;
+	tbody tr.fancytree-focused {
+		background-color: #99DEFD;
+	}
+	tbody tr.fancytree-active {
+		background-color: royalblue;
+	}
+	tbody tr.fancytree-selected {
+		background-color: #99FDDE;
+	}
+}
+
