@@ -46,7 +46,7 @@ module.exports = function(defaults) {
   const faFontTree = new Funnel('bower_components/font-awesome', {
     srcDir: '/',
     include: ['**/*.woff2', '**/*.woff', '**/*.ttf', '**/font-awesome.min.css'],
-    destDir: '/assets/fonts'
+    destDir: '/'
   });
 
   const bsFontTree = new Funnel('bower_components/bootstrap/dist/fonts', {
