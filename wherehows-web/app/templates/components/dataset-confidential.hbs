@@ -1,0 +1,69 @@
+<div id="confidential" class="tab-body">
+  <section class="action-bar">
+    <button class="nacho-button nacho-button--large-inverse"
+      {{action "saveSecuritySpecification"}}>
+      {{if isNewSecuritySpecification "Create Confidential Specification"
+           "Confirm Confidential Fields"}}
+    </button>
+    <button class="nacho-button nacho-button--large"
+      {{action "resetSecuritySpecification"}}>
+      <i class="fa fa-times" title="Start Over">
+      </i>
+      Start Over
+    </button>
+  </section>
+
+  <section class="metadata-prompt" id="has-confidentiality">
+    <header class="metadata-prompt__header">
+      <p>Which fields should be classified as Confidential or Highly Confidential (if any)?</p>
+    </header>
+  </section>
+
+  {{#dataset-table fields=classificationDataFields
+                   sortColumnWithName=sortColumnWithName
+                   filterBy=filterBy
+                   sortDirection=sortDirection
+                   searchTerm=searchTerm as |table|}}
+    <caption>
+      <input
+        type="text"
+        title="Filter fields"
+        placeholder="Filter fields"
+        value="{{table.searchTerm}}"
+        oninput={{action table.filterDidChange value="target.value"}}>
+    </caption>
+    {{#table.head as |head|}}
+      {{#head.column columnName="identifierField"}}Field{{/head.column}}
+      {{#head.column}}Security Classification{{/head.column}}
+    {{/table.head}}
+    {{#table.body as |body|}}
+      {{#each
+        (slice table.beginOffset table.endOffset (sort-by table.sortBy table.data)) as |field|}}
+        {{#body.row as |row|}}
+          {{#row.cell}}
+            {{field.identifierField}}
+          {{/row.cell}}
+          {{#row.cell}}
+
+            {{ember-selector values=classifiers
+                             selected=field.classification
+                             selectionDidChange=(action "updateClassification" field)}}
+          {{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+    {{#table.foot}}
+      {{dataset-table-pager
+        data=table.data
+        page=table.page
+        limit=table.limit
+        pageLengths=table.pageLengths
+        beginOffset=table.beginOffset
+        endOffset=table.endOffset
+        onLimitChanged=table.onLimitChanged
+        pagerColSpan=2
+        onPageChanged=table.onPageChanged}}
+    {{/table.foot}}
+  {{/dataset-table}}
+</div>
+{{yield}}

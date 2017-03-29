@@ -1,0 +1,29 @@
+/*!
+ * Fancytree "Win8" 32x32 skin.
+ *
+ * DON'T EDIT THE CSS FILE DIRECTLY, since it is automatically generated from
+ * the LESS templates.
+ */
+
+// Import common styles
+@import "../skin-common.less";
+
+// Import standard win8
+@import "../skin-win8/ui.fancytree.less";
+
+
+// Override the variable after the import. 
+// NOTE: Variables are always resolved as the last definition, even if it is 
+// after where it is used.
+@fancy-use-sprites: true;
+@fancy-hide-connectors: true;
+@fancy-icon-width: 32px;
+@fancy-icon-height: 32px;
+@fancy-line-height: 32px;
+@fancy-icon-margin-left: 3px;
+
+ul.fancytree-container {
+//	font-family: tahoma, arial, helvetica;
+	font-size: 20pt;
+	padding: 6px;
+}

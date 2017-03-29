@@ -1,0 +1,311 @@
+/*!
+ * Fancytree "awesome" skin.
+ *
+ * DON'T EDIT THE CSS FILE DIRECTLY, since it is automatically generated from
+ * the LESS templates.
+ */
+/*******************************************************************************
+ * Common Styles for Fancytree Skins.
+ *
+ * This section is automatically generated from the `skin-common.less` template.
+ ******************************************************************************/
+/*------------------------------------------------------------------------------
+ * Helpers
+ *----------------------------------------------------------------------------*/
+.ui-helper-hidden {
+  display: none;
+}
+/*------------------------------------------------------------------------------
+ * Container and UL / LI
+ *----------------------------------------------------------------------------*/
+ul.fancytree-container {
+  font-family: tahoma, arial, helvetica;
+  font-size: 10pt;
+  white-space: nowrap;
+  padding: 3px;
+  margin: 0;
+  background-color: white;
+  border: 1px dotted gray;
+  overflow: auto;
+  min-height: 0%;
+  position: relative;
+}
+ul.fancytree-container ul {
+  padding: 0 0 0 16px;
+  margin: 0;
+}
+ul.fancytree-container li {
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  -moz-background-clip: border;
+  -moz-background-inline-policy: continuous;
+  -moz-background-origin: padding;
+  background-attachment: scroll;
+  background-color: transparent;
+  background-position: 0em 0em;
+  background-repeat: repeat-y;
+  background-image: none;
+  margin: 0;
+  padding: 1px 0 0 0;
+}
+ul.fancytree-container li.fancytree-lastsib {
+  background-image: none;
+}
+ul.fancytree-no-connector > li {
+  background-image: none;
+}
+.ui-fancytree-disabled ul.fancytree-container {
+  opacity: 0.5;
+  background-color: silver;
+}
+/*------------------------------------------------------------------------------
+ * Common icon definitions
+ *----------------------------------------------------------------------------*/
+span.fancytree-empty,
+span.fancytree-vline,
+span.fancytree-expander,
+span.fancytree-icon,
+span.fancytree-checkbox,
+span.fancytree-radio,
+span.fancytree-drag-helper-img,
+#fancytree-drop-marker {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: top;
+  background-repeat: no-repeat;
+  background-position: left;
+  background-position: 0em 0em;
+}
+span.fancytree-icon,
+span.fancytree-checkbox,
+span.fancytree-radio,
+span.fancytree-custom-icon {
+  margin-top: 1px;
+}
+/* Used by iconclass option */
+span.fancytree-custom-icon {
+  display: inline-block;
+}
+/* Used by 'icon' node option: */
+img.fancytree-icon {
+  width: 1em;
+  height: 1em;
+  margin-left: 0.5em;
+  margin-top: 1px;
+  vertical-align: top;
+  border-style: none;
+}
+/*------------------------------------------------------------------------------
+ * Expander icon
+ *
+ * Note: IE6 doesn't correctly evaluate multiples class names,
+ *		 so we create combined class names that can be used in the CSS.
+ *
+ * Prefix: fancytree-exp-
+ * 1st character: 'e': expanded, 'c': collapsed, 'n': no children
+ * 2nd character (optional): 'd': lazy (Delayed)
+ * 3rd character (optional): 'l': Last sibling
+ *----------------------------------------------------------------------------*/
+span.fancytree-expander {
+  cursor: pointer;
+}
+.fancytree-exp-n span.fancytree-expander,
+.fancytree-exp-nl span.fancytree-expander {
+  background-image: none;
+  cursor: default;
+}
+.fancytree-loading span.fancytree-expander,
+.fancytree-loading span.fancytree-expander:hover,
+.fancytree-statusnode-wait span.fancytree-icon,
+.fancytree-statusnode-wait span.fancytree-icon:hover {
+  background-image: url("loading.gif");
+}
+/* Status node icons */
+/*------------------------------------------------------------------------------
+ * Checkbox icon
+ *----------------------------------------------------------------------------*/
+span.fancytree-checkbox {
+  margin-left: 0.5em;
+}
+/*------------------------------------------------------------------------------
+ * Radiobutton icon
+ * This is a customization, that may be activated by overriding the 'checkbox'
+ * class name as 'fancytree-radio' in the tree options.
+ *----------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------
+ * Node type icon
+ * Note: IE6 doesn't correctly evaluate multiples class names,
+ *		 so we create combined class names that can be used in the CSS.
+ *
+ * Prefix: fancytree-ico-
+ * 1st character: 'e': expanded, 'c': collapsed
+ * 2nd character (optional): 'f': folder
+ *----------------------------------------------------------------------------*/
+span.fancytree-icon {
+  margin-left: 0.5em;
+}
+/* Documents */
+/* Folders */
+/*------------------------------------------------------------------------------
+ * Node titles and highlighting
+ *----------------------------------------------------------------------------*/
+span.fancytree-node {
+  /* See #117 */
+  display: inherit;
+  width: 100%;
+}
+span.fancytree-title {
+  display: inline-block;
+  padding-left: 3px;
+  padding-right: 3px;
+  color: black;
+  vertical-align: top;
+  margin: 0px;
+  margin-left: 3px;
+  cursor: pointer;
+}
+span.fancytree-node.fancytree-error span.fancytree-title {
+  color: red;
+}
+/*------------------------------------------------------------------------------
+ * Drag'n'drop support
+ *----------------------------------------------------------------------------*/
+div.fancytree-drag-helper a {
+  border: 1px solid gray;
+  background-color: white;
+  padding-left: 5px;
+  padding-right: 5px;
+  opacity: 0.8;
+}
+div.fancytree-drag-helper.fancytree-drop-reject {
+  border-color: red;
+}
+/*** Drop marker icon *********************************************************/
+#fancytree-drop-marker {
+  width: 2em;
+  position: absolute;
+  margin: 0;
+}
+#fancytree-drop-marker.fancytree-drop-after,
+#fancytree-drop-marker.fancytree-drop-before {
+  width: 4em;
+}
+/*** Source node while dragging ***********************************************/
+span.fancytree-drag-source {
+  background-color: #e0e0e0;
+}
+span.fancytree-drag-source span.fancytree.title {
+  color: gray;
+}
+/*** Target node while dragging cursor is over it *****************************/
+span.fancytree-drop-target.fancytree-drop-accept a {
+  background-color: #3169C6 !important;
+  color: white !important;
+  /* @ IE6 */
+  text-decoration: none;
+}
+/*------------------------------------------------------------------------------
+ * 'table' extension
+ *----------------------------------------------------------------------------*/
+table.fancytree-ext-table {
+  border-collapse: collapse;
+}
+table.fancytree-ext-table span.fancytree-node {
+  display: inline-block;
+}
+/*------------------------------------------------------------------------------
+ * 'columnview' extension
+ *----------------------------------------------------------------------------*/
+table.fancytree-ext-columnview tbody tr td {
+  position: relative;
+  border: 1px solid gray;
+  vertical-align: top;
+  overflow: auto;
+}
+table.fancytree-ext-columnview tbody tr td > ul {
+  padding: 0;
+}
+table.fancytree-ext-columnview tbody tr td > ul li {
+  list-style-image: none;
+  list-style-position: outside;
+  list-style-type: none;
+  -moz-background-clip: border;
+  -moz-background-inline-policy: continuous;
+  -moz-background-origin: padding;
+  background-attachment: scroll;
+  background-color: transparent;
+  background-position: 0em 0em;
+  background-repeat: repeat-y;
+  background-image: none;
+  /* no v-lines */
+  margin: 0;
+  padding: 1px 0 0 0;
+}
+table.fancytree-ext-columnview span.fancytree-node {
+  position: relative;
+  /* allow positioning of embedded spans */
+  display: inline-block;
+}
+table.fancytree-ext-columnview span.fancytree-node.fancytree-expanded {
+  background-color: #CBE8F6;
+}
+table.fancytree-ext-columnview .fancytree-has-children span.fancytree-cv-right {
+  position: absolute;
+  right: 3px;
+}
+/*------------------------------------------------------------------------------
+ * 'filter' extension
+ *----------------------------------------------------------------------------*/
+.fancytree-ext-filter-dimm span.fancytree-node span.fancytree-title {
+  color: silver;
+  font-weight: lighter;
+}
+.fancytree-ext-filter-dimm tr.fancytree-submatch span.fancytree-title,
+.fancytree-ext-filter-dimm span.fancytree-node.fancytree-submatch span.fancytree-title {
+  color: black;
+  font-weight: normal;
+}
+.fancytree-ext-filter-dimm tr.fancytree-match span.fancytree-title,
+.fancytree-ext-filter-dimm span.fancytree-node.fancytree-match span.fancytree-title {
+  color: black;
+  font-weight: bold;
+}
+.fancytree-ext-filter-hide tr.fancytree-hide,
+.fancytree-ext-filter-hide span.fancytree-node.fancytree-hide {
+  display: none;
+}
+.fancytree-ext-filter-hide tr.fancytree-submatch span.fancytree-title,
+.fancytree-ext-filter-hide span.fancytree-node.fancytree-submatch span.fancytree-title {
+  color: silver;
+  font-weight: lighter;
+}
+.fancytree-ext-filter-hide tr.fancytree-match span.fancytree-title,
+.fancytree-ext-filter-hide span.fancytree-node.fancytree-match span.fancytree-title {
+  color: black;
+  font-weight: normal;
+}
+/*------------------------------------------------------------------------------
+ * 'wide' extension
+ *----------------------------------------------------------------------------*/
+ul.fancytree-ext-wide span.fancytree-node > span {
+  position: relative;
+  z-index: 2;
+}
+ul.fancytree-ext-wide span.fancytree-node span.fancytree-title {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-left: 503px;
+  margin-left: -500px;
+}
+/*******************************************************************************
+ * Styles specific to this skin.
+ *
+ * This section is automatically generated from the `ui-fancytree.less` template.
+ ******************************************************************************/
+ul.fancytree-container ul {
+  padding: 0.3em 0 0 1em;
+  margin: 0;
+}

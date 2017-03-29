@@ -1,0 +1,109 @@
+<div id="pagedSearchResults">
+  <div class="row">
+    <div class="col-xs-12">
+      {{#if model.count}}
+        <div class="search-pagination">
+          <ul class="pager">
+            {{#unless first}}
+              <li class="previous">
+                {{#link-to 'advsearch' (query-params page=previousPage)}}
+                  &larr; Prev
+                {{/link-to}}
+              </li>
+            {{/unless}}
+            <li>
+              {{ model.count }} results - page {{ model.page }} of {{ model.totalPages }}
+            </li>
+            {{#unless last}}
+              <li class="next">
+                {{#link-to 'advsearch' (query-params page=nextPage)}}
+                  Next &rarr;
+                {{/link-to}}
+              </li>
+            {{/unless}}
+          </ul>
+        </div>
+      {{/if}}
+      {{#if loading}}
+        <div class="row">
+          <div class="col-xs-12 text-center">
+            <i
+                class="fa fa-spinner spinning fa-4x"
+            ></i>
+          </div>
+        </div>
+      {{/if}}
+      {{#if model.count}}
+        {{#if model.isFlowJob}}
+          <table id="searchresults" class="search-results searchtable">
+            <tbody>
+            {{#each model.data as |flowJob|}}
+              <tr class="result">
+                <td class="col-xs-12">
+                  <div class="dataset-info">
+                    <i class="fa fa-random"></i>
+                    <a href="{{flowJob.link}}">
+                      {{flowJob.displayName}}
+                    </a>
+                  </div>
+                  <p>
+                    {{{ flowJob.path }}}
+                  </p>
+                  <p>source: {{{ flowJob.appCode }}}</p>
+                  <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                    {{{ flowJob.schema }}}
+                  </div>
+                </td>
+              </tr>
+            {{/each}}
+            </tbody>
+          </table>
+        {{else}}
+          <table id="searchresults" class="search-results searchtable">
+            <tbody>
+            {{#each model.data as |dataset|}}
+              <tr class="result">
+                <td class="col-xs-12">
+                  <div class="dataset-info">
+                    {{#if model.isMetrics}}
+                      <i class="fa fa-plus-square-o"></i>
+                      {{#link-to 'metric' dataset.id}}
+                        {{{dataset.name}}}
+                      {{/link-to}}
+                    {{else}}
+                      <i class="fa fa-database"></i>
+                      {{#link-to 'dataset' dataset.id}}
+                        {{{dataset.name}}}
+                      {{/link-to}}
+                    {{/if}}
+                  </div>
+                  <p>{{{ dataset.urn }}}</p>
+                  {{#if model.isMetrics}}
+                    {{#if dataset.source}}
+                      <p>source: {{{ dataset.source }}}</p>
+                    {{else}}
+                      <p>source: Metric</p>
+                    {{/if}}
+                  {{else}}
+                    <p>source: {{{ dataset.source }}}</p>
+                  {{/if}}
+                  <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
+                    {{{ dataset.schema }}}
+                  </div>
+                </td>
+              </tr>
+            {{/each}}
+            </tbody>
+          </table>
+        {{/if}}
+      {{else}}
+        {{#if showNoResult}}
+          <h4>No items found</h4>
+        {{/if}}
+      {{/if}}
+    </div>
+    <div class="col-xs-12">
+      {{outlet}}
+    </div>
+  </div>
+</div>

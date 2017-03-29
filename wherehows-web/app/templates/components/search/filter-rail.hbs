@@ -1,0 +1,9 @@
+<li>
+  <header class="nacho-filter-rail__header">Refine by</header>
+</li>
+{{yield (hash
+          checkboxes=(component checkboxComponent)
+          radioGroup=(component radioGroupComponent)
+          dropdown=(component dropdownComponent)
+          dateRange=(component dateRangeComponent)
+        )}}

@@ -250,6 +250,7 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
         return getMetricListViewMetricNodes(metric.dashboardName, metric.group);
     }
 
+
     public static JsonNode getMetricDashboardNodes()
     {
         List<String> dashboardList = getJdbcTemplate().queryForList(GET_METRIC_TREE_DASHBOARD_NODES, String.class);

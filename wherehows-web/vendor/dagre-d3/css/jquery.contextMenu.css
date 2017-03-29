@@ -1,0 +1,18 @@
+.context-menu {
+    background: rgba(245, 245, 245, 0.7);
+    border: 1px solid #999999;
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+.context-menu a {
+    color: #333333;
+    display: block;
+    padding: 3px;
+    text-decoration: none;
+}
+.context-menu a:hover {
+	background: rgba(102, 102, 102, 0.7);
+    color: white;
+    text-decoration: none;
+}

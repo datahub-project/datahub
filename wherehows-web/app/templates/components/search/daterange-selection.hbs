@@ -1,0 +1,25 @@
+<header class="nacho-filter-card__header">
+  {{title}}
+</header>
+<section>
+  <label>
+    Start date
+    {{pikaday-input
+      class=dateRangeClass
+      value=startDate
+      placeholder="MM/DD/YYYY"
+      onSelection=startDateChanged
+      format="MM/DD/YYYY"
+      useUTC=true}}
+  </label>
+  <label>
+    End date
+    {{pikaday-input
+      class=dateRangeClass
+      value=endDate
+      placeholder="MM/DD/YYYY"
+      onSelection=endDateChanged
+      format="MM/DD/YYYY"
+      useUTC=true}}
+  </label>
+</section>

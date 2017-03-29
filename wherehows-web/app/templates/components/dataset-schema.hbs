@@ -1,0 +1,79 @@
+{{#if hasSchemas}}
+  <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
+    <div class="col-xs-12">
+      <div
+          class="btn-group"
+          role="group"
+          aria-label="Toggle Tabular/JSON Schema View">
+        <button
+            type="button"
+            class="btn {{if isTable 'btn-primary'}} {{unless isTable 'btn-default'}}"
+          {{action "setView" "tabular"}}>
+          View As Tabular
+        </button>
+        <button
+            type="button"
+            class="btn {{if isJSON 'btn-primary'}} {{unless isJSON 'btn-default'}}"
+          {{action "setView" "json"}}>
+          View As JSON
+        </button>
+      </div>
+    </div>
+  </div>
+  <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
+    <thead>
+    <tr class="results-header">
+      <th style="min-width: 200px;" class="col-xs-2">Column</th>
+      <th class="col-xs-1">Data Type</th>
+      <th title="Is nullable" style="width:15px;">N</th>
+      <th title="Is indexed" style="width:15px;">I</th>
+      <th title="Is partitioned" style="width:15px;">P</th>
+      <th title="Is distributed" style="width:15px;">D</th>
+      <th class="col-xs-7"> Default Comments</th>
+      <th title="Comment Count" style="width:15px;">
+        <i class="fa fa-comments" title="Comment Count"></i>
+      </th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each schemas as |schema|}}
+      <tr class="{{schema.treeGridClass}}">
+        <td>{{schema.fieldName}}</td>
+        <td>{{schema.dataType}}</td>
+        <td title="Is nullable" class="text-center">
+          {{#if schema.nullable}}
+            <i class="glyphicon glyphicon-ok"></i>
+          {{/if}}
+        </td>
+        <td title="Is indexed" class="text-center">
+          {{#if schema.indexed}}
+            <i class="glyphicon glyphicon-ok"></i>
+          {{/if}}
+        </td>
+        <td title="Is partitioned" class="text-center">
+          {{#if schema.partitioned}}
+            <i class="glyphicon glyphicon-ok"></i>
+          {{/if}}
+        </td>
+        <td title="Is distributed" class="text-center">
+          {{#if schema.distributed}}
+            <i class="glyphicon glyphicon-ok"></i>
+          {{/if}}
+        </td>
+        <td class="commentsArea">
+          <div class="commentsArea">
+            {{#schema-comment schema=schema datasetId=dataset.id fieldId=schema.id}}{{/schema-comment}}
+            {{schema.commentHtml}}
+          </div>
+        </td>
+        <td class="text-center">
+          {{schema.commentCount}}
+        </td>
+      </tr>
+    {{/each}}
+    </tbody>
+  </table>
+  <div id="json-viewer" style="display:none;"></div>
+{{else}}
+  <div id="json-viewer"></div>
+{{/if}}

@@ -1,0 +1,413 @@
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h3 class="modal-title" id="myModalLabel">Advanced Search</h3>
+      </div>
+      <div class="modal-body advSearch">
+        <ul id="advsearchtabs" class="nav nav-tabs">
+          <li id="datasetAdvSearchLink"><a data-toggle="tab" href="#datasetAdvTab">Datasets</a></li>
+          <li><a data-toggle="tab" href="#metricAdvtab">Metrics</a></li>
+          <li><a data-toggle="tab" href="#flowAdvtab">Flows</a></li>
+        </ul>
+        <div class="tab-content">
+          <div id="datasetAdvTab" class="tab-pane">
+            <div class="row">
+              <div class="col-md-10 rightPartialBorder">
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Scope</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="scopeInInput"
+                                class="scopeInput"
+                                placeholder="<db_name>, <top_level_dir>"
+                                title="Scope can be database schema name or top level HDFS directory which is used to narrow down the search range"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="scopeNotInInput"
+                                class="scopeInput"
+                                placeholder="<db_name_to_exclude>"
+                                title="Scope can be database schema name or top level HDFS directory which is used to narrow down the search range"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Table</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="tableInInput"
+                                class="tableInput"
+                                placeholder="<table_name>, <view_name>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="tableNotInInput"
+                                class="tableInput"
+                                placeholder="<table_name_to_exclude>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="form-group col-md-12">
+                      <label class="control-label">Fields</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Contains Any
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="fieldAnyInput"
+                                class="fieldInput"
+                                placeholder="<partial_field_name>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Contains All
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="fieldAllInput"
+                                class="fieldInput"
+                                placeholder="<field_name_1>, <field_name_2>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Doesn't Contain
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="fieldNotInInput"
+                                class="fieldInput"
+                                placeholder="<field_name_to_exclude>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="form-group col-md-12">
+                      <label class="control-label">Comments</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Contains
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="commentsInput"
+                                type="text"
+                                placeholder="<phrase_in_comment>"
+                                class="col-md-4 form-control"/>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div id="advSearchSource" class="col-md-2">
+                <h4>Sources</h4>
+              </div>
+            </div>
+          </div>
+          <div id="metricAdvtab" class="tab-pane">
+            <div class="row">
+              <div class="col-md-12 rightPartialBorder">
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Dashboard Name</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="dashInInput"
+                                class="dashInput"
+                                placeholder="<dashboard1>, <dashboard2>"
+                                title="Dashboard Name"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="dashNotInInput"
+                                class="dashInput"
+                                placeholder="<dashboard_to_exclude>"
+                                title="Dashboard Name"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Metric Group</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="groupInInput"
+                                class="groupInput"
+                                placeholder="<group1>, <group2>"
+                                title="Metric Group"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="groupNotInInput"
+                                class="groupInput"
+                                placeholder="<group_to_exclude>"
+                                title="Metric Group"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Metric Category</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="categoryInInput"
+                                class="categoryInput"
+                                placeholder="<category1>, <category2>"
+                                title="Metric Category"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="categoryNotInInput"
+                                class="categoryInput"
+                                placeholder="<category_to_exclude>"
+                                title="Metric Category"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Metric Name</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="metricnameInInput"
+                                class="metricnameInput"
+                                placeholder="<metric1>, <metric2>"
+                                title="Metric"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="metricnameNotInInput"
+                                class="metricnameInput"
+                                placeholder="<metric_to_exclude>"
+                                title="Metric"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="flowAdvtab" class="tab-pane">
+            <div class="row">
+              <div class="col-md-12 rightPartialBorder">
+                <div class="row">
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Cluster</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="appcodeInInput"
+                                class="appcodeInput"
+                                placeholder="<cluster1>, <cluster2>"
+                                title="Cluster"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="appcodeNotInInput"
+                                class="appcodeInput"
+                                placeholder="<cluster_to_exclude>"
+                                title="Cluster"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Flow Name</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="flowInInput"
+                                class="flowInput"
+                                placeholder="<flow_name1>, <flow_name2>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="flowNotInInput"
+                                class="flowInput"
+                                placeholder="<flow_name_to_exclude>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-12">
+                    <div class="control-group col-md-12">
+                      <label class="control-label">Job Name</label>
+                      <div class="controls">
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="jobInInput"
+                                class="jobInput"
+                                placeholder="<job_name1>, <job_name2>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-xs-3 text-right">
+                            Not In
+                          </div>
+                          <div class="col-xs-9">
+                            <input
+                                id="jobNotInInput"
+                                class="jobInput"
+                                placeholder="<job_name_to_exclude>"
+                                style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button"
+                id="advSearchBtn"
+                data-dismiss="modal"
+                class="btn btn-primary">
+          Search
+        </button>
+        <button type="button" id="advSearchResetBtn" class="btn btn-default">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,18 @@
+.nacho-pager {
+  @include flex-center;
+
+  &__section {
+    @include flex-center;
+    display: inline-flex;
+    margin: 0 10px;
+  }
+
+  &__select {
+    width: 80px;
+  }
+
+  &__desc {
+    padding: 10px;
+    margin: 0;
+  }
+}

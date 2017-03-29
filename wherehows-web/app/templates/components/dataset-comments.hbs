@@ -1,0 +1,201 @@
+<div class="row commentsHeader">
+  <div class="col-xs-3">
+    <b>Comments</b>
+  </div>
+  <div
+      class="col-xs-6 text-center commentsPagination"
+  >
+    {{#if comments}}
+      <ul class="pager">
+        <li class="previous">
+          <button
+              class="btn btn-default btn-xs"
+            {{action "pageBack"}}
+          >
+            <span aria-hidden="true">&larr;</span>
+            Older
+          </button>
+        </li>
+        <li>
+          {{page}} of {{totalPages}}
+        </li>
+        <li class="next">
+          <button
+              class="btn btn-default btn-xs"
+            {{action "pageForward"}}
+          >
+            Newer
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+        </li>
+      </ul>
+    {{/if}}
+  </div>
+  <div class="col-xs-3 text-right pull-right">
+    <button
+        type="button"
+        class="btn btn-default btn-xs"
+      {{action "showModal"}}
+    >
+      <i class="fa fa-plus"></i>
+    </button>
+  </div>
+</div>
+<div class="row commentsArea">
+  {{#if comments}}
+    {{#each comments as |comment|}}
+      <div class="col-xs-12 well comment">
+          <span class="bs-docs-example">
+            {{comment.type}}
+          </span>
+        <div class="text comment-text">
+          {{comment.html}}
+        </div>
+        <div class="meta">
+          <a href="#" class="author">{{comment.authorName}}</a>
+          <span class="date">{{comment.created }}</span>
+          {{#if comment.isAuthor}}
+            <div
+                class="pull-right actions"
+            >
+              <i
+                  class="fa fa-pencil wh-clickable-icon"
+                {{action "showModal" comment}}
+              >
+              </i>
+              <i
+                  class="fa fa-trash wh-clickable-icon"
+                {{action "remove" comment}}
+              >
+              </i>
+            </div>
+          {{/if}}
+        </div>
+      </div>
+    {{/each}}
+  {{else}}
+    <div class="col-xs-12 well text-center">
+      {{#if commentsLoading}}
+        <i class="fa fa-spinner fa-3x spinning"></i>
+      {{else}}
+        No Comments.
+      {{/if}}
+    </div>
+  {{/if}}
+</div>
+
+<div
+    class="modal"
+    tabindex="-1"
+    role="dialog"
+    aria-labelledby="datasetCommentModal"
+    id="datasetCommentModal"
+>
+  <div class="modal-dialog modal-lg" role="document" style="top:30px;">
+    <div class="modal-content">
+      <div class="modal-header">
+        Comment on <b>{{dataset.name}}</b>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          {{#ember-selector values=commentTypes selected=comment.type class="col-xs-3 pull-left text-right"}}
+          {{/ember-selector}}
+        </div>
+        <div>
+          <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation" class="active">
+              <a
+                  href="#datasetComment-write"
+                  aria-controls="datasetComment-write"
+                  role="tab"
+                  data-toggle="tab"
+              >
+                Write
+              </a>
+            </li>
+            <li role="presentation">
+              <a
+                  href="#datasetComment-preview"
+                  aria-controls="datasetComment-preview"
+                  role="tab"
+                  data-toggle="tab"
+              >
+                Preview
+              </a>
+            </li>
+          </ul>
+          <div class="tab-content">
+            <div
+                role="tabpanel"
+                class="tab-pane active"
+                id="datasetComment-write"
+            >
+              <div class="meldown_wrap" style="width: 787px;">
+                <div class="mdt_button mdt_button_bold" title="Bold" {{action 'insertElement' 'bold'}}>
+                </div>
+                <div class="mdt_button mdt_button_italic" title="Italic" {{action 'insertElement' 'italic'}}>
+                </div>
+                <div class="mdt_button mdt_button_delimiter">
+                </div>
+                <div class="mdt_button mdt_button_heading_1" title="H1" {{action 'insertElement' 'heading_1'}}>
+                </div>
+                <div class="mdt_button mdt_button_heading_2" title="H2" {{action 'insertElement' 'heading_2'}}>
+                </div>
+                <div class="mdt_button mdt_button_heading_3" title="H3" {{action 'insertElement' 'heading_3'}}>
+                </div>
+                <div class="mdt_button mdt_button_delimiter">
+                </div>
+                <div class="mdt_button mdt_button_list_bullets" title="Bulleted list" {{action 'insertList' 'bulleted'}}>
+                </div>
+                <div class="mdt_button mdt_button_list_numbers" title="Numbered list" {{action 'insertList' 'numbered'}}>
+                </div>
+                <div class="mdt_button mdt_button_blockquote" title="Blockquote" {{action 'insertList' 'blockquote'}}>
+                </div>
+                <div class="mdt_button mdt_button_code" title="Source Code" {{action 'insertSourcecode'}}>
+                </div>
+                <div class="mdt_button mdt_button_delimiter">
+                </div>
+                <div class="mdt_button mdt_button_image" title="Image" {{action 'insertImageOrLink' 'image'}}>
+                </div>
+                <div class="mdt_button mdt_button_link" title="Link" {{action 'insertImageOrLink' 'link'}}>
+                </div>
+                <div class="mdt_button mdt_button_table" {{action 'importCSVTable'}} title="Import CSV table">
+                </div>
+              </div>
+              {{textarea id="datasetcomment" value=comment.text name="text"
+                         class="form-control" focus-out="updatePreview"}}
+            </div>
+            <div
+                role="tabpanel"
+                class="tab-pane commentsArea"
+                id="datasetComment-preview"
+            >
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="row">
+          <div class="col-xs-6 pull-right text-right">
+            <button
+                type="button"
+                class="btn btn-default"
+                data-dismiss="modal"
+              {{action "hideModal"}}
+            >
+              Close
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+              {{action "create" comment}}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->

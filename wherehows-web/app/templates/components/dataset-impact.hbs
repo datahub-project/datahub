@@ -1,0 +1,30 @@
+{{#if hasImpacts}}
+  <table id="impactAnalysisTable" class="tree table table-bordered dataset-detail-table">
+    <thead>
+    <tr class="results-header">
+      <th class="span2">Level</th>
+      <th class="span2">Dataset</th>
+      <th>URN</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each impacts as |impact|}}
+      <tr>
+        <td>{{impact.level}}</td>
+        <td>
+          {{#if impact.isValidDataset}}
+            <a href={{impact.datasetUrl}}>
+              {{impact.name}}
+            </a>
+          {{else}}
+            {{impact.name}}
+          {{/if}}
+        </td>
+        <td>{{impact.urn}}</td>
+      </tr>
+    {{/each}}
+    </tbody>
+  </table>
+{{else}}
+  <p>Impact analysis is not available</p>
+{{/if}}

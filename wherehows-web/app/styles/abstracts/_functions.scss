@@ -1,0 +1,83 @@
+/// Contains all application wide Sass functions.
+
+/// Native `url(..)` function wrapper
+/// @param {String} $base - base URL for the asset
+/// @param {String} $type - asset type folder (e.g. `fonts/`)
+/// @param {String} $path - asset path
+/// @return {Url}
+@function asset($base, $type, $path) {
+  @return url($base + $type + $path);
+}
+
+/// Returns URL to an image based on its path
+/// @param {String} $path - image path
+/// @param {String} $base [$base-url] - base URL
+/// @return {Url}
+/// @require $base-url
+@function image($path, $base: $base-url) {
+  @return asset($base, 'images/', $path);
+}
+
+/// Returns URL to a font based on its path
+/// @param {String} $path - font path
+/// @param {String} $base [$base-url] - base URL
+/// @return {Url}
+/// @require $base-url
+@function font($path, $base: $base-url) {
+  @return asset($base, 'fonts/', $path);
+}
+
+/// Get a z-index value from a layer name
+/// @access public
+/// @param {String} $layer - Layer’s name
+/// @return {Number}
+/// @require $z-indexes
+@function z($layer) {
+  @if map-has-key($z-indexes, $layer) {
+    @return map-get($z-indexes, $layer);
+  }
+
+  @warn '#{$layer} not found in `$z-indexes`';
+  @return null;
+}
+
+/// Get a font-weight from the $font-weight map
+/// @param {String} $style - the font-style to look up
+/// @param {Number} $weight - number for the previous style to be looked up
+/// @return {Number}
+/// @require $font-weights
+@function fw($style, $weight) {
+  @if map-has-key($font-weights, $style) {
+    @return map-get(map-get($font-weights, $style), $weight);
+  }
+
+  @warn '#{$style} not found in `$font-weights` list';
+  @return null;
+}
+
+/// Progressively add black as you decrease the proportion of the color
+/// Provides more subtle transitions than darken
+/// @param {Color} $color - color to shade
+/// @param {Number} $percentage - percentage of `$color` in output
+/// @return {Color}
+@function shade($color, $percentage) {
+  @return mix(black, $color, $percentage);
+}
+
+/// Progressively add white as you decrease the proportion of the color
+/// Provides more subtle transitions than lighten
+/// @param {Color} $color - color to tint
+/// @param {Number} $percentage - percentage of `$color` in output
+/// @return {Color}
+@function tint($color, $percentage) {
+  @return mix(white, $color, $percentage);
+}
+
+/// Retrieves a color from the map $color-sheme
+/// @param {Color} $color - the color to get from the map
+/// @param {Hue} $hue - the hue to get from the specified color map
+/// @return {Color}
+/// @require $color-scheme
+@function set-color($color, $hue) {
+  @return map-get(map-get($color-scheme, $color), $hue);
+}
