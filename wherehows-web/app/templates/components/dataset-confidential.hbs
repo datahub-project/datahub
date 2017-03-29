@@ -13,6 +13,10 @@
     </button>
   </section>
 
+  <div class="alert alert-{{alertType}} post-action-notification" role="alert">
+    {{if message message ""}}
+  </div>
+
   <section class="metadata-prompt" id="has-confidentiality">
     <header class="metadata-prompt__header">
       <p>Which fields should be classified as Confidential or Highly Confidential (if any)?</p>
