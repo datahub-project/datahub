@@ -1,3 +1,5 @@
+@import "../abstracts/functions";
+@import "../abstracts/mixins";
 /**
  * Override Bootstrap navigation class, .navbar, ruleset
  */
@@ -25,6 +27,14 @@
       }
     }
   }
+}
+
+/**
+ * Beta insignia for navbar logo
+ */
+.beta-badge {
+  font-weight: fw(normal, 400);
+  letter-spacing: 5px;
 }
 
 /**
