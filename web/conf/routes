@@ -3,253 +3,257 @@
 # ~~~~
 
 # Home page
-GET     /                                   controllers.Application.index()
+# serveAsset action requires a path string
+GET           /                                                                 controllers.Application.serveAsset(path="index.html")
 
-GET     /login                              controllers.Application.login()
+GET           /login                                                            controllers.Application.login()
 
-GET     /logout                             controllers.Application.logout()
+GET           /logout                                                           controllers.Application.logout()
 
-POST    /authenticate                       controllers.Application.authenticate()
+POST          /authenticate                                                     controllers.Application.authenticate()
 
-POST    /signUp                             controllers.Application.signUp()
+POST          /signUp                                                           controllers.Application.signUp()
 
-GET     /api/v1/user/me                     controllers.api.v1.User.getLoggedInUser()
+GET           /tree/:name                                                       controllers.Application.loadTree(name:String)
 
-POST    /api/v1/usersettings/me             controllers.api.v1.User.updateSettings()
+GET           /tree/flow/:app                                                   controllers.Application.loadFlowProjects(app:String)
 
-GET     /tree/:name                         controllers.Application.loadTree(name:String)
+GET           /tree/metric/:dashboard                                           controllers.Application.loadMetricGroups(dashboard:String)
 
-GET     /tree/flow/:app                     controllers.Application.loadFlowProjects(app:String)
+GET           /tree/metric/:dashboard/:group                                    controllers.Application.loadMetricNodes(dashboard:String, group:String)
 
-GET     /tree/metric/:dashboard             controllers.Application.loadMetricGroups(dashboard:String)
+GET           /tree/flow/:app/:project                                          controllers.Application.loadFlowNodes(app:String, project:String)
 
-GET     /tree/metric/:dashboard/:group      controllers.Application.loadMetricNodes(dashboard:String, group:String)
+GET           /lineage                                                          controllers.Application.lineage()
 
-GET     /tree/flow/:app/:project            controllers.Application.loadFlowNodes(app:String, project:String)
+GET           /lineage/dataset/:id                                              controllers.Application.datasetLineage(id: Int)
 
-GET     /lineage                                    controllers.Application.lineage()
+GET           /lineage/metric/:id                                               controllers.Application.metricLineage(id: Int)
 
-GET     /lineage/dataset/:id                        controllers.Application.datasetLineage(id: Int)
+GET           /lineage/flow/:application/:project/:flow                         controllers.Application.flowLineage(application: String, project: String, flow: String)
 
-GET     /lineage/metric/:id                         controllers.Application.metricLineage(id: Int)
+GET           /metadata                                                         controllers.Application.dashboard()
 
-GET     /lineage/flow/:application/:project/:flow   controllers.Application.flowLineage(application: String, project: String, flow: String)
+GET           /scriptFinder                                                     controllers.Application.scriptFinder()
 
-GET     /metadata                           controllers.Application.dashboard()
+GET           /schemaHistory                                                    controllers.Application.schemaHistory()
 
-GET     /scriptFinder                       controllers.Application.scriptFinder()
+GET           /idpc                                                             controllers.Application.idpc()
 
-GET     /schemaHistory                      controllers.Application.schemaHistory()
+GET           /api/v1/user/me                                                   controllers.api.v1.User.getLoggedInUser()
 
-GET     /api/v1/owner/types                 controllers.api.v1.Dataset.getDatasetOwnerTypes()
+POST          /api/v1/usersettings/me                                           controllers.api.v1.User.updateSettings()
 
-GET     /idpc                               controllers.Application.idpc()
+GET           /api/v1/owner/types                                               controllers.api.v1.Dataset.getDatasetOwnerTypes()
 
-GET     /api/v1/party/entities              controllers.api.v1.User.getAllUserEntities()
+GET           /api/v1/party/entities                                            controllers.api.v1.User.getAllUserEntities()
 
-GET     /api/v1/party/employees             controllers.api.v1.User.getAllCompanyUsers()
+GET           /api/v1/party/employees                                           controllers.api.v1.User.getAllCompanyUsers()
 
-GET     /api/v1/party/groups                controllers.api.v1.User.getAllGroups()
+GET           /api/v1/party/groups                                              controllers.api.v1.User.getAllGroups()
 
-GET     /api/v1/autocomplete/search         controllers.api.v1.Search.getSearchAutoComplete()
+GET           /api/v1/autocomplete/search                                       controllers.api.v1.Search.getSearchAutoComplete()
 
-GET     /api/v2/autocomplete/searchDataset         controllers.api.v1.Search.getSearchAutoCompleteForDataset()
+GET           /api/v2/autocomplete/searchDataset                                controllers.api.v1.Search.getSearchAutoCompleteForDataset()
 
-GET     /api/v2/autocomplete/searchMetric         controllers.api.v1.Search.getSearchAutoCompleteForMetric()
+GET           /api/v2/autocomplete/searchMetric                                 controllers.api.v1.Search.getSearchAutoCompleteForMetric()
 
-GET     /api/v2/autocomplete/searchFlow         controllers.api.v1.Search.getSearchAutoCompleteForFlow()
+GET           /api/v2/autocomplete/searchFlow                                   controllers.api.v1.Search.getSearchAutoCompleteForFlow()
 
-GET     /api/v1/list/datasets               controllers.api.v1.Dataset.getDatasetListNodes()
+GET           /api/v1/list/datasets                                             controllers.api.v1.Dataset.getDatasetListNodes()
 
-GET     /api/v1/list/metrics                controllers.api.v1.Metric.getMetricListViewDashboards()
+GET           /api/v1/list/metrics                                              controllers.api.v1.Metric.getMetricListViewDashboards()
 
-GET     /api/v1/list/metrics/:dashboard             controllers.api.v1.Metric.getMetricListViewGroups(dashboard: String)
+GET           /api/v1/list/metrics/:dashboard                                   controllers.api.v1.Metric.getMetricListViewGroups(dashboard: String)
 
-GET     /api/v1/list/metrics/:dashboard/:group      controllers.api.v1.Metric.getMetricListViewNodes(dashboard: String, group: String)
+GET           /api/v1/list/metrics/:dashboard/:group                            controllers.api.v1.Metric.getMetricListViewNodes(dashboard: String, group: String)
 
-GET     /api/v1/list/metric/:id             controllers.api.v1.Metric.getMetricListViewByMetricId(id: Int)
+GET           /api/v1/list/metric/:id                                           controllers.api.v1.Metric.getMetricListViewByMetricId(id: Int)
 
-GET     /api/v1/list/flows                  controllers.api.v1.Flow.getFlowListViewClusters()
+GET           /api/v1/list/flows                                                controllers.api.v1.Flow.getFlowListViewClusters()
 
-GET     /api/v1/list/flows/:application     controllers.api.v1.Flow.getFlowListViewProjects(application:String)
+GET           /api/v1/list/flows/:application                                   controllers.api.v1.Flow.getFlowListViewProjects(application:String)
 
-GET     /api/v1/list/flows/:application/:project    controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
+GET           /api/v1/list/flows/:application/:project                          controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
 
-GET     /api/v1/datasets                    controllers.api.v1.Dataset.getPagedDatasets()
+GET           /api/v1/datasets                                                  controllers.api.v1.Dataset.getPagedDatasets()
 
-GET     /api/v1/datasets/:id                controllers.api.v1.Dataset.getDatasetByID(id:Int)
+GET           /api/v1/datasets/:id                                              controllers.api.v1.Dataset.getDatasetByID(id:Int)
 
-GET     /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.getDatasetOwnersByID(id:Int)
+GET           /api/v1/datasets/:id/owners                                       controllers.api.v1.Dataset.getDatasetOwnersByID(id:Int)
 
-POST    /api/v1/datasets/:id/owners         controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
+POST          /api/v1/datasets/:id/owners                                       controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
 
-GET     /api/v1/datasets/:id/versions/db/:dbId       controllers.api.v1.Dataset.getDatasetVersions(id:Long, dbId:Int)
+GET           /api/v1/datasets/:id/versions/db/:dbId                            controllers.api.v1.Dataset.getDatasetVersions(id:Long, dbId:Int)
 
-GET     /api/v1/datasets/:id/instances      controllers.api.v1.Dataset.getDatasetInstances(id:Long)
+GET           /api/v1/datasets/:id/instances                                    controllers.api.v1.Dataset.getDatasetInstances(id:Long)
 
-GET     /api/v1/datasets/:id/schema/:version       controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(id:Long, version:String)
+GET           /api/v1/datasets/:id/schema/:version                              controllers.api.v1.Dataset.getDatasetSchemaTextByVersion(id:Long, version:String)
 
-GET     /api/v1/datasets/:id/columns        controllers.api.v1.Dataset.getDatasetColumnsByID(id:Int)
+GET           /api/v1/datasets/:id/columns                                      controllers.api.v1.Dataset.getDatasetColumnsByID(id:Int)
 
-GET     /api/v1/datasets/:id/depends        controllers.api.v1.Dataset.getDependViews(id:Long)
+GET           /api/v1/datasets/:id/depends                                      controllers.api.v1.Dataset.getDependViews(id:Long)
 
-GET     /api/v1/datasets/:id/references     controllers.api.v1.Dataset.getReferenceViews(id:Long)
+GET           /api/v1/datasets/:id/references                                   controllers.api.v1.Dataset.getReferenceViews(id:Long)
 
-GET     /api/v1/datasets/:id/partitions     controllers.api.v1.Dataset.getDatasetPartitions(id:Long)
+GET           /api/v1/datasets/:id/partitions                                   controllers.api.v1.Dataset.getDatasetPartitions(id:Long)
 
-GET     /api/v1/datasets/:id/access         controllers.api.v1.Dataset.getDatasetAccess(id:Long)
+GET           /api/v1/datasets/:id/access                                       controllers.api.v1.Dataset.getDatasetAccess(id:Long)
 
-GET     /api/v1/datasets/:id/properties     controllers.api.v1.Dataset.getDatasetPropertiesByID(id:Int)
+GET           /api/v1/datasets/:id/properties                                   controllers.api.v1.Dataset.getDatasetPropertiesByID(id:Int)
 
-GET     /api/v1/datasets/:id/sample         controllers.api.v1.Dataset.getDatasetSampleDataByID(id:Int)
+GET           /api/v1/datasets/:id/sample                                       controllers.api.v1.Dataset.getDatasetSampleDataByID(id:Int)
 
-GET     /api/v1/datasets/:id/impacts        controllers.api.v1.Dataset.getDatasetImpactAnalysisByID(id:Int)
+GET           /api/v1/datasets/:id/impacts                                      controllers.api.v1.Dataset.getDatasetImpactAnalysisByID(id:Int)
 
-GET     /api/v1/datasets/:id/comments                       controllers.api.v1.Dataset.getPagedDatasetComments(id:Int)
+GET           /api/v1/datasets/:id/comments                                     controllers.api.v1.Dataset.getPagedDatasetComments(id:Int)
 
-POST    /api/v1/datasets/:id/comments                       controllers.api.v1.Dataset.postDatasetComment(id:Int)
+POST          /api/v1/datasets/:id/comments                                     controllers.api.v1.Dataset.postDatasetComment(id:Int)
 
-PUT     /api/v1/datasets/:id/comments/:commentId            controllers.api.v1.Dataset.putDatasetComment(id:Int, commentId:Int)
+PUT           /api/v1/datasets/:id/comments/:commentId                          controllers.api.v1.Dataset.putDatasetComment(id:Int, commentId:Int)
 
-DELETE  /api/v1/datasets/:id/comments/:commentId            controllers.api.v1.Dataset.deleteDatasetComment(id:Int, commentId:Int)
+DELETE        /api/v1/datasets/:id/comments/:commentId                          controllers.api.v1.Dataset.deleteDatasetComment(id:Int, commentId:Int)
 
-GET     /api/v1/datasets/:id/columns/:columnId              controllers.api.v1.Dataset.getDatasetColumnByID(id:Int, columnId:Int)
+GET           /api/v1/datasets/:id/columns/:columnId                            controllers.api.v1.Dataset.getDatasetColumnByID(id:Int, columnId:Int)
 
-GET     /api/v1/datasets/:id/columns/:columnId/similar      controllers.api.v1.Dataset.getSimilarColumns(id:Int, columnId:Int)
+GET           /api/v1/datasets/:id/columns/:columnId/similar                    controllers.api.v1.Dataset.getSimilarColumns(id:Int, columnId:Int)
 
-GET     /api/v1/datasets/:id/columns/:columnId/comments     controllers.api.v1.Dataset.getPagedDatasetColumnComments(id:Int, columnId:Int)
+GET           /api/v1/datasets/:id/columns/:columnId/comments                   controllers.api.v1.Dataset.getPagedDatasetColumnComments(id:Int, columnId:Int)
 
-GET     /api/v1/datasets/:id/columns/:columnId/comments/similar     controllers.api.v1.Dataset.getSimilarColumnComments(id:Long, columnId:Int)
+GET           /api/v1/datasets/:id/columns/:columnId/comments/similar           controllers.api.v1.Dataset.getSimilarColumnComments(id:Long, columnId:Int)
 
-POST    /api/v1/datasets/:id/columns/:columnId/comments             controllers.api.v1.Dataset.postDatasetColumnComment(id:Int, columnId:Int)
+POST          /api/v1/datasets/:id/columns/:columnId/comments                   controllers.api.v1.Dataset.postDatasetColumnComment(id:Int, columnId:Int)
 
-PATCH    /api/v1/datasets/:id/columns/:columnId/comments            controllers.api.v1.Dataset.assignCommentToColumn(id:Int, columnId:Int)
+PATCH         /api/v1/datasets/:id/columns/:columnId/comments                   controllers.api.v1.Dataset.assignCommentToColumn(id:Int, columnId:Int)
 
-PUT     /api/v1/datasets/:id/columns/:columnId/comments/:commentId  controllers.api.v1.Dataset.putDatasetColumnComment(id:Int, columnId:Int, commentId:Int)
+PUT           /api/v1/datasets/:id/columns/:columnId/comments/:commentId        controllers.api.v1.Dataset.putDatasetColumnComment(id:Int, columnId:Int, commentId:Int)
 
-DELETE  /api/v1/datasets/:id/columns/:columnId/comments/:commentId  controllers.api.v1.Dataset.deleteDatasetColumnComment(id:Int, columnId:Int, commentId:Int)
+DELETE        /api/v1/datasets/:id/columns/:columnId/comments/:commentId        controllers.api.v1.Dataset.deleteDatasetColumnComment(id:Int, columnId:Int, commentId:Int)
 
-POST    /api/v1/datasets/:id/watch                  controllers.api.v1.Dataset.watchDataset(id:Int)
+POST          /api/v1/datasets/:id/watch                                        controllers.api.v1.Dataset.watchDataset(id:Int)
 
-DELETE  /api/v1/datasets/:id/watch/:watchId         controllers.api.v1.Dataset.unwatchDataset(id:Int, watchId:Int)
+DELETE        /api/v1/datasets/:id/watch/:watchId                               controllers.api.v1.Dataset.unwatchDataset(id:Int, watchId:Int)
 
-GET     /api/v1/datasets/:id/compliance             controllers.api.v1.Dataset.getDatasetCompliance(id:Int)
+GET           /api/v1/datasets/:id/compliance                                   controllers.api.v1.Dataset.getDatasetCompliance(id:Int)
 
-POST    /api/v1/datasets/:id/compliance             controllers.api.v1.Dataset.updateDatasetCompliance(id:Int)
+POST          /api/v1/datasets/:id/compliance                                   controllers.api.v1.Dataset.updateDatasetCompliance(id:Int)
 
-GET     /api/v1/datasets/:id/security               controllers.api.v1.Dataset.getDatasetSecurity(id:Int)
+GET           /api/v1/datasets/:id/security                                     controllers.api.v1.Dataset.getDatasetSecurity(id:Int)
 
-POST    /api/v1/datasets/:id/security               controllers.api.v1.Dataset.updateDatasetSecurity(id:Int)
+POST          /api/v1/datasets/:id/security                                     controllers.api.v1.Dataset.updateDatasetSecurity(id:Int)
 
-GET     /api/v1/urn/watch                           controllers.api.v1.Dataset.getWatchedUrnId()
+GET           /api/v1/urn/watch                                                 controllers.api.v1.Dataset.getWatchedUrnId()
 
-POST    /api/v1/urn/watch                           controllers.api.v1.Dataset.watchURN()
+POST          /api/v1/urn/watch                                                 controllers.api.v1.Dataset.watchURN()
 
-DELETE  /api/v1/urn/watch/:watchId                  controllers.api.v1.Dataset.unwatchURN(watchId:Int)
+DELETE        /api/v1/urn/watch/:watchId                                        controllers.api.v1.Dataset.unwatchURN(watchId:Int)
 
-GET     /api/v1/favorites                           controllers.api.v1.Dataset.getFavorites()
+GET           /api/v1/favorites                                                 controllers.api.v1.Dataset.getFavorites()
 
-POST    /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.favoriteDataset(id:Int)
+POST          /api/v1/datasets/:id/favorite                                     controllers.api.v1.Dataset.favoriteDataset(id:Int)
 
-DELETE  /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
+DELETE        /api/v1/datasets/:id/favorite                                     controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
 
-GET     /api/v1/ownership/datasets/:userId          controllers.api.v1.Dataset.getDatasetOwnedBy(userId: String)
+GET           /api/v1/ownership/datasets/:userId                                controllers.api.v1.Dataset.getDatasetOwnedBy(userId: String)
 
-POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.ownDataset(id:Int)
+POST          /api/v1/datasets/:id/own                                          controllers.api.v1.Dataset.ownDataset(id:Int)
 
-DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
+DELETE        /api/v1/datasets/:id/own                                          controllers.api.v1.Dataset.unownDataset(id:Int)
 
-GET     /api/v1/search                              controllers.api.v1.Search.searchByKeyword()
+GET           /api/v1/search                                                    controllers.api.v1.Search.searchByKeyword()
 
-GET     /api/v1/metrics                             controllers.api.v1.Metric.getPagedMetrics()
+GET           /api/v1/metrics                                                   controllers.api.v1.Metric.getPagedMetrics()
 
-GET     /api/v1/metrics/:id                         controllers.api.v1.Metric.getMetricByID(id:Int)
+GET           /api/v1/metrics/:id                                               controllers.api.v1.Metric.getMetricByID(id:Int)
 
-GET     /api/v1/metrics/name/:dashboardName         controllers.api.v1.Metric.getPagedMetricsByDashboard(dashboardName:String)
+GET           /api/v1/metrics/name/:dashboardName                               controllers.api.v1.Metric.getPagedMetricsByDashboard(dashboardName:String)
 
-GET     /api/v1/metrics/name/:dashboardName/:group  controllers.api.v1.Metric.getPagedMetricsByDashboardandGroup(dashboardName:String, group:String)
+GET           /api/v1/metrics/name/:dashboardName/:group                        controllers.api.v1.Metric.getPagedMetricsByDashboardandGroup(dashboardName:String, group:String)
 
-POST    /api/v1/metrics/:id/update                  controllers.api.v1.Metric.updateMetric(id:Int)
+POST          /api/v1/metrics/:id/update                                        controllers.api.v1.Metric.updateMetric(id:Int)
 
-POST    /api/v1/metrics/:id/watch                   controllers.api.v1.Metric.watchMetric(id:Int)
+POST          /api/v1/metrics/:id/watch                                         controllers.api.v1.Metric.watchMetric(id:Int)
 
-DELETE  /api/v1/metrics/:id/watch/:watchId          controllers.api.v1.Metric.unwatchMetric(id:Int, watchId:Int)
+DELETE        /api/v1/metrics/:id/watch/:watchId                                controllers.api.v1.Metric.unwatchMetric(id:Int, watchId:Int)
 
-GET     /api/v1/flows                               controllers.api.v1.Flow.getPagedRootProjects()
+GET           /api/v1/flows                                                     controllers.api.v1.Flow.getPagedRootProjects()
 
-GET     /api/v1/flows/:application                  controllers.api.v1.Flow.getPagedProjects(application: String)
+GET           /api/v1/flows/:application                                        controllers.api.v1.Flow.getPagedProjects(application: String)
 
-GET     /api/v1/flows/:application/:project         controllers.api.v1.Flow.getPagedFlows(application: String, project: String)
+GET           /api/v1/flows/:application/:project                               controllers.api.v1.Flow.getPagedFlows(application: String, project: String)
 
-GET     /api/v1/flow/:application/:flowId           controllers.api.v1.Flow.getPagedJobs(application: String, flowId: Long)
+GET           /api/v1/flow/:application/:flowId                                 controllers.api.v1.Flow.getPagedJobs(application: String, flowId: Long)
 
-GET     /api/v1/advsearch/sources                   controllers.api.v1.AdvSearch.getDatasetSources()
+GET           /api/v1/advsearch/sources                                         controllers.api.v1.AdvSearch.getDatasetSources()
 
-GET     /api/v1/advsearch/scopes                    controllers.api.v1.AdvSearch.getDatasetScopes()
+GET           /api/v1/advsearch/scopes                                          controllers.api.v1.AdvSearch.getDatasetScopes()
 
-GET     /api/v1/advsearch/tables                    controllers.api.v1.AdvSearch.getDatasetTableNames()
+GET           /api/v1/advsearch/tables                                          controllers.api.v1.AdvSearch.getDatasetTableNames()
 
-GET     /api/v1/advsearch/fields                    controllers.api.v1.AdvSearch.getDatasetFields()
+GET           /api/v1/advsearch/fields                                          controllers.api.v1.AdvSearch.getDatasetFields()
 
-GET     /api/v1/advsearch/appcodes                  controllers.api.v1.AdvSearch.getFlowApplicationCodes()
+GET           /api/v1/advsearch/appcodes                                        controllers.api.v1.AdvSearch.getFlowApplicationCodes()
 
-GET     /api/v1/advsearch/flowNames                 controllers.api.v1.AdvSearch.getFlowNames()
+GET           /api/v1/advsearch/flowNames                                       controllers.api.v1.AdvSearch.getFlowNames()
 
-GET     /api/v1/advsearch/jobNames                  controllers.api.v1.AdvSearch.getJobNames()
+GET           /api/v1/advsearch/jobNames                                        controllers.api.v1.AdvSearch.getJobNames()
 
-GET     /api/v1/advsearch/dashboards                controllers.api.v1.AdvSearch.getDashboardNames()
+GET           /api/v1/advsearch/dashboards                                      controllers.api.v1.AdvSearch.getDashboardNames()
 
-GET     /api/v1/advsearch/metricGroups              controllers.api.v1.AdvSearch.getMetricGroups()
+GET           /api/v1/advsearch/metricGroups                                    controllers.api.v1.AdvSearch.getMetricGroups()
 
-GET     /api/v1/advsearch/metricCategories          controllers.api.v1.AdvSearch.getMetricCategories()
+GET           /api/v1/advsearch/metricCategories                                controllers.api.v1.AdvSearch.getMetricCategories()
 
-GET     /api/v1/advsearch/metricNames               controllers.api.v1.AdvSearch.getMetricNames()
+GET           /api/v1/advsearch/metricNames                                     controllers.api.v1.AdvSearch.getMetricNames()
 
-GET     /api/v1/advsearch/search                    controllers.api.v1.AdvSearch.search()
+GET           /api/v1/advsearch/search                                          controllers.api.v1.AdvSearch.search()
 
-GET     /api/v1/lineage/dataset/:id                 controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)
+GET           /api/v1/lineage/dataset/:id                                       controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)
 
-GET     /api/v1/lineage/flow/:application/:project/:flowId   controllers.api.v1.Lineage.getFlowLineageGraphData(application: String, project: String, flowId: Long)
+GET           /api/v1/lineage/flow/:application/:project/:flowId                controllers.api.v1.Lineage.getFlowLineageGraphData(application: String, project: String, flowId: Long)
 
-GET     /api/v1/schemaHistory/datasets              controllers.api.v1.SchemaHistory.getPagedDatasets()
+GET           /api/v1/schemaHistory/datasets                                    controllers.api.v1.SchemaHistory.getPagedDatasets()
 
-GET     /api/v1/jira/ldapinfo                       controllers.api.v1.Jira.getLdapInfo()
+GET           /api/v1/jira/ldapinfo                                             controllers.api.v1.Jira.getLdapInfo()
 
-GET     /api/v1/jira/members/:managerId             controllers.api.v1.Jira.getFirstLevelLdapInfo(managerId :String)
+GET           /api/v1/jira/members/:managerId                                   controllers.api.v1.Jira.getFirstLevelLdapInfo(managerId :String)
 
-GET     /api/v1/metadata/dashboard/ownership/:managerId         controllers.api.v1.Dashboard.getOwnershipDatasetsPercentage(managerId: String)
+GET           /api/v1/metadata/dashboard/ownership/:managerId                   controllers.api.v1.Dashboard.getOwnershipDatasetsPercentage(managerId: String)
 
-GET     /api/v1/metadata/dashboard/confidential/:managerId      controllers.api.v1.Dashboard.getConfidentialDatasetsPercentage(managerId: String)
+GET           /api/v1/metadata/dashboard/confidential/:managerId                controllers.api.v1.Dashboard.getConfidentialDatasetsPercentage(managerId: String)
 
-GET     /api/v1/metadata/dashboard/description/:managerId       controllers.api.v1.Dashboard.getDescriptionDatasetsPercentage(managerId: String)
+GET           /api/v1/metadata/dashboard/description/:managerId                 controllers.api.v1.Dashboard.getDescriptionDatasetsPercentage(managerId: String)
 
-GET     /api/v1/metadata/dashboard/compliance/:managerId        controllers.api.v1.Dashboard.getIdpcComplianceDatasetsPercentage(managerId: String)
+GET           /api/v1/metadata/dashboard/compliance/:managerId                  controllers.api.v1.Dashboard.getIdpcComplianceDatasetsPercentage(managerId: String)
 
-GET     /api/v1/metadata/dataset/ownership/:managerId           controllers.api.v1.Dashboard.getPagedOwnershipDatasets(managerId: String)
+GET           /api/v1/metadata/dataset/ownership/:managerId                     controllers.api.v1.Dashboard.getPagedOwnershipDatasets(managerId: String)
 
-GET     /api/v1/metadata/dataset/confidential/:managerId        controllers.api.v1.Dashboard.getPagedConfidentialDatasets(managerId: String)
+GET           /api/v1/metadata/dataset/confidential/:managerId                  controllers.api.v1.Dashboard.getPagedConfidentialDatasets(managerId: String)
 
-GET     /api/v1/metadata/dataset/description/:managerId         controllers.api.v1.Dashboard.getPagedDescriptionDatasets(managerId: String)
+GET           /api/v1/metadata/dataset/description/:managerId                   controllers.api.v1.Dashboard.getPagedDescriptionDatasets(managerId: String)
 
-GET     /api/v1/metadata/dataset/compliance/:managerId          controllers.api.v1.Dashboard.getPagedComplianceDatasets(managerId: String)
+GET           /api/v1/metadata/dataset/compliance/:managerId                    controllers.api.v1.Dashboard.getPagedComplianceDatasets(managerId: String)
 
-GET     /api/v1/metadata/barchart/ownership/:managerId          controllers.api.v1.Dashboard.getOwnershipBarData(managerId: String)
+GET           /api/v1/metadata/barchart/ownership/:managerId                    controllers.api.v1.Dashboard.getOwnershipBarData(managerId: String)
 
-GET     /api/v1/metadata/barchart/description/:managerId        controllers.api.v1.Dashboard.getDescriptionBarData(managerId: String)
+GET           /api/v1/metadata/barchart/description/:managerId                  controllers.api.v1.Dashboard.getDescriptionBarData(managerId: String)
 
-GET     /api/v1/scriptFinder/scripts                controllers.api.v1.ScriptFinder.getScripts()
+GET           /api/v1/scriptFinder/scripts                                      controllers.api.v1.ScriptFinder.getScripts()
 
-GET     /api/v1/scriptFinder/scripts/types          controllers.api.v1.ScriptFinder.getAllScriptTypes()
+GET           /api/v1/scriptFinder/scripts/types                                controllers.api.v1.ScriptFinder.getAllScriptTypes()
 
-GET     /api/v1/scriptFinder/scripts/runtime/:applicationID/:jobID controllers.api.v1.ScriptFinder.getScriptRuntimeByJobID(applicationID: Int, jobID: Int)
+GET           /api/v1/scriptFinder/scripts/runtime/:applicationID/:jobID        controllers.api.v1.ScriptFinder.getScriptRuntimeByJobID(applicationID: Int, jobID: Int)
 
-GET     /api/v1/scriptFinder/scripts/lineage/:applicationID/:jobID controllers.api.v1.ScriptFinder.getScriptLineageByJobID(applicationID: Int, jobID: Int)
+GET           /api/v1/scriptFinder/scripts/lineage/:applicationID/:jobID        controllers.api.v1.ScriptFinder.getScriptLineageByJobID(applicationID: Int, jobID: Int)
 
-GET     /api/v1/schemaHistory/historyData/:id       controllers.api.v1.SchemaHistory.getSchemaHistory(id: Int)
+GET           /api/v1/schemaHistory/historyData/:id                             controllers.api.v1.SchemaHistory.getSchemaHistory(id: Int)
 
-GET     /api/v1/jira/tickets/:managerId             controllers.api.v1.Jira.getJiraTickets(managerId: String)
+GET           /api/v1/jira/tickets/:managerId                                   controllers.api.v1.Jira.getJiraTickets(managerId: String)
 
-POST    /api/v1/tracking                            controllers.api.v1.Tracking.addTrackingEvent()
+POST          /api/v1/tracking                                                  controllers.api.v1.Tracking.addTrackingEvent()
 
 # Map static resources from the /public folder to the /assets URL path
-GET     /assets/*file                controllers.Assets.at(path="/public", file)
+GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
+
+# Wildcard route accepts any routes and delegates to serveAsset which in turn serves the Ember client
+GET           /*path                                                            controllers.Application.serveAsset(path)
