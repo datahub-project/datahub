@@ -1,0 +1,150 @@
+.comments {
+  margin: 0;
+  list-style: none;
+}
+.comment {
+  position: relative;
+  padding: 20px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid lightgrey;
+  overflow: hidden;
+  z-index: 1;
+}
+.comment:last-child {
+  border-bottom: 0;
+}
+
+.commentsArea {
+  margin-top: 5px;
+  margin-left: 0px;
+  margin-right: 0px;
+}
+
+.comment .text {
+  border-bottom: 1px dashed #dedede;
+  padding-bottom: 4px;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+.comment .meta {
+  color: #aaa;
+  overflow: hidden;
+}
+.comment .date {
+}
+.comment .meta button {
+  float: right;
+  margin-left: 4px;
+  color: #aaa;
+  outline: none !important;
+}
+.comment .meta button:hover {
+  color: #444;
+}
+
+.wrap-all-word {
+  word-wrap: break-word;
+  word-break:break-all;
+}
+/* Add/Edit comment inputs */
+#comment-form {
+  padding: 20px;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid lightgrey;
+  overflow: hidden;
+  position: relative;
+}
+#comment-form form {
+  margin: 0;
+}
+#add-comment {
+  font-size: 16px;
+  margin-top: 2px;
+  color: #999;
+  outline: none !important;
+}
+#add-comment:hover {
+  color: #444;
+}
+#comment-form textarea,
+.comment .text textarea {
+  padding: 5px;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+}
+.comment-save-cancel {
+  /* for graceful button insertion */
+
+  opacity: 1;
+  position: relative;
+  z-index: 0;
+  float: right;
+}
+.comment-save-cancel button {
+  margin: 0 0 4px 8px;
+}
+
+.comment-column-save-cancel {
+  /* for graceful button insertion */
+  position: relative;
+  float: right;
+}
+.comment-column-save-cancel button {
+  margin: 0 0 4px 8px;
+}
+
+#comment-form button {
+  margin: 0 0 0 4px;
+}
+
+#comment-template {
+  display: none;
+}
+
+/* Delete comment confirmation popovers */
+.popover.bottom .arrow {
+  border-bottom-color: #da4f49;
+}
+.popover-inner {
+  width: 200px;
+  padding: 0;
+  border-radius: 0;
+  border: 2px solid #da4f49;
+}
+.popover-title, .popover-content {
+  border-radius: 0;
+}
+.popover-title {
+  text-align: center;
+  text-rendering: auto;
+  line-height: 20px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+.popover-content {
+  text-align: center;
+}
+.popover-content button {
+  margin: 0;
+}
+.popover-content button:first-child {
+  margin-right: 12px;
+}
+.bs-docs-example
+{
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    padding: 3px 7px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: whiteSmoke;
+    border: 1px solid #DDD;
+    color: #9DA0A4;
+    -webkit-border-radius: 4px 0 4px 0;
+    -moz-border-radius: 4px 0 4px 0;
+    border-radius: 4px 0 4px 0;
+}
