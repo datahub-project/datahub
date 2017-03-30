@@ -8,6 +8,9 @@ const {
   set
 } = Ember;
 
+// A default static list of page lengths
+const defaultPageLengths = [10, 50, 100];
+
 export default Component.extend({
   tagName: 'table',
   classNames: ['nacho-table nacho-table--bordered'],
@@ -18,8 +21,19 @@ export default Component.extend({
   sortDirection: 'asc',
   sortColumnWithName: null,
   page: 1,
-  limit: 5,
-  pageLengths: [5, 10],
+  pageLengths: defaultPageLengths,
+
+  /**
+   * Initially sets the number of rows to be displayed in the table
+   * to the first item found in the pageLengths, default or runtime.
+   * Will reset to first element on subsequent updates or set value
+   */
+  limit: computed('pageLengths', function () {
+    // Defaulting operation in the event the pageLengths is set to an falsey
+    // value
+    return get(this, 'pageLengths.firstObject') ||
+      defaultPageLengths.firstObject;
+  }),
 
   data: computed('fields', 'searchTerm', function() {
     return get(this, 'fields').filter(field =>

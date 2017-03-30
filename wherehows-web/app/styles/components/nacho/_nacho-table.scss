@@ -9,6 +9,7 @@
         border-spacing: 0,
         text-align: left,
         width: 100%,
+        table-layout: fixed,
         '& th': (
                 font-size: restyle-var(font-size),
                 background-color: restyle-var(header-color),
@@ -24,6 +25,7 @@
                 padding: (5px restyle-var(horizontal-padding)),
                 border-bottom: 1px solid set-color(grey, light),
                 vertical-align: middle,
+                word-wrap: break-word
         ),
         restyle-modifiers: (
                 'with a border': (
