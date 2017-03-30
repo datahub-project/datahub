@@ -1778,7 +1778,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		final JsonNode node = Json.parse(textArray[0]);
 
 		List<DatasetOwner> owners = new ArrayList<>();
-		int confirmedCount = 0;
+		int confirmedOwnerUserCount = 0;
 
 		for(int i = 0; i < node.size(); i++) {
 			final JsonNode ownerNode = node.get(i);
@@ -1795,6 +1795,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				String confirmedBy =
 						ownerNode.has("confirmedBy") && !ownerNode.get("confirmedBy").isNull()
 								? ownerNode.get("confirmedBy").asText() : "";
+				String idType = ownerNode.has("idType") ? ownerNode.get("idType").asText() : "";
 
 				DatasetOwner owner = new DatasetOwner();
 				owner.userName = userName;
@@ -1806,14 +1807,14 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				owner.sortId = i;
 				owners.add(owner);
 
-				if (StringUtils.isNotBlank(confirmedBy)) {
-					confirmedCount++;
+				if (type.equalsIgnoreCase("owner") && idType.equalsIgnoreCase("user") && StringUtils.isNotBlank(confirmedBy)) {
+					confirmedOwnerUserCount++;
 				}
 			}
 		}
 
     // enforce at least two confirmed owner for a dataset before making any changes
-		if (confirmedCount < 2) {
+		if (confirmedOwnerUserCount < 2) {
 			return ReturnCode.RuleViolation;
 		}
 
