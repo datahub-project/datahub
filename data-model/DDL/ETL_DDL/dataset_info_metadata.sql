@@ -17,7 +17,7 @@ CREATE TABLE dataset_deployment (
   `dataset_id`      INT UNSIGNED NOT NULL,
   `dataset_urn`     VARCHAR(200) NOT NULL,
   `deployment_tier` VARCHAR(20)  NOT NULL,
-  `datacenter`      VARCHAR(20)        DEFAULT NULL,
+  `datacenter`      VARCHAR(20)  NOT NULL,
   `region`          VARCHAR(50)        DEFAULT NULL,
   `zone`            VARCHAR(50)        DEFAULT NULL,
   `cluster`         VARCHAR(100)       DEFAULT NULL,
