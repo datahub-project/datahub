@@ -179,10 +179,10 @@ export default Component.extend({
    * @return {Boolean|*} Contains or does not
    */
   ensureTypeContainsLogicalType: sourceEntities => {
-    const logicalTypes = logicalTypes.map(type => type.toUpperCase());
+    const logicalTypesInUppercase = logicalTypes.map(type => type.toUpperCase());
 
     return sourceEntities.every(entity =>
-      logicalTypes.includes(get(entity, 'logicalType')));
+      logicalTypesInUppercase.includes(get(entity, 'logicalType')));
   },
 
   actions: {
