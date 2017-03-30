@@ -2,10 +2,9 @@
  * Builds a privacyCompliancePolicy map with default / unset values for non null properties
  */
 export const createPrivacyCompliancePolicy = () => {
-  const complianceTypes = ['AUTO_PURGE', 'CUSTOM_PURGE', 'LIMITED_RETENTION', 'PURGE_NOT_APPLICABLE'];
   const policy = {
     // default to first item in compliance types list
-    complianceType: complianceTypes.get('firstObject'),
+    complianceType: 'AUTO_PURGE',
     compliancePurgeEntities: []
   };
 

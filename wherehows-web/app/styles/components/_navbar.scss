@@ -54,3 +54,14 @@
 .action-bar {
   margin-bottom: 20px;
 }
+
+/**
+ * Styles a container list of navigation items
+ */
+.tabbed-navigation-list {
+  white-space: nowrap;
+
+  &--tab {
+    border-radius: 0;
+  }
+}
