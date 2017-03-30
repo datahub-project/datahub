@@ -11,6 +11,13 @@ const {
 
 const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
 const logicalTypes = ['id', 'number', 'urn', 'reversed urn', 'hash'].sort();
+/**
+ * Duplicate check using every to short-circuit iteration
+ * @param {Array} names = [] the list to check for dupes
+ * @return {Boolean} true is unique, false otherwise
+ */
+const fieldNamesAreUnique = (names = []) =>
+  names.every((name, index) => names.indexOf(name) === index);
 
 /**
  * Returns a computed macro based on a provided type will return a list of
@@ -45,10 +52,34 @@ export default Component.extend({
     group: null
   },
 
+  didReceiveAttrs() {
+    this._super(...arguments);
+    // Perform validation step on the received component attributes
+    this.validateAttrs();
+  },
+
+  /**
+   * Ensure that props received from on this component
+   * are valid, otherwise flag
+   */
+  validateAttrs() {
+    const fieldNames = getWithDefault(
+      this, 'schemaFieldNamesMappedToDataTypes', []
+    ).mapBy('fieldName');
+
+    if (fieldNamesAreUnique(fieldNames.sort())) {
+      return;
+    }
+
+    // Flag this component's data as problematic
+    set(this, '_hasBadData', true);
+  },
+
   // Component ui state transitions based on the userIndicatesDatasetHas map
   hasUserRespondedToMemberPrompt: computed.notEmpty(
     'userIndicatesDatasetHas.member'
   ),
+
   showOrgPrompt: computed.bool('hasUserRespondedToMemberPrompt'),
   hasUserRespondedToOrgPrompt: computed.notEmpty('userIndicatesDatasetHas.org'),
   showGroupPrompt: computed.bool('hasUserRespondedToOrgPrompt'),
@@ -80,17 +111,40 @@ export default Component.extend({
         return sourceField ? sourceField[attribute] : null;
       };
 
+      /**
+       * Get value for a list of attributes
+       * @param {Array} attributes list of attribute keys to pull from
+       *   sourceField
+       * @param {String} fieldName name of the field to lookup
+       * @return {Array} list of attribute values
+       */
+      const getAttributesOnField = (attributes = [], fieldName) =>
+        attributes.map((attr) => getAttributeOnField(attr, fieldName));
+
       // Set default or if already in policy, retrieve current values from
       //   privacyCompliancePolicy.compliancePurgeEntities
-      return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', [
-      ]).map(({ fieldName, dataType }) => ({
-        dataType,
-        identifierField: fieldName,
-        identifierType: getAttributeOnField('identifierType', fieldName),
-        hasPrivacyData: complianceFieldNames.includes(fieldName),
-        isSubject: getAttributeOnField('isSubject', fieldName),
-        logicalType: getAttributeOnField('logicalType', fieldName)
-      }));
+      return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', [])
+        .map(({ fieldName: identifierField, dataType }) => {
+          const hasPrivacyData = complianceFieldNames.includes(identifierField);
+          const [
+            identifierType,
+            isSubject,
+            logicalType
+          ] = getAttributesOnField([
+            'identifierType',
+            'isSubject',
+            'logicalType'
+          ], identifierField);
+
+          return {
+            dataType,
+            identifierField,
+            identifierType,
+            isSubject,
+            logicalType,
+            hasPrivacyData
+          };
+        });
     }
   ),
 
@@ -121,14 +175,15 @@ export default Component.extend({
    * Adds or removes a field onto the
    *  privacyCompliancePolicy.compliancePurgeEntities list.
    * @param {Object} props initial props for the field to be added
-   * @prop {String} field.identifierField
+   * @prop {String} props.identifierField
+   * @prop {String} props.dataType
    * @param {String} identifierType the type of the field to toggle
    * @param {('add'|'remove')} toggle operation to perform, can either be
    *   add or remove
    * @return {Ember.Array|*}
    */
   toggleFieldOnComplianceList(props, identifierType, toggle) {
-    const identifierField = get(props, 'identifierField');
+    const { identifierField, dataType } = props;
     const sourceEntities = get(this, complianceListKey);
 
     if (!['add', 'remove'].includes(toggle)) {
@@ -140,13 +195,13 @@ export default Component.extend({
         // Ensure that we don't currently have this field present on the
         //  privacyCompliancePolicy.compliancePurgeEntities list
         if (!sourceEntities.findBy('identifierField', identifierField)) {
-          const addPurgeEntity = { identifierField, identifierType };
+          const addPurgeEntity = { identifierField, identifierType, dataType };
 
           return sourceEntities.setObjects([addPurgeEntity, ...sourceEntities]);
         }
       },
 
-      remove: () => {
+      remove() {
         // Remove the identifierType since we are removing it from the
         //   privacyCompliancePolicy.compliancePurgeEntities in case it
         //   is added back during the session
@@ -201,7 +256,7 @@ export default Component.extend({
      * @param {String} identifierType the type of the field to be toggled on
      *   the privacyCompliancePolicy.compliancePurgeEntities list
      * @param {Object|Ember.Object} props containing the props to be added
-     * @prop {Boolean} field.hasPrivacyData checked or not checked
+     * @prop {Boolean} props.hasPrivacyData checked or not checked
      * @return {*}
      */
     onFieldPrivacyChange(identifierType, props) {
