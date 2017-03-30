@@ -80,7 +80,7 @@ CREATE TABLE `stg_kafka_gobblin_distcp` (
   `cluster`     VARCHAR(20) NOT NULL,
   `dataset`     VARCHAR(100) NOT NULL,
   `partition_type`  VARCHAR(20) DEFAULT NULL,
-  `partition_name`  VARCHAR(50) DEFAULT NULL,
+  `partition_name`  VARCHAR(50) NOT NULL,
   `upsteam_timestamp` BIGINT(20) DEFAULT NULL,
   `origin_timestamp`  BIGINT(20) DEFAULT NULL,
   `source_path`     VARCHAR(200) DEFAULT NULL,
