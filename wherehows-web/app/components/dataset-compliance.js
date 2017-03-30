@@ -10,7 +10,8 @@ const {
 } = Ember;
 
 const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
-const logicalTypes = ['id', 'number', 'urn', 'reversed urn', 'hash'].sort();
+// TODO: DSS-6671 Extract to constants module
+const logicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
 /**
  * Duplicate check using every to short-circuit iteration
  * @param {Array} names = [] the list to check for dupes
@@ -87,7 +88,7 @@ export default Component.extend({
   // Map logicalTypes to options consumable by ui
   logicalTypes: ['', ...logicalTypes].map(value => ({
     value,
-    label: value ? value.capitalize() : 'Please Select'
+    label: value ? value.replace('_', ' ').toLowerCase().capitalize() : 'Please Select'
   })),
 
   /**
