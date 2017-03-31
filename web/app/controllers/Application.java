@@ -50,6 +50,11 @@ public class Application extends Controller
         return ok(index.render());
     }
 
+    public static Result healthcheck()
+    {
+        return ok("GOOD");
+    }
+
     @Security.Authenticated(Secured.class)
     public static Result index()
     {
