@@ -106,7 +106,6 @@ public class DruidMetadataLoader {
 	}
 	
 	public DruidMetadataLoader(String ds_csv_file, String col_csv_file, String db_id, String exec_id, String url, String driver, String usr, String pwd) throws Exception{
-		
 		if (ds_csv_file==null || ds_csv_file.length()==0){
 			throw new Exception("CSV file is not specified");
 		}
@@ -122,8 +121,6 @@ public class DruidMetadataLoader {
 		if (pwd==null || pwd.length()==0){
 			throw new Exception("JDBC Password is not specified");
 		}
-		
-		
 		
 		druid_ds_metadata_csv_file = ds_csv_file;
 		druid_col_metadata_csv_file = col_csv_file;
@@ -142,8 +139,6 @@ public class DruidMetadataLoader {
 	public void loadDatasourceMetadata() throws Exception {
 		Class.forName(JDBC_DRIVER);
 		Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD);
-
-
 		Statement stmt = conn.createStatement();
 		stmt.executeUpdate(DROP_DS_METADATA);
 		stmt.executeUpdate(CREATE_DS_METADAT);

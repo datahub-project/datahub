@@ -1,6 +1,5 @@
 package metadata.etl.dataset.druid;
 import wherehows.common.Constant;
-
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.FileWriter;
@@ -10,7 +9,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.json.JSONArray;
@@ -70,7 +68,6 @@ public class DruidMetadataExtractor {
 		con.setRequestMethod("GET");
 		int responseCode = con.getResponseCode();
 		
-		
 		if (responseCode==200){
 			BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream()));
 			String line = "";
@@ -97,7 +94,6 @@ public class DruidMetadataExtractor {
 	}
 	
 	public void getSegmentInterval(String datasource) throws Exception {
-		
 		String query = INTERVAL_QUERY.replace("$DATASOURCE", datasource);
 		URL url = new URL(druid_host);
 		HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -123,7 +119,6 @@ public class DruidMetadataExtractor {
 			JSONArray intervals = new JSONArray(response.toString());
 			if (intervals.length()>0){
 				JSONObject json = new JSONObject(intervals.get(0).toString()).getJSONObject("result");
-				
 				maxTime = json.getString("maxTime");
 				minTime = json.getString("minTime");
 			}
