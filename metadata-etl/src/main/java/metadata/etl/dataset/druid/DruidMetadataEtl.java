@@ -13,21 +13,10 @@
  */
 package metadata.etl.dataset.druid;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.HttpClientBuilder;
-
 import metadata.etl.EtlJob;
-import wherehows.common.Constant;
 import java.util.Properties;
 
-
-
 public class DruidMetadataEtl extends EtlJob{
-	
-
 	public DruidMetadataEtl(int dbId, long whExecId, Properties prop) {
         super(null, dbId, whExecId, prop);
     }
