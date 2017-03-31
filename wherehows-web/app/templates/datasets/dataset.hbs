@@ -1,4 +1,16 @@
 <div id="dataset">
+  <div class="well well-sm">
+    <div>
+      <ul class="breadcrumbs">
+        {{#each breadcrumbs as |crumb|}}
+          <li>
+            {{crumb.text}}
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+  </div>
+
   <div class="row">
     <div class="col-xs-5">
       <h3>{{ model.name }}</h3>
