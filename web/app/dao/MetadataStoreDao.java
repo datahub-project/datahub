@@ -119,6 +119,7 @@ public class MetadataStoreDao {
     for (SchemaField field : fields) {
       DatasetColumn col = new DatasetColumn();
       col.fieldName = field.getFieldPath();
+      col.fullFieldPath = field.getFieldPath();
       col.dataType = field.getNativeDataType();
       col.comment = field.getDescription();
       columns.add(col);
