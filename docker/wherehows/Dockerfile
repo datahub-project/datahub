@@ -10,7 +10,7 @@ ADD archives/activator-1.3.11-minimal.tar.gz /home/wherehows
 ADD archives/wherehows-built-lite.tar.gz /home/wherehows
 ADD archives/ivy2.tar.gz /home/wherehows
 
-COPY bin/* /home/wherehows/
+COPY binary/* /home/wherehows/
 COPY conf/backend/* /home/wherehows/WhereHows/backend-service/conf/
 COPY conf/web/* /home/wherehows/WhereHows/web/conf/
 
