@@ -15,6 +15,7 @@ package metadata.etl.models;
 
 import java.util.Properties;
 import metadata.etl.EtlJob;
+import metadata.etl.dataset.druid.DruidMetadataEtl;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
 import metadata.etl.dataset.oracle.OracleMetadataEtl;

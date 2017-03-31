@@ -166,7 +166,14 @@ public class Constant {
   // git
   public static final String GIT_HOST_KEY = "git.host";
   public static final String GIT_PROJECT_WHITELIST_KEY = "git.project.whitelist";
-
+  
+  // druid
+  public static final String DRUID_HOST_URL = "druid.host.url";
+  public static final String DRUID_DATASOURCE_METADATA_CSV_FILE = "druid.datasource.metadata.csv.file";
+  public static final String DRUID_FIELD_METADATA_CSV_FILE = "druid.field,metadata.csv.file";
+  public static final String DRUID_DATASROUCE_TRANSFORMED_CSV_FILE = "druid.datasource.transformed.csv.file";
+  public static final String DRUID_FIELD_TRANSFORMED_CSV_FILE = "druid.field.transformed.csv.file";
+  
   // hive
   public static final String HIVE_METASTORE_JDBC_DRIVER = "hive.metastore.jdbc.driver";
   public static final String HIVE_METASTORE_JDBC_URL = "hive.metastore.jdbc.url";
