@@ -25,15 +25,14 @@ const fieldNamesAreUnique = (names = []) =>
  * Compliance fields that are of that identifierType or have no type
  * @param {String} type string to match against identifierType
  */
-const complianceEntitiesMatchingType = type => {
-  return computed('complianceDataFields.[]', function() {
+const complianceEntitiesMatchingType = type =>
+  computed('complianceDataFields.[]', function () {
     const fieldRegex = new RegExp(`${type}`, 'i');
 
     return get(this, 'complianceDataFields').filter(({ identifierType }) => {
       return fieldRegex.test(identifierType) || isBlank(identifierType);
     });
   });
-};
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',

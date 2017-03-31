@@ -38,8 +38,11 @@
     </caption>
     {{#table.head as |head|}}
       {{#head.column columnName="identifierField"}}Field{{/head.column}}
+      {{#head.column}}Data Type{{/head.column}}
       {{#head.column}}Security Classification{{/head.column}}
+      {{#head.column}}Field Format{{/head.column}}
     {{/table.head}}
+
     {{#table.body as |body|}}
       {{#each
         (slice table.beginOffset table.endOffset (sort-by table.sortBy table.data)) as |field|}}
@@ -47,11 +50,23 @@
           {{#row.cell}}
             {{field.identifierField}}
           {{/row.cell}}
-          {{#row.cell}}
 
-            {{ember-selector values=classifiers
-                             selected=field.classification
-                             selectionDidChange=(action "updateClassification" field)}}
+          {{#row.cell}}
+            {{field.dataType}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{ember-selector
+              values=classifiers
+              selected=field.classification
+              selectionDidChange=(action "updateClassification" field)}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{ember-selector
+              values=logicalTypes
+              selected=field.logicalType
+              selectionDidChange=(action "updateLogicalType" field)}}
           {{/row.cell}}
         {{/body.row}}
       {{/each}}
@@ -65,7 +80,7 @@
         beginOffset=table.beginOffset
         endOffset=table.endOffset
         onLimitChanged=table.onLimitChanged
-        pagerColSpan=2
+        pagerColSpan=4
         onPageChanged=table.onPageChanged}}
     {{/table.foot}}
   {{/dataset-table}}

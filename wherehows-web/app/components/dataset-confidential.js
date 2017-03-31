@@ -12,12 +12,20 @@ const {
 
 // String constant identifying the classified fields on the security spec
 const sourceClassificationKey = 'securitySpecification.classification';
+// TODO: DSS-6671 Extract to constants module
 const classifiers = [
+  'public',
   'confidential',
-  'highlyConfidential',
-  'limitedDistribution',
-  'mustBeEncrypted',
-  'mustBeMasked'
+  'highlyConfidential'
+];
+
+const logicalTypes = [
+  'EMAIL_ADDRESS',
+  'PHONE_NUMBER',
+  'IP_ADDRESS',
+  'ADDRESS',
+  'GEO_LOCATION',
+  'FINANCIAL_NUMBER'
 ];
 
 // TODO: DSS-6671 Extract to constants module
@@ -38,10 +46,22 @@ export default Component.extend({
   searchTerm: '',
 
   // Map classifiers to options better consumed by  drop down
-  classifiers: ['', ...classifiers].map(value => ({
+  classifiers: classifiers.map(value => ({
     value,
-    label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Please Select'
+    label: formatAsCapitalizedStringWithSpaces(value)
   })),
+  // Map logicalTypes to options better consumed by  drop down
+  logicalTypes: ['', ...logicalTypes].map(value => {
+    const label = value ?
+      value.replace('_', ' ')
+        .replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize()) :
+      'Please Select';
+
+    return {
+      value,
+      label
+    };
+  }),
 
   /**
    * Creates a lookup table of fieldNames to classification
