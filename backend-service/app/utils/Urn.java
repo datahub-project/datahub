@@ -70,6 +70,9 @@ public class Urn {
         }
         schemaName = sb.toString();
         break;
+      case "druid": 
+    	  String[] split3 = splitResult[1].split("/");
+    	  abstractObjectName = split3[split3.length-1];
       default: abstractObjectName = splitResult[1];
     }
   }
@@ -89,6 +92,8 @@ public class Urn {
       case "dalids":
         urnString = this.datasetType + ":///" + schemaName + "/" + abstractObjectName;
         break;
+      case "druid":
+    	  urnString = this.datasetType + ":///" + "datasources" + "/" + abstractObjectName;
       default: String trimName = abstractObjectName.startsWith("/") ? abstractObjectName.substring(1) : abstractObjectName;
         urnString = this.datasetType + ":///" + trimName;
     }
