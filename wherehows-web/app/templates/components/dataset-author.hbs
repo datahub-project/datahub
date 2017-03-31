@@ -1,85 +1,59 @@
-<section class="ownership-actions">
-  <button class="nacho-button nacho-button--large-inverse"
-          title={{if requiredMinNotConfirmed
-                     "Need at least two confirmed owners to make changes"
-                     "Confirm Owners"}}
-            disabled={{requiredMinNotConfirmed}}
-    {{action "updateOwners"}}>
-    Confirm Owners
-  </button>
+<div class="tab-body">
+  <section class="ownership-actions">
+    <button class="nacho-button nacho-button--large-inverse"
+            title={{if disableConfirmOwners
+                       "Need at least two confirmed owners to make changes"
+                       "Save"}}
+              disabled={{disableConfirmOwners}}
+      {{action "updateOwners"}}>
+      Save
+    </button>
 
-  <button class="nacho-button nacho-button--large"
-    {{action "addOwner" owners}}>
-    <i class="fa fa-plus" title="Add an Owner">
-    </i>
-    Add an Owner
-  </button>
-</section>
+    <button class="nacho-button nacho-button--large"
+      {{action "addOwner" owners}}>
+      <i class="fa fa-plus" title="Add an Owner">
+      </i>
+      Add an Owner
+    </button>
+  </section>
 
-{{#if errorMessage}}
-  <div class="alert alert-danger" role="alert">{{errorMessage}}</div>
-{{/if}}
+  <div class="alert alert-info" role="alert">
+    <p>
+      Please note that to make any update the list of owners for this dataset,
+      there needs to be:
+    </p>
 
-{{#if actionMessage}}
-  <div class="alert alert-success" role="alert">{{actionMessage}}</div>
-{{/if}}
+    <p>At <strong>least</strong> two (2) confirmed owners who are both</p>
 
-<table class="nacho-table nacho-table--bordered">
-  <thead>
-  <tr>
-    <th>User Name</th>
-    <th>Full Name</th>
-    <th>ID Type</th>
-    <th>Source</th>
-    <th>Owner Type</th>
-    <th>Owner Sub Type</th>
-    <th>Confirmed</th>
-    <th>Remove</th>
-  </tr>
-  </thead>
-  <tbody data-attribute="owner-table">
-  {{#each owners as |owner|}}
-    <tr class="dataset-author-row">
-      <td class="dataset-author-cell"
-          onclick={{action "willEditUserName" value="currentTarget.classList"}}>
-        <label class="dataset-author-cell__name-tag">
-          {{owner.userName}}
-        </label>
-        <input class="userEntity dataset-author-cell__user-name"
-               type="text"
-               placeholder="Enter Username"
-               autofocus="autofocus"
-               title="{{owner.userName}}"
-               value="{{owner.userName}}"
-               onblur={{action "editUserName" owner}}/>
-      </td>
-      <td>{{owner.name}}</td>
-      <td>{{owner.idType}}</td>
-      <td>{{owner.source}}</td>
-      <td>
-        {{ember-selector values=ownerTypes selected=owner.type}}
-      </td>
-      <td>
-        {{input class="dataset-author-cell__input"
-                value=owner.subType}}
-      </td>
-      <td>
-        {{input type="checkbox"
-                title=(if owner.confirmedBy owner.confirmedBy "Not confirmed")
-                checked=(readonly owner.confirmedBy)
-                change=(action "confirmOwner" owner)}}
-      </td>
-      <td>
+    <ul>
+      <li>
+        of ID Type <code>USER</code>
+      </li>
+      <li>
+        of Owner Type <code>Owner</code>
+      </li>
+    </ul>
+  </div>
 
-        <button class="nacho-button nacho-button--small"
-                title={{if (contains (w "SCM") (w owner.source))
-                           "Remove from source" "Remove"}}
-                  disabled={{contains (w "SCM") (w owner.source)}}
-          {{action "removeOwner" owner}}>
-          <i class="fa fa-trash"
-             aria-label="Remove Owner"></i>
-        </button>
-      </td>
+
+  {{#if errorMessage}}
+    <div class="alert alert-danger" role="alert">{{errorMessage}}</div>
+  {{/if}}
+
+  {{#if actionMessage}}
+    <div class="alert alert-success" role="alert">{{actionMessage}}</div>
+  {{/if}}
+
+  <table class="nacho-table nacho-table--bordered">
+    <thead>
+    <tr>
+      <th>User Name</th>
+      <th>Full Name</th>
+      <th>ID Type</th>
+      <th>Source</th>
+      <th>Owner Type</th>
+      <th>Confirmed</th>
+      <th>Remove</th>
     </tr>
   {{/each}}
   </tbody>
