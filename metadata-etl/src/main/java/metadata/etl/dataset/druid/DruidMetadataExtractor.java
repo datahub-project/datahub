@@ -214,7 +214,7 @@ public class DruidMetadataExtractor {
 			
 			JSONObject schema = new JSONObject();
 			schema.put("type", "record");
-			schema.put("uri", druid_host+"/datasources/"+datasource);
+			schema.put("uri", "druid:///"+"datasources/"+datasource);
 			schema.put("name", datasource);
 			JSONObject input_columns = segment.getJSONObject("columns");
 			ArrayList<JSONObject> fields = new ArrayList<JSONObject>();
@@ -235,7 +235,7 @@ public class DruidMetadataExtractor {
 			dict_dataset.put("schema_type", "JSON");
 			dict_dataset.put("properties", minTime+"/"+maxTime);
 			dict_dataset.put("fields", fields.toString());
-			dict_dataset.put("urn", druid_host+"/datasources/"+datasource);
+			dict_dataset.put("urn", "druid:///"+"datasources/"+datasource);
 			dict_dataset.put("source", "Druid");
 			dict_dataset.put("storage_type", "Table");		// TODO: check with Pekka/Wesley/Tomas about the value of "storage_type"
 			dict_dataset.put("is_partitioned", "T");
