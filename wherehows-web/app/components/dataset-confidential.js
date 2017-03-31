@@ -4,6 +4,7 @@ const {
   get,
   set,
   isBlank,
+  isPresent,
   computed,
   getWithDefault,
   setProperties,
@@ -69,24 +70,28 @@ export default Component.extend({
    *   is one-to-one hence no check to ensure a fieldName gets clobbered
    *   in the lookup assignment
    */
-  fieldNameToClass: computed(`${sourceClassificationKey}`, function () {
-    const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
-    // Creates a lookup table of fieldNames to classification
-    //   Also, the expectation is that the association from fieldName -> classification
-    //   is one-to-one hence no check to ensure a fieldName gets clobbered
-    //   in the lookup assignment
-    return Object.keys(sourceClasses)
-      .reduce((lookup, classificationKey) =>
-          // For the provided classificationKey, iterate over it's fieldNames,
-          //   and assign the classificationKey to the fieldName in the table
-          (sourceClasses[classificationKey] || []).reduce((lookup, fieldName) => {
-            // cKey -> 1...fieldNameList => fieldName -> cKey
-            lookup[fieldName] = classificationKey;
-            return lookup;
-          }, lookup),
-        {}
-      );
-  }),
+  fieldNameToClass: computed(
+    `${sourceClassificationKey}.confidential.[]`,
+    `${sourceClassificationKey}.highlyConfidential.[]`,
+    function () {
+      const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
+      // Creates a lookup table of fieldNames to classification
+      //   Also, the expectation is that the association from fieldName -> classification
+      //   is one-to-one hence no check to ensure a fieldName gets clobbered
+      //   in the lookup assignment
+      return Object.keys(sourceClasses)
+        .reduce((lookup, classificationKey) =>
+            // For the provided classificationKey, iterate over it's fieldNames,
+            //   and assign the classificationKey to the fieldName in the table
+            (sourceClasses[classificationKey] || []).reduce((lookup, field) => {
+              const { identifierField } = field;
+              // cKey -> 1...fieldNameList => fieldName -> cKey
+              lookup[identifierField] = classificationKey;
+              return lookup;
+            }, lookup),
+          {}
+        );
+    }),
 
   /**
    * Lists all the dataset fields found in the `columns` api, and intersects
@@ -94,7 +99,8 @@ export default Component.extend({
    *   securitySpecification.classification or null if not found
    */
   classificationDataFields: computed(
-    `${sourceClassificationKey}.${classifiers}`,
+    `${sourceClassificationKey}.confidential.[]`,
+    `${sourceClassificationKey}.highlyConfidential.[]`,
     'fieldNameToClass',
     'schemaFieldNamesMappedToDataTypes',
     function () {
@@ -102,11 +108,28 @@ export default Component.extend({
       //   privacyCompliancePolicy.compliancePurgeEntities
       return getWithDefault(
         this, 'schemaFieldNamesMappedToDataTypes', []
-      ).map(({fieldName, dataType}) => ({
-        dataType,
-        identifierField: fieldName,
-        classification: get(this, `fieldNameToClass.${fieldName}`) || null
-      }));
+      ).map(({ fieldName: identifierField, dataType }) => {
+        // Get the current classification list
+        const classification = get(this, `fieldNameToClass.${identifierField}`);
+
+        // If the classification type exists, then find the identifierField, and
+        //   assign to field, otherwise null
+        const field = classification ?
+          get(this, `${sourceClassificationKey}.${classification}`)
+            .findBy('identifierField', identifierField) :
+          null;
+
+        // Extract the logicalType from the field
+        const logicalType = isPresent(field) ? field.logicalType : null;
+
+        // Map to a new literal containing these props
+        return {
+          dataType,
+          identifierField,
+          classification,
+          logicalType
+        };
+      });
     }
   ),
 
@@ -118,7 +141,7 @@ export default Component.extend({
    */
   whenRequestCompletes(request) {
     Promise.resolve(request)
-      .then(({return_code}) => {
+      .then(({ return_code = 'UNKNOWN' }) => {
         // The server api currently responds with an object containing
         //   a return_code when complete
         return return_code === 200 ?
@@ -136,7 +159,53 @@ export default Component.extend({
       });
   },
 
+  /**
+   * Takes an identifierField and a logicalType and updates the field on the
+   * classification if it exists. Otherwise this is a no-op
+   * @param {String} identifierField
+   * @param {String} logicalType the type to be updated
+   */
+  changeFieldLogicalType(identifierField, logicalType) {
+    // The current classification name for the candidate identifier
+    const currentClassificationName = get(this, `fieldNameToClass.${identifierField}`);
+    // The current classification list
+    const classification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
+
+    if (!Array.isArray(classification)) {
+      throw new Error(`
+      You have specified a classification object that is not a list ${classification}.
+      Ensure that the classification for this identifierField ${identifierField} is
+      set before attempting to change the logicalType.
+      `);
+    }
+
+    const field = classification.findBy('identifierField', identifierField);
+    // Clone. `field` attributes should be scalar, otherwise use a deepClone
+    //   algo.
+    const localField = Object.assign({}, field, { logicalType });
+
+    // Clone the current list without the identifierField to be updated
+    const previousClassification = classification.filter(
+      ({ identifierField: fieldName }) => fieldName !== identifierField
+    );
+
+    // concat newly updated field to old classification list
+    const updatedClassification = [localField, ...previousClassification];
+
+    // Reset current classification list
+    return classification.setObjects([...updatedClassification]);
+  },
+
   actions: {
+    /**
+     * Updates the logical type for a field with the provided identifierField
+     * @param {String} identifierField the name of the field to update
+     * @param {String} logicalType the updated logical type
+     * @return {*|String|void}
+     */
+    updateLogicalType({ identifierField }, { value: logicalType }) {
+      return this.changeFieldLogicalType(identifierField, logicalType);
+    },
     /**
      * Toggles the provided identifierField onto a classification list
      *   on securitySpecification.classification, identified by the provided
@@ -145,7 +214,7 @@ export default Component.extend({
      * @param {String} classKey the name of the class to add, or potentially
      *   remove the identifierField from
      */
-    updateClassification({identifierField}, {value: classKey}) {
+    updateClassification({ identifierField }, { value: classKey }) {
       const currentClass = get(this, `fieldNameToClass.${identifierField}`);
       // Since the association from identifierField -> classification is 1-to-1
       //  ensure that we do not currently have this identifierField
@@ -174,7 +243,7 @@ export default Component.extend({
         }
 
         // Finally perform operation
-        classification.addObject(identifierField);
+        classification.addObject({ identifierField });
       }
     },
 

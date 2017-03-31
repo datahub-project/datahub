@@ -19,7 +19,17 @@
 
   <section class="metadata-prompt" id="has-confidentiality">
     <header class="metadata-prompt__header">
-      <p>Which fields should be classified as Confidential or Highly Confidential (if any)?</p>
+      <p>
+        Which fields should be classified as Confidential or Highly Confidential
+        (if any)?
+
+        <sup>
+          More Info
+
+          <span class="glyphicon glyphicon-question-sign"
+                title="Link to more information"></span>
+        </sup>
+      </p>
     </header>
   </section>
 
@@ -39,8 +49,20 @@
     {{#table.head as |head|}}
       {{#head.column columnName="identifierField"}}Field{{/head.column}}
       {{#head.column}}Data Type{{/head.column}}
-      {{#head.column}}Security Classification{{/head.column}}
-      {{#head.column}}Field Format{{/head.column}}
+      {{#head.column}}
+        Security Classification
+        <sup>
+        <span class="glyphicon glyphicon-question-sign"
+              title="Link to more information"></span>
+        </sup>
+      {{/head.column}}
+      {{#head.column}}
+        Field Format
+        <sup>
+        <span class="glyphicon glyphicon-question-sign"
+              title="Link to more information"></span>
+        </sup>
+      {{/head.column}}
     {{/table.head}}
 
     {{#table.body as |body|}}
@@ -66,6 +88,7 @@
             {{ember-selector
               values=logicalTypes
               selected=field.logicalType
+              disabled=(not field.classification)
               selectionDidChange=(action "updateLogicalType" field)}}
           {{/row.cell}}
         {{/body.row}}
