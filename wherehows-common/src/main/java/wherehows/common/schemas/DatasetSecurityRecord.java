@@ -21,7 +21,7 @@ public class DatasetSecurityRecord extends AbstractRecord {
 
   Integer datasetId;
   String datasetUrn;
-  Map<String, List<String>> classification;
+  Map<String, List<DatasetConfidentialEntityRecord>> classification;
   String recordOwnerType;
   DatasetRetentionRecord retentionPolicy;
   DatasetGeographicAffinityRecord geographicAffinity;
@@ -57,11 +57,11 @@ public class DatasetSecurityRecord extends AbstractRecord {
     this.datasetUrn = datasetUrn;
   }
 
-  public Map<String, List<String>> getClassification() {
+  public Map<String, List<DatasetConfidentialEntityRecord>> getClassification() {
     return classification;
   }
 
-  public void setClassification(Map<String, List<String>> classification) {
+  public void setClassification(Map<String, List<DatasetConfidentialEntityRecord>> classification) {
     this.classification = classification;
   }
 
