@@ -24,4 +24,8 @@ public class Application extends Controller {
     return ok("TEST");
   }
 
+  public static Result healthcheck() {
+    return ok("GOOD");
+  }
+
 }

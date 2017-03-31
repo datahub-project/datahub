@@ -6,6 +6,8 @@
 # serveAsset action requires a path string
 GET           /                                                                 controllers.Application.serveAsset(path="index.html")
 
+GET           /admin                                                            controllers.Application.healthcheck()
+
 GET           /login                                                            controllers.Application.login()
 
 GET           /logout                                                           controllers.Application.logout()
