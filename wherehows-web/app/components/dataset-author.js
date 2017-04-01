@@ -13,8 +13,15 @@ const {
 const userNameEditableClass = 'dataset-author-cell--editing';
 //  Required minimum confirmed owners needed to update the list of owners
 const minRequiredConfirmed = 2;
+/**
+ * Initial user name for candidate owners
+ * @type {string}
+ * @private
+ */
+const _defaultOwnerUserName = 'New Owner';
+
 const _defaultOwnerProps = {
-  userName: 'New Owner',
+  userName: _defaultOwnerUserName,
   email: null,
   name: '',
   isGroup: false,
@@ -26,15 +33,43 @@ const _defaultOwnerProps = {
 };
 
 export default Component.extend({
-  // Inject the currentUser service to retrieve logged in userName
+  /**
+   * Inject the currentUser service to retrieve logged in userName
+   * @type {Ember.Service}
+   */
   sessionUser: service('current-user'),
-  $ownerTable: null,
-  disableConfirmOwners: true,
 
+  /**
+   * Lookup for userEntity objects
+   * @type {Ember.Service}
+   */
+  ldapUsers: service('user-lookup'),
+
+  $ownerTable: null,
+
+  init() {
+    this._super(...arguments);
+
+    // Sets a reference to the userNamesResolver function on instantiation.
+    //  Typeahead component uses this function to resolve matches for user
+    //  input
+    set(this, 'userNamesResolver', get(this, 'ldapUsers.userNamesResolver'));
+  },
+
+  /**
+   * Helper function get the userName for the currently logged in user
+   * @return {String|*} the userName is found
+   */
   loggedInUserName() {
+    // Current user service provides the userName on one of two api
+    //   TODO: DSS-6718 Refactor. merge this into one
     return get(this, 'sessionUser.userName') ||
       get(this, 'sessionUser.currentUser.userName');
   },
+
+  // Combination macro to check that the entered username is valid
+  //  i.e. not _defaultOwnerUserName and the requiredMinConfirmed
+  ownershipIsInvalid: computed.or('userNameInvalid', 'requiredMinNotConfirmed'),
 
   // Returns a list of owners with truthy value for their confirmedBy attribute,
   //   i.e. they confirmedBy contains a userName and
@@ -47,11 +82,27 @@ export default Component.extend({
     );
   }),
 
-  // Checks that the number of confirmedOwners is < minRequiredConfirmed
+  /**
+   * Checks that the number of confirmedOwners is < minRequiredConfirmed
+   * @type {Ember.ComputedProperty}
+   * @requires minRequiredConfirmed
+   */
   requiredMinNotConfirmed: computed.lt(
     'confirmedOwners.length',
     minRequiredConfirmed
   ),
+
+  /**
+   * Checks that the list of owners does not contain an owner
+   *   with the default userName `_defaultOwnerUserName`
+   * @type {Ember.ComputedProperty}
+   * @requires _defaultOwnerUserName
+   */
+  userNameInvalid: computed('owners.[]', function () {
+    return getWithDefault(this, 'owners', [])
+        .filter(({ userName }) => userName === _defaultOwnerUserName)
+        .length > 0;
+  }),
 
   didInsertElement() {
     this._super(...arguments);
@@ -74,9 +125,6 @@ export default Component.extend({
 
           reArrangedOwners.splice(to, 0, travelingOwner);
           currentOwners.setObjects(reArrangedOwners);
-
-          // TODO: refactor in next commit
-          // setOwnerNameAutocomplete(this.controller);
         }
       }
     });
@@ -89,20 +137,32 @@ export default Component.extend({
   },
 
   /**
-   * Non mutative update to a specific owner on the list of current owners.
-   * @param {Object} owner the current props on the owner to be updated
-   * @param {String} prop the property to update on the owner in the list of owners
-   * @param {*} value the value to set on the owner in the source list
+   * Non mutative update to an owner on the list of current owners.
+   * @example _updateOwner(currentOwner, isConfirmed, false);
+   * @example _updateOwner(currentOwner, {isConfirmed: false, isGroup: true});
+   *
+   * @param {Object} currentProps the current props on the currentProps
+   *   to be updated
+   * @param {String|Object} props the property to update on the currentProps in
+   *   the list of owners. Props can be also be an Object containing the
+   *   properties mapped to updated values.
+   * @param {*} [value] optional value to set on the currentProps in
+   *   the source list, required is props is map of key -> value pairs
    * @private
    */
-  _updateOwner(owner, prop, value) {
+  _updateOwner(currentProps, ...[props, value]) {
     const sourceOwners = get(this, 'owners');
+    // Create a copy so in-flight mutations are not propagates to the ui
     const updatingOwners = [...sourceOwners];
 
-    // Ensure that the provided owner is in the list of sourceOwners
-    if (updatingOwners.includes(owner)) {
-      const ownerPosition = updatingOwners.indexOf(owner);
-      const updatedOwner = Object.assign({}, owner, { [prop]: value });
+    // Ensure that the provided currentProps is in the list of sourceOwners
+    if (updatingOwners.includes(currentProps)) {
+      const ownerPosition = updatingOwners.indexOf(currentProps);
+      let updatedOwner = props;
+
+      if (typeof props === 'string') {
+        updatedOwner = Object.assign({}, currentProps, { [props]: value });
+      }
 
       // Non-mutative array insertion
       const updatedOwners = [
@@ -131,23 +191,29 @@ export default Component.extend({
     },
 
     /**
-     * Mutates the owner.userName property, setting it to the value entered
-     *   in the table field
-     * @param {Object} owner the owner object rendered for this table row
-     * @param {String|void} value user entered value from the ui
-     * @param {Node} parentNode DOM node wrapping the target user input field
-     *   this is expected to be a TD node
+     *  Updates the owner.userName property, setting it to the value entered
+     *   in the table input field
+     * @param {Object} currentOwner the currentOwner object rendered
+     *   for this table row
+     * @param {String} userName the userName returned from the typeahead
+     * @return {Promise.<void>}
      */
-    editUserName(owner, { target: { value, parentNode = {} } }) {
-      const { nodeName, classList } = parentNode;
-      if (value) {
-        set(owner, 'userName', value);
-      }
+    async editUserName(currentOwner, userName) {
+      if (userName) {
+        // getUser returns a promise, treat as such
+        const getUser = get(this, 'ldapUsers.getPartyEntityWithUserName');
+        const { label, displayName, category } = await getUser(userName);
+        const isGroup = category === 'group';
 
-      // The containing TD should have the className that allows the user
-      //   to see the input element, remove this to revert to readonly mode
-      if (String(nodeName).toLowerCase() === 'td') {
-        classList.remove(userNameEditableClass);
+        const updatedProps = Object.assign({}, currentOwner, {
+          isGroup,
+          source: 'UI',
+          userName: label,
+          name: displayName,
+          idType: isGroup ? 'GROUP' : 'USER'
+        });
+
+        this._updateOwner(currentOwner, updatedProps);
       }
     },
 
@@ -182,14 +248,6 @@ export default Component.extend({
         this,
         'errorMessage',
         `Uh oh! There is already a user with the username ${newOwner.userName} in the list of owners.`
-      );
-
-      // TODO: refactor in next commit
-      setTimeout(
-        function() {
-          // setOwnerNameAutocomplete(controller)
-        },
-        500
       );
     },
 
