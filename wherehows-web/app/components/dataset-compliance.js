@@ -68,7 +68,7 @@ export default Component.extend({
     ).mapBy('fieldName');
 
     if (fieldNamesAreUnique(fieldNames.sort())) {
-      return;
+      return set(this, '_hasBadData', false);
     }
 
     // Flag this component's data as problematic
