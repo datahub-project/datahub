@@ -28,18 +28,22 @@ const _defaultOwnerProps = {
 export default Component.extend({
   // Inject the currentUser service to retrieve logged in userName
   sessionUser: service('current-user'),
+  $ownerTable: null,
+  disableConfirmOwners: true,
 
   loggedInUserName() {
     return get(this, 'sessionUser.userName') ||
       get(this, 'sessionUser.currentUser.userName');
   },
 
-  $ownerTable: null,
-
-  // Returns a list of owners with truthy value for their confirmedBy attribute
-  confirmedOwners: computed('owners.@each.confirmedBy', function() {
+  // Returns a list of owners with truthy value for their confirmedBy attribute,
+  //   i.e. they confirmedBy contains a userName and
+  //   type is `Owner` and idType is `USER`.
+  confirmedOwners: computed('owners.[]', function () {
     return getWithDefault(this, 'owners', []).filter(
-      ({ confirmedBy }) => confirmedBy
+      ({ confirmedBy, type, idType }) => confirmedBy &&
+      type === 'Owner' &&
+      idType === 'USER'
     );
   }),
 
@@ -82,6 +86,34 @@ export default Component.extend({
     this._super(...arguments);
     // Removes the sortable functionality from the cached DOM element reference
     get(this, '$ownerTable').sortable('destroy');
+  },
+
+  /**
+   * Non mutative update to a specific owner on the list of current owners.
+   * @param {Object} owner the current props on the owner to be updated
+   * @param {String} prop the property to update on the owner in the list of owners
+   * @param {*} value the value to set on the owner in the source list
+   * @private
+   */
+  _updateOwner(owner, prop, value) {
+    const sourceOwners = get(this, 'owners');
+    const updatingOwners = [...sourceOwners];
+
+    // Ensure that the provided owner is in the list of sourceOwners
+    if (updatingOwners.includes(owner)) {
+      const ownerPosition = updatingOwners.indexOf(owner);
+      const updatedOwner = Object.assign({}, owner, { [prop]: value });
+
+      // Non-mutative array insertion
+      const updatedOwners = [
+        ...updatingOwners.slice(0, ownerPosition),
+        updatedOwner,
+        ...updatingOwners.slice(ownerPosition + 1)
+      ];
+
+      // Full reset of the `owners` list with the new list
+      sourceOwners.setObjects(updatedOwners);
+    }
   },
 
   actions: {
@@ -171,6 +203,15 @@ export default Component.extend({
     },
 
     /**
+     * Updates the ownerType prop in the list of owners
+     * @param {Object} owner props to be updated
+     * @param {String} value current owner value
+     */
+    updateOwnerType(owner, { target: { value } }) {
+      this._updateOwner(owner, 'ownerType', value);
+    },
+
+    /**
      * Sets the checked confirmedBy property on an owner, when the user
      *   indicates this thought the UI, and if their username is
      *   available.
@@ -182,36 +223,25 @@ export default Component.extend({
     confirmOwner(owner, { target: { checked } = false }) {
       // Attempt to get the userName from the currentUser service
       const userName = get(this, 'loggedInUserName').call(this);
-
       // If checked, assign userName otherwise, null
       const isConfirmedBy = checked ? userName : null;
-      const currentOwners = get(this, 'owners');
 
-      // Ensure that the provided owner is in the list of currentOwners
-      if (currentOwners.includes(owner)) {
-        const ownerPosition = currentOwners.indexOf(owner);
-        // If we have a non blank userName in confirmedBy
-        //  assign to owner, otherwise assign a toggled blank.
-        //  A toggled blank is necessary as a state change device, since
-        //  Ember does a deep comparison of object properties when deciding
-        //  to perform a re-render. We could also use a device such as a hidden
-        //  field with a randomized value.
-        //  This helps to ensure our UI checkbox is consistent with our world
-        //  state.
-        const currentConfirmation = get(owner, 'confirmedBy');
-        let nextBlank = currentConfirmation === null ? void 0 : null;
+      // If we have a non blank userName in confirmedBy
+      //  assign to owner, otherwise assign a toggled blank.
+      //  Blanking will prevent the UI updating it's state, since this will
+      //  reset to value to a falsey value.
 
-        set(owner, 'confirmedBy', isConfirmedBy ? isConfirmedBy : nextBlank);
+      //  A toggled blank is necessary as a state change device, since
+      //  Ember does a deep comparison of object properties when deciding
+      //  to perform a re-render. We could also use a device such as a hidden
+      //  field with a randomized value.
+      //  This helps to ensure our UI checkbox is consistent with our world
+      //  state.
+      const currentConfirmation = get(owner, 'confirmedBy');
+      const nextBlank = currentConfirmation === null ? void 0 : null;
+      const confirmedBy = isConfirmedBy ? isConfirmedBy : nextBlank;
 
-        // Non-mutative array insertion
-        const updatedOwners = [
-          ...currentOwners.slice(0, ownerPosition),
-          owner,
-          ...currentOwners.slice(ownerPosition + 1)
-        ];
-
-        currentOwners.setObjects(updatedOwners);
-      }
+      this._updateOwner(owner, 'confirmedBy', confirmedBy);
     },
 
     /**

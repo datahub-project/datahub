@@ -1,10 +1,10 @@
 <div class="tab-body">
   <section class="ownership-actions">
     <button class="nacho-button nacho-button--large-inverse"
-            title={{if disableConfirmOwners
+            title={{if requiredMinNotConfirmed
                        "Need at least two confirmed owners to make changes"
                        "Save"}}
-              disabled={{disableConfirmOwners}}
+              disabled={{requiredMinNotConfirmed}}
       {{action "updateOwners"}}>
       Save
     </button>
