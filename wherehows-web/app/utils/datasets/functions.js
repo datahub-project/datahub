@@ -1,5 +1,6 @@
 /**
- * Builds a privacyCompliancePolicy map with default / unset values for non null properties
+ * Builds a privacyCompliancePolicy map with default / unset
+ *   values for non null properties
  */
 export const createPrivacyCompliancePolicy = () => {
   const policy = {
@@ -12,24 +13,27 @@ export const createPrivacyCompliancePolicy = () => {
   return JSON.parse(JSON.stringify(policy));
 };
 
-  /**
-   * Builds a securitySpecification map with default / unset values for non null properties as per avro schema
-   * @param {number} id
-   */
+/**
+ * Builds a securitySpecification map with default / unset values
+ *   for non null properties as per avro schema
+ * @param {number} id
+ */
 export const createSecuritySpecification = id => {
-    const classification = [
-      'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
-    ].reduce((classification, classifier) => {
+  const classification = ['highlyConfidential', 'confidential'].reduce(
+    (classification, classifier) => {
       classification[classifier] = [];
       return classification;
-    }, {});
-    const securitySpecification = {
-      classification,
-      datasetId: id,
-      geographicAffinity: {affinity: ''},
-      recordOwnerType: '',
-      retentionPolicy: {retentionType: ''}
-    };
+    },
+    {}
+  );
 
-    return JSON.parse(JSON.stringify(securitySpecification));
+  const securitySpecification = {
+    classification,
+    datasetId: id,
+    geographicAffinity: { affinity: '' },
+    recordOwnerType: '',
+    retentionPolicy: { retentionType: '' }
   };
+
+  return JSON.parse(JSON.stringify(securitySpecification));
+};
