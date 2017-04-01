@@ -138,7 +138,7 @@ export default Component.extend({
    * Helper method to update user when an async server update to the
    * security specification is handled.
    * @param {XMLHttpRequest|Promise|jqXHR|*} request the server request
-   * @param {String} [successMessage] optional message for successful response
+   * @param {String} [successMessage] optional _message for successful response
    */
   whenRequestCompletes(request, { successMessage } = {}) {
     Promise.resolve(request)
@@ -147,15 +147,24 @@ export default Component.extend({
         //   a return_code when complete
         return return_code === 200 ?
           setProperties(this, {
-            message: successMessage || successUpdating,
-            alertType: 'success'
+            _message: successMessage || successUpdating,
+            _alertType: 'success'
           }) :
           Promise.reject(`Reason code for this is ${return_code}`);
       })
       .catch((err = '') => {
+        let _message = `${failedUpdating} \n ${err}`;
+        let _alertType = 'danger';
+
+        if (err.includes(404)) {
+          _message = 'This dataset does not have a ' +
+            'previously saved state for field Security Classification.';
+          _alertType = 'success';
+        }
+
         setProperties(this, {
-          message: `${failedUpdating} \n ${err}`,
-          alertType: 'danger'
+          _message,
+          _alertType
         });
       });
   },
