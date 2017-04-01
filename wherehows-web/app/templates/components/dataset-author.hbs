@@ -1,10 +1,11 @@
 <div class="tab-body">
   <section class="ownership-actions">
     <button class="nacho-button nacho-button--large-inverse"
-            title={{if requiredMinNotConfirmed
-                       "Need at least two confirmed owners to make changes"
+            title={{if ownershipIsInvalid
+                       "Need at least two confirmed owners to make changes
+                       and no Invalid users"
                        "Save"}}
-              disabled={{requiredMinNotConfirmed}}
+              disabled={{ownershipIsInvalid}}
       {{action "updateOwners"}}>
       Save
     </button>
@@ -61,6 +62,7 @@
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
         <a
+          target="_blank"
           href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
           <sup>
         <span class="glyphicon glyphicon-question-sign"
@@ -68,7 +70,7 @@
           </sup>
         </a>
       </th>
-      <th>Confirmed</th>
+      <th>Confirm?</th>
       <th>Remove</th>
     </tr>
     </thead>
@@ -81,13 +83,16 @@
           <label class="dataset-author-cell__name-tag">
             {{owner.userName}}
           </label>
-          <input class="userEntity dataset-author-cell__user-name"
-                 type="text"
-                 placeholder="Enter Username"
-                 autofocus="autofocus"
-                 title="{{owner.userName}}"
-                 value="{{owner.userName}}"
-                 onblur={{action "editUserName" owner}}/>
+          {{aupac-typeahead
+            action=(action "editUserName" owner)
+            autoFocus=true
+            source=userNamesResolver
+            async=true
+            limit=10
+            minLength=2
+            placeholder="Find username"
+            title="username"
+            class="form-control dataset-author-cell__user-name"}}
         </td>
         <td>{{owner.name}}</td>
         <td>{{owner.idType}}</td>

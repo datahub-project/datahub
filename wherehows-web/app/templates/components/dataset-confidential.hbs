@@ -12,8 +12,8 @@
     </button>
   </section>
 
-  <div class="alert alert-{{alertType}} post-action-notification" role="alert">
-    {{if message message ""}}
+  <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
+    {{if _message _message ""}}
   </div>
 
   <section class="metadata-prompt" id="has-confidentiality">
@@ -25,6 +25,7 @@
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
         <a
+          target="_blank"
           href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
           <sup>
             More Info
@@ -58,6 +59,7 @@
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
         <a
+          target="_blank"
           href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
           <sup>
         <span class="glyphicon glyphicon-question-sign"
@@ -70,6 +72,7 @@
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
         <a
+          target="_blank"
           href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
           <sup>
           <span class="glyphicon glyphicon-question-sign"
