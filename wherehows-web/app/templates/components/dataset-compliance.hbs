@@ -1,21 +1,37 @@
 <div id="compliance" class="tab-body">
-  <section class="action-bar">
-    <button class="nacho-button nacho-button--large-inverse"
-      {{action "saveCompliance"}}>
-      {{if isNewPrivacyCompliancePolicy "Create New Policy"
-           "Confirm Privacy Fields"}}
-    </button>
-    <button class="nacho-button nacho-button--large"
-      {{action "resetCompliance"}}>
-      <i class="fa fa-times" title="Start Over">
-      </i>
-      Start Over
-    </button>
-  </section>
+  {{#if _hasBadData}}
+    <div class="alert alert-danger post-action-notification" role="alert">
+      <p>
+        Oops! We have discovered some issues with this Dataset's fields that
+        may put any updates in an invalid state. <br/>
+        Unfortunately updates are <strong>disabled</strong> at this time. <br/>
+        Please shoot us an email at
+        <a href="mailto:ask_metadata@linkedin.com">ask_metadata@linkedin.com</a>
+        and we will get on this asap! <br/>
+        Our apologies.
+      </p>
+    </div>
+  {{else}}
+    <section class="action-bar">
+      <button class="nacho-button nacho-button--large-inverse"
+        {{action "saveCompliance"}}>
+        Save
+      </button>
+
+      <button class="nacho-button nacho-button--large"
+        {{action "resetCompliance"}}>
+        <i class="fa fa-times" title="Start Over">
+        </i>
+        Start Over
+      </button>
+    </section>
+  {{/if}}
 
   <section class="metadata-prompt" id="has-member">
     <header class="metadata-prompt__header">
-      <p>Can any fields in this dataset's schema be used to identify a member?</p>
+      <p class="metadata-prompt__page-number">Question 1 of 3</p>
+      <p>Can any fields in this dataset's schema be used to identify a
+        member?</p>
     </header>
     <span>
       {{#radio-button-composer
@@ -49,6 +65,7 @@
   {{#if showOrgPrompt}}
     <section class="metadata-prompt" id="has-org">
       <header class="metadata-prompt__header">
+        <p class="metadata-prompt__page-number">Question 2 of 3</p>
         <p>Do fields in the schema contain the ID of an organization?</p>
       </header>
       <span>
@@ -82,6 +99,7 @@
   {{#if showGroupPrompt}}
     <section class="metadata-prompt" id="has-group">
       <header class="metadata-prompt__header">
+        <p class="metadata-prompt__page-number">Question 3 of 3</p>
         <p>Do fields in the schema contain the ID of a group?</p>
       </header>
       <span>

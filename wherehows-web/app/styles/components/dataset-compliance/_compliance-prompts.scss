@@ -17,4 +17,11 @@
     font-size: 24px;
     font-weight: fw(normal, 2);
   }
+
+  &__page-number {
+    display: inline-block;
+    font-size: 16px;
+    border:1px solid set-color(grey, light);
+    padding: 5px;
+  }
 }
