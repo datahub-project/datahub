@@ -125,9 +125,6 @@ export default Component.extend({
 
           reArrangedOwners.splice(to, 0, travelingOwner);
           currentOwners.setObjects(reArrangedOwners);
-
-          // TODO: refactor in next commit
-          // setOwnerNameAutocomplete(this.controller);
         }
       }
     });
@@ -251,14 +248,6 @@ export default Component.extend({
         this,
         'errorMessage',
         `Uh oh! There is already a user with the username ${newOwner.userName} in the list of owners.`
-      );
-
-      // TODO: refactor in next commit
-      setTimeout(
-        function() {
-          // setOwnerNameAutocomplete(controller)
-        },
-        500
       );
     },
 
