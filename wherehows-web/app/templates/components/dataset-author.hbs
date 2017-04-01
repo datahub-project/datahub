@@ -108,10 +108,10 @@
 
         <td>
           <button class="nacho-button nacho-button--small"
-                  title={{if (contains (w "SCM") (w owner.source))
+                  title={{if (eq owner.source "SCM")
                              "Owners sourced from SCM should be removed directly from SCM"
                              "Remove"}}
-                    disabled={{contains (w "SCM") (w owner.source)}}
+                    disabled={{eq owner.source "SCM"}}
             {{action "removeOwner" owner}}>
             <i class="fa fa-trash"
                aria-label="Remove Owner"></i>
