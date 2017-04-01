@@ -16,6 +16,7 @@
         restyle-var(font-weight): 600,
         restyle-var(text-color): $text-color,
         restyle-var(border-radius): 2px,
+        restyle-var(disabled-text): tint($text-color, 70%),
 
         background-color: restyle-var(background-color),
         border: 0,
@@ -42,7 +43,9 @@
                 restyle-function(shade-color): restyle-var(background-color)
         ),
         '&:disabled': (
-                cursor: not-allowed
+                cursor: not-allowed,
+                color: restyle-var(disabled-text),
+                border-color: restyle-var(disabled-text)
         ),
 
         restyle-modifiers: (
