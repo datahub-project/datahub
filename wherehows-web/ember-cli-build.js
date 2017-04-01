@@ -6,7 +6,7 @@ const MergeTrees = require('broccoli-merge-trees');
 
 module.exports = function(defaults) {
   const app = new EmberApp(defaults, {
-    babel: {
+    'ember-cli-babel': {
       includePolyfill: true
     },
 
