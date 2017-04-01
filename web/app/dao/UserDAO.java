@@ -51,7 +51,8 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"WHERE group_id is not null and group_id != ''";
 
 	private final static String GET_ALL_COMPANY_USERS_AND_GROUPS = "SELECT DISTINCT user_id as id, " +
-			"display_name as name, 'indiviual person' as category FROM dir_external_user_info " +
+			"display_name as name, 'person' as category FROM dir_external_user_info " +
+			"WHERE is_active = 'Y' and org_hierarchy_depth > 1 " +
 			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category FROM dir_external_group_user_map";
 
 	private final static String INSERT_USER_LOGIN_HISTORY =
@@ -314,26 +315,23 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 		return groups;
 	}
 
-	public static List<UserEntity> getAllUserEntities()
-	{
-		List<UserEntity> userEntities = new ArrayList<UserEntity>();
-		List<Map<String, Object>> rows = null;
-		rows = getJdbcTemplate().queryForList(
-				GET_ALL_COMPANY_USERS_AND_GROUPS);
-		if (rows != null)
-		{
-			for (Map row : rows) {
-				String label = (String)row.get(UserRowMapper.USER_ID_COLUMN);
-				String displayName = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
-				String category = (String)row.get(UserRowMapper.CATEGORY_COLUMN);
-				if (StringUtils.isNotBlank(label))
-				{
-					UserEntity user = new UserEntity();
-					user.label = label;
-					user.displayName = displayName;
-					user.category = category;
-					userEntities.add(user);
-				}
+	public static List<UserEntity> getAllUserEntities() {
+		List<UserEntity> userEntities = new ArrayList<>();
+		List<Map<String, Object>> rows = getJdbcTemplate().queryForList(GET_ALL_COMPANY_USERS_AND_GROUPS);
+		if (rows == null) {
+			return userEntities;
+		}
+
+		for (Map row : rows) {
+			String label = (String) row.get(UserRowMapper.USER_ID_COLUMN);
+			String displayName = (String) row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+			String category = (String) row.get(UserRowMapper.CATEGORY_COLUMN);
+			if (StringUtils.isNotBlank(label)) {
+				UserEntity user = new UserEntity();
+				user.label = label;
+				user.displayName = displayName;
+				user.category = category;
+				userEntities.add(user);
 			}
 		}
 		return userEntities;
