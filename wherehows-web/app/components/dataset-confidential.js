@@ -15,7 +15,7 @@ const {
 const sourceClassificationKey = 'securitySpecification.classification';
 // TODO: DSS-6671 Extract to constants module
 const classifiers = [
-  'public',
+  'notConfidential',
   'confidential',
   'highlyConfidential'
 ];
@@ -138,15 +138,16 @@ export default Component.extend({
    * Helper method to update user when an async server update to the
    * security specification is handled.
    * @param {XMLHttpRequest|Promise|jqXHR|*} request the server request
+   * @param {String} [successMessage] optional message for successful response
    */
-  whenRequestCompletes(request) {
+  whenRequestCompletes(request, { successMessage } = {}) {
     Promise.resolve(request)
       .then(({ return_code = 'UNKNOWN' }) => {
         // The server api currently responds with an object containing
         //   a return_code when complete
         return return_code === 200 ?
           setProperties(this, {
-            message: successUpdating,
+            message: successMessage || successUpdating,
             alertType: 'success'
           }) :
           Promise.reject(`Reason code for this is ${return_code}`);
@@ -262,7 +263,10 @@ export default Component.extend({
      * server state
      */
     resetSecuritySpecification() {
-      this.whenRequestCompletes(get(this, 'onReset')());
+      const options = {
+        successMessage: 'Field classification has been reset to the previously saved state.'
+      };
+      this.whenRequestCompletes(get(this, 'onReset')(), options);
     }
   }
 });
