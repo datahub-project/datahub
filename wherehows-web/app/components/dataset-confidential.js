@@ -157,9 +157,9 @@ export default Component.extend({
         let _alertType = 'danger';
 
         if (err.includes(404)) {
-          _message = 'This dataset does not have a ' +
-            'previously saved state for field Security Classification.';
-          _alertType = 'success';
+          _message = 'This dataset does not have any ' +
+            'previously saved fields with a Security Classification.';
+          _alertType = 'info';
         }
 
         setProperties(this, {
