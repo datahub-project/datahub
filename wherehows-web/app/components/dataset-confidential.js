@@ -207,6 +207,14 @@ export default Component.extend({
     return sourceClassification.setObjects([...updatedClassification]);
   },
 
+  /**
+   * Checks that each field in a given source classification has a value
+   *   for the logicalType
+   * @param {Array} sourceClassification
+   */
+  ensureFieldsContainLogicalType: (sourceClassification = []) =>
+    sourceClassification.every(({ logicalType }) => logicalType),
+
   actions: {
     /**
      * Updates the logical type for a field with the provided identifierField
@@ -270,7 +278,19 @@ export default Component.extend({
      * @return {Boolean}
      */
     saveSecuritySpecification() {
-      this.whenRequestCompletes(get(this, 'onSave')());
+      /**
+       * For Each classifier ensure that the fields on the securitySpec
+       *   contain a valid `logicalType` attribute
+       * @type {Boolean}
+       */
+      const classedFieldsHaveLogicalType = classifiers.every(classifier =>
+        this.ensureFieldsContainLogicalType(
+          getWithDefault(this, `${sourceClassificationKey}.${classifier}`, [])
+        ));
+
+      if (classedFieldsHaveLogicalType) {
+        this.whenRequestCompletes(get(this, 'onSave')());
+      }
 
       return false;
     },
