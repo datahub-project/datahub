@@ -7,7 +7,7 @@ export default Ember.Component.extend({
     },
 
     onPrivacyChange() {
-      this.sendAction('onPrivacyChange', 'organisation', ...arguments);
+      this.sendAction('onPrivacyChange', 'organization', ...arguments);
     }
   }
 });
