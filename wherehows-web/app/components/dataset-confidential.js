@@ -31,6 +31,9 @@ const logicalTypes = [
 // TODO: DSS-6671 Extract to constants module
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
+const missingTypes = 'Looks like some fields are marked as `Confidential` or ' +
+  '`Highly Confidential` but do not have a specified `Field Format`?';
+
 /**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
@@ -170,6 +173,17 @@ export default Component.extend({
   },
 
   /**
+   * TODO:DSS-6719 refactor into mixin
+   * Clears recently shown user messages
+   */
+  clearMessages() {
+    return setProperties(this, {
+      _message: '',
+      _alertType: ''
+    });
+  },
+
+  /**
    * Takes an identifierField and a logicalType and updates the field on the
    * classification if it exists. Otherwise this is a no-op
    * @param {String} identifierField
@@ -223,6 +237,8 @@ export default Component.extend({
      * @return {*|String|void}
      */
     updateLogicalType({ identifierField }, { value: logicalType }) {
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
       return this.changeFieldLogicalType(identifierField, logicalType);
     },
     /**
@@ -238,6 +254,9 @@ export default Component.extend({
       //   therefore, using Ember's `path lookup` syntax will not work
       const currentClassLookup = get(this, 'fieldNameToClass');
       const currentClass = currentClassLookup[identifierField];
+
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
       // Since the association from identifierField -> classification is 1-to-1
       //  ensure that we do not currently have this identifierField
       // in any other classification lists by checking that the lookup is void
@@ -290,6 +309,11 @@ export default Component.extend({
 
       if (classedFieldsHaveLogicalType) {
         this.whenRequestCompletes(get(this, 'onSave')());
+      } else {
+        setProperties(this, {
+          _message: missingTypes,
+          _alertType: 'danger'
+        });
       }
 
       return false;
