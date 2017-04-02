@@ -6,8 +6,15 @@ const {
   set,
   get,
   isBlank,
+  setProperties,
   getWithDefault
 } = Ember;
+
+// TODO: DSS-6671 Extract to constants module
+const missingTypes = 'Looks like some fields may contain privacy data ' +
+  'but do not have a specified `Field Format`?';
+const successUpdating = 'Your changes have been successfully saved!';
+const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
 
 const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
 // TODO: DSS-6671 Extract to constants module
@@ -183,7 +190,7 @@ export default Component.extend({
    * @return {Ember.Array|*}
    */
   toggleFieldOnComplianceList(props, identifierType, toggle) {
-    const { identifierField, dataType } = props;
+    const { identifierField, logicalType } = props;
     const sourceEntities = get(this, complianceListKey);
 
     if (!['add', 'remove'].includes(toggle)) {
@@ -195,7 +202,11 @@ export default Component.extend({
         // Ensure that we don't currently have this field present on the
         //  privacyCompliancePolicy.compliancePurgeEntities list
         if (!sourceEntities.findBy('identifierField', identifierField)) {
-          const addPurgeEntity = { identifierField, identifierType, dataType };
+          const addPurgeEntity = {
+            identifierType,
+            identifierField,
+            logicalType
+          };
 
           return sourceEntities.setObjects([addPurgeEntity, ...sourceEntities]);
         }
@@ -223,7 +234,7 @@ export default Component.extend({
    */
   ensureTypeContainsFormat: sourceEntities =>
     sourceEntities.every(entity =>
-      ['MEMBER', 'ORGANIZATION', 'GROUP'].includes(
+      ['member', 'organization', 'group'].includes(
         get(entity, 'identifierType')
       )),
 
@@ -240,6 +251,53 @@ export default Component.extend({
       logicalTypesInUppercase.includes(get(entity, 'logicalType')));
   },
 
+  /**
+   * TODO:DSS-6719 refactor into mixin
+   * Clears recently shown user messages
+   */
+  clearMessages() {
+    return setProperties(this, {
+      _message: '',
+      _alertType: ''
+    });
+  },
+
+  /**
+   * TODO: DSS-6672 Extract to notifications service
+   * Helper method to update user when an async server update to the
+   * security specification is handled.
+   * @param {XMLHttpRequest|Promise|jqXHR|*} request the server request
+   * @param {String} [successMessage] optional _message for successful response
+   */
+  whenRequestCompletes(request, { successMessage } = {}) {
+    Promise.resolve(request)
+      .then(({ return_code = 'UNKNOWN' }) => {
+        // The server api currently responds with an object containing
+        //   a return_code when complete
+        return return_code === 200 ?
+          setProperties(this, {
+            _message: successMessage || successUpdating,
+            _alertType: 'success'
+          }) :
+          Promise.reject(`Reason code for this is ${return_code}`);
+      })
+      .catch((err = '') => {
+        let _message = `${failedUpdating} \n ${err}`;
+        let _alertType = 'danger';
+
+        if (err.includes(404)) {
+          _message = 'This dataset does not have any ' +
+            'previously saved fields with a Security Classification.';
+          _alertType = 'info';
+        }
+
+        setProperties(this, {
+          _message,
+          _alertType
+        });
+      });
+  },
+
   actions: {
     /**
      *
@@ -248,6 +306,8 @@ export default Component.extend({
      * @return {*|String|void} logicalType or void
      */
     onFieldFormatChange({ identifierField }, { value: logicalType }) {
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
       return this.changeFieldLogicalType(identifierField, logicalType);
     },
 
@@ -264,6 +324,9 @@ export default Component.extend({
       const { hasPrivacyData } = props;
       const toggle = !hasPrivacyData ? 'add' : 'remove';
 
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
+
       return this.toggleFieldOnComplianceList(props, identifierType, toggle);
     },
 
@@ -276,6 +339,9 @@ export default Component.extend({
      */
     onMemberFieldSubjectChange(props) {
       const { isSubject, identifierField: name } = props;
+
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
 
       // Ensure that a flag isSubject is present on the props
       if (props && 'isSubject' in props) {
@@ -311,22 +377,31 @@ export default Component.extend({
      * If all validity checks are passed, invoke onSave action on controller
      */
     saveCompliance() {
+      const complianceList = get(this, complianceListKey);
       const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(
-        get(this, complianceListKey)
+        complianceList
       );
       const allEntitiesHaveValidLogicalType = this.ensureTypeContainsLogicalType(
-        get(this, complianceListKey)
+        complianceList
       );
 
       if (allEntitiesHaveValidFormat && allEntitiesHaveValidLogicalType) {
-        return this.get('onSave')();
+        return this.whenRequestCompletes(this.get('onSave')());
+      } else {
+        setProperties(this, {
+          _message: missingTypes,
+          _alertType: 'danger'
+        });
       }
     },
 
     // Rolls back changes made to the compliance spec to current
     // server state
     resetCompliance() {
-      this.get('onReset')();
+      const options = {
+        successMessage: 'Field classification has been reset to the previously saved state.'
+      };
+      this.whenRequestCompletes(get(this, 'onReset')(), options);
     }
   }
 });
