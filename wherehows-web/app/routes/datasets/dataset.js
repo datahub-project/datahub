@@ -314,7 +314,7 @@ export default Route.extend({
 
           return Promise.reject(new Error('Dataset columns request failed.'));
         })
-        .then(columns => columns.map(({dataType, fieldName}) => ({dataType, fieldName})))
+        .then(columns => columns.map(({dataType, fullFieldPath}) => ({dataType, fieldName: fullFieldPath})))
         .then(set.bind(Ember, controller, 'schemaFieldNamesMappedToDataTypes'))
         .catch(() => setProperties(controller, {
             hasSchemas: false,

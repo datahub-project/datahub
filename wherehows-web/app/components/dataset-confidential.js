@@ -15,7 +15,6 @@ const {
 const sourceClassificationKey = 'securitySpecification.classification';
 // TODO: DSS-6671 Extract to constants module
 const classifiers = [
-  'notConfidential',
   'confidential',
   'highlyConfidential'
 ];
@@ -32,6 +31,9 @@ const logicalTypes = [
 // TODO: DSS-6671 Extract to constants module
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
+const missingTypes = 'Looks like some fields are marked as `Confidential` or ' +
+  '`Highly Confidential` but do not have a specified `Field Format`?';
+
 /**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
@@ -47,9 +49,9 @@ export default Component.extend({
   searchTerm: '',
 
   // Map classifiers to options better consumed by  drop down
-  classifiers: classifiers.map(value => ({
+  classifiers: ['', ...classifiers].map(value => ({
     value,
-    label: formatAsCapitalizedStringWithSpaces(value)
+    label: formatAsCapitalizedStringWithSpaces(value || 'notConfidential')
   })),
   // Map logicalTypes to options better consumed by  drop down
   logicalTypes: ['', ...logicalTypes].map(value => {
@@ -110,7 +112,8 @@ export default Component.extend({
         this, 'schemaFieldNamesMappedToDataTypes', []
       ).map(({ fieldName: identifierField, dataType }) => {
         // Get the current classification list
-        const classification = get(this, `fieldNameToClass.${identifierField}`);
+        const currentClassLookup = get(this, 'fieldNameToClass');
+        const classification = currentClassLookup[identifierField];
 
         // If the classification type exists, then find the identifierField, and
         //   assign to field, otherwise null
@@ -170,6 +173,17 @@ export default Component.extend({
   },
 
   /**
+   * TODO:DSS-6719 refactor into mixin
+   * Clears recently shown user messages
+   */
+  clearMessages() {
+    return setProperties(this, {
+      _message: '',
+      _alertType: ''
+    });
+  },
+
+  /**
    * Takes an identifierField and a logicalType and updates the field on the
    * classification if it exists. Otherwise this is a no-op
    * @param {String} identifierField
@@ -177,25 +191,26 @@ export default Component.extend({
    */
   changeFieldLogicalType(identifierField, logicalType) {
     // The current classification name for the candidate identifier
-    const currentClassificationName = get(this, `fieldNameToClass.${identifierField}`);
+    const currentClassLookup = get(this, 'fieldNameToClass');
+    const currentClassificationName = currentClassLookup[identifierField];
     // The current classification list
-    const classification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
+    const sourceClassification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
 
-    if (!Array.isArray(classification)) {
+    if (!Array.isArray(sourceClassification)) {
       throw new Error(`
-      You have specified a classification object that is not a list ${classification}.
-      Ensure that the classification for this identifierField ${identifierField} is
+      You have specified a classification object that is not a list ${sourceClassification}.
+      Ensure that the classification for this identifierField (${identifierField}) is
       set before attempting to change the logicalType.
       `);
     }
 
-    const field = classification.findBy('identifierField', identifierField);
+    const field = sourceClassification.findBy('identifierField', identifierField);
     // Clone. `field` attributes should be scalar, otherwise use a deepClone
     //   algo.
     const localField = Object.assign({}, field, { logicalType });
 
     // Clone the current list without the identifierField to be updated
-    const previousClassification = classification.filter(
+    const previousClassification = sourceClassification.filter(
       ({ identifierField: fieldName }) => fieldName !== identifierField
     );
 
@@ -203,8 +218,16 @@ export default Component.extend({
     const updatedClassification = [localField, ...previousClassification];
 
     // Reset current classification list
-    return classification.setObjects([...updatedClassification]);
+    return sourceClassification.setObjects([...updatedClassification]);
   },
+
+  /**
+   * Checks that each field in a given source classification has a value
+   *   for the logicalType
+   * @param {Array} sourceClassification
+   */
+  ensureFieldsContainLogicalType: (sourceClassification = []) =>
+    sourceClassification.every(({ logicalType }) => logicalType),
 
   actions: {
     /**
@@ -214,6 +237,8 @@ export default Component.extend({
      * @return {*|String|void}
      */
     updateLogicalType({ identifierField }, { value: logicalType }) {
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
       return this.changeFieldLogicalType(identifierField, logicalType);
     },
     /**
@@ -225,7 +250,13 @@ export default Component.extend({
      *   remove the identifierField from
      */
     updateClassification({ identifierField }, { value: classKey }) {
-      const currentClass = get(this, `fieldNameToClass.${identifierField}`);
+      // fieldNames can be paths i.e. identifierField.identifierPath.subPath
+      //   therefore, using Ember's `path lookup` syntax will not work
+      const currentClassLookup = get(this, 'fieldNameToClass');
+      const currentClass = currentClassLookup[identifierField];
+
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
       // Since the association from identifierField -> classification is 1-to-1
       //  ensure that we do not currently have this identifierField
       // in any other classification lists by checking that the lookup is void
@@ -235,8 +266,12 @@ export default Component.extend({
           this,
           `${sourceClassificationKey}.${currentClass}`
         );
+
         // Remove identifierField from list
-        currentClassification.removeObject(identifierField);
+        currentClassification.setObjects(
+          currentClassification.filter(
+            ({ identifierField: fieldName }) => fieldName !== identifierField)
+        );
       }
 
       if (classKey) {
@@ -262,7 +297,24 @@ export default Component.extend({
      * @return {Boolean}
      */
     saveSecuritySpecification() {
-      this.whenRequestCompletes(get(this, 'onSave')());
+      /**
+       * For Each classifier ensure that the fields on the securitySpec
+       *   contain a valid `logicalType` attribute
+       * @type {Boolean}
+       */
+      const classedFieldsHaveLogicalType = classifiers.every(classifier =>
+        this.ensureFieldsContainLogicalType(
+          getWithDefault(this, `${sourceClassificationKey}.${classifier}`, [])
+        ));
+
+      if (classedFieldsHaveLogicalType) {
+        this.whenRequestCompletes(get(this, 'onSave')());
+      } else {
+        setProperties(this, {
+          _message: missingTypes,
+          _alertType: 'danger'
+        });
+      }
 
       return false;
     },
