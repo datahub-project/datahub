@@ -82,15 +82,6 @@ export default Component.extend({
     set(this, '_hasBadData', true);
   },
 
-  // Component ui state transitions based on the userIndicatesDatasetHas map
-  hasUserRespondedToMemberPrompt: computed.notEmpty(
-    'userIndicatesDatasetHas.member'
-  ),
-
-  showOrgPrompt: computed.bool('hasUserRespondedToMemberPrompt'),
-  hasUserRespondedToOrgPrompt: computed.notEmpty('userIndicatesDatasetHas.org'),
-  showGroupPrompt: computed.bool('hasUserRespondedToOrgPrompt'),
-
   // Map logicalTypes to options consumable by ui
   logicalTypes: ['', ...logicalTypes].map(value => ({
     value,
