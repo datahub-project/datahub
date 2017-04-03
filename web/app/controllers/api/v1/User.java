@@ -15,14 +15,24 @@ package controllers.api.v1;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.UserDAO;
+import java.util.List;
+import models.CompanyUser;
+import models.Group;
+import models.UserEntity;
 import org.apache.commons.lang3.StringUtils;
+import play.cache.Cache;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
 import java.util.Map;
 
+
 public class User extends Controller
 {
+    private static final String CACHE_INTERNAL_USERS = "internal.users.cache";
+    private static final String CACHE_INTERNAL_GROUPS = "internal.groups.cache";
+    private static final String CACHE_INTERNAL_ENTITIES = "internal.entities.cache";
+
     public static Result getLoggedInUser()
     {
         ObjectNode result = Json.newObject();
@@ -61,30 +71,39 @@ public class User extends Controller
         return ok(result);
     }
 
-    public static Result getAllCompanyUsers()
-    {
+    public static Result getAllCompanyUsers() {
+        List<CompanyUser> users = (List<CompanyUser>) Cache.get(CACHE_INTERNAL_USERS);
+        if (users == null || users.size() == 0) {
+            users = UserDAO.getAllCompanyUsers();
+            Cache.set(CACHE_INTERNAL_USERS, users, 24 * 3600); // cache for 24 hours
+        }
         ObjectNode result = Json.newObject();
-
         result.put("status", "ok");
-        result.set("employees", Json.toJson(UserDAO.getAllCompanyUsers()));
+        result.set("employees", Json.toJson(users));
         return ok(result);
     }
 
-    public static Result getAllGroups()
-    {
+    public static Result getAllGroups() {
+        List<Group> groups = (List<Group>) Cache.get(CACHE_INTERNAL_GROUPS);
+        if (groups == null || groups.size() == 0) {
+            groups = UserDAO.getAllGroups();
+            Cache.set(CACHE_INTERNAL_GROUPS, groups, 24 * 3600); // cache for 24 hours
+        }
         ObjectNode result = Json.newObject();
-
         result.put("status", "ok");
-        result.set("groups", Json.toJson(UserDAO.getAllGroups()));
+        result.set("groups", Json.toJson(groups));
         return ok(result);
     }
 
-    public static Result getAllUserEntities()
-    {
+    public static Result getAllUserEntities() {
+        List<UserEntity> entities = (List<UserEntity>) Cache.get(CACHE_INTERNAL_ENTITIES);
+        if (entities == null || entities.size() == 0) {
+            entities = UserDAO.getAllUserEntities();
+            Cache.set(CACHE_INTERNAL_ENTITIES, entities, 24 * 3600); // cache for 24 hours
+        }
         ObjectNode result = Json.newObject();
-
         result.put("status", "ok");
-        result.set("userEntities", Json.toJson(UserDAO.getAllUserEntities()));
+        result.set("userEntities", Json.toJson(entities));
         return ok(result);
     }
 }
