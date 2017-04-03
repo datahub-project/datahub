@@ -45,7 +45,7 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"authentication_type FROM users WHERE username = ? and authentication_type = 'default'";
 
 	private final static String GET_ALL_COMPANY_USERS = "SELECT DISTINCT user_id as id, display_name as name " +
-			"FROM dir_external_user_info";
+			"FROM dir_external_user_info WHERE is_active = 'Y' and org_hierarchy_depth > 0 ";
 
 	private final static String GET_ALL_GROUPS = "SELECT DISTINCT group_id as name FROM dir_external_group_user_map " +
 			"WHERE group_id is not null and group_id != ''";
@@ -53,7 +53,8 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_ALL_COMPANY_USERS_AND_GROUPS = "SELECT DISTINCT user_id as id, " +
 			"display_name as name, 'person' as category FROM dir_external_user_info " +
 			"WHERE is_active = 'Y' and org_hierarchy_depth > 1 " +
-			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category FROM dir_external_group_user_map";
+			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category " +
+			"FROM dir_external_group_user_map WHERE group_id > ''";
 
 	private final static String INSERT_USER_LOGIN_HISTORY =
 			"INSERT INTO user_login_history (username, authentication_type, `status`, message) VALUES (?, ?, ?, ?)";
@@ -271,19 +272,14 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 		return message;
 	}
 
-	public static List<CompanyUser> getAllCompanyUsers()
-	{
-		List<CompanyUser> users = new ArrayList<CompanyUser>();
-		List<Map<String, Object>> rows = null;
-		rows = getJdbcTemplate().queryForList(
-				GET_ALL_COMPANY_USERS);
-		if (rows != null)
-		{
+	public static List<CompanyUser> getAllCompanyUsers() {
+		List<CompanyUser> users = new ArrayList<>();
+		List<Map<String, Object>> rows = getJdbcTemplate().queryForList(GET_ALL_COMPANY_USERS);
+		if (rows != null) {
 			for (Map row : rows) {
-				String userName = (String)row.get(UserRowMapper.USER_ID_COLUMN);
-				String displayName = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
-				if (StringUtils.isNotBlank(userName))
-				{
+				String userName = (String) row.get(UserRowMapper.USER_ID_COLUMN);
+				String displayName = (String) row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+				if (StringUtils.isNotBlank(userName)) {
 					CompanyUser user = new CompanyUser();
 					user.userName = userName;
 					user.displayName = displayName;
@@ -294,18 +290,13 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 		return users;
 	}
 
-	public static List<Group> getAllGroups()
-	{
-		List<Group> groups = new ArrayList<Group>();
-		List<Map<String, Object>> rows = null;
-		rows = getJdbcTemplate().queryForList(
-				GET_ALL_GROUPS);
-		if (rows != null)
-		{
+	public static List<Group> getAllGroups() {
+		List<Group> groups = new ArrayList<>();
+		List<Map<String, Object>> rows = getJdbcTemplate().queryForList(GET_ALL_GROUPS);
+		if (rows != null) {
 			for (Map row : rows) {
-				String name = (String)row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
-				if (StringUtils.isNotBlank(name))
-				{
+				String name = (String) row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
+				if (StringUtils.isNotBlank(name)) {
 					Group group = new Group();
 					group.name = name;
 					groups.add(group);
