@@ -79,8 +79,9 @@
       <tr class="dataset-author-row">
         <td class="dataset-author-cell"
             onclick={{action "willEditUserName"
-                             value="currentTarget.classList"}}>
-          <label class="dataset-author-cell__name-tag">
+                             owner}}>
+          <label class={{if (eq owner.source "SCM") ""
+                            "dataset-author-cell__name-tag"}}>
             {{owner.userName}}
           </label>
           {{aupac-typeahead
