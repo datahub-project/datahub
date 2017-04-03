@@ -180,14 +180,22 @@ export default Component.extend({
     /**
      * Handles the user intention to update the owner userName, by
      *   adding a class signifying edit to the DOM td classList.
+     *   Only `owners` in this list who are not sourced from SCM should
+     *   the user be allowed to update / edit.
      *   The click event is handled on the TD which is the parent
      *   of the target label.
-     * @param {DOMTokenList} classList passed in from the HTMLBars template
-     *   currentTarget.classList
+     * @param {String} source source of the currently interactive owner from
+     *   the list
+     * @param {DOMTokenList} classList retrieve the classList from the
+     *   wrapping TD element, which handles the bubbled Mouse click on the
+     *   label
      */
-    willEditUserName(classList) {
-      // Add the className so the input element is visible in the DOM
-      classList.add(userNameEditableClass);
+    willEditUserName({ source = "" }, { currentTarget: { classList } }) {
+      // Add the className cached in `userNameEditableClass`. This renders
+      //   the input element in the DOM, and removes the label from layout
+      if (!source.includes("SCM") && typeof classList.add === 'function') {
+        classList.add(userNameEditableClass);
+      }
     },
 
     /**
