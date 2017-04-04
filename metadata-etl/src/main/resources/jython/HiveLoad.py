@@ -139,7 +139,7 @@ class HiveLoad:
             ) x
             ON s.dataset_id = x.dataset_id
             AND s.field_name = x.field_name
-            AND s.parent_path = x.parent_path
+            AND s.parent_path <=> x.parent_path
           WHERE s.field_name is null
         ; -- run time : ~2min
 
@@ -152,7 +152,7 @@ class HiveLoad:
           from stg_dict_field_detail s
                join dict_field_detail x
            on s.field_name = x.field_name
-          and s.parent_path = x.parent_path
+          and s.parent_path <=> x.parent_path
           and s.dataset_id = x.dataset_id
           where s.db_id = {db_id}
             and (x.sort_id <> s.sort_id
@@ -189,7 +189,7 @@ class HiveLoad:
         JOIN dict_field_detail t
           ON sf.dataset_id = t.dataset_id
          AND sf.field_name = t.field_name
-         AND sf.parent_path = t.parent_path
+         AND sf.parent_path <=> t.parent_path
         WHERE sf.db_id = {db_id}
           and sf.dataset_id IS NOT NULL
         group by 1,2,3
@@ -208,19 +208,38 @@ class HiveLoad:
           and (sf.urn, sf.sort_id, sf.db_id) not in (select urn, sort_id, db_id from t_existed_field)
         ;
 
-        -- delete old record in stagging
+        analyze table dict_field_detail;
+
+        -- delete old record in staging field comment map
         delete from stg_dict_dataset_field_comment where db_id = {db_id};
 
-        -- insert
+        -- insert new field comments
+        insert into field_comments (
+          user_id, comment, created, modified, comment_crc32_checksum
+        )
+        select 0 user_id, description, now() created, now() modified, crc32(description) from
+        (
+          select sf.description
+          from stg_dict_field_detail sf left join field_comments fc
+            on sf.description = fc.comment
+          where sf.description is not null
+            and fc.id is null
+            and sf.db_id = {db_id}
+          group by 1 order by 1
+        ) d;
+
+        analyze table field_comments;
+
+        -- insert field to comment map to staging
         insert ignore into stg_dict_dataset_field_comment
-        select t.field_id field_id, fc.id comment_id,  sf.dataset_id, {db_id}
+        select t.field_id field_id, fc.id comment_id, sf.dataset_id, {db_id}
                 from stg_dict_field_detail sf
                       join field_comments fc
                   on sf.description = fc.comment
                       join dict_field_detail t
                   on sf.dataset_id = t.dataset_id
-                 and sf.field_name = t.field_name
-                 and sf.parent_path = t.parent_path
+                  and sf.field_name = t.field_name
+                  and sf.parent_path <=> t.parent_path
         where sf.db_id = {db_id};
 
         -- have default comment, insert it set default to 0
@@ -238,21 +257,6 @@ class HiveLoad:
          and d.comment_id = sd.comment_id
         where d.comment_id is null
         and sd.db_id = {db_id};
-
-        insert into field_comments (
-          user_id, comment, created, modified, comment_crc32_checksum
-        )
-        select 0 user_id, description, now() created, now() modified, crc32(description) from
-        (
-          select sf.description
-          from stg_dict_field_detail sf left join field_comments fc
-            on sf.description = fc.comment
-          where sf.description is not null
-            and fc.id is null
-            and sf.db_id = {db_id}
-          group by 1 order by 1
-        ) d
-
         """.format(source_file=self.input_field_file, db_id=self.db_id)
 
     self.executeCommands(load_cmd)
