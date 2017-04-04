@@ -189,10 +189,9 @@ class TeradataLoad:
          @dummy
         )
         set
-          data_precision=nullif(@precision,'')
-        , data_scale=nullif(@scale,'')
-        , db_id = {db_id}
-        ;
+          data_precision=nullif(@precision,''), 
+          data_scale=nullif(@scale,''), 
+          db_id = {db_id};
 
         analyze table stg_dict_field_detail;
 
@@ -219,7 +218,7 @@ class TeradataLoad:
             ) x
             ON s.dataset_id = x.dataset_id
             AND s.field_name = x.field_name
-            AND s.parent_path = x.parent_path
+            AND s.parent_path <=> x.parent_path
           WHERE s.field_name is null
         ; -- run time : ~2min
 
@@ -231,9 +230,9 @@ class TeradataLoad:
           select x.field_id, s.*
           from stg_dict_field_detail s
                join dict_field_detail x
-           on s.field_name = x.field_name
-          and coalesce(s.parent_path, '*') = coalesce(x.parent_path, '*')
-          and s.dataset_id = x.dataset_id
+            on s.dataset_id = x.dataset_id
+            and s.field_name = x.field_name
+            and s.parent_path <=> x.parent_path
           where s.db_id = {db_id}
             and (x.sort_id <> s.sort_id
                 or x.parent_sort_id <> s.parent_sort_id
@@ -289,19 +288,36 @@ class TeradataLoad:
 
         analyze table dict_field_detail;
 
-        -- delete old record in stagging
+        -- delete old record in staging field comment map
         delete from stg_dict_dataset_field_comment where db_id = {db_id};
 
-        -- insert
-        insert into stg_dict_dataset_field_comment
-        select t.field_id field_id, fc.id comment_id, sf.dataset_id dataset_id, {db_id}
+        -- insert new field comments
+        insert into field_comments (
+          user_id, comment, created, modified, comment_crc32_checksum
+        )
+        select 0 user_id, description, now() created, now() modified, crc32(description) from
+        (
+          select sf.description
+          from stg_dict_field_detail sf left join field_comments fc
+            on sf.description = fc.comment
+          where sf.description is not null
+            and fc.id is null
+            and sf.db_id = {db_id}
+          group by 1 order by 1
+        ) d;
+
+        analyze table field_comments;
+
+        -- insert field to comment map to staging
+        insert ignore into stg_dict_dataset_field_comment
+        select t.field_id field_id, fc.id comment_id, sf.dataset_id, {db_id}
                 from stg_dict_field_detail sf
                       join field_comments fc
                   on sf.description = fc.comment
                       join dict_field_detail t
                   on sf.dataset_id = t.dataset_id
-                 and sf.field_name = t.field_name
-                 and sf.parent_path = t.parent_path
+                  and sf.field_name = t.field_name
+                  and sf.parent_path <=> t.parent_path
         where sf.db_id = {db_id};
 
         -- have default comment, insert it set default to 0
@@ -310,7 +326,6 @@ class TeradataLoad:
           select field_id from dict_dataset_field_comment
           where field_id in (select field_id from stg_dict_dataset_field_comment)
         and is_default = 1 ) and db_id = {db_id};
-
 
         -- doesn't have this comment before, insert into it and set as default
         insert ignore into dict_dataset_field_comment

@@ -307,7 +307,7 @@ class OracleExtract:
       return None
 
   def trim_newline(self, line):
-    return None if line is None else line.replace('\n', ' ').replace('\r', ' ').encode('ascii', 'ignore')
+    return line.replace('\n', ' ').replace('\r', ' ').strip().encode('ascii', 'ignore') if line else None
 
   def write_csv(self, csv_filename, csv_columns, data_list):
     csvfile = open(csv_filename, 'wb')
