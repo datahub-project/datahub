@@ -1,0 +1,14 @@
+apply from: '../gradle/scripts/ember.gradle'
+
+configurations {
+  assets
+}
+
+task distZip(type: Zip, dependsOn: emberBuild) {
+  baseName 'wherehows-web'
+  from 'dist'
+}
+
+artifacts {
+  assets distZip
+}

@@ -4,7 +4,12 @@ apply from: '../gradle/scripts/play.gradle'
 project.ext.httpPort = 9000
 project.ext.playBinaryBaseName = "wherehows-frontend"
 
+configurations {
+    assets
+}
+
 dependencies{
+    assets project(path: ':wherehows-web', configuration: 'assets')
     play project(':restli-client')
 
     play externalDependency.play_java_ws
@@ -21,4 +26,21 @@ dependencies{
 configurations {
     all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     all*.exclude group: 'log4j', module: 'log4j'
+}
+
+model {
+  components {
+    play {
+      binaries.all { binary ->
+        binary.assets.addAssetDir unzipAssets.destinationDir
+      }
+    }
+  }
+}
+
+task unzipAssets(type: Copy) {
+  into "${buildDir}/assets"
+  from {
+   configurations.assets.collect{ zipTree(it) }
+  }
 }
