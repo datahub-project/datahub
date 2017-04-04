@@ -56,11 +56,11 @@ GET           /api/v1/party/groups                                              
 
 GET           /api/v1/autocomplete/search                                       controllers.api.v1.Search.getSearchAutoComplete()
 
-GET           /api/v2/autocomplete/searchDataset                                controllers.api.v1.Search.getSearchAutoCompleteForDataset()
+GET           /api/v1/autocomplete/searchDataset                                controllers.api.v1.Search.getSearchAutoCompleteForDataset()
 
-GET           /api/v2/autocomplete/searchMetric                                 controllers.api.v1.Search.getSearchAutoCompleteForMetric()
+GET           /api/v1/autocomplete/searchMetric                                 controllers.api.v1.Search.getSearchAutoCompleteForMetric()
 
-GET           /api/v2/autocomplete/searchFlow                                   controllers.api.v1.Search.getSearchAutoCompleteForFlow()
+GET           /api/v1/autocomplete/searchFlow                                   controllers.api.v1.Search.getSearchAutoCompleteForFlow()
 
 GET           /api/v1/list/datasets                                             controllers.api.v1.Dataset.getDatasetListNodes()
 
