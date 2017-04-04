@@ -13,12 +13,12 @@
  */
 package dao;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -31,8 +31,10 @@ import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.libs.ws.*;
-import play.cache.Cache;
 import models.*;
+
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+
 
 public class SearchDAO extends AbstractMySQLOpenSourceDAO
 {
@@ -42,9 +44,9 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 	public static String ELASTICSEARCH_FLOW_URL_KEY = "elasticsearch.flow.url";
 
-	public static String WHEREHOWS_SEARCH_ENGINE__KEY = "search.engine";
+	public static String WHEREHOWS_SEARCH_ENGINE_KEY = "search.engine";
 
-	public final static String SEARCH_DATASET_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_DATASET_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"id, `name`, `schema`, `source`, `urn`, FROM_UNIXTIME(source_modified_time) as modified, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 as rank " +
 			"FROM (SELECT id, `name`, `schema`, `source`, `urn`, source_modified_time, " +
@@ -61,7 +63,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			" AGAINST ('*$keyword* *v_$keyword*' IN BOOLEAN MODE) ) t " +
 			"ORDER BY rank DESC, `name`, `urn` LIMIT ?, ?;";
 
-	public final static String SEARCH_DATASET_BY_SOURCE_WITH_PAGINATION = "SELECt SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_DATASET_BY_SOURCE_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"id, `name`, `schema`, `source`, `urn`, FROM_UNIXTIME(source_modified_time) as modified, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 + rank_05 + rank_06 + rank_07 + rank_08 + rank_09 as rank " +
 			"FROM (SELECT id, `name`, `schema`, `source`, `urn`, source_modified_time, " +
@@ -78,7 +80,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			" AGAINST ('*$keyword* *v_$keyword*' IN BOOLEAN MODE) and source = ? ) t " +
 			"ORDER BY rank desc, `name`, `urn` LIMIT ?, ?;";
 
-	public final static String SEARCH_FLOW_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_FLOW_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"a.app_code, f.app_id, f.flow_id, f.flow_name, f.flow_group, f.flow_path, f.flow_level, " +
 			"rank_01 + rank_02 + rank_03 + rank_04 as rank " +
 			"FROM (SELECT app_id, flow_id, flow_name, flow_group, flow_path, flow_level, " +
@@ -90,7 +92,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN cfg_application a on f.app_id = a.app_id ORDER BY " +
 			"rank DESC, flow_name, app_id, flow_id, flow_group, flow_path LIMIT ?, ?";
 
-	public final static String SEARCH_JOB_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_JOB_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"a.app_code, f.flow_name, f.flow_group, f.flow_path, f.flow_level, " +
 			"j.app_id, j.flow_id, j.job_id, j.job_name, j.job_path, j.job_type, " +
 			"rank_01+rank_02+rank_03+rank_04 as rank " +
@@ -104,7 +106,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN flow f on f.app_id = j.app_id AND f.flow_id = j.flow_id " +
 			"ORDER BY rank DESC, j.job_name, j.app_id, j.flow_id, j.job_id, j.job_path LIMIT ?, ?";
 
-	public final static String SEARCH_METRIC_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_METRIC_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"metric_id, `metric_name`, `metric_description`, `dashboard_name`, `metric_group`, `metric_category`, " +
 			"`metric_sub_category`, `metric_level`, `metric_source_type`, `metric_source`, `metric_source_dataset_id`, " +
 			"`metric_ref_id_type`, `metric_ref_id`, `metric_type`, `metric_grain`, `metric_display_factor`, " +
@@ -143,7 +145,7 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"or `metric_category` like '%$keyword%' or `metric_description` like '%$keyword%' ) m ORDER BY " +
 			"rank DESC, `metric_name`, `metric_category`, `metric_group`, `dashboard_name` LIMIT ?, ?;";
 
-	public final static String SEARCH_DATASET_BY_COMMENTS_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
+	private final static String SEARCH_DATASET_BY_COMMENTS_WITH_PAGINATION = "SELECT SQL_CALC_FOUND_ROWS " +
 			"id, name, source, urn, `schema` FROM dict_dataset WHERE id in " +
 			"(SELECT dataset_id FROM comments WHERE MATCH(text) against ('*$keyword*' in BOOLEAN MODE) ) " +
 			"UNION ALL SELECT id, name, source, urn, `schema` FROM dict_dataset WHERE id in " +
@@ -153,80 +155,60 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"ON ( find_in_set(c.id, fd.comment_ids) or c.id = fd.default_comment_id )) " +
 			"ORDER BY 2 LIMIT ?, ?;";
 
-	public final static String SEARCH_AUTOCOMPLETE_LIST = "searchSource";
-	public final static String SEARCH_AUTOCOMPLETE_LIST_DATASET = "searchSourceDataset";
-	public final static String SEARCH_AUTOCOMPLETE_LIST_METRIC = "searchSourceMetric";
-	public final static String SEARCH_AUTOCOMPLETE_LIST_FLOW = "searchSourceFlow";
+	private final static String GET_DATASET_AUTO_COMPLETE_LIST_NO_LIMIT =
+			"SELECT DISTINCT `name` FROM dict_dataset where `name` like ?";
+	private final static String GET_METRIC_AUTO_COMPLETE_LIST_NO_LIMIT =
+			"SELECT DISTINCT metric_name FROM dict_business_metric where metric_name like ?";
+	private final static String GET_FLOW_AUTO_COMPLETE_LIST_NO_LIMIT =
+			"SELECT DISTINCT flow_name FROM flow where flow_name like ?";
+	private final static String GET_JOB_AUTO_COMPLETE_LIST_NO_LIMIT =
+			"SELECT DISTINCT job_name FROM flow_job where job_name like ?";
 
-	public final static String GET_DATASET_AUTO_COMPLETE_LIST = "SELECT DISTINCT name FROM dict_dataset";
-	public final static String GET_METRIC_AUTO_COMPLETE_LIST = "SELECT DISTINCT metric_name FROM dict_business_metric";
+	private final static String GET_DATASET_AUTO_COMPLETE_LIST =
+			"SELECT DISTINCT `name` FROM dict_dataset where `name` like ? LIMIT ?";
+	private final static String GET_METRIC_AUTO_COMPLETE_LIST =
+			"SELECT DISTINCT metric_name FROM dict_business_metric where metric_name like ? LIMIT ?";
+	private final static String GET_FLOW_AUTO_COMPLETE_LIST =
+			"SELECT DISTINCT flow_name FROM flow where flow_name like ? LIMIT ?";
+	private final static String GET_JOB_AUTO_COMPLETE_LIST =
+			"SELECT DISTINCT job_name FROM flow_job where job_name like ? LIMIT ?";
 
-	public final static String GET_FLOW_AUTO_COMPLETE_LIST = "SELECT DISTINCT flow_name FROM flow";
-	public final static String GET_JOB_AUTO_COMPLETE_LIST = "SELECT DISTINCT job_name FROM flow_job";
 
-	public static List<String> getAutoCompleteList()
-	{
-		List<String> cachedAutoCompleteList = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST);
-		if (cachedAutoCompleteList == null || cachedAutoCompleteList.size() == 0)
-		{
-			List<String> metricList = getJdbcTemplate().queryForList(
-					MetricsDAO.GET_METRIC_AUTO_COMPLETE_LIST,
-					String.class);
-			List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
-			List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
-			List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
-			cachedAutoCompleteList =
-					Stream.concat(Stream.concat(datasetList.stream(), metricList.stream()),
-							Stream.concat(flowList.stream(), jobList.stream())).collect(Collectors.toList());
-			Collections.sort(cachedAutoCompleteList);
-			Cache.set(SEARCH_AUTOCOMPLETE_LIST, cachedAutoCompleteList, 60*60);
-		}
-
-		return cachedAutoCompleteList;
+	public static List<String> getAutoCompleteList(String input, int limit) {
+		List<String> names = new ArrayList<>();
+		names.addAll(getAutoCompleteListDataset(input, limit / 3));
+		names.addAll(getAutoCompleteListMetric(input, limit / 3));
+		names.addAll(getAutoCompleteListFlow(input, limit / 3));
+		return names;
 	}
 
-	public static List<String> getAutoCompleteListForDataset()
-	{
-		List<String> cachedAutoCompleteListForDataset = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST_DATASET);
-		if (cachedAutoCompleteListForDataset == null || cachedAutoCompleteListForDataset.size() == 0)
-		{
-			List<String> datasetList = getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class);
-			cachedAutoCompleteListForDataset = datasetList.stream().collect(Collectors.toList());
-			Collections.sort(cachedAutoCompleteListForDataset);
-			Cache.set(SEARCH_AUTOCOMPLETE_LIST_DATASET, cachedAutoCompleteListForDataset, 60*60);
+	public static List<String> getAutoCompleteListDataset(String input, int limit) {
+		String pattern = isNotBlank(input) ? input + "%" : "%";
+		if (limit <= 0) {
+			return getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern);
 		}
-
-		return cachedAutoCompleteListForDataset;
+		return getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class, pattern, limit);
 	}
 
-	public static List<String> getAutoCompleteListForMetric()
-	{
-		List<String> cachedAutoCompleteListForMetric = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST_METRIC);
-		if (cachedAutoCompleteListForMetric == null || cachedAutoCompleteListForMetric.size() == 0)
-		{
-			List<String> metricList = getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class);
-			cachedAutoCompleteListForMetric = metricList.stream().collect(Collectors.toList());
-			Collections.sort(cachedAutoCompleteListForMetric);
-			Cache.set(SEARCH_AUTOCOMPLETE_LIST_METRIC, cachedAutoCompleteListForMetric, 60*60);
+	public static List<String> getAutoCompleteListFlow(String input, int limit) {
+		String pattern = isNotBlank(input) ? input + "%" : "%";
+		List<String> names = new ArrayList<>();
+		if (limit <= 0) {
+			names.addAll(getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern));
+			names.addAll(getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern));
+		} else {
+			names.addAll(getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class, pattern, limit / 2));
+			names.addAll(getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class, pattern, limit / 2));
 		}
-
-		return cachedAutoCompleteListForMetric;
+		return names;
 	}
 
-	public static List<String> getAutoCompleteListForFlow()
-	{
-		List<String> cachedAutoCompleteListForFlow = (List<String>)Cache.get(SEARCH_AUTOCOMPLETE_LIST_FLOW);
-		if (cachedAutoCompleteListForFlow == null || cachedAutoCompleteListForFlow.size() == 0)
-		{
-			List<String> flowList = getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class);
-			List<String> jobList = getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class);
-			cachedAutoCompleteListForFlow =
-							Stream.concat(flowList.stream(), jobList.stream()).collect(Collectors.toList());
-			Collections.sort(cachedAutoCompleteListForFlow);
-			Cache.set(SEARCH_AUTOCOMPLETE_LIST_FLOW, cachedAutoCompleteListForFlow, 60*60);
+	public static List<String> getAutoCompleteListMetric(String input, int limit) {
+		String pattern = isNotBlank(input) ? input + "%" : "%";
+		if (limit <= 0) {
+			return getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern);
 		}
-
-		return cachedAutoCompleteListForFlow;
+		return getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class, pattern, limit);
 	}
 
 	public static List<String> getSuggestionList(String category, String searchKeyword)
