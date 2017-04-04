@@ -23,7 +23,6 @@ module.exports = function(defaults) {
     'ember-cli-bootstrap-sassy': {
       js: ['dropdown', 'collapse', 'tab']
     },
-
     minifyJS: {
       options: {
         exclude: ['**/vendor.js', 'legacy-app/**']
@@ -128,7 +127,7 @@ module.exports = function(defaults) {
   app.import('bower_components/jquery-treegrid/js/jquery.treegrid.js');
   app.import('bower_components/json-human/src/json.human.js');
   app.import('bower_components/jquery-jsonview/dist/jquery.jsonview.js');
-  app.import('vendor/CsvToMarkdown.js');
+  app.import('bower_components/CsvToMarkdownTable/src/CsvToMarkdown.js');
   app.import('bower_components/marked/marked.min.js');
   app.import('bower_components/ace-builds/src-min/ace.js');
   app.import('bower_components/ace-builds/src-min/theme-github.js');

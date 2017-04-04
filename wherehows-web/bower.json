@@ -15,8 +15,7 @@
     "bootstrap": "3.3.7",
     "font-awesome": "^4.7.0",
     "highcharts": "^5.0.7",
-    "typeahead.js": "~0.11.1",
-    "jsondiffpatch": "^0.2.4"
+    "typeahead.js": "~0.11.1"
   },
   "resolutions": {
     "ember-cli-shims": "0.1.3",
