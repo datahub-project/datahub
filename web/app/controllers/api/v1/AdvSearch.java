@@ -175,7 +175,7 @@ public class AdvSearch extends Controller
             }
         }
         result.put("status", "ok");
-        String searchEngine = Play.application().configuration().getString(SearchDAO.WHEREHOWS_SEARCH_ENGINE__KEY);
+        String searchEngine = Play.application().configuration().getString(SearchDAO.WHEREHOWS_SEARCH_ENGINE_KEY);
 
         if (searchOpt != null && searchOpt.has("category"))
         {
