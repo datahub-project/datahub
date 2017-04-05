@@ -192,9 +192,6 @@ public class Application extends Controller
 
     @BodyParser.Of(BodyParser.Json.class)
     public static Result authenticate() {
-        // Create a new response ObjectNode to return when authenticate
-        //   request is successful
-        ObjectNode response = Json.newObject();
         JsonNode json = request().body().asJson();
         // Extract username and password as String from JsonNode,
         //   null if they are not strings
@@ -224,16 +221,17 @@ public class Application extends Controller
             return badRequest("Invalid credentials");
         }
 
-
         // Adds the username to the session cookie
         session("user", username);
-        // Contruct an ObjectNode with the username and uuid token to be sent with the response
+        // Construct an ObjectNode with the username and uuid token to be sent with the response
         ObjectNode data = Json.newObject();
         data.put("username", username);
         data.put("uuid", uuid);
-        response.put("status", "ok");
-        response.put("data", data);
 
+        // Create a new response ObjectNode to return when authenticate request is successful
+        ObjectNode response = Json.newObject();
+        response.put("status", "ok");
+        response.set("data", data);
         return ok(response);
     }
 
