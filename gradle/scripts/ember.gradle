@@ -36,7 +36,7 @@ task emberServe(type: NodeTask, dependsOn: bowerInstall) {
 
 task emberBuild(type: NodeTask, dependsOn: bowerInstall) {
   script = file('node_modules/ember-cli/bin/ember')
-  args = ['build']
+  args = ['build', '--environment', 'production']
 }
 
 task emberTest(type: NodeTask, dependsOn: bowerInstall) {
