@@ -39,38 +39,42 @@ import javax.naming.directory.SearchResult;
 
 public class AuthenticationManager {
 
-  public static String MASTER_LDAP_URL_KEY = "authentication.ldap.url";
-  public static String MASTER_PRINCIPAL_DOMAIN_KEY = "authentication.principal.domain";
-  public static String LDAP_CONTEXT_FACTORY_CLASS_KEY = "authentication.ldap.context_factory_class";
-  public static String LDAP_SEARCH_BASE_KEY = "authentication.ldap.search.base";
+  private static final String MASTER_LDAP_URL_KEY = "authentication.ldap.url";
+  private static final String MASTER_PRINCIPAL_DOMAIN_KEY = "authentication.principal.domain";
+  private static final String LDAP_CONTEXT_FACTORY_CLASS_KEY = "authentication.ldap.context_factory_class";
+  private static final String LDAP_SEARCH_BASE_KEY = "authentication.ldap.search.base";
 
-  public static String LDAP_DISPLAY_NAME_KEY = "displayName";
-  public static String LDAP_MAIL_KEY = "mail";
-  public static String LDAP_DEPARTMENT_NUMBER_KEY = "departmentNumber";
+  private static final String LDAP_DISPLAY_NAME_KEY = "displayName";
+  private static final String LDAP_MAIL_KEY = "mail";
+  private static final String LDAP_DEPARTMENT_NUMBER_KEY = "departmentNumber";
 
-  public static void authenticateUser(String userName, String password)
-      throws NamingException, SQLException {
+  private static final String contextFactories =
+      Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY);
+  /*  three LDAP properties, each is a '|' separated string of same number of tokens. e.g.
+      Url: "ldaps://ldap1.abc.com:1234|ldap://ldap2.abc.com:5678"
+      Principal Domain: "@abc.com|@abc.cn"
+      Search Base: "ou=Staff Users,dc=abc,dc=com|ou=Staff Users,dc=abc,dc=cn"
+   */
+  private static final String[] ldapUrls =
+      Play.application().configuration().getString(MASTER_LDAP_URL_KEY).split("\\s*\\|\\s*");
+  private static final String[] principalDomains =
+      Play.application().configuration().getString(MASTER_PRINCIPAL_DOMAIN_KEY).split("\\s*\\|\\s*");
+  private static final String[] ldapSearchBase =
+      Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
+
+
+  public static void authenticateUser(String userName, String password) throws NamingException, SQLException {
     if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
       throw new IllegalArgumentException("Username and password can not be blank.");
     }
 
+    // authenticate through WhereHows DB
     if (UserDAO.authenticate(userName, password)) {
       UserDAO.insertLoginHistory(userName, "default", "SUCCESS", null);
       return;
     }
 
-    final String contextFactories = Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY);
-    /*  three LDAP properties, each is a '|' separated string of same number of tokens. e.g.
-        Url: "ldaps://ldap1.abc.com:1234|ldap://ldap2.abc.com:5678"
-        Principal Domain: "@abc.com|@abc.cn"
-        Search Base: "ou=Staff Users,dc=abc,dc=com|ou=Staff Users,dc=abc,dc=cn"
-     */
-    final String[] ldapUrls = Play.application().configuration().getString(MASTER_LDAP_URL_KEY).split("\\s*\\|\\s*");
-    final String[] principalDomains =
-        Play.application().configuration().getString(MASTER_PRINCIPAL_DOMAIN_KEY).split("\\s*\\|\\s*");
-    final String[] ldapSearchBase =
-        Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
-
+    // authenticate through each LDAP servers
     DirContext ctx = null;
     int i;
     for (i = 0; i < ldapUrls.length; i++) {
@@ -84,7 +88,7 @@ public class AuthenticationManager {
         }
         break;
       } catch (NamingException e) {
-        // Logger.error("Ldap authentication failed for user " + userName + " - " + principalDomains[i] + " - " + ldapUrls[i], e);
+        Logger.warn("Ldap authentication failed for: " + userName + " - " + ldapUrls[i], e.toString());
 
         // if exhausted all ldap options and can't authenticate user
         if (i >= ldapUrls.length - 1) {
@@ -114,9 +118,8 @@ public class AuthenticationManager {
     return env;
   }
 
-  public static Map<String, String> getUserAttributes(DirContext ctx, String searchBase, String userName,
-      String principalDomain, String... attributeNames)
-      throws NamingException {
+  private static Map<String, String> getUserAttributes(DirContext ctx, String searchBase, String userName,
+      String principalDomain, String... attributeNames) throws NamingException {
     if (StringUtils.isBlank(userName)) {
       throw new IllegalArgumentException("Username and password can not be blank.");
     }
@@ -131,12 +134,7 @@ public class AuthenticationManager {
 
     NamingEnumeration<? extends SearchResult> searchResult = ctx.search(searchBase, matchAttr, attributeNames);
 
-    if (ctx != null) {
-      ctx.close();
-    }
-
     Map<String, String> result = new HashMap<>();
-
     if (searchResult.hasMore()) {
       NamingEnumeration<? extends Attribute> attributes = searchResult.next().getAttributes().getAll();
 
@@ -151,9 +149,8 @@ public class AuthenticationManager {
     return result;
   }
 
-  public static User getAttributes(DirContext ctx, String searchBase, String userName, String principalDomain)
+  private static User getAttributes(DirContext ctx, String searchBase, String userName, String principalDomain)
       throws NamingException, SQLException {
-
     Map<String, String> userDetailMap =
         getUserAttributes(ctx, searchBase, userName, principalDomain, LDAP_DISPLAY_NAME_KEY, LDAP_MAIL_KEY,
             LDAP_DEPARTMENT_NUMBER_KEY);
