@@ -129,6 +129,7 @@ module.exports = function(defaults) {
   app.import('bower_components/json-human/src/json.human.js');
   app.import('bower_components/jquery-jsonview/dist/jquery.jsonview.js');
   app.import('vendor/CsvToMarkdown.js');
+  app.import('vendor/typeahead.jquery.js');
   app.import('bower_components/marked/marked.min.js');
   app.import('bower_components/ace-builds/src-min/ace.js');
   app.import('bower_components/ace-builds/src-min/theme-github.js');
