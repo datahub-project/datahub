@@ -1,4 +1,5 @@
 import Ember from 'ember';
+import buildUrl from 'wherehows-web/utils/build-url';
 
 const {
   Service,
@@ -6,46 +7,71 @@ const {
   $: { getJSON }
 } = Ember;
 
-const keywordRoutes = routeName => {
-  // These routes are temporary until the platform routes are available
-  const route = {
-    dataset: '/api/v1/autocomplete/search',
-    metric: '/api/v1/autocomplete/search',
-    flow: '/api/v1/autocomplete/search'
-  }[routeName];
+/**
+ * Runtime cache of recently seen typeahead results
+ * @type {Object.<Object>} a hash of urls to results
+ */
+const keywordResultsCache = {};
 
-  return route || '/api/v1/autocomplete/search';
-};
+/**
+ * a reference to to most recent typeahead query
+ * @type {String}
+ */
+let lastSeenQuery = '';
 
-const getKeywordsFor = ({ source = 'all' } = {}) =>
+/**
+ * Map of routeNames to routes
+ * @param {String} routeName name of the route to return
+ * @return {String} route url of the keyword route
+ */
+const keywordRoutes = routeName => ({
+  datasets: '/api/v1/autocomplete/datasets',
+  metrics: '/api/v1/autocomplete/metrics',
+  flows: '/api/v1/autocomplete/flows'
+}[routeName] || '/api/v1/autocomplete/search');
+
+/**
+ * Retrieves the keywords for a given url
+ * @param {String} url the url path to the fetch typeahead keywords from
+ * @return {Promise.<Object|void>}
+ */
+const getKeywordsFor = url =>
   new Promise(resolve => {
-    const cachedKeywords = keywordCache[source];
+    // If we've seen the url for this request in the given session
+    //   there is no need to make a new request. For example when
+    //   a user is backspacing in the search bar
+    const cachedKeywords = keywordResultsCache[String(url)];
     if (!isEmpty(cachedKeywords)) {
       return resolve(cachedKeywords);
     }
 
-    Promise.resolve(getJSON(keywordRoutes(source)))
-      .then(({ source = [] }) => source)
-      .then(keywords => keywordCache[source] = keywords)
-      .then(resolve);
+    getJSON(url)
+      .then(response => {
+        const { status } = response;
+        status === 'ok' && resolve(keywordResultsCache[String(url)] = response);
+      });
   });
 
-const keywordCache = {
-  dataset: [],
-  metric: [],
-  flow: [],
-  all: []
-};
+/**
+ * Curried function that takes a source to filter on and then the queryResolver
+ *   function
+ * @param {('datasets'|'metrics'|'flows')} source filters the keywords results
+ *   on the provided source
+ * @inner {function([String, Function, Function])} a queryResolver
+ *   function
+ */
+const apiResultsFor = (source = 'datasets') => ([query, , asyncResults]) => {
+  const autoCompleteBaseUrl = keywordRoutes(source);
+  const url = buildUrl(autoCompleteBaseUrl, 'input', query);
+  lastSeenQuery = query;
 
-const queryResolver = (query, syncResults, asyncResults) => {
-  const regex = new RegExp(`.*${query}.*`, 'i');
-
-  getKeywordsFor()
-    .then(keywords => keywords.filter(keyword => regex.test(keyword)))
-    .then(asyncResults);
+  getKeywordsFor(url).then(({ source = [], input }) => {
+    if (input === lastSeenQuery) {
+      return source;
+    }
+  }).then(asyncResults);
 };
 
 export default Service.extend({
-  queryResolver,
-  keywordsFor: ({ source = 'all' } = {}) => getKeywordsFor(source)
+  apiResultsFor
 });

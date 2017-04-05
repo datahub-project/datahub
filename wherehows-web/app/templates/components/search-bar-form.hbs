@@ -1,17 +1,28 @@
 <div class="form-group nacho-global-search">
   <div class="input-group">
     <div class="input-group-btn">
-      <button type="button"
-              class="btn btn-default dropdown-toggle nacho-button--large"
-              data-toggle="dropdown"
-              aria-haspopup="true"
-              aria-expanded="false">
-        <span class="caret" aria-label="Advanced Search"></span>
-      </button>
+      <div class="dropdown">
+        <button type="button"
+                class="btn btn-default dropdown-toggle nacho-button--large"
+                data-toggle="dropdown"
+                aria-haspopup="true"
+                aria-expanded="false">
+          <strong class="nacho-global-search__filter">{{currentFilter}}</strong>
+          <span class="caret" aria-label="Filter Search"></span>
+        </button>
 
-      <ul class="dropdown-menu">
-      </ul>
+        <ul class="dropdown-menu">
+          {{#each filterOptions as |filter|}}
+            <li>
+              {{#dynamic-link params=filter}}
+                {{filter.text}}
+              {{/dynamic-link}}
+            </li>
+          {{/each}}
+        </ul>
+      </div>
     </div>
+
 
     <label for="search-input" class="sr-only">Search</label>
 
@@ -19,11 +30,11 @@
       action=(action (mut search))
       autoFocus=true
       allowFreeInput=true
-      source=keywordSource
+      source=(action "onInput")
       async=true
       limit=20
       minLength=3
-      placeholder="Search by keywords... ex. pagekey"
+      placeholder=placeholder
       class="form-control nacho-global-search__text-input"}}
 
     <span class="input-group-btn">
