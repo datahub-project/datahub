@@ -14,65 +14,53 @@
 package dao;
 
 import models.DatasetColumn;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class DatasetColumnRowMapper implements RowMapper<DatasetColumn>
-{
-    public static String FIELD_ID_COLUMN = "field_id";
-    public static String SORT_ID_COLUMN = "sort_id";
-    public static String PARENT_SORT_ID_COLUMN = "parent_sort_id";
-    public static String DATA_TYPE_COLUMN = "data_type";
-    public static String FIELD_NAME_COLUMN = "field_name";
-    public static String COMMENT_COLUMN = "comment";
-    public static String PARTITIONED_COLUMN = "partitioned";
-    public static String COMMENT_COUNT_COLUMN = "comment_count";
-    public static String INDEXED_COLUMN = "indexed";
-    public static String NULLABLE_COLUMN = "nullable";
-    public static String DISTRIBUTED_COLUMN = "distributed";
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+
+
+public class DatasetColumnRowMapper implements RowMapper<DatasetColumn> {
+    private static final String FIELD_ID_COLUMN = "field_id";
+    private static final String SORT_ID_COLUMN = "sort_id";
+    private static final String PARENT_SORT_ID_COLUMN = "parent_sort_id";
+    private static final String DATA_TYPE_COLUMN = "data_type";
+    private static final String FIELD_NAME_COLUMN = "field_name";
+    private static final String PARENT_PATH_COLUMN = "parent_path";
+    private static final String COMMENT_COLUMN = "comment";
+    private static final String PARTITIONED_COLUMN = "partitioned";
+    private static final String COMMENT_COUNT_COLUMN = "comment_count";
+    private static final String INDEXED_COLUMN = "indexed";
+    private static final String NULLABLE_COLUMN = "nullable";
+    private static final String DISTRIBUTED_COLUMN = "distributed";
 
     @Override
-    public DatasetColumn mapRow(ResultSet rs, int rowNum) throws SQLException
-    {
+    public DatasetColumn mapRow(ResultSet rs, int rowNum) throws SQLException {
         Long id = rs.getLong(FIELD_ID_COLUMN);
         int sortID = rs.getInt(SORT_ID_COLUMN);
         int parentSortID = rs.getInt(PARENT_SORT_ID_COLUMN);
         String dataType = rs.getString(DATA_TYPE_COLUMN);
         String fieldName = rs.getString(FIELD_NAME_COLUMN);
+        String parentPath = rs.getString(PARENT_PATH_COLUMN);
+        String fullPath = isNotBlank(parentPath) ? parentPath + "." + fieldName : fieldName;
         String comment = rs.getString(COMMENT_COLUMN);
         String strPartitioned = rs.getString(PARTITIONED_COLUMN);
         Long commentCount = rs.getLong(COMMENT_COUNT_COLUMN);
-        boolean partitioned = false;
-        if (StringUtils.isNotBlank(strPartitioned) && strPartitioned.equalsIgnoreCase("y"))
-        {
-            partitioned = true;
-        }
+        boolean partitioned = isNotBlank(strPartitioned) && strPartitioned.equalsIgnoreCase("y");
         String strIndexed = rs.getString(INDEXED_COLUMN);
-        boolean indexed = false;
-        if (StringUtils.isNotBlank(strIndexed) && strIndexed.equalsIgnoreCase("y"))
-        {
-            indexed = true;
-        }
+        boolean indexed = isNotBlank(strIndexed) && strIndexed.equalsIgnoreCase("y");
         String strNullable = rs.getString(NULLABLE_COLUMN);
-        boolean nullable = false;
-        if (StringUtils.isNotBlank(strNullable) && strNullable.equalsIgnoreCase("y"))
-        {
-            nullable = true;
-        }
+        boolean nullable = isNotBlank(strNullable) && strNullable.equalsIgnoreCase("y");
         String strDistributed = rs.getString(DISTRIBUTED_COLUMN);
-        boolean distributed = false;
-        if (StringUtils.isNotBlank(strDistributed) && strDistributed.equalsIgnoreCase("y"))
-        {
-            distributed = true;
-        }
+        boolean distributed = isNotBlank(strDistributed) && strDistributed.equalsIgnoreCase("y");
         DatasetColumn datasetColumn = new DatasetColumn();
         datasetColumn.id = id;
         datasetColumn.sortID = sortID;
         datasetColumn.parentSortID = parentSortID;
         datasetColumn.fieldName = fieldName;
+        datasetColumn.fullFieldPath = fullPath;
         datasetColumn.dataType = dataType;
         datasetColumn.distributed = distributed;
         datasetColumn.partitioned = partitioned;
@@ -81,8 +69,7 @@ public class DatasetColumnRowMapper implements RowMapper<DatasetColumn>
         datasetColumn.comment = comment;
         datasetColumn.commentCount = commentCount;
         datasetColumn.treeGridClass = "treegrid-" + Integer.toString(datasetColumn.sortID);
-        if (datasetColumn.parentSortID != 0)
-        {
+        if (datasetColumn.parentSortID != 0) {
             datasetColumn.treeGridClass += " treegrid-parent-" + Integer.toString(datasetColumn.parentSortID);
         }
 

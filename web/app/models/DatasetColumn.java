@@ -18,6 +18,7 @@ public class DatasetColumn {
     public int sortID;
     public int parentSortID;
     public String fieldName;
+    public String fullFieldPath;
     public String dataType;
     public String comment;
     public boolean partitioned;

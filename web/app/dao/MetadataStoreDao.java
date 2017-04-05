@@ -43,7 +43,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import models.DatasetColumn;
-import play.Logger;
 import play.Play;
 
 import static wherehows.restli.util.UrnUtil.*;
@@ -119,6 +118,7 @@ public class MetadataStoreDao {
     for (SchemaField field : fields) {
       DatasetColumn col = new DatasetColumn();
       col.fieldName = field.getFieldPath();
+      col.fullFieldPath = field.getFieldPath();
       col.dataType = field.getNativeDataType();
       col.comment = field.getDescription();
       columns.add(col);
