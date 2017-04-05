@@ -91,7 +91,7 @@ class CodeSearchLoad:
             'SCM' n_owner_source, null db_ids,
             IF(r.app_id = 301, 'Y', 'N') is_group,
             'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id,
-            'system' confirmed_by, unix_timestamp(NOW()) confirmed_on
+            null confirmed_by, null confirmed_on
           FROM dict_dataset ds
             JOIN stg_database_scm_map r
                 ON ds.urn LIKE concat(r.database_type, ':///', r.database_name,'/%')
@@ -108,9 +108,7 @@ class CodeSearchLoad:
                         WHEN owner_source LIKE '%SCM%' THEN owner_source ELSE CONCAT(owner_source, ',SCM') END,
         namespace = COALESCE(namespace, n.n_namespace),
         wh_etl_exec_id = n.wh_etl_exec_id,
-        modified_time = unix_timestamp(NOW()),
-        confirmed_by = 'system',
-        confirmed_on = unix_timestamp(NOW());
+        modified_time = unix_timestamp(NOW());
 
         -- reset dataset owner sort id
         UPDATE dataset_owner d
