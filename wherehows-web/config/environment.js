@@ -24,6 +24,20 @@ module.exports = function(environment) {
 
     eyeglass: {
       cssDir: 'assets'
+    },
+
+    // ember-aupac-typeahead is dependent on twitter typeahead
+    //   unfortunately, there are several issues with the library since it's
+    //   also no longer maintained including failing to render async results
+    //   due to incorrectly specified order of operations.
+    //   https://github.com/twitter/typeahead.js/pull/1212
+    //   The PR above had not been merged at the time of this writing.
+    //   Created a PR to fix this in ember-aupac
+    //   https://github.com/aupac/ember-aupac-typeahead/pull/46
+
+    //   This disables the default dep on twitter/typeahead
+    'ember-aupac-typeahead': {
+      includeTypeahead: false
     }
   };
 

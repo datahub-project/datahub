@@ -7,4 +7,15 @@ $height: 40px;
   &__text-input {
     height: $height;
   }
+
+  /**
+   *  Rules for the search bar filter component
+   */
+  &__filter {
+    width: 65px;
+    display: inline-flex;
+    white-space: nowrap;
+    overflow: hidden;
+    justify-content: flex-end;
+  }
 }

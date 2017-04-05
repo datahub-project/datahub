@@ -12,12 +12,12 @@ const {
 export default Service.extend({
   /**
    * Transition to the search route including search keyword as query parameter
-   * @param {Object} args a map of query parameters to values, including keyword
+   * @param {Object} args = {} a map of query parameters to values, including keyword
    * @prop {String|*} args.keyword the string to search for
    * @returns {void|Transition|EmberStates.Transition}
    */
-  showSearchResults(args) {
-    let { keyword } = args;
+  showSearchResults(args = {}) {
+    let { keyword, category } = args;
 
     // Transition to search route only if value is not null or void
     if (!isBlank(keyword)) {
@@ -26,7 +26,7 @@ export default Service.extend({
       keyword = encode(keyword);
 
       return applicationRoute.transitionTo('search', {
-        queryParams: { keyword }
+        queryParams: { keyword, category }
       });
     }
   }
