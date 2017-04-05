@@ -33,12 +33,13 @@ model {
     play {
       binaries.all { binary ->
         binary.assets.addAssetDir unzipAssets.destinationDir
+        binary.assets.builtBy unzipAssets
       }
     }
   }
 }
 
-task unzipAssets(type: Copy) {
+task unzipAssets(type: Copy, dependsOn: configurations.assets) {
   into "${buildDir}/assets"
   from {
    configurations.assets.collect{ zipTree(it) }
