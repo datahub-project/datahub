@@ -17,7 +17,7 @@ module.exports = function(defaults) {
     },
 
     fingerprint: {
-      enabled: false
+      enabled: true
     },
 
     'ember-cli-bootstrap-sassy': {
