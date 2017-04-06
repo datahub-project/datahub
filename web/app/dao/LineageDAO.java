@@ -148,6 +148,10 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_OBJECT_NAME_BY_MAPPED_NAME = "SELECT object_name " +
 			"FROM cfg_object_name_map WHERE mapped_object_name = ?";
 
+	private final static String GET_SCRIPT_INFO_BY_JOB_ID = "SELECT script_url, " +
+			"script_name, script_path, script_type " +
+			"FROM job_execution_script WHERE app_id = ? and job_id = ? LIMIT 1";
+
 
 	public static JsonNode getObjectAdjacnet(String urn, int upLevel, int downLevel, int lookBackTime)
 	{
@@ -498,6 +502,25 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		return results;
 	}
 
+	public static ScriptInfo getScriptInfo(int appId, Long jobId)
+	{
+		List<Map<String, Object>> rows = null;
+		ScriptInfo scriptInfo = new ScriptInfo();
+		rows = getJdbcTemplate().queryForList(GET_SCRIPT_INFO_BY_JOB_ID, appId, jobId);
+		if (rows != null)
+		{
+			for (Map row : rows)
+			{
+				scriptInfo.gitPath = (String)row.get("script_url");
+				scriptInfo.scriptName = (String)row.get("script_name");
+				scriptInfo.scriptPath = (String)row.get("script_path");
+				scriptInfo.scriptType = (String)row.get("script_type");
+				break;
+			}
+		}
+		return scriptInfo;
+	}
+
 	public static void getNodes(
 			LineagePathInfo pathInfo,
 			int level,
@@ -584,7 +607,14 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				node.job_name = (String) row.get("job_name");
 				node.job_path = (String) row.get("flow_path") + "/" + node.job_name;
 				node.exec_id = jobExecId;
+				node.application_id = (Integer)row.get("app_id");
+				node.job_id = (Long)row.get("job_id");
 				node.operation = (String) row.get("operation");
+				ScriptInfo scriptInfo = getScriptInfo(node.application_id, node.job_id);
+				node.git_location = scriptInfo.gitPath;
+				node.script_name = scriptInfo.scriptName;
+				node.script_path = scriptInfo.scriptPath;
+				node.script_type = scriptInfo.scriptType;
 				node.source_target_type = (String) row.get("source_target_type");
 				node.level = level;
 				node._sort_list.add("cluster");
@@ -593,7 +623,11 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				node._sort_list.add("job_type");
 				node._sort_list.add("job_start_time");
 				node._sort_list.add("job_end_time");
+				node._sort_list.add("script_name");
+				node._sort_list.add("script_path");
+				node._sort_list.add("script_type");
 				node._sort_list.add("exec_id");
+				node._sort_list.add("job_id");
 				addedJobNodes.put(jobExecId, node);
 				List<LineageNode> sourceNodeList = new ArrayList<LineageNode>();
 				List<LineageNode> targetNodeList = new ArrayList<LineageNode>();
@@ -916,6 +950,11 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 					node.pre_jobs = (String)row.get("pre_jobs");
 					node.post_jobs = (String)row.get("post_jobs");
 					node.job_id = (Long)row.get("job_id");
+					ScriptInfo scriptInfo = getScriptInfo(node.application_id, node.job_id);
+					node.git_location = scriptInfo.gitPath;
+					node.script_name = scriptInfo.scriptName;
+					node.script_path = scriptInfo.scriptPath;
+					node.script_type = scriptInfo.scriptType;
 					node.job_start_time = row.get("start_time").toString();
 					node.job_end_time = row.get("end_time").toString();
 					node.exec_id = jobExecId;
@@ -923,8 +962,12 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 					node._sort_list.add("job_path");
 					node._sort_list.add("job_name");
 					node._sort_list.add("job_type");
+					node._sort_list.add("job_id");
 					node._sort_list.add("job_start_time");
 					node._sort_list.add("job_end_time");
+					node._sort_list.add("script_name");
+					node._sort_list.add("script_path");
+					node._sort_list.add("script_type");
 					Integer id = addedJobNodes.get(jobExecId);
 					if (id == null)
 					{

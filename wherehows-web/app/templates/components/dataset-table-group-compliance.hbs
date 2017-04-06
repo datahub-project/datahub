@@ -1,0 +1,55 @@
+{{#dataset-table fields=fields
+                 sortColumnWithName=sortColumnWithName
+                 filterBy=filterBy
+                 sortDirection=sortDirection
+                 searchTerm=searchTerm as |table|}}
+  <caption>
+    <input
+      type="text"
+      title="Filter fields"
+      placeholder="Filter fields"
+      value="{{table.searchTerm}}"
+      oninput={{action table.filterDidChange value="target.value"}}>
+  </caption>
+  {{#table.head as |head|}}
+    {{#head.column columnName="identifierField"}}Field{{/head.column}}
+    {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+    {{#head.column}}Group Identifier?{{/head.column}}
+    {{#head.column}}Field Format{{/head.column}}
+  {{/table.head}}
+  {{#table.body as |body|}}
+    {{#each
+      (slice table.beginOffset table.endOffset (sort-by table.sortBy table.data)) as |field|}}
+      {{#body.row as |row|}}
+        {{#row.cell}}
+          {{field.identifierField}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{field.dataType}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{input type="checkbox" checked=field.hasPrivacyData change=(action "onPrivacyChange" field)}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{ember-selector values=fieldFormats
+                           disabled=(not field.hasPrivacyData)
+                           selected=field.logicalType
+                           selectionDidChange=(action "onFormatChange" field)}}
+        {{/row.cell}}
+      {{/body.row}}
+    {{/each}}
+  {{/table.body}}
+  {{#table.foot}}
+    {{dataset-table-pager
+      data=table.data
+      page=table.page
+      limit=table.limit
+      pageLengths=table.pageLengths
+      beginOffset=table.beginOffset
+      endOffset=table.endOffset
+      onLimitChanged=table.onLimitChanged
+      onPageChanged=table.onPageChanged
+      pagerSpan=foot.pagerSpan
+      pagerColSpan=4}}
+  {{/table.foot}}
+{{/dataset-table}}

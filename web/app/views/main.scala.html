@@ -1,4 +1,4 @@
-@(user: String, csrfToken: String)(content: Html)
+@(user: String, csrfToken: String, isInternal: Boolean, piwikSiteId: Integer)(content: Html)
 @import helper._
 
 <!DOCTYPE html>
@@ -65,6 +65,13 @@
 								<span>Datasets</span>
 							</a>
 						</li>
+						@if(isInternal) {
+							<li id="metriclink">
+								<a href="/#/metrics/page/1">
+									<span>Metrics</span>
+								</a>
+							</li>
+						}
 						<li id="flowlink">
 							<a href="/#/flows/page/1">
 								<span>Flows</span>
@@ -82,6 +89,22 @@
 								<i class="fa fa-angle-down"></i>
 							</a>
 							<ul class="dropdown-menu" role="menu">
+								@if(isInternal) {
+									<li>
+										<a href="/metadata">
+											<span>
+												Metadata Dashboard
+											</span>
+										</a>
+									</li>
+									<li>
+										<a href="/scriptFinder">
+											<span>
+												Script Finder
+											</span>
+										</a>
+									</li>
+								}
 								<li>
 									<a href="/schemaHistory">
 										<span>
@@ -89,6 +112,15 @@
 										</span>
 									</a>
 								</li>
+								@if(isInternal) {
+									<li>
+										<a href="/idpc">
+											<span>
+												IDPC
+											</span>
+										</a>
+									</li>
+								}
 							</ul>
 						</li>
 					</ul>
@@ -114,11 +146,9 @@
 							        <li id="categoryComments" >
 							            <a href="#" class="searchCategory">Comments</a>
 							        </li>
-							        <!--
-									<li id="categoryMetrics" >
+							        <li id="categoryMetrics" >
 							            <a href="#" class="searchCategory">Metrics</a>
 							        </li>
-							        -->
 							        <li id="categoryFlows" >
 							            <a href="#" class="searchCategory">Flows</a>
 							        </li>
@@ -246,6 +276,7 @@
 					<div class="modal-body advSearch">
 						<ul id="advsearchtabs" class="nav nav-tabs">
 							<li id="datasetAdvSearchLink"><a data-toggle="tab" href="#datasetAdvTab">Datasets</a></li>
+							<li><a data-toggle="tab" href="#metricAdvtab">Metrics</a></li>
 							<li><a data-toggle="tab" href="#flowAdvtab">Flows</a></li>
 						</ul>
 						<div class="tab-content">
@@ -392,6 +423,154 @@
 									</div>
 									<div id="advSearchSource" class="col-md-2">
 										<h4>Sources</h4>
+									</div>
+								</div>
+							</div>
+							<div id="metricAdvtab" class="tab-pane">
+								<div class="row">
+									<div class="col-md-12 rightPartialBorder">
+										<div class="row">
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Dashboard Name</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="dashInInput"
+																class="dashInput"
+																placeholder="<dashboard1>, <dashboard2>"
+																title="Dashboard Name"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="dashNotInInput"
+																class="dashInput"
+																placeholder="<dashboard_to_exclude>"
+																title="Dashboard Name"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Group</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="groupInInput"
+																class="groupInput"
+																placeholder="<group1>, <group2>"
+																title="Metric Group"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="groupNotInInput"
+																class="groupInput"
+																placeholder="<group_to_exclude>"
+																title="Metric Group"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Category</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="categoryInInput"
+																class="categoryInput"
+																placeholder="<category1>, <category2>"
+																title="Metric Category"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="categoryNotInInput"
+																class="categoryInput"
+																placeholder="<category_to_exclude>"
+																title="Metric Category"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+											<div class="col-md-12">
+												<div class="control-group col-md-12">
+													<label class="control-label">Metric Name</label>
+													<div class="controls">
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="metricnameInInput"
+																class="metricnameInput"
+																placeholder="<metric1>, <metric2>"
+																title="Metric"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+														<div class="row">
+															<div class="col-xs-3 text-right">
+																Not In
+															</div>
+															<div class="col-xs-9">
+																<input
+																id="metricnameNotInInput"
+																class="metricnameInput"
+																placeholder="<metric_to_exclude>"
+																title="Metric"
+																style="width: 100%;">
+																</input>
+															</div>
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -836,7 +1015,13 @@
         </div><!-- /.modal-dialog -->
       </div><!-- /.modal -->
     </script>
+        <script type="text/x-handlebars" id="components/drop-region">
+            {{yield}}
+        </script>
 
+        <script type="text/x-handlebars" id="components/draggable-item">
+            {{yield}}
+        </script>
 		<script type="text/x-handlebars" id="components/dataset-relations">
       {{#if hasDepends}}
 			<table id="depends-table" class="columntreegrid tree table table-bordered dataset-detail-table">
@@ -969,8 +1154,7 @@
 					</div>
 					<div class="col-xs-12">
             Metric Description:
-						<a
-						href="#"
+						<p
 						data-name="description"
 						data-pk="{{model.id}}"
 						class="xeditable"
@@ -981,7 +1165,7 @@
 						data-placeholder="Please Input"
 						>
               {{model.description}}
-						</a>
+						</p>
 					</div>
 				</div>
 				<table class="tree table table-bordered">
@@ -1008,73 +1192,65 @@
 						<tr class="result">
 							<td>Metric Category</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="category"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
 								data-placement="right"
 								data-title="Enter metric category"
-								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.category}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Group</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="group"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter group"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.group}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Type</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="refIDType"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
 								data-placement="right"
 								data-title="Enter Type"
-								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.refIDType}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Grain</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="grain"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter grain"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.grain}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
@@ -1086,97 +1262,284 @@
 						<tr class="result">
 							<td>Metric Display Factor</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="displayFactory"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter display factor"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.displayFactory}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Display Factor Sym</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="displayFactorSym"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter display factor symbol"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.displayFactorSym}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Sub Category</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="subCategory"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter sub category"
 								data-placement="right"
 								data-emptytext="Please Input"
 								>
                   {{model.subCategory}}
-								</a>
+								</p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Source</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="source"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter source"
 								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.source}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 						<tr class="result">
 							<td>Metric Source Type</td>
 							<td>
-								<a
-								href="#"
+								<p
 								data-name="sourceType"
 								data-pk="{{model.id}}"
 								class="xeditable"
 								data-type="text"
-								data-placement="right"
 								data-title="Enter source type"
 								data-placement="right"
 								data-emptytext="Please Input"
 								data-value={{model.sourceType}}
 								>
-                </a>
+                </p>
 							</td>
 						</tr>
 					</tbody>
 				</table>
 			</div>
 		</script>
+
+        <script type="text/x-handlebars" id="components/dataset-compliance">
+            <div id="compliance" class="tab-body">
+                {{#if privacyCompliancePolicy}}
+                    {{#if isNewPrivacyCompliancePolicy}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Privacy Compliance Policy".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
+                    <label class="lbl">
+                        <span class="lbl__text">Compliance Type</span>
+                        {{#ember-selector values=complianceTypes
+                                          selected=complianceType
+                                          selectionDidChange="updateComplianceType"}}
+                        {{/ember-selector}}
+                    </label>
+
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="compliance-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
+                    <section class="typeahead-matches">
+                        {{#each matchingFields as |matchingField|}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
+                                <span class="match-pill__value">{{matchingField.value}}</span>
+                                {{#if matchingField.dataType}}
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
+                                {{/if}}
+                            {{/draggable-item}}
+                        {{else}}
+                            <span class="classification-list-help">No results found.</span>
+                        {{/each}}
+                    </section>
+                    <section class="drop-bucket panel panel-default">
+                        <div class="panel-heading">
+                            <h4>Purgeable Ids</h4>
+                            <sub>Add items by dragging to relevant cells below</sub>
+                        </div>
+                        <table class="table table-bordered">
+                            <tbody>
+                            {{#each purgeEntities as |purgeableId|}}
+                                <tr>
+                                    <th>{{purgeableId.label}}</th>
+                                    <td class="drop-bucket__td">
+                                        {{#drop-region dropped="addPurgeId" param=purgeableId.identifierType}}
+                                            {{#if purgeableId.identifierField}}
+                                                <ul class="drop-bucket__ul">
+                                                    {{#each purgeableId.identifierField as |field|}}
+                                                        {{#if field}}
+                                                            <li class="draggable__item">
+                                                                {{field}}
+                                                                <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                                                                    {{action 'removePurgeId' field
+                                                                             purgeableId.identifierType
+                                                                             on='click'}}></i>
+                                                            </li>
+                                                        {{/if}}
+                                                    {{/each}}
+                                                </ul>
+                                            {{else}}
+                                                <span class="classification-list-help">Drag relevant search result items here...</span>
+                                            {{/if}}
+                                        {{/drop-region}}
+                                    </td>
+                                </tr>
+                            {{/each}}
+                            </tbody>
+                        </table>
+                    </section>
+                    <div class="cta">
+                        <button class="btn btn-primary" {{action 'saveCompliance'}}>
+                            {{if isNewPrivacyCompliancePolicy 'Create' 'Save'}}
+                        </button>
+                        <button class="btn btn-default" {{action 'resetCompliance'}}>Reset</button>
+                    </div>
+                {{else}}
+                    <h3>An error occurred: Privacy Compliance Policy is not available.</h3>
+                {{/if}}
+            </div>
+        </script>
+
+        <script type="text/x-handlebars" id="components/dataset-confidential">
+            <div id="confidential" class="tab-body">
+                {{#if securitySpecification}}
+                    {{#if isNewSecuritySpecification}}
+                        <h5 class="bg-info tab_head">
+                            This dataset does not have an associated "Security Specification".<br>
+                            To create one update fields as required and click the "Create" button below.
+                        </h5>
+                    {{/if}}
+                    <label class="lbl">
+                        <span class="lbl__text">Retention</span>
+                        {{#ember-selector values=retentionTypes
+                                          selection=retention
+                                          selectionDidChange="updateRetentionType"}}
+                        {{/ember-selector}}
+                    </label>
+                    <label class="lbl">
+                        <span class="lbl__text">Geographic Affinity</span>
+                        {{#ember-selector values=affinityTypes
+                                          selection=geographicAffinity
+                                          selectionDidChange="updateGeographicAffinity"}}
+                        {{/ember-selector}}
+                    </label>
+                    <label class="lbl">
+                        <span class="lbl__text">Record Owner Type</span>
+                        {{#ember-selector values=recordOwnerTypes
+                                          selection=recordOwnerType
+                                          selectionDidChange="updateRecordOwnerType"}}
+                        {{/ember-selector}}
+                    </label>
+
+                    <header class="typeahead-header">
+                        <div class="field-names">
+                            <h4>Field Names</h4>
+                            <input type="text"
+                                   id="confidential-typeahead"
+                                   class="field-search__input form-control"
+                                   placeholder="Filter field names...">
+                        </div>
+                        <h4>Data Type</h4>
+                    </header>
+                    <section class="typeahead-matches">
+                        {{#each matchingFields as |matchingField|}}
+                            {{#draggable-item content=matchingField.value class="draggable__item item-source"}}
+                                <span class="match-pill__value">{{matchingField.value}}</span>
+                                {{#if matchingField.dataType}}
+                                    <span class="match-pill__data-type">{{matchingField.dataType}}</span>
+                                {{/if}}
+                            {{/draggable-item}}
+                        {{else}}
+                            <span class="classification-list-help">No results found.</span>
+                        {{/each}}
+                    </section>
+                    <section class="drop-bucket panel panel-default">
+                        <!-- TODO: Refactor as component -->
+                        <div class="panel-heading">
+                            <h4>Confidential Classification</h4>
+                            <sub>Add items by dragging to relevant cells below</sub>
+                        </div>
+                        <table class="table table-bordered">
+                            <tbody>
+                            {{#each classification as |classifier|}}
+                                <tr>
+                                    <th>{{classifier.label}}</th>
+                                    <td class="drop-bucket__td">
+                                        {{#drop-region dropped="addToClassification" param=classifier.key}}
+                                            {{#if classifier.values}}
+                                                <ul class="drop-bucket__ul">
+                                                    {{#each classifier.values as |value|}}
+                                                        {{#if value}}
+                                                            <li class="draggable__item">
+                                                                {{value}}
+                                                                <i class="glyphicon glyphicon-remove" aria-hidden="true"
+                                                                    {{action "removeFromClassification" value
+                                                                             classifier.key
+                                                                             on='click'}}></i>
+                                                            </li>
+                                                        {{/if}}
+                                                    {{/each}}
+                                                </ul>
+                                            {{else}}
+                                                <span class="classification-list-help">Drag relevant search result items here...</span>
+                                            {{/if}}
+                                        {{/drop-region}}
+                                    </td>
+                                </tr>
+                            {{/each}}
+                            </tbody>
+                        </table>
+                    </section>
+                    <div class="cta">
+                        {{#if isApproved}}<!-- TODO: not yet implemented on BE -->
+                            <button class="btn btn-primary" {{action 'disapproveSecuritySpecification'}}>
+                                Remove Approval
+                            </button>
+                        {{else}}
+                            <button class="btn btn-primary" {{action 'approveSecuritySpecification'}}>Approve</button>
+                        {{/if}}
+
+                        <button class="btn btn-primary" {{action 'saveSecuritySpecification'}}>
+                            {{if isNewSecuritySpecification 'Create' 'Save'}}
+                        </button>
+                        <button class="btn btn-default" {{action 'resetSecuritySpecification'}}>Reset</button>
+                    </div>
+                {{else}}
+                    <h3>An error occurred: Security Specification is not available.</h3>
+                {{/if}}
+            </div>
+        </script>
 
     <script type="text/x-handlebars" id="components/schema-comment">
       <i
@@ -1573,21 +1936,29 @@
       {{/if}}
     </script>
 
-		<!-- Piwik -->
-		<script type="text/javascript">
-				var _paq = _paq || [];
-				_paq.push(['trackPageView']);
-				_paq.push(['enableLinkTracking']);
-				(function() {
-					var u="//piwik.corp.linkedin.com/piwik/";
-					_paq.push(['setTrackerUrl', u+'piwik.php']);
-					_paq.push(['setSiteId', 93]);
-					var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-					g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'piwik.js'; s.parentNode.insertBefore(g,s);
-				})();
-		</script>
-		<noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=94" style="border:0;" alt="" /></p></noscript>
-		<!-- End Piwik Code -->
+            <!-- Piwik -->
+        <script type="text/javascript">
+        var _paq = _paq || [];
 
-  </body>
+        @if(user) {
+        // Sets user name for user tracking on Piwik once logged in
+        _paq.push(['setUserId', '@user']);
+        }
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function () {
+            var u = "//piwik.corp.linkedin.com/piwik/";
+            _paq.push(['setTrackerUrl', u + 'piwik.php']);
+            _paq.push(['setSiteId', @piwikSiteId]);
+            var d = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+            g.type = 'text/javascript';
+            g.async = true;
+            g.defer = true;
+            g.src = u + 'piwik.js';
+            s.parentNode.insertBefore(g, s);
+        })();
+        </script>
+        <noscript><p><img src="//piwik.corp.linkedin.com/piwik/piwik.php?idsite=@piwikSiteId" style="border: 0;" alt="" /></p></noscript>
+            <!-- End Piwik Code -->
+	</body>
 </html>

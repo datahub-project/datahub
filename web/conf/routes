@@ -21,6 +21,10 @@ GET     /tree/:name                         controllers.Application.loadTree(nam
 
 GET     /tree/flow/:app                     controllers.Application.loadFlowProjects(app:String)
 
+GET     /tree/metric/:dashboard             controllers.Application.loadMetricGroups(dashboard:String)
+
+GET     /tree/metric/:dashboard/:group      controllers.Application.loadMetricNodes(dashboard:String, group:String)
+
 GET     /tree/flow/:app/:project            controllers.Application.loadFlowNodes(app:String, project:String)
 
 GET     /lineage                                    controllers.Application.lineage()
@@ -31,9 +35,15 @@ GET     /lineage/metric/:id                         controllers.Application.metr
 
 GET     /lineage/flow/:application/:project/:flow   controllers.Application.flowLineage(application: String, project: String, flow: String)
 
-GET     /schemaHistory                              controllers.Application.schemaHistory()
+GET     /metadata                           controllers.Application.dashboard()
+
+GET     /scriptFinder                       controllers.Application.scriptFinder()
+
+GET     /schemaHistory                      controllers.Application.schemaHistory()
 
 GET     /api/v1/owner/types                 controllers.api.v1.Dataset.getDatasetOwnerTypes()
+
+GET     /idpc                               controllers.Application.idpc()
 
 GET     /api/v1/party/entities              controllers.api.v1.User.getAllUserEntities()
 
@@ -51,11 +61,19 @@ GET     /api/v2/autocomplete/searchFlow         controllers.api.v1.Search.getSea
 
 GET     /api/v1/list/datasets               controllers.api.v1.Dataset.getDatasetListNodes()
 
+GET     /api/v1/list/metrics                controllers.api.v1.Metric.getMetricListViewDashboards()
+
+GET     /api/v1/list/metrics/:dashboard             controllers.api.v1.Metric.getMetricListViewGroups(dashboard: String)
+
+GET     /api/v1/list/metrics/:dashboard/:group      controllers.api.v1.Metric.getMetricListViewNodes(dashboard: String, group: String)
+
+GET     /api/v1/list/metric/:id             controllers.api.v1.Metric.getMetricListViewByMetricId(id: Int)
+
 GET     /api/v1/list/flows                  controllers.api.v1.Flow.getFlowListViewClusters()
 
 GET     /api/v1/list/flows/:application     controllers.api.v1.Flow.getFlowListViewProjects(application:String)
 
-GET     /api/v1/list/flows/:application/:project      controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
+GET     /api/v1/list/flows/:application/:project    controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
 
 GET     /api/v1/datasets                    controllers.api.v1.Dataset.getPagedDatasets()
 
@@ -135,6 +153,8 @@ POST    /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.f
 
 DELETE  /api/v1/datasets/:id/favorite               controllers.api.v1.Dataset.unfavoriteDataset(id:Int)
 
+GET     /api/v1/ownership/datasets/:userId          controllers.api.v1.Dataset.getDatasetOwnedBy(userId: String)
+
 POST    /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.ownDataset(id:Int)
 
 DELETE  /api/v1/datasets/:id/own                    controllers.api.v1.Dataset.unownDataset(id:Int)
@@ -177,6 +197,14 @@ GET     /api/v1/advsearch/flowNames                 controllers.api.v1.AdvSearch
 
 GET     /api/v1/advsearch/jobNames                  controllers.api.v1.AdvSearch.getJobNames()
 
+GET     /api/v1/advsearch/dashboards                controllers.api.v1.AdvSearch.getDashboardNames()
+
+GET     /api/v1/advsearch/metricGroups              controllers.api.v1.AdvSearch.getMetricGroups()
+
+GET     /api/v1/advsearch/metricCategories          controllers.api.v1.AdvSearch.getMetricCategories()
+
+GET     /api/v1/advsearch/metricNames               controllers.api.v1.AdvSearch.getMetricNames()
+
 GET     /api/v1/advsearch/search                    controllers.api.v1.AdvSearch.search()
 
 GET     /api/v1/lineage/dataset/:id                 controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)
@@ -185,7 +213,41 @@ GET     /api/v1/lineage/flow/:application/:project/:flowId   controllers.api.v1.
 
 GET     /api/v1/schemaHistory/datasets              controllers.api.v1.SchemaHistory.getPagedDatasets()
 
+GET     /api/v1/jira/ldapinfo                       controllers.api.v1.Jira.getLdapInfo()
+
+GET     /api/v1/jira/members/:managerId             controllers.api.v1.Jira.getFirstLevelLdapInfo(managerId :String)
+
+GET     /api/v1/metadata/dashboard/ownership/:managerId         controllers.api.v1.Dashboard.getOwnershipDatasetsPercentage(managerId: String)
+
+GET     /api/v1/metadata/dashboard/confidential/:managerId      controllers.api.v1.Dashboard.getConfidentialDatasetsPercentage(managerId: String)
+
+GET     /api/v1/metadata/dashboard/description/:managerId       controllers.api.v1.Dashboard.getDescriptionDatasetsPercentage(managerId: String)
+
+GET     /api/v1/metadata/dashboard/compliance/:managerId        controllers.api.v1.Dashboard.getIdpcComplianceDatasetsPercentage(managerId: String)
+
+GET     /api/v1/metadata/dataset/ownership/:managerId           controllers.api.v1.Dashboard.getPagedOwnershipDatasets(managerId: String)
+
+GET     /api/v1/metadata/dataset/confidential/:managerId        controllers.api.v1.Dashboard.getPagedConfidentialDatasets(managerId: String)
+
+GET     /api/v1/metadata/dataset/description/:managerId         controllers.api.v1.Dashboard.getPagedDescriptionDatasets(managerId: String)
+
+GET     /api/v1/metadata/dataset/compliance/:managerId          controllers.api.v1.Dashboard.getPagedComplianceDatasets(managerId: String)
+
+GET     /api/v1/metadata/barchart/ownership/:managerId          controllers.api.v1.Dashboard.getOwnershipBarData(managerId: String)
+
+GET     /api/v1/metadata/barchart/description/:managerId        controllers.api.v1.Dashboard.getDescriptionBarData(managerId: String)
+
+GET     /api/v1/scriptFinder/scripts                controllers.api.v1.ScriptFinder.getScripts()
+
+GET     /api/v1/scriptFinder/scripts/types          controllers.api.v1.ScriptFinder.getAllScriptTypes()
+
+GET     /api/v1/scriptFinder/scripts/runtime/:applicationID/:jobID controllers.api.v1.ScriptFinder.getScriptRuntimeByJobID(applicationID: Int, jobID: Int)
+
+GET     /api/v1/scriptFinder/scripts/lineage/:applicationID/:jobID controllers.api.v1.ScriptFinder.getScriptLineageByJobID(applicationID: Int, jobID: Int)
+
 GET     /api/v1/schemaHistory/historyData/:id       controllers.api.v1.SchemaHistory.getSchemaHistory(id: Int)
+
+GET     /api/v1/jira/tickets/:managerId             controllers.api.v1.Jira.getJiraTickets(managerId: String)
 
 POST    /api/v1/tracking                            controllers.api.v1.Tracking.addTrackingEvent()
 

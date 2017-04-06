@@ -1,0 +1,14 @@
+<li>
+  <header class="nacho-filter-card__header">
+    {{title}}
+  </header>
+</li>
+{{#each radioOptions as |radio|}}
+  {{#radio-button-composer
+    value=radio.value
+    name=radio.name
+    groupValue=(readonly radio.group)
+    changed=changed}}
+    {{radio.label}}
+  {{/radio-button-composer}}
+{{/each}}

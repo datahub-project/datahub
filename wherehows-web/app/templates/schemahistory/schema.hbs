@@ -1,0 +1,89 @@
+<div id="schemaView" class="container-fluid">
+  <div class="row-fluid">
+    <div class="span9">
+      <div class="search-pagination">
+        <ul class="pager">
+          {{#unless first}}
+            <li class="previous">
+              {{#link-to 'schemahistory.page' previousPage}}
+                &larr; Prev
+              {{/link-to}}
+            </li>
+          {{/unless}}
+          <li>
+            {{ model.data.count }} scripts - page {{ model.data.page }} of {{ model.data.totalPages }}
+          </li>
+          {{#unless last}}
+            <li class="next">
+              {{#link-to 'schemahistory.page' nextPage}}
+                Next &rarr;
+              {{/link-to}}
+            </li>
+          {{/unless}}
+        </ul>
+      </div>
+      <table id="schematable" class="table table-bordered table-hover search-results">
+        <thead>
+        <tr class="results-header">
+          <th class="span3">Dataset Name</th>
+          <th class="span6">Dataset URN</th>
+          <th class="span3">Last Modified Date</th>
+        </tr>
+        </thead>
+        <tbody>
+        {{#each model.data.datasets as |dataset| }}
+          <tr {{action 'onSelect' dataset this}} class="schema-row">
+            <td class="dataset-info">
+              {{dataset.name}}
+            </td>
+            <td>{{ dataset.urn }}</td>
+            <td>{{ dataset.lastModified }}</td>
+          </tr>
+        {{/each}}
+        </tbody>
+      </table>
+    </div>
+    <div class="span9">
+      {{outlet}}
+    </div>
+  </div>
+</div>
+<div>
+  <ul id="historytabs" class="nav nav-tabs">
+    <li id="timelinepage"><a id="timelinetablink" data-toggle="tab" href="#timelinetab">Timeline</a></li>
+    <li id="diffviewpage"><a id="diffviewtablink" data-toggle="tab" href="#diffviewtab">Schema</a></li>
+  </ul>
+  <div class="tab-content">
+    <div id="timelinetab" class="tab-pane">
+      <div id="timeline"></div>
+    </div>
+    <div id="diffviewtab" class="tab-pane">
+      <div class="col-xs-10">
+        <div class="control-group">
+          <div class="controls">
+            <div class="row">
+              <div class="col-xs-1 text-right">
+                <label>Source</label>
+              </div>
+              <div class="col-xs-3">
+                <select id="leftSchemaSelector" class="col-xs-8 form-control">
+                  <option value="na">-- choose a date --</option>
+                </select>
+              </div>
+              <div class="col-xs-1 text-right">
+                <label>Target</label>
+              </div>
+              <div class="col-xs-3">
+                <select id="rightSchemaSelector" class="col-xs-8 form-control">
+                  <option value="na">-- choose a date --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="schemaContent">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

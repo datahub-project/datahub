@@ -30,6 +30,7 @@ import wherehows.common.writers.DatabaseWriter;
 /**
  * Created by zsun on 9/10/15.
  */
+@Test(groups = {"needConfig"})
 public class AzLineageExtractorTest {
   Properties prop;
   String connUrl;
@@ -52,7 +53,6 @@ public class AzLineageExtractorTest {
    * Test extract one job execution's lineage
    * @throws Exception
    */
-  @Test(groups = {"needConfig"})
   public void extractLineageTest()
     throws Exception {
 

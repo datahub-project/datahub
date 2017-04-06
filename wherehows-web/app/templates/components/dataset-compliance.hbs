@@ -1,0 +1,115 @@
+<div id="compliance" class="tab-body">
+  <section class="action-bar">
+    <button class="nacho-button nacho-button--large-inverse"
+      {{action "saveCompliance"}}>
+      {{if isNewPrivacyCompliancePolicy "Create New Policy"
+           "Confirm Privacy Fields"}}
+    </button>
+    <button class="nacho-button nacho-button--large"
+      {{action "resetCompliance"}}>
+      <i class="fa fa-times" title="Start Over">
+      </i>
+      Start Over
+    </button>
+  </section>
+
+  <section class="metadata-prompt" id="has-member">
+    <header class="metadata-prompt__header">
+      <p>Can any fields in this dataset's schema be used to identify a member?</p>
+    </header>
+    <span>
+      {{#radio-button-composer
+        value=true
+        name="has-member"
+        groupValue=(readonly userIndicatesDatasetHas.member)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        Yes
+      {{/radio-button-composer}}
+      {{#radio-button-composer
+        value=false
+        name="has-member"
+        groupValue=(readonly userIndicatesDatasetHas.member)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        No
+      {{/radio-button-composer}}
+    </span>
+  </section>
+
+  {{dataset-schema-table
+    sortColumnWithName=sortColumnWithName
+    filterBy=filterBy
+    sortDirection=sortDirection
+    searchTerm=searchTerm
+    fields=memberComplianceEntities
+    fieldFormats=logicalTypes
+    onFormatChange=(action "onFieldFormatChange")
+    onSubjectChange=(action "onMemberFieldSubjectChange")
+    onPrivacyChange=(action "onFieldPrivacyChange")}}
+
+  {{#if showOrgPrompt}}
+    <section class="metadata-prompt" id="has-org">
+      <header class="metadata-prompt__header">
+        <p>Do fields in the schema contain the ID of an organization?</p>
+      </header>
+      <span>
+      {{#radio-button-composer
+        value=true
+        name="has-org"
+        groupValue=(readonly userIndicatesDatasetHas.org)
+        changed=(action 'didChangePrivacyIdentifiable')}}
+        Yes
+      {{/radio-button-composer}}
+        {{#radio-button-composer
+          value=false
+          name="has-org"
+          groupValue=(readonly userIndicatesDatasetHas.org)
+          changed=(action 'didChangePrivacyIdentifiable')}}
+          No
+        {{/radio-button-composer}}
+    </span>
+    </section>
+    {{dataset-table-org-compliance
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy
+      sortDirection=sortDirection
+      searchTerm=searchTerm
+      fields=orgComplianceEntities
+      fieldFormats=logicalTypes
+      onFormatChange=(action "onFieldFormatChange")
+      onPrivacyChange=(action "onFieldPrivacyChange")}}
+  {{/if}}
+
+  {{#if showGroupPrompt}}
+    <section class="metadata-prompt" id="has-group">
+      <header class="metadata-prompt__header">
+        <p>Do fields in the schema contain the ID of a group?</p>
+      </header>
+      <span>
+        {{#radio-button-composer
+          value=true
+          name="has-group"
+          groupValue=(readonly userIndicatesDatasetHas.group)
+          changed=(action 'didChangePrivacyIdentifiable')}}
+          Yes
+        {{/radio-button-composer}}
+        {{#radio-button-composer
+          value=false
+          name="has-urn"
+          groupValue=(readonly userIndicatesDatasetHas.group)
+          changed=(action 'didChangePrivacyIdentifiable')}}
+          No
+        {{/radio-button-composer}}
+    </span>
+    </section>
+    {{dataset-table-group-compliance
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy
+      sortDirection=sortDirection
+      searchTerm=searchTerm
+      fields=groupComplianceEntities
+      fieldFormats=logicalTypes
+      onFormatChange=(action "onFieldFormatChange")
+      onPrivacyChange=(action "onFieldPrivacyChange")}}
+  {{/if}}
+</div>
+{{yield}}

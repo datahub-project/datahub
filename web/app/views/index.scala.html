@@ -1,5 +1,5 @@
-@(user: String, csrfToken: String)
-  @main(user, csrfToken) {
+@(user: String, csrfToken: String, isInternal:Boolean, piwikSiteId: Integer)
+  @main(user, csrfToken, isInternal, piwikSiteId) {
     <div>
       <div id="mainSplitter">
         <div id="tabSplitter">
@@ -11,6 +11,9 @@
             <li>
               <a data-toggle="tab" href="#filtertab">Datasets</a>
             </li>
+            @if(isInternal) {
+              <li><a data-toggle="tab" href="#treetab">Metrics</a></li>
+            }
             <li><a data-toggle="tab" href="#flowtab">Flows</a></li>
           </ul>
           <div class="tab-content">
@@ -21,6 +24,12 @@
               <div id="datasetlist" class="list-group"></div>
               <div id="tree2" data-source="ajax" class="sampletree" style="display: none;"></div>
             </div>
+            @if(isInternal) {
+              <div id="treetab" class="tab-pane">
+                <div id="metriclist" class="list-group"></div>
+                <div id="tree1" data-source="ajax" class="sampletree" style="display: none;"></div>
+              </div>
+            }
             <div id="flowtab" class="tab-pane">
               <div id="flowlist" class="list-group"></div>
               <div id="tree3" data-source="ajax" class="sampletree" style="display: none;"></div>
@@ -240,21 +249,15 @@
       </div>
     </script>
 
-    <script type="text/x-handlebars" id="components/ember-selector">
-      <select id="ember-selector" class="form-control">
-        {{#each renderValues as |value|}}
-          {{#if value.isSelected}}
-            <option value="{{value.value}}" selected>
-              {{value.value}}
+<script type="text/x-handlebars" id="components/ember-selector">
+    <select class={{class}} {{action 'change' on='change'}}>
+        {{#each content as |option|}}
+            <option value="{{option.value}}" selected={{if option.isSelected 'selected' ''}}>
+                {{if option.label option.label option.value}}
             </option>
-          {{else}}
-            <option value="{{value.value}}">
-              {{value.value}}
-            </option>
-          {{/if}}
         {{/each}}
-      </select>
-    </script>
+    </select>
+</script>
 
     <script type="text/x-handlebars" id="components/dataset-schema">
       {{#if hasSchemas}}
@@ -356,7 +359,20 @@
         <p>Property is not available</p>
       {{/if}}
     </script>
+<script type="text/x-handlebars" id="components/search-feedback">
+  <p class="search-feedback-text">
+    {{unless feedBackCollected "To help us improve search result relevance, please tell us if these results are helpful?"
+    "Thank you for your feedback!"}}
+  </p>
 
+  <button class="btn btn-primary" {{action 'didProvideFeedback' 'good'}} title="Helpful">
+    <i class="fa fa-thumbs-up fa-2x" aria-label="Positive feedback thumbs up icon"></i>
+  </button>
+
+  <button class="btn btn-secondary" {{action 'didProvideFeedback' 'bad'}} title="Not helpful">
+    <i class="fa fa-thumbs-down fa-2x" aria-label="Negative feedback thumbs down icon"></i>
+  </button>
+</script>
 <script type="text/x-handlebars" id="components/dataset-owner-list">
   {{#if owners}}
     <header>
@@ -672,9 +688,23 @@
             <a data-toggle="tab"
               title="Accessibilities"
               href="#accesstab">
-              Accessibilities
+              Availability
             </a>
           </li>
+          <li id="compliance">
+              <a data-toggle="tab"
+                 title="Compliance"
+                 href="#compliancetab">
+                  Compliance
+              </a>
+          </li>
+            <li id="confidential">
+                <a data-toggle="tab"
+                   title="Confidential"
+                   href="#confidentialtab">
+                    Confidential
+                </a>
+            </li>
         </ul>
         <div class="tab-content">
           {{#unless isPinot}}
@@ -717,6 +747,20 @@
             {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
             {{/dataset-access}}
           </div>
+            <div id="compliancetab" class="tab-pane">
+                {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
+                                     isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
+                                     datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                     onSave=(action "savePrivacyCompliancePolicy")
+                                     onReset=(action "resetPrivacyCompliancePolicy")}}
+            </div>
+            <div id="confidentialtab" class="tab-pane">
+                {{dataset-confidential securitySpecification=securitySpecification
+                                       isNewSecuritySpecification=isNewSecuritySpecification
+                                       datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                       onSave=(action "saveSecuritySpecification")
+                                       onReset=(action "resetSecuritySpecification")}}
+            </div>
         </div>
       {{else}}
       <div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
@@ -855,7 +899,7 @@
             <h4 class="panel-title">
               <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
                href="#accessview" aria-expanded="false" aria-controls="accessData">
-                Accessiblities
+                Availability
               </a>
             </h4>
           </div>
@@ -866,6 +910,48 @@
             </div>
           </div>
         </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading" role="tab" id="complianceHeading">
+            <h4 class="panel-title">
+              <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+               href="#complianceview" aria-expanded="false" aria-controls="accessData">
+                Compliance
+              </a>
+            </h4>
+          </div>
+          <div id="complianceview" class="panel-collapse collapse" role="tabpanel" aria-labelledby="complianceHeading">
+              <div class="panel-body">
+                  {{dataset-compliance privacyCompliancePolicy=privacyCompliancePolicy
+                                       isNewPrivacyCompliancePolicy=isNewPrivacyCompliancePolicy
+                                       datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                       onSave=(action "savePrivacyCompliancePolicy")
+                                       onReset=(action "resetPrivacyCompliancePolicy")}}
+              </div>
+          </div>
+        </div>
+
+          <div class="panel panel-default">
+              <div class="panel-heading" role="tab" id="confidentialHeading">
+                  <h4 class="panel-title">
+                      <a class="collapsed" data-toggle="collapse" data-parent="#accordion"
+                         href="#confidentialview" aria-expanded="false" aria-controls="accessData">
+                          Confidential
+                      </a>
+                  </h4>
+              </div>
+              <div id="confidentialview" class="panel-collapse collapse" role="tabpanel"
+                   aria-labelledby="confidentialHeading">
+                  <div class="panel-body">
+                      {{dataset-confidential securitySpecification=securitySpecification
+                                             isNewSecuritySpecification=isNewSecuritySpecification
+                                             datasetSchemaFieldsAndTypes=datasetSchemaFieldsAndTypes
+                                             onSave=(action "saveSecuritySpecification")
+                                             onReset=(action "resetSecuritySpecification")}}
+                  </div>
+              </div>
+          </div>
+
       </div>
       {{/if}}
     </script>
@@ -875,6 +961,21 @@
         <div class="row">
           <div class="col-xs-12">
             {{#unless detailview}}
+            <div class="well well-sm">
+              <div class="row">
+                <div class="col-xs-11">
+                  <ul class="breadcrumbs">
+                    {{#each breadcrumbs as |crumb|}}
+                      <li>
+                        <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
+                          {{crumb.title}}
+                        </a>
+                      </li>
+                    {{/each}}
+                  </ul>
+                </div>
+              </div>
+            </div>
             <div class="search-pagination">
               <ul class="pager">
                 {{#unless first}}
@@ -922,21 +1023,6 @@
             </div>
             {{/unless}}
             {{#unless detailview}}
-            <div class="well well-sm">
-              <div class="row">
-                <div class="col-xs-11">
-                  <ul class="breadcrumbs">
-                    {{#each breadcrumbs as |crumb|}}
-                      <li>
-                        <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
-                          {{crumb.title}}
-                        </a>
-                      </li>
-                    {{/each}}
-                  </ul>
-                </div>
-              </div>
-            </div>
 
             <table class="table table-bordered search-results">
               <tbody>
@@ -987,8 +1073,22 @@
       </div>
     </script>
 
-
     <script type="text/x-handlebars" id="metric">
+      <div class="well well-sm">
+        <div class="row">
+          <div class="col-xs-11">
+            <ul class="breadcrumbs">
+              {{#each breadcrumbs as |crumb|}}
+                <li>
+                  <a title="{{crumb.title}}" href="#/metrics/{{crumb.urn}}">
+                    {{crumb.title}}
+                  </a>
+                </li>
+              {{/each}}
+            </ul>
+          </div>
+        </div>
+      </div>
       {{#metric-detail showLineage=showLineage model=model}}
       {{/metric-detail}}
     </script>
@@ -1066,6 +1166,12 @@
         </button>
         <button
           type="button"
+          class="btn {{if isMetrics 'btn-primary'}} {{unless isMetrics 'btn-default'}}"
+          {{action 'switchSearchToMetric' keyword}}>
+          Metrics
+        </button>
+        <button
+          type="button"
           class="btn {{if isFlows 'btn-primary'}} {{unless isFlows 'btn-default'}}"
           {{action 'switchSearchToFlow' keyword}}>
           Flows
@@ -1077,6 +1183,8 @@
           Jobs
         </button>
       </div>
+
+      {{search-feedback}}
 
       <div id="pagedSearchResults">
         <div class="row">
@@ -1148,14 +1256,14 @@
                     <td class="col-xs-12">
                       <div class="dataset-name">
                         <td class="dataset-info">
-                        {{#if isMetric}}
+                        {{#if model.isMetrics}}
                           <i class="fa fa-plus-square-o"></i>
-                          {{#link-to 'metric' dataset}}
+                          {{#link-to 'metric' dataset.id}}
                             {{{dataset.name}}}
                           {{/link-to}}
                         {{else}}
                           <i class="fa fa-database"></i>
-                          {{#link-to 'dataset' dataset}}
+                          {{#link-to 'dataset' dataset.id}}
                             {{{dataset.name}}}
                           {{/link-to}}
                         {{/if}}
@@ -1262,13 +1370,28 @@
                   <td class="col-xs-12">
                     <div class="dataset-name">
                       <td class="dataset-info">
-                        <i class="fa fa-database"></i>
-                        {{#link-to 'dataset' dataset}}
-                          {{{dataset.name}}}
-                        {{/link-to}}
+                        {{#if model.isMetrics}}
+                          <i class="fa fa-plus-square-o"></i>
+                          {{#link-to 'metric' dataset.id}}
+                            {{{dataset.name}}}
+                          {{/link-to}}
+                        {{else}}
+                          <i class="fa fa-database"></i>
+                          {{#link-to 'dataset' dataset.id}}
+                            {{{dataset.name}}}
+                          {{/link-to}}
+                        {{/if}}
                       </td>
                       <p>{{{ dataset.urn }}}</p>
-                      <p>source: {{{ dataset.source }}}</p>
+                      {{#if model.isMetrics}}
+                        {{#if dataset.source}}
+                          <p>source: {{{ dataset.source }}}</p>
+                        {{else}}
+                          <p>source: Metric</p>
+                        {{/if}}
+                      {{else}}
+                        <p>source: {{{ dataset.source }}}</p>
+                      {{/if}}
                       <div class="schematext" style="margin-top:5px;margin-bottom: 10px;">
                         {{{ dataset.schema }}}
                       </div>
@@ -1517,6 +1640,11 @@
     <script src="@routes.Assets.at("javascripts/routers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/datasets.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/routers/flows.js")" type="text/javascript"></script>
+    @if(isInternal) {
+      <script src="@routes.Assets.at("javascripts/routers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/controllers/metrics.js")" type="text/javascript"></script>
+      <script src="@routes.Assets.at("javascripts/components/metric-watch.js")" type="text/javascript"></script>
+    }
     <script src="@routes.Assets.at("javascripts/controllers/search.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/advancedSearch.js")" type="text/javascript"></script>
     <script src="@routes.Assets.at("javascripts/controllers/datasets.js")" type="text/javascript"></script>

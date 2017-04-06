@@ -1,0 +1,10 @@
+<i class="fa {{if metric.watchId 'fa-eye-slash'}} {{unless metric.watchId 'fa-eye'}}"
+  {{action "watch" metric}}>
+</i>
+{{#if showText}}
+  {{#if metric.watchId}}
+    Unwatch
+  {{else}}
+    Watch
+  {{/if}}
+{{/if}}

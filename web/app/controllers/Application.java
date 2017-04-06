@@ -14,17 +14,22 @@
 package controllers;
 
 import dao.FlowsDAO;
+import dao.MetricsDAO;
 import dao.UserDAO;
+import play.Play;
 import play.data.DynamicForm;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.Logger;
 import play.mvc.Security;
 import utils.Tree;
-import views.html.index;
-import views.html.login;
-import views.html.lineage;
-import views.html.schemaHistory;
+import views.html.*;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import play.libs.Json;
+import play.mvc.BodyParser;
+
 import static play.data.Form.form;
 import org.apache.commons.lang3.StringUtils;
 import security.AuthenticationManager;
@@ -32,10 +37,14 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
+    private static String LINKEDIN_INTERNAL_KEY = "linkedin.internal";
+    private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
 
     @Security.Authenticated(Secured.class)
     public static Result index()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -43,45 +52,53 @@ public class Application extends Controller
         }
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(index.render(username, csrfToken));
+        return ok(index.render(username, csrfToken, isInternal, piwikSiteId));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result lineage()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "chains", 0, null, null, null));
+        return ok(lineage.render(username, isInternal, "chains", 0, null, null, null, piwikSiteId));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result datasetLineage(int id)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "dataset", id, null, null, null));
+        return ok(lineage.render(username, isInternal, "dataset", id, null, null, null, piwikSiteId));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result metricLineage(int id)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(lineage.render(username, "metric", id, null, null, null));
+        return ok(lineage.render(username, isInternal, "metric", id, null, null, null, piwikSiteId));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result flowLineage(String application, String project, String flow)
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -93,53 +110,116 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(lineage.render(username, type, 0, application.replace(" ", "."), project, flow));
+        return ok(lineage.render(username, isInternal, type, 0, application.replace(" ", "."), project, flow, piwikSiteId));
     }
 
     @Security.Authenticated(Secured.class)
     public static Result schemaHistory()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
             username = "";
         }
-        return ok(schemaHistory.render(username));
+        return ok(schemaHistory.render(username, isInternal, piwikSiteId));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result scriptFinder()
+    {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+
+        return ok(scriptFinder.render(username, isInternal, piwikSiteId));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result idpc()
+    {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+        return ok(idpc.render(username, isInternal, piwikSiteId));
+    }
+
+    @Security.Authenticated(Secured.class)
+    public static Result dashboard()
+    {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
+        String username = session("user");
+        if (username == null)
+        {
+            username = "";
+        }
+        return ok(dashboard.render(username, isInternal, piwikSiteId));
     }
 
     public static Result login()
     {
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(login.render(csrfToken));
+        return ok(login.render(csrfToken, isInternal, piwikSiteId));
     }
 
-    public static Result authenticate()
-    {
-        DynamicForm loginForm = form().bindFromRequest();
-        String username = loginForm.get("username");
-        String password = loginForm.get("password");
+    @BodyParser.Of(BodyParser.Json.class)
+    public static Result authenticate() {
+        // Create a new response ObjectNode to return when authenticate
+        //   request is successful
+        ObjectNode response = Json.newObject();
+        JsonNode json = request().body().asJson();
+        // Extract username and password as String from JsonNode,
+        //   null if they are not strings
+        String username = json.findPath("username").textValue();
+        String password = json.findPath("password").textValue();
 
-        if (StringUtils.isBlank(username) || StringUtils.isBlank(password))
-        {
-            flash("error", "Invalid username or password");
-            return redirect(controllers.routes.Application.login());
+        if (username == null || StringUtils.isBlank(username)) {
+            return badRequest("Missing or invalid [username]");
+        }
+        if (password == null || StringUtils.isBlank(password)) {
+            return badRequest("Missing or invalid [credentials]");
         }
 
-        try
-        {
-            AuthenticationManager.authenticateUser(username, password);
-        }
-        catch (Exception e)
-        {
-            Logger.error("Authentication failed for user " + username);
-            Logger.error(e.getMessage());
-            flash("error", "Invalid username or password");
-            return redirect(controllers.routes.Application.login());
-        }
         session().clear();
+
+        // Create a uuid string for this session if one doesn't already exist
+        //   to be appended to the Result object
+        String uuid = session("uuid");
+        if (uuid == null) {
+            uuid = java.util.UUID.randomUUID().toString();
+            session("uuid", uuid);
+        }
+
+        try {
+            AuthenticationManager.authenticateUser(username, password);
+        } catch (Exception e) {
+            return badRequest("Invalid credentials");
+        }
+
+
+        // Adds the username to the session cookie
         session("user", username);
-        return redirect(controllers.routes.Application.index());
+        // Contruct an ObjectNode with the username and uuid token to be sent with the response
+        ObjectNode data = Json.newObject();
+        data.put("username", username);
+        data.put("uuid", uuid);
+        response.put("status", "ok");
+        response.put("data", data);
+
+        return ok(response);
     }
 
     public static Result signUp()
@@ -174,8 +254,7 @@ public class Application extends Controller
     public static Result logout()
     {
         session().clear();
-        flash("success", "You've been logged out");
-        return redirect(controllers.routes.Application.login());
+        return ok();
     }
 
     public static Result loadTree(String key)
@@ -183,6 +262,10 @@ public class Application extends Controller
         if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("flows"))
         {
             return ok(FlowsDAO.getFlowApplicationNodes());
+        }
+        else if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("metrics"))
+        {
+            return ok(MetricsDAO.getMetricDashboardNodes());
         }
         return ok(Tree.loadTreeJsonNode(key + TREE_NAME_SUBFIX));
     }
@@ -195,6 +278,16 @@ public class Application extends Controller
     public static Result loadFlowNodes(String app, String project)
     {
         return ok(FlowsDAO.getFlowNodes(app, project));
+    }
+
+    public static Result loadMetricGroups(String dashboard)
+    {
+        return ok(MetricsDAO.getMetricGroupNodes(dashboard));
+    }
+
+    public static Result loadMetricNodes(String dashboard, String group)
+    {
+        return ok(MetricsDAO.getMetricNodes(dashboard, group));
     }
 
 }

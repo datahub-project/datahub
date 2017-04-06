@@ -15,20 +15,27 @@ package metadata.etl.models;
 
 import java.util.Properties;
 import metadata.etl.EtlJob;
+import metadata.etl.dataset.espresso.EspressoMetadataEtl;
 import metadata.etl.dataset.hdfs.HdfsMetadataEtl;
 import metadata.etl.dataset.hive.HiveMetadataEtl;
+import metadata.etl.dataset.kafka.KafkaMetadataEtl;
 import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
+import metadata.etl.dataset.voldemort.VoldemortMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.git.MultiproductMetadataEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
+import metadata.etl.lineage.appworx.AppworxLineageEtl;
+import metadata.etl.metadata.DatasetDescriptionEtl;
+import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
 import metadata.etl.ldap.LdapEtl;
+import metadata.etl.scheduler.appworx.AppworxExecEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
-import metadata.etl.models.EtlJobName;
 import metadata.etl.git.CodeSearchMetadataEtl;
+import metadata.etl.security.DatasetConfidentialFieldEtl;
 
 
 /**
@@ -40,6 +47,8 @@ public class EtlJobFactory {
     switch (etlJobName) {
       case AZKABAN_EXECUTION_METADATA_ETL:
         return new AzkabanExecEtl(refId, whExecId, properties);
+      case APPWORX_EXECUTION_METADATA_ETL:
+        return new AppworxExecEtl(refId, whExecId, properties);
       case OOZIE_EXECUTION_METADATA_ETL:
         return new OozieExecEtl(refId, whExecId, properties);
       case HADOOP_DATASET_METADATA_ETL:
@@ -48,6 +57,8 @@ public class EtlJobFactory {
         return new TeradataMetadataEtl(refId, whExecId, properties);
       case AZKABAN_LINEAGE_METADATA_ETL:
         return new AzLineageMetadataEtl(refId, whExecId, properties);
+      case APPWORX_LINEAGE_METADATA_ETL:
+        return new AppworxLineageEtl(refId, whExecId, properties);
       case HADOOP_DATASET_OWNER_ETL:
         return new DatasetOwnerEtl(refId, whExecId, properties);
       case LDAP_USER_ETL:
@@ -66,6 +77,18 @@ public class EtlJobFactory {
         return new MultiproductMetadataEtl(refId, whExecId, properties);
       case DATABASE_SCM_METADATA_ETL:
         return new CodeSearchMetadataEtl(refId, whExecId, properties);
+      case DALI_VIEW_OWNER_ETL:
+        return new DaliViewOwnerEtl(refId, whExecId, properties);
+      case CONFIDENTIAL_FIELD_METADATA_ETL:
+        return new DatasetConfidentialFieldEtl(refId, whExecId, properties);
+      case DATASET_DESCRIPTION_METADATA_ETL:
+        return new DatasetDescriptionEtl(refId, whExecId, properties);
+      case ESPRESSO_DATASET_METADATA_ETL:
+        return new EspressoMetadataEtl(refId, whExecId, properties);
+      case VOLDEMORT_DATASET_METADATA_ETL:
+        return new VoldemortMetadataEtl(refId, whExecId, properties);
+      case KAFKA_DATASET_METADATA_ETL:
+        return new KafkaMetadataEtl(refId, whExecId, properties);
       default:
         throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
     }

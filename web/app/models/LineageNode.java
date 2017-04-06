@@ -29,6 +29,7 @@ public class LineageNode {
     public String job_name;
     public String script_name;
     public String script_path;
+    public String script_type;
     public String job_start_time;
     public String job_end_time;
     public Long job_start_unix_time;

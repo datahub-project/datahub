@@ -133,6 +133,153 @@ App.DatasetRoute = Ember.Route.extend({
     var source = '';
     var urn = '';
     var name = '';
+
+    /**
+     * Builds a privacyCompliancePolicy map with default / unset values for non null properties
+     */
+    const createPrivacyCompliancePolicy = () => {
+      // TODO: Move to a more accessible location, this app does not use modules at the moment, so potentially
+      // ->TODO: registering it as factory
+      const complianceTypes = ['AUTO_PURGE', 'CUSTOM_PURGE', 'LIMITED_RETENTION', 'PURGE_NOT_APPLICABLE'];
+      const policy = {
+        //default to first item in compliance types list
+        complianceType: complianceTypes.get('firstObject'),
+        compliancePurgeEntities: []
+      };
+
+      // Ensure we deep clone map to prevent mutation from consumers
+      return JSON.parse(JSON.stringify(policy));
+    };
+
+    /**
+     * Builds a securitySpecification map with default / unset values for non null properties as per avro schema
+     * @param {number} id
+     */
+    const createSecuritySpecification = id => {
+      const classification = [
+        'highlyConfidential', 'confidential', 'limitedDistribution', 'mustBeEncrypted', 'mustBeMasked'
+      ].reduce((classification, classifier) => {
+        classification[classifier] = [];
+        return classification;
+      }, {});
+      const securitySpecification = {
+        classification,
+        datasetId: id,
+        geographicAffinity: {affinity: ''},
+        recordOwnerType: '',
+        retentionPolicy: {retentionType: ''}
+      };
+
+      return JSON.parse(JSON.stringify(securitySpecification));
+    };
+
+    /**
+     * Series of chain-able functions invoked to set set properties on the controller required for dataset tab sections
+     * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
+     */
+    const fetchThenSetOnController = {
+      privacyCompliancePolicy(id) {
+        Ember.$.getJSON(`api/v1/datasets/${id}/compliance`)
+            .then(({privacyCompliancePolicy = createPrivacyCompliancePolicy(), return_code}) =>
+                controller.setProperties({
+                  privacyCompliancePolicy,
+                  'isNewPrivacyCompliancePolicy': return_code === 404
+                }));
+
+        return this;
+      },
+
+      securitySpecification(id) {
+        Ember.$.getJSON(`api/v1/datasets/${id}/security`)
+            .then(({securitySpecification = createSecuritySpecification(id), return_code}) =>
+                controller.setProperties({
+                  securitySpecification,
+                  'isNewSecuritySpecification': return_code === 404
+                }));
+
+        return this;
+      },
+
+      datasetSchemaFieldNamesAndTypes(id) {
+        Ember.$.getJSON(`api/v1/datasets/${id}`)
+            .then(({dataset: {schema} = {schema: undefined}} = {}) => {
+              /**
+               * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
+               * @param {JSON} schema
+               * @returns {Array.<*>}
+               */
+              function getFieldNamesAndTypesFrom(schema = JSON.stringify({})) {
+                /**
+                 * schema argument may contain property with name `fields` or `fields` may be nested in `schema` object
+                 * with same name.
+                 * Unfortunately shape is inconsistent depending of dataset queried.
+                 * Use `fields` property if present and is an array, otherwise use `fields` property on `schema`.
+                 * Will default to empty array.
+                 * @param {Array} [nestedFields]
+                 * @param {Array} [fields]
+                 * @returns {Array.<*>}
+                 */
+                function getFieldTypeMappingArray({schema: {fields: nestedFields = []} = {schema: {}}, fields}) {
+                  fields = Array.isArray(fields) ? fields : nestedFields;
+                   /**
+                   * Flattens the nested field structure in the security specification schema while retaining
+                   * the top-level field type
+                   * @param fields
+                   * @returns {Array.<Object>}
+                   */
+                  function flattenFields(fields) {
+                    return fields.reduce((fieldsMemo, field) => {
+                      const parentType = field.type;
+                      const parentTypeString = Object.prototype.toString.call(parentType);
+                      let nestedFields;
+
+                      if (parentType && parentTypeString === '[object Object]' && Array.isArray(parentType.fields)) {
+                        nestedFields = parentType.fields;
+                        fieldsMemo.push(Object.assign({}, {name: field.name, type: parseTypeString(field.type)}));
+                      }
+
+                      return fieldsMemo.concat(nestedFields ? flattenFields(nestedFields) : field);
+                    }, []);
+                  }
+
+                  /**
+                   * Takes a type value which may be a string, array, object and parses out the string value
+                   * @param {Object|Array|String} type a representation of the data type for a field
+                   * @returns {Array.<String>}
+                   */
+                  function parseTypeString(type) {
+                    if (Array.isArray(type)) {
+                      type.includes('null') && type.splice(type.indexOf('null'), 1);
+                      if (Object.prototype.toString.call(type[0]) === '[object Object]') {
+                        return [type.type || 'record'];
+                      }
+                    }
+
+                    if (Object.prototype.toString.call(type) === '[object Object]') {
+                      return [type.type || 'record'];
+                    }
+
+                    return [].concat(type);
+                  }
+
+                  // As above, field may contain a label with string property or a name property
+                  return flattenFields(fields).map(({label: {string} = {}, name, type}) => ({
+                    name: string || name,
+                    type: parseTypeString(type)
+                  }));
+                }
+
+                schema = JSON.parse(schema);
+                return [].concat(...getFieldTypeMappingArray(schema));
+              }
+
+              controller.set('datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
+            });
+
+        return this;
+      }
+    };
+
     controller.set("hasProperty", false);
 
     if (params && params.id) {
@@ -155,9 +302,13 @@ App.DatasetRoute = Ember.Route.extend({
     // Don't set default zero Ids on controller
     if (id) {
       controller.set('datasetId', id);
+      // Creates list of partially applied functions from `fetchThenSetController` and invokes each in turn
+      Object.keys(fetchThenSetOnController)
+          .map(funcRef => fetchThenSetOnController[funcRef]['bind'](fetchThenSetOnController, id))
+          .forEach(func => func());
     }
 
-      var instanceUrl = 'api/v1/datasets/' + id + "/instances";
+    var instanceUrl = 'api/v1/datasets/' + id + "/instances";
       $.get(instanceUrl, function(data) {
         if (data && data.status == "ok" && data.instances && data.instances.length > 0) {
           controller.set("hasinstances", true);

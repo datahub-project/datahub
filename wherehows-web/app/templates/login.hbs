@@ -1,0 +1,16 @@
+<section class="wh-login-container">
+  <section class="nacho-login">
+
+    <img src="/assets/images/logos/landing-logo.png"
+         alt="WhereHows Logo">
+    <h1 class="nacho-login__header">WHEREHOWS</h1>
+    <p>
+      Simplify data, process, logic discovery for all<br>datasets at LinkedIn&reg;
+    </p>
+    {{login-form username=username
+                 password=password
+                 errorMessage=errorMessage
+                 onSubmit=(action "authenticateUser")}}
+  </section>
+</section>
+{{outlet}}
