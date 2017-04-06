@@ -14,9 +14,9 @@
 package models.daos;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.base.Optional;
 import metadata.etl.models.EtlJobName;
 import org.springframework.jdbc.support.KeyHolder;
-import play.Logger;
 import utils.JdbcUtil;
 import utils.JsonUtil;
 import utils.PasswordManager;
@@ -25,36 +25,37 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import wherehows.common.Constant;
 
 
 /**
  * Created by zechen on 9/24/15.
  */
 public class EtlJobPropertyDao {
-  public static final String INSERT_JOB_PROPERTY =
+  private static final String INSERT_JOB_PROPERTY =
     "INSERT INTO wh_etl_job_property(wh_etl_job_name, ref_id, ref_id_type, property_name, property_value, is_encrypted)"
       + "VALUES(:etlJobName, :refId, :refIdType, :propertyName, :propertyValue, :isEncrypted)";
 
-  public static final String INSERT_WHEREHOWS_PROPERTY =
+  private static final String INSERT_WHEREHOWS_PROPERTY =
     "INSERT INTO wh_property(property_name, property_value, is_encrypted, group_name)"
       + "VALUES(:propertyName, :propertyValue, :isEncrypted, :groupName)";
 
-  public static final String UPDATE_JOB_PROPERTY =
+  private static final String UPDATE_JOB_PROPERTY =
       "INSERT INTO wh_etl_job_property(wh_etl_job_name, ref_id, ref_id_type, property_name, property_value, is_encrypted)"
           + "VALUES(:etlJobName, :refId, :refIdType, :propertyName, :propertyValue, :isEncrypted)"
         + "ON DUPLICATE KEY UPDATE property_value = :propertyValue, is_encrypted = :isEncrypted";
 
-  public static final String GET_JOB_PROPERTIES =
+  private static final String GET_JOB_PROPERTIES =
     "SELECT * FROM wh_etl_job_property WHERE wh_etl_job_name = :etlJobName and ref_id = :refId";
 
-  public static final String GET_JOB_PROPERTY =
+  private static final String GET_JOB_PROPERTY =
     "SELECT * FROM wh_etl_job_property WHERE wh_etl_job_name = :etlJobName and ref_id = :refId and property_name = :propertyName";
 
-  public static final String GET_WHEREHOWS_PROPERTIES = "SELECT * FROM wh_property";
+  private static final String GET_WHEREHOWS_PROPERTIES = "SELECT * FROM wh_property";
 
-  public static final String GET_WHEREHOWS_PROPERTY = "SELECT * FROM wh_property WHERE property_name = :propertyName";
+  private static final String GET_WHEREHOWS_PROPERTY = "SELECT * FROM wh_property WHERE property_name = :propertyName";
 
-  public static final String DEFAULT_MASTER_KEY_LOC = System.getProperty("user.home") + "/.wherehows/master_key";
+  private static final String MASTER_KEY = System.getenv(Constant.WHZ_MASTER_KEY);
 
   public static int insertJobProperty(EtlJobName etlJobName, Integer refId, String propertyName, String propertyValue,
     boolean isEncrypted)
@@ -181,24 +182,11 @@ public class EtlJobPropertyDao {
 
   public static String encrypt(String value)
     throws Exception {
-    String masterKeyLoc = getMasterKeyLoc();
-    return PasswordManager.encryptPassword(value, masterKeyLoc);
+    return PasswordManager.encryptPassword(value, Optional.fromNullable(MASTER_KEY));
   }
 
   public static String decrypt(String value)
     throws Exception {
-    String masterKeyLoc = getMasterKeyLoc();
-    return PasswordManager.decryptPassword(value, masterKeyLoc);
-  }
-
-  private static String getMasterKeyLoc()
-    throws Exception {
-    try {
-      return getWherehowsProperty("wherehows.encrypt.master.key.loc");
-    } catch (Exception e) {
-      e.printStackTrace();
-      Logger.warn("master key location is not found, using default location: {}", DEFAULT_MASTER_KEY_LOC);
-    }
-    return DEFAULT_MASTER_KEY_LOC;
+    return PasswordManager.decryptPassword(value, Optional.fromNullable(MASTER_KEY));
   }
 }

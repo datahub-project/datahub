@@ -79,7 +79,7 @@ INSERT INTO `wh_etl_job_property` VALUES (117,'HIVE_DATASET_METADATA_ETL',61,'DB
 -- Dumping data for table `wh_property`
 --
 
-INSERT INTO `wh_property` VALUES ('wherehows.app_folder','/var/tmp/wherehows','N',NULL),('wherehows.db.driver','com.mysql.jdbc.Driver','N',NULL),('wherehows.db.jdbc.url','jdbc:mysql://localhost/wherehows','N',NULL),('wherehows.db.password','wherehows','N',NULL),('wherehows.db.username','wherehows','N',NULL),('wherehows.encrypt.master.key.loc','/var/tmp/wherehows/.wherehows/master_key','N',NULL),('wherehows.ui.tree.dataset.file','/var/tmp/wherehows/resource/dataset.json','N',NULL),('wherehows.ui.tree.flow.file','/var/tmp/wherehows/resource/flow.json','N',NULL);
+INSERT INTO `wh_property` VALUES ('wherehows.app_folder','/var/tmp/wherehows','N',NULL),('wherehows.db.driver','com.mysql.jdbc.Driver','N',NULL),('wherehows.db.jdbc.url','jdbc:mysql://localhost/wherehows','N',NULL),('wherehows.db.password','wherehows','N',NULL),('wherehows.db.username','wherehows','N',NULL),('wherehows.ui.tree.dataset.file','/var/tmp/wherehows/resource/dataset.json','N',NULL),('wherehows.ui.tree.flow.file','/var/tmp/wherehows/resource/flow.json','N',NULL);
 
 
 ~~~~

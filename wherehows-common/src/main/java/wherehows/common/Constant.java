@@ -18,6 +18,9 @@ package wherehows.common;
  */
 public class Constant {
 
+  // For environmental variable names
+  public static final String WHZ_MASTER_KEY = "WHZ_MASTER_KEY";
+
   // For property_name in wh_property table
   /** The property_name field in wh_property table for WhereHows database connection information */
   public static final String WH_DB_URL_KEY = "wherehows.db.jdbc.url";
