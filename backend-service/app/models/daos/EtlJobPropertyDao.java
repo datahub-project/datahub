@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import wherehows.common.Constant;
 
 
 /**
@@ -54,7 +55,7 @@ public class EtlJobPropertyDao {
 
   private static final String GET_WHEREHOWS_PROPERTY = "SELECT * FROM wh_property WHERE property_name = :propertyName";
 
-  private static final String MASTER_KEY = System.getenv("WHZ_MASTER_KEY");
+  private static final String MASTER_KEY = System.getenv(Constant.WHZ_MASTER_KEY);
 
   public static int insertJobProperty(EtlJobName etlJobName, Integer refId, String propertyName, String propertyValue,
     boolean isEncrypted)
