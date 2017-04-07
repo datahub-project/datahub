@@ -14,12 +14,10 @@
 package shared;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import play.Application;
 import play.GlobalSettings;
 import play.Logger;
-import play.Play;
 import utils.SchedulerUtil;
 
 
@@ -31,16 +29,14 @@ public class Global extends GlobalSettings {
   // the jobs id that allowed to run on this instance
   private static Set<Integer> whiteList;
   private static Set<Integer> currentRunningJob;
+
   @Override
   public void onStart(Application arg0) {
     Logger.info("on start---===");
 
-    List<Integer> whiteListList = Play.application().configuration().getIntList("scheduler.jobid.whitelist", null);
-    if (whiteListList != null) {
-      whiteList = new HashSet<>(whiteListList);
-    } else {
-      whiteList = null;
-    }
+    whiteList = SchedulerUtil.getJobIdsFromConfig("scheduler.jobid.whitelist");
+    Logger.info("ETL job IDs from configuration: " + whiteList);
+
     SchedulerUtil.start();
 
     currentRunningJob = new HashSet<>();
