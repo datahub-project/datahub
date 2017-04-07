@@ -13,8 +13,7 @@
 #
 
 import json
-import datetime
-import sys, os
+import sys
 import time
 from com.ziclix.python.sql import zxJDBC
 from org.slf4j import LoggerFactory
@@ -49,9 +48,10 @@ class HiveTransform:
     :param hive_field_metadata: output data file for hive field metadata
     :return:
     """
-    f_json = open(input)
-    all_data = json.load(f_json)
-    f_json.close()
+    all_data = []
+    with open(input) as input_file:
+        for line in input_file:
+            all_data.append(json.loads(line))
 
     dataset_idx = -1
 
