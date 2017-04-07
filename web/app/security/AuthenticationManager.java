@@ -19,12 +19,13 @@ import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.Play;
 
-import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Collections;
 import java.util.HashMap;
 
+import javax.naming.AuthenticationException;
+import javax.naming.CommunicationException;
 import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.naming.NamingEnumeration;
@@ -63,7 +64,7 @@ public class AuthenticationManager {
       Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
 
 
-  public static void authenticateUser(String userName, String password) throws NamingException, SQLException {
+  public static void authenticateUser(String userName, String password) throws NamingException {
     if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
       throw new IllegalArgumentException("Username and password can not be blank.");
     }
@@ -76,8 +77,9 @@ public class AuthenticationManager {
 
     // authenticate through each LDAP servers
     DirContext ctx = null;
-    int i;
-    for (i = 0; i < ldapUrls.length; i++) {
+    String message = null;
+    boolean authenticated = false;
+    for (int i = 0; i < ldapUrls.length; i++) {
       try {
         Hashtable<String, String> env =
             buildEnvContext(userName, password, contextFactories, ldapUrls[i], principalDomains[i]);
@@ -86,26 +88,29 @@ public class AuthenticationManager {
           User user = getAttributes(ctx, ldapSearchBase[i], userName, principalDomains[i]);
           UserDAO.addLdapUser(user);
         }
+        authenticated = true;
+        message = ldapUrls[i];
         break;
+      } catch (CommunicationException e) {
+        message = e.toString();
+        Logger.error("Ldap server connection error!", e);
+      } catch (AuthenticationException e) {
+        message = e.toString();
+        Logger.trace("Ldap authentication failed for: " + userName + " - " + ldapUrls[i] + " : " + message);
       } catch (NamingException e) {
-        Logger.warn("Ldap authentication failed for: " + userName + " - " + ldapUrls[i], e.toString());
-
-        // if exhausted all ldap options and can't authenticate user
-        if (i >= ldapUrls.length - 1) {
-          UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", e.getMessage());
-          throw e;
-        }
-      } catch (SQLException e) {
-        // Logger.error("Ldap authentication SQL error for user: " + userName, e);
-        UserDAO.insertLoginHistory(userName, "LDAP", "FAILURE", ldapUrls[i] + e.getMessage());
-        throw e;
+        message = e.toString();
+        Logger.warn("Ldap authentication error for: " + userName + " - " + ldapUrls[i] + " : " + message);
       } finally {
         if (ctx != null) {
           ctx.close();
         }
       }
     }
-    UserDAO.insertLoginHistory(userName, "LDAP", "SUCCESS", ldapUrls[i]);
+
+    UserDAO.insertLoginHistory(userName, "LDAP", authenticated ? "SUCCESS" : "FAILURE", message);
+    if (!authenticated) {
+      throw new AuthenticationException(message);
+    }
   }
 
   private static Hashtable<String, String> buildEnvContext(String username, String password, String contextFactory,
@@ -113,6 +118,7 @@ public class AuthenticationManager {
     Hashtable<String, String> env = new Hashtable<>(11);
     env.put(Context.INITIAL_CONTEXT_FACTORY, contextFactory);
     env.put(Context.PROVIDER_URL, ldapUrl);
+    env.put(Context.SECURITY_AUTHENTICATION, "simple");
     env.put(Context.SECURITY_PRINCIPAL, username + principalDomain);
     env.put(Context.SECURITY_CREDENTIALS, password);
     return env;
@@ -150,7 +156,7 @@ public class AuthenticationManager {
   }
 
   private static User getAttributes(DirContext ctx, String searchBase, String userName, String principalDomain)
-      throws NamingException, SQLException {
+      throws NamingException {
     Map<String, String> userDetailMap =
         getUserAttributes(ctx, searchBase, userName, principalDomain, LDAP_DISPLAY_NAME_KEY, LDAP_MAIL_KEY,
             LDAP_DEPARTMENT_NUMBER_KEY);

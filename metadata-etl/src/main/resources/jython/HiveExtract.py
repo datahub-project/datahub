@@ -12,13 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+import csv
+import datetime
+import json
+import os
+import stat
+import sys
+import SchemaUrlHelper
 from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
-import sys, os, re, json, csv
-import datetime
-import SchemaUrlHelper
-from wherehows.common.writers import FileWriter
-from wherehows.common.schemas import HiveDependencyInstanceRecord
 from wherehows.common import Constant
 
 
@@ -298,21 +300,17 @@ class HiveExtract:
     :param schema_output_file: output file
     :return:
     """
-    cur = self.conn_hms.cursor()
     schema = []
 
-    schema_json_file = open(schema_output_file, 'wb')
-    os.chmod(schema_output_file, 0666)
-
     # open(sample_output_file, 'wb')
-    # os.chmod(sample_output_file, 0666)
+    # os.chmod(sample_output_file, stat.S_IWOTH)
     # sample_file_writer = FileWriter(sample_output_file)
 
     if type(kerberos_auth) == str:
       if kerberos_auth.lower() == 'false':
         kerberos_auth = False
       else:
-        kerberos_auth = True 
+        kerberos_auth = True
     self.schema_url_helper = SchemaUrlHelper.SchemaUrlHelper(hdfs_namenode_ipc_uri, kerberos_auth, kerberos_principal, keytab_file)
 
     for database_name in self.databases:
@@ -344,25 +342,27 @@ class HiveExtract:
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
-    schema_json_file.write(json.dumps(schema, indent=None) + '\n')
-
-    schema_json_file.close()
+    with open(schema_output_file, 'wb') as schema_json_file:
+      os.chmod(schema_output_file, stat.S_IWOTH)
+      for item in schema:
+        schema_json_file.write("{}\n".format(json.dumps(item, separators=(',',':'))))
 
     # fetch hive (managed/external) table to hdfs path mapping
-    rows = []
-    hdfs_map_csv_file = open(hdfs_map_output_file, 'wb')
-    os.chmod(hdfs_map_output_file, 0666)
     begin = datetime.datetime.now().strftime("%H:%M:%S")
     rows = self.get_hdfs_map()
-    hdfs_map_columns = ['db_name', 'table_name', 'cluster_uri', 'abstract_hdfs_path']
-    csv_writer = csv.writer(hdfs_map_csv_file, delimiter='\x1a', lineterminator='\n', quoting=csv.QUOTE_NONE)
-    csv_writer.writerow(hdfs_map_columns)
-    csv_writer.writerows(rows)
+    with open(hdfs_map_output_file, 'wb') as hdfs_map_csv_file:
+      os.chmod(hdfs_map_output_file, stat.S_IWOTH)
+      hdfs_map_columns = ['db_name', 'table_name', 'cluster_uri', 'abstract_hdfs_path']
+      csv_writer = csv.writer(hdfs_map_csv_file, delimiter='\x1a', lineterminator='\n', quoting=csv.QUOTE_NONE)
+      csv_writer.writerow(hdfs_map_columns)
+      for row in rows:
+        try:
+          csv_writer.writerow(row)
+        except:
+          self.logger.error("Error writing CSV row: " + str(row))
     end = datetime.datetime.now().strftime("%H:%M:%S")
     self.logger.info("Get hdfs map from SDS %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
-    cur.close()
-    hdfs_map_csv_file.close()
 
   def get_all_databases(self, database_white_list, database_black_list):
     """
