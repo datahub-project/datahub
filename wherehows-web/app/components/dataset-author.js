@@ -193,7 +193,7 @@ export default Component.extend({
       // Add the className cached in `userNameEditableClass`. This renders
       //   the input element in the DOM, and removes the label from layout
       if (
-        source && !source.includes('SCM') && typeof classList.add === 'function'
+        !String(source).includes('SCM') && typeof classList.add === 'function'
       ) {
         classList.add(userNameEditableClass);
       }
