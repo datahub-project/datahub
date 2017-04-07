@@ -15,7 +15,13 @@ package utils;
 
 import actors.ActorRegistry;
 import akka.actor.Cancellable;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import play.Logger;
 import play.Play;
 import scala.concurrent.duration.Duration;
 
@@ -43,6 +49,20 @@ public class SchedulerUtil {
     schedulerRef = ActorRegistry.scheduler
       .schedule(Duration.create(0, TimeUnit.MILLISECONDS), Duration.create(mins, TimeUnit.MINUTES),
         ActorRegistry.schedulerActor, "checking", ActorRegistry.dispatcher, null);
+  }
+
+  @Nonnull
+  public static Set<Integer> getJobIdsFromConfig(@Nonnull String configKey) {
+    String jobIdsConf = Play.application().configuration().getString(configKey, "");
+    if (jobIdsConf.length() > 0) {
+      try {
+        return Arrays.stream(jobIdsConf.split("\\s*,\\s*")).mapToInt(Integer::parseInt).boxed()
+            .collect(Collectors.toSet());
+      } catch (NumberFormatException e) {
+        Logger.error(configKey + " must be set to a comma-separated list of integers in the config file");
+      }
+    }
+    return new HashSet<Integer>();
   }
 
   /**

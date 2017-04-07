@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import java.util.Set;
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
@@ -35,6 +36,7 @@ import play.Play;
 import models.kafka.KafkaConfig;
 import models.kafka.KafkaConfig.Topic;
 import play.db.DB;
+import utils.SchedulerUtil;
 import wherehows.common.PathAnalyzer;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -47,17 +49,18 @@ import wherehows.common.utils.ClusterUtil;
 public class KafkaConsumerMaster extends UntypedActor {
 
   // List of kafka job IDs
-  private static List<Integer> _kafkaJobList;
+  private static Set<Integer> _kafkaJobList;
   // map of kafka job id to configs
   private static Map<Integer, KafkaConfig> _kafkaConfigs = new HashMap<>();
 
   @Override
   public void preStart()
       throws Exception {
-    _kafkaJobList = Play.application().configuration().getIntList("kafka.consumer.etl.jobid", null);
-    if (_kafkaJobList == null || _kafkaJobList.size() == 0) {
+    _kafkaJobList = SchedulerUtil.getJobIdsFromConfig("kafka.consumer.etl.jobid");
+    Logger.info("Kafka job IDs from configuratoin: " + _kafkaJobList);
+
+    if (_kafkaJobList.size() == 0) {
       context().stop(getSelf());
-      Logger.error("Kafka job id error, kafkaJobList: " + _kafkaJobList);
       return;
     }
     Logger.info("Start KafkaConsumerMaster... Kafka job id list: " + _kafkaJobList);
