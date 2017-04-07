@@ -6,7 +6,8 @@ const {
   Route,
   run,
   get,
-  inject: { service }
+  inject: { service },
+  testing,
 } = Ember;
 
 export default Route.extend(ApplicationRouteMixin, {
@@ -28,6 +29,19 @@ export default Route.extend(ApplicationRouteMixin, {
   sessionAuthenticated() {
     this._super(...arguments);
     this._loadCurrentUser();
+  },
+
+  /**
+   * __It reloads the Ember.js application__ by redirecting the browser
+   * to the application's root URL so that all in-memory data (such as Ember
+   * Data stores etc.) gets cleared.
+   * @override ApplicationRouteMixin.sessionInvalidated
+   * @link https://github.com/simplabs/ember-simple-auth/issues/1048
+   */
+  sessionInvalidated() {
+    if (!testing) {
+      window.location.replace('/');
+    }
   },
 
   /**

@@ -41,13 +41,18 @@ public class Application extends Controller
     private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
 
     /**
-     * Serves the index view for any given path
+     * Serves the build output index.html for any given path
      * @param path takes a path string, which essentially is ignored
      *             routing is managed client side
-     * @return {Result}
+     * @return {Result} build output index.html resource
      */
     public static Result serveAsset(String path) {
-        return ok(index.render());
+        // Get the build output Html file
+        java.io.File indexHtml = new java.io.File("build/assets/index.html");
+        // Sets the Content-Disposition to inline to indicate that the browser should
+        //   not treat this as an attachment to be downloaded
+        response().setHeader("Content-Disposition", "inline");
+        return ok(indexHtml);
     }
 
     public static Result healthcheck()
