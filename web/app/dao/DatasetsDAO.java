@@ -13,7 +13,10 @@
  */
 package dao;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
 import java.sql.Connection;
@@ -382,6 +385,29 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"from_unixtime(l.log_time_epoch) as log_time_str FROM log_dataset_instance_load_status l " +
 			"JOIN cfg_database d on l.db_id = d.db_id WHERE dataset_id = ? and partition_grain = ? " +
 			"ORDER by l.data_time_expr DESC";
+
+	private static final String GET_DATASET_COMPLIANCE_BY_DATASET_ID =
+			"SELECT * FROM dataset_privacy_compliance WHERE dataset_id = ?";
+
+	private static final String GET_DATASET_COMPLIANCE_BY_URN =
+			"SELECT * FROM dataset_privacy_compliance WHERE dataset_urn = ?";
+
+	private final static String INSERT_DATASET_COMPLIANCE =
+			"INSERT INTO dataset_privacy_compliance (dataset_id, dataset_urn, compliance_purge_type, "
+					+ "compliance_purge_entities, modified_time) VALUES (:id, :urn, :type, :entities, :modified) "
+					+ "ON DUPLICATE KEY UPDATE compliance_purge_type = :type, compliance_purge_entities = :entities, "
+					+ "modified_time = :modified";
+
+	private static final String GET_DATASET_SECURITY_BY_DATASET_ID = "SELECT * FROM dataset_security WHERE dataset_id = ?";
+
+	private static final String GET_DATASET_SECURITY_BY_URN = "SELECT * FROM dataset_security WHERE dataset_urn = ?";
+
+	private final static String INSERT_DATASET_SECURITY =
+			"INSERT INTO dataset_security (dataset_id, dataset_urn, classification, record_owner_type, retention_policy, "
+					+ "geographic_affinity, modified_time) VALUES (:id, :urn, :classification, :ownerType, :policy, :geo, :modified) "
+					+ "ON DUPLICATE KEY UPDATE classification = :classification, record_owner_type = :ownerType, "
+					+ "retention_policy = :policy, geographic_affinity = :geo, modified_time = :modified";
+
 
 	public static List<String> getDatasetOwnerTypes()
 	{
@@ -2150,5 +2176,108 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return datasetPartitions;
+	}
+
+	public static DatasetCompliance getDatasetComplianceByDatasetId(int datasetId) throws Exception {
+		Map<String, Object> result = getJdbcTemplate().queryForMap(GET_DATASET_COMPLIANCE_BY_DATASET_ID, datasetId);
+
+		return maptoDatasetCompliance(result);
+	}
+
+	public static DatasetCompliance getDatasetComplianceByDatasetUrn(String datasetUrn) throws Exception {
+		Map<String, Object> result = getJdbcTemplate().queryForMap(GET_DATASET_COMPLIANCE_BY_URN, datasetUrn);
+
+		return maptoDatasetCompliance(result);
+	}
+
+	private static DatasetCompliance maptoDatasetCompliance(Map<String, Object> result) throws IOException {
+		ObjectMapper om = new ObjectMapper();
+		List<DatasetFieldEntity> entities =
+				om.readValue((String) result.get("compliance_purge_entities"), new TypeReference<List<DatasetFieldEntity>>() {
+				});
+
+		DatasetCompliance record = new DatasetCompliance();
+		record.setDatasetId(((Long) result.get("dataset_id")).intValue());
+		record.setDatasetUrn((String) result.get("dataset_urn"));
+		record.setComplianceType((String) result.get("compliance_purge_type"));
+		record.setCompliancePurgeEntities(entities);
+		record.setModifiedTime((long) result.get("modified_time"));
+		return record;
+	}
+
+	public static void updateDatasetCompliancePolicy(int datasetId, JsonNode node) throws Exception {
+		ObjectMapper om = new ObjectMapper();
+		DatasetCompliance record = om.convertValue(node, DatasetCompliance.class);
+		if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
+			throw new IllegalArgumentException("Dataset id doesn't match.");
+		}
+
+		String urn = record.getDatasetUrn() != null ? record.getDatasetUrn() : getDatasetUrnById(datasetId);
+
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("id", datasetId);
+		parameters.put("urn", urn);
+		parameters.put("type", record.getComplianceType());
+		parameters.put("entities", om.writeValueAsString(record.getCompliancePurgeEntities()));
+		parameters.put("modified", System.currentTimeMillis() / 1000);
+		getNamedParameterJdbcTemplate().update(INSERT_DATASET_COMPLIANCE, parameters);
+	}
+
+	public static DatasetSecurity getDatasetSecurityByDatasetId(int datasetId) throws Exception {
+		Map<String, Object> result = getJdbcTemplate().queryForMap(GET_DATASET_SECURITY_BY_DATASET_ID, datasetId);
+
+		return mapToDatasetSecurity(result);
+	}
+
+	public static DatasetSecurity getDatasetSecurityByDatasetUrn(String datasetUrn) throws Exception {
+		Map<String, Object> result = getJdbcTemplate().queryForMap(GET_DATASET_SECURITY_BY_URN, datasetUrn);
+
+		return mapToDatasetSecurity(result);
+	}
+
+	private static DatasetSecurity mapToDatasetSecurity(Map<String, Object> result) throws IOException {
+		ObjectMapper om = new ObjectMapper();
+		Map<String, List<DatasetFieldEntity>> classification =
+				om.readValue((String) result.get("classification"), new TypeReference<Map<String, List<DatasetFieldEntity>>>() {
+				});
+
+		Map<String, Object> retention =
+				om.readValue((String) result.get("retention_policy"), new TypeReference<Map<String, Object>>() {
+				});
+
+		Map<String, Object> geo =
+				om.readValue((String) result.get("geographic_affinity"), new TypeReference<Map<String, Object>>() {
+				});
+
+		DatasetSecurity record = new DatasetSecurity();
+		record.setDatasetId(((Long) result.get("dataset_id")).intValue());
+		record.setDatasetUrn((String) result.get("dataset_urn"));
+		record.setClassification(classification);
+		record.setRecordOwnerType((String) result.get("record_owner_type"));
+		record.setRetentionPolicy(retention);
+		record.setGeographicAffinity(geo);
+		record.setModifiedTime((long) result.get("modified_time"));
+		return record;
+	}
+
+	public static void updateDatasetSecurityInfo(int datasetId, JsonNode node) throws Exception {
+
+		ObjectMapper om = new ObjectMapper();
+		DatasetSecurity record = om.convertValue(node, DatasetSecurity.class);
+		if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
+			throw new IllegalArgumentException("Dataset id doesn't match.");
+		}
+
+		String urn = record.getDatasetUrn() != null ? record.getDatasetUrn() : getDatasetUrnById(datasetId);
+
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("id", datasetId);
+		parameters.put("urn", urn);
+		parameters.put("classification", om.writeValueAsString(record.getClassification()));
+		parameters.put("ownerType", record.getRecordOwnerType());
+		parameters.put("policy", om.writeValueAsString(record.getRetentionPolicy()));
+		parameters.put("geo", om.writeValueAsString(record.getGeographicAffinity()));
+		parameters.put("modified", System.currentTimeMillis() / 1000);
+		getNamedParameterJdbcTemplate().update(INSERT_DATASET_SECURITY, parameters);
 	}
 }
