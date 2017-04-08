@@ -1,16 +1,47 @@
 import Ember from 'ember';
 import config from './config/environment';
 
-const Router = Ember.Router.extend({
+const {
+  get,
+  Router,
+  getWithDefault,
+  inject: { service },
+  run: { scheduleOnce }
+} = Ember;
+
+const AppRouter = Router.extend({
   location: config.locationType,
-  rootURL: config.rootURL
+
+  rootURL: config.rootURL,
+
+  metrics: service(),
+
+  didTransition() {
+    this._super(...arguments);
+
+    // On route transition / navigation invoke page tracking
+    this._trackPage();
+  },
+
+  /**
+   * Tracks the current page
+   * @private
+   */
+  _trackPage() {
+    scheduleOnce('afterRender', null, () => {
+      const page = get(this, 'url');
+      const title = getWithDefault(this, 'currentRouteName', 'unknown.page.title');
+
+      get(this, 'metrics').trackPage({ page, title });
+    });
+  }
 });
 
-Router.map(function() {
+AppRouter.map(function () {
   this.route('page-not-found', {
     path: '/*wildcard'
   });
-  this.route('datasets', function() {
+  this.route('datasets', function () {
     this.route('page', {
       path: '/page/:page'
     });
@@ -21,7 +52,7 @@ Router.map(function() {
 
     this.route('name', {
       path: '/name/:name'
-    }, function() {
+    }, function () {
       this.route('subpage', {
         path: '/page/:page'
       });
@@ -29,7 +60,7 @@ Router.map(function() {
   });
   this.route('search');
   this.route('advsearch');
-  this.route('metrics', function() {
+  this.route('metrics', function () {
     this.route('metricspage', {
       path: '/page/:page'
     });
@@ -40,35 +71,35 @@ Router.map(function() {
 
     this.route('metricname', {
       path: '/name/:metric_name'
-    }, function() {
+    }, function () {
       this.route('metricnamepage', {
         path: '/page/:page'
       });
 
       this.route('metricgroup', {
         path: '/:metric_group'
-      }, function() {
+      }, function () {
         this.route('metricnamesubpage', {
           path: '/page/:page'
         });
       });
     });
   });
-  this.route('flows', function() {
+  this.route('flows', function () {
     this.route('flowspage', {
       path: '/page/:page'
     });
 
     this.route('flowsname', {
       path: '/name/:name'
-    }, function() {
+    }, function () {
       this.route('flowssubpage', {
         path: '/page/:page'
       });
 
       this.route('flow', {
         path: '/:flow_id'
-      }, function() {
+      }, function () {
         this.route('pagedflow', {
           path: '/page/:page'
         });
@@ -76,17 +107,17 @@ Router.map(function() {
     });
   });
   this.route('logout');
-  this.route('metadata', function() {
+  this.route('metadata', function () {
     this.route('user', {
       path: '/:user'
     });
   });
-  this.route('idpc', function() {
+  this.route('idpc', function () {
     this.route('user', {
       path: '/:user'
     });
   });
-  this.route('scripts', function() {
+  this.route('scripts', function () {
     this.route('page', {
       path: '/page/:page'
     });
@@ -98,7 +129,7 @@ Router.map(function() {
 
   this.route('schemahistory', {
     path: 'schemas'
-  }, function() {
+  }, function () {
     this.route('page', {
       path: '/page/:page'
     });
@@ -107,16 +138,16 @@ Router.map(function() {
       path: '/:schema'
     });
   });
-  this.route('lineage', function() {
+  this.route('lineage', function () {
     this.route('dataset', {
       path: '/dataset/:id'
     });
   });
   this.route('login');
 
-  this.route('help', function() {
+  this.route('help', function () {
     this.route('feedback');
   });
 });
 
-export default Router;
+export default AppRouter;
