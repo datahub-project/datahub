@@ -13,6 +13,9 @@
  */
 package controllers;
 
+import java.io.File;
+
+import javax.annotation.Nullable;
 import dao.FlowsDAO;
 import dao.MetricsDAO;
 import dao.UserDAO;
@@ -46,33 +49,48 @@ public class Application extends Controller
      *             routing is managed client side
      * @return {Result} build output index.html resource
      */
-    public static Result serveAsset(String path) {
+    private static Result serveAsset(String path) {
+        File indexHtml = getIndexHtml();
+        if (indexHtml != null) {
+            // Sets the Content-Disposition to inline to indicate that the browser should
+            //   not treat this as an attachment to be downloaded
+            response().setHeader("Content-Disposition", "inline");
+            return ok(indexHtml);
+        }
+
+        return internalServerError("<h1>Oops! Something's gone wrong!</h1>").as("text/html");
+    }
+
+    /**
+     * Retrieves the index.html from the build output dir
+     *
+     * @return file for index.html or null if not found
+     */
+    @Nullable
+    private static File getIndexHtml() {
         // Get the build output Html file
-        java.io.File indexHtml = new java.io.File("build/assets/index.html");
-        // Sets the Content-Disposition to inline to indicate that the browser should
-        //   not treat this as an attachment to be downloaded
-        response().setHeader("Content-Disposition", "inline");
-        return ok(indexHtml);
+        File indexHtml = new File("build/assets/index.html");
+
+        // Ensure that we have the build step completed and the file is in the right place
+        if (indexHtml.exists()) {
+            return indexHtml;
+        }
+
+        Logger.error("Could not find index at {}", indexHtml.getAbsolutePath());
+        return null;
     }
 
     public static Result healthcheck()
     {
         return ok("GOOD");
     }
-
-    @Security.Authenticated(Secured.class)
-    public static Result index()
-    {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
-        String username = session("user");
-        if (username == null)
-        {
-            username = "";
-        }
-        //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
-        String csrfToken = "";
-        return ok(index.render());
+    /**
+     * index Action proxies to serveAsset
+     * @param path takes a path string which is either index.html or the path segment after /
+     * @return {Result} response from serveAsset method
+     */
+    public static Result index(String path) {
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -85,7 +103,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -98,7 +116,8 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -111,7 +130,8 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -130,7 +150,8 @@ public class Application extends Controller
             type = "appworx";
 
         }
-        return ok(index.render());
+
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -143,7 +164,8 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -157,7 +179,7 @@ public class Application extends Controller
             username = "";
         }
 
-        return ok(index.render());
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -170,7 +192,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+        return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
@@ -183,7 +205,7 @@ public class Application extends Controller
         {
             username = "";
         }
-        return ok(index.render());
+        return serveAsset("");
     }
 
     public static Result login()
@@ -192,7 +214,7 @@ public class Application extends Controller
         Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
-        return ok(index.render());
+        return serveAsset("");
     }
 
     @BodyParser.Of(BodyParser.Json.class)
@@ -266,7 +288,7 @@ public class Application extends Controller
             flash("error", e.getMessage());
         }
 
-        return ok(index.render());
+        return serveAsset("");
     }
 
     public static Result logout()
