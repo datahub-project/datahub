@@ -39,6 +39,7 @@
     "ember-data": "2.11.1",
     "ember-export-application-global": "1.1.1",
     "ember-load-initializers": "0.5.1",
+    "ember-metrics": "0.10.0",
     "ember-pikaday": "2.2.1",
     "ember-resolver": "2.1.1",
     "eyeglass": "1.2.1",
