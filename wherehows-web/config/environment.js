@@ -26,6 +26,14 @@ module.exports = function(environment) {
       cssDir: 'assets'
     },
 
+    // Since ember-metrics automatically removes all unused adapters, which
+    //   will happen because we are using lazy initialization for API keys
+    //   and not specifying adapter props at build time, the ffg forces the
+    //   inclusion of the adapter's we currently support.
+    'ember-metrics': {
+      includeAdapters: ['piwik']
+    },
+
     // ember-aupac-typeahead is dependent on twitter typeahead
     //   unfortunately, there are several issues with the library since it's
     //   also no longer maintained including failing to render async results
