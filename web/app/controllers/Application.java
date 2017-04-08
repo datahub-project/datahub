@@ -40,7 +40,9 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
-    private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
+    private static final Integer PIWIK_SITE_ID = Play.application().configuration().getInt("tracking.piwik.siteid");
+    private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
+    private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
 
     /**
      * Serves the build output index.html for any given path
@@ -100,11 +102,10 @@ public class Application extends Controller
      */
     public static Result appConfig() {
         ObjectNode response = Json.newObject();
-        Boolean isInternal = Play.application().configuration().getBoolean("linkedin.internal", false);
-
         ObjectNode config = Json.newObject();
-        config.put("isInternal", isInternal);
-        config.put("trackingInfo", trackingInfo());
+
+        config.put("isInternal", IS_INTERNAL);
+        config.put("tracking", trackingInfo());
         response.put("status", "ok");
         response.put("config", config);
 
@@ -116,11 +117,14 @@ public class Application extends Controller
      */
     private static ObjectNode trackingInfo() {
         ObjectNode trackingConfig = Json.newObject();
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
-        String piwikUrl = Play.application().configuration().getString("tracking.piwik.url");
+        ObjectNode trackers = Json.newObject();
+        ObjectNode piwik = Json.newObject();
 
-        trackingConfig.put("piwikSiteId", piwikSiteId);
-        trackingConfig.put("piwikUrl", piwikUrl);
+        piwik.put("piwikSiteId", PIWIK_SITE_ID);
+        piwik.put("piwikUrl", PIWIK_URL);
+        trackers.put("piwik", piwik);
+        trackingConfig.put("trackers", trackers);
+        trackingConfig.put("isEnabled", true);
 
         return trackingConfig;
     }
