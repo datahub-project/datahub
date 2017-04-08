@@ -84,6 +84,7 @@ public class Application extends Controller
     {
         return ok("GOOD");
     }
+
     /**
      * index Action proxies to serveAsset
      * @param path takes a path string which is either index.html or the path segment after /
@@ -91,6 +92,38 @@ public class Application extends Controller
      */
     public static Result index(String path) {
         return serveAsset("");
+    }
+
+    /**
+     * Creates a wrapping ObjectNode containing config information
+     *
+     * @return Http Result instance with app configuration attributes
+     */
+    public static Result appConfig() {
+        ObjectNode response = Json.newObject();
+        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+
+        ObjectNode config = Json.newObject();
+        config.put("isInternal", isInternal);
+        config.put("trackingInfo", trackingInfo());
+        response.put("status", "ok");
+        response.put("config", config);
+
+        return ok(response);
+    }
+
+    /**
+     * @return Json object containing the tracking configuration details
+     */
+    private static ObjectNode trackingInfo() {
+        ObjectNode trackingConfig = Json.newObject();
+        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
+        String piwikUrl = Play.application().configuration().getString("tracking.piwik.url");
+
+        trackingConfig.put("piwikSiteId", piwikSiteId);
+        trackingConfig.put("piwikUrl", piwikUrl);
+
+        return trackingConfig;
     }
 
     @Security.Authenticated(Secured.class)
@@ -251,10 +284,9 @@ public class Application extends Controller
             return badRequest("Invalid credentials");
         }
 
-
         // Adds the username to the session cookie
         session("user", username);
-        // Contruct an ObjectNode with the username and uuid token to be sent with the response
+        // Construct an ObjectNode with the username and uuid token to be sent with the response
         ObjectNode data = Json.newObject();
         data.put("username", username);
         data.put("uuid", uuid);
