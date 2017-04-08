@@ -40,7 +40,6 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
-    private static String LINKEDIN_INTERNAL_KEY = "linkedin.internal";
     private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
 
     /**
@@ -101,7 +100,7 @@ public class Application extends Controller
      */
     public static Result appConfig() {
         ObjectNode response = Json.newObject();
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
+        Boolean isInternal = Play.application().configuration().getBoolean("linkedin.internal", false);
 
         ObjectNode config = Json.newObject();
         config.put("isInternal", isInternal);
@@ -129,8 +128,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result lineage()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -142,8 +139,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result datasetLineage(int id)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -156,8 +151,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result metricLineage(int id)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -170,8 +163,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result flowLineage(String application, String project, String flow)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -190,8 +181,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result schemaHistory()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -204,8 +193,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result scriptFinder()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -218,8 +205,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result idpc()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -231,8 +216,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result dashboard()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -243,8 +226,6 @@ public class Application extends Controller
 
     public static Result login()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
         return serveAsset("");
