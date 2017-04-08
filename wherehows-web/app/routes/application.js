@@ -90,8 +90,6 @@ export default Route.extend(ApplicationRouteMixin, {
     return Promise.resolve(getJSON(appConfigUrl))
       .then(({ status, config = {} }) => {
         const { tracking = {} } = config;
-        const userId = get(this, 'sessionUser.userName') ||
-          get(this, 'sessionUser.currentUser.userName');
 
         if (status === 'ok' && tracking.isEnabled) {
           const metrics = get(this, 'metrics');
@@ -109,9 +107,6 @@ export default Route.extend(ApplicationRouteMixin, {
               siteId: piwikSiteId
             }
           }]);
-
-          // Track currently logged in user
-          metrics.identify({ userId });
         }
       });
   },
