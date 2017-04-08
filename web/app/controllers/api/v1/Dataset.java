@@ -16,18 +16,17 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.dataset.SchemaField;
 import com.linkedin.dataset.SchemaFieldArray;
 import dao.MetadataStoreDao;
 import dao.ReturnCode;
 import models.DatasetColumn;
+import models.DatasetCompliance;
 import models.DatasetDependency;
+import models.DatasetSecurity;
 import models.ImpactDataset;
 import org.apache.commons.lang3.math.NumberUtils;
-import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
-import play.libs.ws.*;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.Logger;
@@ -41,13 +40,6 @@ import java.util.Map;
 
 public class Dataset extends Controller
 {
-    public static final String BACKEND_SERVICE_URL_KEY = "backend.service.url";
-
-    public static final String BACKEND_URL = Play.application().configuration().getString(BACKEND_SERVICE_URL_KEY);
-
-    public static final String DATASET_SECURITY_PATH = "/dataset/security";
-    public static final String DATASET_COMPLIANCE_PATH = "/dataset/compliance";
-
     public static Result getDatasetOwnerTypes()
     {
         ObjectNode result = Json.newObject();
@@ -871,74 +863,92 @@ public class Dataset extends Controller
     }
 
     public static Promise<Result> getDatasetCompliance(int datasetId) {
-        final String queryUrl = BACKEND_URL + DATASET_COMPLIANCE_PATH;
-        return WS.url(queryUrl)
-            .setQueryParameter("datasetId", Integer.toString(datasetId))
-            .setRequestTimeout(1000)
-            .get()
-            .map(response ->
-                ok(response.asJson())
-            );
+        DatasetCompliance record = null;
+        try {
+            record = DatasetsDAO.getDatasetComplianceByDatasetId(datasetId);
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Fetch data Error: " + e.getMessage());
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        JsonNode result = Json.newObject().put("status", "ok")
+            .set("privacyCompliancePolicy", Json.toJson(record));
+
+        return Promise.promise(() -> ok(result));
     }
 
     public static Promise<Result> updateDatasetCompliance(int datasetId) {
         String username = session("user");
-        if (StringUtils.isNotBlank(username)) {
-            final String queryUrl = BACKEND_URL + DATASET_COMPLIANCE_PATH;
-
-            final JsonNode queryNode = Json.newObject()
-                .put("datasetId", datasetId)
-                .set("privacyCompliancePolicy", request().body().asJson());
-
-            return WS.url(queryUrl)
-                .setRequestTimeout(1000)
-                .post(queryNode)
-                .map(response ->
-                    ok(response.asJson())
-                );
-        } else {
-            final JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Unauthorized User.");
+        if (StringUtils.isBlank(username)) {
+            JsonNode result =
+                Json.newObject().put("status", "failed")
+                    .put("error", "true")
+                    .put("msg", "Unauthorized User.");
 
             return Promise.promise(() -> ok(result));
         }
+
+        try {
+            DatasetsDAO.updateDatasetCompliancePolicy(datasetId, request().body().asJson());
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Update Error: " + e.getMessage());
+
+            Logger.warn("Update fail", e);
+
+            return Promise.promise(() -> ok(result));
+        }
+        return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
     }
 
     public static Promise<Result> getDatasetSecurity(int datasetId) {
-        final String queryUrl = BACKEND_URL + DATASET_SECURITY_PATH;
-        return WS.url(queryUrl)
-            .setQueryParameter("datasetId", Integer.toString(datasetId))
-            .setRequestTimeout(1000)
-            .get()
-            .map(response ->
-                ok(response.asJson())
-            );
+        DatasetSecurity record = null;
+        try {
+            record = DatasetsDAO.getDatasetSecurityByDatasetId(datasetId);
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Fetch data Error: " + e.getMessage());
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        JsonNode result = Json.newObject().put("status", "ok")
+            .set("securitySpecification", Json.toJson(record));
+
+        return Promise.promise(() -> ok(result));
     }
 
     public static Promise<Result> updateDatasetSecurity(int datasetId) {
         String username = session("user");
-        if (StringUtils.isNotBlank(username)) {
-            final String queryUrl = BACKEND_URL + DATASET_SECURITY_PATH;
-
-            final JsonNode queryNode = Json.newObject()
-                .put("datasetId", datasetId)
-                .set("securitySpecification", request().body().asJson());
-
-            return WS.url(queryUrl)
-                .setRequestTimeout(1000)
-                .post(queryNode)
-                .map(response ->
-                    ok(response.asJson())
-                );
-        } else {
-            final JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Unauthorized User.");
+        if (StringUtils.isBlank(username)) {
+            JsonNode result =
+                Json.newObject().put("status", "failed")
+                    .put("error", "true")
+                    .put("msg", "Unauthorized User.");
 
             return Promise.promise(() -> ok(result));
         }
+
+        try {
+            DatasetsDAO.updateDatasetSecurityInfo(datasetId, request().body().asJson());
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Update Error: " + e.getMessage());
+
+            Logger.warn("Update fail", e);
+
+            return Promise.promise(() -> ok(result));
+        }
+        return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
     }
 }
