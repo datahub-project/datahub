@@ -40,8 +40,9 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
-    private static String LINKEDIN_INTERNAL_KEY = "linkedin.internal";
-    private static String PIWIK_SITE_ID = "tracking.piwik.siteid";
+    private static final Integer PIWIK_SITE_ID = Play.application().configuration().getInt("tracking.piwik.siteid");
+    private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
+    private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
 
     /**
      * Serves the build output index.html for any given path
@@ -84,6 +85,7 @@ public class Application extends Controller
     {
         return ok("GOOD");
     }
+
     /**
      * index Action proxies to serveAsset
      * @param path takes a path string which is either index.html or the path segment after /
@@ -93,11 +95,43 @@ public class Application extends Controller
         return serveAsset("");
     }
 
+    /**
+     * Creates a wrapping ObjectNode containing config information
+     *
+     * @return Http Result instance with app configuration attributes
+     */
+    public static Result appConfig() {
+        ObjectNode response = Json.newObject();
+        ObjectNode config = Json.newObject();
+
+        config.put("isInternal", IS_INTERNAL);
+        config.put("tracking", trackingInfo());
+        response.put("status", "ok");
+        response.put("config", config);
+
+        return ok(response);
+    }
+
+    /**
+     * @return Json object containing the tracking configuration details
+     */
+    private static ObjectNode trackingInfo() {
+        ObjectNode trackingConfig = Json.newObject();
+        ObjectNode trackers = Json.newObject();
+        ObjectNode piwik = Json.newObject();
+
+        piwik.put("piwikSiteId", PIWIK_SITE_ID);
+        piwik.put("piwikUrl", PIWIK_URL);
+        trackers.put("piwik", piwik);
+        trackingConfig.put("trackers", trackers);
+        trackingConfig.put("isEnabled", true);
+
+        return trackingConfig;
+    }
+
     @Security.Authenticated(Secured.class)
     public static Result lineage()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -109,8 +143,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result datasetLineage(int id)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -123,8 +155,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result metricLineage(int id)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -137,8 +167,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result flowLineage(String application, String project, String flow)
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -157,8 +185,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result schemaHistory()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -171,8 +197,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result scriptFinder()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -185,8 +209,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result idpc()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -198,8 +220,6 @@ public class Application extends Controller
     @Security.Authenticated(Secured.class)
     public static Result dashboard()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         String username = session("user");
         if (username == null)
         {
@@ -210,8 +230,6 @@ public class Application extends Controller
 
     public static Result login()
     {
-        Boolean isInternal = Play.application().configuration().getBoolean(LINKEDIN_INTERNAL_KEY, false);
-        Integer piwikSiteId = Play.application().configuration().getInt(PIWIK_SITE_ID);
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
         return serveAsset("");
