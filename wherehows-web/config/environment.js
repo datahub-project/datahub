@@ -61,7 +61,7 @@ module.exports = function(environment) {
   }
 
   if (environment === 'production') {
-
+    ENV.rootURL = '/assets';
   }
 
   return ENV;

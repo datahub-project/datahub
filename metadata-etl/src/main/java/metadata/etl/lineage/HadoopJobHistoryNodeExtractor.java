@@ -16,6 +16,8 @@ package metadata.etl.lineage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Properties;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthSchemeProvider;
@@ -60,35 +62,14 @@ public class HadoopJobHistoryNodeExtractor {
     this.serverURL = prop.getProperty(Constant.AZ_HADOOP_JOBHISTORY_KEY);
 
     String CURRENT_DIR = System.getProperty("user.dir");
-    String WH_HOME = System.getenv("WH_HOME");
+    String WHZ_KRB5_DIR = System.getenv("WHZ_KRB5_DIR");
     String APP_HOME = System.getenv("APP_HOME");
     String USER_HOME = System.getenv("HOME") + "/.kerberos";
 
-    String[] allPositions = new String[]{CURRENT_DIR, WH_HOME, APP_HOME, USER_HOME, "/etc"};
+    String[] searchPath = new String[]{CURRENT_DIR, WHZ_KRB5_DIR, APP_HOME, USER_HOME, "/etc"};
 
-    for (String position : allPositions) {
-      String gssFileName = position + "/gss-jaas.conf";
-      File gssFile = new File(gssFileName);
-      if (gssFile.exists()) {
-        logger.debug("Found gss-jaas.conf file at: {}", gssFile.getAbsolutePath());
-        System.setProperty("java.security.auth.login.config", gssFile.getAbsolutePath());
-        break;
-      } else {
-        logger.debug("{} doesn't exist.", gssFile.getAbsolutePath());
-      }
-    }
-    for (String position : allPositions) {
-      String krb5FileName = position + "/krb5.conf";
-      File krb5File = new File(krb5FileName);
-      if (krb5File.exists()) {
-        logger.debug("Found krb5.conf file at: {}", krb5File.getAbsolutePath());
-        System.setProperty("java.security.krb5.conf", krb5File.getAbsolutePath());
-        break;
-      } else {
-        logger.debug("{} does't exist.", krb5File.getAbsolutePath());
-      }
-    }
-
+    System.setProperty("java.security.auth.login.config", findFileInSearchPath(searchPath, "gss-jaas.conf"));
+    System.setProperty("java.security.auth.krb5.conf", findFileInSearchPath(searchPath, "krb5.conf"));
     if (System.getProperty("java.security.auth.login.config") == null
       || System.getProperty("java.security.krb5.conf") == null) {
       logger.warn("Can't find Java security config [krb5.conf, gss-jass.conf] for Kerberos! Trying other authentication methods...");
@@ -143,5 +124,20 @@ public class HadoopJobHistoryNodeExtractor {
   public void close()
     throws IOException {
     httpClient.close();
+  }
+
+  @Nullable
+  private String findFileInSearchPath(@Nonnull String[] searchPath, @Nonnull String filename) {
+    for (String path : searchPath) {
+      File file = new File(path, filename);
+      if (file.exists()) {
+        String absolutePath = file.getAbsolutePath();
+        logger.debug("Found {} file at: {}", filename, absolutePath);
+        return absolutePath;
+      } else {
+        logger.debug("{} doesn't exist.", file.getAbsolutePath());
+      }
+    }
+    return null;
   }
 }

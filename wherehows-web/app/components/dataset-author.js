@@ -74,11 +74,10 @@ export default Component.extend({
   // Returns a list of owners with truthy value for their confirmedBy attribute,
   //   i.e. they confirmedBy contains a userName and
   //   type is `Owner` and idType is `USER`.
-  confirmedOwners: computed('owners.[]', function () {
+  confirmedOwners: computed('owners.[]', function() {
     return getWithDefault(this, 'owners', []).filter(
-      ({ confirmedBy, type, idType }) => confirmedBy &&
-      type === 'Owner' &&
-      idType === 'USER'
+      ({ confirmedBy, type, idType }) =>
+        confirmedBy && type === 'Owner' && idType === 'USER'
     );
   }),
 
@@ -98,10 +97,10 @@ export default Component.extend({
    * @type {Ember.ComputedProperty}
    * @requires _defaultOwnerUserName
    */
-  userNameInvalid: computed('owners.[]', function () {
-    return getWithDefault(this, 'owners', [])
-        .filter(({ userName }) => userName === _defaultOwnerUserName)
-        .length > 0;
+  userNameInvalid: computed('owners.[]', function() {
+    return getWithDefault(this, 'owners', []).filter(
+      ({ userName }) => userName === _defaultOwnerUserName
+    ).length > 0;
   }),
 
   didInsertElement() {
@@ -190,10 +189,12 @@ export default Component.extend({
      *   wrapping TD element, which handles the bubbled Mouse click on the
      *   label
      */
-    willEditUserName({ source = "" }, { currentTarget: { classList } }) {
+    willEditUserName({ source = '' }, { currentTarget: { classList } }) {
       // Add the className cached in `userNameEditableClass`. This renders
       //   the input element in the DOM, and removes the label from layout
-      if (!source.includes("SCM") && typeof classList.add === 'function') {
+      if (
+        !String(source).includes('SCM') && typeof classList.add === 'function'
+      ) {
         classList.add(userNameEditableClass);
       }
     },

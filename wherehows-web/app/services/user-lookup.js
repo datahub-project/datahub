@@ -69,13 +69,11 @@ const ldapResolver = (userNameQuery, syncResults, asyncResults) => {
  * @param {String} userName the unique userName
  * @return {Promise.<TResult|null>} resolves with the userEntity or null otherwise
  */
-const getPartyEntityWithUserName = userName => {
-  return getLDAPUsers()
-    .then(
-      ({ userEntities }) => userEntities.find(({ label }) => label === userName) ||
-      null
-    );
-};
+const getPartyEntityWithUserName = userName => getLDAPUsers()
+  .then(
+    ({ userEntities }) => userEntities.find(({ label }) => label === userName) ||
+    null
+  );
 
 export default Service.extend({
   getPartyEntityWithUserName,
