@@ -29,10 +29,31 @@ const AppRouter = Router.extend({
    */
   _trackPage() {
     scheduleOnce('afterRender', null, () => {
-      const page = get(this, 'url');
+      const page = get(this, 'location').getURL();
       const title = getWithDefault(this, 'currentRouteName', 'unknown.page.title');
+      const metrics = get(this, 'metrics');
 
-      get(this, 'metrics').trackPage({ page, title });
+      /**
+       * Manually track Piwik siteSearch using the `trackSiteSearch` api
+       *  rather than using Piwik's default reading of url's containing the
+       *  "search", "q", "query", "s", "searchword", "k" and "keyword", keywords
+       * @link https://developer.piwik.org/guides/tracking-javascript-guide#internal-search-tracking
+       */
+      if (title.includes('search')) {
+        // Reference to the _paq queue
+        //   check if we are in a browser env
+        const paq = window && window._paq ? window._paq : [];
+        const routerJs = get(this, 'router');
+        const queryParams = routerJs ? get(routerJs, 'state.queryParams') : {};
+        // const queryParams = routerJs ? get(routerJs, 'activeTransition.queryParams') : {};
+        const { keyword, category = 'datasets' } = queryParams;
+
+        // Early exit once we track search, so we do not invoke the
+        //   default op by invoking `trackPageView` event
+        return paq.push(['trackSiteSearch', keyword, category, false]);
+      }
+
+      metrics.trackPage({ page, title });
     });
   }
 });
