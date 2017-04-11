@@ -500,14 +500,16 @@ export default Route.extend({
     const datasetUrl = `${datasetsUrlRoot}/${dataset_id}`;
 
     return Promise.resolve(getJSON(datasetUrl))
-      .then(({ status, dataset }) => {
-        return status === 'ok' && isPresent(dataset)
-          ? dataset
-          : Promise.reject(
-              new Error(`Request for ${datasetUrl} failed with: ${status}`)
-            );
-      })
-      .catch(() => ({}));
+      .then(({ status, dataset, message = '' }) => {
+        return status === 'ok' && isPresent(dataset) ?
+          dataset :
+          Promise.reject(
+            new Error(
+              `Request for ${datasetUrl} failed with status: ${status}.
+              ${message}`
+            )
+          );
+      });
   },
 
   actions: {
