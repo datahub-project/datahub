@@ -13,9 +13,8 @@
  */
 package controllers;
 
-import java.io.File;
+import java.io.InputStream;
 
-import javax.annotation.Nullable;
 import dao.FlowsDAO;
 import dao.MetricsDAO;
 import dao.UserDAO;
@@ -26,7 +25,6 @@ import play.mvc.Result;
 import play.Logger;
 import play.mvc.Security;
 import utils.Tree;
-import views.html.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -51,34 +49,10 @@ public class Application extends Controller
      * @return {Result} build output index.html resource
      */
     private static Result serveAsset(String path) {
-        File indexHtml = getIndexHtml();
-        if (indexHtml != null) {
-            // Sets the Content-Disposition to inline to indicate that the browser should
-            //   not treat this as an attachment to be downloaded
-            response().setHeader("Content-Disposition", "inline");
-            return ok(indexHtml);
-        }
+        InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
+        response().setHeader("Cache-Control", "no-cache");
 
-        return internalServerError("<h1>Oops! Something's gone wrong!</h1>").as("text/html");
-    }
-
-    /**
-     * Retrieves the index.html from the build output dir
-     *
-     * @return file for index.html or null if not found
-     */
-    @Nullable
-    private static File getIndexHtml() {
-        // Get the build output Html file
-        File indexHtml = new File("build/assets/index.html");
-
-        // Ensure that we have the build step completed and the file is in the right place
-        if (indexHtml.exists()) {
-            return indexHtml;
-        }
-
-        Logger.error("Could not find index at {}", indexHtml.getAbsolutePath());
-        return null;
+        return ok(indexHtml).as("text/html");
     }
 
     public static Result healthcheck()
