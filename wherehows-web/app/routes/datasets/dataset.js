@@ -49,27 +49,41 @@ export default Route.extend({
      */
     const fetchThenSetOnController = {
       privacyCompliancePolicy(id, controller) {
-        Promise.resolve(getJSON(getDatasetComplianceUrl(id))).then(({
-          privacyCompliancePolicy = createPrivacyCompliancePolicy(),
-          return_code
-        }) =>
-          setProperties(controller, {
-            privacyCompliancePolicy,
-            isNewPrivacyCompliancePolicy: return_code === 404
-          }));
+        Promise.resolve(getJSON(getDatasetComplianceUrl(id)))
+          .then(response => {
+            const {
+              msg,
+              status,
+              privacyCompliancePolicy = createPrivacyCompliancePolicy()
+            } = response;
+            const isNewPrivacyCompliancePolicy = status === 'failed' &&
+              String(msg).includes('actual 0');
+
+            setProperties(controller, {
+              privacyCompliancePolicy,
+              isNewPrivacyCompliancePolicy
+            });
+          });
 
         return this;
       },
 
       securitySpecification(id, controller) {
-        Promise.resolve(getJSON(getDatasetSecurityUrl(id))).then(({
-          securitySpecification = createSecuritySpecification(id),
-          return_code
-        }) =>
-          setProperties(controller, {
-            securitySpecification,
-            isNewSecuritySpecification: return_code === 404
-          }));
+        Promise.resolve(getJSON(getDatasetSecurityUrl(id)))
+          .then(response => {
+            const {
+              msg,
+              status,
+              securitySpecification = createSecuritySpecification(id)
+            } = response;
+            const isNewSecuritySpecification = status === 'failed' &&
+              String(msg).includes('actual 0');
+
+            setProperties(controller, {
+              securitySpecification,
+              isNewSecuritySpecification
+            });
+          });
 
         return this;
       },

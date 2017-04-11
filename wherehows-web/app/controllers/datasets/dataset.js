@@ -2,8 +2,10 @@ import Ember from 'ember';
 
 const {
   get,
+  debug,
   getWithDefault,
-  $: {post}
+  setProperties,
+  $: { post, getJSON }
 } = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
@@ -169,27 +171,26 @@ export default Ember.Controller.extend({
    * @returns {Promise.<object>}
    */
   saveJson(urlId, data) {
-    const postRequest = {
-      type: 'POST',
+    const request = {
       url: this.getUrlFor(urlId),
       data: JSON.stringify(data),
       contentType: 'application/json'
     };
 
     // If the return_code is not 200 reject the Promise
-    return Promise.resolve(Ember.$.ajax(postRequest))
-        .then((response = {}) => response.return_code === 200 ? response : Promise.reject(response));
+    return Promise.resolve(post(request))
+      .then(({ status, msg = '' }) => status === 'ok' || Promise.reject(new Error(msg)));
   },
 
   getUrlFor(urlId) {
     return {
-      compliance: () => `/api/v1/datasets/${this.get('datasetId')}/compliance`,
-      security: () => `/api/v1/datasets/${this.get('datasetId')}/security`
+      compliance: () => `/api/v1/datasets/${get(this, 'datasetId')}/compliance`,
+      security: () => `/api/v1/datasets/${get(this, 'datasetId')}/security`
     }[urlId]();
   },
 
   exceptionOnSave({error_message}) {
-    console.error(`An error occurred on while updating : ${error_message}`);
+    debug(`An error occurred on while updating : ${error_message}`);
   },
 
   actions: {
@@ -213,7 +214,7 @@ export default Ember.Controller.extend({
             owners: JSON.stringify(updatedOwners)
           }
         }).then(({status = 'failed', msg = 'An error occurred.'}) => {
-          if (status === 'success') {
+          if (['success', 'ok'].includes(status)) {
             return {status: 'ok'};
           }
 
@@ -278,8 +279,8 @@ export default Ember.Controller.extend({
      * @returns {Promise.<*>}
      */
     resetSecuritySpecification() {
-      return Ember.$.getJSON(this.getUrlFor('security'), ({return_code, securitySpecification}) => {
-        return_code === 200 && this.setProperties({
+      return getJSON(this.getUrlFor('security'), ({ status, securitySpecification }) => {
+        status === 'ok' && setProperties(this, {
           'securitySpecification': securitySpecification,
           'isNewSecuritySpecification': false
         });
@@ -292,8 +293,8 @@ export default Ember.Controller.extend({
      * @returns {Promise.<*>}
      */
     resetPrivacyCompliancePolicy() {
-      return Ember.$.getJSON(this.getUrlFor('compliance'), ({return_code, privacyCompliancePolicy}) => {
-        return_code === 200 && this.setProperties({
+      return getJSON(this.getUrlFor('compliance'), ({ status, privacyCompliancePolicy }) => {
+        status === 'ok' && setProperties(this, {
           'privacyCompliancePolicy': privacyCompliancePolicy,
           'isNewPrivacyCompliancePolicy': false
         });
@@ -305,7 +306,7 @@ export default Ember.Controller.extend({
      * then updates controller state if successful
      */
     saveSecuritySpecification() {
-      return this.saveJson('security', this.get('securitySpecification'))
+      return this.saveJson('security', get(this, 'securitySpecification'))
           .then(this.actions.resetSecuritySpecification.bind(this))
           .catch(this.exceptionOnSave);
     },
@@ -315,7 +316,7 @@ export default Ember.Controller.extend({
      * then updates controller state if successful
      */
     savePrivacyCompliancePolicy() {
-      return this.saveJson('compliance', this.get('privacyCompliancePolicy'))
+      return this.saveJson('compliance', get(this, 'privacyCompliancePolicy'))
           .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
           .catch(this.exceptionOnSave);
     }
