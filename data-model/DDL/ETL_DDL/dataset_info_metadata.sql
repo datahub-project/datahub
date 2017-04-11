@@ -110,7 +110,8 @@ CREATE TABLE `dataset_privacy_compliance` (
   `dataset_urn`               VARCHAR(200)     NOT NULL,
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
   COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
-  `compliance_purge_entities` VARCHAR(2000)    DEFAULT NULL,
+  `compliance_purge_entities` VARCHAR(5000)    DEFAULT NULL
+  COMMENT 'JSON: compliance fields',
   `modified_time`             INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
@@ -122,7 +123,7 @@ CREATE TABLE `dataset_privacy_compliance` (
 CREATE TABLE `dataset_security` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
   `dataset_urn`               VARCHAR(200)     NOT NULL,
-  `classification`            VARCHAR(500)     DEFAULT NULL
+  `classification`            VARCHAR(5000)     DEFAULT NULL
   COMMENT 'JSON: confidential fields',
   `record_owner_type`         VARCHAR(50)      DEFAULT NULL
   COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
