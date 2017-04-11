@@ -12,7 +12,13 @@ export default Component.extend({
 
   classNames: ['nacho-pager'],
 
-  pages: computed('data', 'limit', function() {
+  pages: computed('numberOfPages', function () {
+    const numberOfPages = get(this, 'numberOfPages');
+
+    return [...Array(numberOfPages).keys()].map(x => x + 1);
+  }),
+
+  numberOfPages: computed('data', 'limit', function () {
     const { data, limit: rowsPerPage = 1 } = getProperties(
       this,
       'data',
@@ -26,7 +32,7 @@ export default Component.extend({
       needsExtraPage && ++numberOfPages;
     }
 
-    return [...Array(numberOfPages).keys()].map(x => x + 1);
+    return numberOfPages;
   }),
 
   actions: {
