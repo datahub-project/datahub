@@ -41,8 +41,6 @@ public class Application extends Controller
     private static final Integer PIWIK_SITE_ID = Play.application().configuration().getInt("tracking.piwik.siteid");
     private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
     private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
-    private static final InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
-
 
     /**
      * Serves the build output index.html for any given path
@@ -51,6 +49,7 @@ public class Application extends Controller
      * @return {Result} build output index.html resource
      */
     private static Result serveAsset(String path) {
+        InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
         response().setHeader("Cache-Control", "no-cache");
 
         return ok(indexHtml).as("text/html");
