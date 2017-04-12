@@ -38,7 +38,7 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
-    private static final Integer PIWIK_SITE_ID = Play.application().configuration().getInt("tracking.piwik.siteid");
+    private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
     private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
     private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
 
@@ -94,7 +94,14 @@ public class Application extends Controller
         ObjectNode trackers = Json.newObject();
         ObjectNode piwik = Json.newObject();
 
-        piwik.put("piwikSiteId", PIWIK_SITE_ID);
+        Integer siteId = null;
+        try {
+            siteId = Integer.parseInt(PIWIK_SITE_ID);
+        } catch (NumberFormatException e) {
+            Logger.error("Piwik site ID must be an integer");
+        }
+
+        piwik.put("piwikSiteId", siteId);
         piwik.put("piwikUrl", PIWIK_URL);
         trackers.put("piwik", piwik);
         trackingConfig.put("trackers", trackers);
