@@ -149,21 +149,21 @@ export default Component.extend({
    */
   whenRequestCompletes(request, { successMessage } = {}) {
     Promise.resolve(request)
-      .then(({ return_code = 'UNKNOWN' }) => {
+      .then(({ status = 'error' }) => {
         // The server api currently responds with an object containing
-        //   a return_code when complete
-        return return_code === 200 ?
+        //   a status when complete
+        return status === 'ok' ?
           setProperties(this, {
             _message: successMessage || successUpdating,
             _alertType: 'success'
           }) :
-          Promise.reject(`Reason code for this is ${return_code}`);
+          Promise.reject(new Error(`Reason code for this is ${status}`));
       })
-      .catch((err = '') => {
+      .catch(err => {
         let _message = `${failedUpdating} \n ${err}`;
         let _alertType = 'danger';
 
-        if (err.includes(404)) {
+        if (get(this, 'isNewSecuritySpecification')) {
           _message = 'This dataset does not have any ' +
             'previously saved fields with a Security Classification.';
           _alertType = 'info';

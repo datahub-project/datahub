@@ -19,6 +19,7 @@ public class DatasetOwner {
     public String email;
     public String name;
     public Boolean isGroup;
+    public Boolean isActive;
     public String idType;
     public String source;
     public String namespace;

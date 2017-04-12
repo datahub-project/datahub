@@ -49,27 +49,41 @@ export default Route.extend({
      */
     const fetchThenSetOnController = {
       privacyCompliancePolicy(id, controller) {
-        Promise.resolve(getJSON(getDatasetComplianceUrl(id))).then(({
-          privacyCompliancePolicy = createPrivacyCompliancePolicy(),
-          return_code
-        }) =>
-          setProperties(controller, {
-            privacyCompliancePolicy,
-            isNewPrivacyCompliancePolicy: return_code === 404
-          }));
+        Promise.resolve(getJSON(getDatasetComplianceUrl(id)))
+          .then(response => {
+            const {
+              msg,
+              status,
+              privacyCompliancePolicy = createPrivacyCompliancePolicy()
+            } = response;
+            const isNewPrivacyCompliancePolicy = status === 'failed' &&
+              String(msg).includes('actual 0');
+
+            setProperties(controller, {
+              privacyCompliancePolicy,
+              isNewPrivacyCompliancePolicy
+            });
+          });
 
         return this;
       },
 
       securitySpecification(id, controller) {
-        Promise.resolve(getJSON(getDatasetSecurityUrl(id))).then(({
-          securitySpecification = createSecuritySpecification(id),
-          return_code
-        }) =>
-          setProperties(controller, {
-            securitySpecification,
-            isNewSecuritySpecification: return_code === 404
-          }));
+        Promise.resolve(getJSON(getDatasetSecurityUrl(id)))
+          .then(response => {
+            const {
+              msg,
+              status,
+              securitySpecification = createSecuritySpecification(id)
+            } = response;
+            const isNewSecuritySpecification = status === 'failed' &&
+              String(msg).includes('actual 0');
+
+            setProperties(controller, {
+              securitySpecification,
+              isNewSecuritySpecification
+            });
+          });
 
         return this;
       },
@@ -500,14 +514,16 @@ export default Route.extend({
     const datasetUrl = `${datasetsUrlRoot}/${dataset_id}`;
 
     return Promise.resolve(getJSON(datasetUrl))
-      .then(({ status, dataset }) => {
-        return status === 'ok' && isPresent(dataset)
-          ? dataset
-          : Promise.reject(
-              new Error(`Request for ${datasetUrl} failed with: ${status}`)
-            );
-      })
-      .catch(() => ({}));
+      .then(({ status, dataset, message = '' }) => {
+        return status === 'ok' && isPresent(dataset) ?
+          dataset :
+          Promise.reject(
+            new Error(
+              `Request for ${datasetUrl} failed with status: ${status}.
+              ${message}`
+            )
+          );
+      });
   },
 
   actions: {

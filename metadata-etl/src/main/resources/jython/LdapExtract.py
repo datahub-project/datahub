@@ -17,7 +17,6 @@ from javax.naming.directory import InitialDirContext
 from javax.naming.ldap import InitialLdapContext
 from javax.naming import Context
 from javax.naming.directory import SearchControls
-from javax.naming.directory import BasicAttributes
 from javax.naming.ldap import Control
 from javax.naming.ldap import PagedResultsControl
 from javax.naming.ldap import PagedResultsResponseControl
@@ -26,7 +25,6 @@ from wherehows.common import Constant
 import csv, re, os, sys, json
 from java.util import Hashtable
 from jarray import zeros, array
-from java.io import FileWriter
 
 
 class LdapExtract:
@@ -68,7 +66,7 @@ class LdapExtract:
 
     # Connect to LDAP Server
     ctx = InitialLdapContext(settings, None)
-    ctx.setRequestControls(c_array);
+    ctx.setRequestControls(c_array)
 
     # load the java Hashtable out of the ldap server
     # Query starting point and query target
