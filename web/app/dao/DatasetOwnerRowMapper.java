@@ -29,8 +29,8 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
     public static String DATASET_OWNER_ID_TYPE_COLUMN = "owner_id_type";
     public static String DATASET_OWNER_SOURCE_COLUMN = "owner_source";
     public static String DATASET_OWNER_NAMESPACE_COLUMN = "namespace";
+    public static String DATASET_OWNER_IS_ACTIVE_COLUMN = "is_active";
     public static String DATASET_OWNER_CONFIRMED_BY_COLUMN = "confirmed_by";
-
 
     @Override
     public DatasetOwner mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -43,7 +43,10 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         String idType = rs.getString(DATASET_OWNER_ID_TYPE_COLUMN);
         String source = rs.getString(DATASET_OWNER_SOURCE_COLUMN);
         Integer sortId = rs.getInt(DATASET_OWNER_SORT_ID_COLUMN);
+        Boolean isGroup = "Y".equalsIgnoreCase(rs.getString(DATASET_OWNER_IS_GROUP_COLUMN));
+        Boolean isActive = "Y".equalsIgnoreCase(rs.getString(DATASET_OWNER_IS_ACTIVE_COLUMN));
         String confirmedBy = rs.getString(DATASET_OWNER_CONFIRMED_BY_COLUMN);
+
         DatasetOwner owner = new DatasetOwner();
         owner.userName = userName;
         owner.name = name;
@@ -52,6 +55,8 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         owner.type = type;
         owner.subType = subType;
         owner.idType = idType;
+        owner.isGroup = isGroup;
+        owner.isActive = isActive;
         owner.source = source;
         owner.confirmedBy = confirmedBy;
 
