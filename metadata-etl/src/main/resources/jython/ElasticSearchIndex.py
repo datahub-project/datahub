@@ -227,6 +227,9 @@ class ElasticSearchIndex():
     while result:
         row = dict(zip(description, result))
 
+        name_suggest_info = {
+            'input' : [row['name']]
+        }
         dataset_detail = {
             'name': row['name'],
             'source': row['source'],
@@ -237,7 +240,8 @@ class ElasticSearchIndex():
             'properties': row['properties'],
             'schema': row['schema'],
             'fields': row['fields'],
-            'static_boosting_score': row['static_boosting_score']
+            'static_boosting_score': row['static_boosting_score'],
+            'name_suggest': name_suggest_info
         }
 
         params.append('{ "index": { "_id": ' + str(row['id']) + ' }}')
@@ -267,6 +271,9 @@ class ElasticSearchIndex():
       result = self.wh_cursor.fetchone()
       while result:
           row = dict(zip(description, result))
+          metric_name_suggest_info = {
+              'input' : [row['metric_name']]
+          }
           metric_detail = {
                 'metric_id': row['metric_id'],
                 'metric_name': row['metric_name'],
@@ -294,7 +301,8 @@ class ElasticSearchIndex():
                 'urn': row['urn'],
                 'metric_url': row['metric_url'],
                 'wiki_url': row['wiki_url'],
-                'scm_url': row['scm_url']
+                'scm_url': row['scm_url'],
+                'metric_name_suggest': metric_name_suggest_info
           }
           params.append('{ "index": { "_id": ' + str(row['metric_id']) + '  }}')
           params.append(json.dumps(metric_detail))
@@ -339,6 +347,12 @@ class ElasticSearchIndex():
           job_result = job_cursor.fetchone()
           while job_result:
               job_row = dict(zip(job_description, job_result))
+              flow_name_suggest_info = {
+                  'input' : [row['flow_name']]
+              }
+              job_name_suggest_info = {
+                  'input' : [job_row['job_name']]
+              }
               jobs_row_detail = {
                   'app_id': job_row['app_id'],
                   'flow_id': job_row['flow_id'],
@@ -351,7 +365,8 @@ class ElasticSearchIndex():
                   'post_jobs': job_row['post_jobs'],
                   'is_current': job_row['is_current'],
                   'is_first': job_row['is_first'],
-                  'is_last': job_row['is_last']
+                  'is_last': job_row['is_last'],
+                  'job_name_suggest': job_name_suggest_info
                }
               jobs_info.append(jobs_row_detail)
               job_result = job_cursor.fetchone()
@@ -368,7 +383,8 @@ class ElasticSearchIndex():
               'is_active': row['is_active'],
               'is_scheduled': row['is_scheduled'],
               'pre_flows': row['pre_flows'],
-              'jobs': jobs_info
+              'jobs': jobs_info,
+              'flow_name_suggest': flow_name_suggest_info
           }
           params.append(json.dumps(jobs_detail))
 
