@@ -155,26 +155,8 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 			"ON ( find_in_set(c.id, fd.comment_ids) or c.id = fd.default_comment_id )) " +
 			"ORDER BY 2 LIMIT ?, ?;";
 
-	private final static String GET_DATASET_AUTO_COMPLETE_LIST_NO_LIMIT =
-			"SELECT DISTINCT `name` FROM dict_dataset where `name` like ?";
-	private final static String GET_METRIC_AUTO_COMPLETE_LIST_NO_LIMIT =
-			"SELECT DISTINCT metric_name FROM dict_business_metric where metric_name like ?";
-	private final static String GET_FLOW_AUTO_COMPLETE_LIST_NO_LIMIT =
-			"SELECT DISTINCT flow_name FROM flow where flow_name like ?";
-	private final static String GET_JOB_AUTO_COMPLETE_LIST_NO_LIMIT =
-			"SELECT DISTINCT job_name FROM flow_job where job_name like ?";
-
-	private final static String GET_DATASET_AUTO_COMPLETE_LIST =
-			"SELECT DISTINCT `name` FROM dict_dataset where `name` like ? LIMIT ?";
-	private final static String GET_METRIC_AUTO_COMPLETE_LIST =
-			"SELECT DISTINCT metric_name FROM dict_business_metric where metric_name like ? LIMIT ?";
-	private final static String GET_FLOW_AUTO_COMPLETE_LIST =
-			"SELECT DISTINCT flow_name FROM flow where flow_name like ? LIMIT ?";
-	private final static String GET_JOB_AUTO_COMPLETE_LIST =
-			"SELECT DISTINCT job_name FROM flow_job where job_name like ? LIMIT ?";
-
-
-	public static List<String> getAutoCompleteList(String input, int limit) {
+	public static List<String> getAutoCompleteList(String input, int limit)
+	{
 		List<String> names = new ArrayList<>();
 		names.addAll(getAutoCompleteListDataset(input, limit / 3));
 		names.addAll(getAutoCompleteListMetric(input, limit / 3));
@@ -182,129 +164,194 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		return names;
 	}
 
-	public static List<String> getAutoCompleteListDataset(String input, int limit) {
-		String pattern = isNotBlank(input) ? input + "%" : "%";
-		if (limit <= 0) {
-			return getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern);
-		}
-		return getJdbcTemplate().queryForList(GET_DATASET_AUTO_COMPLETE_LIST, String.class, pattern, limit);
-	}
-
-	public static List<String> getAutoCompleteListFlow(String input, int limit) {
-		String pattern = isNotBlank(input) ? input + "%" : "%";
-		List<String> names = new ArrayList<>();
-		if (limit <= 0) {
-			names.addAll(getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern));
-			names.addAll(getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern));
-		} else {
-			names.addAll(getJdbcTemplate().queryForList(GET_FLOW_AUTO_COMPLETE_LIST, String.class, pattern, limit / 2));
-			names.addAll(getJdbcTemplate().queryForList(GET_JOB_AUTO_COMPLETE_LIST, String.class, pattern, limit / 2));
-		}
-		return names;
-	}
-
-	public static List<String> getAutoCompleteListMetric(String input, int limit) {
-		String pattern = isNotBlank(input) ? input + "%" : "%";
-		if (limit <= 0) {
-			return getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST_NO_LIMIT, String.class, pattern);
-		}
-		return getJdbcTemplate().queryForList(GET_METRIC_AUTO_COMPLETE_LIST, String.class, pattern, limit);
-	}
-
-	public static List<String> getSuggestionList(String category, String searchKeyword)
+	public static List<String> getAutoCompleteListDataset(String input, int limit)
 	{
-		List<String> SuggestionList = new ArrayList<String>();
-		String elasticSearchType = "dataset";
 		String elasticSearchTypeURLKey = "elasticsearch.dataset.url";
-		String fieldName = "name";
-
-		JsonNode responseNode = null;
-		ObjectNode keywordNode = null;
-
-		try
-		{
-			String lCategory = category.toLowerCase();
-			Logger.info("lCategory is " + category);
-
-			switch (lCategory) {
-				case "dataset":
-					elasticSearchType = "dataset";
-					elasticSearchTypeURLKey = "elasticsearch.dataset.url";
-					fieldName = "name";
-					break;
-				case "metric":
-					elasticSearchType = "metric";
-					elasticSearchTypeURLKey = "elasticsearch.metric.url";
-					fieldName = "metric_name";
-					break;
-				case "flow":
-					elasticSearchType = "flow";
-					elasticSearchTypeURLKey = "elasticsearch.flow.url";
-					fieldName = "flow_name";
-					break;
-				default:
-					break;
-			}
-
-			keywordNode = utils.Search.generateElasticSearchPhraseSuggesterQuery(elasticSearchType, fieldName, searchKeyword);
-		}
-		catch(Exception e)
-		{
-			Logger.error("Elastic search phrase suggester error. Error message :" + e.getMessage());
-		}
-
-		Logger.info("The suggest query sent to Elastic Search is: " + keywordNode.toString());
-
-		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-				elasticSearchTypeURLKey)).post(keywordNode);
-		responseNode = responsePromise.get(1000).asJson();
-
-		// Logger.info("responseNode for getSuggestionList is " + responseNode.toString());
-
-		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits"))
-		{
-			JsonNode suggestNode = responseNode.get("suggest");
-			Logger.info("suggestNode is " + suggestNode.toString());
-			if (suggestNode != null && suggestNode.has("simple_phrase"))
-			{
-				JsonNode simplePhraseNode = suggestNode.get("simple_phrase");
-
-				if (simplePhraseNode != null && simplePhraseNode.isArray())
-				{
-					Iterator<JsonNode> arrayIterator = simplePhraseNode.elements();
-					if (arrayIterator != null)
-					{
-						while (arrayIterator.hasNext())
-						{
-							JsonNode node = arrayIterator.next();
-							if (node.isContainerNode() && node.has("options"))
-							{
-								JsonNode optionsNode = node.get("options");
-								if (optionsNode != null && optionsNode.isArray())
-								{
-									Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
-									if (arrayIteratorOptions != null)
-									{
-										while (arrayIteratorOptions.hasNext())
-										{
-											JsonNode textNode = arrayIteratorOptions.next();
-											if (textNode != null && textNode.has("text"))
-											{
-												String oneSuggestion = textNode.get("text").asText();
-												Logger.info("oneSuggestion is " + oneSuggestion);
-												SuggestionList.add(oneSuggestion);
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return SuggestionList;
+		String fieldName = "name_suggest";
+		return getAutoCompleteListbyES(elasticSearchTypeURLKey,fieldName,input,limit);
 	}
+
+	public static List<String> getAutoCompleteListMetric(String input, int limit)
+	{
+		String elasticSearchTypeURLKey = "elasticsearch.metric.url";
+		String fieldName = "metric_name_suggest";
+		return getAutoCompleteListbyES(elasticSearchTypeURLKey,fieldName,input,limit);
+	}
+
+	public static List<String> getAutoCompleteListFlow(String input, int limit)
+	{
+		String elasticSearchTypeURLKey = "elasticsearch.flow.url";
+		String fieldName = "flow_name_suggest";
+		return getAutoCompleteListbyES(elasticSearchTypeURLKey,fieldName,input,limit);
+	}
+
+  public static List<String> getAutoCompleteListbyES(String elasticSearchTypeURLKey, String fieldName, String input,
+      int limit)
+  {
+    // use elastic search completion suggester, ES will validate the input and limit
+    List<String> completionSuggestionList = new ArrayList<String>();
+    JsonNode responseNode = null;
+    ObjectNode keywordNode = null;
+
+    try {
+      keywordNode = utils.Search.generateElasticSearchCompletionSuggesterQuery(fieldName, input, limit);
+    } catch (Exception e) {
+      Logger.error("Elastic search completion suggester error. Error message :" + e.getMessage());
+    }
+
+    Logger.info("The completion suggester query sent to Elastic Search is: " + keywordNode.toString());
+
+    Promise<WSResponse> responsePromise =
+        WS.url(Play.application().configuration().getString(elasticSearchTypeURLKey)).post(keywordNode);
+    responseNode = responsePromise.get(1000).asJson();
+
+    if (responseNode == null || !responseNode.isContainerNode()) {
+      return completionSuggestionList;
+    }
+
+    JsonNode suggestNode = responseNode.get("suggest");
+    if (suggestNode == null || !suggestNode.has("wh-suggest")) {
+      Logger.error("Elastic search completion suggester response does not contain suggest node");
+      return completionSuggestionList;
+    }
+
+    Logger.info("Response suggestNode is " + suggestNode.toString());
+
+    JsonNode whSuggestNode = suggestNode.get("wh-suggest");
+    if (whSuggestNode == null || !whSuggestNode.isArray()) {
+      Logger.error("Elastic search completion suggester response does not contain wh-suggest node");
+      return completionSuggestionList;
+    }
+
+    Iterator<JsonNode> arrayIterator = whSuggestNode.elements();
+    if (arrayIterator == null) {
+      return completionSuggestionList;
+    }
+
+    while (arrayIterator.hasNext()) {
+      JsonNode node = arrayIterator.next();
+      if (!node.isContainerNode() || !node.has("options")) {
+        continue;
+      }
+
+      JsonNode optionsNode = node.get("options");
+      if (optionsNode == null || !optionsNode.isArray()) {
+        continue;
+      }
+
+      Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
+      if (arrayIteratorOptions == null) {
+        continue;
+      }
+
+      while (arrayIteratorOptions.hasNext()) {
+        JsonNode textNode = arrayIteratorOptions.next();
+        if (textNode == null || !textNode.has("text")) {
+          continue;
+        }
+        String oneSuggestion = textNode.get("text").asText();
+        completionSuggestionList.add(oneSuggestion);
+      }
+    }
+
+    return completionSuggestionList;
+  }
+
+  // this is for did you mean feature
+  public static List<String> getSuggestionList(String category, String searchKeyword)
+  {
+    List<String> SuggestionList = new ArrayList<String>();
+    String elasticSearchType = "dataset";
+    String elasticSearchTypeURLKey = "elasticsearch.dataset.url";
+    String fieldName = "name";
+
+    JsonNode responseNode = null;
+    ObjectNode keywordNode = null;
+
+    try {
+      String lCategory = category.toLowerCase();
+      Logger.info("lCategory is " + category);
+
+      switch (lCategory) {
+        case "dataset":
+          elasticSearchType = "dataset";
+          elasticSearchTypeURLKey = "elasticsearch.dataset.url";
+          fieldName = "name";
+          break;
+        case "metric":
+          elasticSearchType = "metric";
+          elasticSearchTypeURLKey = "elasticsearch.metric.url";
+          fieldName = "metric_name";
+          break;
+        case "flow":
+          elasticSearchType = "flow";
+          elasticSearchTypeURLKey = "elasticsearch.flow.url";
+          fieldName = "flow_name";
+          break;
+        default:
+          break;
+      }
+
+      keywordNode = utils.Search.generateElasticSearchPhraseSuggesterQuery(elasticSearchType, fieldName, searchKeyword);
+    } catch (Exception e) {
+      Logger.error("Elastic search phrase suggester error. Error message :" + e.getMessage());
+    }
+
+    Logger.info("The suggest query sent to Elastic Search is: " + keywordNode.toString());
+
+    Promise<WSResponse> responsePromise =
+        WS.url(Play.application().configuration().getString(elasticSearchTypeURLKey)).post(keywordNode);
+    responseNode = responsePromise.get(1000).asJson();
+
+    if (responseNode == null || !responseNode.isContainerNode() || !responseNode.has("hits")) {
+      return SuggestionList;
+    }
+
+    JsonNode suggestNode = responseNode.get("suggest");
+    Logger.info("suggestNode is " + suggestNode.toString());
+
+    if (suggestNode == null || !suggestNode.has("simple_phrase")) {
+      return SuggestionList;
+    }
+
+    JsonNode simplePhraseNode = suggestNode.get("simple_phrase");
+    if (simplePhraseNode == null || !simplePhraseNode.isArray()) {
+      return SuggestionList;
+    }
+
+    Iterator<JsonNode> arrayIterator = simplePhraseNode.elements();
+    if (arrayIterator == null) {
+      return SuggestionList;
+    }
+
+    while (arrayIterator.hasNext()) {
+      JsonNode node = arrayIterator.next();
+      if (!node.isContainerNode() || !node.has("options")) {
+        continue;
+      }
+
+      JsonNode optionsNode = node.get("options");
+      if (optionsNode == null || !optionsNode.isArray()) {
+        continue;
+      }
+
+      Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
+      if (arrayIteratorOptions == null) {
+        continue;
+      }
+
+      while (arrayIteratorOptions.hasNext()) {
+        JsonNode textNode = arrayIteratorOptions.next();
+        if (textNode == null || !textNode.has("text")) {
+          continue;
+        }
+        String oneSuggestion = textNode.get("text").asText();
+        SuggestionList.add(oneSuggestion);
+      }
+    }
+
+    return SuggestionList;
+  }
 
 	public static JsonNode elasticSearchDatasetByKeyword(
 			String category,
