@@ -159,7 +159,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
 	private final static String GET_DATASET_OWNERS_BY_ID = "SELECT o.owner_id, u.display_name, o.sort_id, " +
-			"o.owner_type, o.namespace, o.owner_id_type, o.owner_source, o.owner_sub_type, o.confirmed_by " +
+			"o.owner_type, o.namespace, o.owner_id_type, o.owner_source, o.owner_sub_type, o.confirmed_by, u.is_active, is_group " +
 			"FROM dataset_owner o " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"WHERE o.dataset_id = ? and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
@@ -225,8 +225,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String UPDATE_DATASET_CONFIRMED_OWNERS = "INSERT INTO dataset_owner " +
 			"(dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, " +
 			"is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, " +
-			"confirmed_by, confirmed_on) " +
-			"VALUES(?, ?, ?, ?, ?, ?, 'Y', 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?, ?, ?) " +
+			"owner_id_type, owner_source, confirmed_by, confirmed_on) " +
+			"VALUES(?, ?, ?, ?, ?, ?, ?, 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?, ?, ?, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE owner_type = ?, is_group = ?, is_deleted = 'N', " +
 			"sort_id = ?, modified_time= UNIX_TIMESTAMP(), owner_sub_type=?, confirmed_by=?, confirmed_on=?";
 
@@ -934,13 +934,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return sampleNode;
 	}
 
-	public static List<DatasetOwner> getDatasetOwnersByID(int id)
-	{
-		List<DatasetOwner> owners = new ArrayList<DatasetOwner>();
-
-		owners = getJdbcTemplate().query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), id);
-
-		return owners;
+	public static List<DatasetOwner> getDatasetOwnersByID(int id) {
+		return getJdbcTemplate().query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), id);
 	}
 
 	public static List<ImpactDataset> getImpactAnalysisByID(int id)
@@ -1746,7 +1741,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return columns;
 	}
 
-	public static void updateDatasetOwnerDatabase(int datasetId, String datasetUrn, List<DatasetOwner> owners)
+	private static void updateDatasetOwnerDatabase(int datasetId, String datasetUrn, List<DatasetOwner> owners)
 	{
 		getJdbcTemplate().batchUpdate(UPDATE_DATASET_CONFIRMED_OWNERS,
 				new BatchPreparedStatementSetter() {
@@ -1760,28 +1755,28 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 						ps.setString(4, owner.namespace);
 						ps.setString(5, owner.type);
 						ps.setString(6, owner.isGroup ? "Y" : "N");
-						ps.setInt(7, owner.sortId);
-						ps.setString(8, datasetUrn);
-						ps.setString(9, owner.subType);
-						ps.setString(10, owner.confirmedBy);
-						if (StringUtils.isBlank(owner.confirmedBy))
-						{
-							ps.setLong(11, 0L);
+						ps.setString(7, owner.isActive != null && owner.isActive ? "Y" : "N");
+						ps.setInt(8, owner.sortId);
+						ps.setString(9, datasetUrn);
+						ps.setString(10, owner.subType);
+						ps.setString(11, owner.idType);
+						ps.setString(12, owner.source);
+						ps.setString(13, owner.confirmedBy);
+						if (StringUtils.isBlank(owner.confirmedBy)) {
+							ps.setLong(14, 0L);
 						} else {
-							ps.setLong(11, Instant.now().getEpochSecond());
+							ps.setLong(14, Instant.now().getEpochSecond());
 						}
-						ps.setString(12, owner.type);
-						ps.setString(13, owner.isGroup ? "Y" : "N");
-						ps.setInt(14, owner.sortId);
-						ps.setString(15, owner.subType);
-						ps.setString(16, owner.confirmedBy);
-						if (StringUtils.isBlank(owner.confirmedBy))
-						{
-							ps.setLong(17, 0L);
+						ps.setString(15, owner.type);
+						ps.setString(16, owner.isGroup ? "Y" : "N");
+						ps.setInt(17, owner.sortId);
+						ps.setString(18, owner.subType);
+						ps.setString(19, owner.confirmedBy);
+						if (StringUtils.isBlank(owner.confirmedBy)) {
+							ps.setLong(20, 0L);
 						} else {
-							ps.setLong(17, Instant.now().getEpochSecond());
+							ps.setLong(20, Instant.now().getEpochSecond());
 						}
-
 					}
 
 					@Override
@@ -1822,6 +1817,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 						ownerNode.has("confirmedBy") && !ownerNode.get("confirmedBy").isNull()
 								? ownerNode.get("confirmedBy").asText() : "";
 				String idType = ownerNode.has("idType") ? ownerNode.get("idType").asText() : "";
+				String source = ownerNode.has("source") ? ownerNode.get("source").asText() : "";
 
 				DatasetOwner owner = new DatasetOwner();
 				owner.userName = userName;
@@ -1829,6 +1825,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				owner.namespace = isGroup ? "urn:li:griduser" : "urn:li:corpuser";
 				owner.type = type;
 				owner.subType = subType;
+				owner.idType = idType;
+				owner.source = source;
 				owner.confirmedBy = confirmedBy;
 				owner.sortId = i;
 				owners.add(owner);

@@ -128,9 +128,10 @@ class MultiproductLoad:
     merge_repo_owners_into_dataset_owners_cmd = '''
     -- find owner app_id, 300 for USER, 301 for GROUP
     UPDATE stg_repo_owner stg
-    JOIN (select app_id, user_id from dir_external_user_info) ldap
+    JOIN (select app_id, user_id, is_active from dir_external_user_info) ldap
     ON stg.owner_name = ldap.user_id
-    SET stg.app_id = ldap.app_id;
+    SET stg.app_id = ldap.app_id,
+        stg.is_active = ldap.is_active;
 
     UPDATE stg_repo_owner stg
     JOIN (select distinct app_id, group_id from dir_external_group_user_map) ldap
@@ -149,13 +150,13 @@ class MultiproductLoad:
         case when r.app_id = 300 then 'USER' when r.app_id = 301 then 'GROUP' else null end n_owner_id_type,
         'SCM' n_owner_source, null db_ids,
         IF(r.app_id = 301, 'Y', 'N') is_group,
-        'Y' is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id,
+        r.is_active, 0 source_time, unix_timestamp(NOW()) created_time, r.wh_etl_exec_id,
         null confirmed_by, null confirmed_on
     FROM (SELECT id, urn, substring_index(substring_index(urn, '/', 4), '/', -1) ds_group
          FROM dict_dataset WHERE urn regexp '^(dalids|espresso|oracle)\:\/\/\/.*$') ds
       JOIN stg_repo_owner r
         ON r.owner_type in ('main', 'espresso_avsc', 'producer', 'consumer', 'global', 'public', 'private', 'database', 'root')
-          AND FIND_IN_SET(ds.ds_group, r.dataset_group) > 0
+          AND FIND_IN_SET(ds.ds_group, r.dataset_group)
     ) n
     ON DUPLICATE KEY UPDATE
     dataset_urn = n.urn,
@@ -169,6 +170,7 @@ class MultiproductLoad:
                     WHEN owner_source LIKE '%SCM%' THEN owner_source ELSE CONCAT(owner_source, ',SCM') END,
     namespace = COALESCE(namespace, n.n_namespace),
     wh_etl_exec_id = n.wh_etl_exec_id,
+    is_active = n.is_active,
     modified_time = unix_timestamp(NOW());
 
     -- reset dataset owner sort id
