@@ -49,8 +49,8 @@ public class MetadataStoreDao {
       DatasetColumn col = new DatasetColumn();
       col.fieldName = field.getFieldPath();
       col.fullFieldPath = field.getFieldPath();
-      col.dataType = field.getNativeDataType();
-      col.comment = field.getDescription();
+      col.dataType = field.hasNativeDataType() ? field.getNativeDataType() : "";
+      col.comment = field.hasDescription() ? field.getDescription() : "";
       columns.add(col);
     }
     return columns;
