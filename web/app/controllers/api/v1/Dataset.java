@@ -25,6 +25,7 @@ import models.DatasetDependency;
 import models.DatasetSecurity;
 import models.ImpactDataset;
 import org.apache.commons.lang3.math.NumberUtils;
+import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
@@ -40,6 +41,9 @@ import java.util.Map;
 
 public class Dataset extends Controller
 {
+    private static final Boolean
+        LINKEDIN_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
+
     public static Result getDatasetOwnerTypes()
     {
         ObjectNode result = Json.newObject();
@@ -151,23 +155,25 @@ public class Dataset extends Controller
         }
 
         // try to access dataset fields from Metadata Store schemaMetadata first
-        SchemaFieldArray datasetFields = null;
-        try {
-            datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
-        } catch (Exception e) {
-            Logger.debug("Can't find schema for URN: " + urn + ", Exception: " + e.getMessage());
+        if (LINKEDIN_INTERNAL) {
+            try {
+                SchemaFieldArray datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
+
+                if (datasetFields != null && datasetFields.size() > 0) {
+                    List<DatasetColumn> columns = MetadataStoreDao.datasetColumnsMapper(datasetFields);
+                    result.put("status", "ok");
+                    result.set("columns", Json.toJson(columns));
+                    return ok(result);
+                }
+            } catch (Exception e) {
+                Logger.debug("Fail to fetch schema from Metadata-store for URN: " + urn + ", Exception: " + e.getMessage());
+            }
         }
 
-        List<DatasetColumn> datasetColumnList;
-        if (datasetFields != null && datasetFields.size() > 0) {
-            datasetColumnList = MetadataStoreDao.datasetColumnsMapper(datasetFields);
-        } else { // get fields from WH db if nothing in Metadata store
-            datasetColumnList = DatasetsDAO.getDatasetColumnsByID(id);
-        }
-
-        if (datasetColumnList != null && datasetColumnList.size() > 0) {
+        List<DatasetColumn> columns = DatasetsDAO.getDatasetColumnsByID(id);
+        if (columns != null && columns.size() > 0) {
             result.put("status", "ok");
-            result.set("columns", Json.toJson(datasetColumnList));
+            result.set("columns", Json.toJson(columns));
         } else {
             result.put("status", "error");
             result.put("message", "record not found");
