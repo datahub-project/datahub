@@ -80,7 +80,6 @@ export default Route.extend(AuthenticatedRouteMixin, {
         return Promise.reject(
           new Error(`Request for ${searchUrl} failed with: ${status}`)
         );
-      })
-      .catch(() => ({}));
+      });
   }
 });
