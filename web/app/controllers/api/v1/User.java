@@ -37,12 +37,26 @@ public class User extends Controller
     {
         ObjectNode result = Json.newObject();
 
-        result.put("status", "ok");
         String username = session("user");
-        result.set("user", Json.toJson(UserDAO.getCurrentUser(username)));
+        if (StringUtils.isBlank(username))
+        {
+            result.put("status", "failed");
+            result.put("message", "no user in session");
+            return ok(result);
+        }
+
+        models.User user = UserDAO.getCurrentUser(username);
+        if (StringUtils.isBlank(user.userName))
+        {
+            result.put("status", "failed");
+            result.put("message", "can't find user info");
+            return ok(result);
+        }
+
+        result.set("user", Json.toJson(user));
+        result.put("status", "ok");
         return ok(result);
     }
-
 
     public static Result updateSettings()
     {
