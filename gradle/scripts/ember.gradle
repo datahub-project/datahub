@@ -43,3 +43,9 @@ task emberTest(type: NodeTask, dependsOn: bowerInstall) {
   script = file('node_modules/ember-cli/bin/ember')
   args = ['test']
 }
+
+clean {
+  delete 'node_modules'
+  delete 'bower_components'
+  delete 'dist'
+}
