@@ -398,14 +398,20 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					+ "ON DUPLICATE KEY UPDATE compliance_purge_type = :type, compliance_purge_entities = :entities, "
 					+ "modified_time = :modified";
 
-	private static final String GET_DATASET_SECURITY_BY_DATASET_ID = "SELECT * FROM dataset_security WHERE dataset_id = ?";
+	private static final String GET_DATASET_SECURITY_BY_DATASET_ID =
+			"SELECT dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
+			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_id = ?";
 
-	private static final String GET_DATASET_SECURITY_BY_URN = "SELECT * FROM dataset_security WHERE dataset_urn = ?";
+	private static final String GET_DATASET_SECURITY_BY_URN =
+			"SELECT dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
+			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_urn = ?";
 
 	private final static String INSERT_DATASET_SECURITY =
-			"INSERT INTO dataset_security (dataset_id, dataset_urn, classification, record_owner_type, retention_policy, "
-					+ "geographic_affinity, modified_time) VALUES (:id, :urn, :classification, :ownerType, :policy, :geo, :modified) "
-					+ "ON DUPLICATE KEY UPDATE classification = :classification, record_owner_type = :ownerType, "
+			"INSERT INTO dataset_security (dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
+					+ "retention_policy, geographic_affinity, modified_time) "
+					+ "VALUES (:id, :urn, :confidentiality, :classification, :ownerType, :policy, :geo, :modified) "
+					+ "ON DUPLICATE KEY UPDATE "
+					+ "confidentiality = :confidentiality, classification = :classification, record_owner_type = :ownerType, "
 					+ "retention_policy = :policy, geographic_affinity = :geo, modified_time = :modified";
 
 
@@ -2250,6 +2256,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		DatasetSecurity record = new DatasetSecurity();
 		record.setDatasetId(((Long) result.get("dataset_id")).intValue());
 		record.setDatasetUrn((String) result.get("dataset_urn"));
+		record.setConfidentiality((String) result.get("confidentiality"));
 		record.setClassification(classification);
 		record.setRecordOwnerType((String) result.get("record_owner_type"));
 		record.setRetentionPolicy(retention);
@@ -2271,6 +2278,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("id", datasetId);
 		parameters.put("urn", urn);
+		parameters.put("confidentiality", record.getConfidentiality());
 		parameters.put("classification", om.writeValueAsString(record.getClassification()));
 		parameters.put("ownerType", record.getRecordOwnerType());
 		parameters.put("policy", om.writeValueAsString(record.getRetentionPolicy()));
