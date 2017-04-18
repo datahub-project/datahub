@@ -20,17 +20,18 @@ import java.sql.SQLException;
 
 public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
 {
-    public static String DATASET_OWNER_ID_COLUMN = "owner_id";
-    public static String DATASET_OWNER_DISPLAY_NAME_COLUMN = "display_name";
-    public static String DATASET_OWNER_TYPE_COLUMN = "owner_type";
-    public static String DATASET_OWNER_SUB_TYPE_COLUMN = "owner_sub_type";
-    public static String DATASET_OWNER_SORT_ID_COLUMN = "sort_id";
-    public static String DATASET_OWNER_IS_GROUP_COLUMN = "is_group";
-    public static String DATASET_OWNER_ID_TYPE_COLUMN = "owner_id_type";
-    public static String DATASET_OWNER_SOURCE_COLUMN = "owner_source";
-    public static String DATASET_OWNER_NAMESPACE_COLUMN = "namespace";
-    public static String DATASET_OWNER_IS_ACTIVE_COLUMN = "is_active";
-    public static String DATASET_OWNER_CONFIRMED_BY_COLUMN = "confirmed_by";
+    private static final String DATASET_OWNER_ID_COLUMN = "owner_id";
+    private static final String DATASET_OWNER_DISPLAY_NAME_COLUMN = "display_name";
+    private static final String DATASET_OWNER_TYPE_COLUMN = "owner_type";
+    private static final String DATASET_OWNER_SUB_TYPE_COLUMN = "owner_sub_type";
+    private static final String DATASET_OWNER_SORT_ID_COLUMN = "sort_id";
+    private static final String DATASET_OWNER_IS_GROUP_COLUMN = "is_group";
+    private static final String DATASET_OWNER_ID_TYPE_COLUMN = "owner_id_type";
+    private static final String DATASET_OWNER_SOURCE_COLUMN = "owner_source";
+    private static final String DATASET_OWNER_NAMESPACE_COLUMN = "namespace";
+    private static final String DATASET_OWNER_IS_ACTIVE_COLUMN = "is_active";
+    private static final String DATASET_OWNER_CONFIRMED_BY_COLUMN = "confirmed_by";
+    private static final String DATASET_OWNER_MODIFIED_TIME_COLUMN = "modified_time";
 
     @Override
     public DatasetOwner mapRow(ResultSet rs, int rowNum) throws SQLException
@@ -46,6 +47,7 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         Boolean isGroup = "Y".equalsIgnoreCase(rs.getString(DATASET_OWNER_IS_GROUP_COLUMN));
         Boolean isActive = "Y".equalsIgnoreCase(rs.getString(DATASET_OWNER_IS_ACTIVE_COLUMN));
         String confirmedBy = rs.getString(DATASET_OWNER_CONFIRMED_BY_COLUMN);
+        Long modifiedTime = rs.getLong(DATASET_OWNER_MODIFIED_TIME_COLUMN);
 
         DatasetOwner owner = new DatasetOwner();
         owner.userName = userName;
@@ -59,6 +61,7 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         owner.isActive = isActive;
         owner.source = source;
         owner.confirmedBy = confirmedBy;
+        owner.modifiedTime = modifiedTime;
 
         return owner;
     }
