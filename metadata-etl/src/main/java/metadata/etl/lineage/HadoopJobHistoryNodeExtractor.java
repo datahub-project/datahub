@@ -69,7 +69,8 @@ public class HadoopJobHistoryNodeExtractor {
     String[] searchPath = new String[]{CURRENT_DIR, WHZ_KRB5_DIR, APP_HOME, USER_HOME, "/etc"};
 
     System.setProperty("java.security.auth.login.config", findFileInSearchPath(searchPath, "gss-jaas.conf"));
-    System.setProperty("java.security.auth.krb5.conf", findFileInSearchPath(searchPath, "krb5.conf"));
+    System.setProperty("java.security.krb5.conf", findFileInSearchPath(searchPath, "krb5.conf"));
+
     if (System.getProperty("java.security.auth.login.config") == null
       || System.getProperty("java.security.krb5.conf") == null) {
       logger.warn("Can't find Java security config [krb5.conf, gss-jass.conf] for Kerberos! Trying other authentication methods...");
