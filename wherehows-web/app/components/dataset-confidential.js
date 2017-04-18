@@ -8,7 +8,8 @@ const {
   computed,
   getWithDefault,
   setProperties,
-  Component
+  Component,
+  String: { htmlSafe }
 } = Ember;
 
 // String constant identifying the classified fields on the security spec
@@ -37,6 +38,12 @@ const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
 const missingTypes = 'Looks like some fields are marked as `Confidential` or ' +
   '`Highly Confidential` but do not have a specified `Field Format`?';
+const hiddenTrackingFieldsMsg = htmlSafe(
+  '<p>Hey! Just a heads up that some fields in this dataset have been hidden from the table(s) below. ' +
+  'These are tracking fields for which we\'ve been able to predetermine the compliance classification.</p>' +
+  '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
+  'Hopefully, this saves you some scrolling!</p>'
+);
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
@@ -51,6 +58,7 @@ export default Component.extend({
   filterBy: 'identifierField',
   sortDirection: 'asc',
   searchTerm: '',
+  hiddenTrackingFields: hiddenTrackingFieldsMsg,
 
   // Map classifiers to options better consumed by  drop down
   classifiers: ['', ...classifiers].map(value => ({
@@ -139,6 +147,33 @@ export default Component.extend({
       });
     }
   ),
+
+  /**
+   * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
+   *    tracking header.
+   *    Used to indicate to viewer that these fields are hidden.
+   */
+  containsHiddenTrackingFields: computed(
+    'classificationDataFieldsSansHiddenTracking.length',
+    function () {
+      // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
+      //   then we have hidden tracking fields
+      return get(this, 'classificationDataFieldsSansHiddenTracking.length') !== get(this, 'classificationDataFields.length');
+    }),
+
+  /**
+   * @type {Array.<Object>} Filters the mapped confidential data fields without `kafka type`
+   *   tracking headers
+   */
+  classificationDataFieldsSansHiddenTracking: computed('classificationDataFields.[]', function () {
+    // Matches field identifiers starting with header, requestHeader, mobileHeader,
+    //   all optionally suffixed with a period and any non - line break characters
+    const trackingHeaderFieldsRegex = /^(?:header\.?|requestHeader\.?|mobileHeader\.?).*/ig;
+
+    return get(this, 'classificationDataFields')
+      .filter(({ identifierField }) =>
+        !identifierField.match(trackingHeaderFieldsRegex))
+  }),
 
   /**
    * TODO: DSS-6672 Extract to notifications service
