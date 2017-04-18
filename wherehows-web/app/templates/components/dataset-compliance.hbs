@@ -31,6 +31,13 @@
     </div>
   {{/if}}
 
+  {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
+  {{#if containsHiddenTrackingFields}}
+    <div class="alert alert-info" role="alert">
+      <p>{{hiddenTrackingFields}}</p>
+    </div>
+  {{/if}}
+
   <section class="metadata-prompt" id="has-member">
     <header class="metadata-prompt__header">
       <p>

@@ -7,7 +7,8 @@ const {
   get,
   isBlank,
   setProperties,
-  getWithDefault
+  getWithDefault,
+  String: { htmlSafe }
 } = Ember;
 
 // TODO: DSS-6671 Extract to constants module
@@ -15,6 +16,12 @@ const missingTypes = 'Looks like some fields may contain privacy data ' +
   'but do not have a specified `Field Format`?';
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
+const hiddenTrackingFieldsMsg = htmlSafe(
+  '<p>Hey! Just a heads up that some fields in this dataset have been hidden from the table(s) below. ' +
+  'These are tracking fields for which we\'ve been able to predetermine the compliance classification.</p>' +
+  '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
+  'Hopefully, this saves you some scrolling!</p>'
+);
 
 const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
 // TODO: DSS-6671 Extract to constants module
@@ -33,10 +40,10 @@ const fieldNamesAreUnique = (names = []) =>
  * @param {String} type string to match against identifierType
  */
 const complianceEntitiesMatchingType = type =>
-  computed('complianceDataFields.[]', function () {
+  computed('complianceDataFieldsSansHiddenTracking.[]', function () {
     const fieldRegex = new RegExp(`${type}`, 'i');
 
-    return get(this, 'complianceDataFields').filter(({ identifierType }) => {
+    return get(this, 'complianceDataFieldsSansHiddenTracking').filter(({ identifierType }) => {
       return fieldRegex.test(identifierType) || isBlank(identifierType);
     });
   });
@@ -46,6 +53,7 @@ export default Component.extend({
   filterBy: 'identifierField',
   sortDirection: 'asc',
   searchTerm: '',
+  hiddenTrackingFields: hiddenTrackingFieldsMsg,
 
   /**
    * Map of radio Group state values
@@ -87,6 +95,33 @@ export default Component.extend({
     value,
     label: value ? value.replace('_', ' ').toLowerCase().capitalize() : 'Please Select'
   })),
+
+  /**
+   * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
+   *    tracking header.
+   *    Used to indicate to viewer that these fields are hidden.
+   */
+  containsHiddenTrackingFields: computed(
+    'complianceDataFieldsSansHiddenTracking.length',
+    function () {
+      // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
+      //   then we have hidden tracking fields
+      return get(this, 'complianceDataFieldsSansHiddenTracking.length') !== get(this, 'complianceDataFields.length');
+    }),
+
+  /**
+   * @type {Array.<Object>} Filters the mapped compliance data fields without `kafka type`
+   *   tracking headers
+   */
+  complianceDataFieldsSansHiddenTracking: computed('complianceDataFields.[]', function () {
+    // Matches field identifiers starting with header, requestHeader, mobileHeader,
+    //   all optionally suffixed with a period and any non - line break characters
+    const trackingHeaderFieldsRegex = /^(?:header\.?|requestHeader\.?|mobileHeader\.?).*/ig;
+
+    return get(this, 'complianceDataFields')
+      .filter(({ identifierField }) =>
+        !identifierField.match(trackingHeaderFieldsRegex));
+  }),
 
   /**
    * Lists all dataset fields found in the `columns` performs an intersection
