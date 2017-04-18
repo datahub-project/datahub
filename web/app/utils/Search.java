@@ -128,6 +128,16 @@ public class Search
                 "}" +
              "}";
 
+    private final static String completionSuggesterQuery =
+        "{" +
+            "\"wh-suggest\": { " +
+                "\"text\": \"$SEARCHKEYWORD\", " +
+                "\"completion\": { " +
+                    "\"field\": \"$FIELD\", " +
+                    "\"size\": $LIMIT " +
+                  "} "+
+            "} " +
+        "}";
 
     public final static String DATASET_CATEGORY = "datasets";
 
@@ -139,28 +149,55 @@ public class Search
 
     public final static String JOB_CATEGORY = "jobs";
 
-    public static ObjectNode generateElasticSearchPhraseSuggesterQuery(String category, String field, String searchKeyword)
+    public static ObjectNode generateElasticSearchCompletionSuggesterQuery(String field, String searchKeyword,
+        int limit)
     {
-        if (StringUtils.isBlank(searchKeyword))
-        return null;
+        if (StringUtils.isBlank(searchKeyword)) {
+            return null;
+        }
+
+        String queryTemplate = completionSuggesterQuery;
+        String query = queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
+
+        if (StringUtils.isNotBlank(field)) {
+            query = query.replace("$FIELD", field.toLowerCase());
+        }
+
+        query = query.replace("$LIMIT", Integer.toString(limit));
+
+        ObjectNode suggestNode = Json.newObject();
+        ObjectNode textNode = Json.newObject();
+        try {
+            textNode = (ObjectNode) new ObjectMapper().readTree(query);
+            suggestNode.put("suggest", textNode);
+        } catch (Exception e) {
+            Logger.error("suggest Exception = " + e.getMessage());
+        }
+
+        return suggestNode;
+    }
+
+    public static ObjectNode generateElasticSearchPhraseSuggesterQuery(String category, String field,
+        String searchKeyword)
+    {
+        if (StringUtils.isBlank(searchKeyword)) {
+            return null;
+        }
 
         String queryTemplate = suggesterQueryTemplateSub;
-        String query= queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
+        String query = queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
 
-        if (StringUtils.isNotBlank(field))
-        {
-          query = query.replace("$FIELD", field.toLowerCase());
+        if (StringUtils.isNotBlank(field)) {
+            query = query.replace("$FIELD", field.toLowerCase());
         }
 
         ObjectNode suggestNode = Json.newObject();
         ObjectNode textNode = Json.newObject();
         try {
-          textNode = (ObjectNode) new ObjectMapper().readTree(query);
-          suggestNode.put("suggest", textNode);
-        }
-        catch (Exception e)
-        {
-          Logger.error("suggest Exception = " + e.getMessage());
+            textNode = (ObjectNode) new ObjectMapper().readTree(query);
+            suggestNode.put("suggest", textNode);
+        } catch (Exception e) {
+            Logger.error("suggest Exception = " + e.getMessage());
         }
         Logger.info("suggestNode is " + suggestNode.toString());
         return suggestNode;

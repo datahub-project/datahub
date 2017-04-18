@@ -44,6 +44,9 @@
         "metric_name": {
           "type": "string"
         },
+        "metric_name_suggest": {
+          "type": "completion"
+        },
         "metric_ref_id": {
           "type": "string"
         },
@@ -85,31 +88,6 @@
         }
       }
     },
-    "field": {
-      "_parent": {
-        "type": "dataset"
-      },
-      "_routing": {
-        "required": true
-      },
-      "properties": {
-        "comments": {
-          "type": "string"
-        },
-        "dataset_id": {
-          "type": "long"
-        },
-        "field_name": {
-          "type": "string"
-        },
-        "parent_path": {
-          "type": "string"
-        },
-        "sort_id": {
-          "type": "long"
-        }
-      }
-    },
     "comment": {
       "_parent": {
         "type": "dataset"
@@ -143,6 +121,9 @@
         "name": {
           "type": "string"
         },
+        "name_suggest": {
+          "type": "completion"
+        },
         "parent_name": {
           "type": "string"
         },
@@ -166,6 +147,31 @@
         }
       }
     },
+    "field": {
+      "_parent": {
+        "type": "dataset"
+      },
+      "_routing": {
+        "required": true
+      },
+      "properties": {
+        "comments": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "long"
+        },
+        "field_name": {
+          "type": "string"
+        },
+        "parent_path": {
+          "type": "string"
+        },
+        "sort_id": {
+          "type": "long"
+        }
+      }
+    },
     "flow_jobs": {
       "properties": {
         "app_code": {
@@ -185,6 +191,9 @@
         },
         "flow_name": {
           "type": "string"
+        },
+        "flow_name_suggest": {
+          "type": "completion"
         },
         "flow_path": {
           "type": "string"
@@ -218,6 +227,9 @@
             },
             "job_name": {
               "type": "string"
+            },
+            "job_name_suggest": {
+              "type": "completion"
             },
             "job_path": {
               "type": "string"
