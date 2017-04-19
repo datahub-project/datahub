@@ -27,4 +27,5 @@ public class DatasetOwner {
     public String subType;
     public Integer sortId;
     public String confirmedBy;
+    public Long modifiedTime;
 }
