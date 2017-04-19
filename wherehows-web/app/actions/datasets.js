@@ -29,7 +29,7 @@ const receivePagedDatasets = createAction(
  * @param {Number} page number of the page to fetch datasets for
  */
 const asyncRequestPagedDatasets = (datasetsPageBaseURL, page) =>
-  async function(dispatch) {
+  function (dispatch) {
     dispatch(requestPagedDatasets({ datasetsPageBaseURL, page }));
     return asyncReceivePagedDatasets(...arguments);
   };
@@ -40,7 +40,7 @@ const asyncRequestPagedDatasets = (datasetsPageBaseURL, page) =>
  * @param {Number} page number of the page to fetch datasets for
  */
 const asyncSelectPagedDatasets = (datasetsPageBaseURL, page) =>
-  async function(dispatch) {
+  function (dispatch) {
     dispatch(selectPagedDatasets({ datasetsPageBaseURL, page }));
     return asyncReceivePagedDatasets(...arguments);
   };
@@ -55,17 +55,16 @@ const asyncSelectPagedDatasets = (datasetsPageBaseURL, page) =>
 const asyncReceivePagedDatasets = async (dispatch, getState) => {
   const { datasets: { datasetsPageBaseURL, datasetsPage } } = getState();
   const datasetsPageURL = `${datasetsPageBaseURL}${datasetsPage}`;
+  const response = await fetch(datasetsPageURL);
+  const { status = 'error', data } = await response.json();
 
-  return await fetch(datasetsPageURL).then(response => response.json()).then(response => {
-    const { status = 'error' } = response;
-    // If status returns with 'ok', dispatch action without an error flag
-    if (status === 'ok') {
-      return dispatch(receivePagedDatasets(response));
-    }
+  // If status returns with 'ok', dispatch action without an error flag
+  if (status === 'ok') {
+    return dispatch(receivePagedDatasets({ data }));
+  }
 
-    // TODO: DSS-6929 Handle error case, FSA still sends action with payload
-    return dispatch(receivePagedDatasets(new Error(`Request failed with status ${status}`)));
-  });
+  // TODO: DSS-6929 Handle error case, FSA still sends action with payload
+  return dispatch(receivePagedDatasets(new Error(`Request failed with status ${status}`)));
 };
 
 export { ActionTypes, asyncRequestPagedDatasets, asyncSelectPagedDatasets };
