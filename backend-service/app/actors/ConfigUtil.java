@@ -86,6 +86,7 @@ class ConfigUtil {
         .add("-Dconfig=" + configFile)
         .add("-DCONTEXT=" + etlJobName.name())
         .add("-Dlogback.configurationFile=etl_logback.xml")
+        .add("-DLOG_DIR=" + directoryPath)
         .add("metadata.etl.Launcher")
         .build();
   }

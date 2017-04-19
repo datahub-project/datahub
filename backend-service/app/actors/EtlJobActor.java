@@ -21,6 +21,7 @@ import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
 import msgs.EtlJobMessage;
 import play.Logger;
+import play.Play;
 import shared.Global;
 
 import java.io.BufferedReader;
@@ -28,6 +29,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.util.Properties;
+import wherehows.common.Constant;
+
 
 /**
  * Created by zechen on 9/4/15.
@@ -35,6 +38,8 @@ import java.util.Properties;
 public class EtlJobActor extends UntypedActor {
 
   private Process process;
+
+  private static final String ETL_TEMP_DIR = Play.application().configuration().getString("etl.temp_dir");
 
   @Override
   public void onReceive(Object message)
@@ -46,6 +51,8 @@ public class EtlJobActor extends UntypedActor {
         props = EtlJobPropertyDao.getJobProperties(msg.getEtlJobName(), msg.getRefId());
         Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
         props.putAll(whProps);
+        props.setProperty(Constant.WH_APP_FOLDER_KEY, ETL_TEMP_DIR);
+
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
