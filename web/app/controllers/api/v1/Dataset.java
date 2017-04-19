@@ -225,8 +225,13 @@ public class Dataset extends Controller
     {
         ObjectNode result = Json.newObject();
 
-        result.put("status", "ok");
-        result.set("owners", Json.toJson(DatasetsDAO.getDatasetOwnersByID(id)));
+        try {
+            result.set("owners", Json.toJson(DatasetsDAO.getDatasetOwnersByID(id)));
+            result.put("status", "ok");
+        } catch (Exception e) {
+            result.put("status", "failed");
+            result.put("message", "Error: " + e.getMessage());
+        }
 
         return ok(result);
     }
