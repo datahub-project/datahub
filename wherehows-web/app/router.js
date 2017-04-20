@@ -169,6 +169,7 @@ AppRouter.map(function () {
   this.route('help', function () {
     this.route('feedback');
   });
+  this.route('browse');
 });
 
 export default AppRouter;
