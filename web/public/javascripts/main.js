@@ -1,4 +1,4 @@
-(function ($) {
+(function ($, window) {
   $(document).ready(function() {
     var token = $("#csrfToken").val();
 
@@ -117,7 +117,10 @@
     })
   });
 
-})(jQuery)
+  window.btoa = function(a) {return Base64.encode(a);};
+  window.atob = function(a) {return Base64.decode(a);};
+
+})(jQuery, window)
 
 var convertQueryStringToObject = function() {
     var queryString = {}

@@ -50,7 +50,7 @@ public class Launcher {
    */
   public static void main(String[] args)
       throws Exception {
-
+    logger.info("Starting launcher ... ");
     String property_file = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
     String etlJobNameString = null;
     int refId = 0;
@@ -84,6 +84,7 @@ public class Launcher {
       if (errorString.contains("IndexError") || errorString.contains("ImportError")) {
         System.exit(2);
       }
+      e.printStackTrace();
       System.exit(1);
     }
 
