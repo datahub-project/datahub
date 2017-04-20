@@ -54,7 +54,8 @@ public class ConfigUtilTest {
     // then:
     assertThat(command).contains("java", "-a", "-b", "-cp", System.getProperty("java.class.path"),
         "-Dconfig=" + applicationDirectory + "/exec/1.properties", "-DCONTEXT=LDAP_USER_ETL",
-        "-Dlogback.configurationFile=etl_logback.xml", "metadata.etl.Launcher");
+        "-DLOG_DIR=" + applicationDirectory, "-Dlogback.configurationFile=etl_logback.xml",
+        "metadata.etl.Launcher");
   }
 
   @Test

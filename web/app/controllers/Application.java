@@ -38,6 +38,7 @@ import security.AuthenticationManager;
 public class Application extends Controller
 {
     private static String TREE_NAME_SUBFIX = ".tree.name";
+    private static final String APP_VERSION = Play.application().configuration().getString("app.version");
     private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
     private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
     private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
@@ -78,6 +79,7 @@ public class Application extends Controller
         ObjectNode response = Json.newObject();
         ObjectNode config = Json.newObject();
 
+        config.put("appVersion", APP_VERSION);
         config.put("isInternal", IS_INTERNAL);
         config.put("tracking", trackingInfo());
         response.put("status", "ok");
