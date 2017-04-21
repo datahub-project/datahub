@@ -104,7 +104,7 @@ public class ConfigUtilTest {
   }
 
   private File createTemporaryPropertiesFile(long whEtlExecId, Properties etlJobProperties) {
-    final File tempDir = Files.createTempDir();
+    final File tempDir = new File(Files.createTempDir(), "non-exsiting-dir");
     tempDir.deleteOnExit();
     final String tempDirPath = tempDir.getAbsolutePath();
 
