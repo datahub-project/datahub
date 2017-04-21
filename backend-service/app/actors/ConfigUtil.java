@@ -56,7 +56,7 @@ class ConfigUtil {
     String dirName = props.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY) + "/exec";
     File dir = new File(dirName);
     if (!dir.exists()) {
-      dir.mkdir();
+      dir.mkdirs();
     }
     File configFile = new File(dirName, whEtlExecId + ".properties");
     FileWriter writer = new FileWriter(configFile);
