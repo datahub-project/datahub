@@ -169,7 +169,11 @@ AppRouter.map(function () {
   this.route('help', function () {
     this.route('feedback');
   });
-  this.route('browse');
+  this.route('browse', function() {
+    this.route('entity', {
+      path: '/:entity'
+    });
+  });
 });
 
 export default AppRouter;
