@@ -1,0 +1,35 @@
+.browse-nav {
+  width: 100%;
+
+  &__item {
+    @include flex-column-center;
+  }
+
+  &__entity {
+    border-bottom: 1px solid set-color(grey, light);
+
+    /**
+     * Overrides bootstrap .active class.
+     *   Ember applies this for active route links
+     */
+    &.active {
+      background-color: set-color(grey, light);
+    }
+  }
+
+  &__entity + &__entity {
+    border-left: 1px solid set-color(grey, light);
+  }
+
+  &__count {
+    font-weight: fw(normal, 6);
+    font-size: 24px;
+    margin: 0;
+  }
+
+  &__title {
+    font-weight: fw(normal, 2);
+    text-transform: capitalize;
+    margin: 0;
+  }
+}
