@@ -20,6 +20,8 @@ from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 
+import FileUtil
+
 
 class OracleLoad:
   def __init__(self, args):
@@ -39,13 +41,10 @@ class OracleLoad:
       lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
       self.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
-    metadata_folder = os.path.join(args[Constant.WH_APP_FOLDER_KEY], "ORACLE", self.wh_etl_exec_id)
-    if not os.path.exists(metadata_folder):
-      os.makedirs(metadata_folder)
-
-    self.input_table_file = os.path.join(metadata_folder, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
-    self.input_field_file = os.path.join(metadata_folder, args[Constant.ORA_FIELD_OUTPUT_KEY])
-    self.input_sample_file = os.path.join(metadata_folder, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
+    temp_dir = FileUtil.etl_temp_dir(args, "ORACLE");
+    self.input_table_file = os.path.join(temp_dir, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
+    self.input_field_file = os.path.join(temp_dir, args[Constant.ORA_FIELD_OUTPUT_KEY])
+    self.input_sample_file = os.path.join(temp_dir, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
 
     self.logger.info("Load Oracle Metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))

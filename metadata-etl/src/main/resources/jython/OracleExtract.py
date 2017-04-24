@@ -23,6 +23,8 @@ from wherehows.common.schemas import SampleDataRecord
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 
+import FileUtil
+
 
 class OracleExtract:
   table_dict = {}
@@ -396,13 +398,10 @@ if __name__ == "__main__":
     collect_sample = bool(args[Constant.ORA_LOAD_SAMPLE])
   e.databases = args[Constant.ORA_EXCLUDE_DATABASES_KEY].split(',')
 
-  metadata_folder = os.path.join(args[Constant.WH_APP_FOLDER_KEY], "ORACLE", args[Constant.WH_EXEC_ID_KEY])
-  if not os.path.exists(metadata_folder):
-    os.makedirs(metadata_folder)
-
-  table_output_file = os.path.join(metadata_folder, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
-  field_output_file = os.path.join(metadata_folder, args[Constant.ORA_FIELD_OUTPUT_KEY])
-  sample_output_file = os.path.join(metadata_folder, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
+  temp_dir = FileUtil.etl_temp_dir(args, "ORACLE");
+  table_output_file = os.path.join(temp_dir, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
+  field_output_file = os.path.join(temp_dir, args[Constant.ORA_FIELD_OUTPUT_KEY])
+  sample_output_file = os.path.join(temp_dir, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
 
   try:
     e.conn_db.cursor().execute("ALTER SESSION SET TIME_ZONE = 'US/Pacific'")
