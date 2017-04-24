@@ -12,10 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+import datetime
+import os
+import sys
+
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-import sys, datetime
 
 
 class OracleLoad:
@@ -26,9 +29,6 @@ class OracleLoad:
     password = args[Constant.WH_DB_PASSWORD_KEY]
     JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
     JDBC_URL = args[Constant.WH_DB_URL_KEY]
-    self.input_table_file = args[Constant.ORA_SCHEMA_OUTPUT_KEY]
-    self.input_field_file = args[Constant.ORA_FIELD_OUTPUT_KEY]
-    self.input_sample_file = args[Constant.ORA_SAMPLE_OUTPUT_KEY]
 
     self.db_id = args[Constant.DB_ID_KEY]
     self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
@@ -38,6 +38,14 @@ class OracleLoad:
     if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
       lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
       self.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+
+    metadata_folder = os.path.join(args[Constant.WH_APP_FOLDER_KEY], "ORACLE", self.wh_etl_exec_id)
+    if not os.path.exists(metadata_folder):
+      os.makedirs(metadata_folder)
+
+    self.input_table_file = os.path.join(metadata_folder, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
+    self.input_field_file = os.path.join(metadata_folder, args[Constant.ORA_FIELD_OUTPUT_KEY])
+    self.input_sample_file = os.path.join(metadata_folder, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
 
     self.logger.info("Load Oracle Metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
@@ -161,7 +169,7 @@ class OracleLoad:
           select x.field_id, s.*
           from stg_dict_field_detail s
           join dict_field_detail x
-            on s.dataset_id = x.dataset_id 
+            on s.dataset_id = x.dataset_id
             and s.field_name = x.field_name
             and s.parent_path <=> x.parent_path
           where s.db_id = {db_id}
