@@ -122,11 +122,27 @@ class NuageLoad:
         stg.owner_sub_type = CASE WHEN ldap.department_id = 4011 THEN 'DWH'
                                   WHEN ldap.department_id = 5526 THEN 'BA' ELSE null END;
 
+    -- find deprecated dataset owner and delete
+    DELETE d FROM dataset_owner d 
+    JOIN
+    ( SELECT o.* FROM 
+      (select dataset_id, dataset_urn, app_id, owner_id from stg_dataset_owner where db_id = {db_id}) s
+      RIGHT JOIN
+      (select dataset_id, dataset_urn, owner_id, app_id, owner_source from dataset_owner 
+        where db_ids = {db_id} and owner_source = 'NUAGE' and (confirmed_by is null or confirmed_by = '')
+      ) o 
+      ON s.dataset_id = o.dataset_id and s.dataset_urn = o.dataset_urn 
+        and s.owner_id = o.owner_id and s.app_id = o.app_id
+      WHERE s.owner_id is null
+    ) dif
+    ON d.dataset_id = dif.dataset_id and d.dataset_urn = dif.dataset_urn and d.owner_id = dif.owner_id
+      and d.app_id = dif.app_id and d.owner_source <=> dif.owner_source;
+
     -- insert into owner table
     INSERT INTO dataset_owner (dataset_id, dataset_urn, owner_id, sort_id, namespace, app_id, owner_type, owner_sub_type,
         owner_id_type, owner_source, db_ids, is_group, is_active, source_time, created_time, wh_etl_exec_id)
     SELECT * FROM (
-      SELECT dataset_id, dataset_urn, owner_id, sort_id n_sort_id, namespace, app_id,
+      SELECT dataset_id, dataset_urn, owner_id, sort_id n_sort_id, namespace n_namespace, app_id,
         owner_type n_owner_type, owner_sub_type n_owner_sub_type,
         case when app_id = 300 then 'USER' when app_id = 301 then 'GROUP'
             when namespace = 'urn:li:service' then 'SERVICE' else null end n_owner_id_type,
@@ -140,15 +156,27 @@ class NuageLoad:
     sort_id = COALESCE(sort_id, sb.n_sort_id),
     owner_type = COALESCE(owner_type, sb.n_owner_type),
     owner_sub_type = COALESCE(owner_sub_type, sb.n_owner_sub_type),
+    namespace = COALESCE(namespace, sb.n_namespace),
     owner_id_type = COALESCE(owner_id_type, sb.n_owner_id_type),
-    owner_source = CASE WHEN owner_source is null THEN 'NUAGE'
-                    WHEN owner_source LIKE '%NUAGE%' THEN owner_source ELSE CONCAT(owner_source, ',NUAGE') END,
     app_id = sb.app_id,
     is_active = sb.is_active,
     db_ids = sb.db_id,
     source_time = sb.source_time,
     wh_etl_exec_id = {wh_exec_id},
-    modified_time = unix_timestamp(NOW())
+    modified_time = unix_timestamp(NOW());
+
+    -- reset dataset owner sort id
+    UPDATE dataset_owner d
+      JOIN (
+        select dataset_urn, dataset_id, owner_type, owner_id, sort_id,
+            @owner_rank := IF(@current_dataset_id = dataset_id, @owner_rank + 1, 0) rank,
+            @current_dataset_id := dataset_id
+        from dataset_owner, (select @current_dataset_id := 0, @owner_rank := 0) t
+        where dataset_urn regexp '^(espresso|kafka|voldemort)\:\/\/\/.*$'
+        order by dataset_id asc, owner_type desc, sort_id asc, owner_id asc
+      ) s
+    ON d.dataset_id = s.dataset_id AND d.owner_id = s.owner_id
+    SET d.sort_id = s.rank;
     '''.format(db_id=self.db_id, wh_exec_id=self.wh_etl_exec_id)
     self.executeCommands(write_owner_cmd)
 
