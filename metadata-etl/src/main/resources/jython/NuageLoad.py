@@ -163,7 +163,20 @@ class NuageLoad:
     db_ids = sb.db_id,
     source_time = sb.source_time,
     wh_etl_exec_id = {wh_exec_id},
-    modified_time = unix_timestamp(NOW())
+    modified_time = unix_timestamp(NOW());
+
+    -- reset dataset owner sort id
+    UPDATE dataset_owner d
+      JOIN (
+        select dataset_urn, dataset_id, owner_type, owner_id, sort_id,
+            @owner_rank := IF(@current_dataset_id = dataset_id, @owner_rank + 1, 0) rank,
+            @current_dataset_id := dataset_id
+        from dataset_owner, (select @current_dataset_id := 0, @owner_rank := 0) t
+        where dataset_urn regexp '^(espresso|kafka|voldemort)\:\/\/\/.*$'
+        order by dataset_id asc, owner_type desc, sort_id asc, owner_id asc
+      ) s
+    ON d.dataset_id = s.dataset_id AND d.owner_id = s.owner_id
+    SET d.sort_id = s.rank;
     '''.format(db_id=self.db_id, wh_exec_id=self.wh_etl_exec_id)
     self.executeCommands(write_owner_cmd)
 
