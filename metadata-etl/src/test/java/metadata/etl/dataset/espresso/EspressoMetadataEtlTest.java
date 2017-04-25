@@ -26,22 +26,19 @@ public class EspressoMetadataEtlTest {
     _etl = new EspressoMetadataEtl(70, 0L);
   }
 
-  @Test
-  public void extractTest()
+  private void extractTest()
       throws Exception {
     _etl.extract();
     // check file
   }
 
-  @Test
-  public void transformTest()
+  private void transformTest()
       throws Exception {
     _etl.transform();
     // check staging tables in database
   }
 
-  @Test
-  public void loadTest()
+  private void loadTest()
       throws Exception {
     _etl.load();
     // check final tables in database

@@ -12,14 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import json
 import datetime
-import sys, os
+import json
+import os
+import sys
 import time
+
 from wherehows.common.writers import FileWriter
 from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
+
+import FileUtil
 
 
 class TeradataTransform:
@@ -132,5 +136,10 @@ if __name__ == "__main__":
   t = TeradataTransform()
   t.log_file = args['teradata.log']
 
-  t.transform(args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_METADATA_KEY], args[Constant.TD_FIELD_METADATA_KEY])
+  temp_dir = FileUtil.etl_temp_dir(args, "TERADATA")
+  input = os.path.join(temp_dir, args[Constant.TD_SCHEMA_OUTPUT_KEY])
+  td_metadata = os.path.join(temp_dir, args[Constant.TD_METADATA_KEY])
+  td_field_metadata = os.path.join(temp_dir, args[Constant.TD_FIELD_METADATA_KEY])
+
+  t.transform(input, td_metadata, td_field_metadata)
 

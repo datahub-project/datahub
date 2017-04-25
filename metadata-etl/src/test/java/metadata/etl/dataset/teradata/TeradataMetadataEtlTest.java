@@ -28,21 +28,18 @@ public class TeradataMetadataEtlTest {
     t.run();
   }
 
-  @Test(groups = {"needConfig"})
   public void testExtract()
     throws Exception {
     TeradataMetadataEtl t = new TeradataMetadataEtl(3, 0L);
     t.extract();
   }
 
-  @Test(groups = {"needConfig"})
   public void testTransform()
       throws Exception {
     TeradataMetadataEtl t = new TeradataMetadataEtl(3, 0L);
     t.transform();
   }
 
-  @Test(groups = {"needConfig"})
   public void testLoad()
       throws Exception {
     TeradataMetadataEtl t = new TeradataMetadataEtl(3, 0L);

@@ -12,11 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys, datetime
+import datetime
+import os
+import sys
+
 from com.ziclix.python.sql import zxJDBC
 from distutils.util import strtobool
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
+
+import FileUtil
 
 
 class TeradataLoad:
@@ -189,8 +194,8 @@ class TeradataLoad:
          @dummy
         )
         set
-          data_precision=nullif(@precision,''), 
-          data_scale=nullif(@scale,''), 
+          data_precision=nullif(@precision,''),
+          data_scale=nullif(@scale,''),
           db_id = {db_id};
 
         analyze table stg_dict_field_detail;
@@ -404,9 +409,10 @@ if __name__ == "__main__":
   JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
   JDBC_URL = args[Constant.WH_DB_URL_KEY]
 
-  l.input_file = args[Constant.TD_METADATA_KEY]
-  l.input_field_file = args[Constant.TD_FIELD_METADATA_KEY]
-  l.input_sampledata_file = args[Constant.TD_SAMPLE_OUTPUT_KEY]
+  temp_dir = FileUtil.etl_temp_dir(args, "TERADATA")
+  l.input_file = os.path.join(temp_dir, args[Constant.TD_METADATA_KEY])
+  l.input_field_file = os.path.join(temp_dir, args[Constant.TD_FIELD_METADATA_KEY])
+  l.input_sampledata_file = os.path.join(temp_dir, args[Constant.TD_SAMPLE_OUTPUT_KEY])
 
   do_sample = False
   if Constant.TD_LOAD_SAMPLE in args:
