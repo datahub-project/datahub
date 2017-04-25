@@ -12,13 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys,os,re
+import os
+import re
 import requests
 import subprocess
+import sys
+
 from wherehows.common import Constant
 from wherehows.common.schemas import SCMOwnerRecord
 from wherehows.common.writers import FileWriter
 from org.slf4j import LoggerFactory
+
+import FileUtil
 
 
 class CodeSearchExtract:
@@ -33,10 +38,13 @@ class CodeSearchExtract:
     # limit_multiproduct = None
     # limit_plugin = None
 
-    def __init__(self):
+    def __init__(self, args):
         self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
         self.base_url = args[Constant.BASE_URL_KEY]
-        self.code_search_committer_writer = FileWriter(args[Constant.DATABASE_SCM_REPO_OUTPUT_KEY])
+
+        temp_dir = FileUtil.etl_temp_dir(args, "CODESEARCH")
+        self.code_search_committer_writer = FileWriter(
+            os.path.join(temp_dir, args[Constant.DATABASE_SCM_REPO_OUTPUT_KEY]))
 
     def run(self):
         offset_min = 1
@@ -191,5 +199,5 @@ class CodeSearchExtract:
 
 if __name__ == "__main__":
     args = sys.argv[1]
-    e = CodeSearchExtract()
+    e = CodeSearchExtract(args)
     e.run()
