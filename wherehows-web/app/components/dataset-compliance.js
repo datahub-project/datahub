@@ -1,4 +1,5 @@
 import Ember from 'ember';
+import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 
 const {
   Component,
@@ -114,13 +115,8 @@ export default Component.extend({
    *   tracking headers
    */
   complianceDataFieldsSansHiddenTracking: computed('complianceDataFields.[]', function () {
-    // Matches field identifiers starting with header, requestHeader, mobileHeader,
-    //   all optionally suffixed with a period and any non - line break characters
-    const trackingHeaderFieldsRegex = /^(?:header\.?|requestHeader\.?|mobileHeader\.?).*/ig;
-
     return get(this, 'complianceDataFields')
-      .filter(({ identifierField }) =>
-        !identifierField.match(trackingHeaderFieldsRegex));
+      .filter(({ identifierField }) => !isTrackingHeaderField(identifierField));
   }),
 
   /**
