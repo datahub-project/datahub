@@ -128,6 +128,12 @@ public class Search
                 "}" +
              "}";
 
+    private final static String queryStringTemplate =
+                    " {\"query_string\": {" +
+                    "      \"query\": \"$VALUE\"" +
+                    "    }" +
+                    "}";
+
 
     public final static String DATASET_CATEGORY = "datasets";
 
@@ -168,51 +174,56 @@ public class Search
 
     public static ObjectNode generateElasticSearchQueryString(String category, String source, String keywords)
     {
-        if (StringUtils.isBlank(keywords))
-            return null;
+    if (StringUtils.isBlank(keywords))
+        return null;
 
-        List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
+    keywords = keywords.replace(',', ' ');
+    String queryTemplate = queryStringTemplate;
+    String query = queryTemplate.replace("$VALUE", keywords);
+    return (ObjectNode) Json.parse(query);
 
-        String queryTemplate = datasetShouldQueryUnit;
-        String[] values = keywords.trim().split(",");
-        if (StringUtils.isNotBlank(category))
-        {
-            if (category.equalsIgnoreCase(METRIC_CATEGORY))
-            {
-                queryTemplate = metricShouldQueryUnit;
-            }
-            else if (category.equalsIgnoreCase(COMMENT_CATEGORY))
-            {
-                queryTemplate = commentsQuery;
-            }
-            else if (category.equalsIgnoreCase(FLOW_CATEGORY) || category.equalsIgnoreCase(JOB_CATEGORY))
-            {
-                queryTemplate = flowShouldQueryUnit;
-            }
-            else if (category.equalsIgnoreCase(DATASET_CATEGORY) && StringUtils.isNotBlank(source))
-            {
-                queryTemplate = datasetMustQueryUnit;
-            }
-        }
-
-        for(String value : values)
-        {
-            if (StringUtils.isNotBlank(value)) {
-                String query= queryTemplate.replace("$VALUE", value.replace("\"", "").toLowerCase().trim());
-                if (StringUtils.isNotBlank(source))
-                {
-                    query = query.replace("$SOURCE", source.toLowerCase());
-                }
-                shouldValueList.add(Json.parse(query));
-            }
-        }
-
-        ObjectNode shouldNode = Json.newObject();
-        shouldNode.set("should", Json.toJson(shouldValueList));
-        ObjectNode queryNode = Json.newObject();
-        queryNode.put("bool", shouldNode);
-        return queryNode;
-    }
+//    List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
+//
+//    String queryTemplate = datasetShouldQueryUnit;
+//    String[] values = keywords.trim().split(",");
+//    if (StringUtils.isNotBlank(category))
+//    {
+//        if (category.equalsIgnoreCase(METRIC_CATEGORY))
+//        {
+//            queryTemplate = metricShouldQueryUnit;
+//        }
+//        else if (category.equalsIgnoreCase(COMMENT_CATEGORY))
+//        {
+//            queryTemplate = commentsQuery;
+//        }
+//        else if (category.equalsIgnoreCase(FLOW_CATEGORY) || category.equalsIgnoreCase(JOB_CATEGORY))
+//        {
+//            queryTemplate = flowShouldQueryUnit;
+//        }
+//        else if (category.equalsIgnoreCase(DATASET_CATEGORY) && StringUtils.isNotBlank(source))
+//        {
+//            queryTemplate = datasetMustQueryUnit;
+//        }
+//    }
+//
+//    for(String value : values)
+//    {
+//        if (StringUtils.isNotBlank(value)) {
+//            String query= queryTemplate.replace("$VALUE", value.replace("\"", "").toLowerCase().trim());
+//            if (StringUtils.isNotBlank(source))
+//            {
+//                query = query.replace("$SOURCE", source.toLowerCase());
+//            }
+//            shouldValueList.add(Json.parse(query));
+//        }
+//    }
+//
+//    ObjectNode shouldNode = Json.newObject();
+//    shouldNode.set("should", Json.toJson(shouldValueList));
+//    ObjectNode queryNode = Json.newObject();
+//    queryNode.put("bool", shouldNode);
+//    return queryNode;
+}
 
     public static ObjectNode generateDatasetAdvSearchQueryString(JsonNode searchOpt)
     {

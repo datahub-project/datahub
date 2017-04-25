@@ -19,6 +19,7 @@ import java.util.stream.Stream;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.codec.binary.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,6 +42,9 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 	public static String ELASTICSEARCH_METRIC_URL_KEY = "elasticsearch.metric.url";
 
 	public static String ELASTICSEARCH_FLOW_URL_KEY = "elasticsearch.flow.url";
+
+	public static String ELASTICSEARCH_USER_NAME = "elasticsearch.user.name";
+	public static String ELASTICSEARCH_USER_PASSWD = "elasticsearch.user.passwd";
 
 	public static String WHEREHOWS_SEARCH_ENGINE__KEY = "search.engine";
 
@@ -264,8 +268,14 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 		Logger.info("The suggest query sent to Elastic Search is: " + keywordNode.toString());
 
-		Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-				elasticSearchTypeURLKey)).post(keywordNode);
+		WSRequest request = WS.url(Play.application().configuration().getString(
+				elasticSearchTypeURLKey));
+		if (Play.application().configuration().getString(ELASTICSEARCH_USER_NAME) != null) {
+			request = request.setHeader("Authorization", "Basic " + base64EncodeAuth(
+					Play.application().configuration().getString(ELASTICSEARCH_USER_NAME),
+					Play.application().configuration().getString(ELASTICSEARCH_USER_PASSWD)));
+		}
+		Promise<WSResponse> responsePromise = request.post(keywordNode);
 		responseNode = responsePromise.get(1000).asJson();
 
 		// Logger.info("responseNode for getSuggestionList is " + responseNode.toString());
@@ -357,12 +367,16 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 			Logger.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
-			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
+			WSRequest request = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY));
+			if (Play.application().configuration().getString(ELASTICSEARCH_USER_NAME) != null) {
+				request = request.setHeader("Authorization", "Basic " + base64EncodeAuth(
+						Play.application().configuration().getString(ELASTICSEARCH_USER_NAME),
+						Play.application().configuration().getString(ELASTICSEARCH_USER_PASSWD)));
+			}
+			Promise<WSResponse> responsePromise = request.post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
-
 			// Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
-
 		}
 
 		ObjectNode resultNode = Json.newObject();
@@ -464,8 +478,14 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 			Logger.info(" === elasticSearchMetricByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
-			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-					SearchDAO.ELASTICSEARCH_METRIC_URL_KEY)).post(queryNode);
+			WSRequest request = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_METRIC_URL_KEY));
+			if (Play.application().configuration().getString(ELASTICSEARCH_USER_NAME) != null) {
+				request = request.setHeader("Authorization", "Basic " + base64EncodeAuth(
+						Play.application().configuration().getString(ELASTICSEARCH_USER_NAME),
+						Play.application().configuration().getString(ELASTICSEARCH_USER_PASSWD)));
+			}
+			Promise<WSResponse> responsePromise = request.post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
 		}
 
@@ -577,8 +597,14 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 
 			Logger.info(" === elasticSearchFlowByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
-			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-					SearchDAO.ELASTICSEARCH_FLOW_URL_KEY)).post(queryNode);
+			WSRequest request = WS.url(Play.application().configuration().getString(
+					SearchDAO.ELASTICSEARCH_FLOW_URL_KEY));
+			if (Play.application().configuration().getString(ELASTICSEARCH_USER_NAME) != null) {
+				request = request.setHeader("Authorization", "Basic " + base64EncodeAuth(
+						Play.application().configuration().getString(ELASTICSEARCH_USER_NAME),
+						Play.application().configuration().getString(ELASTICSEARCH_USER_PASSWD)));
+			}
+			Promise<WSResponse> responsePromise = request.post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
 		}
 
@@ -978,6 +1004,11 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		});
 
 		return result;
+	}
+
+	private static String base64EncodeAuth(String username, String passwd) {
+		String toEncode = username + ':' + passwd;
+		return org.apache.commons.codec.binary.Base64.encodeBase64String(toEncode.getBytes());
 	}
 
 }

@@ -16,7 +16,7 @@ from wherehows.common import Constant
 from com.ziclix.python.sql import zxJDBC
 from org.slf4j import LoggerFactory
 import sys, json
-import urllib2
+import urllib2, base64
 
 
 class ElasticSearchIndex():
@@ -30,6 +30,13 @@ class ElasticSearchIndex():
     else:
         self.elasticsearch_index = args[Constant.WH_ELASTICSEARCH_INDEX_KEY]
 
+    if Constant.WH_ELASTICSEARCH_USER_NAME in args and Constant.WH_ELASTICSEARCH_USER_PASSWD in args :
+        username = args[Constant.WH_ELASTICSEARCH_USER_NAME]
+        password = args[Constant.WH_ELASTICSEARCH_USER_PASSWD]
+        self.auth = base64.b64encode('%s:%s' % (username, password))
+    else:
+        self.auth = None
+
 
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
                                  args[Constant.WH_DB_USERNAME_KEY],
@@ -41,6 +48,8 @@ class ElasticSearchIndex():
     try:
       req = urllib2.Request(url=url)
       req.add_header('Content-type', 'application/json')
+      if self.auth != None:
+          req.add_header("Authorization", "Basic %s" % self.auth)
       req.get_method = lambda: "PUT"
       req.add_data('\n'.join(params) + '\n')
       self.logger.info(url)
