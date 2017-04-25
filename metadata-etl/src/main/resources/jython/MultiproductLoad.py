@@ -12,10 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+import datetime
+import os
+import sys
+
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-import sys, os, datetime
+
+import FileUtil
 
 
 class MultiproductLoad:
@@ -26,9 +31,11 @@ class MultiproductLoad:
     password = args[Constant.WH_DB_PASSWORD_KEY]
     JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
     JDBC_URL = args[Constant.WH_DB_URL_KEY]
-    self.mp_gitli_project_file = args[Constant.GIT_PROJECT_OUTPUT_KEY]
-    self.product_repo_file = args[Constant.PRODUCT_REPO_OUTPUT_KEY]
-    self.product_repo_owner_file = args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY]
+
+    temp_dir = FileUtil.etl_temp_dir(args, "MULTIPRODUCT")
+    self.mp_gitli_project_file = os.path.join(temp_dir, args[Constant.GIT_PROJECT_OUTPUT_KEY])
+    self.product_repo_file = os.path.join(temp_dir, args[Constant.PRODUCT_REPO_OUTPUT_KEY])
+    self.product_repo_owner_file = os.path.join(temp_dir, args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY])
 
     self.app_id = args[Constant.APP_ID_KEY]
     self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]

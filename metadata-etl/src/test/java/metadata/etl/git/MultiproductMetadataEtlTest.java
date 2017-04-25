@@ -26,15 +26,13 @@ public class MultiproductMetadataEtlTest {
     _etl = new MultiproductMetadataEtl(500, 0L);
   }
 
-  @Test
-  public void extractTest()
+  private void extractTest()
       throws Exception {
     _etl.extract();
     // check the csv file
   }
 
-  @Test
-  public void loadTest()
+  private void loadTest()
       throws Exception {
     _etl.load();
     // check in database
