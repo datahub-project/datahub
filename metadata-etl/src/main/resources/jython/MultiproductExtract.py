@@ -12,9 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys, os, re
+import os
+import re
+import sys
 import datetime
 import xml.etree.ElementTree as ET
+
 from jython import requests
 from wherehows.common import Constant
 from wherehows.common.schemas import MultiproductProjectRecord
@@ -23,17 +26,21 @@ from wherehows.common.schemas import MultiproductRepoOwnerRecord
 from wherehows.common.writers import FileWriter
 from org.slf4j import LoggerFactory
 
+import FileUtil
+
 
 class MultiproductLoad:
 
-  def __init__(self):
+  def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     requests.packages.urllib3.disable_warnings()
     self.app_id = int(args[Constant.APP_ID_KEY])
     self.wh_exec_id = long(args[Constant.WH_EXEC_ID_KEY])
-    self.project_writer = FileWriter(args[Constant.GIT_PROJECT_OUTPUT_KEY])
-    self.repo_writer = FileWriter(args[Constant.PRODUCT_REPO_OUTPUT_KEY])
-    self.repo_owner_writer = FileWriter(args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY])
+
+    temp_dir = FileUtil.etl_temp_dir(args, "MULTIPRODUCT")
+    self.project_writer = FileWriter(os.path.join(temp_dir, args[Constant.GIT_PROJECT_OUTPUT_KEY]))
+    self.repo_writer = FileWriter(os.path.join(temp_dir, args[Constant.PRODUCT_REPO_OUTPUT_KEY]))
+    self.repo_owner_writer = FileWriter(os.path.join(temp_dir, args[Constant.PRODUCT_REPO_OWNER_OUTPUT_KEY]))
 
     self.multiproduct = {}
     self.git_repo = {}
@@ -303,5 +310,5 @@ class MultiproductLoad:
 if __name__ == "__main__":
   args = sys.argv[1]
 
-  e = MultiproductLoad()
+  e = MultiproductLoad(args)
   e.run()
