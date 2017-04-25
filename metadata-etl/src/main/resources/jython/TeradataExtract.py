@@ -12,14 +12,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-from com.ziclix.python.sql import zxJDBC
-import sys, os, re, json
 import datetime
+import json
+import os
+import re
+import sys
+
+from com.ziclix.python.sql import zxJDBC
 from distutils.util import strtobool
 from wherehows.common.schemas import SampleDataRecord
 from wherehows.common.writers import FileWriter
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
+
+import FileUtil
 
 
 class TeradataExtract:
@@ -555,17 +561,22 @@ if __name__ == "__main__":
   if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
     do_sample = False
 
+  temp_dir = FileUtil.etl_temp_dir(args, "TERADATA")
+
   try:
     e.conn_td.cursor().execute(
       "SET QUERY_BAND = 'script=%s; pid=%d; ' FOR SESSION;" % ('TeradataExtract.py', os.getpid()))
     e.conn_td.commit()
-    e.log_file = args[Constant.TD_LOG_KEY]
+    e.log_file = os.path.join(temp_dir, args[Constant.TD_LOG_KEY])
     e.databases = args[Constant.TD_TARGET_DATABASES_KEY].split(',')
     e.default_database = args[Constant.TD_DEFAULT_DATABASE_KEY]
     index_type = {'P': 'Primary Index', 'K': 'Primary Key', 'S': 'Secondary Index', 'Q': 'Partitioned Primary Index',
                   'J': 'Join Index', 'U': 'Unique Index'}
 
-    e.run(None, None, args[Constant.TD_SCHEMA_OUTPUT_KEY], args[Constant.TD_SAMPLE_OUTPUT_KEY], sample=do_sample)
+    schema_output_file = os.path.join(temp_dir, args[Constant.TD_SCHEMA_OUTPUT_KEY])
+    sample_output_file = os.path.join(temp_dir, args[Constant.TD_SAMPLE_OUTPUT_KEY])
+
+    e.run(None, None, schema_output_file, sample_output_file, sample=do_sample)
   finally:
     e.conn_td.close()
 

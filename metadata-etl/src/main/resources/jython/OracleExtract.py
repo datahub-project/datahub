@@ -12,14 +12,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-from com.ziclix.python.sql import zxJDBC
-import sys, os, re
-import json, csv
+import csv
 import datetime
+import json
+import os
+import sys
+
+from com.ziclix.python.sql import zxJDBC
 from wherehows.common.schemas import SampleDataRecord
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 from wherehows.common.writers import FileWriter
+
+import FileUtil
 
 
 class OracleExtract:
@@ -427,6 +432,11 @@ if __name__ == "__main__":
     collect_sample = bool(args[Constant.ORA_LOAD_SAMPLE])
   e.databases = args[Constant.ORA_EXCLUDE_DATABASES_KEY].split(',')
 
+  temp_dir = FileUtil.etl_temp_dir(args, "ORACLE");
+  table_output_file = os.path.join(temp_dir, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
+  field_output_file = os.path.join(temp_dir, args[Constant.ORA_FIELD_OUTPUT_KEY])
+  sample_output_file = os.path.join(temp_dir, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
+
   try:
     e.conn_db.cursor().execute("ALTER SESSION SET TIME_ZONE = 'US/Pacific'")
     e.conn_db.cursor().execute("ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD HH24:MI:SS'")
@@ -434,10 +444,11 @@ if __name__ == "__main__":
                                ('WhereHows (Jython)', os.getpid()))
     e.conn_db.commit()
 
-    e.run(None, None,
-          args[Constant.ORA_SCHEMA_OUTPUT_KEY],
-          args[Constant.ORA_FIELD_OUTPUT_KEY],
-          args[Constant.ORA_SAMPLE_OUTPUT_KEY],
+    e.run(None,
+          None,
+          table_output_file,
+          field_output_file,
+          sample_output_file,
           sample=collect_sample)
   finally:
     e.conn_db.cursor().close()

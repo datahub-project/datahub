@@ -12,20 +12,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys, json, re
+import json
+import re
+import os
+import sys
+
 from datetime import datetime
 from jython import requests
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
 
+import FileUtil
+
 
 class KafkaExtract:
 
-  def __init__(self):
+  def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
     requests.packages.urllib3.disable_warnings()
 
-    self.output_file = open(args[Constant.KAFKA_OUTPUT_KEY], 'w')
+    temp_dir = FileUtil.etl_temp_dir(args, "KAFKA")
+    self.output_file = open(os.path.join(temp_dir, args[Constant.KAFKA_OUTPUT_KEY]), 'w')
 
     self.d2_proxys = []
     proxy_urls = [x.strip() for x in args[Constant.D2_PROXY_URL].split(',')]
@@ -112,5 +119,5 @@ class KafkaExtract:
 if __name__ == "__main__":
   args = sys.argv[1]
 
-  e = KafkaExtract()
+  e = KafkaExtract(args)
   e.run()

@@ -12,10 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys, datetime, json
+import datetime
+import json
+import os
+import sys
 from com.ziclix.python.sql import zxJDBC
 from wherehows.common import Constant
 from org.slf4j import LoggerFactory
+
+import FileUtil
 
 
 class KafkaTransform:
@@ -28,7 +33,8 @@ class KafkaTransform:
     JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
     JDBC_URL = args[Constant.WH_DB_URL_KEY]
 
-    self.input_file = open(args[Constant.KAFKA_OUTPUT_KEY], 'r')
+    temp_dir = FileUtil.etl_temp_dir(args, "KAFKA")
+    self.input_file = open(os.path.join(temp_dir, args[Constant.KAFKA_OUTPUT_KEY]), 'r')
 
     self.db_id = args[Constant.DB_ID_KEY]
     self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
