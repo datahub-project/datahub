@@ -2,7 +2,7 @@ import { initializeState, createUrnMapping, receiveEntities, createPageMapping }
 import { ActionTypes } from 'wherehows-web/actions/metrics';
 
 /**
- * Takes the `datasets` slice of the state tree and performs the specified reductions for each action
+ * Takes the `metrics` slice of the state tree and performs the specified reductions for each action
  * @param {Object} state slice of the state tree this reducer is responsible for
  * @param {Object} action Flux Standard Action representing the action to be preformed on the state
  * @prop {String} action.type actionType
