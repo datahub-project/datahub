@@ -2,10 +2,12 @@ import { ActionTypes } from 'wherehows-web/actions/browse';
 
 /**
  * Initial state for browse feature
- * @type {{viewingEntity: string}}
+ * @type {{entity: string}}
  */
 const initialState = {
-  viewingEntity: 'datasets'
+  entity: 'datasets',
+  isFetching: false,
+  browseData: {}
 };
 
 /**
@@ -20,12 +22,13 @@ export default (state = initialState, action = {}) => {
     case ActionTypes.SELECT_BROWSE_DATA:
       return Object.assign({}, state, {
         isFetching: true,
-        viewingEntity: action.payload.viewingEntity
+        entity: action.payload.entity
       });
 
     case ActionTypes.RECEIVE_BROWSE_DATA:
       return Object.assign({}, state, {
-        isFetching: false
+        isFetching: false,
+        browseData: action.payload.browseData
       });
 
     default:
