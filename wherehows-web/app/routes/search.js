@@ -1,13 +1,8 @@
 import Ember from 'ember';
-import AuthenticatedRouteMixin
-  from 'ember-simple-auth/mixins/authenticated-route-mixin';
+import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import buildUrl from 'wherehows-web/utils/build-url';
 
-const {
-  Route,
-  isBlank,
-  $: { getJSON }
-} = Ember;
+const { Route, isBlank, $: { getJSON } } = Ember;
 const queryParams = ['keyword', 'category', 'page', 'source'];
 // TODO: DSS-6581 Create URL retrieval module
 const urlRoot = '/api/v1/search';
@@ -15,15 +10,10 @@ const urlRoot = '/api/v1/search';
 export default Route.extend(AuthenticatedRouteMixin, {
   // Set `refreshModel` for each queryParam to true
   //  so each url state change results in a full transition
-  queryParams: (() =>
-    queryParams.reduce(
-      (queryParams, param) => {
-        queryParams[param] = { refreshModel: true };
-
-        return queryParams;
-      },
-      {}
-    ))(),
+  queryParams: queryParams.reduce((queryParams, param) => {
+    queryParams[param] = { refreshModel: true };
+    return queryParams;
+  }, {}),
 
   /**
    * Applies the returned results object as the route model and sets
@@ -45,41 +35,32 @@ export default Route.extend(AuthenticatedRouteMixin, {
    * @param params
    */
   model(params = {}) {
-    const searchUrl = queryParams.reduce(
-      (url, queryParam) => {
-        const queryValue = params[queryParam];
-        if (!isBlank(queryValue)) {
-          return buildUrl(url, queryParam, queryValue);
-        }
+    const searchUrl = queryParams.reduce((url, queryParam) => {
+      const queryValue = params[queryParam];
+      if (!isBlank(queryValue)) {
+        return buildUrl(url, queryParam, queryValue);
+      }
 
-        return url;
-      },
-      urlRoot
-    );
+      return url;
+    }, urlRoot);
 
-    return Promise.resolve(getJSON(searchUrl))
-      .then(({ status, result }) => {
-        if (status === 'ok') {
-          const {
-            keywords,
-            data
-          } = result;
+    return Promise.resolve(getJSON(searchUrl)).then(({ status, result }) => {
+      if (status === 'ok') {
+        const { keywords, data } = result;
 
-          data.forEach((datum, index, data) => {
-            const { schema } = datum;
-            if (schema) {
-              datum.originalSchema = schema;
-              // TODO: DSS-6122 refactor global reference and function
-              window.highlightResults(data, index, keywords);
-            }
-          });
+        data.forEach((datum, index, data) => {
+          const { schema } = datum;
+          if (schema) {
+            datum.originalSchema = schema;
+            // TODO: DSS-6122 refactor global reference and function
+            window.highlightResults(data, index, keywords);
+          }
+        });
 
-          return result;
-        }
+        return result;
+      }
 
-        return Promise.reject(
-          new Error(`Request for ${searchUrl} failed with: ${status}`)
-        );
-      });
+      return Promise.reject(new Error(`Request for ${searchUrl} failed with: ${status}`));
+    });
   }
 });
