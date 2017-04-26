@@ -1,8 +1,8 @@
 import actionSet from 'wherehows-web/actions/action-set';
 import { createAction } from 'redux-actions';
-import { lazyRequestPagedFlows } from 'wherehows-web/actions/flows';
-import { lazyRequestPagedMetrics } from 'wherehows-web/actions/metrics';
-import { lazyRequestPagedDatasets } from 'wherehows-web/actions/datasets';
+import { lazyRequestPagedFlows, ActionTypes as FlowsActions } from 'wherehows-web/actions/flows';
+import { lazyRequestPagedMetrics, ActionTypes as MetricsActions } from 'wherehows-web/actions/metrics';
+import { lazyRequestPagedDatasets, ActionTypes as DatasetsActions } from 'wherehows-web/actions/datasets';
 
 const ActionTypes = {
   REQUEST_BROWSE_DATA: actionSet('REQUEST_BROWSE_DATA'),
@@ -18,23 +18,23 @@ const receiveBrowseData = createAction(ActionTypes.RECEIVE_BROWSE_DATA);
  *   Flows, Metrics and Datasets thunk creators,
  *   sync dispatches action in `receiveBrowseData` on completion
  * @param {String|Number} page current browse page
- * @param {String} viewingEntity the entity currently being viewed
+ * @param {String} entity the entity currently being viewed
  * @param {Object.<String>} urls for the entities being viewed
  */
-const asyncRequestBrowseData = (page, viewingEntity, urls) =>
+const asyncRequestBrowseData = (page, entity, urls) =>
   /**
    * Async Thunk
    * @param {Function} dispatch
    * @return {Promise.<*>}
    */
-  async function (dispatch) {
-    dispatch(requestBrowseData({ viewingEntity }));
+  async function(dispatch) {
+    dispatch(requestBrowseData({ entity }));
 
     try {
       const thunks = await Promise.all([
-        dispatch(lazyRequestPagedFlows(urls.flows, page)),
-        dispatch(lazyRequestPagedMetrics(urls.metrics, page)),
-        dispatch(lazyRequestPagedDatasets(urls.datasets, page))
+        dispatch(lazyRequestPagedFlows({ baseURL: urls.flows, page })),
+        dispatch(lazyRequestPagedMetrics({ baseURL: urls.metrics, page })),
+        dispatch(lazyRequestPagedDatasets({ baseURL: urls.datasets, page }))
       ]);
       const [...actions] = await Promise.all(thunks);
 
@@ -44,8 +44,25 @@ const asyncRequestBrowseData = (page, viewingEntity, urls) =>
        */
       const isValidBrowseData = actions.every(({ error = false }) => !error);
 
+      // If all requests are successful, apply browse data for each entity
       if (isValidBrowseData) {
-        return dispatch(receiveBrowseData());
+        const browseData = actions.reduce((browseData, { payload, type }) => {
+          const { count, itemsPerPage } = payload;
+          const entity = {
+            [FlowsActions.RECEIVE_PAGED_FLOWS]: 'flows',
+            [MetricsActions.RECEIVE_PAGED_METRICS]: 'metrics',
+            [DatasetsActions.RECEIVE_PAGED_DATASETS]: 'datasets'
+          }[type];
+
+          browseData[entity] = {
+            count,
+            itemsPerPage
+          };
+
+          return browseData;
+        }, {});
+
+        return dispatch(receiveBrowseData({ browseData }));
       }
 
       return dispatch(receiveBrowseData(new Error(`An error occurred during the data request`)));
