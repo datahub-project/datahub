@@ -1,0 +1,12 @@
+<li>
+  <header class="nacho-filter-card__header">
+    {{title}}
+  </header>
+</li>
+{{#each links as |linkParams|}}
+  <li class="nacho-filter-card__node-link">
+    {{#dynamic-link params=linkParams}}
+      {{linkParams.text}}
+    {{/dynamic-link}}
+  </li>
+{{/each}}
