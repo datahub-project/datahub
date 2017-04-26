@@ -38,7 +38,7 @@ const fetchPagedUrnEntities = entity => getState => {
 };
 
 /**
- *
+ * Request urn child nodes/ datasets for the specified entity
  * @param entity
  */
 const fetchNodes = entity => getState => {
