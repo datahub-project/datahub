@@ -11,5 +11,6 @@ export default Component.extend({
   checkboxComponent: 'search/checkbox-group',
   radioGroupComponent: 'search/radio-group',
   dropdownComponent: 'search/dropdown-selection',
-  dateRangeComponent: 'search/daterange-selection'
+  dateRangeComponent: 'search/daterange-selection',
+  linksComponent: 'search/link-group'
 });
