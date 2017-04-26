@@ -1,29 +1,32 @@
-import { mapEntitiesToIds } from 'wherehows-web/reducers/utils';
 import _ from 'lodash';
+import { mapEntitiesToIds, mapUrnsToIds } from 'wherehows-web/reducers/utils';
 
 const { merge, union } = _;
 
-/**
- * Initial entity (datasets|flows|metrics) slice
- * @type {{count: null, page: null, itemsPerPage: null, totalPages: null, currentPage: null, isFetching: boolean, pageBaseURL: string, byId: {}, byPage: {}}}
- */
-const initialState = {
+// Initial state for entities (metrics, flows, datasets)
+const _initialState = {
   count: null,
   page: null,
   itemsPerPage: null,
   totalPages: null,
-  currentPage: null,
-  isFetching: false,
-  pageBaseURL: '',
-
+  query: {
+    urn: '',
+    page: ''
+  },
   byId: {},
-
-  byPage: {}
+  byPage: {},
+  byUrn: {}
 };
 
 /**
+ * Ensure we deep clone since this shape is shared amongst entities
+ * @return {Object}
+ */
+const initializeState = () => JSON.parse(JSON.stringify(_initialState));
+
+/**
  * Merges previous entities and a new map of ids to entities into a new map
- * @param entityName
+ * @param {String} entityName
  */
 const appendEntityIdMap = (
   entityName /**
@@ -33,14 +36,28 @@ const appendEntityIdMap = (
    * @props {Array} props[entityName] list of received entities
    */
 ) => (prevEntities, props) => merge({}, prevEntities, mapEntitiesToIds(props[entityName]));
+
+/**
+ * Appends a unique urn as key with a corresponding id as value
+ * @param {String} entityName
+ */
+const appendUrnIdMap = (
+  entityName
+  /**
+   * @param {Object} previousEntities current mapping of Urns to id
+   * @param {Object} props payload with new objects containing id and urn
+   */
+) => (previousEntities, props) => merge({}, previousEntities, mapUrnsToIds(props[entityName]));
+
 /**
  * Returns a curried function that receives entityName to lookup on the props object
  * @param {String} entityName
  * @return {Function}
  */
 const entitiesToPage = (
-  entityName /**
-   * Returns a new map of page numbers to datasetIds
+  entityName
+  /**
+   *  a new map of page numbers to datasetIds
    * @param {Object} pagedEntities
    * @param {Object} props
    * @props {Array} props[entityName] list of received entities
@@ -49,8 +66,22 @@ const entitiesToPage = (
 ) => (pagedEntities = {}, props) => {
   const entities = props[entityName];
   const { page } = props;
+
   return Object.assign({}, pagedEntities, {
-    [page]: union(pagedEntities[page] || [], entities.mapBy('id'))
+    [page]: union(pagedEntities[page], entities.mapBy('id'))
+  });
+};
+
+/**
+ * Maps a urn to a list of child nodes from the list api
+ * @param {Object} state
+ * @param {Array} nodes
+ * @return {Object}
+ */
+const urnsToNodeUrn = (state, { nodes = [] }) => {
+  const { query: { urn }, nodesByUrn } = state;
+  return Object.assign({}, nodesByUrn, {
+    [urn]: union(nodes)
   });
 };
 
@@ -60,23 +91,38 @@ const entitiesToPage = (
  */
 const receiveEntities = (
   entityName /**
-   * Composes entities (flows|metrics|datasets) for the ActionTypes.RECEIVE_PAGED_[ENTITY_NAME] action
+   * entities (flows|metrics|datasets) for the ActionTypes.RECEIVE_PAGED_[ENTITY_NAME] action
    * @param {Object} state previous state for datasets
    * @param {Object} payload data received through ActionTypes.RECEIVE_PAGED_[ENTITY_NAME]
    * @return {Object}
    */
 ) => (state, payload = {}) => {
-  const { count, page, itemsPerPage, totalPages } = payload;
-
-  return Object.assign({}, state, {
-    page,
-    count,
-    totalPages,
-    itemsPerPage,
-    isFetching: false,
-    byId: appendEntityIdMap(entityName)(state.byId, payload),
-    byPage: entitiesToPage(entityName)(state.byPage, payload)
-  });
+  return appendEntityIdMap(entityName)(state, payload);
 };
 
-export { initialState, receiveEntities };
+/**
+ *
+ * @param {String} entityName
+ */
+const createUrnMapping = entityName => (state, payload = {}) => {
+  return appendUrnIdMap(entityName)(state, payload);
+};
+
+/**
+ *
+ * @param {String} entityName
+ */
+const createPageMapping = entityName => (state, payload = {}) => {
+  return entitiesToPage(entityName)(state, payload);
+};
+
+/**
+ * Takes the response from the list api request and invokes a function to
+ *   map a urn to child urns or nodes
+ * @param {Object} state
+ * @param {Object} payload
+ * @return {Object}
+ */
+const receiveNodes = (state, payload = {}) => urnsToNodeUrn(state, payload);
+
+export { receiveNodes, initializeState, receiveEntities, createUrnMapping, createPageMapping };
