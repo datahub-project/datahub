@@ -1,5 +1,5 @@
 import { createAction } from 'redux-actions';
-import { createLazyRequest } from 'wherehows-web/actions/entities';
+import { createLazyRequest, fetchPagedEntities } from 'wherehows-web/actions/entities';
 import actionSet from 'wherehows-web/actions/action-set';
 
 /**
@@ -24,9 +24,9 @@ const receivePagedMetrics = createAction(
 );
 
 // async action/thunk creator for ActionTypes.REQUEST_PAGED_METRICS
-const lazyRequestPagedMetrics = createLazyRequest('metrics', requestPagedMetrics, receivePagedMetrics);
+const lazyRequestPagedMetrics = createLazyRequest(requestPagedMetrics, receivePagedMetrics, fetchPagedEntities('metrics'));
 
 // async action/thunk creator for ActionTypes.SELECT_PAGED_METRICS
-const lazySelectPagedMetrics = createLazyRequest('metrics', selectPagedMetrics, receivePagedMetrics);
+const lazySelectPagedMetrics = createLazyRequest(selectPagedMetrics, receivePagedMetrics, fetchPagedEntities('metrics'));
 
-export { ActionTypes, lazyRequestPagedMetrics, lazySelectPagedMetrics, receivePagedMetrics };
+export { ActionTypes, lazyRequestPagedMetrics, lazySelectPagedMetrics };

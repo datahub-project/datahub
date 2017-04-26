@@ -66,7 +66,6 @@ const lazyRequestDatasetNodes = createLazyRequest(requestDatasetNodes, receiveDa
 export {
   ActionTypes,
   lazyRequestPagedDatasets,
-  receivePagedDatasets,
   lazyRequestUrnPagedDatasets,
   lazyRequestDatasetNodes
 };
