@@ -57,7 +57,7 @@ const asyncRequestNodeList = (params, listURL, { queryParams }) =>
 
       return dispatch(
         receiveNodeList(
-          new Error(`An error occurred requesting data. list: ${nodesResult.status} entities:${pagedEntities.status}`)
+          new Error(`An error occurred requesting data. list: ${nodesResult.status} entities: ${pagedEntities.status}`)
         )
       );
     } catch (e) {

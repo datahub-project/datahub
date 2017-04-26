@@ -2,14 +2,14 @@ import { ActionTypes } from 'wherehows-web/actions/browse/entity';
 
 /**
  * Initial state for browse.entity feature
- * @type {{entity: string}}
+ * @type {{currentEntity: string, isFetching: boolean, datasets: {listURL: string, query: {}, queryParams: Array}, flows: {listURL: string, query: {}, queryParams: Array}, metrics: {listURL: string, query: {}, queryParams: Array}}}
  */
 const initialState = {
   currentEntity: 'datasets',
   isFetching: false,
-  datasets: { listURL: '', query: {} },
-  flows: { listURL: '', query: {} },
-  metrics: { listURL: '', query: {} }
+  datasets: { listURL: '', query: {}, queryParams: [] },
+  flows: { listURL: '', query: {}, queryParams: [] },
+  metrics: { listURL: '', query: {}, queryParams: [] }
 };
 
 /**
