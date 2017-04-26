@@ -1,5 +1,5 @@
 import { createAction } from 'redux-actions';
-import { createLazyRequest } from 'wherehows-web/actions/entities';
+import { createLazyRequest, fetchPagedEntities } from 'wherehows-web/actions/entities';
 import actionSet from 'wherehows-web/actions/action-set';
 
 /**
@@ -14,8 +14,6 @@ const ActionTypes = {
 
 const requestPagedFlows = createAction(ActionTypes.REQUEST_PAGED_FLOWS);
 
-const selectPagedFlows = createAction(ActionTypes.SELECT_PAGED_FLOWS);
-
 const receivePagedFlows = createAction(
   ActionTypes.RECEIVE_PAGED_FLOWS,
   ({ data }) => data,
@@ -24,9 +22,6 @@ const receivePagedFlows = createAction(
 );
 
 // async action/thunk creator for ActionTypes.REQUEST_PAGED_FLOWS
-const lazyRequestPagedFlows = createLazyRequest('flows', requestPagedFlows, receivePagedFlows);
+const lazyRequestPagedFlows = createLazyRequest(requestPagedFlows, receivePagedFlows, fetchPagedEntities('flows'));
 
-// async action/thunk creator for ActionTypes.SELECT_PAGED_FLOWS
-const lazySelectPagedFlows = createLazyRequest('flows', selectPagedFlows, receivePagedFlows);
-
-export { ActionTypes, lazyRequestPagedFlows, lazySelectPagedFlows, receivePagedFlows };
+export { ActionTypes, lazyRequestPagedFlows };
