@@ -1,7 +1,7 @@
 import Ember from 'ember';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import route from 'ember-redux/route';
-import { asyncRequestPagedDatasets } from 'wherehows-web/actions/datasets';
+import { lazyRequestPagedDatasets } from 'wherehows-web/actions/datasets';
 
 const {
   Route
@@ -12,5 +12,5 @@ const datasetsPageBaseURL = '/api/v1/datasets?size=10&page=';
 const DatasetsPageRoute = Route.extend(AuthenticatedRouteMixin);
 
 export default route({
-  model: (dispatch, { page = 1 }) => dispatch(asyncRequestPagedDatasets(datasetsPageBaseURL, page))
+  model: (dispatch, { page = 1 }) => dispatch(lazyRequestPagedDatasets({ baseURL, page }))
 })(DatasetsPageRoute);
