@@ -64,7 +64,7 @@ export default Component.extend({
   // Map classifiers to options better consumed by  drop down
   classifiers: ['', ...classifiers].map(value => ({
     value,
-    label: formatAsCapitalizedStringWithSpaces(value || 'notConfidential')
+    label: formatAsCapitalizedStringWithSpaces(value || 'limitedDistribution')
   })),
   // Map logicalTypes to options better consumed by  drop down
   logicalTypes: ['', ...logicalTypes].map(value => {
