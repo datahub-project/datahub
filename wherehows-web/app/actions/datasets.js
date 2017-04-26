@@ -24,7 +24,6 @@ const ActionTypes = {
 };
 
 const requestPagedDatasets = createAction(ActionTypes.REQUEST_PAGED_DATASETS);
-
 const receivePagedDatasets = createAction(
   ActionTypes.RECEIVE_PAGED_DATASETS,
   ({ data }) => data,
