@@ -100,32 +100,20 @@ Ensure these JAR files are present
  lib/jython-standalone-2.7.0.jar
  lib/mysql-connector-java-5.1.36.jar
 ```
+
 ### Run
 To run the backend service:
-Set these variables to configure the application (or edit conf/database.conf)
-```
-export WHZ_DB_URL=jdbc:mysql://<mysql host>:3306/wherehows
-export WHZ_DB_USERNAME=wherehows
-export WHZ_DB_PASSWORD=wherehows
-export WHZ_DB_HOST=<mysql host>
-```
-Run backend service application on port 9001 (from the backend-service folder run:
-```
-JAVA_OPTS='-Dhttp.port=9001' ./bin/playBinary
-```
-In separate window, monitor
-```tail -f $APP_HOME/logs/console.log```
 
-Open browser to ```http://<edge node>:9001/```
+Set the variables in application.env to configure the application.
+
+To Run backend service application on port 19001 (from the backend-service folder):
+```
+./runBackend
+```
+
+Open browser to ```http://<edge node>:19001/```
 This will show ‘TEST’. This is the RESTful api endpoint
 
-Run the web ui
-```
-cd <web ui deployment dir>
-cd web
-# <ensure the conf/*.conf files are configured>
-./bin/playBinary
-```
 
 ## Next steps
 Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
