@@ -78,7 +78,7 @@ const entitiesToPage = (
  * @param {Array} nodes
  * @return {Object}
  */
-const urnsToNodeUrn = (state, { nodes = [] }) => {
+const urnsToNodeUrn = (state, { data: nodes = [] }) => {
   const { query: { urn }, nodesByUrn } = state;
   return Object.assign({}, nodesByUrn, {
     [urn]: union(nodes)
@@ -120,7 +120,7 @@ const createPageMapping = entityName => (state, payload = {}) => {
  * Takes the response from the list api request and invokes a function to
  *   map a urn to child urns or nodes
  * @param {Object} state
- * @param {Object} payload
+ * @param {Object} payload the response from the list endpoint/api
  * @return {Object}
  */
 const receiveNodes = (state, payload = {}) => urnsToNodeUrn(state, payload);
