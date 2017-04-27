@@ -6,14 +6,17 @@
       {{#body.row as |row|}}
         {{#row.cell}}
           {{#link-to entityRoute entity.id}}
-            {{ entity.name }}
+            <span class="entity-list__title">
+              {{entity.name}}
+            </span>
           {{/link-to}}
-
-          {{dataset-owner-list owners=owners datasetName=model.name}}
+          {{dataset-owner-list owners=entity.owners datasetName=entity.name}}
 
           {{#if entity.formatedModified}}
-            <span>last modified:</span>
-            {{ entity.formatedModified }}
+            <span>Last Modified:</span>
+            <span title="{{entity.formatedModified}}">
+              {{moment-from-now entity.formatedModified }}
+            </span>
           {{/if}}
         {{/row.cell}}
         {{#row.cell}}
