@@ -72,22 +72,25 @@ class ConfigUtil {
     }
   }
 
-  static List<String> generateCommand(EtlJobName etlJobName, long whEtlExecId, String cmdParam,
+  static ProcessBuilder buildProcess(EtlJobName etlJobName, long whEtlExecId, String cmdParam,
       Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
-    String directoryPath = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
-    String configFile = directoryPath + "/exec/" + whEtlExecId + ".properties";
+    String outDir = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
+    String configFile = outDir + "/exec/" + whEtlExecId + ".properties";
 
     String[] cmdParams = isNotBlank(cmdParam) ? cmdParam.trim().split(" ") : new String[0];
 
-    return new ImmutableList.Builder<String>().add(javaCmd)
+    ProcessBuilder pb = new ProcessBuilder(new ImmutableList.Builder<String>().add(javaCmd)
         .addAll(Arrays.asList(cmdParams))
         .add("-cp").add(classPath)
         .add("-Dconfig=" + configFile)
         .add("-DCONTEXT=" + etlJobName.name())
         .add("-Dlogback.configurationFile=etl_logback.xml")
-        .add("-DLOG_DIR=" + directoryPath)
+        .add("-DLOG_DIR=" + outDir)
         .add("metadata.etl.Launcher")
-        .build();
+        .build());
+    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName.name() + ".stdout")));
+    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName.name() + ".stderr")));
+    return pb;
   }
 }

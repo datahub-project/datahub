@@ -31,31 +31,33 @@ public class ConfigUtilTest {
   @Test
   public void shouldGenerateEtlJobDefaultCommand() {
     // when:
-    List<String> cmd =
-        ConfigUtil.generateCommand(EtlJobName.HADOOP_DATASET_METADATA_ETL, 0L, null, new Properties());
+    ProcessBuilder pb =
+        ConfigUtil.buildProcess(EtlJobName.HADOOP_DATASET_METADATA_ETL, 0L, null, new Properties());
 
     // then:
-    assertThat(cmd).contains("java", "-cp", System.getProperty("java.class.path"),
+    assertThat(pb.command()).contains("java", "-cp", System.getProperty("java.class.path"),
         "-Dconfig=/var/tmp/wherehows/exec/0.properties", "-DCONTEXT=HADOOP_DATASET_METADATA_ETL",
         "-Dlogback.configurationFile=etl_logback.xml", "metadata.etl.Launcher");
   }
 
   @Test
   public void shouldGenerateEtlJobCommandWithConfiguredDirectory() {
-    final String applicationDirectory = "./temporary-directory";
+    final String applicationDirectory = "./temp";
 
     // given:
     Properties etlJobProperties = new Properties();
     etlJobProperties.put(Constant.WH_APP_FOLDER_KEY, applicationDirectory);
 
     // when:
-    List<String> command = ConfigUtil.generateCommand(EtlJobName.LDAP_USER_ETL, 1L, " -a -b  ", etlJobProperties);
+    ProcessBuilder pb = ConfigUtil.buildProcess(EtlJobName.LDAP_USER_ETL, 1L, " -a -b  ", etlJobProperties);
 
     // then:
-    assertThat(command).contains("java", "-a", "-b", "-cp", System.getProperty("java.class.path"),
+    assertThat(pb.command()).contains("java", "-a", "-b", "-cp", System.getProperty("java.class.path"),
         "-Dconfig=" + applicationDirectory + "/exec/1.properties", "-DCONTEXT=LDAP_USER_ETL",
         "-DLOG_DIR=" + applicationDirectory, "-Dlogback.configurationFile=etl_logback.xml",
         "metadata.etl.Launcher");
+    assertThat(pb.redirectError().file().getPath().equals("./temp/LDAP_USER_ETL.stderr"));
+    assertThat(pb.redirectOutput().file().getPath().equals("./temp/LDAP_USER_ETL.stdout"));
   }
 
   @Test
