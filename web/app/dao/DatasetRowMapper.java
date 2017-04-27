@@ -28,20 +28,24 @@ import java.util.Arrays;
 
 public class DatasetRowMapper implements RowMapper<Dataset>
 {
-    public static String DATASET_ID_COLUMN = "id";
-    public static String DATASET_NAME_COLUMN = "name";
-    public static String DATASET_URN_COLUMN = "urn";
-    public static String DATASET_SOURCE_COLUMN = "source";
-    public static String DATASET_CREATED_TIME_COLUMN = "created";
-    public static String DATASET_MODIFIED_TIME_COLUMN = "modified";
-    public static String DATASET_SOURCE_MODIFIED_TIME_COLUMN = "source_modified_time";
-    public static String DATASET_PROPERTIES_COLUMN = "properties";
-    public static String DATASET_SCHEMA_COLUMN = "schema";
-    public static String DATASET_OWNER_ID_COLUMN = "owner_id";
-    public static String DATASET_OWNER_NAME_COLUMN = "owner_name";
-    public static String SCHEMA_HISTORY_ID_COLUMN = "schema_history_id";
-    public static String HDFS_PREFIX = "hdfs";
-    public static int HDFS_URN_PREFIX_LEN = 7;  //for hdfs prefix is hdfs:///, but we need the last slash
+    private static final String HDFS_BROWSER_URL =
+        Play.application().configuration().getString(DatasetsDAO.HDFS_BROWSER_URL_KEY);
+
+    public static final String DATASET_ID_COLUMN = "id";
+    public static final String DATASET_NAME_COLUMN = "name";
+    public static final String DATASET_URN_COLUMN = "urn";
+    public static final String DATASET_SOURCE_COLUMN = "source";
+    public static final String DATASET_CREATED_TIME_COLUMN = "created";
+    private static final String DATASET_MODIFIED_TIME_COLUMN = "modified";
+    private static final String DATASET_SOURCE_MODIFIED_TIME_COLUMN = "source_modified_time";
+    private static final String DATASET_PROPERTIES_COLUMN = "properties";
+    private static final String DATASET_OWNER_ID_COLUMN = "owner_id";
+    private static final String DATASET_OWNER_NAME_COLUMN = "owner_name";
+    private static final String DATASET_OWNER_EMAIL_COLUMN = "owner_email";
+    private static final String SCHEMA_HISTORY_ID_COLUMN = "schema_history_id";
+    public static final String DATASET_SCHEMA_COLUMN = "schema";
+    public static final String HDFS_PREFIX = "hdfs";
+    public static final int HDFS_URN_PREFIX_LEN = 7;  //for hdfs prefix is hdfs:///, but we need the last slash
 
 
     @Override
@@ -53,61 +57,41 @@ public class DatasetRowMapper implements RowMapper<Dataset>
         String source = rs.getString(DATASET_SOURCE_COLUMN);
         String strOwner = rs.getString(DATASET_OWNER_ID_COLUMN);
         String strOwnerName = rs.getString(DATASET_OWNER_NAME_COLUMN);
+        String strOwnerEmail = rs.getString(DATASET_OWNER_EMAIL_COLUMN);
         String schema = rs.getString(DATASET_SCHEMA_COLUMN);
         Time created = rs.getTime(DATASET_CREATED_TIME_COLUMN);
         Time modified = rs.getTime(DATASET_MODIFIED_TIME_COLUMN);
         Integer schemaHistoryId = rs.getInt(SCHEMA_HISTORY_ID_COLUMN);
         Long sourceModifiedTime = rs.getLong(DATASET_SOURCE_MODIFIED_TIME_COLUMN);
+
         Dataset dataset = new Dataset();
         dataset.id = id;
         dataset.name = name;
         dataset.urn = urn;
         dataset.schema = schema;
-        String[] owners = null;
-        if (StringUtils.isNotBlank(strOwner))
+        String[] owners = StringUtils.isNotBlank(strOwner) ? strOwner.split(",") : null;
+        String[] ownerNames = StringUtils.isNotBlank(strOwnerName) ? strOwnerName.split(",") : null;
+        String[] ownerEmail = StringUtils.isNotBlank(strOwnerEmail) ? strOwnerEmail.split(",") : null;
+
+        dataset.owners = new ArrayList<>();
+        if (owners != null && ownerNames != null && ownerEmail != null && owners.length == ownerNames.length
+            && owners.length == ownerEmail.length)
         {
-            owners = strOwner.split(",");
-        }
-        String[] ownerNames = null;
-        if (StringUtils.isNotBlank(strOwnerName))
-        {
-            ownerNames = strOwnerName.split(",");
-        }
-        dataset.owners = new ArrayList<User>();
-        if (owners != null && ownerNames != null)
-        {
-            if (owners.length == ownerNames.length)
+            for (int i = 0; i < owners.length; i++)
             {
-                for (int i = 0; i < owners.length; i++)
-                {
-                    User user = new User();
-                    user.userName = owners[i];
-                    if (StringUtils.isBlank(ownerNames[i]) || ownerNames[i].equalsIgnoreCase("*"))
-                    {
-                        user.name = owners[i];
-                    }
-                    else
-                    {
-                        user.name = ownerNames[i];
-                        dataset.owners.add(user);
-                    }
-                }
-            }
-            else
-            {
-                Logger.error("DatasetWithUserRowMapper get wrong owner and names. Dataset ID: "
-                        + Long.toString(dataset.id) + " Owner: " + owners + " Owner names: " + ownerNames);
+                User user = new User();
+                user.userName = owners[i];
+                user.name = ownerNames[i];
+                user.email = ownerEmail[i];
+                dataset.owners.add(user);
             }
         }
 
-        if (StringUtils.isNotBlank(dataset.urn))
+        if (StringUtils.isNotBlank(dataset.urn) && dataset.urn.substring(0, 4).equalsIgnoreCase(HDFS_PREFIX))
         {
-            if (dataset.urn.substring(0, 4).equalsIgnoreCase(HDFS_PREFIX))
-            {
-                dataset.hdfsBrowserLink = Play.application().configuration().getString(DatasetsDAO.HDFS_BROWSER_URL_KEY) +
-                        dataset.urn.substring(HDFS_URN_PREFIX_LEN);
-            }
+            dataset.hdfsBrowserLink = HDFS_BROWSER_URL + dataset.urn.substring(HDFS_URN_PREFIX_LEN);
         }
+
         dataset.source = source;
         if (modified != null && sourceModifiedTime != null && sourceModifiedTime > 0)
         {
@@ -121,14 +105,7 @@ public class DatasetRowMapper implements RowMapper<Dataset>
             dataset.created = new java.util.Date(modified.getTime());
         }
 
-        if (schemaHistoryId != null && schemaHistoryId > 0)
-        {
-            dataset.hasSchemaHistory = true;
-        }
-        else
-        {
-            dataset.hasSchemaHistory = false;
-        }
+        dataset.hasSchemaHistory = schemaHistoryId != null && schemaHistoryId > 0;
 
         return dataset;
     }

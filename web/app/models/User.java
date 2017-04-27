@@ -16,9 +16,9 @@ package models;
 public class User {
 
     public int id;
-    public String userName;
+    public String userName; // ldap user id
     public int departmentNum;
     public String email;
-    public String name;
+    public String name; // ldap display name
     public UserSetting userSetting;
 }
