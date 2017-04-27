@@ -58,25 +58,6 @@ ul.breadcrumbs a {
     border: thin rgba(0,0,0,.2) solid;
     background-color: rgba(255,255,255,.3);
 }
-/*-----------------------------------------------------------------------------
- * DatasetOwnerListComponent
- *----------------------------------------------------------------------------*/
-
-.dataset-owner-list {
-    display: flex;
-    padding: 15px 0;
-}
-
-.dataset-owner-list ul {
-    display: inline-flex;
-    list-style-type: none;
-    padding: 0;
-}
-
-.dataset-owner-list li {
-    margin-right: 10px;
-    line-height: 2;
-}
 
 .closer-hide {
     color: white !important;

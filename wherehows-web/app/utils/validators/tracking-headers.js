@@ -5,6 +5,4 @@ const trackingHeaderFieldsRegex = /^(?:header\.?|request_?header\.?|mobile_?head
 
 export default candidateString => trackingHeaderFieldsRegex.test(String(candidateString));
 
-export {
-  trackingHeaderFieldsRegex
-}
+export { trackingHeaderFieldsRegex };

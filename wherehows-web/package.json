@@ -41,6 +41,7 @@
     "ember-load-initializers": "0.5.1",
     "ember-lodash-shim": "2.0.2",
     "ember-metrics": "0.10.0",
+    "ember-moment": "7.3.0",
     "ember-pikaday": "2.2.1",
     "ember-redux-shim": "1.1.1",
     "ember-redux-thunk-shim": "1.1.2",
