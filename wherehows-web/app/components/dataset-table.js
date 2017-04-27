@@ -35,11 +35,17 @@ export default Component.extend({
       defaultPageLengths.firstObject;
   }),
 
+  /**
+   * Check if the searchTerm occurs anywhere in the field name
+   * TODO: Cache regex outside computed prop so it's not recalculated each time props change
+   */
   data: computed('fields', 'searchTerm', function() {
-    return get(this, 'fields').filter(field =>
-      String(field[get(this, 'filterBy')])
-        .toLowerCase()
-        .includes(String(get(this, 'searchTerm').toLowerCase())));
+    const searchTerm = get(this, 'searchTerm');
+    const fieldRegex = new RegExp(`.*${searchTerm}.*`, 'i');
+
+    return get(this, 'fields').filter(
+      field => fieldRegex.test(String(field[get(this, 'filterBy')]))
+    );
   }),
 
   sortBy: computed('sortColumnWithName', 'sortDirection', function() {
