@@ -53,7 +53,7 @@ $pad-width: 16px;
     margin: 2px 0;
     margin-left: -$pad-width;
     margin-right: -$pad-width;
-    padding: $pad-width/2;
+    padding: $pad-width/2 $pad-width $pad-width/2 $pad-width/2;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

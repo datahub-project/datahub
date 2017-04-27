@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { mapEntitiesToIds, mapUrnsToIds } from 'wherehows-web/reducers/utils';
+import { mapEntitiesToIds } from 'wherehows-web/reducers/utils';
 
 const { merge, union } = _;
 
@@ -38,16 +38,19 @@ const appendEntityIdMap = (
 ) => (prevEntities, props) => merge({}, prevEntities, mapEntitiesToIds(props[entityName]));
 
 /**
- * Appends a unique urn as key with a corresponding id as value
+ * Appends a list of child entity ids for a given urn. urn is null for top level entities
  * @param {String} entityName
  */
 const appendUrnIdMap = (
   entityName
   /**
-   * @param {Object} previousEntities current mapping of Urns to id
-   * @param {Object} props payload with new objects containing id and urn
+   * @param {Object} urnEntities current mapping of Urns to ids
+   * @param {Object} props payload with new objects containing id, and urn prop
    */
-) => (previousEntities, props) => merge({}, previousEntities, mapUrnsToIds(props[entityName]));
+) => (urnEntities, { parentUrn = null, [entityName]: entities = [] }) =>
+  Object.assign({}, urnEntities, {
+    [parentUrn]: union(urnEntities[parentUrn], entities.mapBy('id'))
+  });
 
 /**
  * Returns a curried function that receives entityName to lookup on the props object
