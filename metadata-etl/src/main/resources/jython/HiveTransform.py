@@ -199,13 +199,14 @@ class HiveTransform:
         instance_file_writer.append(dataset_instance_record)
 
         if dataset_urn not in self.dataset_dict:
-          dataset_scehma_record = DatasetSchemaRecord(table['dataset_name'], json.dumps(schema_json), json.dumps(prop_json),
-                                                    json.dumps(flds),
-                                                    dataset_urn,
-                                                    'Hive', one_db_info['type'], table['type'],
-                                                    '', (table[TableInfo.create_time] if table.has_key(
-            TableInfo.create_time) else None), (table["lastAlterTime"]) if table.has_key("lastAlterTime") else None)
-          schema_file_writer.append(dataset_scehma_record)
+          try:
+              dataset_scehma_record = DatasetSchemaRecord(table['dataset_name'], json.dumps(schema_json), json.dumps(prop_json),
+                                                        json.dumps(flds),dataset_urn,'Hive', one_db_info['type'], table['type'],'',
+                                                        (table[TableInfo.create_time] if table.has_key(TableInfo.create_time) else None),
+                                                        (int(table[TableInfo.source_modified_time]) if table.has_key(TableInfo.source_modified_time) else None))
+              schema_file_writer.append(dataset_scehma_record)
+          except Exception as e:
+            self.logger.error(e)
 
           dataset_idx += 1
           self.dataset_dict[dataset_urn] = dataset_idx
@@ -224,10 +225,6 @@ class HiveTransform:
     instance_file_writer.close()
     schema_file_writer.close()
     field_file_writer.close()
-
-  def convert_timestamp(self, time_string):
-    return int(time.mktime(time.strptime(time_string, "%Y-%m-%d %H:%M:%S")))
-
 
 if __name__ == "__main__":
   args = sys.argv[1]
