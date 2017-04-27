@@ -1,12 +1,16 @@
 <nav role="navigation">
   <ul class="nav navbar-nav browse-nav">
-    {{#each-in browseData as |entity data|}}
-      {{#nav-link "browse.entity" entity (query-params page=1 urn="") tagName="li" class="col-md-4 browse-nav__entity"}}
+    {{#each browseData as |entity|}}
+      {{#nav-link
+        "browse.entity" entity.entity
+        (query-params page=1 urn="")
+        tagName="li"
+        class="col-md-4 browse-nav__entity"}}
         <div class="browse-nav__item">
-          <p class="browse-nav__count">{{data.count}}</p>
-          <p class="browse-nav__title">{{entity}}</p>
+          <p class="browse-nav__count">{{entity.count}}</p>
+          <p class="browse-nav__title">{{entity.entity}}</p>
         </div>
       {{/nav-link}}
-    {{/each-in}}
+    {{/each}}
   </ul>
 </nav>
