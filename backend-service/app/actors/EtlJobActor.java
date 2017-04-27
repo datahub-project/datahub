@@ -56,9 +56,9 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        final List<String> cmd =
-            ConfigUtil.generateCommand(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
-        Logger.debug("run command : " + cmd);
+        final ProcessBuilder pb = ConfigUtil.buildProcess(
+            msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
+        Logger.debug("run command : " + pb.command());
 
         ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
         int retry = 0;
@@ -67,17 +67,10 @@ public class EtlJobActor extends UntypedActor {
 
         while (retry < 3) {
           long startTime = System.currentTimeMillis();
-          process = Runtime.getRuntime().exec(cmd.toArray(new String[0]));
+          process = pb.start();
 
           // update process id and hostname for started job
           EtlJobDao.updateJobProcessInfo(msg.getWhEtlExecId(), getPid(process), getHostname());
-
-          InputStream stdout = process.getInputStream();
-          InputStreamReader isr = new InputStreamReader(stdout);
-          BufferedReader br = new BufferedReader(isr);
-          while ((line = br.readLine()) != null) {
-            Logger.info(line);
-          }
 
           // wait until this process finished.
           execResult = process.waitFor();
