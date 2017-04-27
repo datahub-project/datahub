@@ -1,0 +1,46 @@
+$browse-nav-border-color: set-color(grey, light);
+
+.browse-nav {
+  width: 100%;
+  border-left: 1px solid $browse-nav-border-color;
+  border-right: 1px solid $browse-nav-border-color;
+
+  &__item {
+    @include flex-column-center;
+  }
+
+  &__entity {
+    cursor: pointer;
+    border-bottom: 1px solid $browse-nav-border-color;
+    /**
+     * Overrides bootstrap .active class.
+     *   Ember applies this for active route links
+     */
+    &.active {
+      background-color: set-color(grey, light);
+    }
+
+    /**
+     * Resets the bootstrap grid margins
+     */
+    &[class|="col"]{
+      padding: 0;
+    }
+  }
+
+  &__entity + &__entity {
+    border-left: 1px solid $browse-nav-border-color;
+  }
+
+  &__count {
+    font-weight: fw(normal, 6);
+    font-size: 24px;
+    margin: 0;
+  }
+
+  &__title {
+    font-weight: fw(normal, 2);
+    text-transform: capitalize;
+    margin: 0;
+  }
+}

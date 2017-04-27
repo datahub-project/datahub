@@ -1,5 +1,5 @@
 <div class="row">
-  <div class="col-md-3">
+  <div class="col-md-3 wh-sidebar">
     {{#search/filter-rail as |rail|}}
       {{rail.radioGroup
         radioOptions=sources
@@ -12,7 +12,7 @@
       endDateChanged=(action 'endDateDidChange')--}}
     {{/search/filter-rail}}
   </div>
-  <div class="col-md-9">
+  <div class="col-md-9 wh-main-content">
     <section class="search-results page-section-container">
       {{#if model.count}}
         <div class="search-pagination">

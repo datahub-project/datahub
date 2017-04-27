@@ -1,69 +1,16 @@
 import Ember from 'ember';
+import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
+import route from 'ember-redux/route';
+import { lazyRequestPagedDatasets } from 'wherehows-web/actions/datasets';
 
-const listUrl = '/api/v1/list/datasets';
+const {
+  Route
+} = Ember;
+
+// TODO: DSS-6581 Create URL retrieval module
 const datasetsPageBaseURL = '/api/v1/datasets?size=10&page=';
+const DatasetsPageRoute = Route.extend(AuthenticatedRouteMixin);
 
-
-export default Ember.Route.extend({
-  // maintains backwards compatibility with legacy code
-  // TODO: [DSS-6122] refactor so this may not be required
-  controllerName: 'datasets',
-
-  setupController: function (controller, model) {
-    const datasetsPageURL = `${datasetsPageBaseURL}${model.page}`;
-    currentTab = 'Datasets';
-
-    $.get(listUrl, function (data) {
-      if (data && data.status == "ok") {
-        // renderDatasetListView(data.nodes);
-      }
-    });
-
-    var breadcrumbs = [{"title": "DATASETS_ROOT", "urn": "1"}];
-    $.get(datasetsPageURL, data => {
-      if (data && data.status == "ok") {
-        this.controller.set('model', data);
-        this.controller.set('breadcrumbs', breadcrumbs);
-        this.controller.set('urn', null);
-        this.controller.set('detailview', false);
-      }
-    });
-
-    var watcherEndpoint = "/api/v1/urn/watch?urn=DATASETS_ROOT";
-    $.get(watcherEndpoint, data => {
-      if (data.id && data.id !== 0) {
-        this.controller.set('urnWatched', true);
-        this.controller.set('urnWatchedId', data.id)
-      } else {
-        this.controller.set('urnWatched', false);
-        this.controller.set('urnWatchedId', 0)
-      }
-    });
-  },
-
-  actions: {
-    didTransition () {
-      Ember.run.scheduleOnce('afterRender', this, updateActiveTab);
-    },
-
-    getDatasets: function () {
-      const datasetsPageURL = `${datasetsPageBaseURL}${this.controller.get('model.data.page')}`;
-      currentTab = 'Datasets';
-
-      $.get(listUrl, function (data) {
-        if (data && data.status == "ok") {
-          // renderDatasetListView(data.nodes);
-        }
-      });
-
-      updateActiveTab();
-      $.get(datasetsPageURL, data => {
-        if (data && data.status === "ok") {
-          this.controller.set('model', data);
-          this.controller.set('urn', null);
-          this.controller.set('detailview', false);
-        }
-      });
-    }
-  }
-});
+export default route({
+  model: (dispatch, { page = 1 }) => dispatch(lazyRequestPagedDatasets({ baseURL, page }))
+})(DatasetsPageRoute);

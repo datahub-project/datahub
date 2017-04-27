@@ -1,0 +1,25 @@
+{{#dataset-table
+  fields=entities as |table|}}
+  {{#table.body as |body|}}
+    {{#each
+      table.data as |entity|}}
+      {{#body.row as |row|}}
+        {{#row.cell}}
+          {{#link-to entityRoute entity.id}}
+            {{ entity.name }}
+          {{/link-to}}
+
+          {{dataset-owner-list owners=owners datasetName=model.name}}
+
+          {{#if entity.formatedModified}}
+            <span>last modified:</span>
+            {{ entity.formatedModified }}
+          {{/if}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{datasets/dataset-actions actionItems=actionItems}}
+        {{/row.cell}}
+      {{/body.row}}
+    {{/each}}
+  {{/table.body}}
+{{/dataset-table}}
