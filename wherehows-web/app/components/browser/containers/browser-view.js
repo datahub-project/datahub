@@ -8,5 +8,14 @@ const { Component } = Ember;
  * @param {Object} browseData
  * @return {Object}
  */
-const stateToComputed = ({ browse: { browseData = {} } = {} }) => ({ browseData });
+const stateToComputed = ({ browse: { browseData = {} } = {} }) => ({
+  browseData: Object.keys(browseData)
+    .sort() // Datasets implicitly comes first [datasets, flows, metrics]
+    .map(browseDatum =>
+      Object.assign(
+        { entity: browseDatum }, // assigns key name to resulting object
+        browseData[browseDatum]
+      )
+    )
+});
 export default connect(stateToComputed)(Component.extend({}));
