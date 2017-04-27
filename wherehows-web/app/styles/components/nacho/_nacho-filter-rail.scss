@@ -18,9 +18,6 @@ $pad-width: 16px;
 
 .nacho-filter-rail {
   @include restyle(filter-rail);
-  // Temporary rule to counteract margin on bs `.pager` class in search results
-  //   page view
-  margin: 20px 0;
 
   &__header {
     color: set-color(blue, oxford);
