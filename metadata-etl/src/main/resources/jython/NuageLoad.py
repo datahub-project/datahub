@@ -96,14 +96,17 @@ class NuageLoad:
       AND stg.dataset_urn = dd.urn
     SET stg.dataset_id = dd.id;
 
-    -- update app_id
+    -- update user app_id and owner_type
     UPDATE stg_dataset_owner stg
     JOIN dir_external_user_info ldap
       ON stg.db_id = {db_id}
       AND stg.owner_id = ldap.user_id
     SET stg.app_id = 300,
         stg.is_group = 'N',
-        stg.is_active = ldap.is_active;
+        stg.is_active = ldap.is_active,
+        stg.owner_type = CASE WHEN ldap.department_id >= 4000 THEN 'Owner' ELSE 'Stakeholder' END,
+        stg.owner_sub_type = CASE WHEN ldap.department_id = 4011 THEN 'DWH'
+                                  WHEN ldap.department_id = 5526 THEN 'BA' ELSE null END;
 
     UPDATE stg_dataset_owner stg
     JOIN (SELECT group_id FROM dir_external_group_user_map group by group_id) groups
@@ -112,15 +115,6 @@ class NuageLoad:
     SET stg.app_id = 301,
         stg.is_group = 'Y',
         stg.is_active = 'Y';
-
-    -- update owner type
-    UPDATE stg_dataset_owner stg
-    JOIN dir_external_user_info ldap
-      ON stg.db_id = {db_id}
-      AND stg.owner_id = ldap.user_id
-    SET stg.owner_type = CASE WHEN ldap.department_id >= 4000 THEN 'Owner' ELSE 'Stakeholder' END,
-        stg.owner_sub_type = CASE WHEN ldap.department_id = 4011 THEN 'DWH'
-                                  WHEN ldap.department_id = 5526 THEN 'BA' ELSE null END;
 
     -- find deprecated dataset owner and delete
     DELETE d FROM dataset_owner d 
