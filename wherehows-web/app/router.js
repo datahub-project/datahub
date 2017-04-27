@@ -126,6 +126,10 @@ AppRouter.map(function () {
         });
       });
     });
+
+    this.route('flow', {
+      path: '/:flow_id'
+    });
   });
   this.route('logout');
   this.route('metadata', function () {

@@ -5,7 +5,7 @@
       table.data as |entity|}}
       {{#body.row as |row|}}
         {{#row.cell}}
-          {{#link-to entityRoute entity}}
+          {{#link-to entityRoute entity.id}}
             {{ entity.name }}
           {{/link-to}}
 
