@@ -1,0 +1,8 @@
+.page-section-container {
+  background-color: set-color(white, base);
+}
+
+/// Styles that apply to the layout for a page with two columns sidebar and content style
+.wh-sidebar, .wh-main-content {
+  margin: 30px 0;
+}
