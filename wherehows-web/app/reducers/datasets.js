@@ -24,11 +24,16 @@ export default (state = initializeState(), action = {}) => {
         query: Object.assign({}, state.query, {
           page: action.payload.page
         }),
-        baseURL: action.payload.baseURL,
+        baseURL: action.payload.baseURL || state.baseURL,
         isFetching: true
       });
-    // Action indicating a receipt of datasets by page
-    case ActionTypes.RECEIVE_PAGED_DATASETS:
+
+    case ActionTypes.REQUEST_PAGED_URN_DATASETS:
+      return Object.assign({}, state, {
+        query: Object.assign({}, state.query, action.payload.query)
+      });
+
+    case ActionTypes.RECEIVE_PAGED_DATASETS: // Action indicating a receipt of datasets by page
     case ActionTypes.RECEIVE_PAGED_URN_DATASETS:
       return Object.assign({}, state, {
         isFetching: false,
@@ -37,15 +42,13 @@ export default (state = initializeState(), action = {}) => {
         byPage: createPageMapping('datasets')(state.byPage, action.payload)
       });
 
-    // Action indicating a request for list nodes
-    case ActionTypes.REQUEST_DATASET_NODES:
+    case ActionTypes.REQUEST_DATASET_NODES: // Action indicating a request for list nodes
       return Object.assign({}, state, {
         query: Object.assign({}, state.query, action.payload.query),
         isFetching: true
       });
 
-    // Action indicating a receipt of list nodes / datasets for dataset urn
-    case ActionTypes.RECEIVE_DATASET_NODES:
+    case ActionTypes.RECEIVE_DATASET_NODES: // Action indicating a receipt of list nodes / datasets for dataset urn
       return Object.assign({}, state, {
         isFetching: false,
         nodesByUrn: receiveNodes(state, action.payload)

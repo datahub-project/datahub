@@ -34,7 +34,16 @@ const fetchPagedUrnEntities = entity => getState => {
     return url;
   }, baseURL);
 
-  return fetch(pagedUrnURL).then(response => response.json());
+  return fetch(pagedUrnURL).then(response => response.json()).then((payload = {}) => {
+    // retain the urn that was initiated with this request on the result data object
+    if (payload.status === 'ok') {
+      payload.data = Object.assign({}, payload.data, {
+        parentUrn: query.urn || null
+      });
+    }
+
+    return payload;
+  });
 };
 
 /**

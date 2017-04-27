@@ -56,7 +56,7 @@ const nodeUrlToQueryParams = nodeUrl => {
 /**
  * Selector function that takes a Redux Store to extract
  *   state props for the browser-rail
- * @param state
+ * @param {Object} state current app state tree
  * @return {{nodes: (*|Array)}}
  */
 const stateToComputed = state => {

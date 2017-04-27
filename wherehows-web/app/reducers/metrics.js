@@ -17,7 +17,7 @@ export default (state = initializeState(), action = {}) => {
         query: Object.assign({}, state.query, {
           page: action.payload.page
         }),
-        baseURL: action.payload.baseURL,
+        baseURL: action.payload.baseURL || state.baseURL,
         isFetching: true
       });
     // Action indicating a receipt of metrics by page
