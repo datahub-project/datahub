@@ -30,6 +30,8 @@ $pad-width: 16px;
 
 .nacho-filter-card {
   @include restyle(filter-card);
+  max-height: 625px;
+  overflow: scroll;
 
   &:last-child {
     border-bottom: none;
