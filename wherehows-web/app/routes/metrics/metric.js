@@ -84,11 +84,6 @@ export default Ember.Route.extend({
         // renderMetricListView(data.nodes, id);
       }
     });
-
-    if (name) {
-      // findAndActiveMetricNode(name, id);
-    }
-
   },
   actions: {
     getMetrics: function () {

@@ -98,3 +98,26 @@
 
   #{$property}: $value;
 }
+
+
+/// Maintains the aspect ratio for a wrapped element
+/// @param {Number} $width number value for the container's width ratio
+/// @param {Number} $height number value for the container's with ratio
+@mixin aspect-ratio($width, $height) {
+  position: relative;
+
+  &::before {
+    content: "";
+    display: block;
+    width: 100%;
+    padding-top: ($height / $width) * 100%;
+  }
+
+  > * {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+  }
+}

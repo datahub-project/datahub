@@ -80,7 +80,6 @@ AppRouter.map(function () {
     });
   });
   this.route('search');
-  this.route('advsearch');
   this.route('metrics', function () {
     this.route('metricspage', {
       path: '/page/:page'
