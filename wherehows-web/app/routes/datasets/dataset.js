@@ -237,7 +237,6 @@ export default Route.extend({
       var index = urn.lastIndexOf("/");
       if (index != -1) {
         var name = urn.substring(index + 1);
-        // Ember.run.scheduleOnce('afterRender', null, findAndActiveDatasetNode, name, urn);
       }
       // var breadcrumbs = [{"title": "DATASETS_ROOT", "urn": "1", destRoute: 'datasets.page'}];
       let breadcrumbs = [

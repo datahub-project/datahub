@@ -123,8 +123,6 @@ export default Route.extend(ApplicationRouteMixin, {
 
   processLegacyDomOperations() {
     // TODO: DSS-6122 Refactor Remove tree legacy operations & references
-    // window.legacySearch();
-    // window.legacyTree();
     window.legacyMain();
   }
 });
