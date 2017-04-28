@@ -59,10 +59,6 @@ export default Ember.Route.extend({
       }
     });
 
-    if (this.controller.currentName && param.urn) {
-      // findAndActiveDatasetNode(this.controller.currentName, param.urn);
-    }
-
     $.get(url, data => {
       if (data && data.status == "ok") {
         this.controller.set('model', data);

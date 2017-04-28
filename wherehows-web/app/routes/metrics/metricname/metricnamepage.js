@@ -39,10 +39,6 @@ export default Ember.Route.extend({
           this.controllerFor('metrics').set('urnWatchedId', 0)
         }
       });
-
-      if (name) {
-        // findAndActiveMetricDashboardNode(name);
-      }
     }
   },
   actions: {
