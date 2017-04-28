@@ -10,10 +10,12 @@
               {{entity.name}}
             </span>
           {{/link-to}}
+
           {{dataset-owner-list owners=entity.owners datasetName=entity.name}}
 
           {{#if entity.formatedModified}}
             <span>Last Modified:</span>
+
             <span title="{{entity.formatedModified}}">
               {{moment-from-now entity.formatedModified }}
             </span>
