@@ -3,6 +3,7 @@ import {
   createPrivacyCompliancePolicy,
   createSecuritySpecification
 } from 'wherehows-web/utils/datasets/functions';
+import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 
 const {
   Route,
@@ -216,64 +217,16 @@ export default Route.extend({
         });
       });
 
-    if (urn) {
-      var index = urn.lastIndexOf('/');
-      if (index != -1) {
-        var listUrl = '/api/v1/list/datasets?urn=' + urn.substring(0, index + 1);
-        $.get(listUrl, function (data) {
-          if (data && data.status == "ok") {
-            // renderDatasetListView(data.nodes, name);
-          }
-        });
-      }
-    }
-
     if (datasetCommentsComponent) {
       datasetCommentsComponent.getComments();
     }
 
+    // If urn exists, create a breadcrumb list
+    // TODO: DSS-7068 Refactoring in progress , move this to a computed prop on a container component
+    // FIXME: DSS-7068 browse.entity?urn route does not exist for last item in breadcrumb i.e. the dataset
+    //  currently being viewed. Should this even be a link in the first place?
     if (urn) {
-      urn = urn.replace('<b>', '').replace('</b>', '');
-      var index = urn.lastIndexOf("/");
-      if (index != -1) {
-        var name = urn.substring(index + 1);
-      }
-      // var breadcrumbs = [{"title": "DATASETS_ROOT", "urn": "1", destRoute: 'datasets.page'}];
-      let breadcrumbs = [
-        {
-          route: 'datasets.page',
-          text: 'datasets',
-          model: 1
-        }
-      ];
-      var updatedUrn = urn.replace("://", "");
-      var b = updatedUrn.split('/');
-      for (var i = 0; i < b.length; i++) {
-        if (i === 0) {
-          breadcrumbs.push({
-            text: b[i],
-            // urn: "name/" + b[i] + "/page/1?urn=" + b[i] + ':///',
-            model: [b[i], 1],
-            queryParams: {urn: b[i] + ':///'},
-            route: 'datasets.name.subpage'
-          });
-        } else if (i === (b.length - 1)) {
-          breadcrumbs.push({
-            text: b[i],
-            model: id,
-            route: 'datasets.dataset'
-          });
-        } else {
-          breadcrumbs.push({
-            text: b[i],
-            // urn: "name/" + b[i] + "/page/1?urn=" + urn.split('/').splice(0, i + 3).join('/'),
-            model: [b[i], 1],
-            queryParams: {urn: urn.split('/').splice(0, i + 3).join('/')},
-            route: 'datasets.name.subpage'
-          });
-        }
-      }
-      controller.set("breadcrumbs", breadcrumbs);
+      set(controller, 'breadcrumbs', makeUrnBreadcrumbs(urn));
     }
 
     // Get the list of ownerTypes from endpoint,
