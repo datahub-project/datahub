@@ -22,6 +22,7 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
 {
     private static final String DATASET_OWNER_ID_COLUMN = "owner_id";
     private static final String DATASET_OWNER_DISPLAY_NAME_COLUMN = "display_name";
+    private static final String DATASET_OWNER_EMAIL_COLUMN = "email";
     private static final String DATASET_OWNER_TYPE_COLUMN = "owner_type";
     private static final String DATASET_OWNER_SUB_TYPE_COLUMN = "owner_sub_type";
     private static final String DATASET_OWNER_SORT_ID_COLUMN = "sort_id";
@@ -39,6 +40,7 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         String userName = rs.getString(DATASET_OWNER_ID_COLUMN);
         String namespace = rs.getString(DATASET_OWNER_NAMESPACE_COLUMN);
         String name = rs.getString(DATASET_OWNER_DISPLAY_NAME_COLUMN);
+        String email = rs.getString(DATASET_OWNER_EMAIL_COLUMN);
         String type = rs.getString(DATASET_OWNER_TYPE_COLUMN);
         String subType = rs.getString(DATASET_OWNER_SUB_TYPE_COLUMN);
         String idType = rs.getString(DATASET_OWNER_ID_TYPE_COLUMN);
@@ -52,6 +54,7 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner>
         DatasetOwner owner = new DatasetOwner();
         owner.userName = userName;
         owner.name = name;
+        owner.email = email;
         owner.namespace = namespace;
         owner.sortId = sortId;
         owner.type = type;
