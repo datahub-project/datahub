@@ -82,8 +82,7 @@
             onclick={{action "willEditUserName"
                              owner}}>
 
-          <label class={{if (contains owner.source restrictedSources) ""
-                            "dataset-author-cell__name-tag"}}>
+          <label class={{if (contains owner.source restrictedSources) "" "dataset-author-cell__name-tag"}}>
             {{owner.userName}}
           </label>
           {{aupac-typeahead

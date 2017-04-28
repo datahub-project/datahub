@@ -9,8 +9,17 @@ const {
   inject: { service }
 } = Ember;
 
+/**
+ * Array of source names to restrict from user updates
+ * @type {[String]}
+ */
 const restrictedSources = ['SCM', 'NUAGE'];
-const restrictedSourcesPattern = new RegExp(`.*${restrictedSources.join('|')}.*`, 'ig');
+/**
+ * Pattern to look for in source strings
+ * Will case-insensitive find strings containing `scm` or `nuage`
+ * @type {RegExp}
+ */
+const restrictedSourcesPattern = new RegExp(`.*${restrictedSources.join('|')}.*`, 'i');
 const removeFromSourceMessage = `Owners sourced from ${restrictedSources.join(', ')} should be removed directly from that source`;
 
 // Class to toggle readonly mode vs edit mode
