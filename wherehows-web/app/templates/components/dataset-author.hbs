@@ -56,6 +56,7 @@
       <th>Full Name</th>
       <th>ID Type</th>
       <th>Source</th>
+      <th>Last Modified</th>
       <th>
         Owner Type
 
@@ -98,6 +99,9 @@
         <td>{{owner.name}}</td>
         <td>{{owner.idType}}</td>
         <td>{{owner.source}}</td>
+        <td class="dataset-author-cell__owner-last-mod">
+          {{moment-calendar owner.modifiedTime}}
+        </td>
         <td>
           {{ember-selector
             values=ownerTypes

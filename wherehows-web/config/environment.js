@@ -26,6 +26,11 @@ module.exports = function(environment) {
       cssDir: 'assets'
     },
 
+    moment: {
+      allowEmpty: true,
+      outputFormat: 'llll' // fallback format e.g. Thu, Sep 21 1984 8:30 PM
+    },
+
     // Since ember-metrics automatically removes all unused adapters, which
     //   will happen because we are using lazy initialization for API keys
     //   and not specifying adapter props at build time, the ffg forces the
