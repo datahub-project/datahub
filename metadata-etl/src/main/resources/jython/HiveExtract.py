@@ -343,7 +343,8 @@ class HiveExtract:
       self.logger.info("Get table info from Serde %12s [%s -> %s]\n" % (database_name, str(begin), str(end)))
 
     with open(schema_output_file, 'wb') as schema_json_file:
-      os.chmod(schema_output_file, stat.S_IWOTH)
+      os.chmod(schema_output_file,
+               stat.S_IWUSR | stat.S_IRUSR | stat.S_IWGRP | stat.S_IRGRP | stat.S_IWOTH | stat.S_IROTH)
       for item in schema:
         schema_json_file.write("{}\n".format(json.dumps(item, separators=(',',':'))))
 
@@ -351,7 +352,8 @@ class HiveExtract:
     begin = datetime.datetime.now().strftime("%H:%M:%S")
     rows = self.get_hdfs_map()
     with open(hdfs_map_output_file, 'wb') as hdfs_map_csv_file:
-      os.chmod(hdfs_map_output_file, stat.S_IWOTH)
+      os.chmod(hdfs_map_output_file,
+               stat.S_IWUSR | stat.S_IRUSR | stat.S_IWGRP | stat.S_IRGRP | stat.S_IWOTH | stat.S_IROTH)
       hdfs_map_columns = ['db_name', 'table_name', 'cluster_uri', 'abstract_hdfs_path']
       csv_writer = csv.writer(hdfs_map_csv_file, delimiter='\x1a', lineterminator='\n', quoting=csv.QUOTE_NONE)
       csv_writer.writerow(hdfs_map_columns)
