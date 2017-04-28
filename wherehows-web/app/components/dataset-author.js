@@ -9,6 +9,10 @@ const {
   inject: { service }
 } = Ember;
 
+const restrictedSources = ['SCM', 'NUAGE'];
+const restrictedSourcesPattern = new RegExp(`.*${restrictedSources.join('|')}.*`, 'ig');
+const removeFromSourceMessage = `Owners sourced from ${restrictedSources.join(', ')} should be removed directly from that source`;
+
 // Class to toggle readonly mode vs edit mode
 const userNameEditableClass = 'dataset-author-cell--editing';
 //  Required minimum confirmed owners needed to update the list of owners
@@ -46,6 +50,10 @@ export default Component.extend({
   ldapUsers: service('user-lookup'),
 
   $ownerTable: null,
+
+  restrictedSources,
+
+  removeFromSourceMessage,
 
   init() {
     this._super(...arguments);
@@ -99,8 +107,8 @@ export default Component.extend({
    */
   userNameInvalid: computed('owners.[]', function() {
     return getWithDefault(this, 'owners', []).filter(
-      ({ userName }) => userName === _defaultOwnerUserName
-    ).length > 0;
+        ({ userName }) => userName === _defaultOwnerUserName
+      ).length > 0;
   }),
 
   didInsertElement() {
@@ -179,7 +187,7 @@ export default Component.extend({
     /**
      * Handles the user intention to update the owner userName, by
      *   adding a class signifying edit to the DOM td classList.
-     *   Only `owners` in this list who are not sourced from SCM should
+     *   Only `owners` in this list who are not sourced from `restrictedSources` (see var above) should
      *   the user be allowed to update / edit.
      *   The click event is handled on the TD which is the parent
      *   of the target label.
@@ -192,9 +200,9 @@ export default Component.extend({
     willEditUserName({ source = '' }, { currentTarget: { classList } }) {
       // Add the className cached in `userNameEditableClass`. This renders
       //   the input element in the DOM, and removes the label from layout
-      if (
-        !String(source).includes('SCM') && typeof classList.add === 'function'
-      ) {
+      const disallowEdit = String(source).match(restrictedSourcesPattern);
+
+      if (!disallowEdit && typeof classList.add === 'function') {
         classList.add(userNameEditableClass);
       }
     },
@@ -321,8 +329,8 @@ export default Component.extend({
       return typeof closureAction === 'function' &&
         closureAction(get(this, 'owners'))
           .then(({
-            status
-          } = {}) => {
+                   status
+                 } = {}) => {
             if (status === 'ok') {
               set(
                 this,

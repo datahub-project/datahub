@@ -55,4 +55,9 @@ $zebra: set-color(grey, light);
       display: block;
     }
   }
+
+  /// Owner last modified column in owner -table
+  &__owner-last-mod {
+    white-space: nowrap;
+  }
 }

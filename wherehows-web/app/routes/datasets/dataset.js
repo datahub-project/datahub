@@ -491,8 +491,8 @@ export default Route.extend({
       .then(({ status, owners = [] }) => {
         if (status === 'ok') {
           set(controller, 'owners', owners.map(owner => Object.assign({}, owner, {
-            // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as date object
-            modifiedTime: owner.modifiedTime ? new Date(owner.modifiedTime * 1000) : owner.modifiedTime
+            // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as Date instance
+            modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime * 1000)
           })));
         }
       })

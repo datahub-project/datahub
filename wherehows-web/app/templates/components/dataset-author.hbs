@@ -36,7 +36,7 @@
     </ul>
     <br>
     <p>
-      Only owners that are not sourced from <code>SCM</code> can be removed
+      Only owners that are not sourced from <code>SCM</code> or <code>NUAGE</code> can be removed
       from this list. To remove any such owner(s), please make the change at the
       source.</p>
   </div>
@@ -81,7 +81,8 @@
         <td class="dataset-author-cell"
             onclick={{action "willEditUserName"
                              owner}}>
-          <label class={{if (eq owner.source "SCM") ""
+
+          <label class={{if (contains owner.source restrictedSources) ""
                             "dataset-author-cell__name-tag"}}>
             {{owner.userName}}
           </label>
@@ -118,10 +119,10 @@
 
         <td>
           <button class="nacho-button nacho-button--small"
-                  title={{if (eq owner.source "SCM")
-                             "Owners sourced from SCM should be removed directly from SCM"
+                  title={{if (contains owner.source restrictedSources)
+                             removeFromSourceMessage
                              "Remove"}}
-                    disabled={{eq owner.source "SCM"}}
+                    disabled={{contains owner.source restrictedSources}}
             {{action "removeOwner" owner}}>
             <i class="fa fa-trash"
                aria-label="Remove Owner"></i>
