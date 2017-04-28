@@ -489,7 +489,12 @@ export default Route.extend({
     // Retrieve the current owners of the dataset and store on the controller
     Promise.resolve(getJSON(getDatasetOwnersUrl(id)))
       .then(({ status, owners = [] }) => {
-        status === 'ok' && set(controller, 'owners', owners);
+        if (status === 'ok') {
+          set(controller, 'owners', owners.map(owner => Object.assign({}, owner, {
+            // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as date object
+            modifiedTime: owner.modifiedTime ? new Date(owner.modifiedTime * 1000) : owner.modifiedTime
+          })));
+        }
       })
       .then(() => getJSON(partyEntitiesUrl))
       .then(({ status, userEntities = [] }) => {
