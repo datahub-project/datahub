@@ -114,6 +114,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_DATASET_BY_ID = "SELECT d.id, max(s.id) as schema_history_id, d.name, " +
 			"d.urn, d.source, d.schema, GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"GROUP_CONCAT(IFNULL(u.email, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_email, " +
 			"FROM_UNIXTIME(source_created_time) as created, d.source_modified_time, " +
 			"FROM_UNIXTIME(source_modified_time) as modified " +
 			"FROM dict_dataset d LEFT JOIN dict_dataset_schema_history s on (d.id = s.dataset_id) " +
@@ -127,6 +128,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"d.name, d.urn, d.source, d.schema, " +
 			"GROUP_CONCAT(o.owner_id ORDER BY o.sort_id ASC SEPARATOR ',') as owner_id, " +
 			"GROUP_CONCAT(IFNULL(u.display_name, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_name, " +
+			"GROUP_CONCAT(IFNULL(u.email, '*') ORDER BY o.sort_id ASC SEPARATOR ',') as owner_email, " +
 			"FROM_UNIXTIME(d.source_created_time) as created, " +
 			"d.source_modified_time, " +
 			"FROM_UNIXTIME(d.source_modified_time) as modified, f.dataset_id, w.id as watch_id FROM dict_dataset d " +
@@ -160,7 +162,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String GET_DATASET_OWNERS_BY_ID = "SELECT o.owner_id, u.display_name, o.sort_id, " +
 			"o.owner_type, o.namespace, o.owner_id_type, o.owner_source, o.owner_sub_type, o.confirmed_by, " +
-			"u.is_active, is_group, o.modified_time " +
+			"u.email, u.is_active, is_group, o.modified_time " +
 			"FROM dataset_owner o " +
 			"LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) " +
 			"WHERE o.dataset_id = ? and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
@@ -794,10 +796,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		{
 			try
 			{
-				userId = (Integer)getJdbcTemplate().queryForObject(
-						GET_USER_ID,
-						Integer.class,
-						user);
+				userId = getJdbcTemplate().queryForObject(GET_USER_ID, Integer.class,	user);
 			}
 			catch(EmptyResultDataAccessException e)
 			{
@@ -809,20 +808,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		{
 			if (userId != null && userId > 0)
 			{
-				dataset = (Dataset)getJdbcTemplate().queryForObject(
-          				GET_DATASET_BY_ID_CURRENT_USER,
-						new DatasetWithUserRowMapper(),
-						userId,
-						userId,
-						id);
-
+				dataset = getJdbcTemplate().queryForObject(GET_DATASET_BY_ID_CURRENT_USER, new DatasetWithUserRowMapper(),
+						userId,	userId, id);
 			}
 			else
 			{
-				dataset = (Dataset)getJdbcTemplate().queryForObject(
-						GET_DATASET_BY_ID,
-						new DatasetRowMapper(),
-						id);
+				dataset = getJdbcTemplate().queryForObject(GET_DATASET_BY_ID, new DatasetRowMapper(), id);
 			}
 		}
 		catch(EmptyResultDataAccessException e)
