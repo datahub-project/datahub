@@ -5,7 +5,7 @@
         <ul class="breadcrumbs">
           {{#each breadcrumbs as |crumb|}}
             <li>
-              {{crumb.text}}
+              {{link-to crumb.crumb "browse.entity" "datasets" (query-params page=1 urn=crumb.urn)}}
             </li>
           {{/each}}
         </ul>
