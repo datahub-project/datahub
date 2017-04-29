@@ -1,8 +1,10 @@
+import { classifiers } from 'wherehows-web/constants';
+
 /**
  * Builds a privacyCompliancePolicy map with default / unset
  *   values for non null properties
  */
-export const createPrivacyCompliancePolicy = () => {
+const createPrivacyCompliancePolicy = () => {
   const policy = {
     // default to first item in compliance types list
     complianceType: 'AUTO_PURGE',
@@ -15,17 +17,14 @@ export const createPrivacyCompliancePolicy = () => {
 
 /**
  * Builds a securitySpecification map with default / unset values
- *   for non null properties as per avro schema
+ *   for non null properties as per Avro schema
  * @param {number} id
  */
-export const createSecuritySpecification = id => {
-  const classification = ['highlyConfidential', 'confidential'].reduce(
-    (classification, classifier) => {
-      classification[classifier] = [];
-      return classification;
-    },
-    {}
-  );
+const createSecuritySpecification = id => {
+  const classification = classifiers.reduce((classification, classifier) => {
+    classification[classifier] = [];
+    return classification;
+  }, {});
 
   const securitySpecification = {
     classification,
@@ -37,3 +36,5 @@ export const createSecuritySpecification = id => {
 
   return JSON.parse(JSON.stringify(securitySpecification));
 };
+
+export { createSecuritySpecification, createPrivacyCompliancePolicy };
