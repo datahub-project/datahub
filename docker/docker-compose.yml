@@ -1,0 +1,38 @@
+version: '3'
+services:
+  mysql:
+    build: ./mysql
+    image: wherehows/mysql-wherehows:1
+    environment:
+      MYSQL_ROOT_PASSWORD: wherehows
+    ports:
+      - "${EXTERNAL_DATABASE_PORT}:${INTERNAL_DATABASE_PORT}"
+    volumes:
+      - data-volume:/var/lib/mysql
+      - mysql-log-volume:/var/log/mysql
+  wherehows:
+    build: ./wherehows
+    image: wherehows/wherehows:1
+    depends_on:
+      - mysql
+    ports:
+      - "${EXTERNAL_API_PORT}:9000"
+      - "${EXTERNAL_WEB_PORT}:9008"
+    volumes:
+      - wherehows-log-volume:/home/wherehows/logs
+    environment:
+      WHZ_DB_URL: "jdbc:mysql://database:${INTERNAL_DATABASE_PORT}/wherehows"
+      WHZ_DB_USERNAME: wherehows
+      WHZ_DB_PASSWORD: wherehows
+      WHZ_DB_HOST: database
+      LDAP_URL: "${LDAP_URL}"
+      LDAP_DOMAIN: "${LDAP_DOMAIN}"
+      LDAP_SEARCH_BASE: "${LDAP_SEARCH_BASE}"
+      PLAY_CRYPTO_SECRET_BACKEND: "${PLAY_CRYPTO_SECRET_BACKEND}"
+      PLAY_CRYPTO_SECRET_WEB: "${PLAY_CRYPTO_SECRET_WEB}"
+    links:
+      - "mysql:database"
+volumes:
+  data-volume:
+  mysql-log-volume:
+  wherehows-log-volume:
