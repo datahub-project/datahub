@@ -60,19 +60,7 @@
     {{#table.head as |head|}}
       {{#head.column columnName="identifierField"}}Field{{/head.column}}
       {{#head.column}}Data Type{{/head.column}}
-      {{#head.column}}
-        Security Classification
-        <!--TODO: DSS-6716-->
-        <!-- DRY out with wrapper component that takes the link as an attribute-->
-        <a
-          target="_blank"
-          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
-          <sup>
-        <span class="glyphicon glyphicon-question-sign"
-              title="Link to more information"></span>
-          </sup>
-        </a>
-      {{/head.column}}
+
       {{#head.column}}
         Field Format
         <!--TODO: DSS-6716-->
@@ -82,6 +70,20 @@
           href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
           <sup>
           <span class="glyphicon glyphicon-question-sign"
+                title="Link to more information"></span>
+          </sup>
+        </a>
+      {{/head.column}}
+
+      {{#head.column}}
+        Security Classification
+        <!--TODO: DSS-6716-->
+        <!-- DRY out with wrapper component that takes the link as an attribute-->
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-confidential">
+          <sup>
+        <span class="glyphicon glyphicon-question-sign"
               title="Link to more information"></span>
           </sup>
         </a>
@@ -102,17 +104,17 @@
 
           {{#row.cell}}
             {{ember-selector
-              values=classifiers
-              selected=field.classification
-              selectionDidChange=(action "updateClassification" field)}}
+              values=logicalTypes
+              selected=field.logicalType
+              selectionDidChange=(action "updateLogicalType" field)}}
           {{/row.cell}}
 
           {{#row.cell}}
             {{ember-selector
-              values=logicalTypes
-              selected=field.logicalType
-              disabled=(not field.classification)
-              selectionDidChange=(action "updateLogicalType" field)}}
+              values=classifiers
+              selected=field.classification
+              disabled=(not field.logicalType)
+              selectionDidChange=(action "updateClassification" field)}}
           {{/row.cell}}
         {{/body.row}}
       {{/each}}

@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
+import { defaultFieldDataTypeClassification, classifiers } from 'wherehows-web/constants';
 
 const {
   get,
@@ -15,24 +16,13 @@ const {
 
 // String constant identifying the classified fields on the security spec
 const sourceClassificationKey = 'securitySpecification.classification';
-// TODO: DSS-6671 Extract to constants module
-const classifiers = [
-  'confidential',
-  'highlyConfidential'
-];
 
-const logicalTypes = [
-  'EMAIL_ADDRESS',
-  'PHONE_NUMBER',
-  'IP_ADDRESS',
-  'ADDRESS',
-  'GEO_LOCATION',
-  'CREDIT_CARD_OR_FINANCIAL_NUMBER',
-  'ADDRESS_BOOK',
-  'INMAILS_OR_MESSAGES',
-  'PASSWORDS',
-  'OTHER'
-];
+/**
+ * List of logical types  / field level data types
+ * https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
+ * @type {Array}
+ */
+const logicalTypes = Object.keys(defaultFieldDataTypeClassification);
 
 // TODO: DSS-6671 Extract to constants module
 const successUpdating = 'Your changes have been successfully saved!';
@@ -62,9 +52,9 @@ export default Component.extend({
   hiddenTrackingFields: hiddenTrackingFieldsMsg,
 
   // Map classifiers to options better consumed by  drop down
-  classifiers: ['', ...classifiers].map(value => ({
+  classifiers: classifiers.map(value => ({
     value,
-    label: formatAsCapitalizedStringWithSpaces(value || 'limitedDistribution')
+    label: formatAsCapitalizedStringWithSpaces(value)
   })),
   // Map logicalTypes to options better consumed by  drop down
   logicalTypes: ['', ...logicalTypes].map(value => {
@@ -87,6 +77,7 @@ export default Component.extend({
    */
   fieldNameToClass: computed(
     `${sourceClassificationKey}.confidential.[]`,
+    `${sourceClassificationKey}.limitedDistribution.[]`,
     `${sourceClassificationKey}.highlyConfidential.[]`,
     function () {
       const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
@@ -115,8 +106,8 @@ export default Component.extend({
    */
   classificationDataFields: computed(
     `${sourceClassificationKey}.confidential.[]`,
+    `${sourceClassificationKey}.limitedDistribution.[]`,
     `${sourceClassificationKey}.highlyConfidential.[]`,
-    'fieldNameToClass',
     'schemaFieldNamesMappedToDataTypes',
     function () {
       // Set default or if already in policy, retrieve current values from
@@ -130,6 +121,8 @@ export default Component.extend({
 
         // If the classification type exists, then find the identifierField, and
         //   assign to field, otherwise null
+        //   Rather than assigning the default classification here, nulling gives the benefit of allowing
+        //   subsequent consumer know that this field did not have a previous classification
         const field = classification ?
           get(this, `${sourceClassificationKey}.${classification}`)
             .findBy('identifierField', identifierField) :
@@ -225,35 +218,44 @@ export default Component.extend({
    * @param {String} logicalType the type to be updated
    */
   changeFieldLogicalType(identifierField, logicalType) {
+    const nextProps = { identifierField, logicalType };
     // The current classification name for the candidate identifier
     const currentClassLookup = get(this, 'fieldNameToClass');
-    const currentClassificationName = currentClassLookup[identifierField];
-    // The current classification list
-    const sourceClassification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
+    const defaultClassification = getWithDefault(this, `${sourceClassificationKey}.${defaultFieldDataTypeClassification[logicalType]}`, []);
+    let currentClassificationName = currentClassLookup[identifierField];
 
-    if (!Array.isArray(sourceClassification)) {
+    /**
+     * If the field does not already have a classification, we set it's default
+     * @link classificationDataFields
+     */
+    if (isBlank(currentClassificationName)) {
+      currentClassificationName = defaultFieldDataTypeClassification[logicalType];
+    }
+    // The current classification list
+    const currentClassification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
+
+    if (!Array.isArray(currentClassification)) {
       throw new Error(`
-      You have specified a classification object that is not a list ${sourceClassification}.
+      You have specified a classification object that is not a list ${currentClassification}.
       Ensure that the classification for this identifierField (${identifierField}) is
       set before attempting to change the logicalType.
       `);
     }
 
-    const field = sourceClassification.findBy('identifierField', identifierField);
-    // Clone. `field` attributes should be scalar, otherwise use a deepClone
-    //   algo.
-    const localField = Object.assign({}, field, { logicalType });
+    const field = currentClassification.findBy('identifierField', identifierField);
 
-    // Clone the current list without the identifierField to be updated
-    const previousClassification = sourceClassification.filter(
-      ({ identifierField: fieldName }) => fieldName !== identifierField
-    );
+    // Since this is change on the logical type, if the field already exists in a classification
+    //   list, we remove it to allow applying the default for the new field type, below
+    if (isPresent(field)) {
+      // Remove identifierField from list
+      currentClassification.setObjects(
+        currentClassification.filter(
+          ({ identifierField: fieldName }) => fieldName !== identifierField)
+      );
+    }
 
-    // concat newly updated field to old classification list
-    const updatedClassification = [localField, ...previousClassification];
-
-    // Reset current classification list
-    return sourceClassification.setObjects([...updatedClassification]);
+    // Update the default classification list
+    return defaultClassification.setObjects([nextProps, ...defaultClassification]);
   },
 
   /**
@@ -280,11 +282,12 @@ export default Component.extend({
      * Toggles the provided identifierField onto a classification list
      *   on securitySpecification.classification, identified by the provided
      *   classKey.
-     * @param {String} identifierField field on the dataset
+     * @param {Object} props field attributes for the field to update on the classification list
      * @param {String} classKey the name of the class to add, or potentially
      *   remove the identifierField from
      */
-    updateClassification({ identifierField }, { value: classKey }) {
+    updateClassification(props, { value: classKey }) {
+      const { identifierField } = props;
       // fieldNames can be paths i.e. identifierField.identifierPath.subPath
       //   therefore, using Ember's `path lookup` syntax will not work
       const currentClassLookup = get(this, 'fieldNameToClass');
@@ -323,7 +326,7 @@ export default Component.extend({
         }
 
         // Finally perform operation
-        classification.addObject({ identifierField });
+        classification.addObject(Object.assign({}, props));
       }
     },
 
