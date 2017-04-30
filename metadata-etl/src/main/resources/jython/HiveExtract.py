@@ -47,6 +47,7 @@ class TableInfo:
   is_compressed = 'is_compressed'
   is_storedassubdirectories = 'is_storedassubdirectories'
   etl_source = 'etl_source'
+  source_modified_time = 'source_modified_time'
 
   field_list = 'fields'
   schema_literal = 'schema_literal'
@@ -74,8 +75,10 @@ class HiveExtract:
     get table, column info from table columns_v2
     :param database_name:
     :return: (0 DB_NAME, 1 TBL_NAME, 2 SERDE_FORMAT, 3 TBL_CREATE_TIME
-    4 DB_ID, 5 TBL_ID,6 SD_ID, 7 LOCATION, 8 VIEW_EXPANDED_TEXT, 9 TBL_TYPE, 10 VIEW_EXPENDED_TEXT, 11 INPUT_FORMAT,12  OUTPUT_FORMAT,
-    13IS_COMPRESSED, 14 IS_STOREDASSUBDIRECTORIES, 15 INTEGER_IDX, 16 COLUMN_NAME, 17 TYPE_NAME, 18 COMMENT)
+    4 DB_ID, 5 TBL_ID,6 SD_ID, 7 LOCATION, 8 TBL_TYPE, 9 VIEW_EXPENDED_TEXT, 10 INPUT_FORMAT,11  OUTPUT_FORMAT,
+    12 IS_COMPRESSED, 13 IS_STOREDASSUBDIRECTORIES, 14 INTEGER_IDX, 15 COLUMN_NAME, 16 TYPE_NAME, 17 COMMENT
+    18 dataset_name, 19 version, 20 TYPE, 21 storage_type, 22 native_name, 23 logical_name, 24 created_time,
+    25 dataset_urn, 26 source_modified_time)
     """
     curs = self.conn_hms.cursor()
     if is_dali:
@@ -104,11 +107,14 @@ class HiveExtract:
         case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1)
           else t.TBL_NAME
-        end logical_name, unix_timestamp(now()) created_time, concat('dalids:///', d.NAME, '/', t.TBL_NAME) dataset_urn
+        end logical_name, unix_timestamp(now()) created_time, concat('dalids:///', d.NAME, '/', t.TBL_NAME) dataset_urn,
+        p.PARAM_VALUE source_modified_time
       from TBLS t join DBS d on t.DB_ID=d.DB_ID
       join SDS s on t.SD_ID = s.SD_ID
       join COLUMNS_V2 c on s.CD_ID = c.CD_ID
+      join TABLE_PARAMS p on p.TBL_ID = t.TBL_ID
       where
+      p.PARAM_KEY = 'transient_lastDdlTime' and
       d.NAME in ('{db_name}') and (d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and d.NAME not like 'dalitest%' and t.TBL_TYPE = 'VIRTUAL_VIEW'
       order by DB_NAME, dataset_name, version DESC
       """.format(version='{version}', db_name=database_name)
@@ -131,11 +137,14 @@ class HiveExtract:
           when LOCATE('index', LOWER(t.TBL_TYPE)) > 0 then 'Index'
           else 'Table'
         end storage_type, concat(d.NAME, '.', t.TBL_NAME) native_name, t.TBL_NAME logical_name,
-        unix_timestamp(now()) created_time, concat('hive:///', d.NAME, '/', t.TBL_NAME) dataset_urn
+        unix_timestamp(now()) created_time, concat('hive:///', d.NAME, '/', t.TBL_NAME) dataset_urn,
+        p.PARAM_VALUE source_modified_time
       from TBLS t join DBS d on t.DB_ID=d.DB_ID
       join SDS s on t.SD_ID = s.SD_ID
       join COLUMNS_V2 c on s.CD_ID = c.CD_ID
+      join TABLE_PARAMS p on p.TBL_ID = t.TBL_ID
       where
+      p.PARAM_KEY = 'transient_lastDdlTime' and
       d.NAME in ('{db_name}') and not ((d.NAME like '%\_mp' or d.NAME like '%\_mp\_versioned') and t.TBL_TYPE = 'VIRTUAL_VIEW')
       order by 1,2
       """.format(db_name=database_name)
@@ -209,15 +218,27 @@ class HiveExtract:
         field_list = sorted(field_list, key=lambda k: k['IntegerIndex'])
         # process the record of table
 
-        table_record = {TableInfo.table_name: row_value[1], TableInfo.type: row_value[21],
-                      TableInfo.native_name: row_value[22], TableInfo.logical_name: row_value[23],
-                      TableInfo.dataset_name: row_value[18], TableInfo.version: str(row_value[19]),
-                      TableInfo.serialization_format: row_value[2],
-                      TableInfo.create_time: row_value[3], TableInfo.db_id: row_value[4], TableInfo.table_id: row_value[5],
-                      TableInfo.serde_id: row_value[6], TableInfo.location: row_value[7], TableInfo.table_type: row_value[8],
-                      TableInfo.view_expended_text: row_value[9], TableInfo.input_format: row_value[10], TableInfo.output_format: row_value[11],
-                      TableInfo.is_compressed: row_value[12], TableInfo.is_storedassubdirectories: row_value[13],
-                      TableInfo.etl_source: 'COLUMN_V2', TableInfo.field_list: field_list[:]}
+        table_record = {TableInfo.table_name: row_value[1],
+                        TableInfo.type: row_value[21],
+                        TableInfo.native_name: row_value[22],
+                        TableInfo.logical_name: row_value[23],
+                        TableInfo.dataset_name: row_value[18],
+                        TableInfo.version: str(row_value[19]),
+                        TableInfo.serialization_format: row_value[2],
+                        TableInfo.create_time: row_value[3],
+                        TableInfo.source_modified_time: row_value[26],
+                        TableInfo.db_id: row_value[4],
+                        TableInfo.table_id: row_value[5],
+                        TableInfo.serde_id: row_value[6],
+                        TableInfo.location: row_value[7],
+                        TableInfo.table_type: row_value[8],
+                        TableInfo.view_expended_text: row_value[9],
+                        TableInfo.input_format: row_value[10],
+                        TableInfo.output_format: row_value[11],
+                        TableInfo.is_compressed: row_value[12],
+                        TableInfo.is_storedassubdirectories: row_value[13],
+                        TableInfo.etl_source: 'COLUMN_V2',
+                        TableInfo.field_list: field_list[:]}
 
         field_list = [] # empty it
 
