@@ -1,16 +1,13 @@
 <div class="container">
   <div id="dataset">
-    <div class="well well-sm">
-      <div>
-        <ul class="breadcrumbs">
-          {{#each breadcrumbs as |crumb|}}
-            <li>
-              {{link-to crumb.crumb "browse.entity" "datasets" (query-params page=1 urn=crumb.urn)}}
-            </li>
-          {{/each}}
-        </ul>
-      </div>
-    </div>
+    <ul class="nacho-breadcrumbs">
+      {{#each breadcrumbs as |crumb|}}
+        <li class="nacho-breadcrumbs__crumb">
+          {{link-to crumb.crumb "browse.entity" "datasets" (query-params page=1 urn=crumb.urn)
+                    class="nacho-breadcrumbs__crumb__grain"}}
+        </li>
+      {{/each}}
+    </ul>
 
     <div class="row">
       <div class="col-xs-5">
