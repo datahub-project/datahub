@@ -111,7 +111,8 @@
         <td>{{owner.idType}}</td>
         <td>{{owner.source}}</td>
         <td class="dataset-author-cell__owner-last-mod">
-          {{moment-calendar owner.modifiedTime}}
+          {{!-- e.g Jul 18th '16, 11:11 am --}}
+          {{moment-calendar owner.modifiedTime sameElse="MMM Do 'YY, h:m a"}}
         </td>
         <td>
           {{ember-selector
