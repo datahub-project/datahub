@@ -105,8 +105,6 @@ module.exports = function(defaults) {
   app.import('vendor/dagre-d3/css/tipsy.css');
 
   app.import('vendor/legacy_sources/global_functions.js');
-  app.import('vendor/legacy_sources/search.js');
-  app.import('vendor/legacy_sources/tree.js');
   app.import('vendor/legacy_sources/main.js');
 
   app.import('bower_components/jquery/dist/jquery.min.js');
