@@ -18,5 +18,18 @@
     background-color: set-color(white, earlydawn);
     border-radius: 2px;
     font-weight: fw(normal, 4);
+
+    // Displays the @ symbol for owner components with with-email modifier
+    &--with-email {
+      &::before {
+        content: "@";
+        font-size: 14px;
+        color: set-color(grey, mid);
+      }
+    }
+  }
+
+  &__email-owners {
+    white-space: nowrap;
   }
 }

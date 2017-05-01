@@ -292,28 +292,6 @@ table tr td {
     height: 60px;
 }
 
-.breadcrumbs {
-    list-style-type: none;
-    margin-bottom: 0px;
-    margin-left:-30px;
-    margin-top: 5px;
-}
-
-.breadcrumbs li {
-    display: inline;
-    font-size: 12pt;
-    font-weight: bold;
-}
-
-.breadcrumbs li:before {
-    content: "/";
-    font-weight: bold;
-}
-
-.breadcrumbs li > a.active {
-    color: #337AB7;
-}
-
 .vsplitbar {
     width: 5px;
     background: #aaa;
