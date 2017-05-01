@@ -4,14 +4,6 @@
  * @type {{MEMBER_ID: string, MEMBER_URN: string, MEMBER_REVERSE_URN: string, COMPOSITE_URN: string, COMPANY_ID: string, COMPANY_URN: string, GROUP_ID: string, GROUP_URN: string, NAME: string, EMAIL: string, PHONE_NUMBER: string, PHONE_URN: string, ADDRESS: string, GEO_LOCATION: string, IP_ADDRESS: string, FINANCIAL_NUMBER: string, PAYMENT_INFO: string, PASSWORD_AND_CREDENTIALS: string, AUTHENTICATION_TOKEN: string, MESSAGE: string, NATIONAL_ID: string, SOCIAL_NETWORK_ID: string, EVENT_TIME: string, TRANSACTION_TIME: string, COOKIES_AND_BEACONS_AND_BROWSER_ID: string, DEVICE_ID_AND_ADVERTISING_ID: string}}
  */
 const defaultFieldDataTypeClassification = {
-  MEMBER_ID: 'limitedDistribution',
-  MEMBER_URN: 'limitedDistribution',
-  MEMBER_REVERSE_URN: 'limitedDistribution',
-  COMPOSITE_URN: 'limitedDistribution',
-  COMPANY_ID: 'limitedDistribution',
-  COMPANY_URN: 'limitedDistribution',
-  GROUP_ID: 'limitedDistribution',
-  GROUP_URN: 'limitedDistribution',
   NAME: 'confidential',
   EMAIL: 'confidential',
   PHONE_NUMBER: 'confidential',
