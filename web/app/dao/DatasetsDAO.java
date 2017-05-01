@@ -402,20 +402,21 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 					+ "modified_time = :modified";
 
 	private static final String GET_DATASET_SECURITY_BY_DATASET_ID =
-			"SELECT dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
+			"SELECT dataset_id, dataset_urn, dataset_classification, confidentiality, classification, record_owner_type, "
 			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_id = ?";
 
 	private static final String GET_DATASET_SECURITY_BY_URN =
-			"SELECT dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
+			"SELECT dataset_id, dataset_urn, dataset_classification, confidentiality, classification, record_owner_type, "
 			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_urn = ?";
 
 	private final static String INSERT_DATASET_SECURITY =
-			"INSERT INTO dataset_security (dataset_id, dataset_urn, confidentiality, classification, record_owner_type, "
-					+ "retention_policy, geographic_affinity, modified_time) "
-					+ "VALUES (:id, :urn, :confidentiality, :classification, :ownerType, :policy, :geo, :modified) "
+			"INSERT INTO dataset_security (dataset_id, dataset_urn, dataset_classification, confidentiality, classification, "
+					+ "record_owner_type, retention_policy, geographic_affinity, modified_time) "
+					+ "VALUES (:id, :urn, :dataset_classification, :confidentiality, :classification, :ownerType, :policy, :geo, :modified) "
 					+ "ON DUPLICATE KEY UPDATE "
-					+ "confidentiality = :confidentiality, classification = :classification, record_owner_type = :ownerType, "
-					+ "retention_policy = :policy, geographic_affinity = :geo, modified_time = :modified";
+					+ "dataset_classification = :dataset_classification, confidentiality = :confidentiality, "
+					+ "classification = :classification, record_owner_type = :ownerType, retention_policy = :policy, "
+					+ "geographic_affinity = :geo, modified_time = :modified";
 
 
 	public static List<String> getDatasetOwnerTypes()
@@ -2232,29 +2233,30 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	}
 
 	private static DatasetSecurity mapToDatasetSecurity(Map<String, Object> result) throws IOException {
-		ObjectMapper om = new ObjectMapper();
-		Map<String, List<DatasetFieldEntity>> classification =
-				om.readValue((String) result.get("classification"), new TypeReference<Map<String, List<DatasetFieldEntity>>>() {
-				});
-
-		Map<String, Object> retention =
-				om.readValue((String) result.get("retention_policy"), new TypeReference<Map<String, Object>>() {
-				});
-
-		Map<String, Object> geo =
-				om.readValue((String) result.get("geographic_affinity"), new TypeReference<Map<String, Object>>() {
-				});
-
 		DatasetSecurity record = new DatasetSecurity();
 		record.setDatasetId(((Long) result.get("dataset_id")).intValue());
 		record.setDatasetUrn((String) result.get("dataset_urn"));
+		record.setDatasetClassification(
+				jsonToObject((String) result.get("dataset_classification"), new TypeReference<Map<String, Object>>() {
+				}));
 		record.setConfidentiality((String) result.get("confidentiality"));
-		record.setClassification(classification);
+		record.setClassification(
+				jsonToObject((String) result.get("classification"), new TypeReference<Map<String, List<DatasetFieldEntity>>>() {
+				}));
 		record.setRecordOwnerType((String) result.get("record_owner_type"));
-		record.setRetentionPolicy(retention);
-		record.setGeographicAffinity(geo);
+		record.setRetentionPolicy(
+				jsonToObject((String) result.get("retention_policy"), new TypeReference<Map<String, Object>>() {
+				}));
+		record.setGeographicAffinity(
+				jsonToObject((String) result.get("geographic_affinity"), new TypeReference<Map<String, Object>>() {
+				}));
 		record.setModifiedTime((long) result.get("modified_time"));
 		return record;
+	}
+
+	private static <T> T jsonToObject(String jsonString, TypeReference type) throws IOException {
+		ObjectMapper om = new ObjectMapper();
+		return StringUtils.isBlank(jsonString) ? null : om.readValue(jsonString, type);
 	}
 
 	public static void updateDatasetSecurityInfo(int datasetId, JsonNode node) throws Exception {
@@ -2270,6 +2272,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("id", datasetId);
 		parameters.put("urn", urn);
+		parameters.put("dataset_classification", om.writeValueAsString(record.getDatasetClassification()));
 		parameters.put("confidentiality", record.getConfidentiality());
 		parameters.put("classification", om.writeValueAsString(record.getClassification()));
 		parameters.put("ownerType", record.getRecordOwnerType());
