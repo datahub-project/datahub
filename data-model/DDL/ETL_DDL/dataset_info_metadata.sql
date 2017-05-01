@@ -123,6 +123,8 @@ CREATE TABLE `dataset_privacy_compliance` (
 CREATE TABLE `dataset_security` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
   `dataset_urn`               VARCHAR(200)     NOT NULL,
+  `dataset_classification`    VARCHAR(1000)    DEFAULT NULL
+  COMMENT 'JSON: dataset level confidential classification',
   `confidentiality`           VARCHAR(50)      DEFAULT NULL
   COMMENT 'dataset level confidential category: confidential, highly confidential, etc',
   `classification`            VARCHAR(5000)    DEFAULT NULL

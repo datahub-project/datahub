@@ -21,6 +21,7 @@ public class DatasetSecurity {
 
   private Integer datasetId;
   private String datasetUrn;
+  private Map<String, Object> datasetClassification;
   private String confidentiality;
   private Map<String, List<DatasetFieldEntity>> classification;
   private String recordOwnerType;
@@ -45,6 +46,14 @@ public class DatasetSecurity {
 
   public void setDatasetUrn(String datasetUrn) {
     this.datasetUrn = datasetUrn;
+  }
+
+  public Map<String, Object> getDatasetClassification() {
+    return datasetClassification;
+  }
+
+  public void setDatasetClassification(Map<String, Object> datasetClassification) {
+    this.datasetClassification = datasetClassification;
   }
 
   public String getConfidentiality() {
