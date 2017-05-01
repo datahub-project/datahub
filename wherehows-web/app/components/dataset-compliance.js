@@ -1,27 +1,17 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 
-const {
-  Component,
-  computed,
-  set,
-  get,
-  isBlank,
-  setProperties,
-  getWithDefault,
-  String: { htmlSafe }
-} = Ember;
+const { Component, computed, set, get, isBlank, setProperties, getWithDefault, String: { htmlSafe } } = Ember;
 
 // TODO: DSS-6671 Extract to constants module
-const missingTypes = 'Looks like some fields may contain privacy data ' +
-  'but do not have a specified `Field Format`?';
+const missingTypes = 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?';
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
 const hiddenTrackingFieldsMsg = htmlSafe(
   '<p>Hey! Just a heads up that some fields in this dataset have been hidden from the table(s) below. ' +
-  'These are tracking fields for which we\'ve been able to predetermine the compliance classification.</p>' +
-  '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
-  'Hopefully, this saves you some scrolling!</p>'
+    "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
+    '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
+    'Hopefully, this saves you some scrolling!</p>'
 );
 
 const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
@@ -32,8 +22,7 @@ const logicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
  * @param {Array} names = [] the list to check for dupes
  * @return {Boolean} true is unique, false otherwise
  */
-const fieldNamesAreUnique = (names = []) =>
-  names.every((name, index) => names.indexOf(name) === index);
+const fieldNamesAreUnique = (names = []) => names.every((name, index) => names.indexOf(name) === index);
 
 /**
  * Returns a computed macro based on a provided type will return a list of
@@ -41,7 +30,7 @@ const fieldNamesAreUnique = (names = []) =>
  * @param {String} type string to match against identifierType
  */
 const complianceEntitiesMatchingType = type =>
-  computed('complianceDataFieldsSansHiddenTracking.[]', function () {
+  computed('complianceDataFieldsSansHiddenTracking.[]', function() {
     const fieldRegex = new RegExp(`${type}`, 'i');
 
     return get(this, 'complianceDataFieldsSansHiddenTracking').filter(({ identifierType }) => {
@@ -79,9 +68,7 @@ export default Component.extend({
    * are valid, otherwise flag
    */
   validateAttrs() {
-    const fieldNames = getWithDefault(
-      this, 'schemaFieldNamesMappedToDataTypes', []
-    ).mapBy('fieldName');
+    const fieldNames = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).mapBy('fieldName');
 
     if (fieldNamesAreUnique(fieldNames.sort())) {
       return set(this, '_hasBadData', false);
@@ -102,21 +89,18 @@ export default Component.extend({
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
    */
-  containsHiddenTrackingFields: computed(
-    'complianceDataFieldsSansHiddenTracking.length',
-    function () {
-      // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
-      //   then we have hidden tracking fields
-      return get(this, 'complianceDataFieldsSansHiddenTracking.length') !== get(this, 'complianceDataFields.length');
-    }),
+  containsHiddenTrackingFields: computed('complianceDataFieldsSansHiddenTracking.length', function() {
+    // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
+    //   then we have hidden tracking fields
+    return get(this, 'complianceDataFieldsSansHiddenTracking.length') !== get(this, 'complianceDataFields.length');
+  }),
 
   /**
    * @type {Array.<Object>} Filters the mapped compliance data fields without `kafka type`
    *   tracking headers
    */
-  complianceDataFieldsSansHiddenTracking: computed('complianceDataFields.[]', function () {
-    return get(this, 'complianceDataFields')
-      .filter(({ identifierField }) => !isTrackingHeaderField(identifierField));
+  complianceDataFieldsSansHiddenTracking: computed('complianceDataFields.[]', function() {
+    return get(this, 'complianceDataFields').filter(({ identifierField }) => !isTrackingHeaderField(identifierField));
   }),
 
   /**
@@ -148,32 +132,30 @@ export default Component.extend({
        * @return {Array} list of attribute values
        */
       const getAttributesOnField = (attributes = [], fieldName) =>
-        attributes.map((attr) => getAttributeOnField(attr, fieldName));
+        attributes.map(attr => getAttributeOnField(attr, fieldName));
 
       // Set default or if already in policy, retrieve current values from
       //   privacyCompliancePolicy.compliancePurgeEntities
-      return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', [])
-        .map(({ fieldName: identifierField, dataType }) => {
-          const hasPrivacyData = complianceFieldNames.includes(identifierField);
-          const [
-            identifierType,
-            isSubject,
-            logicalType
-          ] = getAttributesOnField([
-            'identifierType',
-            'isSubject',
-            'logicalType'
-          ], identifierField);
+      return getWithDefault(
+        this,
+        'schemaFieldNamesMappedToDataTypes',
+        []
+      ).map(({ fieldName: identifierField, dataType }) => {
+        const hasPrivacyData = complianceFieldNames.includes(identifierField);
+        const [identifierType, isSubject, logicalType] = getAttributesOnField(
+          ['identifierType', 'isSubject', 'logicalType'],
+          identifierField
+        );
 
-          return {
-            dataType,
-            identifierField,
-            identifierType,
-            isSubject,
-            logicalType,
-            hasPrivacyData
-          };
-        });
+        return {
+          dataType,
+          identifierField,
+          identifierType,
+          isSubject,
+          logicalType,
+          hasPrivacyData
+        };
+      });
     }
   ),
 
@@ -190,10 +172,7 @@ export default Component.extend({
    * @return {String| void}
    */
   changeFieldLogicalType(fieldName, format) {
-    const sourceField = get(this, complianceListKey).findBy(
-      'identifierField',
-      fieldName
-    );
+    const sourceField = get(this, complianceListKey).findBy('identifierField', fieldName);
 
     if (sourceField && logicalTypes.includes(format)) {
       return set(sourceField, 'logicalType', String(format).toUpperCase());
@@ -239,11 +218,7 @@ export default Component.extend({
         //   privacyCompliancePolicy.compliancePurgeEntities in case it
         //   is added back during the session
         set(props, 'identifierType', null);
-        return sourceEntities.setObjects(
-          sourceEntities.filter(
-            item => item.identifierField !== identifierField
-          )
-        );
+        return sourceEntities.setObjects(sourceEntities.filter(item => item.identifierField !== identifierField));
       }
     }[toggle]();
   },
@@ -255,10 +230,7 @@ export default Component.extend({
    * @return {Boolean} has or does not
    */
   ensureTypeContainsFormat: sourceEntities =>
-    sourceEntities.every(entity =>
-      ['member', 'organization', 'group'].includes(
-        get(entity, 'identifierType')
-      )),
+    sourceEntities.every(entity => ['member', 'organization', 'group'].includes(get(entity, 'identifierType'))),
 
   /**
    * Checks that each privacyCompliancePolicy.compliancePurgeEntities has
@@ -269,8 +241,7 @@ export default Component.extend({
   ensureTypeContainsLogicalType: sourceEntities => {
     const logicalTypesInUppercase = logicalTypes.map(type => type.toUpperCase());
 
-    return sourceEntities.every(entity =>
-      logicalTypesInUppercase.includes(get(entity, 'logicalType')));
+    return sourceEntities.every(entity => logicalTypesInUppercase.includes(get(entity, 'logicalType')));
   },
 
   /**
@@ -296,20 +267,19 @@ export default Component.extend({
       .then(({ status = 'error' }) => {
         // The server api currently responds with an object containing
         //   a status when complete
-        return status === 'ok' ?
-          setProperties(this, {
-            _message: successMessage || successUpdating,
-            _alertType: 'success'
-          }) :
-          Promise.reject(new Error(`Reason code for this is ${status}`));
+        return status === 'ok'
+          ? setProperties(this, {
+              _message: successMessage || successUpdating,
+              _alertType: 'success'
+            })
+          : Promise.reject(new Error(`Reason code for this is ${status}`));
       })
       .catch(err => {
         let _message = `${failedUpdating} \n ${err}`;
         let _alertType = 'danger';
 
         if (get(this, 'isNewPrivacyCompliancePolicy')) {
-          _message = 'This dataset does not have any ' +
-            'previously saved fields with a identifying information.';
+          _message = 'This dataset does not have any previously saved fields with a identifying information.';
           _alertType = 'info';
         }
 
@@ -367,9 +337,7 @@ export default Component.extend({
 
       // Ensure that a flag isSubject is present on the props
       if (props && 'isSubject' in props) {
-        const sourceField = get(this, complianceListKey).find(
-          ({ identifierField }) => identifierField === name
-        );
+        const sourceField = get(this, complianceListKey).find(({ identifierField }) => identifierField === name);
 
         set(sourceField, 'isSubject', !isSubject);
       }
@@ -388,11 +356,7 @@ export default Component.extend({
         'has-member': 'member'
       }[sectionName];
 
-      return set(
-        this,
-        `userIndicatesDatasetHas.${section}`,
-        isPrivacyIdentifiable
-      );
+      return set(this, `userIndicatesDatasetHas.${section}`, isPrivacyIdentifiable);
     },
 
     /**
@@ -400,12 +364,8 @@ export default Component.extend({
      */
     saveCompliance() {
       const complianceList = get(this, complianceListKey);
-      const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(
-        complianceList
-      );
-      const allEntitiesHaveValidLogicalType = this.ensureTypeContainsLogicalType(
-        complianceList
-      );
+      const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(complianceList);
+      const allEntitiesHaveValidLogicalType = this.ensureTypeContainsLogicalType(complianceList);
 
       if (allEntitiesHaveValidFormat && allEntitiesHaveValidLogicalType) {
         return this.whenRequestCompletes(this.get('onSave')());
