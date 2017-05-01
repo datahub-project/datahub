@@ -31,6 +31,16 @@
     </div>
   {{/if}}
 
+  {{#if isNewPrivacyCompliancePolicy}}
+    <div class="alert alert-info" role="alert">
+      <p>
+        A policy does not currently exist for this dataset.
+        <br>
+        Even if there are no privacy concerns, please ensure you click "Save".
+      </p>
+    </div>
+  {{/if}}
+
   {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
   {{#if containsHiddenTrackingFields}}
     <div class="alert alert-info" role="alert">
