@@ -20,6 +20,11 @@
 
   <div class="alert alert-info" role="alert">
     <p>
+      <strong>
+        Why can't I click save? It's greyed out
+      </strong>
+    </p>
+    <p>
       Please note that to make any update the list of owners for this dataset,
       there needs to be:
     </p>
@@ -35,6 +40,12 @@
       </li>
     </ul>
     <br>
+
+    <p>
+      <strong>
+        Why can't I remove an owner?
+      </strong>
+    </p>
     <p>
       Only owners that are not sourced from <code>SCM</code> or <code>NUAGE</code> can be removed
       from this list. To remove any such owner(s), please make the change at the
@@ -100,7 +111,8 @@
         <td>{{owner.idType}}</td>
         <td>{{owner.source}}</td>
         <td class="dataset-author-cell__owner-last-mod">
-          {{moment-calendar owner.modifiedTime}}
+          {{!-- e.g Jul 18th '16, 11:11 am --}}
+          {{moment-calendar owner.modifiedTime sameElse="MMM Do 'YY, h:m a"}}
         </td>
         <td>
           {{ember-selector

@@ -199,10 +199,15 @@ class HiveTransform:
         instance_file_writer.append(dataset_instance_record)
 
         if dataset_urn not in self.dataset_dict:
-          dataset_scehma_record = DatasetSchemaRecord(table['dataset_name'], json.dumps(schema_json),
+          dataset_scehma_record = DatasetSchemaRecord(table['dataset_name'],
+                                                      json.dumps(schema_json),
                                                       json.dumps(prop_json),
-                                                      json.dumps(flds), dataset_urn, 'Hive', one_db_info['type'],
-                                                      table['type'], '',
+                                                      json.dumps(flds),
+                                                      dataset_urn,
+                                                      'Hive',
+                                                      one_db_info['type'],
+                                                      table['type'],
+                                                      '',
                                                       table.get(TableInfo.create_time),
                                                       (int(table.get(TableInfo.source_modified_time,"0"))))
           schema_file_writer.append(dataset_scehma_record)
