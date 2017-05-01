@@ -1,0 +1,31 @@
+version: "3"
+services:
+  mysql:
+    image: "wherehows/mysql:1"
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: wherehows
+  backend:
+    image: "wherehows/backend:1"
+    ports:
+      - "9001:9000"
+    environment:
+      WHZ_DB_USERNAME: wherehows
+      WHZ_DB_PASSWORD: wherehows
+      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows
+      PLAY_CRYPTO_SECRET: changeme
+    links:
+      - "mysql:mysql"
+  web:
+    image: "wherehows/web:1"
+    ports:
+      - "9000:9000"
+    environment:
+      WHZ_DB_USERNAME: wherehows
+      WHZ_DB_PASSWORD: wherehows
+      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows
+      MYSQL_HOST: mysql
+      HDFS_HOST: "127.0.0.1"
+    links:
+      - "mysql:mysql"
