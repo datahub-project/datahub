@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import connect from 'ember-redux/components/connect';
+import { urnRegex } from 'wherehows-web/utils/validators/urn';
 
 const { Component } = Ember;
 
@@ -10,19 +11,12 @@ const { Component } = Ember;
  */
 const pageRegex = /\/page\/([0-9]+)/i;
 /**
- * Matches a url string with a `urn` query. urn query starts with letters or underscore segment of any length greater
- *   than 1 followed by colon and 3 forward slashes and a segment containing letters, _ or /, or none
- *   The value following the urn key is retained
- * @type {RegExp}
- */
-const urnRegex = /urn=([a-z_]+[:\/]{3}[a-z_\/]*)/i;
-/**
- * Matches a url string path segment that optionally starts with a hash followed by forward slash, at least one
- * alphabet, forward slash, number of varying length and optional trailing slash
+ * Matches a url string path segment that optionally starts with a hash followed by forward slash,
+ * either datasets or flows or metrics, forward slash, number of varying length and optional trailing slash
  * The number is retained
  * @type {RegExp}
  */
-const entityRegex = /^#?\/[a-z]+\/([0-9]+)\/?/i;
+const entityRegex = /^#?\/(?:datasets|metrics|flows)\/([0-9]+)\/?/;
 
 /**
  * Takes a node url and parses out the query params and path spec to be included in  the link component
@@ -46,7 +40,8 @@ const nodeUrlToQueryParams = nodeUrl => {
   // If we have a urn match, append the urn to eventual query params object
   if (Array.isArray(urnMatch)) {
     queryParams = Object.assign({}, queryParams, {
-      urn: urnMatch[1]
+      // Extract the entire match as urn value
+      urn: urnMatch[0]
     });
   }
 
