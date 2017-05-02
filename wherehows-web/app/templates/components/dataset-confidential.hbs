@@ -62,11 +62,13 @@
 
           <span class="dataset-tag-container">
             {{#if (eq props.value true)}}
-              <i class="glyphicon glyphicon-ok dataset-tagged" title="{{props.label}} is in dataset"></i>
+              <i class="glyphicon glyphicon-ok dataset-classification-indicator--tagged"
+                 title="{{props.label}} is in dataset"></i>
             {{/if}}
 
             {{#if (eq props.value false)}}
-              <i class="glyphicon glyphicon-remove dataset-not-tagged" title="{{props.label}} is not in dataset"></i>
+              <i class="glyphicon glyphicon-remove dataset-classification-indicator--not-tagged"
+                 title="{{props.label}} is not in dataset"></i>
             {{/if}}
           </span>
         </td>
