@@ -24,7 +24,7 @@ export default route({
      */
     afterModel(model, transition) {
       // Extract the entity being viewed from the transition state
-      const { params: { 'browse.entity': { entity = 'datasets' } } } = transition;
+      const { params: { 'browse.entity': { entity = 'datasets' } = {} } } = transition;
       this.transitionTo('browse.entity', entity);
     }
   })
