@@ -45,7 +45,8 @@
           "type": "string"
         },
         "metric_name_suggest": {
-          "type": "completion"
+          "type": "completion",
+          "analyzer": "standard"
         },
         "metric_ref_id": {
           "type": "string"
@@ -122,7 +123,8 @@
           "type": "string"
         },
         "name_suggest": {
-          "type": "completion"
+          "type": "completion",
+          "analyzer": "standard"
         },
         "parent_name": {
           "type": "string"
@@ -193,7 +195,8 @@
           "type": "string"
         },
         "flow_name_suggest": {
-          "type": "completion"
+          "type": "completion",
+          "analyzer": "standard"
         },
         "flow_path": {
           "type": "string"
@@ -229,7 +232,8 @@
               "type": "string"
             },
             "job_name_suggest": {
-              "type": "completion"
+              "type": "completion",
+              "analyzer": "standard"
             },
             "job_path": {
               "type": "string"
