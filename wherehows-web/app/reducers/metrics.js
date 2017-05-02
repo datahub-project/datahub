@@ -1,14 +1,23 @@
 import { initializeState, createUrnMapping, receiveEntities, createPageMapping } from 'wherehows-web/reducers/entities';
 import { ActionTypes } from 'wherehows-web/actions/metrics';
 
+
+/**
+ * Sets the default initial state for metrics slice. Appends a byName property to the shared representation.
+ * @type {Object}
+ */
+const initialState = Object.assign({}, initializeState(), {
+  byName: {}
+});
+
 /**
  * Takes the `metrics` slice of the state tree and performs the specified reductions for each action
- * @param {Object} state slice of the state tree this reducer is responsible for
+ * @param {Object} state = initialState slice of the state tree this reducer is responsible for
  * @param {Object} action Flux Standard Action representing the action to be preformed on the state
  * @prop {String} action.type actionType
  * @return {Object}
  */
-export default (state = initializeState(), action = {}) => {
+export default (state = initialState, action = {}) => {
   switch (action.type) {
     // Action indicating a request for metrics by page
     case ActionTypes.SELECT_PAGED_METRICS:
