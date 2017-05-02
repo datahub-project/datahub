@@ -46,10 +46,12 @@ class SchemaUrlHelper:
     :param hdfs_uri: hdfs://hadoop-name-node:port
     :param kerberos: optional, if kerberos authentication is needed
     :param kerberos_principal: optional, user@DOMAIN.COM
-    :param keytab_file: optional, user.keytab or ~/.kerberos/user.keytab
+    :param keytab_file: optional, absolute path to keytab file
     """
 
     self.logger = LoggerFactory.getLogger(self.__class__.__name__)
+
+    self.logger.info("keytab_file: " + keytab_file)
 
     hdfs_conf = Configuration()
     if hdfs_uri.startswith('hdfs://'):
@@ -57,29 +59,14 @@ class SchemaUrlHelper:
     elif hdfs_uri > "":
       self.logger.error("%s is an invalid uri for hdfs namenode ipc bind." % hdfs_uri)
 
-    if kerberos == True:  #  init kerberos and keytab
+    if kerberos:  #  init kerberos and keytab
       if not kerberos_principal or not keytab_file or kerberos_principal == '' or keytab_file == '':
         print "Kerberos Principal and Keytab File Name/Path are required!"
-
-      keytab_path = keytab_file
-      if keytab_file.startswith('/'):
-        if os.path.exists(keytab_file):
-          keytab_path = keytab_file
-          print "Using keytab at %s" % keytab_path
-      else:  # try relative path
-        all_locations = [os.getcwd(), expanduser("~") + "/.ssh",
-            expanduser("~") + "/.kerberos", expanduser("~") + "/.wherehows",
-            os.getenv("APP_HOME"), os.getenv("WH_HOME")]
-        for loc in all_locations:
-          if os.path.exists(loc + '/' + keytab_file):
-            keytab_path = loc + '/' + keytab_file
-            print "Using keytab at %s" % keytab_path
-            break
 
       hdfs_conf.set("hadoop.security.authentication", "kerberos")
       hdfs_conf.set("dfs.namenode.kerberos.principal.pattern", "*")
       UserGroupInformation.setConfiguration(hdfs_conf)
-      UserGroupInformation.loginUserFromKeytab(kerberos_principal, keytab_path)
+      UserGroupInformation.loginUserFromKeytab(kerberos_principal, keytab_file)
 
     self.fs = Hdfs.get(hdfs_conf)
 
@@ -99,7 +86,7 @@ class SchemaUrlHelper:
       else:
         return None
     except:
-      return None    
+      return None
 
   def get_from_http(self, file_loc):
     """

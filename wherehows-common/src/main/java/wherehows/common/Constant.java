@@ -254,4 +254,8 @@ public class Constant {
 
   // metadata-store restli server
   public static final String WH_RESTLI_SERVER_URL = "wherehows.restli.server.url";
+
+  // kerberos
+  public static final String KRB5_REALM = "krb5.realm";
+  public static final String KRB5_KDC = "krb5.kdc";
 }
