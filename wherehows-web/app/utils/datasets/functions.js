@@ -31,7 +31,8 @@ const createSecuritySpecification = id => {
     datasetId: id,
     geographicAffinity: { affinity: '' },
     recordOwnerType: '',
-    retentionPolicy: { retentionType: '' }
+    retentionPolicy: { retentionType: '' },
+    datasetClassification: {}
   };
 
   return JSON.parse(JSON.stringify(securitySpecification));

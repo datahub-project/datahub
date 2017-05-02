@@ -1,6 +1,6 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
-import { defaultFieldDataTypeClassification, classifiers } from 'wherehows-web/constants';
+import { defaultFieldDataTypeClassification, classifiers, datasetClassifiers } from 'wherehows-web/constants';
 
 const {
   get,
@@ -14,8 +14,17 @@ const {
   String: { htmlSafe }
 } = Ember;
 
-// String constant identifying the classified fields on the security spec
+/**
+ * String constant identifying the classified fields on the security spec
+ * @type {String}
+ */
 const sourceClassificationKey = 'securitySpecification.classification';
+
+/**
+ * String constant identifying the datasetClassification on the security spec
+ * @type {String}
+ */
+const datasetClassificationKey = 'securitySpecification.datasetClassification';
 
 /**
  * List of logical types  / field level data types
@@ -23,6 +32,11 @@ const sourceClassificationKey = 'securitySpecification.classification';
  * @type {Array}
  */
 const logicalTypes = Object.keys(defaultFieldDataTypeClassification);
+/**
+ * A list of available keys for the datasetClassification map on the security specification
+ * @type {Array}
+ */
+const datasetClassifiersKeys = Object.keys(datasetClassifiers);
 
 // TODO: DSS-6671 Extract to constants module
 const successUpdating = 'Your changes have been successfully saved!';
@@ -70,15 +84,31 @@ export default Component.extend({
   }),
 
   /**
+   * Computed property that is dependent on all the keys in the datasetClassification map
+   *   Returns a new map of datasetClassificationKey: String-> Object.<Boolean|undefined,String>
+   * @type {Ember.computed}
+   */
+  datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
+    const sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+
+    return Object.keys(datasetClassifiers).reduce((datasetClassification, classifier) => {
+      datasetClassification[classifier] = {
+        value: sourceDatasetClassification[classifier],
+        label: datasetClassifiers[classifier]
+      };
+
+      return datasetClassification;
+    }, {});
+  }),
+
+  /**
    * Creates a lookup table of fieldNames to classification
    *   Also, the expectation is that the association from fieldName -> classification
    *   is one-to-one hence no check to ensure a fieldName gets clobbered
    *   in the lookup assignment
    */
   fieldNameToClass: computed(
-    `${sourceClassificationKey}.confidential.[]`,
-    `${sourceClassificationKey}.limitedDistribution.[]`,
-    `${sourceClassificationKey}.highlyConfidential.[]`,
+    `${sourceClassificationKey}.{confidential,limitedDistribution,highlyConfidential}.[]`,
     function () {
       const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
       // Creates a lookup table of fieldNames to classification
@@ -105,9 +135,7 @@ export default Component.extend({
    *   securitySpecification.classification or null if not found
    */
   classificationDataFields: computed(
-    `${sourceClassificationKey}.confidential.[]`,
-    `${sourceClassificationKey}.limitedDistribution.[]`,
-    `${sourceClassificationKey}.highlyConfidential.[]`,
+    `${sourceClassificationKey}.{confidential,limitedDistribution,highlyConfidential}.[]`,
     'schemaFieldNamesMappedToDataTypes',
     function () {
       // Set default or if already in policy, retrieve current values from
@@ -328,6 +356,16 @@ export default Component.extend({
         // Finally perform operation
         classification.addObject(Object.assign({}, props));
       }
+    },
+
+    /**
+     * Updates the source object representing the current datasetClassification map
+     * @param {String} classifier the property on the datasetClassification to update
+     * @param {Boolean} value flag indicating if this dataset contains member data for the specified classifier
+     */
+    didChangeDatasetClassification(classifier, value) {
+      const sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+      return set(sourceDatasetClassification, classifier, value);
     },
 
     /**

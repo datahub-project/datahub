@@ -60,7 +60,7 @@
     <div class="alert alert-success" role="alert">{{actionMessage}}</div>
   {{/if}}
 
-  <table class="nacho-table nacho-table--bordered">
+  <table class="nacho-table nacho-table--bordered nacho-table--stripped">
     <thead>
     <tr>
       <th>User Name</th>
@@ -111,8 +111,8 @@
         <td>{{owner.idType}}</td>
         <td>{{owner.source}}</td>
         <td class="dataset-author-cell__owner-last-mod">
-          {{!-- e.g Jul 18th '16, 11:11 am --}}
-          {{moment-calendar owner.modifiedTime sameElse="MMM Do 'YY, h:m a"}}
+          {{!-- e.g Jul 18th 2016, 11:11 am --}}
+          {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
         </td>
         <td>
           {{ember-selector

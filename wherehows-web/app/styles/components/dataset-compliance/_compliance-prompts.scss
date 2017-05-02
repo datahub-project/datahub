@@ -27,3 +27,25 @@
     background-color: tint(set-color(green, green5), 65%);
   }
 }
+
+/// Wraps a status notification icon for a given dataset
+.dataset-tag-container {
+  width: 20px;
+  display: inline-block;
+}
+
+/// A notification that a dataset contains a tag
+.dataset-tagged {
+
+  &::before {
+    color: set-color(green, green5);
+  }
+}
+
+/// A notification that a dataset does not contains a tag
+.dataset-not-tagged {
+
+  &::before {
+    color: set-color(red, red5);
+  }
+}
