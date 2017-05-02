@@ -89,7 +89,7 @@ export default Component.extend({
    * @type {Ember.computed}
    */
   datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
-    const sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+    const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
 
     return Object.keys(datasetClassifiers).reduce((datasetClassification, classifier) => {
       datasetClassification[classifier] = {
@@ -364,7 +364,13 @@ export default Component.extend({
      * @param {Boolean} value flag indicating if this dataset contains member data for the specified classifier
      */
     didChangeDatasetClassification(classifier, value) {
-      const sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+      let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+
+      // For datasets initially without a datasetClassification, the default value is null
+      if (sourceDatasetClassification === null) {
+        sourceDatasetClassification = set(this, datasetClassificationKey, {});
+      }
+
       return set(sourceDatasetClassification, classifier, value);
     },
 
