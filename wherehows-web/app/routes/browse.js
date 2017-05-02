@@ -19,6 +19,8 @@ export default route({
   Route.extend(AuthenticatedRouteMixin, {
     /**
      * Browse route does not render any content, but hydrates the store with initial data transition to child route
+     * @param  {Object} model result from model call
+     * @param {Ember.Transition} transition
      */
     afterModel(model, transition) {
       // Extract the entity being viewed from the transition state
