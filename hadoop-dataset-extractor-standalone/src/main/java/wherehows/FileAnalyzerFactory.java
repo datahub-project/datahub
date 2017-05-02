@@ -33,6 +33,7 @@ public class FileAnalyzerFactory {
   public FileAnalyzerFactory(FileSystem fs) {
     allFileAnalyzer = new ArrayList<FileAnalyzer>();
     allFileAnalyzer.add(new AvroFileAnalyzer(fs));
+    allFileAnalyzer.add(new ParquetFileAnalyzer(fs));
     // allFileAnalyzer.add(new OrcFileAnalyzer(fs));
     // linkedin specific
     // allFileAnalyzer.add(new BinaryJsonFileAnalyzer(fs));
