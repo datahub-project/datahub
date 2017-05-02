@@ -26,6 +26,73 @@
     </div>
   {{/if}}
 
+  <section class="metadata-prompt">
+    <header class="metadata-prompt__header">
+      <p>
+        This dataset contains the following types of Member data:
+
+        <!--TODO: DSS-6716-->
+        <!-- DRY out with wrapper component that takes the link as an attribute-->
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on Dataset classification with examples"></span>
+          </sup>
+        </a>
+      </p>
+    </header>
+  </section>
+
+  <table class="nacho-table nacho-table--bordered nacho-table--stripped">
+    <thead>
+    <tr>
+      <th>Dataset Content Type</th>
+      <th>Is this type of member data contained in this dataset?</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each-in datasetClassification as |classification props|}}
+      <tr>
+        <td>
+          {{props.label}}
+
+          <span class="dataset-tag-container">
+            {{#if (eq props.value true)}}
+              <i class="glyphicon glyphicon-ok dataset-tagged" title="{{props.label}} is in dataset"></i>
+            {{/if}}
+
+            {{#if (eq props.value false)}}
+              <i class="glyphicon glyphicon-remove dataset-not-tagged" title="{{props.label}} is not in dataset"></i>
+            {{/if}}
+          </span>
+        </td>
+        <td>
+          {{#radio-button-composer
+            value=true
+            name=classification
+            groupValue=(readonly props.value)
+            changed=(action "didChangeDatasetClassification")}}
+            Yes
+          {{/radio-button-composer}}
+          {{#radio-button-composer
+            value=false
+            name=classification
+            groupValue=(readonly props.value)
+            changed=(action "didChangeDatasetClassification")}}
+            No
+          {{/radio-button-composer}}
+        </td>
+      </tr>
+    {{/each-in}}
+    </tbody>
+  </table>
+
+  <br>
+
   {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
   {{#if containsHiddenTrackingFields}}
     <div class="alert alert-info" role="alert">
