@@ -10,7 +10,7 @@ jacoco {
 }
 
 jacocoFull {
-    excludeProject ":wherehows-backend", ":hadoop-dataset-extractor-standalone", ':data-model', ':wherehows-etl', ':wherehows-common'
+    excludeProject ":wherehows-backend", ":wherehows-hadoop", ':data-model', ':wherehows-etl', ':wherehows-common'
 }
 
 // Add the jacoco plugin to each project

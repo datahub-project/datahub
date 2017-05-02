@@ -1,2 +1,2 @@
-include "wherehows-common", "hadoop-dataset-extractor-standalone", "wherehows-etl", "data-model", "wherehows-backend",
+include "wherehows-common", "wherehows-hadoop", "wherehows-etl", "data-model", "wherehows-backend",
   "wherehows-api", "restli-client", "wherehows-web"
