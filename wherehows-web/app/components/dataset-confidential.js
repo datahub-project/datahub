@@ -75,7 +75,7 @@ export default Component.extend({
     const label = value ?
       value.replace(/_/g, ' ')
         .replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize()) :
-      'Please Select';
+      'Not Specified';
 
     return {
       value,
