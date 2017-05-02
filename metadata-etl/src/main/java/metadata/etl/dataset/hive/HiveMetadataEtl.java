@@ -16,6 +16,7 @@ package metadata.etl.dataset.hive;
 import java.io.InputStream;
 import java.util.Properties;
 import metadata.etl.EtlJob;
+import wherehows.common.Constant;
 
 
 /**
@@ -37,6 +38,10 @@ public class HiveMetadataEtl extends EtlJob {
   public void extract()
     throws Exception {
     logger.info("In Hive metadata ETL, launch extract jython scripts");
+
+    System.setProperty("java.security.krb5.realm", prop.getProperty(Constant.KRB5_REALM));
+    System.setProperty("java.security.krb5.kdc", prop.getProperty(Constant.KRB5_KDC));
+
     InputStream inputStream = classLoader.getResourceAsStream("jython/HiveExtract.py");
     //logger.info("before call scripts " + interpreter.getSystemState().argv);
     interpreter.execfile(inputStream);

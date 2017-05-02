@@ -83,8 +83,8 @@ public class HadoopJobHistoryNodeExtractor {
     }
     System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
 
-    System.setProperty("java.security.krb5.realm", prop.getProperty("krb5.realm"));
-    System.setProperty("java.security.krb5.kdc", prop.getProperty("krb5.kdc"));
+    System.setProperty("java.security.krb5.realm", prop.getProperty(Constant.KRB5_REALM));
+    System.setProperty("java.security.krb5.kdc", prop.getProperty(Constant.KRB5_KDC));
 
     PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
     cm.setMaxTotal(200);
