@@ -21,7 +21,7 @@
   &__page-number {
     display: inline-block;
     font-size: 16px;
-    border:1px solid set-color(grey, light);
+    border: 1px solid set-color(grey, light);
     border-radius: 2px;
     padding: 5px;
     background-color: tint(set-color(green, green5), 65%);
@@ -34,18 +34,18 @@
   display: inline-block;
 }
 
-/// A notification that a dataset contains a tag
-.dataset-tagged {
-
-  &::before {
-    color: set-color(green, green5);
+.dataset-classification-indicator {
+  /// A notification that a dataset contains a tag
+  &--tagged {
+    &::before {
+      color: set-color(green, green5);
+    }
   }
-}
 
-/// A notification that a dataset does not contains a tag
-.dataset-not-tagged {
-
-  &::before {
-    color: set-color(red, red5);
+  /// A notification that a dataset does not contains a tag
+  &--not-tagged {
+    &::before {
+      color: set-color(red, red5);
+    }
   }
 }
