@@ -1,6 +1,10 @@
 <div id="confidential" class="tab-body">
   <section class="action-bar">
     <button class="nacho-button nacho-button--large-inverse"
+            title={{unless isDatasetFullyClassified
+                           "Ensure you have provided a yes/no value for all dataset tags"
+                           "Save"}}
+              disabled={{not isDatasetFullyClassified}}
       {{action "saveSecuritySpecification"}}>
       Save
     </button>
@@ -11,6 +15,18 @@
       Start Over
     </button>
   </section>
+
+  <div class="alert alert-info" role="alert">
+    <p>
+      <strong>
+        Why can't I click save? It's greyed out
+      </strong>
+    </p>
+    <p>
+      Please note that to save any updates to the confidential specification of this dataset,
+      all Dataset Content Types below need a yes/no value for <strong>each</strong> content type.
+    </p>
+  </div>
 
   <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
     {{if _message _message ""}}

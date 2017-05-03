@@ -84,6 +84,18 @@ export default Component.extend({
   }),
 
   /**
+   * Checks that all tags/ dataset content types have a boolean value
+   * @type {Ember.computed}
+   */
+  isDatasetFullyClassified: computed('datasetClassification', function() {
+    const datasetClassification = get(this, 'datasetClassification');
+
+    return Object.keys(datasetClassification)
+      .map(key => ({ value: datasetClassification[key].value }))
+      .every(({ value }) => [true, false].includes(value));
+  }),
+
+  /**
    * Computed property that is dependent on all the keys in the datasetClassification map
    *   Returns a new map of datasetClassificationKey: String-> Object.<Boolean|undefined,String>
    * @type {Ember.computed}
