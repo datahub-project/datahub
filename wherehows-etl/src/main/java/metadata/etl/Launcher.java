@@ -27,7 +27,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * For a standalone lineage ETL entrance
- * java -jar metadata-ETL.jar dev
+ * java -jar wherehows-etl.jar dev
  */
 public class Launcher {
 

@@ -22,7 +22,7 @@
 --   + MetastoreTableAudit
 --   + MetastorePartitionAudit
 -- Mapping {Kafka topic => stg table} is loaded in
--- backend-service/app/actors/KafkaConsumerMaster.java
+-- wherehows-backend/app/actors/KafkaConsumerMaster.java
 -- Avro schemas of the Kafka event are available in
 -- data-model/avro
 

@@ -106,7 +106,7 @@ To run the backend service:
 
 Set the variables in application.env to configure the application.
 
-To Run backend service application on port 19001 (from the backend-service folder):
+To Run backend service application on port 19001 (from the wherehows-backend folder):
 ```
 ./runBackend
 ```

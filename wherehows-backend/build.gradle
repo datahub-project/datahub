@@ -7,7 +7,7 @@ project.ext.playBinaryBaseName = "wherehows-backend"
 dependencies{
     // User defined libraries (will be copied to lib/ before `play compile`)
     play project(":wherehows-common")
-    play project(":metadata-etl")
+    play project(":wherehows-etl")
 
     play externalDependency.play_java_jdbc
     play externalDependency.slf4j_api
