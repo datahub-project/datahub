@@ -18,10 +18,14 @@ export default route({
 })(
   Route.extend(AuthenticatedRouteMixin, {
     /**
-     * Browse route does not render any content,  but hydrates the store with initial data transition to child route
+     * Browse route does not render any content, but hydrates the store with initial data transition to child route
+     * @param  {Object} model result from model call
+     * @param {Ember.Transition} transition
      */
-    afterModel() {
-      this.transitionTo('browse.entity', 'datasets');
+    afterModel(model, transition) {
+      // Extract the entity being viewed from the transition state
+      const { params: { 'browse.entity': { entity = 'datasets' } = {} } } = transition;
+      this.transitionTo('browse.entity', entity);
     }
   })
 );
