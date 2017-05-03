@@ -44,10 +44,10 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 ### Build
 
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
-2. Put a few 3rd-party jar files to **metadata-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/metadata-etl/extralibs```
+2. Put a few 3rd-party jar files to **wherehows-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/wherehows-etl/extralibs```
 3. From the **WhereHows** root directory and build all the modules: ```./gradlew build```
-4. Start the metadata ETL and API service: ```./gradlew backend-service:runPlayBinary```
-5. In a new terminal, start the web front-end: ```./gradlew web:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```web/build.gradle```.
+4. Start the metadata ETL and API service: ```./gradlew wherehows-backend:runPlayBinary```
+5. In a new terminal, start the web front-end: ```./gradlew wherehows-api:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```wherehows-api/build.gradle```.
 
 ## Contribute
 
