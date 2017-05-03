@@ -1,6 +1,6 @@
 It is pretty easy to create all metadata tables in mysql client.
 ```
-cd WhereHows/data-model/DDL
+cd WhereHows/wherehows-data-model/DDL
 mysql -hlocalhost -uwherehows -pwherehows -Dwherehows < create_all_tables_wrapper.sql
 ```
 

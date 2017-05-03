@@ -63,7 +63,7 @@ Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 [CON]: https://github.com/LinkedIn/Wherehows/wiki/Contributing
 [VM]: https://github.com/LinkedIn/Wherehows/wiki/Quick-Start-With-VM
 [EXJAR]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#download-third-party-jar-files
-[DDL]: https://github.com/linkedin/WhereHows/tree/master/data-model/DDL
+[DDL]: https://github.com/linkedin/WhereHows/tree/master/wherehows-data-model/DDL
 [DB]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#set-up-your-database
 [LIST]: https://groups.google.com/forum/#!forum/wherehows
 [GITTER]: https://gitter.im/wherehows
