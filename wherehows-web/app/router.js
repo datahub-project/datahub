@@ -46,11 +46,11 @@ const AppRouter = Router.extend({
         const routerJs = get(this, 'router');
         const queryParams = routerJs ? get(routerJs, 'state.queryParams') : {};
         // const queryParams = routerJs ? get(routerJs, 'activeTransition.queryParams') : {};
-        const { keyword, category = 'datasets' } = queryParams;
+        const { keyword, category = 'datasets', page = 1 } = queryParams;
 
         // Early exit once we track search, so we do not invoke the
         //   default op by invoking `trackPageView` event
-        return paq.push(['trackSiteSearch', keyword, category, false]);
+        return paq.push(['trackSiteSearch', keyword, category, page]);
       }
 
       metrics.trackPage({ page, title });
