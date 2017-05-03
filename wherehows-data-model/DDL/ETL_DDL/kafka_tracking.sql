@@ -24,7 +24,7 @@
 -- Mapping {Kafka topic => stg table} is loaded in
 -- wherehows-backend/app/actors/KafkaConsumerMaster.java
 -- Avro schemas of the Kafka event are available in
--- data-model/avro
+-- wherehows-data-model/avro
 
 -- staging table for Gobblin tracking event compaction
 CREATE TABLE `stg_kafka_gobblin_compaction` (
