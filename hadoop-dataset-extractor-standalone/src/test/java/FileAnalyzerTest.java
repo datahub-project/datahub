@@ -18,7 +18,6 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import wherehows.FileAnalyzerFactory;
 import wherehows.common.schemas.DatasetJsonRecord;
-import wherehows.common.schemas.DatasetSchemaRecord;
 import wherehows.common.schemas.SampleDataRecord;
 
 import java.io.IOException;
@@ -63,6 +62,20 @@ public class FileAnalyzerTest {
     assert schema != null;
 
     SampleDataRecord sampleData = fileAnalyzerFactory.getSampleData(pt, "test_sample.orc");
+    assert sampleData != null;
+  }
+
+  @Test
+  public void testParquet()
+          throws IOException, URISyntaxException {
+
+    URL url = ClassLoader.getSystemResource("test_sample.parquet");
+    Path pt = new Path(url.toURI());
+    FileAnalyzerFactory fileAnalyzerFactory = new FileAnalyzerFactory(fs);
+    DatasetJsonRecord schema = fileAnalyzerFactory.getSchema(pt, "test_sample.parquet");
+
+    assert schema != null;
+    SampleDataRecord sampleData = fileAnalyzerFactory.getSampleData(pt, "test_sample.parquet");
     assert sampleData != null;
   }
 }

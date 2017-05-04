@@ -101,6 +101,7 @@ subprojects {
                             "jgit"                : "org.eclipse.jgit:org.eclipse.jgit:4.1.2.201602141800-r",
                             "jsoup"               : "org.jsoup:jsoup:1.8.3",
                             "commons_io"          : "commons-io:commons-io:2.5",
+                            "parquet_avro"        : "org.apache.parquet:parquet-avro:1.8.1",
 
                             "jackson_databind"    : "com.fasterxml.jackson.core:jackson-databind:2.8.4",
                             "jackson_core"        : "com.fasterxml.jackson.core:jackson-core:2.8.4",
