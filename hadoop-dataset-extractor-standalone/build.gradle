@@ -33,7 +33,7 @@ dependencies {
   compile externalDependency.http_client
   compile externalDependency.http_core
   compile externalDependency.logback
-  compile 'org.apache.parquet:parquet-avro:1.8.1'
+  compile externalDependency.parquet_avro
 
   testCompile externalDependency.testng
   testCompile externalDependency.hadoop_client
