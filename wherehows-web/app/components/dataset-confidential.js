@@ -330,7 +330,7 @@ export default Component.extend({
      *   remove the identifierField from
      */
     updateClassification(props, { value: classKey }) {
-      const { identifierField } = props;
+      const { identifierField, logicalType, identifierType } = props;
       // fieldNames can be paths i.e. identifierField.identifierPath.subPath
       //   therefore, using Ember's `path lookup` syntax will not work
       const currentClassLookup = get(this, 'fieldNameToClass');
@@ -369,7 +369,7 @@ export default Component.extend({
         }
 
         // Finally perform operation
-        classification.addObject(Object.assign({}, props));
+        classification.addObject(Object.assign({}, { identifierField, logicalType, identifierType }));
       }
     },
 
