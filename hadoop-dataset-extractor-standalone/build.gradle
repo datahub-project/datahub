@@ -21,7 +21,7 @@ dependencies {
   extraLibs externalDependency.avro_mapred
   extraLibs externalDependency.hive_exec
   extraLibs externalDependency.pig
-  extraLibs 'org.apache.parquet:parquet-avro:1.8.1'
+  extraLibs externalDependency.parquet_avro
 
   compile project(":wherehows-common")
   compile externalDependency.hadoop_common
