@@ -150,14 +150,14 @@ export default Component.extend({
   classificationDataFields: computed(
     `${sourceClassificationKey}.{confidential,limitedDistribution,highlyConfidential}.[]`,
     'schemaFieldNamesMappedToDataTypes',
-    function () {
+    function() {
       // Set default or if already in policy, retrieve current values from
       //   privacyCompliancePolicy.compliancePurgeEntities
       return getWithDefault(
         this,
         'schemaFieldNamesMappedToDataTypes',
         []
-      ).map(({ fieldName: identifierField, identifierType }) => {
+      ).map(({ fieldName: identifierField, dataType: identifierType }) => {
         // Get the current classification list
         const currentClassLookup = get(this, 'fieldNameToClass');
         const classification = currentClassLookup[identifierField];
@@ -330,7 +330,7 @@ export default Component.extend({
      *   remove the identifierField from
      */
     updateClassification(props, { value: classKey }) {
-      const { identifierField, logicalType, identifierType } = props;
+      const { identifierField, logicalType } = props;
       // fieldNames can be paths i.e. identifierField.identifierPath.subPath
       //   therefore, using Ember's `path lookup` syntax will not work
       const currentClassLookup = get(this, 'fieldNameToClass');
@@ -369,7 +369,7 @@ export default Component.extend({
         }
 
         // Finally perform operation
-        classification.addObject(Object.assign({}, { identifierField, logicalType, identifierType }));
+        classification.addObject(Object.assign({}, { identifierField, logicalType }));
       }
     },
 
