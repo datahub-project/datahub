@@ -28,22 +28,6 @@ import java.util.*;
 
 public class Search
 {
-
-    private final static String datasetMustQueryUnit =
-            "{\"bool\": " +
-                "{\"must\":[" +
-                    "{\"bool\":" +
-                        "{\"should\":" +
-                            "[{\"bool\":{\"should\":[{\"wildcard\":{\"name\":{\"value\":\"*$VALUE*\",\"boost\":16}}}," +
-                            "{\"prefix\":{\"name\":{\"value\":\"$VALUE\",\"boost\":32}}}," +
-                            "{\"match\":{\"name\":{\"query\":\"$VALUE\",\"boost\":48}}}," +
-                            "{\"match\":{\"name\":{\"query\":\"$VALUE\",\"type\":\"phrase\",\"boost\":64}}}," +
-                            "{\"wildcard\":{\"urn\":{\"value\":\"*$VALUE*\",\"boost\":8}}}," +
-                            "{\"wildcard\":{\"field\":{\"value\":\"*$VALUE*\",\"boost\":4}}}," +
-                            "{\"wildcard\":{\"properties\":{\"value\":\"*$VALUE*\",\"boost\":2}}}," +
-                            "{\"wildcard\":{\"schema\":{\"value\":\"*$VALUE*\",\"boost\":1}}}]}}]}}, " +
-                    "{\"match\":{\"source\": \"$SOURCE\"}}]}}";
-
     private final static String datasetShouldQueryUnit =
             "{\"bool\": " +
                     "{\"should\": [" +
@@ -139,6 +123,15 @@ public class Search
             "} " +
         "}";
 
+
+    private final static String datasetFilterQueryUnit =
+        "{" +
+            "\"match\": { " +
+                "\"source\": \"$SOURCE\" " +
+                "} "+
+        "}";
+
+
     public final static String DATASET_CATEGORY = "datasets";
 
     public final static String METRIC_CATEGORY = "metrics";
@@ -226,20 +219,12 @@ public class Search
             {
                 queryTemplate = flowShouldQueryUnit;
             }
-            else if (category.equalsIgnoreCase(DATASET_CATEGORY) && StringUtils.isNotBlank(source))
-            {
-                queryTemplate = datasetMustQueryUnit;
-            }
         }
 
         for(String value : values)
         {
             if (StringUtils.isNotBlank(value)) {
                 String query= queryTemplate.replace("$VALUE", value.replace("\"", "").toLowerCase().trim());
-                if (StringUtils.isNotBlank(source))
-                {
-                    query = query.replace("$SOURCE", source.toLowerCase());
-                }
                 shouldValueList.add(Json.parse(query));
             }
         }
@@ -1275,4 +1260,28 @@ public class Search
         return queryNode;
     }
 
+    public static ObjectNode generateElasticSearchFilterString(String sources)
+    {
+        if (StringUtils.isBlank(sources)) {
+            return null;
+        }
+
+        List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
+
+        String queryTemplate = datasetFilterQueryUnit;
+        String[] values = sources.trim().split(",");
+
+        for (String value : values) {
+            if (StringUtils.isNotBlank(value)) {
+                String query = queryTemplate.replace("$SOURCE", value.replace("\"", "").toLowerCase().trim());
+                shouldValueList.add(Json.parse(query));
+            }
+        }
+
+        ObjectNode shouldNode = Json.newObject();
+        shouldNode.set("should", Json.toJson(shouldValueList));
+        ObjectNode queryNode = Json.newObject();
+        queryNode.put("bool", shouldNode);
+        return queryNode;
+    }
 }
