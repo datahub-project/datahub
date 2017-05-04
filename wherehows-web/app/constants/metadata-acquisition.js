@@ -7,7 +7,6 @@ const defaultFieldDataTypeClassification = {
   NAME: 'confidential',
   EMAIL: 'confidential',
   PHONE_NUMBER: 'confidential',
-  PHONE_URN: 'confidential',
   ADDRESS: 'confidential',
   GEO_LOCATION: 'confidential',
   IP_ADDRESS: 'confidential',

@@ -70,8 +70,9 @@ export default Component.extend({
     value,
     label: formatAsCapitalizedStringWithSpaces(value)
   })),
+
   // Map logicalTypes to options better consumed by  drop down
-  logicalTypes: ['', ...logicalTypes].map(value => {
+  logicalTypes: ['', ...logicalTypes.sort()].map(value => {
     const label = value ?
       value.replace(/_/g, ' ')
         .replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize()) :
