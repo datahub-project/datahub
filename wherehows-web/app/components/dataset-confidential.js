@@ -154,8 +154,10 @@ export default Component.extend({
       // Set default or if already in policy, retrieve current values from
       //   privacyCompliancePolicy.compliancePurgeEntities
       return getWithDefault(
-        this, 'schemaFieldNamesMappedToDataTypes', []
-      ).map(({ fieldName: identifierField, dataType }) => {
+        this,
+        'schemaFieldNamesMappedToDataTypes',
+        []
+      ).map(({ fieldName: identifierField, identifierType }) => {
         // Get the current classification list
         const currentClassLookup = get(this, 'fieldNameToClass');
         const classification = currentClassLookup[identifierField];
@@ -174,7 +176,7 @@ export default Component.extend({
 
         // Map to a new literal containing these props
         return {
-          dataType,
+          identifierType,
           identifierField,
           classification,
           logicalType
