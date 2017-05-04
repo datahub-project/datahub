@@ -366,37 +366,45 @@ public class SearchDAO extends AbstractMySQLOpenSourceDAO
 		JsonNode responseNode = null;
 		ObjectNode keywordNode = null;
 
-		try
-		{
+		try {
 			keywordNode = utils.Search.generateElasticSearchQueryString(category, source, keywords);
-		}
-		catch(Exception e)
-		{
+		} catch (Exception e) {
 			Logger.error("Elastic search dataset input query is not JSON format. Error message :" + e.getMessage());
 		}
 
-		if (keywordNode != null)
-		{
+		if (keywordNode != null) {
 			ObjectNode funcScoreNodes = Json.newObject();
 
 			ObjectNode fieldValueFactorNode = Json.newObject();
-			fieldValueFactorNode.put("field","static_boosting_score");
-			fieldValueFactorNode.put("factor",1);
-			fieldValueFactorNode.put("modifier","square");
-			fieldValueFactorNode.put("missing",1);
+			fieldValueFactorNode.put("field", "static_boosting_score");
+			fieldValueFactorNode.put("factor", 1);
+			fieldValueFactorNode.put("modifier", "square");
+			fieldValueFactorNode.put("missing", 1);
 
 			funcScoreNodes.put("query", keywordNode);
-			funcScoreNodes.put("field_value_factor",fieldValueFactorNode);
+			funcScoreNodes.put("field_value_factor", fieldValueFactorNode);
 
 			ObjectNode funcScoreNodesWrapper = Json.newObject();
-			funcScoreNodesWrapper.put("function_score",funcScoreNodes);
+			funcScoreNodesWrapper.put("function_score", funcScoreNodes);
 
-			queryNode.put("query",funcScoreNodesWrapper);
+			queryNode.put("query", funcScoreNodesWrapper);
 
-			Logger.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
+			ObjectNode filterNode = Json.newObject();
+			try {
+				filterNode = utils.Search.generateElasticSearchFilterString(source);
+			} catch (Exception e) {
+				Logger.error("Elastic search filter query node generation failed :" + e.getMessage());
+			}
 
-			Promise<WSResponse> responsePromise = WS.url(Play.application().configuration().getString(
-					SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
+			if (filterNode != null) {
+				queryNode.put("filter", filterNode);
+			}
+
+			Logger.info(
+					" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
+
+			Promise<WSResponse> responsePromise =
+					WS.url(Play.application().configuration().getString(SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
 
 			// Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
