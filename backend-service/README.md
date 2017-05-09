@@ -55,6 +55,7 @@ Create temp space for wherehows
 ```
 sudo mkdir /var/tmp/wherehows
 sudo chmod a+rw /var/tmp/wherehows
+sudo mkdir /var/tmp/wherehows/resource
 ```
 
 ```
