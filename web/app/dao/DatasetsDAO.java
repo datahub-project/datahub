@@ -26,6 +26,8 @@ import java.text.SimpleDateFormat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.commons.codec.EncoderException;
+import org.apache.commons.codec.net.URLCodec;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -1997,7 +1999,15 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			}
 			else
 			{
-				node.nodeUrl = "#/datasets/name/" + node.nodeName + "/page/1?urn=" + nodeUrn;
+				try {
+					URLCodec codec = new URLCodec("UTF-8");
+					node.nodeUrl =
+							"#/datasets/name/" + codec.encode(node.nodeName) + "/page/1?urn=" + codec.encode(nodeUrn);
+				} catch (EncoderException e) {
+					Logger.error("Dataset url encoding failed");
+					Logger.error("Exception = " + e.getMessage());
+				}
+
 			}
 			nodes.add(node);
 		}
