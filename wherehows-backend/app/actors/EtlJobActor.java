@@ -15,7 +15,7 @@ package actors;
 
 import akka.actor.UntypedActor;
 import java.net.UnknownHostException;
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
@@ -25,7 +25,6 @@ import play.Play;
 import shared.Global;
 
 import java.io.BufferedReader;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.util.Properties;
@@ -58,11 +57,12 @@ public class EtlJobActor extends UntypedActor {
         // start a new process here
         final ProcessBuilder pb = ConfigUtil.buildProcess(
             msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
-        Logger.debug("run command : " + pb.command());
+        Logger.debug("run command : " + pb.command() + " ; timeout: " + msg.getTimeout());
 
         ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
         int retry = 0;
         int execResult = 0;
+        Boolean execFinished = false;
         String line;
 
         while (retry < 3) {
@@ -73,7 +73,10 @@ public class EtlJobActor extends UntypedActor {
           EtlJobDao.updateJobProcessInfo(msg.getWhEtlExecId(), getPid(process), getHostname());
 
           // wait until this process finished.
-          execResult = process.waitFor();
+          execFinished = process.waitFor(msg.getTimeout(), TimeUnit.SECONDS);
+          if (execFinished) {
+            execResult = process.exitValue();
+          }
           long elapsedTime = System.currentTimeMillis() - startTime;
 
           // For process error such as ImportError or ArgumentError happening shortly after starting, retry
@@ -88,6 +91,12 @@ public class EtlJobActor extends UntypedActor {
           } else {
             break;
           }
+        }
+
+        // if the process timeout and forcibly terminated, log the error and throw exception
+        if (!execFinished) {
+          Logger.error("*** Process + " + getPid(process) + " timeout");
+          throw new Exception("Process + " + getPid(process) + " timeout");
         }
 
         // if the process failed, log the error and throw exception

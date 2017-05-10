@@ -23,22 +23,25 @@ import metadata.etl.models.RefIdType;
  * Created by zechen on 9/4/15.
  */
 public class EtlJobMessage {
-  Long whEtlExecId;
-  EtlJobName etlJobName;
-  EtlType etlType;
-  Integer refId;
-  RefIdType refIdType;
-  JsonNode inputParams;
-  Integer whEtlJobId;
-  String cmdParam;
+  private Long whEtlExecId;
+  private EtlJobName etlJobName;
+  private EtlType etlType;
+  private Integer refId;
+  private RefIdType refIdType;
+  private JsonNode inputParams;
+  private Integer whEtlJobId;
+  private String cmdParam;
+  private int timeout;
 
-  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId, Integer refId, RefIdType refIdType, String cmdParam) {
+  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId, Integer refId, RefIdType refIdType,
+      String cmdParam, int timeout) {
     this.etlJobName = etlJobName;
     this.etlType = etlType;
     this.refId = refId;
     this.refIdType = refIdType;
     this.whEtlJobId = whEtlJobId;
     this.cmdParam = cmdParam;
+    this.timeout = timeout;
   }
 
   public Long getWhEtlExecId() {
@@ -93,13 +96,20 @@ public class EtlJobMessage {
     this.cmdParam = cmdParam;
   }
 
+  public int getTimeout() {
+    return timeout;
+  }
+
+  public void setTimeout(int timeout) {
+    this.timeout = timeout;
+  }
+
   /**
    * For debuging
    * @return
    */
   public String toDebugString() {
-    return String.format("(jobType:%1s refIdType:%2s refId:%3d whEtlJobId:%4d whEtlExecId:%5d)",
-                         this.etlJobName.name(), this.refIdType, this.refId,
-                         this.whEtlJobId, this.whEtlExecId);
+    return String.format("(jobType:%1s refIdType:%2s refId:%3d whEtlJobId:%4d whEtlExecId:%5d)", this.etlJobName.name(),
+        this.refIdType, this.refId, this.whEtlJobId, this.whEtlExecId);
   }
 }
