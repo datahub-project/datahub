@@ -34,6 +34,7 @@ import models.daos.EtlJobDao;
  */
 public class SchedulerActor extends UntypedActor {
 
+  public static final int ETL_JOB_DEFAULT_TIMEOUT_SECOND = 20000;
 
   /**
    * Search for etl jobs that are ready to run and update the time for next run
@@ -41,8 +42,7 @@ public class SchedulerActor extends UntypedActor {
    * @throws Exception
    */
   @Override
-  public void onReceive(Object message)
-    throws Exception {
+  public void onReceive(Object message) throws Exception {
     if (message.equals("checking")) {
       List<Map<String, Object>> dueJobs = EtlJobDao.getDueJobs();
       Set<Integer> whiteList = Global.getWhiteList();
@@ -57,8 +57,11 @@ public class SchedulerActor extends UntypedActor {
         EtlType etlType = EtlType.valueOf((String) dueJob.get("wh_etl_type"));
         Integer refId = (Integer) dueJob.get("ref_id");
         RefIdType refIdType = RefIdType.valueOf((String) dueJob.get("ref_id_type"));
-        String cmdParam = (String)dueJob.get("cmd_param");
-        EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, etlType, whEtlJobId, refId, refIdType, cmdParam);
+        String cmdParam = (String) dueJob.get("cmd_param");
+        Integer timeout =
+            dueJob.get("timeout") != null ? (Integer) dueJob.get("timeout") : ETL_JOB_DEFAULT_TIMEOUT_SECOND;
+
+        EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, etlType, whEtlJobId, refId, refIdType, cmdParam, timeout);
         if (dueJob.get("input_params") != null) {
           etlMsg.setInputParams(Json.parse((String) dueJob.get("input_params")));
         }
@@ -68,7 +71,7 @@ public class SchedulerActor extends UntypedActor {
         etlMsg.setWhEtlExecId(whExecId);
 
         StringBuilder s = new StringBuilder("Current running jobs : ");
-        for (int i : Global.getCurrentRunningJob() ) {
+        for (int i : Global.getCurrentRunningJob()) {
           s.append(i).append("\t");
         }
         Logger.info(s.toString());
@@ -84,7 +87,5 @@ public class SchedulerActor extends UntypedActor {
       }
     }
   }
-
-
 }
 
