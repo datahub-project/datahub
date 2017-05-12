@@ -119,9 +119,9 @@ class HiveTransform:
               db_name = names[0].lower()
               table_name = names[1].lower()
               if db_name and table_name:
-                rows = []
                 self.curs.execute(depends_sql.format(db_name=db_name, table_name=table_name, version='{version}'))
                 rows = self.curs.fetchall()
+                self.conn_hms.commit()
                 if rows and len(rows) > 0:
                   for row_index, row_value in enumerate(rows):
                     dependent_record = HiveDependencyInstanceRecord(
