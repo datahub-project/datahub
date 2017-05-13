@@ -77,6 +77,46 @@ span.level5 {
   padding-left: 55px;
 }
 
+span.level6 {
+  padding-left: 65px;
+}
+
+span.level7 {
+  padding-left: 75px;
+}
+
+span.level8 {
+  padding-left: 85px;
+}
+
+span.level9 {
+  padding-left: 95px;
+}
+
+span.level10 {
+  padding-left: 105px;
+}
+
+span.level11 {
+  padding-left: 115px;
+}
+
+span.level12 {
+  padding-left: 125px;
+}
+
+span.level13 {
+  padding-left: 135px;
+}
+
+span.level14 {
+  padding-left: 145px;
+}
+
+span.level15 {
+  padding-left: 155px;
+}
+
 /*------------------------------------------------------------------------------
  * Expander icon : hide for nodes with no children
  *----------------------------------------------------------------------------*/
