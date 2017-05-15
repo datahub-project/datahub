@@ -23,7 +23,7 @@ export default Ember.Component.extend({
         }
       }).done(function (data, txt, xhr) {
         _this.set('metric.watchId', data.watchId)
-        _this.sendAction('getMetrics')
+        // _this.sendAction('getMetrics')
       }).fail(function (xhr, txt, err) {
         console.log('Error: Could not watch metric.')
       })

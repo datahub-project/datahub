@@ -40,10 +40,10 @@ const createAsyncThunk = (
    * @return {Promise.<*>}
    */
 ) => async (dispatch, getState) => {
-  const { status = 'error', data } = await asyncExecutor(getState);
+  const response = await asyncExecutor(getState);
 
-  if (status === 'ok') {
-    return dispatch(receiverActionCreator({ data }));
+  if (response.status === 'ok') {
+    return dispatch(receiverActionCreator(response));
   }
 
   return dispatch(receiverActionCreator(new Error(`Request failed with status ${status}`)));

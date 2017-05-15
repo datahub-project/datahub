@@ -69,6 +69,7 @@
       </div>
     </div>
     {{dataset-owner-list owners=owners datasetName=model.name}}
+
     {{#if hasinstances}}
       <div class="row">
         <span class="col-xs-1">Instances:</span>
@@ -91,6 +92,7 @@
         </div>
       </div>
     {{/if}}
+
     {{#if hasversions}}
       <div class="row">
         <span class="col-xs-1">Versions:</span>
@@ -114,6 +116,7 @@
       </div>
     {{/if}}
   </div>
+
   <ul class="nav nav-tabs nav-justified tabbed-navigation-list">
     {{#unless isPinot}}
       <li id="properties">
@@ -168,6 +171,7 @@
       </a>
     </li>
   </ul>
+
   <div class="tab-content">
     {{#unless isPinot}}
       <div id="propertiestab" class="tab-pane">

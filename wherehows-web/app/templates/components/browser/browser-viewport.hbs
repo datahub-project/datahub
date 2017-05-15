@@ -1,30 +1,102 @@
-{{#dataset-table
-  fields=entities as |table|}}
-  {{#table.body as |body|}}
-    {{#each
-      table.data as |entity|}}
-      {{#body.row as |row|}}
-        {{#row.cell}}
-          {{#link-to entityRoute entity.id}}
-            <span class="entity-list__title">
-              {{entity.name}}
-            </span>
-          {{/link-to}}
+{{#if (eq currentEntity 'flows')}}
+  {{#dataset-table
+    fields=entities as |table|}}
+    {{#table.head as |head|}}
+      {{#head.column}}
+        Flow Group
+      {{/head.column}}
 
-          {{dataset-owner-list owners=entity.owners datasetName=entity.name}}
+      {{#head.column}}
+        Flow Name
+      {{/head.column}}
 
-          {{#if entity.formatedModified}}
-            <span>Last Modified:</span>
+      {{#head.column}}
+        Flow Level
+      {{/head.column}}
 
-            <span title="{{entity.formatedModified}}">
-              {{moment-from-now entity.formatedModified }}
-            </span>
-          {{/if}}
-        {{/row.cell}}
-        {{#row.cell}}
-          {{datasets/dataset-actions actionItems=actionItems}}
-        {{/row.cell}}
-      {{/body.row}}
-    {{/each}}
-  {{/table.body}}
-{{/dataset-table}}
+      {{#head.column}}
+        Job Count
+      {{/head.column}}
+
+      {{#head.column}}
+        Creation Time
+      {{/head.column}}
+
+      {{#head.column}}
+        Modified Time
+      {{/head.column}}
+    {{/table.head}}
+
+    {{#table.body as |body|}}
+      {{#each
+        table.data as |flow|}}
+        {{#body.row as |row|}}
+          {{#row.cell}}
+            {{flow.group}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{#link-to entityRoute flow.id (query-params name=flow.appCode)}}
+              {{flow.name}}
+            {{/link-to}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{flow.level}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{flow.jobCount}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{moment-calendar flow.created sameElse="MMM Do YYYY, h:mm a"}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{moment-calendar flow.modified sameElse="MMM Do YYYY, h:mm a"}}
+          {{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+  {{/dataset-table}}
+{{else}}
+  {{#dataset-table
+    fields=entities as |table|}}
+    {{#table.body as |body|}}
+      {{#each
+        table.data as |entity|}}
+        {{#body.row as |row|}}
+          {{#row.cell}}
+            {{#link-to entityRoute entity.id}}
+              <span class="entity-list__title">
+                {{entity.name}}
+              </span>
+            {{/link-to}}
+            <br>
+            {{#if (eq currentEntity 'metrics')}}
+              {{entity.group}} - {{entity.dashboardName}}
+              <br>
+              {{entity.description}}
+            {{/if}}
+
+            {{#if (eq currentEntity 'datasests')}}
+              {{dataset-owner-list owners=entity.owners datasetName=entity.name}}
+            {{/if}}
+
+            {{#if entity.formatedModified}}
+              <span>Last Modified:</span>
+
+              <span title="{{entity.formatedModified}}">
+                {{moment-from-now entity.formatedModified }}
+              </span>
+            {{/if}}
+          {{/row.cell}}
+          {{#row.cell}}
+            {{datasets/dataset-actions actionItems=actionItems}}
+          {{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+  {{/dataset-table}}
+{{/if}}

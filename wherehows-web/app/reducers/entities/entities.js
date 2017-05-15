@@ -53,6 +53,15 @@ const appendUrnIdMap = (
   });
 
 /**
+ * Appends a list of child entities ids for a given name. name is null for top level entities
+ * @param {String} entityName
+ */
+const appendNamedIdMap = entityName => (nameEntities, { parentName = null, [entityName]: entities = [] }) =>
+  Object.assign({}, nameEntities, {
+    [parentName]: union(nameEntities[parentName], entities.mapBy('id'))
+  });
+
+/**
  * Returns a curried function that receives entityName to lookup on the props object
  * @param {String} entityName
  * @return {Function}
@@ -79,12 +88,27 @@ const entitiesToPage = (
  * Maps a urn to a list of child nodes from the list api
  * @param {Object} state
  * @param {Array} nodes
- * @return {Object}
+ * @param {String} parentUrn
+ * @return {*}
  */
-const urnsToNodeUrn = (state, { data: nodes = [] }) => {
-  const { query: { urn }, nodesByUrn } = state;
+const urnsToNodeUrn = (state, { nodes = [], parentUrn = null } = {}) => {
+  const { nodesByUrn } = state;
   return Object.assign({}, nodesByUrn, {
-    [urn]: union(nodes)
+    [parentUrn]: union(nodes)
+  });
+};
+
+/**
+ * Maps a name to a list of child nodes from the list api
+ * @param {Object} state
+ * @param {Array} nodes
+ * @param {String} parentName
+ * @return {*}
+ */
+const namesToNodeName = (state, { nodes = [], parentName = null } = {}) => {
+  const { nodesByName } = state;
+  return Object.assign({}, nodesByName, {
+    [parentName]: union(nodes)
   });
 };
 
@@ -112,20 +136,27 @@ const createUrnMapping = entityName => (state, payload = {}) => {
 };
 
 /**
- *
+ * Curries an entityName into a function to append named entity entities
+ * @param {String} entityName
+ */
+const createNameMapping = entityName => (state, payload = {}) => {
+  return appendNamedIdMap(entityName)(state, payload);
+};
+
+/**
+ * Appends a list of entities to a page
  * @param {String} entityName
  */
 const createPageMapping = entityName => (state, payload = {}) => {
   return entitiesToPage(entityName)(state, payload);
 };
 
-/**
- * Takes the response from the list api request and invokes a function to
- *   map a urn to child urns or nodes
- * @param {Object} state
- * @param {Object} payload the response from the list endpoint/api
- * @return {Object}
- */
-const receiveNodes = (state, payload = {}) => urnsToNodeUrn(state, payload);
-
-export { receiveNodes, initializeState, receiveEntities, createUrnMapping, createPageMapping };
+export {
+  initializeState,
+  namesToNodeName,
+  urnsToNodeUrn,
+  receiveEntities,
+  createUrnMapping,
+  createPageMapping,
+  createNameMapping
+};
