@@ -148,7 +148,14 @@ class ElasticSearchIndex():
   def update_dataset(self, last_unixtime=None):
     if last_unixtime:
         sql = """
-          SELECT * FROM dict_dataset WHERE from_unixtime(modified_time) >= DATE_SUB(from_unixtime(%f), INTERVAL 1 HOUR)
+          SELECT d.*,
+              COALESCE(s.static_boosting_score,1) as static_boosting_score
+          FROM dict_dataset d
+          LEFT JOIN cfg_search_score_boost s
+          ON d.id = s.id
+          WHERE d.urn not like "hive:///dev_foundation_tables%%"
+          and d.urn not like "hive:///dev_foundation_views%%"
+          and from_unixtime(d.modified_time) >= DATE_SUB(from_unixtime(%f), INTERVAL 1 HOUR)
           """ % last_unixtime
     else:
         sql = """
