@@ -3,6 +3,8 @@ import { createAction } from 'redux-actions';
 
 import actionSet from 'wherehows-web/actions/action-set';
 import { lazyRequestUrnPagedDatasets, lazyRequestDatasetNodes } from 'wherehows-web/actions/datasets';
+import { lazyRequestNamedPagedMetrics, lazyRequestMetricNodes } from 'wherehows-web/actions/metrics';
+import { lazyRequestFlowsNodes, lazyRequestPagedUrnApplicationFlows } from 'wherehows-web/actions/flows';
 
 const { debug } = Ember;
 
@@ -23,29 +25,41 @@ const receiveNodeList = createAction(ActionTypes.RECEIVE_NODE_LIST);
  * @param {String} listURL
  * @param {Array} queryParams current list of query parameters for the Ember route
  */
-const asyncRequestNodeList = (params, listURL, { queryParams }) =>
+const asyncRequestEntityQueryData = (params, listURL, { queryParamsKeys: queryParams }) =>
   /**
    * Async thunk
    * @param {Function} dispatch
    * @return {Promise.<*>}
    */
   async function(dispatch) {
-    const { entity, page, urn } = params;
-    const query = { page, urn };
+    const { entity, page, urn, name } = params;
+    // Extract relevant query parameters into query object
+    const query = { page, urn, name };
 
     dispatch(requestNodeList({ entity, listURL, query, queryParams }));
 
+    // For each entity fetch the list of nodes and the actual entities for the given query
     try {
       let nodesResult = {}, pagedEntities = {};
       switch (entity) {
         case 'datasets':
-          [nodesResult, pagedEntities] = await [
+          [nodesResult, pagedEntities] = await Promise.all([
             dispatch(lazyRequestDatasetNodes({ listURL, query })),
             dispatch(lazyRequestUrnPagedDatasets({ query }))
-          ];
+          ]);
           break;
         case 'metrics':
+          [nodesResult, pagedEntities] = await Promise.all([
+            dispatch(lazyRequestMetricNodes({ listURL, query })),
+            dispatch(lazyRequestNamedPagedMetrics({ query }))
+          ]);
+          break;
         case 'flows':
+          [nodesResult, pagedEntities] = await Promise.all([
+            dispatch(lazyRequestFlowsNodes({ listURL, query })),
+            dispatch(lazyRequestPagedUrnApplicationFlows({ query }))
+          ]);
+          break;
         default:
           return;
       }
@@ -66,4 +80,4 @@ const asyncRequestNodeList = (params, listURL, { queryParams }) =>
     }
   };
 
-export { ActionTypes, asyncRequestNodeList };
+export { ActionTypes, asyncRequestEntityQueryData };
