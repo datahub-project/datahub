@@ -44,15 +44,11 @@ export default Ember.Component.extend({
       var url = this.get('savePath');
       url = url.replace(/\{.\w+\}/, this.get('itemId'))
       var method = 'POST';
-      var token = $("#csrfToken").val().replace('/', '');
-      var data = {"csrfToken": token};
+      var data = {};
       data[this.get('saveParam')] = this.editor.getSession().getValue()
       $.ajax({
         url: url,
         method: method,
-        headers: {
-          'Csrf-Token': token
-        },
         dataType: 'json',
         data: data
       }).done(function (data, txt, xhr) {
