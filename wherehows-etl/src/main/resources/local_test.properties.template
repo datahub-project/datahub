@@ -164,6 +164,13 @@ base.url.key=
 dali.git.urn=
 git.committer.blacklist=
 
+# Nuage
+d2.proxy.url=
+espresso.metadata=
+voldemort.metadata=
+kafka.metadata=
+kafka.topic_blacklist=
+
 # wherehows metadata store restli server
 wherehows.restli.server.url=
 
