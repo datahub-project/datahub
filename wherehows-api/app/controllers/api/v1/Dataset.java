@@ -962,4 +962,76 @@ public class Dataset extends Controller
         }
         return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
     }
+
+    public static Promise<Result> getDatasetPrivacy(int datasetId) {
+        DatasetCompliance complianceRecord = null;
+        try {
+            complianceRecord = DatasetsDAO.getDatasetComplianceByDatasetId(datasetId);
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Fetch data Error: " + e.getMessage());
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        DatasetSecurity securityRecord = null;
+        try {
+            securityRecord = DatasetsDAO.getDatasetSecurityByDatasetId(datasetId);
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Fetch data Error: " + e.getMessage());
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        ObjectNode result = Json.newObject().put("status", "ok");
+        result.set("privacyCompliancePolicy", Json.toJson(complianceRecord));
+        result.set("securitySpecification", Json.toJson(securityRecord));
+
+        return Promise.promise(() -> ok(result));
+    }
+
+    public static Promise<Result> updateDatasetPrivacy(int datasetId) {
+        String username = session("user");
+        if (StringUtils.isBlank(username)) {
+            JsonNode result =
+                Json.newObject().put("status", "failed")
+                    .put("error", "true")
+                    .put("msg", "Unauthorized User.");
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        try {
+            DatasetsDAO.updateDatasetCompliancePolicy(datasetId, request().body().asJson().get("privacyCompliancePolicy"));
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Update Compliance Policy Error: " + e.getMessage());
+
+            Logger.warn("Update Compliance Policy fail", e);
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        try {
+            DatasetsDAO.updateDatasetSecurityInfo(datasetId, request().body().asJson().get("securitySpecification"));
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Update Security Specification Error: " + e.getMessage());
+
+            Logger.warn("Update Security Specification fail", e);
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
+    }
 }
