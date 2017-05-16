@@ -2241,7 +2241,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				}));
 		record.setConfidentiality((String) result.get("confidentiality"));
 		record.setClassification(
-				jsonToObject((String) result.get("classification"), new TypeReference<Map<String, List<DatasetFieldEntity>>>() {
+				jsonToObject((String) result.get("classification"), new TypeReference<Map<String, String>>() {
 				}));
 		record.setRecordOwnerType((String) result.get("record_owner_type"));
 		record.setRetentionPolicy(
