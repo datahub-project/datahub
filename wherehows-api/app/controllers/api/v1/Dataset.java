@@ -20,8 +20,9 @@ import com.linkedin.dataset.SchemaFieldArray;
 import dao.MetadataStoreDao;
 import dao.ReturnCode;
 import models.DatasetColumn;
-import models.DatasetCompliance;
+import models.DatasetPrivacyCompliance;
 import models.DatasetDependency;
+import models.DatasetCompliance;
 import models.DatasetSecurity;
 import models.ImpactDataset;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -874,9 +875,9 @@ public class Dataset extends Controller
     }
 
     public static Promise<Result> getDatasetCompliance(int datasetId) {
-        DatasetCompliance record = null;
+        DatasetPrivacyCompliance record = null;
         try {
-            record = DatasetsDAO.getDatasetComplianceByDatasetId(datasetId);
+            record = DatasetsDAO.getDatasetPrivacyComplianceByDatasetId(datasetId);
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
@@ -904,7 +905,7 @@ public class Dataset extends Controller
         }
 
         try {
-            DatasetsDAO.updateDatasetCompliancePolicy(datasetId, request().body().asJson());
+            DatasetsDAO.updateDatasetPrivacyCompliancePolicy(datasetId, request().body().asJson());
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
@@ -964,9 +965,9 @@ public class Dataset extends Controller
     }
 
     public static Promise<Result> getDatasetPrivacy(int datasetId) {
-        DatasetCompliance complianceRecord = null;
+        DatasetCompliance record = null;
         try {
-            complianceRecord = DatasetsDAO.getDatasetComplianceByDatasetId(datasetId);
+            record = DatasetsDAO.getDatasetComplianceInfoByDatasetId(datasetId);
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
@@ -976,21 +977,8 @@ public class Dataset extends Controller
             return Promise.promise(() -> ok(result));
         }
 
-        DatasetSecurity securityRecord = null;
-        try {
-            securityRecord = DatasetsDAO.getDatasetSecurityByDatasetId(datasetId);
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Fetch data Error: " + e.getMessage());
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        ObjectNode result = Json.newObject().put("status", "ok");
-        result.set("privacyCompliancePolicy", Json.toJson(complianceRecord));
-        result.set("securitySpecification", Json.toJson(securityRecord));
+        JsonNode result = Json.newObject().put("status", "ok")
+            .set("complianceInfo", Json.toJson(record));
 
         return Promise.promise(() -> ok(result));
     }
@@ -1007,27 +995,14 @@ public class Dataset extends Controller
         }
 
         try {
-            DatasetsDAO.updateDatasetCompliancePolicy(datasetId, request().body().asJson().get("privacyCompliancePolicy"));
+            DatasetsDAO.updateDatasetComplianceInfo(datasetId, request().body().asJson());
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
                 .put("error", "true")
-                .put("msg", "Update Compliance Policy Error: " + e.getMessage());
+                .put("msg", "Update Compliance Info Error: " + e.getMessage());
 
-            Logger.warn("Update Compliance Policy fail", e);
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        try {
-            DatasetsDAO.updateDatasetSecurityInfo(datasetId, request().body().asJson().get("securitySpecification"));
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Update Security Specification Error: " + e.getMessage());
-
-            Logger.warn("Update Security Specification fail", e);
+            Logger.warn("Update Compliance Info fail", e);
 
             return Promise.promise(() -> ok(result));
         }
