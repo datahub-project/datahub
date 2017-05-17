@@ -143,6 +143,33 @@ CREATE TABLE `dataset_security` (
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8;
 
+CREATE TABLE `dataset_compliance` (
+  `dataset_id`                INT(10) UNSIGNED NOT NULL,
+  `dataset_urn`               VARCHAR(200)     NOT NULL,
+  `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
+  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
+  `compliance_entities`       VARCHAR(10000)    DEFAULT NULL
+  COMMENT 'JSON: compliance fields',
+  `confidentiality`           VARCHAR(50)      DEFAULT NULL
+  COMMENT 'dataset level confidential category: confidential, highly confidential, etc',
+  `dataset_classification`    VARCHAR(1000)    DEFAULT NULL
+  COMMENT 'JSON: dataset level confidential classification',
+  `field_classification`      VARCHAR(5000)    DEFAULT NULL
+  COMMENT 'JSON: field level confidential classification',
+  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
+  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
+  `retention_policy`          VARCHAR(200)     DEFAULT NULL
+  COMMENT 'JSON: specification of retention',
+  `geographic_affinity`       VARCHAR(500)     DEFAULT NULL
+  COMMENT 'JSON: must be stored in the geo region',
+  `modified_time`             INT UNSIGNED DEFAULT NULL
+  COMMENT 'the modified time in epoch',
+  PRIMARY KEY (`dataset_id`),
+  UNIQUE KEY `dataset_urn` (`dataset_urn`)
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = utf8;
+
 CREATE TABLE dataset_constraint (
   `dataset_id`            INT UNSIGNED NOT NULL,
   `dataset_urn`           VARCHAR(200) NOT NULL,
