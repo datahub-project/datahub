@@ -14,6 +14,7 @@
 package models;
 
 import java.util.List;
+import java.util.Map;
 
 
 public class DatasetCompliance {
@@ -21,7 +22,13 @@ public class DatasetCompliance {
   private Integer datasetId;
   private String datasetUrn;
   private String complianceType;
-  private List<DatasetFieldEntity> compliancePurgeEntities;
+  private List<DatasetFieldEntity> complianceEntities;
+  private String confidentiality;
+  private Map<String, Object> datasetClassification;
+  private Map<String, String> fieldClassification;
+  private String recordOwnerType;
+  private Map<String, Object> retentionPolicy;
+  private Map<String, Object> geographicAffinity;
   private Long modifiedTime;
 
   public DatasetCompliance() {
@@ -51,12 +58,60 @@ public class DatasetCompliance {
     this.complianceType = complianceType;
   }
 
-  public List<DatasetFieldEntity> getCompliancePurgeEntities() {
-    return compliancePurgeEntities;
+  public List<DatasetFieldEntity> getComplianceEntities() {
+    return complianceEntities;
   }
 
-  public void setCompliancePurgeEntities(List<DatasetFieldEntity> compliancePurgeEntities) {
-    this.compliancePurgeEntities = compliancePurgeEntities;
+  public void setComplianceEntities(List<DatasetFieldEntity> complianceEntities) {
+    this.complianceEntities = complianceEntities;
+  }
+
+  public String getConfidentiality() {
+    return confidentiality;
+  }
+
+  public void setConfidentiality(String confidentiality) {
+    this.confidentiality = confidentiality;
+  }
+
+  public Map<String, Object> getDatasetClassification() {
+    return datasetClassification;
+  }
+
+  public void setDatasetClassification(Map<String, Object> datasetClassification) {
+    this.datasetClassification = datasetClassification;
+  }
+
+  public Map<String, String> getFieldClassification() {
+    return fieldClassification;
+  }
+
+  public void setFieldClassification(Map<String, String> fieldClassification) {
+    this.fieldClassification = fieldClassification;
+  }
+
+  public String getRecordOwnerType() {
+    return recordOwnerType;
+  }
+
+  public void setRecordOwnerType(String recordOwnerType) {
+    this.recordOwnerType = recordOwnerType;
+  }
+
+  public Map<String, Object> getRetentionPolicy() {
+    return retentionPolicy;
+  }
+
+  public void setRetentionPolicy(Map<String, Object> retentionPolicy) {
+    this.retentionPolicy = retentionPolicy;
+  }
+
+  public Map<String, Object> getGeographicAffinity() {
+    return geographicAffinity;
+  }
+
+  public void setGeographicAffinity(Map<String, Object> geographicAffinity) {
+    this.geographicAffinity = geographicAffinity;
   }
 
   public Long getModifiedTime() {
