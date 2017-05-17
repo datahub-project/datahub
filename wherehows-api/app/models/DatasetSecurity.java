@@ -23,7 +23,7 @@ public class DatasetSecurity {
   private String datasetUrn;
   private Map<String, Object> datasetClassification;
   private String confidentiality;
-  private Map<String, List<DatasetFieldEntity>> classification;
+  private Map<String, String> classification;
   private String recordOwnerType;
   private Map<String, Object> retentionPolicy;
   private Map<String, Object> geographicAffinity;
@@ -64,11 +64,11 @@ public class DatasetSecurity {
     this.confidentiality = confidentiality;
   }
 
-  public Map<String, List<DatasetFieldEntity>> getClassification() {
+  public Map<String, String> getClassification() {
     return classification;
   }
 
-  public void setClassification(Map<String, List<DatasetFieldEntity>> classification) {
+  public void setClassification(Map<String, String> classification) {
     this.classification = classification;
   }
 
