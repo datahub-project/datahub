@@ -2,15 +2,15 @@
 
 # Copies over the ddl files
 
-if [ -z "$WORKSPACE" ]; then
-  echo "You must set the WORKSPACE environment variable for this to work."
-  exit
-fi
+# Get parent directory of this file.
+# e.g. /Users/me/workspace/WhereHows/docker/mysql
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 rm -rf *_DDL
-rm bin/create_all_tables_wrapper.sql
+rm -f bin/create_all_tables_wrapper.sql
 
-DDL_DIR=$WORKSPACE/WhereHows/data-model/DDL
+DDL_DIR=${SCRIPT_DIR}/../../data-model/DDL
+mkdir -p bin
 cp $DDL_DIR/create_all_tables_wrapper.sql bin
 cp -r $DDL_DIR/*_DDL .
 
