@@ -36,6 +36,9 @@
                         '& tr:nth-child(odd)': (
                                 background-color: restyle-var(zebra)
                         )
+                ),
+                'with variable width': (
+                        table-layout: auto
                 )
         )
 ));
@@ -49,5 +52,9 @@
 
   &--stripped {
     @include restyle(table with stripped rows);
+  }
+
+  &--dynamic {
+    @include restyle(table with variable width);
   }
 }
