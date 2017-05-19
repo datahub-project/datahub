@@ -408,10 +408,19 @@ export default Route.extend({
     Promise.resolve(getJSON(getDatasetOwnersUrl(id)))
       .then(({ status, owners = [] }) => {
         if (status === 'ok') {
-          set(controller, 'owners', owners.map(owner => Object.assign({}, owner, {
-            // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as Date instance
-            modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime * 1000)
-          })));
+          const minRequiredConfirmed = 2;
+          const requiredMinNotConfirmed = owners.filter(
+              ({ confirmedBy, type, idType }) =>
+              confirmedBy && type === 'Owner' && idType === 'USER'
+            ).length < minRequiredConfirmed;
+
+          setProperties(controller, {
+            requiredMinNotConfirmed,
+            owners: owners.map(owner => Object.assign({}, owner, {
+              // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as Date instance
+              modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime * 1000)
+            }))
+          });
         }
       })
       .then(() => getJSON(partyEntitiesUrl))
