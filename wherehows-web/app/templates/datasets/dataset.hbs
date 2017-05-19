@@ -133,6 +133,9 @@
     <li id="schemas"><a data-toggle="tab" href="#schematab">Schema</a></li>
     <li id="ownership" class="active">
       <a data-toggle="tab" href="#ownertab">Ownership</a>
+      {{#if requiredMinNotConfirmed}}
+        <span class="notification-dot" aria-hidden="true"></span>
+      {{/if}}
     </li>
     <li id="compliance">
       <a data-toggle="tab"
