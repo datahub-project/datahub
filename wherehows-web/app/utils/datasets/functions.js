@@ -7,7 +7,7 @@ const createInitialComplianceInfo = datasetId => ({
   datasetId,
   // default to first item in compliance types list
   complianceType: 'AUTO_PURGE',
-  compliancePurgeEntities: [],
+  complianceEntities: [],
   fieldClassification: {},
   datasetClassification: {},
   geographicAffinity: { affinity: '' },
