@@ -226,7 +226,8 @@ export default Component.extend({
        * @return {null}
        */
       const getAttributeOnField = (attribute, fieldName) => {
-        const sourceField = getWithDefault(this, policyComplianceEntitiesKey, []).find(
+        const complianceEntities = get(this, policyComplianceEntitiesKey) || [];
+        const sourceField = complianceEntities.find(
           ({ identifierField }) => identifierField === fieldName
         );
         return sourceField ? sourceField[attribute] : null;
@@ -263,7 +264,7 @@ export default Component.extend({
           type => String(type.value).match(endsWithUrnRegex) || !type.value
         );
         // Get the current classification list
-        const fieldClassification = get(this, policyFieldClassificationKey);
+        const fieldClassification = get(this, policyFieldClassificationKey) || {};
         // The field formats applicable to the current identifierType
         let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
           ? idLogicalTypes
@@ -416,7 +417,11 @@ export default Component.extend({
      * @return {*}
      */
     onFieldClassificationChange({ identifierField }, { value: classification = null }) {
-      const fieldClassification = get(this, policyFieldClassificationKey);
+      let fieldClassification = get(this, policyFieldClassificationKey);
+      // For datasets initially without a fieldClassification, the default value is null
+      if (fieldClassification === null) {
+        fieldClassification = set(this, policyFieldClassificationKey, {});
+      }
 
       // TODO:DSS-6719 refactor into mixin
       this.clearMessages();
