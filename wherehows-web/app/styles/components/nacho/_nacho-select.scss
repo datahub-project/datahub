@@ -53,6 +53,7 @@ $default-border: (1px solid shade($color, 20%));
   /// Hides the styling for a select element unless hovered over
   &--hidden-state {
     border: 1px solid transparent;
+    background-color: transparent;
 
     &:hover {
       border: $default-border;
