@@ -4,6 +4,25 @@ import connect from 'ember-redux/components/connect';
 const { Component } = Ember;
 
 /**
+ * Extract the childIds for an entity under a specific category
+ * @param entity
+ * @param state
+ */
+const getChildIds = (entity, state = {}) => query =>
+  ({
+    get datasets() {
+      return state[entity].byUrn[query];
+    },
+    get metrics() {
+      return state[entity].byName[query];
+    },
+    get flows() {
+      // Flows are retrieved by name as well
+      return this.datasets;
+    }
+  }[entity]);
+
+/**
  * Selector function that takes a Redux Store to extract
  *   state props for the browser-rail
  * @return {Object} mapping of computed props to state
@@ -12,12 +31,17 @@ const stateToComputed = state => {
   // Extracts the current entity active in the browse view
   const { browseEntity: { currentEntity = '' } = {} } = state;
   // Retrieves properties for the current entity from the state tree
-  let { browseEntity: { [currentEntity]: { query: { urn } } } } = state;
+  const { browseEntity: { [currentEntity]: { query: { urn, name } } } } = state;
   // Default urn to null, which represents the top-level parent
-  urn = urn || null;
 
+  const query =
+    {
+      datasets: urn,
+      metrics: name,
+      flows: urn
+    }[currentEntity] || null;
   // Read the list of ids child entity ids associated with the urn
-  const { [currentEntity]: { byUrn: { [urn]: childIds = [] } } } = state;
+  const childIds = getChildIds(currentEntity, state)(query) || [];
   // Read the list of entities, stored in the byId property
   const { [currentEntity]: { byId: entities } } = state;
   /**

@@ -5,10 +5,16 @@
  * @type {RegExp}
  */
 const urnRegex = /([a-z_]+):\/{3}([a-z0-9_\-\/\{\}]*)/i;
+
+/**
+ * Matches urn's that occur in flow urls
+ * @type {RegExp}
+ */
+const specialFlowUrnRegex = /(?:\?urn=)([a-z0-9_\-\/{}\s]+)/i;
 /**
  * Asserts that a provided string matches the urn pattern above
  * @param {String} candidateUrn the string to test on
  */
 export default candidateUrn => urnRegex.test(String(candidateUrn));
 
-export { urnRegex };
+export { urnRegex, specialFlowUrnRegex };

@@ -1,22 +1,78 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
+import {
+  classifiers,
+  datasetClassifiers,
+  fieldIdentifierTypes,
+  idLogicalTypes,
+  genericLogicalTypes,
+  defaultFieldDataTypeClassification
+} from 'wherehows-web/constants';
 
-const { Component, computed, set, get, isBlank, setProperties, getWithDefault, String: { htmlSafe } } = Ember;
+const {
+  Component,
+  computed,
+  set,
+  get,
+  Observable: { mixins: { notifyPropertyChange } },
+  setProperties,
+  getWithDefault,
+  String: { htmlSafe }
+} = Ember;
 
 // TODO: DSS-6671 Extract to constants module
 const missingTypes = 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?';
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
 const hiddenTrackingFieldsMsg = htmlSafe(
-  '<p>Hey! Just a heads up that some fields in this dataset have been hidden from the table(s) below. ' +
+  '<p>Some fields in this dataset have been hidden from the table(s) below. ' +
     "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
     '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
     'Hopefully, this saves you some scrolling!</p>'
 );
+const helpText = {
+  classification: 'For each of the fields below, please classify them based on the data handling table found at go/dht. ' +
+    'The default classification should suffice in most cases.',
+  subjectOwner: 'A field can contain one or multiple member IDs that do not technically "own" the entire record, ' +
+    'e.g. the list of recipients of a message. The field should be marked as a "Subject Owner" in this case.'
+};
 
-const complianceListKey = 'privacyCompliancePolicy.compliancePurgeEntities';
-// TODO: DSS-6671 Extract to constants module
-const logicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
+/**
+ * Quick regex to check if a string ends with urn case-insensitive, cached outside scope to avoid recreating
+ * on every function invocation
+ * @type {RegExp}
+ */
+const endsWithUrnRegex = /.*urn/i;
+
+/**
+ * Takes a string, returns a formatted string. Niche , single use case
+ * for now, so no need to make into a helper
+ * @param {String} string
+ */
+const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
+
+/**
+ * String constant referencing the datasetClassification on the privacy policy
+ * @type {String}
+ */
+const datasetClassificationKey = 'complianceInfo.datasetClassification';
+/**
+ * A list of available keys for the datasetClassification map on the security specification
+ * @type {Array}
+ */
+const datasetClassifiersKeys = Object.keys(datasetClassifiers);
+
+/**
+ * String constant identifying the classified fields on the security spec
+ * @type {String}
+ */
+const policyFieldClassificationKey = 'complianceInfo.fieldClassification';
+
+/**
+ * A reference to the compliance policy entities on the complianceInfo map
+ * @type {string}
+ */
+const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
 /**
  * Duplicate check using every to short-circuit iteration
  * @param {Array} names = [] the list to check for dupes
@@ -25,17 +81,38 @@ const logicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
 const fieldNamesAreUnique = (names = []) => names.every((name, index) => names.indexOf(name) === index);
 
 /**
- * Returns a computed macro based on a provided type will return a list of
- * Compliance fields that are of that identifierType or have no type
- * @param {String} type string to match against identifierType
+ * A list of field identifier types mapped to label, value options for select display
+ * @type {any[]|Array.<{value: String, label: String}>}
  */
-const complianceEntitiesMatchingType = type =>
-  computed('complianceDataFieldsSansHiddenTracking.[]', function() {
-    const fieldRegex = new RegExp(`${type}`, 'i');
+const fieldIdentifierOptions = Object.keys(fieldIdentifierTypes).map(fieldIdentifierType => ({
+  value: fieldIdentifierTypes[fieldIdentifierType].value,
+  label: fieldIdentifierTypes[fieldIdentifierType].displayAs
+}));
 
-    return get(this, 'complianceDataFieldsSansHiddenTracking').filter(({ identifierType }) => {
-      return fieldRegex.test(identifierType) || isBlank(identifierType);
-    });
+/**
+ * A list of field identifier types that are Ids i.e member ID, org ID, group ID
+ * @type {any[]|Array.<String>}
+ */
+const fieldIdentifierTypeIds = Object.keys(fieldIdentifierTypes)
+  .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
+  .filter(({ isId }) => isId)
+  .mapBy('value');
+
+/**
+ * Caches a list of logicalType mappings for displaying its value and a label by logicalType
+ * @param {String} logicalType
+ */
+const cachedLogicalTypes = logicalType =>
+  computed(function() {
+    return {
+      id: idLogicalTypes,
+      generic: genericLogicalTypes
+    }[logicalType].map(value => ({
+      value,
+      label: value
+        ? value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
+        : 'Select Format'
+    }));
   });
 
 export default Component.extend({
@@ -43,19 +120,9 @@ export default Component.extend({
   filterBy: 'identifierField',
   sortDirection: 'asc',
   searchTerm: '',
+  helpText,
+  fieldIdentifierOptions,
   hiddenTrackingFields: hiddenTrackingFieldsMsg,
-
-  /**
-   * Map of radio Group state values
-   * Each initially has an indeterminate state, as the user
-   * progresses through the prompts
-   * @type {Object.<Boolean, null>}
-   */
-  userIndicatesDatasetHas: {
-    member: null,
-    org: null,
-    group: null
-  },
 
   didReceiveAttrs() {
     this._super(...arguments);
@@ -78,10 +145,16 @@ export default Component.extend({
     set(this, '_hasBadData', true);
   },
 
-  // Map logicalTypes to options consumable by ui
-  logicalTypes: ['', ...logicalTypes].map(value => ({
+  // Map logicalTypes to options consumable by DOM
+  idLogicalTypes: cachedLogicalTypes('id'),
+
+  // Map generic logical type to options consumable in DOM
+  genericLogicalTypes: cachedLogicalTypes('generic'),
+
+  // Map classifiers to options better consumed in DOM
+  classifiers: ['', ...classifiers.sort()].map(value => ({
     value,
-    label: value ? value.replace('_', ' ').toLowerCase().capitalize() : 'Please Select'
+    label: value ? formatAsCapitalizedStringWithSpaces(value) : '...'
   })),
 
   /**
@@ -104,21 +177,56 @@ export default Component.extend({
   }),
 
   /**
+   * Checks that all tags/ dataset content types have a boolean value
+   * @type {Ember.computed}
+   */
+  isDatasetFullyClassified: computed('datasetClassification', function() {
+    const datasetClassification = get(this, 'datasetClassification');
+
+    return Object.keys(datasetClassification)
+      .map(key => ({ value: datasetClassification[key].value }))
+      .every(({ value }) => [true, false].includes(value));
+  }),
+
+  /**
+   * Computed property that is dependent on all the keys in the datasetClassification map
+   *   Returns a new map of datasetClassificationKey: String-> Object.<Boolean|undefined,String>
+   * @type {Ember.computed}
+   */
+  datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
+    const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
+
+    return Object.keys(datasetClassifiers).reduce((datasetClassification, classifier) => {
+      return Object.assign({}, datasetClassification, {
+        [classifier]: {
+          value: sourceDatasetClassification[classifier],
+          label: datasetClassifiers[classifier]
+        }
+      });
+    }, {});
+  }),
+
+  /**
    * Lists all dataset fields found in the `columns` performs an intersection
    * of fields with the currently persisted and/or updated
-   * privacyCompliancePolicy.compliancePurgeEntities.
+   * privacyCompliancePolicy.complianceEntities.
    * The returned list is a map of fields with current or default privacy properties
    */
   complianceDataFields: computed(
-    `${complianceListKey}.@each.identifierType`,
-    `${complianceListKey}.[]`,
+    `${policyComplianceEntitiesKey}.@each.identifierType`,
+    `${policyComplianceEntitiesKey}.[]`,
+    policyFieldClassificationKey,
     'schemaFieldNamesMappedToDataTypes',
     function() {
-      const sourceEntities = getWithDefault(this, complianceListKey, []);
-      const complianceFieldNames = sourceEntities.mapBy('identifierField');
-
+      /**
+       * Retrieves an attribute on the `policyComplianceEntitiesKey` where the identifierField is the same as the
+       *   provided field name
+       * @param attribute
+       * @param fieldName
+       * @return {null}
+       */
       const getAttributeOnField = (attribute, fieldName) => {
-        const sourceField = getWithDefault(this, complianceListKey, []).find(
+        const sourceField = getWithDefault(this, policyComplianceEntitiesKey, []).find(
           ({ identifierField }) => identifierField === fieldName
         );
         return sourceField ? sourceField[attribute] : null;
@@ -135,111 +243,54 @@ export default Component.extend({
         attributes.map(attr => getAttributeOnField(attr, fieldName));
 
       // Set default or if already in policy, retrieve current values from
-      //   privacyCompliancePolicy.compliancePurgeEntities
+      //   privacyCompliancePolicy.complianceEntities
       return getWithDefault(
         this,
         'schemaFieldNamesMappedToDataTypes',
         []
       ).map(({ fieldName: identifierField, dataType }) => {
-        const hasPrivacyData = complianceFieldNames.includes(identifierField);
         const [identifierType, isSubject, logicalType] = getAttributesOnField(
           ['identifierType', 'isSubject', 'logicalType'],
           identifierField
         );
+        // Runtime converts the identifierType to subjectMember if the isSubject flag is true
+        const computedIdentifierType = identifierType === fieldIdentifierTypes.member.value && isSubject
+          ? fieldIdentifierTypes.subjectMember.value
+          : identifierType;
+        const idLogicalTypes = get(this, 'idLogicalTypes');
+        // Filtered list of id logical types that end with urn, or have no value
+        const urnFieldFormats = idLogicalTypes.filter(
+          type => String(type.value).match(endsWithUrnRegex) || !type.value
+        );
+        // Get the current classification list
+        const fieldClassification = get(this, policyFieldClassificationKey);
+        // The field formats applicable to the current identifierType
+        let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
+          ? idLogicalTypes
+          : get(this, 'genericLogicalTypes');
+        fieldFormats = identifierType === fieldIdentifierTypes.generic.value ? urnFieldFormats : fieldFormats;
 
         return {
           dataType,
           identifierField,
-          identifierType,
-          isSubject,
-          logicalType,
-          hasPrivacyData
+          fieldFormats,
+          identifierType: computedIdentifierType,
+          classification: fieldClassification[identifierField],
+          // Same object reference for equality comparision
+          logicalType: fieldFormats.findBy('value', logicalType)
         };
       });
     }
   ),
 
-  // Compliance entities filtered for each identifierType
-  memberComplianceEntities: complianceEntitiesMatchingType('member'),
-  orgComplianceEntities: complianceEntitiesMatchingType('organization'),
-  groupComplianceEntities: complianceEntitiesMatchingType('group'),
-
   /**
-   * Changes the logicalType on a field.
-   *   Ensures that the logicalType / format is applicable to the specified field
-   * @param {String} fieldName the fieldName identifying the field to be updated
-   * @param {String} format logicalType or format te field is in
-   * @return {String| void}
-   */
-  changeFieldLogicalType(fieldName, format) {
-    const sourceField = get(this, complianceListKey).findBy('identifierField', fieldName);
-
-    if (sourceField && logicalTypes.includes(format)) {
-      return set(sourceField, 'logicalType', String(format).toUpperCase());
-    }
-  },
-
-  /**
-   * Adds or removes a field onto the
-   *  privacyCompliancePolicy.compliancePurgeEntities list.
-   * @param {Object} props initial props for the field to be added
-   * @prop {String} props.identifierField
-   * @prop {String} props.dataType
-   * @param {String} identifierType the type of the field to toggle
-   * @param {('add'|'remove')} toggle operation to perform, can either be
-   *   add or remove
-   * @return {Ember.Array|*}
-   */
-  toggleFieldOnComplianceList(props, identifierType, toggle) {
-    const { identifierField, logicalType } = props;
-    const sourceEntities = get(this, complianceListKey);
-
-    if (!['add', 'remove'].includes(toggle)) {
-      throw new Error(`Unsupported toggle operation ${toggle}`);
-    }
-
-    return {
-      add() {
-        // Ensure that we don't currently have this field present on the
-        //  privacyCompliancePolicy.compliancePurgeEntities list
-        if (!sourceEntities.findBy('identifierField', identifierField)) {
-          const addPurgeEntity = {
-            identifierType,
-            identifierField,
-            logicalType
-          };
-
-          return sourceEntities.setObjects([addPurgeEntity, ...sourceEntities]);
-        }
-      },
-
-      remove() {
-        // Remove the identifierType since we are removing it from the
-        //   privacyCompliancePolicy.compliancePurgeEntities in case it
-        //   is added back during the session
-        set(props, 'identifierType', null);
-        return sourceEntities.setObjects(sourceEntities.filter(item => item.identifierField !== identifierField));
-      }
-    }[toggle]();
-  },
-
-  /**
-   * Checks that each privacyCompliancePolicy.compliancePurgeEntities has
-   *  a valid identifierType
-   * @param {Ember.Array} sourceEntities compliancePurgeEntities
-   * @return {Boolean} has or does not
-   */
-  ensureTypeContainsFormat: sourceEntities =>
-    sourceEntities.every(entity => ['member', 'organization', 'group'].includes(get(entity, 'identifierType'))),
-
-  /**
-   * Checks that each privacyCompliancePolicy.compliancePurgeEntities has
-   *  a valid logicalType
-   * @param {Ember.Array}sourceEntities compliancePurgeEntities
+   * Checks that each entity in sourceEntities has a valid logicalType
+   * ie. logical Type exists is the idLogicalTypes or genericLogicalTypes
+   * @param {Ember.Array} sourceEntities complianceEntities
    * @return {Boolean|*} Contains or does not
    */
-  ensureTypeContainsLogicalType: sourceEntities => {
-    const logicalTypesInUppercase = logicalTypes.map(type => type.toUpperCase());
+  ensureIdTypesHaveLogicalType: sourceEntities => {
+    const logicalTypesInUppercase = [...idLogicalTypes, ...genericLogicalTypes].map(type => type.toUpperCase());
 
     return sourceEntities.every(entity => logicalTypesInUppercase.includes(get(entity, 'logicalType')));
   },
@@ -259,14 +310,13 @@ export default Component.extend({
    * TODO: DSS-6672 Extract to notifications service
    * Helper method to update user when an async server update to the
    * security specification is handled.
-   * @param {XMLHttpRequest|Promise|jqXHR|*} request the server request
+   * @param {Promise|*} request the server request
    * @param {String} [successMessage] optional _message for successful response
+   * @param { Boolean} [isSaving = false] optional flag indicating when the user intends to persist / save
    */
-  whenRequestCompletes(request, { successMessage } = {}) {
+  whenRequestCompletes(request, { successMessage, isSaving = false } = {}) {
     Promise.resolve(request)
       .then(({ status = 'error' }) => {
-        // The server api currently responds with an object containing
-        //   a status when complete
         return status === 'ok'
           ? setProperties(this, {
               _message: successMessage || successUpdating,
@@ -278,7 +328,7 @@ export default Component.extend({
         let _message = `${failedUpdating} \n ${err}`;
         let _alertType = 'danger';
 
-        if (get(this, 'isNewPrivacyCompliancePolicy')) {
+        if (get(this, 'isNewComplianceInfo') && !isSaving) {
           _message = 'This dataset does not have any previously saved fields with a identifying information.';
           _alertType = 'info';
         }
@@ -290,91 +340,133 @@ export default Component.extend({
       });
   },
 
+  /**
+   * Sets the default classification for the given identifier field
+   * @param {String} identifierField
+   * @param {String} logicalType
+   */
+  setDefaultClassification({ identifierField }, { value: logicalType = '' } = {}) {
+    const defaultTypeClassification = defaultFieldDataTypeClassification[logicalType] || null;
+    this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
+  },
+
   actions: {
     /**
-     *
-     * @param {String} identifierField id for the field to update
-     * @param {String} logicalType updated format to apply to the field
-     * @return {*|String|void} logicalType or void
+     * When a user updates the identifierFieldType in the DOM, update the backing store
+     * @param identifierField
+     * @param logicalType
+     * @param identifierType
      */
-    onFieldFormatChange({ identifierField }, { value: logicalType }) {
-      // TODO:DSS-6719 refactor into mixin
-      this.clearMessages();
-      return this.changeFieldLogicalType(identifierField, logicalType);
+    onFieldIdentifierTypeChange({ identifierField, logicalType }, { value: identifierType }) {
+      const complianceList = get(this, policyComplianceEntitiesKey);
+      // A reference to the current field in the compliance list if it exists
+      const currentFieldInComplianceList = complianceList.findBy('identifierField', identifierField);
+      const subjectId = fieldIdentifierTypes.subjectMember.value;
+      const updatedEntity = Object.assign({}, currentFieldInComplianceList, {
+        identifierField,
+        identifierType: subjectId === identifierType ? fieldIdentifierTypes.member.value : identifierType,
+        isSubject: subjectId === identifierType ? true : null,
+        logicalType: !currentFieldInComplianceList ? logicalType : void 0
+      });
+      let transientComplianceList = complianceList;
+
+      if (currentFieldInComplianceList) {
+        transientComplianceList = complianceList.filter(
+          ({ identifierField: fieldName }) => fieldName !== identifierField
+        );
+      }
+
+      complianceList.setObjects([updatedEntity, ...transientComplianceList]);
+      this.setDefaultClassification({ identifierField });
     },
 
     /**
-     * Toggles a field on / off the compliance list
-     * @param {String} identifierType the type of the field to be toggled on
-     *   the privacyCompliancePolicy.compliancePurgeEntities list
-     * @param {Object|Ember.Object} props containing the props to be added
-     * @prop {Boolean} props.hasPrivacyData checked or not checked
+     * Updates the logical type for the given identifierField
+     * @param {Object} field
+     * @prop {String} field.identifierField
+     * @param {Event} e the DOM change event
      * @return {*}
      */
-    onFieldPrivacyChange(identifierType, props) {
-      // If checked, add, otherwise remove
-      const { hasPrivacyData } = props;
-      const toggle = !hasPrivacyData ? 'add' : 'remove';
+    onFieldLogicalTypeChange(field, e) {
+      const { identifierField } = field;
+      const { value: logicalType } = e || {};
+      let sourceIdentifierField = get(this, policyComplianceEntitiesKey).findBy('identifierField', identifierField);
 
-      // TODO:DSS-6719 refactor into mixin
-      this.clearMessages();
-
-      return this.toggleFieldOnComplianceList(props, identifierType, toggle);
-    },
-
-    /**
-     * Toggles the isSubject property of a member identifiable field
-     * @param {Object} props the props on the member field to update
-     * @prop {Boolean} isSubject flag indicating this field as a subject owner
-     *   when true
-     * @prop {String} identifierField unique field to update isSubject property
-     */
-    onMemberFieldSubjectChange(props) {
-      const { isSubject, identifierField: name } = props;
-
-      // TODO:DSS-6719 refactor into mixin
-      this.clearMessages();
-
-      // Ensure that a flag isSubject is present on the props
-      if (props && 'isSubject' in props) {
-        const sourceField = get(this, complianceListKey).find(({ identifierField }) => identifierField === name);
-
-        set(sourceField, 'isSubject', !isSubject);
+      // If the identifierField does not current exist, invoke onFieldIdentifierChange to add it on the compliance list
+      if (!sourceIdentifierField) {
+        this.actions.onFieldIdentifierTypeChange.call(
+          this,
+          {
+            identifierField,
+            logicalType
+          },
+          { value: fieldIdentifierTypes.none.value }
+        );
       }
+
+      set(sourceIdentifierField, 'logicalType', logicalType);
+
+      return this.setDefaultClassification({ identifierField }, { value: logicalType });
     },
 
     /**
-     * Updates the state flags that transition the prompts from one to the next
-     * @param {String} sectionName name of the section that was changed
-     * @param {Boolean} isPrivacyIdentifiable flag indicating that a section has
-     *   or does not have privacy identifier
+     * Updates the filed classification
+     * @param {String} identifierField the identifier field to update the classification for
+     * @param {String} classification
+     * @return {*}
      */
-    didChangePrivacyIdentifiable(sectionName, isPrivacyIdentifiable) {
-      const section = {
-        'has-group': 'group',
-        'has-org': 'org',
-        'has-member': 'member'
-      }[sectionName];
+    onFieldClassificationChange({ identifierField }, { value: classification = null }) {
+      const fieldClassification = get(this, policyFieldClassificationKey);
 
-      return set(this, `userIndicatesDatasetHas.${section}`, isPrivacyIdentifiable);
+      // TODO:DSS-6719 refactor into mixin
+      this.clearMessages();
+
+      if (!classification && identifierField in fieldClassification) {
+        const updatedFieldClassification = Object.assign({}, fieldClassification);
+        delete updatedFieldClassification[identifierField];
+        set(this, policyFieldClassificationKey, updatedFieldClassification);
+        return;
+      }
+
+      set(fieldClassification, identifierField, classification);
+      // Ember.computedProperties don't seem to have a direct way of depending on the shape of an object changing at
+      //  runtime, notifyPropertyChange forces the computed property recompute the object reference
+      return notifyPropertyChange.call(this, policyFieldClassificationKey);
+    },
+
+    /**
+     * Updates the source object representing the current datasetClassification map
+     * @param {String} classifier the property on the datasetClassification to update
+     * @param {Boolean} value flag indicating if this dataset contains member data for the specified classifier
+     */
+    onChangeDatasetClassification(classifier, value) {
+      let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+
+      // For datasets initially without a datasetClassification, the default value is null
+      if (sourceDatasetClassification === null) {
+        sourceDatasetClassification = set(this, datasetClassificationKey, {});
+      }
+
+      return set(sourceDatasetClassification, classifier, value);
     },
 
     /**
      * If all validity checks are passed, invoke onSave action on controller
      */
     saveCompliance() {
-      const complianceList = get(this, complianceListKey);
-      const allEntitiesHaveValidFormat = this.ensureTypeContainsFormat(complianceList);
-      const allEntitiesHaveValidLogicalType = this.ensureTypeContainsLogicalType(complianceList);
+      const complianceList = get(this, policyComplianceEntitiesKey);
+      const idFieldsHaveValidLogicalType = this.ensureIdTypesHaveLogicalType(
+        complianceList.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType))
+      );
 
-      if (allEntitiesHaveValidFormat && allEntitiesHaveValidLogicalType) {
-        return this.whenRequestCompletes(this.get('onSave')());
-      } else {
-        setProperties(this, {
-          _message: missingTypes,
-          _alertType: 'danger'
-        });
+      if (idFieldsHaveValidLogicalType) {
+        return this.whenRequestCompletes(get(this, 'onSave')(), { isSaving: true });
       }
+
+      setProperties(this, {
+        _message: missingTypes,
+        _alertType: 'danger'
+      });
     },
 
     // Rolls back changes made to the compliance spec to current

@@ -184,13 +184,15 @@ export default Ember.Controller.extend({
 
   getUrlFor(urlId) {
     return {
-      compliance: () => `/api/v1/datasets/${get(this, 'datasetId')}/compliance`,
-      security: () => `/api/v1/datasets/${get(this, 'datasetId')}/security`
+      compliance: () => `/api/v1/datasets/${get(this, 'datasetId')}/privacy`
     }[urlId]();
   },
 
-  exceptionOnSave({error_message}) {
-    debug(`An error occurred on while updating : ${error_message}`);
+  exceptionOnSave({ message = 'An error occurred' }) {
+    const [error] = arguments;
+    debug(`An error occurred on while updating : ${message}`);
+
+    throw error;
   },
 
   actions: {
@@ -274,41 +276,17 @@ export default Ember.Controller.extend({
     },
 
     /**
-     * Requests the security specification for the current dataset id
-     * and sets the result on the controller `securitySpec`
-     * @returns {Promise.<*>}
-     */
-    resetSecuritySpecification() {
-      return getJSON(this.getUrlFor('security'), ({ status, securitySpecification }) => {
-        status === 'ok' && setProperties(this, {
-          'securitySpecification': securitySpecification,
-          'isNewSecuritySpecification': false
-        });
-      });
-    },
-
-    /**
      * Requests the privacyCompliancePolicy for the current dataset id
      * and sets the result on the controller `privacyCompliancePolicy` property
      * @returns {Promise.<*>}
      */
     resetPrivacyCompliancePolicy() {
-      return getJSON(this.getUrlFor('compliance'), ({ status, privacyCompliancePolicy }) => {
+      return getJSON(this.getUrlFor('compliance'), ({ status, complianceInfo }) => {
         status === 'ok' && setProperties(this, {
-          'privacyCompliancePolicy': privacyCompliancePolicy,
-          'isNewPrivacyCompliancePolicy': false
+          complianceInfo,
+          isNewComplianceInfo: false
         });
       });
-    },
-
-    /**
-     * Retrieves the current version of the securitySpecification document and invokes an api to persist the document
-     * then updates controller state if successful
-     */
-    saveSecuritySpecification() {
-      return this.saveJson('security', get(this, 'securitySpecification'))
-          .then(this.actions.resetSecuritySpecification.bind(this))
-          .catch(this.exceptionOnSave);
     },
 
     /**
@@ -316,7 +294,7 @@ export default Ember.Controller.extend({
      * then updates controller state if successful
      */
     savePrivacyCompliancePolicy() {
-      return this.saveJson('compliance', get(this, 'privacyCompliancePolicy'))
+      return this.saveJson('compliance', get(this, 'complianceInfo'))
           .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
           .catch(this.exceptionOnSave);
     }

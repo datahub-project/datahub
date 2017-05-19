@@ -41,13 +41,13 @@ const datasetClassifiersKeys = Object.keys(datasetClassifiers);
 // TODO: DSS-6671 Extract to constants module
 const successUpdating = 'Your changes have been successfully saved!';
 const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
-const missingTypes = 'Looks like some fields are marked as `Confidential` or ' +
-  '`Highly Confidential` but do not have a specified `Field Format`?';
+const missingTypes =
+  'Looks like some fields are marked as `Confidential` or `Highly Confidential` but do not have a specified `Field Format`?';
 const hiddenTrackingFieldsMsg = htmlSafe(
   '<p>Hey! Just a heads up that some fields in this dataset have been hidden from the table(s) below. ' +
-  'These are tracking fields for which we\'ve been able to predetermine the compliance classification.</p>' +
-  '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
-  'Hopefully, this saves you some scrolling!</p>'
+    "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
+    '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
+    'Hopefully, this saves you some scrolling!</p>'
 );
 
 /**
@@ -55,8 +55,7 @@ const hiddenTrackingFieldsMsg = htmlSafe(
  * for now, so no need to make into a helper
  * @param {String} string
  */
-const formatAsCapitalizedStringWithSpaces = string =>
-  string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
+const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',
@@ -73,10 +72,9 @@ export default Component.extend({
 
   // Map logicalTypes to options better consumed by  drop down
   logicalTypes: ['', ...logicalTypes.sort()].map(value => {
-    const label = value ?
-      value.replace(/_/g, ' ')
-        .replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize()) :
-      'Not Specified';
+    const label = value
+      ? value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
+      : 'Not Specified';
 
     return {
       value,
@@ -122,25 +120,26 @@ export default Component.extend({
    */
   fieldNameToClass: computed(
     `${sourceClassificationKey}.{confidential,limitedDistribution,highlyConfidential}.[]`,
-    function () {
+    function() {
       const sourceClasses = getWithDefault(this, sourceClassificationKey, []);
       // Creates a lookup table of fieldNames to classification
       //   Also, the expectation is that the association from fieldName -> classification
       //   is one-to-one hence no check to ensure a fieldName gets clobbered
       //   in the lookup assignment
-      return Object.keys(sourceClasses)
-        .reduce((lookup, classificationKey) =>
-            // For the provided classificationKey, iterate over it's fieldNames,
-            //   and assign the classificationKey to the fieldName in the table
-            (sourceClasses[classificationKey] || []).reduce((lookup, field) => {
-              const { identifierField } = field;
-              // cKey -> 1...fieldNameList => fieldName -> cKey
-              lookup[identifierField] = classificationKey;
-              return lookup;
-            }, lookup),
-          {}
-        );
-    }),
+      return Object.keys(sourceClasses).reduce(
+        (lookup, classificationKey) =>
+          // For the provided classificationKey, iterate over it's fieldNames,
+          //   and assign the classificationKey to the fieldName in the table
+          (sourceClasses[classificationKey] || []).reduce((lookup, field) => {
+            const { identifierField } = field;
+            // cKey -> 1...fieldNameList => fieldName -> cKey
+            lookup[identifierField] = classificationKey;
+            return lookup;
+          }, lookup),
+        {}
+      );
+    }
+  ),
 
   /**
    * Lists all the dataset fields found in the `columns` api, and intersects
@@ -166,10 +165,9 @@ export default Component.extend({
         //   assign to field, otherwise null
         //   Rather than assigning the default classification here, nulling gives the benefit of allowing
         //   subsequent consumer know that this field did not have a previous classification
-        const field = classification ?
-          get(this, `${sourceClassificationKey}.${classification}`)
-            .findBy('identifierField', identifierField) :
-          null;
+        const field = classification
+          ? get(this, `${sourceClassificationKey}.${classification}`).findBy('identifierField', identifierField)
+          : null;
 
         // Extract the logicalType from the field
         const logicalType = isPresent(field) ? field.logicalType : null;
@@ -190,21 +188,22 @@ export default Component.extend({
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
    */
-  containsHiddenTrackingFields: computed(
-    'classificationDataFieldsSansHiddenTracking.length',
-    function () {
-      // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
-      //   then we have hidden tracking fields
-      return get(this, 'classificationDataFieldsSansHiddenTracking.length') !== get(this, 'classificationDataFields.length');
-    }),
+  containsHiddenTrackingFields: computed('classificationDataFieldsSansHiddenTracking.length', function() {
+    // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
+    //   then we have hidden tracking fields
+    return (
+      get(this, 'classificationDataFieldsSansHiddenTracking.length') !== get(this, 'classificationDataFields.length')
+    );
+  }),
 
   /**
    * @type {Array.<Object>} Filters the mapped confidential data fields without `kafka type`
    *   tracking headers
    */
-  classificationDataFieldsSansHiddenTracking: computed('classificationDataFields.[]', function () {
-    return get(this, 'classificationDataFields')
-      .filter(({ identifierField }) => !isTrackingHeaderField(identifierField));
+  classificationDataFieldsSansHiddenTracking: computed('classificationDataFields.[]', function() {
+    return get(this, 'classificationDataFields').filter(
+      ({ identifierField }) => !isTrackingHeaderField(identifierField)
+    );
   }),
 
   /**
@@ -219,20 +218,19 @@ export default Component.extend({
       .then(({ status = 'error' }) => {
         // The server api currently responds with an object containing
         //   a status when complete
-        return status === 'ok' ?
-          setProperties(this, {
-            _message: successMessage || successUpdating,
-            _alertType: 'success'
-          }) :
-          Promise.reject(new Error(`Reason code for this is ${status}`));
+        return status === 'ok'
+          ? setProperties(this, {
+              _message: successMessage || successUpdating,
+              _alertType: 'success'
+            })
+          : Promise.reject(new Error(`Reason code for this is ${status}`));
       })
       .catch(err => {
         let _message = `${failedUpdating} \n ${err}`;
         let _alertType = 'danger';
 
         if (get(this, 'isNewSecuritySpecification')) {
-          _message = 'This dataset does not have any ' +
-            'previously saved fields with a Security Classification.';
+          _message = 'This dataset does not have any previously saved fields with a Security Classification.';
           _alertType = 'info';
         }
 
@@ -264,7 +262,11 @@ export default Component.extend({
     const nextProps = { identifierField, logicalType };
     // The current classification name for the candidate identifier
     const currentClassLookup = get(this, 'fieldNameToClass');
-    const defaultClassification = getWithDefault(this, `${sourceClassificationKey}.${defaultFieldDataTypeClassification[logicalType]}`, []);
+    const defaultClassification = getWithDefault(
+      this,
+      `${sourceClassificationKey}.${defaultFieldDataTypeClassification[logicalType]}`,
+      []
+    );
     let currentClassificationName = currentClassLookup[identifierField];
 
     /**
@@ -278,11 +280,11 @@ export default Component.extend({
     const currentClassification = get(this, `${sourceClassificationKey}.${currentClassificationName}`);
 
     if (!Array.isArray(currentClassification)) {
-      throw new Error(`
-      You have specified a classification object that is not a list ${currentClassification}.
+      throw new Error(
+        `You have specified a classification object that is not a list ${currentClassification}.
       Ensure that the classification for this identifierField (${identifierField}) is
-      set before attempting to change the logicalType.
-      `);
+      set before attempting to change the logicalType.`
+      );
     }
 
     const field = currentClassification.findBy('identifierField', identifierField);
@@ -292,8 +294,7 @@ export default Component.extend({
     if (isPresent(field)) {
       // Remove identifierField from list
       currentClassification.setObjects(
-        currentClassification.filter(
-          ({ identifierField: fieldName }) => fieldName !== identifierField)
+        currentClassification.filter(({ identifierField: fieldName }) => fieldName !== identifierField)
       );
     }
 
@@ -343,24 +344,17 @@ export default Component.extend({
       // in any other classification lists by checking that the lookup is void
       if (!isBlank(currentClass)) {
         // Get the current classification list
-        const currentClassification = get(
-          this,
-          `${sourceClassificationKey}.${currentClass}`
-        );
+        const currentClassification = get(this, `${sourceClassificationKey}.${currentClass}`);
 
         // Remove identifierField from list
         currentClassification.setObjects(
-          currentClassification.filter(
-            ({ identifierField: fieldName }) => fieldName !== identifierField)
+          currentClassification.filter(({ identifierField: fieldName }) => fieldName !== identifierField)
         );
       }
 
       if (classKey) {
         // Get the candidate list
-        let classification = get(
-          this,
-          `${sourceClassificationKey}.${classKey}`
-        );
+        let classification = get(this, `${sourceClassificationKey}.${classKey}`);
         // In the case that the list is not pre-populated,
         //  the value will be the default null, array ops won't work here
         //  ...so make array
@@ -400,9 +394,8 @@ export default Component.extend({
        * @type {Boolean}
        */
       const classedFieldsHaveLogicalType = classifiers.every(classifier =>
-        this.ensureFieldsContainLogicalType(
-          getWithDefault(this, `${sourceClassificationKey}.${classifier}`, [])
-        ));
+        this.ensureFieldsContainLogicalType(getWithDefault(this, `${sourceClassificationKey}.${classifier}`, []))
+      );
 
       if (classedFieldsHaveLogicalType) {
         this.whenRequestCompletes(get(this, 'onSave')());

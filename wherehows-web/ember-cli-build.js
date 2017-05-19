@@ -96,6 +96,9 @@ module.exports = function(defaults) {
   app.import(
     'bower_components/jsondiffpatch/public/formatters-styles/annotated.css'
   );
+  app.import(
+    'bower_components/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css'
+  );
   app.import('vendor/legacy_styles/main.css');
   app.import('vendor/legacy_styles/comments.css');
   app.import('vendor/legacy_styles/wherehows.css');
@@ -129,9 +132,9 @@ module.exports = function(defaults) {
   app.import('vendor/CsvToMarkdown.js');
   app.import('vendor/typeahead.jquery.js');
   app.import('bower_components/marked/marked.min.js');
-  app.import('bower_components/ace-builds/src-min/ace.js');
-  app.import('bower_components/ace-builds/src-min/theme-github.js');
-  app.import('bower_components/ace-builds/src-min/mode-sql.js');
+  app.import('bower_components/ace-builds/src-noconflict/ace.js');
+  app.import('bower_components/ace-builds/src-noconflict/theme-github.js');
+  app.import('bower_components/ace-builds/src-noconflict/mode-sql.js');
   app.import('bower_components/toastr/toastr.min.js');
   app.import('bower_components/highcharts/highcharts.js');
   app.import(
@@ -139,6 +142,9 @@ module.exports = function(defaults) {
   );
   app.import(
     'bower_components/jsondiffpatch/public/build/jsondiffpatch-formatters.min.js'
+  );
+  app.import(
+    'bower_components/x-editable/dist/bootstrap3-editable/js/bootstrap-editable.min.js'
   );
 
   return app.toTree(new MergeTrees([faFontTree, bsFontTree, treegridImgTree]));

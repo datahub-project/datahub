@@ -1,7 +1,6 @@
 import Ember from 'ember';
 import {
-  createPrivacyCompliancePolicy,
-  createSecuritySpecification
+  createInitialComplianceInfo
 } from 'wherehows-web/utils/datasets/functions';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 
@@ -30,16 +29,13 @@ const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
 const getDatasetVersionUrl = (id, dbId) =>
   `${datasetUrl(id)}/versions/db/${dbId}`;
-const getDatasetSecurityUrl = id => `${datasetUrl(id)}/security`;
-const getDatasetComplianceUrl = id => `${datasetUrl(id)}/compliance`;
+const getDatasetPrivacyUrl = id => `${datasetUrl(id)}/privacy`;
 
 let getDatasetColumn;
 
 export default Route.extend({
   //TODO: DSS-6632 Correct server-side if status:error and record not found but response is 200OK
   setupController(controller, model) {
-    currentTab = 'Datasets';
-    window.updateActiveTab();
     let source = '';
     var id = 0;
     var urn = '';
@@ -49,47 +45,17 @@ export default Route.extend({
      * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
      */
     const fetchThenSetOnController = {
-      privacyCompliancePolicy(id, controller) {
-        Promise.resolve(getJSON(getDatasetComplianceUrl(id)))
-          .then(response => {
-            const {
-              msg,
-              status,
-              privacyCompliancePolicy = createPrivacyCompliancePolicy()
-            } = response;
-            const isNewPrivacyCompliancePolicy = status === 'failed' &&
-              String(msg).includes('actual 0');
+      async complianceInfo(id, urn, controller) {
+        const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
+        const { msg, status, complianceInfo = createInitialComplianceInfo(id, urn) } = response;
+        const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
 
-            setProperties(controller, {
-              privacyCompliancePolicy,
-              isNewPrivacyCompliancePolicy
-            });
-          });
+        setProperties(controller, { complianceInfo, isNewComplianceInfo });
 
         return this;
       },
 
-      securitySpecification(id, controller) {
-        Promise.resolve(getJSON(getDatasetSecurityUrl(id)))
-          .then(response => {
-            const {
-              msg,
-              status,
-              securitySpecification = createSecuritySpecification(id)
-            } = response;
-            const isNewSecuritySpecification = status === 'failed' &&
-              String(msg).includes('actual 0');
-
-            setProperties(controller, {
-              securitySpecification,
-              isNewSecuritySpecification
-            });
-          });
-
-        return this;
-      },
-
-      datasetSchemaFieldNamesAndTypes(id, controller) {
+      datasetSchemaFieldNamesAndTypes(id, urn, controller) {
         Promise.resolve(getJSON(datasetUrl(id))).then(({
           dataset: { schema } = { schema: undefined }
         } = {}) => {
@@ -166,6 +132,7 @@ export default Route.extend({
           fetchThenSetOnController[funcRef]['bind'](
             fetchThenSetOnController,
             id,
+            urn,
             controller
           ))
         .forEach(func => func());

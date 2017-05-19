@@ -32,11 +32,11 @@ const asyncRequestBrowseData = (page, entity, urls) =>
 
     try {
       const thunks = await Promise.all([
-        dispatch(lazyRequestPagedFlows({ baseURL: urls.flows, page })),
-        dispatch(lazyRequestPagedMetrics({ baseURL: urls.metrics, page })),
-        dispatch(lazyRequestPagedDatasets({ baseURL: urls.datasets, page }))
+        dispatch(lazyRequestPagedFlows({ baseURL: urls.flows, query: { page } })),
+        dispatch(lazyRequestPagedMetrics({ baseURL: urls.metrics, query: { page } })),
+        dispatch(lazyRequestPagedDatasets({ baseURL: urls.datasets, query: { page } }))
       ]);
-      const [...actions] = await Promise.all(thunks);
+      const [...actions] = thunks;
 
       /**
        * Check that none of the actions has an error flag in FSA
