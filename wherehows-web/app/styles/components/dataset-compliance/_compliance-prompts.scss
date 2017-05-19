@@ -16,15 +16,6 @@
     font-size: 24px;
     font-weight: fw(normal, 2);
   }
-
-  &__page-number {
-    display: inline-block;
-    font-size: 16px;
-    border: 1px solid set-color(grey, light);
-    border-radius: 2px;
-    padding: 5px;
-    background-color: tint(set-color(green, green5), 65%);
-  }
 }
 
 /// Wraps a status notification icon for a given dataset
