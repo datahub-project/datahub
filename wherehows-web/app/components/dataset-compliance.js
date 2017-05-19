@@ -416,6 +416,7 @@ export default Component.extend({
      */
     onFieldClassificationChange({ identifierField }, { value: classification = null }) {
       let fieldClassification = get(this, policyFieldClassificationKey);
+      let updatedFieldClassification = {};
       // For datasets initially without a fieldClassification, the default value is null
       if (fieldClassification === null) {
         fieldClassification = set(this, policyFieldClassificationKey, {});
@@ -425,16 +426,15 @@ export default Component.extend({
       this.clearMessages();
 
       if (!classification && identifierField in fieldClassification) {
-        const updatedFieldClassification = Object.assign({}, fieldClassification);
+        updatedFieldClassification = Object.assign(updatedFieldClassification, fieldClassification);
         delete updatedFieldClassification[identifierField];
-        set(this, policyFieldClassificationKey, updatedFieldClassification);
-        return;
+      } else {
+        // fieldNames/identifierField can be paths i.e. identifierField.identifierPath.subPath
+        //   using Ember.set trips up Ember and throws
+        updatedFieldClassification = Object.assign({}, fieldClassification, { [identifierField]: classification });
       }
 
-      set(fieldClassification, identifierField, classification);
-      // Ember.computedProperties don't seem to have a direct way of depending on the shape of an object changing at
-      //  runtime, notifyPropertyChange forces the computed property recompute the object reference
-      return notifyPropertyChange.call(this, policyFieldClassificationKey);
+      set(this, policyFieldClassificationKey, updatedFieldClassification);
     },
 
     /**
