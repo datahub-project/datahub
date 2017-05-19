@@ -227,9 +227,7 @@ export default Component.extend({
        */
       const getAttributeOnField = (attribute, fieldName) => {
         const complianceEntities = get(this, policyComplianceEntitiesKey) || [];
-        const sourceField = complianceEntities.find(
-          ({ identifierField }) => identifierField === fieldName
-        );
+        const sourceField = complianceEntities.find(({ identifierField }) => identifierField === fieldName);
         return sourceField ? sourceField[attribute] : null;
       };
 
@@ -403,9 +401,9 @@ export default Component.extend({
           },
           { value: fieldIdentifierTypes.none.value }
         );
+      } else {
+        set(sourceIdentifierField, 'logicalType', logicalType);
       }
-
-      set(sourceIdentifierField, 'logicalType', logicalType);
 
       return this.setDefaultClassification({ identifierField }, { value: logicalType });
     },
