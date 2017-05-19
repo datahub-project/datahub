@@ -45,9 +45,9 @@ export default Route.extend({
      * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
      */
     const fetchThenSetOnController = {
-      async complianceInfo(id, controller) {
+      async complianceInfo(id, urn, controller) {
         const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
-        const { msg, status, complianceInfo = createInitialComplianceInfo(id) } = response;
+        const { msg, status, complianceInfo = createInitialComplianceInfo(id, urn) } = response;
         const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
 
         setProperties(controller, { complianceInfo, isNewComplianceInfo });
@@ -55,7 +55,7 @@ export default Route.extend({
         return this;
       },
 
-      datasetSchemaFieldNamesAndTypes(id, controller) {
+      datasetSchemaFieldNamesAndTypes(id, urn, controller) {
         Promise.resolve(getJSON(datasetUrl(id))).then(({
           dataset: { schema } = { schema: undefined }
         } = {}) => {
@@ -132,6 +132,7 @@ export default Route.extend({
           fetchThenSetOnController[funcRef]['bind'](
             fetchThenSetOnController,
             id,
+            urn,
             controller
           ))
         .forEach(func => func());
