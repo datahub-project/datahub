@@ -1,41 +1,18 @@
-import { classifiers } from 'wherehows-web/constants';
-
 /**
- * Builds a privacyCompliancePolicy map with default / unset
- *   values for non null properties
- */
-const createPrivacyCompliancePolicy = () => {
-  const policy = {
-    // default to first item in compliance types list
-    complianceType: 'AUTO_PURGE',
-    compliancePurgeEntities: []
-  };
-
-  // Ensure we deep clone map to prevent mutation from consumers
-  return JSON.parse(JSON.stringify(policy));
-};
-
-/**
- * Builds a securitySpecification map with default / unset values
+ * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
  *   for non null properties as per Avro schema
- * @param {number} id
+ * @param {Number} datasetId id for the dataset that this privacy object applies to
  */
-const createSecuritySpecification = id => {
-  const classification = classifiers.reduce((classification, classifier) => {
-    classification[classifier] = [];
-    return classification;
-  }, {});
+const createInitialComplianceInfo = datasetId => ({
+  datasetId,
+  // default to first item in compliance types list
+  complianceType: 'AUTO_PURGE',
+  complianceEntities: [],
+  fieldClassification: {},
+  datasetClassification: {},
+  geographicAffinity: { affinity: '' },
+  recordOwnerType: '',
+  retentionPolicy: { retentionType: '' }
+});
 
-  const securitySpecification = {
-    classification,
-    datasetId: id,
-    geographicAffinity: { affinity: '' },
-    recordOwnerType: '',
-    retentionPolicy: { retentionType: '' },
-    datasetClassification: {}
-  };
-
-  return JSON.parse(JSON.stringify(securitySpecification));
-};
-
-export { createSecuritySpecification, createPrivacyCompliancePolicy };
+export { createInitialComplianceInfo };

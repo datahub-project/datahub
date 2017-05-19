@@ -51,8 +51,19 @@
   }
 }
 
+/**
+ * Styles the action bar on a tab component
+ */
 .action-bar {
-  margin-bottom: 20px;
+  position: fixed;
+  padding: 5px;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-width: 1px 0 0;
+  background-color: #f8f8f8;
+  z-index: z(dropdown);
+  max-height: 50px;
 }
 
 /**

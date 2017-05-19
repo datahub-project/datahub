@@ -1,21 +1,23 @@
 <div class="tab-body">
-  <section class="ownership-actions">
-    <button class="nacho-button nacho-button--large-inverse"
-            title={{if ownershipIsInvalid
-                       "Need at least two confirmed owners to make changes
-                       and no Invalid users"
-                       "Save"}}
-              disabled={{ownershipIsInvalid}}
-      {{action "updateOwners"}}>
-      Save
-    </button>
+  <section class="action-bar">
+    <div class="container">
+      <button class="nacho-button nacho-button--large-inverse"
+              title={{if ownershipIsInvalid
+                         "Need at least two confirmed owners to make changes
+                         and no Invalid users"
+                         "Save"}}
+                disabled={{ownershipIsInvalid}}
+        {{action "updateOwners"}}>
+        Save
+      </button>
 
-    <button class="nacho-button nacho-button--large"
-      {{action "addOwner" owners}}>
-      <i class="fa fa-plus" title="Add an Owner">
-      </i>
-      Add an Owner
-    </button>
+      <button class="nacho-button nacho-button--large"
+        {{action "addOwner" owners}}>
+        <i class="fa fa-plus" title="Add an Owner">
+        </i>
+        Add an Owner
+      </button>
+    </div>
   </section>
 
   <div class="alert alert-info" role="alert">

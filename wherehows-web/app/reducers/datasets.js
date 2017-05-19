@@ -1,11 +1,19 @@
 import {
   initializeState,
-  receiveNodes,
+  urnsToNodeUrn,
   receiveEntities,
   createUrnMapping,
   createPageMapping
 } from 'wherehows-web/reducers/entities';
 import { ActionTypes } from 'wherehows-web/actions/datasets';
+
+/**
+ * Sets the default initial state for metrics slice. Appends a byName property to the shared representation.
+ * @type {Object}
+ */
+const initialState = Object.assign({}, initializeState(), {
+  nodesByUrn: []
+});
 
 /**
  * datasets root reducer
@@ -15,14 +23,14 @@ import { ActionTypes } from 'wherehows-web/actions/datasets';
  * @prop {String} action.type actionType
  * @return {Object}
  */
-export default (state = initializeState(), action = {}) => {
+export default (state = initialState, action = {}) => {
   switch (action.type) {
     // Action indicating a request for datasets by page
     case ActionTypes.SELECT_PAGED_DATASETS:
     case ActionTypes.REQUEST_PAGED_DATASETS:
       return Object.assign({}, state, {
         query: Object.assign({}, state.query, {
-          page: action.payload.page
+          page: action.payload.query.page
         }),
         baseURL: action.payload.baseURL || state.baseURL,
         isFetching: true
@@ -51,7 +59,7 @@ export default (state = initializeState(), action = {}) => {
     case ActionTypes.RECEIVE_DATASET_NODES: // Action indicating a receipt of list nodes / datasets for dataset urn
       return Object.assign({}, state, {
         isFetching: false,
-        nodesByUrn: receiveNodes(state, action.payload)
+        nodesByUrn: urnsToNodeUrn(state, action.payload)
       });
 
     default:

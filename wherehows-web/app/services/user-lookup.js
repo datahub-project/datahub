@@ -59,8 +59,8 @@ const ldapResolver = (userNameQuery, syncResults, asyncResults) => {
   const regex = new RegExp(`^${userNameQuery}.*`, 'i');
 
   getLDAPUsers()
-    .then(({ userEntitiesSource = {} }) =>
-      userEntitiesSource.filter(entity => regex.test(entity)))
+    .then(({ userEntitiesMaps = {} }) =>
+      Object.values(userEntitiesMaps).filter(entity => regex.test(entity)))
     .then(asyncResults);
 };
 
@@ -71,7 +71,7 @@ const ldapResolver = (userNameQuery, syncResults, asyncResults) => {
  */
 const getPartyEntityWithUserName = userName => getLDAPUsers()
   .then(
-    ({ userEntities }) => userEntities.find(({ label }) => label === userName) ||
+    ({ userEntities }) => userEntities.find(({ displayName }) => displayName === userName) ||
     null
   );
 

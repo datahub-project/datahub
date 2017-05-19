@@ -13,25 +13,33 @@
     </div>
   {{else}}
     <section class="action-bar">
-      <button class="nacho-button nacho-button--large-inverse"
-        {{action "saveCompliance"}}>
-        Save
-      </button>
+      <div class="container">
+        <button class="nacho-button nacho-button--large-inverse"
+                title={{unless isDatasetFullyClassified
+                               "Ensure you have provided a yes/no value for all dataset tags"
+                               "Save"}}
+                  disabled={{not isDatasetFullyClassified}}
+          {{action "saveCompliance"}}>
+          Save
+        </button>
 
-      <button class="nacho-button nacho-button--large"
-        {{action "resetCompliance"}}>
-        <i class="fa fa-times" title="Start Over">
-        </i>
-        Start Over
-      </button>
+        <button class="nacho-button nacho-button--large"
+          {{action "resetCompliance"}}>
+          <i class="fa fa-times" title="Start Over">
+          </i>
+          Start Over
+        </button>
+
+        {{#if _message}}
+          <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
+            {{_message}}
+          </div>
+        {{/if}}
+      </div>
     </section>
-
-    <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
-      {{if _message _message ""}}
-    </div>
   {{/if}}
 
-  {{#if isNewPrivacyCompliancePolicy}}
+  {{#if isNewPrivacyPolicy}}
     <div class="alert alert-info" role="alert">
       <p>
         A policy does not currently exist for this dataset.
@@ -41,82 +49,175 @@
     </div>
   {{/if}}
 
-  {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
-  {{#if containsHiddenTrackingFields}}
-    <div class="alert alert-info" role="alert">
-      <p>{{hiddenTrackingFields}}</p>
-    </div>
-  {{/if}}
-
-  <section class="metadata-prompt" id="has-member">
+  <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        <span class="metadata-prompt__page-number">
-          <strong>1</strong>
-          of
-          <strong>3</strong>
-        </span>
-        Do fields in the schema contain the ID of a member (e.g. id, urn,
-        etcetera)?
+        1. Does this dataset contain the following types of Member data:
+
+        <!--TODO: DSS-6716-->
+        <!-- DRY out with wrapper component that takes the link as an attribute-->
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets#ListofMetadataforDataSets-DatasetLevelTags">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on Dataset classification with examples"></span>
+          </sup>
+        </a>
       </p>
     </header>
   </section>
 
-  {{dataset-schema-table
-    sortColumnWithName=sortColumnWithName
-    filterBy=filterBy
-    sortDirection=sortDirection
-    searchTerm=searchTerm
-    fields=memberComplianceEntities
-    fieldFormats=logicalTypes
-    onFormatChange=(action "onFieldFormatChange")
-    onSubjectChange=(action "onMemberFieldSubjectChange")
-    onPrivacyChange=(action "onFieldPrivacyChange")}}
+  <table class="nacho-table nacho-table--bordered nacho-table--stripped">
+    <thead>
+    <tr>
+      <th>Dataset Content Type</th>
+      <th>Is this type of member data contained in this dataset?</th>
+    </tr>
+    </thead>
+    <tbody>
+    {{#each-in datasetClassification as |classification props|}}
+      <tr>
+        <td>
+          {{props.label}}
 
-  <section class="metadata-prompt" id="has-org">
+          <span class="dataset-tag-container">
+            {{#if (eq props.value true)}}
+              <i class="glyphicon glyphicon-ok dataset-classification-indicator--tagged"
+                 title="{{props.label}} is in dataset"></i>
+            {{/if}}
+
+            {{#if (eq props.value false)}}
+              <i class="glyphicon glyphicon-remove dataset-classification-indicator--not-tagged"
+                 title="{{props.label}} is not in dataset"></i>
+            {{/if}}
+          </span>
+        </td>
+        <td>
+          {{#radio-button-composer
+            value=true
+            name=classification
+            groupValue=(readonly props.value)
+            changed=(action "onChangeDatasetClassification")}}
+            Yes
+          {{/radio-button-composer}}
+          {{#radio-button-composer
+            value=false
+            name=classification
+            groupValue=(readonly props.value)
+            changed=(action "onChangeDatasetClassification")}}
+            No
+          {{/radio-button-composer}}
+        </td>
+      </tr>
+    {{/each-in}}
+    </tbody>
+  </table>
+
+  <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        <span class="metadata-prompt__page-number">
-          <strong>2</strong>
-          of
-          <strong>3</strong>
-        </span>
-        Do fields in the schema contain the ID of an organization?
+        2. Do fields in the schema contain the ID of a member (e.g. id, urn,
+        etcetera) and what are the formats of the fields in the schema?
       </p>
     </header>
+    {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
+    {{#if containsHiddenTrackingFields}}
+      {{hiddenTrackingFields}}
+    {{/if}}
   </section>
 
-  {{dataset-table-org-compliance
+  {{#dataset-table
+    class="nacho-table--stripped"
+    fields=complianceDataFieldsSansHiddenTracking
     sortColumnWithName=sortColumnWithName
     filterBy=filterBy
     sortDirection=sortDirection
-    searchTerm=searchTerm
-    fields=orgComplianceEntities
-    fieldFormats=logicalTypes
-    onFormatChange=(action "onFieldFormatChange")
-    onPrivacyChange=(action "onFieldPrivacyChange")}}
-
-  <section class="metadata-prompt" id="has-group">
-    <header class="metadata-prompt__header">
-      <p>
-        <span class="metadata-prompt__page-number">
-          <strong>3</strong>
-          of
-          <strong>3</strong>
-        </span>
-        Do fields in the schema contain the ID of a group?
-      </p>
-    </header>
-  </section>
-
-  {{dataset-table-group-compliance
-    sortColumnWithName=sortColumnWithName
-    filterBy=filterBy
-    sortDirection=sortDirection
-    searchTerm=searchTerm
-    fields=groupComplianceEntities
-    fieldFormats=logicalTypes
-    onFormatChange=(action "onFieldFormatChange")
-    onPrivacyChange=(action "onFieldPrivacyChange")}}
+    searchTerm=searchTerm as |table|
+  }}
+    <caption>
+      <input
+        type="text"
+        title="Search fields"
+        placeholder="Search fields"
+        value="{{table.searchTerm}}"
+        oninput={{action table.filterDidChange value="target.value"}}>
+    </caption>
+    {{#table.head as |head|}}
+      {{#head.column columnName="identifierField"}}Field{{/head.column}}
+      {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}
+        Has Member, Organization, or Group, ID's?
+        <sup>
+          <span
+            class="glyphicon glyphicon-question-sign"
+            title="Help Text">
+            {{tooltip-on-component
+              event="click"
+              hideOn="click"
+              text=helpText.subjectOwner
+            }}
+          </span>
+        </sup>
+      {{/head.column}}
+      {{#head.column}}
+        Field Format?
+        <sup>
+          <span
+            class="glyphicon glyphicon-question-sign"
+            title="Help Text">
+            {{tooltip-on-component
+              event="click"
+              hideOn="click"
+              text=helpText.classification
+            }}
+          </span>
+        </sup>
+      {{/head.column}}
+      {{#head.column}}Security Classification{{/head.column}}
+    {{/table.head}}
+    {{#table.body as |body|}}
+      {{#each (sort-by table.sortBy table.data) as |field|}}
+        {{#body.row as |row|}}
+          {{#row.cell}}
+            {{field.identifierField}}
+          {{/row.cell}}
+          {{#row.cell}}
+            {{field.dataType}}
+          {{/row.cell}}
+          {{#row.cell}}
+            {{ember-selector
+              values=fieldIdentifierOptions
+              selected=field.identifierType
+              selectionDidChange=(action "onFieldIdentifierTypeChange" field)
+            }}
+          {{/row.cell}}
+          {{#row.cell}}
+            {{#power-select
+              options=field.fieldFormats
+              selected=field.logicalType
+              placeholder="Select Format"
+              allowClear=true
+              searchField="label"
+              triggerClass="ember-power-select-trigger-search"
+              onchange=(action "onFieldLogicalTypeChange" field) as |fieldFormat|}}
+              {{fieldFormat.label}}
+            {{/power-select}}
+          {{/row.cell}}
+          {{#row.cell}}
+            {{ember-selector
+              class="nacho-select--hidden-state"
+              values=classifiers
+              selected=field.classification
+              disabled=(not field.logicalType)
+              selectionDidChange=(action "onFieldClassificationChange" field)
+            }}
+          {{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+  {{/dataset-table}}
 </div>
 {{yield}}

@@ -78,7 +78,8 @@ $pad-width: 16px;
 .ember-radio-button {
   position: relative;
   left: 26px;
-  width: 60px;
+  min-width: 60px;
+  cursor: pointer;
 
   &:before,
   &:after {

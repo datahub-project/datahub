@@ -11,6 +11,7 @@
         text-align: left,
         width: 100%,
         table-layout: fixed,
+        background-color: set-color(white, base),
         '& th': (
                 font-size: restyle-var(font-size),
                 background-color: restyle-var(header-color),
@@ -36,6 +37,9 @@
                         '& tr:nth-child(odd)': (
                                 background-color: restyle-var(zebra)
                         )
+                ),
+                'with variable width': (
+                        table-layout: auto
                 )
         )
 ));
@@ -49,5 +53,16 @@
 
   &--stripped {
     @include restyle(table with stripped rows);
+  }
+
+  &--dynamic {
+    @include restyle(table with variable width);
+  }
+
+  /**
+   * Removes the the non wrap for words in the td, or th cell in  nacho-table
+   */
+  .nacho-table-cell-wrapped {
+    white-space: normal;
   }
 }
