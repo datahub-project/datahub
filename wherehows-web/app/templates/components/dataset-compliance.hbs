@@ -30,13 +30,13 @@
           Start Over
         </button>
       </div>
-    </section>
 
-    {{#if _message}}
-      <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
-        {{_message}}
-      </div>
-    {{/if}}
+      {{#if _message}}
+        <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
+          {{_message}}
+        </div>
+      {{/if}}
+    </section>
   {{/if}}
 
   {{#if isNewPrivacyPolicy}}
@@ -157,8 +157,7 @@
             {{tooltip-on-component
               event="click"
               hideOn="click"
-              text="A field can contain one or multiple member IDs that do not technically \"own\" the entire record,
-          e.g. the list of recipients of a message. The field should be marked as a \"Subject Owner\" in this case."
+              text=helpText.subjectOwner
             }}
           </span>
         </sup>
@@ -172,8 +171,7 @@
             {{tooltip-on-component
               event="click"
               hideOn="click"
-              text="For each of the fields below, please classify them based on the data handling table found at go/dht.
-               The default classification shoud suffice in most cases."
+              text=helpText.classification
             }}
           </span>
         </sup>
