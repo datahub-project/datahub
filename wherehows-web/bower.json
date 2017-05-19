@@ -15,7 +15,8 @@
     "json-human": "^0.1.1",
     "jsondiffpatch": "^0.2.4",
     "marked": "^0.3.6",
-    "toastr": "^2.1.3"
+    "toastr": "^2.1.3",
+    "x-editable": "^1.5.1"
   },
   "resolutions": {
     "ember-cli-shims": "0.1.3",
