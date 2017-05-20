@@ -49,58 +49,57 @@ public class DatasetDao {
   public static final String HIVE_PREFIX_WITH_2_SLASH = "hive://";
   public static final String DALIDS_PREFIX_WITH_2_SLASH = "dalids://";
 
-  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER = "SELECT " +
-          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, " +
-          "i.deployment_tier, i.data_center, i.server_cluster " +
-          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
-          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
-          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? " +
-          "and lower(c.object_type) = ? and lower(i.server_cluster) = ?";
+  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER =
+      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, "
+          + "i.deployment_tier, i.data_center, i.server_cluster "
+          + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
+          + "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id "
+          + "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? "
+          + "and lower(c.object_type) = ? and lower(i.server_cluster) = ?";
 
-  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_CLUSTER = "SELECT c.object_dataset_id as dataset_id, " +
-          "d.urn, d.dataset_type, i.deployment_tier, i.data_center, i.server_cluster " +
-          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
-          "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id " +
-          "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? and lower(i.server_cluster) = ?";
+  public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_CLUSTER = "SELECT c.object_dataset_id as dataset_id, "
+      + "d.urn, d.dataset_type, i.deployment_tier, i.data_center, i.server_cluster "
+      + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
+      + "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id "
+      + "WHERE c.object_dataset_id is not null and  lower(c.object_name) = ? and lower(i.server_cluster) = ?";
 
-  private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
-          "object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
-          "mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
-          "FROM cfg_object_name_map WHERE object_dataset_id = ?";
+  private final static String GET_DATASET_DEPENDS_VIEW =
+      "SELECT object_type, object_sub_type, " + "object_name, map_phrase, is_identical_map, mapped_object_dataset_id, "
+          + "mapped_object_type,  mapped_object_sub_type, mapped_object_name "
+          + "FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
-  public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR = "select urn from dict_dataset where properties like :properties";
+  public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR =
+      "select urn from dict_dataset where properties like :properties";
 
-  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_ID = "SELECT " +
-          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type " +
-          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
-          "WHERE c.mapped_object_dataset_id = ?";
+  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_ID =
+      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
+          + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
+          + "WHERE c.mapped_object_dataset_id = ?";
 
-  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_NAME = "SELECT " +
-          "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type " +
-          "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id " +
-          "WHERE c.mapped_object_type = ? and " +
-          "(c.mapped_object_name = ? or c.mapped_object_name like ?)";
+  public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_NAME =
+      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
+          + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
+          + "WHERE c.mapped_object_type = ? and " + "(c.mapped_object_name = ? or c.mapped_object_name like ?)";
 
-  public static Map<String, Object> getDatasetById(int datasetId)
-    throws SQLException {
+  public static Map<String, Object> getDatasetById(int datasetId) throws SQLException {
     Map<String, Object> params = new HashMap<>();
     params.put("id", datasetId);
     return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_BY_ID, params);
   }
 
-  public static Map<String, Object> getDatasetByUrn(String urn)
-    throws SQLException {
+  public static Map<String, Object> getDatasetByUrn(String urn) throws SQLException {
     Map<String, Object> params = new HashMap<>();
     params.put("urn", urn);
     return JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_BY_URN, params);
   }
 
-  public static void insertDataset(JsonNode dataset)
-    throws Exception {
-
+  public static void insertDataset(JsonNode dataset) throws Exception {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
-    DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
+    insertDataset(om.convertValue(dataset, DatasetRecord.class));
+  }
+
+  public static void insertDataset(DatasetRecord record) throws Exception {
     if (record.getRefDatasetUrn() != null) {
       Map<String, Object> refDataset = getDatasetByUrn(record.getRefDatasetUrn());
       // Find ref dataset id
@@ -108,7 +107,6 @@ public class DatasetDao {
         record.setRefDatasetId(((Long) refDataset.get("id")).intValue());
       }
     }
-
 
     // Find layout id
     if (record.getSamplePartitionFullPath() != null) {
@@ -121,31 +119,33 @@ public class DatasetDao {
     dw.close();
   }
 
-  public static void setDatasetRecord (JsonNode dataset)
-      throws Exception {
+  public static void setDatasetRecord(JsonNode dataset) throws Exception {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
-    DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
+    setDatasetRecord(om.convertValue(dataset, DatasetRecord.class));
+  }
 
+  public static void setDatasetRecord (DatasetRecord record)
+      throws Exception {
     if (record != null) {
       Map<String, Object> params = new HashMap<>();
       params.put("urn", record.getUrn());
       try {
         Map<String, Object> result = JdbcUtil.wherehowsNamedJdbcTemplate.queryForMap(GET_DATASET_BY_URN, params);
-        updateDataset(dataset);
+        updateDataset(record);
       } catch (EmptyResultDataAccessException e) {
-        insertDataset(dataset);
+        insertDataset(record);
       }
     }
   }
 
-
-
-  public static void updateDataset(JsonNode dataset)
-      throws Exception {
+  public static void updateDataset(JsonNode dataset) throws Exception {
     ObjectMapper om = new ObjectMapper();
     om.setPropertyNamingStrategy(PropertyNamingStrategy.CAMEL_CASE_TO_LOWER_CASE_WITH_UNDERSCORES);
-    DatasetRecord record = om.convertValue(dataset, DatasetRecord.class);
+    updateDataset(om.convertValue(dataset, DatasetRecord.class));
+  }
+
+  public static void updateDataset(DatasetRecord record) throws Exception {
     if (record.getRefDatasetUrn() != null) {
       Map<String, Object> refDataset = getDatasetByUrn(record.getRefDatasetUrn());
       // Find ref dataset id
