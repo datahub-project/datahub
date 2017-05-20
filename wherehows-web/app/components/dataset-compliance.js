@@ -29,13 +29,6 @@ const helpText = {
 };
 
 /**
- * Quick regex to check if a string ends with urn case-insensitive, cached outside scope to avoid recreating
- * on every function invocation
- * @type {RegExp}
- */
-const endsWithUrnRegex = /.*urn/i;
-
-/**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
  * @param {String} string
@@ -249,9 +242,7 @@ export default Component.extend({
           : identifierType;
         const idLogicalTypes = get(this, 'idLogicalTypes');
         // Filtered list of id logical types that end with urn, or have no value
-        const urnFieldFormats = idLogicalTypes.filter(
-          type => String(type.value).match(endsWithUrnRegex) || !type.value
-        );
+        const urnFieldFormats = idLogicalTypes.findBy('value', 'URN');
         // Get the current classification list
         const fieldClassification = get(this, policyFieldClassificationKey) || {};
         // The field formats applicable to the current identifierType
@@ -267,7 +258,7 @@ export default Component.extend({
           identifierType: computedIdentifierType,
           classification: fieldClassification[identifierField],
           // Same object reference for equality comparision
-          logicalType: fieldFormats.findBy('value', logicalType)
+          logicalType: Array.isArray(fieldFormats) ? fieldFormats.findBy('value', logicalType) : fieldFormats
         };
       });
     }
