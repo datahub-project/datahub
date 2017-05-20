@@ -9,16 +9,7 @@ import {
   defaultFieldDataTypeClassification
 } from 'wherehows-web/constants';
 
-const {
-  Component,
-  computed,
-  set,
-  get,
-  Observable: { mixins: { notifyPropertyChange } },
-  setProperties,
-  getWithDefault,
-  String: { htmlSafe }
-} = Ember;
+const { Component, computed, set, get, setProperties, getWithDefault, isEmpty, String: { htmlSafe } } = Ember;
 
 // TODO: DSS-6671 Extract to constants module
 const missingTypes = 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?';
@@ -283,16 +274,17 @@ export default Component.extend({
   ),
 
   /**
-   * Checks that each entity in sourceEntities has a valid logicalType
-   * ie. logical Type exists is the idLogicalTypes or genericLogicalTypes
-   * @param {Ember.Array} sourceEntities complianceEntities
-   * @return {Boolean|*} Contains or does not
+   * Checks that each entity in sourceEntities has a generic
+   * @param {Array} sourceEntities = [] the source entities to be matched against
+   * @param {Array} logicalTypes = [] list of logicalTypes to check against
    */
-  ensureIdTypesHaveLogicalType: sourceEntities => {
-    const logicalTypesInUppercase = [...idLogicalTypes, ...genericLogicalTypes].map(type => type.toUpperCase());
-
-    return sourceEntities.every(entity => logicalTypesInUppercase.includes(get(entity, 'logicalType')));
-  },
+  checkEachEntityByLogicalType: (sourceEntities = [], logicalTypes = []) =>
+    sourceEntities.every(
+      ({ logicalType }) =>
+        (typeof logicalType === 'object'
+          ? logicalTypes.includes(logicalType.value)
+          : logicalTypes.includes(logicalType))
+    ),
 
   /**
    * TODO:DSS-6719 refactor into mixin
@@ -349,12 +341,52 @@ export default Component.extend({
     this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
   },
 
+  /**
+   * Requires that the user confirm that any non-id fields are ok to be saved without a field format specified
+   * @return {Boolean}
+   */
+  confirmUnformattedFields() {
+    // Current list of compliance entities on policy
+    const complianceList = get(this, policyComplianceEntitiesKey);
+    // All candidate fields that can be on policy
+    const datasetFields = get(this, 'complianceDataFieldsSansHiddenTracking');
+    // Fields that do not have a logicalType and not identifierType or identifierType is `fieldIdentifierTypes.none`
+    const unformattedFields = datasetFields.filter(
+      ({ identifierType, logicalType }) =>
+        !logicalType && (fieldIdentifierTypes.none.value === identifierType || !identifierType)
+    );
+    let isConfirmed = true;
+
+    // If there are unformatted fields, require confirmation from user
+    if (!isEmpty(unformattedFields)) {
+      isConfirmed = confirm(
+        `There are ${unformattedFields.length} non-ID fields that have no field format specified. ` +
+          `Are you sure they don't contain any of the following?`
+      );
+
+      // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
+      //   to be saved
+      isConfirmed &&
+        complianceList.setObjects([
+          ...complianceList,
+          ...unformattedFields.map(({ identifierField }) => ({
+            identifierField,
+            identifierType: fieldIdentifierTypes.none.value,
+            isSubject: null,
+            logicalType: void 0
+          }))
+        ]);
+    }
+
+    return isConfirmed;
+  },
+
   actions: {
     /**
      * When a user updates the identifierFieldType in the DOM, update the backing store
-     * @param identifierField
-     * @param logicalType
-     * @param identifierType
+     * @param {String} identifierField
+     * @param {String} logicalType
+     * @param {String} identifierType
      */
     onFieldIdentifierTypeChange({ identifierField, logicalType }, { value: identifierType }) {
       const complianceList = get(this, policyComplianceEntitiesKey);
@@ -441,6 +473,7 @@ export default Component.extend({
      * Updates the source object representing the current datasetClassification map
      * @param {String} classifier the property on the datasetClassification to update
      * @param {Boolean} value flag indicating if this dataset contains member data for the specified classifier
+     * @return {*}
      */
     onChangeDatasetClassification(classifier, value) {
       let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
@@ -458,18 +491,25 @@ export default Component.extend({
      */
     saveCompliance() {
       const complianceList = get(this, policyComplianceEntitiesKey);
-      const idFieldsHaveValidLogicalType = this.ensureIdTypesHaveLogicalType(
-        complianceList.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType))
+      const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
+        complianceList.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType)),
+        [...genericLogicalTypes, ...idLogicalTypes]
       );
+      const saveConfirmed = this.confirmUnformattedFields();
 
-      if (idFieldsHaveValidLogicalType) {
-        return this.whenRequestCompletes(get(this, 'onSave')(), { isSaving: true });
+      // If user provides confirmation for unformatted fields or there are none,
+      // then check if id type fields have a specified logical type
+      // otherwise we should inform the user of missing field formats for id fields, which are not allowed
+      if (saveConfirmed) {
+        if (idFieldsHaveValidLogicalType) {
+          return this.whenRequestCompletes(get(this, 'onSave')(), { isSaving: true });
+        }
+
+        setProperties(this, {
+          _message: missingTypes,
+          _alertType: 'danger'
+        });
       }
-
-      setProperties(this, {
-        _message: missingTypes,
-        _alertType: 'danger'
-      });
     },
 
     // Rolls back changes made to the compliance spec to current
