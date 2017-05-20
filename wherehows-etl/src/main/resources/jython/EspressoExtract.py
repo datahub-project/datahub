@@ -81,10 +81,10 @@ class EspressoExtract:
         fabric = 'PROD'
       elif 'CORP' in value['fabrics']:
         fabric = 'CORP'
-      elif 'EI' in value['fabrics']:
-        fabric = 'EI'
       else:
-        fabric = value['fabrics'][0]
+        self.logger.info("Skip fetching: " + name)
+        continue
+
       sub_type = value['subType'] if value['subType'] > '' else ''
 
       req_params = 'NuageDatabaseName={}&fabric={}&type={}&subType={}'.format(name, fabric, 'ESPRESSO', sub_type)
