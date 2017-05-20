@@ -15,6 +15,8 @@ const nonIdFieldDataTypeClassification = {
   PHONE_NUMBER: 'confidential',
   ADDRESS: 'confidential',
   GEO_LOCATION: 'confidential',
+  LATITUDE_AND_LONGITUDE: 'confidential',
+  'CITY_/STATE_/REGION_ETC': 'limitedDistribution',
   IP_ADDRESS: 'confidential',
   FINANCIAL_NUMBER: 'confidential',
   PAYMENT_INFO: 'highlyConfidential',
@@ -26,13 +28,13 @@ const nonIdFieldDataTypeClassification = {
   EVENT_TIME: 'limitedDistribution',
   TRANSACTION_TIME: 'limitedDistribution',
   COOKIES_AND_BEACONS_AND_BROWSER_ID: 'confidential',
-  DEVICE_ID_AND_ADVERTISING_ID: 'confidential'
+  DEVICE_ID_AND_ADVERTISING_ID: 'confidential',
 };
 /**
  * List of non Id field data type classifications
  * @type {Array}
  */
-const genericLogicalTypes = Object.keys(nonIdFieldDataTypeClassification);
+const genericLogicalTypes = Object.keys(nonIdFieldDataTypeClassification).sort();
 
 /**
  * A map of id logical types to the default field classification for Ids
