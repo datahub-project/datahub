@@ -236,29 +236,49 @@ export default Component.extend({
           ['identifierType', 'isSubject', 'logicalType'],
           identifierField
         );
+        /**
+         * Flag indicating that the field has an identifierType matching a generic type
+         * @type {Boolean}
+         */
+        const isMixed = identifierType === fieldIdentifierTypes.generic.value;
         // Runtime converts the identifierType to subjectMember if the isSubject flag is true
         const computedIdentifierType = identifierType === fieldIdentifierTypes.member.value && isSubject
           ? fieldIdentifierTypes.subjectMember.value
           : identifierType;
         const idLogicalTypes = get(this, 'idLogicalTypes');
         // Filtered list of id logical types that end with urn, or have no value
-        const urnFieldFormats = idLogicalTypes.findBy('value', 'URN');
+        const urnFieldFormat = idLogicalTypes.findBy('value', 'URN');
         // Get the current classification list
         const fieldClassification = get(this, policyFieldClassificationKey) || {};
         // The field formats applicable to the current identifierType
         let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
           ? idLogicalTypes
           : get(this, 'genericLogicalTypes');
-        fieldFormats = identifierType === fieldIdentifierTypes.generic.value ? urnFieldFormats : fieldFormats;
+        /**
+         * If field is a mixed identifier, avail only the urnFieldFormat, otherwise use the prev determined fieldFormats
+         * @type {any|Object}
+         */
+        fieldFormats = isMixed ? urnFieldFormat : fieldFormats;
+        /**
+         * An object referencing the fieldFormat for this field
+         * @type {any|Object}
+         */
+        const logicalTypeObject = Array.isArray(fieldFormats)
+          ? fieldFormats.findBy('value', logicalType)
+          : fieldFormats;
 
         return {
           dataType,
           identifierField,
           fieldFormats,
+          // Boolean flag indicating that the list of field formats is unchanging
+          isFieldFormatDisabled: isMixed,
           identifierType: computedIdentifierType,
-          classification: fieldClassification[identifierField],
+          // Check specific use case for urn only field format / logicalType
+          classification: fieldClassification[identifierField] ||
+            (isMixed && defaultFieldDataTypeClassification[urnFieldFormat.value]),
           // Same object reference for equality comparision
-          logicalType: Array.isArray(fieldFormats) ? fieldFormats.findBy('value', logicalType) : fieldFormats
+          logicalType: logicalTypeObject
         };
       });
     }
