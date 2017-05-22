@@ -1,19 +1,12 @@
 import Ember from 'ember';
 
-const {
-  get,
-  set,
-  computed,
-  Component,
-  inject: { service },
-  run: { debounce }
-} = Ember;
+const { get, set, computed, Component, inject: { service }, run: { debounce } } = Ember;
 
 /**
  * Number of milliseconds to wait before triggering a request for keywords
  * @type {Number}
  */
-const keyPressDelay = 300;
+const keyPressDelay = 180;
 
 export default Component.extend({
   /**
@@ -29,14 +22,13 @@ export default Component.extend({
 
   elementId: 'global-search-form',
 
-
   search: '',
 
   /**
    * Based on the currentFilter returns a list of options
    *   for the dynamic-link component
    */
-  filterOptions: computed('currentFilter', function () {
+  filterOptions: computed('currentFilter', function() {
     const currentFilter = get(this, 'currentFilter');
     return ['datasets', 'metrics', 'flows'].map(filter => ({
       title: filter,
@@ -49,9 +41,20 @@ export default Component.extend({
   /**
    * Based on the currentFilter returns placeholder text
    */
-  placeholder: computed('currentFilter', function () {
+  placeholder: computed('currentFilter', function() {
     return `Search ${get(this, 'currentFilter')} by keywords... e.g. pagekey`;
   }),
+
+  /**
+   * Creates an instance function that can be referenced by key. Acts as a proxy to the queryResolver
+   * function which is a new function on each invocation. This allows the debouncing function to retain
+   * a reference to the same function for multiple invocations.
+   * @return {*}
+   */
+  debouncedResolver() {
+    const queryResolver = get(this, 'keywords.apiResultsFor')(get(this, 'currentFilter'));
+    return queryResolver(...arguments);
+  },
 
   actions: {
     /**
@@ -70,13 +73,9 @@ export default Component.extend({
      * Handles the text input action for potential typeahead matches
      */
     onInput() {
-      const queryResolver = get(this, 'keywords.apiResultsFor')(
-        get(this, 'currentFilter')
-      );
-
       // Delay invocation until after the given number of ms after each
       //  text input
-      debounce(this, queryResolver, [...arguments], keyPressDelay);
+      debounce(this, this.debouncedResolver, [...arguments], keyPressDelay);
     },
 
     /**
