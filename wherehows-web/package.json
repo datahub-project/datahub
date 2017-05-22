@@ -12,7 +12,8 @@
   "scripts": {
     "build": "ember build",
     "start": "ember server",
-    "test": "ember test"
+    "test": "ember test",
+    "precommit": "lint-staged"
   },
   "devDependencies": {
     "bower": "1.8.0",
@@ -49,6 +50,8 @@
     "ember-symbol-observable": "0.1.2",
     "eyeglass": "1.2.1",
     "eyeglass-restyle": "1.0.19",
+    "husky": "^0.13.3",
+    "lint-staged": "^3.4.2",
     "loader.js": "4.1.0",
     "node-sass": "^4.5.2",
     "redux": "^3.6.0",
@@ -72,5 +75,14 @@
     "ember-tether": "1.0.0-beta.0",
     "ember-tooltips": "2.9.0-beta.0",
     "ember-truth-helpers": "1.3.0"
+  },
+  "lint-staged": {
+    "gitDir": "../",
+    "linters": {
+      "wherehows-web/app/**/*.js": [
+        "prettier --print-width 120 --single-quote --write",
+        "git add"
+      ]
+    }
   }
 }
