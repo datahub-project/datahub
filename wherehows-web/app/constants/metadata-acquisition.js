@@ -14,7 +14,6 @@ const nonIdFieldDataTypeClassification = {
   EMAIL: 'confidential',
   PHONE_NUMBER: 'confidential',
   ADDRESS: 'confidential',
-  GEO_LOCATION: 'confidential',
   LATITUDE_AND_LONGITUDE: 'confidential',
   'CITY_/STATE_/REGION_ETC': 'limitedDistribution',
   IP_ADDRESS: 'confidential',
@@ -28,7 +27,7 @@ const nonIdFieldDataTypeClassification = {
   EVENT_TIME: 'limitedDistribution',
   TRANSACTION_TIME: 'limitedDistribution',
   COOKIES_AND_BEACONS_AND_BROWSER_ID: 'confidential',
-  DEVICE_ID_AND_ADVERTISING_ID: 'confidential',
+  DEVICE_ID_AND_ADVERTISING_ID: 'confidential'
 };
 /**
  * List of non Id field data type classifications
