@@ -50,7 +50,7 @@ public class DatasetDao {
   public static final String DALIDS_PREFIX_WITH_2_SLASH = "dalids://";
 
   public static final String GET_DATASET_ID_IN_MAP_TABLE_WITH_TYPE_AND_CLUSTER =
-      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, "
+      "SELECT c.object_dataset_id as dataset_id, d.urn, d.dataset_type, "
           + "i.deployment_tier, i.data_center, i.server_cluster "
           + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
           + "LEFT JOIN dict_dataset_instance i ON c.object_dataset_id = i.dataset_id "
@@ -65,19 +65,19 @@ public class DatasetDao {
 
   private final static String GET_DATASET_DEPENDS_VIEW =
       "SELECT object_type, object_sub_type, " + "object_name, map_phrase, is_identical_map, mapped_object_dataset_id, "
-          + "mapped_object_type,  mapped_object_sub_type, mapped_object_name "
+          + "mapped_object_type, mapped_object_sub_type, mapped_object_name "
           + "FROM cfg_object_name_map WHERE object_dataset_id = ?";
 
   public final static String GET_DATASET_URN_PROPERTIES_LIKE_EXPR =
       "select urn from dict_dataset where properties like :properties";
 
   public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_ID =
-      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
+      "SELECT c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
           + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
           + "WHERE c.mapped_object_dataset_id = ?";
 
   public static final String GET_DATASET_DEPENDENTS_IN_OBJ_MAP_TABLE_BY_NAME =
-      "SELECT " + "c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
+      "SELECT c.object_dataset_id as dataset_id, d.urn, d.dataset_type, c.object_sub_type "
           + "FROM cfg_object_name_map c JOIN dict_dataset d ON c.object_dataset_id = d.id "
           + "WHERE c.mapped_object_type = ? and " + "(c.mapped_object_name = ? or c.mapped_object_name like ?)";
 

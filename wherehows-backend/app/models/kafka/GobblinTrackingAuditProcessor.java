@@ -45,7 +45,6 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   private static final List<Pattern> PARENT_PATTERNS = ImmutableList.<Pattern>builder()
       .add(Pattern.compile("/data/external/gobblin/(.+)"))
       .add(Pattern.compile("/data/(databases|dbchange|external)/.+"))
-      .add(Pattern.compile("/data/(databases|dbchange|external)/.+"))
       .add(Pattern.compile("/([^/]*data)/tracking/.+"))
       .add(Pattern.compile("/([^/]*data)/derived/.+"))
       .add(Pattern.compile("/(data)/service/.+"))
