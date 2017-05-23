@@ -5,7 +5,7 @@ import {
   datasetClassifiers,
   fieldIdentifierTypes,
   idLogicalTypes,
-  genericLogicalTypes,
+  nonIdFieldLogicalTypes,
   defaultFieldDataTypeClassification
 } from 'wherehows-web/constants';
 
@@ -22,10 +22,11 @@ const hiddenTrackingFieldsMsg = htmlSafe(
     'Hopefully, this saves you some scrolling!</p>'
 );
 const helpText = {
-  classification: 'For each of the fields below, please classify them based on the data handling table found at go/dht. ' +
-    'The default classification should suffice in most cases.',
-  subjectOwner: 'A field can contain one or multiple member IDs that do not technically "own" the entire record, ' +
-    'e.g. the list of recipients of a message. The field should be marked as a "Subject Owner" in this case.'
+  classification: 'The default value is taken from go/dht and should be good enough in most cases. ' +
+    'You can optionally override it if required by house security.',
+  subjectOwner: 'Member ID (Subject Owner): Choose this option if the member specified here is not the owner of this ' +
+    'record, e.g. the profile ID viewed, or recipient ID of a message. See wiki for more explanation. ' +
+    'Mixed ID: Choose this option if the field is a URN containing a mixture of member, organization, or group ID.'
 };
 
 /**
@@ -35,6 +36,17 @@ const helpText = {
  */
 const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
+/**
+ * List of non Id field data type classifications
+ * @type {Array}
+ */
+const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
+
+/**
+ * Merged object of logicalTypes
+ * @type {Object}
+ */
+const logicalTypes = Object.assign({}, nonIdFieldLogicalTypes);
 /**
  * String constant referencing the datasetClassification on the privacy policy
  * @type {String}
@@ -93,9 +105,9 @@ const cachedLogicalTypes = logicalType =>
       generic: genericLogicalTypes
     }[logicalType].map(value => ({
       value,
-      label: value
-        ? value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
-        : 'Select Format'
+      label: logicalTypes[value]
+        ? logicalTypes[value].displayAs
+        : value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
     }));
   });
 
