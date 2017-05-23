@@ -42,6 +42,8 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   // TODO: Make these regex patterns wh_etl_job_properties
   private static final Pattern LOCATION_PREFIX_PATTERN = Pattern.compile("/[^/]+(/[^/]+)?");
 
+  private static final Pattern SHORT_NAME_PATTERN = Pattern.compile("(/[^/]+/[^/]+)$");
+
   private static final List<Pattern> PARENT_PATTERNS = ImmutableList.<Pattern>builder()
       .add(Pattern.compile("/data/external/gobblin/(.+)"))
       .add(Pattern.compile("/data/(databases|dbchange|external)/.+"))
@@ -108,6 +110,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     }
 
     DatasetRecord dataset = new DatasetRecord();
+    dataset.setName(getShortName(datasetName));
     dataset.setUrn("hdfs://" + datasetName);
     dataset.setSchema(metadata.get("schema"));
     dataset.setSchemaType("JSON");
@@ -141,6 +144,14 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       }
     }
     return false;
+  }
+
+  private String getShortName(String datasetName) {
+    Matcher matcher = SHORT_NAME_PATTERN.matcher(datasetName);
+    if (matcher.find()) {
+      return matcher.group();
+    }
+    return "";
   }
 
   private String getParentName(String datasetName) {
