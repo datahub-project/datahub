@@ -121,6 +121,16 @@
       <p>
         2. Do fields in the schema contain the ID of a member (e.g. id, urn,
         etcetera) and what are the formats of the fields in the schema?
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-compliance">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on Schema field format and types"></span>
+          </sup>
+        </a>
       </p>
     </header>
     {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
@@ -149,7 +159,7 @@
       {{#head.column columnName="identifierField"}}Field{{/head.column}}
       {{#head.column columnName="dataType"}}Data Type{{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}
-        Has Member, Organization, or Group, ID's?
+        Member, Organization, or Group, ID's
         <sup>
           <span
             class="glyphicon glyphicon-question-sign"
@@ -164,10 +174,23 @@
       {{/head.column}}
       {{#head.column}}
         Field Format?
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets#ListofMetadataforDataSets-Field-levelDataTypelists">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on Field Format"></span>
+          </sup>
+        </a>
+      {{/head.column}}
+      {{#head.column}}
+        Security Classification
         <sup>
           <span
             class="glyphicon glyphicon-question-sign"
-            title="Help Text">
+            title={{helpText.classification}}>
             {{tooltip-on-component
               event="click"
               hideOn="click"
@@ -176,7 +199,6 @@
           </span>
         </sup>
       {{/head.column}}
-      {{#head.column}}Security Classification{{/head.column}}
     {{/table.head}}
     {{#table.body as |body|}}
       {{#each (sort-by table.sortBy table.data) as |field|}}
