@@ -1,18 +1,10 @@
 import Ember from 'ember';
-import ApplicationRouteMixin
-  from 'ember-simple-auth/mixins/application-route-mixin';
+import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 
 // TODO: DSS-6581 Create URL retrieval module
 const appConfigUrl = '/config';
 
-const {
-  Route,
-  run,
-  get,
-  $: { getJSON },
-  inject: { service },
-  testing
-} = Ember;
+const { Route, run, get, $: { getJSON }, inject: { service }, testing } = Ember;
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
@@ -74,9 +66,7 @@ export default Route.extend(ApplicationRouteMixin, {
    * @private
    */
   _loadCurrentUser() {
-    return get(this, 'sessionUser')
-      .load()
-      .catch(() => get(this, 'session').invalidate());
+    return get(this, 'sessionUser').load().catch(() => get(this, 'sessionUser').invalidateSession());
   },
 
   /**
@@ -87,33 +77,26 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   _setupMetricsTrackers() {
     // TODO: DSS-6813 Make this request for appConfig a singleton object
-    return Promise.resolve(getJSON(appConfigUrl))
-      .then(({ status, config = {} }) => {
-        const { tracking = {} } = config;
-        const userId = get(this, 'sessionUser.userName') ||
-          get(this, 'sessionUser.currentUser.userName');
+    return Promise.resolve(getJSON(appConfigUrl)).then(({ status, config = {} }) => {
+      const { tracking = {} } = config;
 
-        if (status === 'ok' && tracking.isEnabled) {
-          const metrics = get(this, 'metrics');
-          const { trackers = {} } = tracking;
-          const {
-            piwikSiteId,
-            piwikUrl = '//piwik.corp.linkedin.com/piwik/'
-          } = trackers.piwik;
+      if (status === 'ok' && tracking.isEnabled) {
+        const metrics = get(this, 'metrics');
+        const { trackers = {} } = tracking;
+        const { piwikSiteId, piwikUrl = '//piwik.corp.linkedin.com/piwik/' } = trackers.piwik;
 
-          metrics.activateAdapters([{
+        metrics.activateAdapters([
+          {
             name: 'Piwik',
             environments: ['all'],
             config: {
               piwikUrl,
               siteId: piwikSiteId
             }
-          }]);
-
-          // Track currently logged in user
-          metrics.identify({ userId });
-        }
-      });
+          }
+        ]);
+      }
+    });
   },
 
   init() {
