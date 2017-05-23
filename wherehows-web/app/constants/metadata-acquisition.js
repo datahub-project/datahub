@@ -4,45 +4,102 @@
  */
 const idLogicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
 
-/**
- * Default mapping of field data types to security classification
- * https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
- * @type {{MEMBER_ID: string, MEMBER_URN: string, MEMBER_REVERSE_URN: string, COMPOSITE_URN: string, COMPANY_ID: string, COMPANY_URN: string, GROUP_ID: string, GROUP_URN: string, NAME: string, EMAIL: string, PHONE_NUMBER: string, PHONE_URN: string, ADDRESS: string, GEO_LOCATION: string, IP_ADDRESS: string, FINANCIAL_NUMBER: string, PAYMENT_INFO: string, PASSWORD_AND_CREDENTIALS: string, AUTHENTICATION_TOKEN: string, MESSAGE: string, NATIONAL_ID: string, SOCIAL_NETWORK_ID: string, EVENT_TIME: string, TRANSACTION_TIME: string, COOKIES_AND_BEACONS_AND_BROWSER_ID: string, DEVICE_ID_AND_ADVERTISING_ID: string}}
- */
-const nonIdFieldDataTypeClassification = {
-  NAME: 'confidential',
-  EMAIL: 'confidential',
-  PHONE_NUMBER: 'confidential',
-  ADDRESS: 'confidential',
-  LATITUDE_AND_LONGITUDE: 'confidential',
-  'CITY_/STATE_/REGION_ETC': 'limitedDistribution',
-  IP_ADDRESS: 'confidential',
-  FINANCIAL_NUMBER: 'confidential',
-  PAYMENT_INFO: 'highlyConfidential',
-  PASSWORD_AND_CREDENTIALS: 'highlyConfidential',
-  AUTHENTICATION_TOKEN: 'highlyConfidential',
-  MESSAGE: 'highlyConfidential',
-  NATIONAL_ID: 'highlyConfidential',
-  SOCIAL_NETWORK_ID: 'confidential',
-  EVENT_TIME: 'limitedDistribution',
-  TRANSACTION_TIME: 'limitedDistribution',
-  COOKIES_AND_BEACONS_AND_BROWSER_ID: 'confidential',
-  DEVICE_ID_AND_ADVERTISING_ID: 'confidential'
+// Default mapping of field data types to security classification
+// https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
+const nonIdFieldLogicalTypes = {
+  NAME: {
+    classification: 'confidential',
+    displayAs: 'Name'
+  },
+  EMAIL: {
+    classification: 'confidential',
+    displayAs: 'E-mail'
+  },
+  PHONE_NUMBER: {
+    classification: 'confidential',
+    displayAs: 'Phone Number'
+  },
+  ADDRESS: {
+    classification: 'confidential',
+    displayAs: 'Address'
+  },
+  LATITUDE_AND_LONGITUDE: {
+    classification: 'confidential',
+    displayAs: 'Latitude and Longitude'
+  },
+  'CITY_/STATE_/REGION_ETC': {
+    classification: 'limitedDistribution',
+    displayAs: 'City, State, Region, etcetera'
+  },
+  IP_ADDRESS: {
+    classification: 'confidential',
+    displayAs: 'IP Address'
+  },
+  FINANCIAL_NUMBER: {
+    classification: 'confidential',
+    displayAs: 'Financial Number'
+  },
+  PAYMENT_INFO: {
+    classification: 'highlyConfidential',
+    displayAs: 'Payment Info'
+  },
+  PASSWORD_AND_CREDENTIALS: {
+    classification: 'highlyConfidential',
+    displayAs: 'Password and Credentials'
+  },
+  AUTHENTICATION_TOKEN: {
+    classification: 'highlyConfidential',
+    displayAs: 'Authentication Token'
+  },
+  MESSAGE: {
+    classification: 'highlyConfidential',
+    displayAs: 'Message'
+  },
+  NATIONAL_ID: {
+    classification: 'highlyConfidential',
+    displayAs: 'National Id'
+  },
+  SOCIAL_NETWORK_ID: {
+    classification: 'confidential',
+    displayAs: 'Social Network Id'
+  },
+  EVENT_TIME: {
+    classification: 'limitedDistribution',
+    displayAs: 'Event Time'
+  },
+  TRANSACTION_TIME: {
+    classification: 'limitedDistribution',
+    displayAs: 'Transaction Time'
+  },
+  COOKIES_AND_BEACONS_AND_BROWSER_ID: {
+    classification: 'confidential',
+    displayAs: 'Cookies and Beacons and Browser Id'
+  },
+  DEVICE_ID_AND_ADVERTISING_ID: {
+    classification: 'confidential',
+    displayAs: 'Device Id and Advertising Id'
+  }
 };
-/**
- * List of non Id field data type classifications
- * @type {Array}
- */
-const genericLogicalTypes = Object.keys(nonIdFieldDataTypeClassification).sort();
 
 /**
  * A map of id logical types to the default field classification for Ids
  * @type {Object}
  */
 const idFieldDataTypeClassification = idLogicalTypes.reduce((classification, idLogicalType) => {
-  return Object.assign({}, classification, { [idLogicalType]: 'limitedDistribution' });
+  return Object.assign(classification, { [idLogicalType]: 'limitedDistribution' });
 }, {});
 
+/**
+ * Creates a mapping of nonIdFieldLogicalTypes to default classification for that field
+ * @type {Object}
+ */
+const nonIdFieldDataTypeClassification = Object.keys(nonIdFieldLogicalTypes).reduce(
+  (classification, logicalType) =>
+    Object.assign(classification, {
+      [logicalType]: nonIdFieldLogicalTypes[logicalType].classification
+    }),
+  {}
+);
 /**
  * A merge of id and non id field type classifications
  * @type {Object}
@@ -69,7 +126,7 @@ const fieldIdentifierTypes = {
   none: {
     value: 'none',
     isId: false,
-    displayAs: 'None'
+    displayAs: 'Not an ID'
   },
   member: {
     value: 'member',
@@ -98,4 +155,10 @@ const fieldIdentifierTypes = {
   }
 };
 
-export { defaultFieldDataTypeClassification, classifiers, fieldIdentifierTypes, idLogicalTypes, genericLogicalTypes };
+export {
+  defaultFieldDataTypeClassification,
+  classifiers,
+  fieldIdentifierTypes,
+  idLogicalTypes,
+  nonIdFieldLogicalTypes
+};
