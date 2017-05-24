@@ -14,6 +14,7 @@
 package models.kafka;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       .add(Pattern.compile("\\bstaging\\b"))
       .add(Pattern.compile("\\bstg\\b"))
       .add(Pattern.compile("_distcp_"))
+      .add(Pattern.compile("/output/"))
       .build();
 
   /**
@@ -78,7 +80,8 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     // only handle "DaliLimitedRetentionAuditor","DaliAutoPurgeAuditor" and "DsIgnoreIDPCAuditor"
     if (name.equals(DALI_LIMITED_RETENTION_AUDITOR) || name.equals(DALI_AUTOPURGED_AUDITOR) || name.equals(
         DS_IGNORE_IDPC_AUDITOR)) {
-      updateKafkaDatasetOwner(record);
+      // TODO: Re-enable this once it's fixed.
+      //updateKafkaDatasetOwner(record);
     } else if (name.equals(METADATA_FILE_CLASSIFIER)) {
       updateHdfsDatasetSchema(record);
     }
@@ -132,6 +135,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     properties.put("storage", metadata.get("storage"));
     properties.put("cluster", metadata.get("cluster"));
     properties.put("abstract_path", metadata.get("abstractPath"));
+    dataset.setProperties(new ObjectMapper().writeValueAsString(properties));
 
     Logger.info("Updating dataset {}", datasetName);
     DatasetDao.setDatasetRecord(dataset);
