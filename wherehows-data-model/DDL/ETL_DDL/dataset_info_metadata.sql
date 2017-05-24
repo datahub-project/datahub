@@ -148,13 +148,13 @@ CREATE TABLE `dataset_compliance` (
   `dataset_urn`               VARCHAR(200)     NOT NULL,
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
   COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
-  `compliance_entities`       VARCHAR(10000)    DEFAULT NULL
+  `compliance_entities`       MEDIUMTEXT       DEFAULT NULL
   COMMENT 'JSON: compliance fields',
   `confidentiality`           VARCHAR(50)      DEFAULT NULL
   COMMENT 'dataset level confidential category: confidential, highly confidential, etc',
   `dataset_classification`    VARCHAR(1000)    DEFAULT NULL
   COMMENT 'JSON: dataset level confidential classification',
-  `field_classification`      VARCHAR(5000)    DEFAULT NULL
+  `field_classification`      MEDIUMTEXT       DEFAULT NULL
   COMMENT 'JSON: field level confidential classification',
   `record_owner_type`         VARCHAR(50)      DEFAULT NULL
   COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
