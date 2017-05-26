@@ -14,9 +14,6 @@ mv backend-ser* backend-service
 # rm -rf backend-service/share
 rm backend-service/README.md
 
-# leave the option to change the secret later.
-sed -i 's/changeme/$PLAY_CRYPTO_SECRET/g' backend-service/conf/application.conf
-
 tar zcvf backend-service.tar.gz backend-service
 
 cp *.tar.gz ../../backend-service/archives

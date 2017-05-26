@@ -13,8 +13,8 @@ services:
     environment:
       WHZ_DB_USERNAME: wherehows
       WHZ_DB_PASSWORD: wherehows
-      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows
-      PLAY_CRYPTO_SECRET: changeme
+      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows?useUnicode=true&characterEncoding=utf8&verifyServerCertificate=false&useSSL=true
+      PLAY_CRYPTO_SECRET: please_change_in_production_environment
     links:
       - "mysql:mysql"
   web:
@@ -24,8 +24,7 @@ services:
     environment:
       WHZ_DB_USERNAME: wherehows
       WHZ_DB_PASSWORD: wherehows
-      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows
-      MYSQL_HOST: mysql
-      HDFS_HOST: "127.0.0.1"
+      WHZ_DB_URL: jdbc:mysql://mysql:3306/wherehows?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&verifyServerCertificate=false&useSSL=true
+      PLAY_CRYPTO_SECRET: please_change_in_production_environment
     links:
       - "mysql:mysql"
