@@ -14,7 +14,7 @@
   const handleSearchInput = function () {
     if (searchInput) {
       const {value: keyword} = searchInput;
-      const searchRouteHash = `#/search?keywords=${btoa(keyword)}&category=${global.g_currentCategory}&source=default&page=1`;
+      const searchRouteHash = `#/search?keywords=${encodeURIComponent(keyword)}&category=${global.g_currentCategory}&source=default&page=1`;
       keyword && (document.location.hash = searchRouteHash);
     }
   };
@@ -432,7 +432,7 @@
     advSearchOpts.fields = {'any': fieldAny, 'all': fieldAll, 'not': fieldNotIn};
     advSearchOpts.comments = comments;
     advSearchOpts.sources = sources;
-    global.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+    global.location = '/#/advsearch/?query=' + encodeURIComponent(JSON.stringify(advSearchOpts)) + '&page=1';
   }
 
   function advSearchForFlow() {
@@ -495,7 +495,7 @@
     advSearchOpts.appcode = {'in': appcodeIn, 'not': appcodeNotIn};
     advSearchOpts.flow = {'in': flowIn, 'not': flowNotIn};
     advSearchOpts.job = {'in': jobIn, 'not': jobNotIn};
-    global.location = '/#/advsearch/?query=' + btoa(JSON.stringify(advSearchOpts)) + '&page=1';
+    global.location = '/#/advsearch/?query=' + encodeURIComponent(JSON.stringify(advSearchOpts)) + '&page=1';
   }
 
   $('#advSearchBtn').click(function () {
