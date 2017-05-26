@@ -23,7 +23,7 @@ App.AdvsearchRoute = Ember.Route.extend({
     var q = convertQueryStringToObject()
     currentTab = 'Datasets';
     updateActiveTab();
-    query = encodeURIComponent(atob(q.query));
+    query = q.query;
     var url = 'api/v1/advsearch/search?searchOpts=' + query + '&page=' + params.page;
     $.get(url, function(data) {
       if (data && data.status == "ok") {
