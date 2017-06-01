@@ -190,7 +190,8 @@ public class UrnUtil {
     String fabric = urn.substring(0, index);
     String dataset = urn.substring(index + 4);
 
-    if (fabric.equalsIgnoreCase("espresso") || fabric.equalsIgnoreCase("oracle")) {
+    if (fabric.equalsIgnoreCase("espresso") || fabric.equalsIgnoreCase("oracle")
+        || fabric.equalsIgnoreCase("dalids") || fabric.equalsIgnoreCase("hive")) {
       dataset = dataset.replace("/", ".");
     }
     return new String[]{fabric, dataset};
