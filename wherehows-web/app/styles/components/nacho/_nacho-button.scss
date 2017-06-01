@@ -6,17 +6,20 @@
   );
 }
 
+$main-button-color: set-color(blue, eastern);
+$button-text-color: set-color(white, base);
+
 @include restyle-define(button, (
   // Button Component Variables
         restyle-var(height): 32px,
         restyle-var(horizontal-padding): 16px,
-        restyle-var(main-color): $secondary-color,
-        restyle-var(background-color): $secondary-color,
+        restyle-var(main-color): $main-button-color,
+        restyle-var(background-color): $main-button-color,
         restyle-var(font-size): 1.7rem,
         restyle-var(font-weight): 600,
-        restyle-var(text-color): $text-color,
+        restyle-var(text-color): $button-text-color,
         restyle-var(border-radius): 2px,
-        restyle-var(disabled-text): tint($text-color, 70%),
+        restyle-var(disabled-text): tint($button-text-color, 70%),
 
         background-color: restyle-var(background-color),
         border: 0,
@@ -50,7 +53,7 @@
 
         restyle-modifiers: (
                 'with a border': (
-                        border: 1px solid restyle-var(text-color)
+                        border: 1px solid restyle-var(main-color)
                 ),
                 small: (
                         restyle-var(font-size): 1.5rem,
@@ -76,7 +79,7 @@
                 ),
                 secondary: (
                         restyle-var(background-color): transparent,
-                        restyle-var(text-color): $text-invert-color,
+                        restyle-var(text-color): $main-button-color,
                         restyle-var(box-shadow-size): inset 0 0 0 1px,
                         restyle-var(box-shadow-size-hover): inset 0 0 0 2px,
                         restyle-var(box-shadow-size-active): inset 0 0 0 3px,

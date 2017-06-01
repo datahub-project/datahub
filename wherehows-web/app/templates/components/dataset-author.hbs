@@ -1,7 +1,7 @@
 <div class="tab-body">
   <section class="action-bar">
-    <div class="container">
-      <button class="nacho-button nacho-button--large-inverse"
+    <div class="container action-bar__content">
+      <button class="nacho-button nacho-button--large-inverse action-bar__item"
               title={{if ownershipIsInvalid
                          "Need at least two confirmed owners to make changes
                          and no Invalid users"
@@ -11,7 +11,7 @@
         Save
       </button>
 
-      <button class="nacho-button nacho-button--large"
+      <button class="nacho-button nacho-button--large action-bar__item"
         {{action "addOwner" owners}}>
         <i class="fa fa-plus" title="Add an Owner">
         </i>

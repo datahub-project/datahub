@@ -1,5 +1,8 @@
 @import "../abstracts/functions";
 @import "../abstracts/mixins";
+
+$item-spacing: 10px;
+
 /**
  * Override Bootstrap navigation class, .navbar, ruleset
  */
@@ -52,6 +55,19 @@
 }
 
 /**
+ * Styles the non primary action bar for an entity
+ */
+.secondary-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+
+  &__action + &__action {
+    margin-left: $item-spacing;
+  }
+}
+
+/**
  * Styles the action bar on a tab component
  */
 .action-bar {
@@ -64,6 +80,15 @@
   background-color: #f8f8f8;
   z-index: z(dropdown);
   max-height: 50px;
+
+  &__content {
+    white-space: nowrap;
+    vertical-align: top;
+  }
+
+  &__item + &__item {
+    margin-left: $item-spacing;
+  }
 }
 
 /**

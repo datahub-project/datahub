@@ -39,3 +39,11 @@
     }
   }
 }
+
+.policy-last-saved {
+  margin-right: auto;
+
+  &__saved {
+    font-weight: fw(normal, 6);
+  }
+}
