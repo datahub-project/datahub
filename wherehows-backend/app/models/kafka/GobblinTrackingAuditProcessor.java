@@ -55,10 +55,11 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       .build();
 
   private static final List<Pattern> BLACKLISTED_DATASET_PATTERNS = ImmutableList.<Pattern>builder()
-      .add(Pattern.compile("\\btemp\\b"))
-      .add(Pattern.compile("\\btmp\\b"))
-      .add(Pattern.compile("\\bstaging\\b"))
-      .add(Pattern.compile("\\bstg\\b"))
+      .add(Pattern.compile("(\\b|_)temporary(\\b|_)"))
+      .add(Pattern.compile("(\\b|_)temp(\\b|_)"))
+      .add(Pattern.compile("(\\b|_)tmp(\\b|_)"))
+      .add(Pattern.compile("(\\b|_)staging(\\b|_)"))
+      .add(Pattern.compile("(\\b|_)stg(\\b|_)"))
       .add(Pattern.compile("_distcp_"))
       .add(Pattern.compile("/output/"))
       .build();
