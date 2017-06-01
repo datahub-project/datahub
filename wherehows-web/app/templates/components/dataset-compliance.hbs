@@ -13,8 +13,8 @@
     </div>
   {{else}}
     <section class="action-bar">
-      <div class="container">
-        <button class="nacho-button nacho-button--large-inverse"
+      <div class="container action-bar__content">
+        <button class="nacho-button nacho-button--large-inverse action-bar__item"
                 title={{unless isDatasetFullyClassified
                                "Ensure you have provided a yes/no value for all dataset tags"
                                "Save"}}
@@ -23,7 +23,7 @@
           Save
         </button>
 
-        <button class="nacho-button nacho-button--large"
+        <button class="nacho-button nacho-button--large action-bar__item"
           {{action "resetCompliance"}}>
           <i class="fa fa-times" title="Start Over">
           </i>
@@ -38,6 +38,25 @@
       </div>
     </section>
   {{/if}}
+
+  <div class="secondary-actions">
+    <div class="policy-last-saved">
+      Last saved:
+      <span class="policy-last-saved__saved">
+        {{if isNewPrivacyPolicy 'Never'
+             (moment-calendar policyModificationTimeInEpoch sameElse="MMM Do YYYY, h:mm a")}}
+      </span>
+    </div>
+    {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+
+    {{#unless isNewPrivacyPolicy}}
+      <button
+        {{action "onComplianceDownloadJson"}}
+        class="nacho-button nacho-button--large-inverse secondary-actions__action">
+        Download as a JSON file
+      </button>
+    {{/unless}}
+  </div>
 
   {{#if isNewPrivacyPolicy}}
     <div class="alert alert-info" role="alert">

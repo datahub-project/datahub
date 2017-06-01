@@ -1,0 +1,10 @@
+.nacho-uploader {
+  @include flex-center;
+  display: inline-flex;
+
+  &__label {
+    width: 250px;
+    margin-bottom: 0;
+    padding-right: 5px;
+  }
+}

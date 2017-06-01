@@ -18,4 +18,10 @@ $height: 40px;
     overflow: hidden;
     justify-content: flex-end;
   }
+
+  .search-button {
+    border: 1px solid $secondary-color;
+    background-color: $secondary-color;
+    color: $text-color;
+  }
 }

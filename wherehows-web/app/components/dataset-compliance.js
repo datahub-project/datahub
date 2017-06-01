@@ -8,8 +8,19 @@ import {
   nonIdFieldLogicalTypes,
   defaultFieldDataTypeClassification
 } from 'wherehows-web/constants';
+import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/functions';
 
-const { Component, computed, set, get, setProperties, getWithDefault, isEmpty, String: { htmlSafe } } = Ember;
+const {
+  Component,
+  computed,
+  set,
+  get,
+  setProperties,
+  getProperties,
+  getWithDefault,
+  isEmpty,
+  String: { htmlSafe }
+} = Ember;
 
 // TODO: DSS-6671 Extract to constants module
 const missingTypes = 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?';
@@ -152,6 +163,13 @@ export default Component.extend({
     value,
     label: value ? formatAsCapitalizedStringWithSpaces(value) : '...'
   })),
+
+  /**
+   * Caches the policy's modification time in milliseconds
+   */
+  policyModificationTimeInEpoch: computed('complianceInfo', function() {
+    return getWithDefault(this, 'complianceInfo.modifiedTime', 0) * 1000;
+  }),
 
   /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
@@ -405,6 +423,38 @@ export default Component.extend({
   },
 
   actions: {
+    /**
+     * Receives the json representation for compliance and applies each key to the policy
+     * @param {String} textString string representation for the JSON file
+     */
+    onComplianceJsonUpload(textString) {
+      const policy = JSON.parse(textString);
+      if (isPolicyExpectedShape(policy)) {
+        const currentPolicy = get(this, 'complianceInfo');
+        return set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+      }
+
+      alert('Received policy in an unexpected format! Please check the provided attributes and try again.');
+    },
+
+    /**
+     * Handles the compliance policy download action
+     */
+    onComplianceDownloadJson() {
+      const currentPolicy = get(this, 'complianceInfo');
+      const policyProps = [
+        datasetClassificationKey,
+        policyFieldClassificationKey,
+        policyComplianceEntitiesKey
+      ].map(name => name.split('.').pop());
+      const policy = Object.assign({}, getProperties(currentPolicy, policyProps));
+      const href = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(policy))}`;
+      const download = `${get(this, 'datasetName')}_policy.json`;
+      const anchor = document.createElement('a');
+      Object.assign(anchor, { download, href });
+      anchor.click();
+    },
+
     /**
      * When a user updates the identifierFieldType in the DOM, update the backing store
      * @param {String} identifierField
