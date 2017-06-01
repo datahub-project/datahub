@@ -1,9 +1,7 @@
 import Base from 'ember-simple-auth/authenticators/base';
 import Ember from 'ember';
 
-const {
-  $: { post }
-} = Ember;
+const { $: { post } } = Ember;
 
 export default Base.extend({
   /**
@@ -11,7 +9,7 @@ export default Base.extend({
    *   Resolves with data object returned from successful request.
    * @param {String} username username to authenticate with
    * @param {String} password matching candidate password for username
-   * @return {Promise<{Object, String}>}
+   * @return {Promise}
    */
   authenticate: (username, password) =>
     Promise.resolve(

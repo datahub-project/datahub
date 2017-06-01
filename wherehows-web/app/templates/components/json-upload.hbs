@@ -1,0 +1,16 @@
+<input
+  type="file"
+  accept=".json"
+  style="display:none"
+  id="{{uploadInputId}}">
+
+<label for="{{concat elementId '-button'}}" class="nacho-uploader__label">
+  Have existing metadata from a similar dataset that you want to apply here?
+</label>
+
+<button
+  {{action "didSelectUpload"}}
+  id="{{concat elementId '-button'}}"
+  class="nacho-button nacho-button--large-inverse">
+  Choose File
+</button>
