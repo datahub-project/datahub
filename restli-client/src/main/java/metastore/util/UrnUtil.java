@@ -181,7 +181,8 @@ public class UrnUtil {
 
   /**
    * Split WhereHows dataset URN into two parts: platform + dataset name
-   * Also replace '/' with '.' in dataset name for Espresso and Oracle
+   * Also replace '/' with '.' in dataset name for Espresso, Oracle, Dalids and Hive
+   * E.g. oracle:///abc/def > [oracle, abc.def]
    * @param urn String WhereHows dataset URN
    * @return String[] platform + dataset name
    */
