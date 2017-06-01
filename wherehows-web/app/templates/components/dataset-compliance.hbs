@@ -43,13 +43,13 @@
     <div class="policy-last-saved">
       Last saved:
       <span class="policy-last-saved__saved">
-        {{if isNewPrivacyPolicy 'Never'
+        {{if isNewComplianceInfo 'Never'
              (moment-calendar policyModificationTimeInEpoch sameElse="MMM Do YYYY, h:mm a")}}
       </span>
     </div>
     {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
 
-    {{#unless isNewPrivacyPolicy}}
+    {{#unless isNewComplianceInfo}}
       <button
         {{action "onComplianceDownloadJson"}}
         class="nacho-button nacho-button--large-inverse secondary-actions__action">
@@ -58,7 +58,7 @@
     {{/unless}}
   </div>
 
-  {{#if isNewPrivacyPolicy}}
+  {{#if isNewComplianceInfo}}
     <div class="alert alert-info" role="alert">
       <p>
         A policy does not currently exist for this dataset.
