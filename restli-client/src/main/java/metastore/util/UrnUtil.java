@@ -181,7 +181,8 @@ public class UrnUtil {
 
   /**
    * Split WhereHows dataset URN into two parts: platform + dataset name
-   * Also replace '/' with '.' in dataset name for Espresso and Oracle
+   * Also replace '/' with '.' in dataset name for Espresso, Oracle, Dalids and Hive
+   * E.g. oracle:///abc/def > [oracle, abc.def]
    * @param urn String WhereHows dataset URN
    * @return String[] platform + dataset name
    */
@@ -190,7 +191,8 @@ public class UrnUtil {
     String fabric = urn.substring(0, index);
     String dataset = urn.substring(index + 4);
 
-    if (fabric.equalsIgnoreCase("espresso") || fabric.equalsIgnoreCase("oracle")) {
+    if (fabric.equalsIgnoreCase("espresso") || fabric.equalsIgnoreCase("oracle")
+        || fabric.equalsIgnoreCase("dalids") || fabric.equalsIgnoreCase("hive")) {
       dataset = dataset.replace("/", ".");
     }
     return new String[]{fabric, dataset};
