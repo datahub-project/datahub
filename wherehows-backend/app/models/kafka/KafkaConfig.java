@@ -63,20 +63,11 @@ public class KafkaConfig {
    * Update Kafka properties and topics from wh_etl_job_properties table
    * @throws Exception
    */
-  public void updateKafkaProperties(EtlJobName jobName, int jobRefId)
+  public void updateKafkaProperties(String jobName, Properties props)
       throws Exception {
-    Properties props;
-    try {
-      props = EtlJobPropertyDao.getJobProperties(jobName, jobRefId);
-    } catch (Exception e) {
-      Logger.error("Fail to update Kafka job properties for " + jobName.name() + ", ref id: " + jobRefId);
-      return;
-    }
-    Logger.info("Get Kafka job properties for " + jobName.name() + ", job ref id: " + jobRefId);
-
-    String[] topics = ((String) props.remove("kafka.topics")).split("\\s*,\\s*");
-    String[] processors = ((String) props.remove("kafka.processors")).split("\\s*,\\s*");
-    String[] dbTables = ((String) props.remove("kafka.db.tables")).split("\\s*,\\s*");
+    String[] topics = props.getProperty("kafka.topics").split("\\s*,\\s*");
+    String[] processors = props.getProperty("kafka.processors").split("\\s*,\\s*");
+    String[] dbTables = props.getProperty("kafka.db.tables").split("\\s*,\\s*");
 
     _props.clear();
     _props.putAll(props);

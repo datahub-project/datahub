@@ -20,23 +20,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import java.util.Set;
 import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
-import metadata.etl.models.EtlJobName;
 import models.daos.ClusterDao;
-import models.daos.EtlJobDao;
-
+import models.kafka.KafkaConfig;
+import models.kafka.KafkaConfig.Topic;
 import msgs.KafkaCommMsg;
 import play.Logger;
 import play.Play;
-import models.kafka.KafkaConfig;
-import models.kafka.KafkaConfig.Topic;
 import play.db.DB;
-import utils.SchedulerUtil;
+import utils.JobsUtil;
 import wherehows.common.PathAnalyzer;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -48,33 +43,32 @@ import wherehows.common.utils.ClusterUtil;
  */
 public class KafkaConsumerMaster extends UntypedActor {
 
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString("etl.jobs.dir");
+
+  private static final String KAFKA_JOB_TYPE = "kafka";
+
   // List of kafka job IDs
-  private static Set<Integer> _kafkaJobList;
+  private static Map<String, Properties> _kafkaJobList;
   // map of kafka job id to configs
-  private static Map<Integer, KafkaConfig> _kafkaConfigs = new HashMap<>();
+  private static Map<String, KafkaConfig> _kafkaConfigs = new HashMap<>();
 
   @Override
-  public void preStart()
-      throws Exception {
-    _kafkaJobList = SchedulerUtil.getJobIdsFromConfig("kafka.consumer.etl.jobid");
-    Logger.info("Kafka job IDs from configuratoin: " + _kafkaJobList);
+  public void preStart() throws Exception {
+    _kafkaJobList = JobsUtil.getEnabledJobsByType(ETL_JOBS_DIR, KAFKA_JOB_TYPE);
+    Logger.info("Kafka jobs: {}", _kafkaJobList.keySet());
 
     if (_kafkaJobList.size() == 0) {
       context().stop(getSelf());
       return;
     }
-    Logger.info("Start KafkaConsumerMaster... Kafka job id list: " + _kafkaJobList);
+    Logger.info("Start KafkaConsumerMaster...");
 
-    for (final int kafkaJobId : _kafkaJobList) {
+    for (Map.Entry<String, Properties> entry : _kafkaJobList.entrySet()) {
+      final String kafkaJobName = entry.getKey();
       try {
         // handle 1 kafka connection
-        Map<String, Object> kafkaEtlJob = EtlJobDao.getEtlJobById(kafkaJobId);
-        final int kafkaJobRefId = Integer.parseInt(kafkaEtlJob.get("ref_id").toString());
-        final String kafkaJobName = kafkaEtlJob.get("wh_etl_job_name").toString();
-
-        // get Kafka configurations from database
         final KafkaConfig kafkaConfig = new KafkaConfig();
-        kafkaConfig.updateKafkaProperties(EtlJobName.valueOf(kafkaJobName), kafkaJobRefId);
+        kafkaConfig.updateKafkaProperties(kafkaJobName, entry.getValue());
         final Properties kafkaProps = kafkaConfig.getProperties();
         final Map<String, Topic> kafkaTopics = kafkaConfig.getTopics();
 
@@ -99,7 +93,7 @@ public class KafkaConsumerMaster extends UntypedActor {
         // add config to kafka config map
         kafkaConfig.setSchemaRegistryClient(schemaRegistryClient);
         kafkaConfig.setConsumer(consumerConnector);
-        _kafkaConfigs.put(kafkaJobId, kafkaConfig);
+        _kafkaConfigs.put(kafkaJobName, kafkaConfig);
 
         // create workers to handle each message stream
         for (String topic : kafkaTopics.keySet()) {
@@ -116,9 +110,9 @@ public class KafkaConsumerMaster extends UntypedActor {
             threadNumber++;
           }
         }
-        Logger.info("Initiate Kafka consumer job " + kafkaJobId + " with topics " + kafkaTopics.keySet());
+        Logger.info("Initiate Kafka consumer job " + kafkaJobName + " with topics " + kafkaTopics.keySet());
       } catch (Exception e) {
-        Logger.error("Initiating Kafka properties on startup fail, job id: " + kafkaJobId, e);
+        Logger.error("Initiating Kafka properties on startup fail, job name: " + kafkaJobName, e);
       }
     }
 
@@ -138,8 +132,7 @@ public class KafkaConsumerMaster extends UntypedActor {
   }
 
   @Override
-  public void onReceive(Object message)
-      throws Exception {
+  public void onReceive(Object message) throws Exception {
     if (message instanceof KafkaCommMsg) {
       final KafkaCommMsg kafkaCommMsg = (KafkaCommMsg) message;
       Logger.debug(kafkaCommMsg.toString());

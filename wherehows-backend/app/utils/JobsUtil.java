@@ -1,0 +1,99 @@
+package utils;
+
+import com.google.common.collect.ImmutableList;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import wherehows.common.Constant;
+import play.Logger;
+
+
+public class JobsUtil {
+
+  private static final List<Pattern> ENV_VAR_PATTERNS =
+      ImmutableList.<Pattern>builder().add(Pattern.compile("\\$(.+)")).add(Pattern.compile("\\$\\{(.+)\\}")).build();
+
+  /**
+   * Reads {@link Properties} from the given file and resolves all environmental variables denoted by ${ENV_VAR_NAME}.
+   *
+   * @param jobFile Path to the property file.
+   * @return Resolved {@link Properties} or null if failed to read from file.
+   */
+  public static Properties getResolvedProperties(Path jobFile) {
+    Properties prop = new Properties();
+    try (BufferedReader reader = Files.newBufferedReader(jobFile)) {
+      prop.load(reader);
+    } catch (IOException ex) {
+      return null;
+    }
+
+    for (Map.Entry<Object, Object> entry : prop.entrySet()) {
+      String value = (String) entry.getValue();
+      prop.setProperty((String) entry.getKey(), resolveEnviornmentalVariable(value));
+    }
+    return prop;
+  }
+
+  /**
+   * Resolves the value to the corresponding environmental variable if possible, otherwise returns the original value.
+   */
+  private static String resolveEnviornmentalVariable(String value) {
+    for (Pattern pattern : ENV_VAR_PATTERNS) {
+      Matcher matcher = pattern.matcher(value);
+      if (matcher.matches()) {
+        String resolved = System.getenv(matcher.group(1));
+        if (resolved != null) {
+          return resolved;
+        }
+      }
+    }
+    return value;
+  }
+
+  private static String jobNameFromFile(File file) {
+    String filename = file.getName();
+    return filename.substring(0, filename.lastIndexOf('.'));
+  }
+
+  /**
+   * Returns a map of job name to job properties for all scheduled and enabled jobs.
+   */
+  public static Map<String, Properties> getScheduledJobs(String dir) {
+    Map<String, Properties> jobs = new HashMap<>();
+    for (File file : new File(dir).listFiles()) {
+      if (file.getAbsolutePath().endsWith(".job")) {
+        Properties prop = getResolvedProperties(file.toPath());
+        if (!prop.contains(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_CRON_EXPR_KEY) != null) {
+          // job name = file name without the extension.
+          jobs.put(jobNameFromFile(file), prop);
+        }
+      }
+    }
+    return jobs;
+  }
+
+  /**
+   * Returns a map of job name to job properties for kafka jobs.
+   */
+  public static Map<String, Properties> getEnabledJobsByType(String dir, String type) {
+    Map<String, Properties> jobs = new HashMap<>();
+    for (File file : new File(dir).listFiles()) {
+      if (file.getAbsolutePath().endsWith(".job")) {
+        Properties prop = getResolvedProperties(file.toPath());
+        if (!prop.contains(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE, "").equals(type)) {
+          // job name = file name without the extension.
+          jobs.put(jobNameFromFile(file), prop);
+        }
+      }
+    }
+    return jobs;
+  }
+}

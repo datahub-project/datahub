@@ -18,8 +18,22 @@ package wherehows.common;
  */
 public class Constant {
 
+  // Job property keys
+  public static final String JOB_CLASS_KEY = "job.class";
+  public static final String JOB_TYPE = "job.type";
+  public static final String JOB_CRON_EXPR_KEY = "job.cron.expr";
+  public static final String JOB_DISABLED_KEY = "job.disabled";
+  public static final String JOB_CMD_PARAMS_KEY = "job.cmd.params";
+  public static final String JOB_TIMEOUT_KEY = "job.timeout";
+
+  public static final String KAFKA_CONSUMER_JOB_TYPE = "kafka-consumer";
+
   // For environmental variable names
   public static final String WHZ_MASTER_KEY = "WHZ_MASTER_KEY";
+
+  // Rebuild properties
+  public static final String REBUILD_TREE_DATASET = "rebuild.tree.dataset";
+  public static final String REBUILD_TREE_FLOW = "rebuild.tree.flow";
 
   // For property_name in wh_property table
   /** The property_name field in wh_property table for WhereHows database connection information */
