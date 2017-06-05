@@ -9,7 +9,7 @@ export default Ember.Component.extend({
     this.updateContent();
   },
 
-  onSelectionChanged: Ember.observer('selected', 'values', function () {
+  onSelectionChanged: Ember.observer('selected', 'values', function() {
     this.updateContent();
   }),
 
@@ -18,17 +18,16 @@ export default Ember.Component.extend({
    * selected option flagged as `isSelected`
    */
   updateContent() {
-    let selected = this.get('selected') || '';
-    selected && (selected = String(selected).toLowerCase());
+    const selected = this.get('selected') || null;
 
     const options = this.get('values') || [];
     const content = options.map(option => {
       if (typeof option === 'object' && typeof option.value !== 'undefined') {
-        const isSelected = String(option.value).toLowerCase() === selected;
-        return {value: option.value, label: option.label, isSelected};
+        const isSelected = option.value === selected;
+        return { value: option.value, label: option.label, isSelected, isDisabled: option.isDisabled || false };
       }
 
-      return {value: option, isSelected: String(option).toLowerCase() === selected};
+      return { value: option, isSelected: option === selected };
     });
 
     this.set('content', content);
@@ -37,7 +36,7 @@ export default Ember.Component.extend({
   actions: {
     // Reflect UI changes in the component and bubble the `selectionDidChange` action
     change() {
-      const {selectedIndex} = this.$('select')[0];
+      const { selectedIndex } = this.$('select')[0];
       const values = this.get('values');
       const _selected = values[selectedIndex];
       const selected = typeof _selected.value !== 'undefined' ? _selected.value : _selected;
