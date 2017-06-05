@@ -51,12 +51,14 @@ public class Launcher {
 
     String property_file = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
     String etlClassName = null;
+    int refId = 0;
     long whEtlExecId = 0;
     Properties props = new Properties();
 
     try (InputStream propFile = new FileInputStream(property_file)) {
       props.load(propFile);
       etlClassName = props.getProperty(Constant.JOB_CLASS_KEY);
+      refId = Integer.valueOf(props.getProperty(Constant.JOB_REF_ID, "0"));
       whEtlExecId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
 
       System.setProperty(LOGGER_CONTEXT_NAME_KEY, etlClassName);
@@ -74,7 +76,7 @@ public class Launcher {
     // create the etl job
     EtlJob etlJob = null;
     try {
-      etlJob = EtlJobFactory.getEtlJob(etlClassName, whEtlExecId, props);
+      etlJob = EtlJobFactory.getEtlJob(etlClassName, refId, whEtlExecId, props);
     } catch (Exception e) {
       logger.error("Failed to create ETL job {}: {}", etlClassName, e.getMessage());
       System.exit(1);

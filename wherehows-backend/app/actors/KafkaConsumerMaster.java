@@ -47,9 +47,9 @@ public class KafkaConsumerMaster extends UntypedActor {
 
   private static final String KAFKA_JOB_TYPE = "kafka";
 
-  // List of kafka job IDs
+  // Map of kafka job name to properties
   private static Map<String, Properties> _kafkaJobList;
-  // map of kafka job id to configs
+  // Map of kafka job name to configs
   private static Map<String, KafkaConfig> _kafkaConfigs = new HashMap<>();
 
   @Override

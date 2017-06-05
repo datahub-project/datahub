@@ -30,8 +30,11 @@ import wherehows.common.Constant;
 
 public class JobsUtil {
 
-  private static final List<Pattern> ENV_VAR_PATTERNS =
-      ImmutableList.<Pattern>builder().add(Pattern.compile("\\$(.+)")).add(Pattern.compile("\\$\\{(.+)\\}")).build();
+  // Patterns for environmental variables resolution in jobs file.
+  private static final List<Pattern> ENV_VAR_PATTERNS = ImmutableList.<Pattern>builder()
+        .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
+        .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
+        .build();
 
   /**
    * Reads {@link Properties} from the given file and resolves all environmental variables denoted by ${ENV_VAR_NAME}.

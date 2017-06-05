@@ -1,2 +1,0 @@
-hdfs:///a/b/cnull{"sample": [aaa, bbb, ccc] }
-hdfs:///a/b/cnull{"sample": [aaa, bbb, ccc] }

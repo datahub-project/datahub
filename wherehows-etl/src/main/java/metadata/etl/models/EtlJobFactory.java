@@ -44,10 +44,10 @@ import metadata.etl.security.DatasetConfidentialFieldEtl;
  */
 public class EtlJobFactory {
 
-  public static EtlJob getEtlJob(String etlClassName, Long whExecId, Properties properties)
+  public static EtlJob getEtlJob(String etlClassName, int refId, long whExecId, Properties properties)
       throws Exception {
     Class etlClass = Class.forName(etlClassName);
     Constructor<?> ctor = etlClass.getConstructor(int.class, long.class, Properties.class);
-    return (EtlJob) ctor.newInstance(0, whExecId, properties);
+    return (EtlJob) ctor.newInstance(refId, whExecId, properties);
   }
 }
