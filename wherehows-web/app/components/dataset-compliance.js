@@ -462,7 +462,10 @@ export default Component.extend({
       const policy = JSON.parse(textString);
       if (isPolicyExpectedShape(policy)) {
         const currentPolicy = get(this, 'complianceInfo');
-        return set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+        set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+
+        // If all is good, then we can saveCompliance so user does not have to manually click
+        return this.saveCompliance();
       }
 
       alert('Received policy in an unexpected format! Please check the provided attributes and try again.');
