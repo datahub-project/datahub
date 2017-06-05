@@ -11,6 +11,7 @@ import {
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/functions';
 
 const {
+  assert,
   Component,
   computed,
   set,
@@ -87,14 +88,26 @@ const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
  */
 const fieldNamesAreUnique = (names = []) => names.every((name, index) => names.indexOf(name) === index);
 
+assert('`fieldIdentifierTypes` contains an object with a key `none`', typeof fieldIdentifierTypes.none === 'object');
+const fieldIdentifierTypeKeysBarNone = Object.keys(fieldIdentifierTypes).filter(k => k !== 'none');
+const fieldDisplayKeys = ['none', '_', ...fieldIdentifierTypeKeysBarNone];
+
 /**
  * A list of field identifier types mapped to label, value options for select display
  * @type {any[]|Array.<{value: String, label: String}>}
  */
-const fieldIdentifierOptions = Object.keys(fieldIdentifierTypes).map(fieldIdentifierType => ({
-  value: fieldIdentifierTypes[fieldIdentifierType].value,
-  label: fieldIdentifierTypes[fieldIdentifierType].displayAs
-}));
+const fieldIdentifierOptions = fieldDisplayKeys.map(fieldIdentifierType => {
+  const divider = '──────────';
+  const { value = fieldIdentifierType, displayAs: label = divider } = fieldIdentifierTypes[fieldIdentifierType] || {};
+
+  // Adds a divider for a value of _
+  // Visually this separates ID from none fieldIdentifierTypes
+  return {
+    value,
+    label,
+    isDisabled: fieldIdentifierType === '_'
+  };
+});
 
 /**
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
@@ -130,9 +143,14 @@ export default Component.extend({
   helpText,
   fieldIdentifierOptions,
   hiddenTrackingFields: hiddenTrackingFieldsMsg,
+  classNames: ['compliance-container'],
+  isEditing: false,
+  classNameBindings: ['isEditing:compliance-container--edit-mode'],
 
   didReceiveAttrs() {
     this._super(...arguments);
+    // If a compliance policy does not exist for this dataset, place it in edit mode by default
+    set(this, 'isEditing', get(this, 'isNewComplianceInfo'));
     // Perform validation step on the received component attributes
     this.validateAttrs();
   },
@@ -271,6 +289,11 @@ export default Component.extend({
          * @type {Boolean}
          */
         const isMixed = identifierType === fieldIdentifierTypes.generic.value;
+        /**
+         * Flag indicating that the field has an identifierType matching a custom id type
+         * @type {Boolean}
+         */
+        const isCustom = identifierType === fieldIdentifierTypes.custom.value;
         // Runtime converts the identifierType to subjectMember if the isSubject flag is true
         const computedIdentifierType = identifierType === fieldIdentifierTypes.member.value && isSubject
           ? fieldIdentifierTypes.subjectMember.value
@@ -289,6 +312,7 @@ export default Component.extend({
          * @type {any|Object}
          */
         fieldFormats = isMixed ? urnFieldFormat : fieldFormats;
+        fieldFormats = isCustom ? void 0 : fieldFormats;
         /**
          * An object referencing the fieldFormat for this field
          * @type {any|Object}
@@ -302,7 +326,7 @@ export default Component.extend({
           identifierField,
           fieldFormats,
           // Boolean flag indicating that the list of field formats is unchanging
-          isFieldFormatDisabled: isMixed,
+          isFieldFormatDisabled: isMixed || isCustom,
           identifierType: computedIdentifierType,
           // Check specific use case for urn only field format / logicalType
           classification: fieldClassification[identifierField] ||
@@ -423,6 +447,13 @@ export default Component.extend({
   },
 
   actions: {
+    /**
+     * Handle the user intent to place this compliance component in edit mode
+     */
+    onEdit() {
+      set(this, 'isEditing', true);
+    },
+
     /**
      * Receives the json representation for compliance and applies each key to the policy
      * @param {String} textString string representation for the JSON file
