@@ -152,6 +152,11 @@ const fieldIdentifierTypes = {
     value: 'mixed',
     isId: false,
     displayAs: 'Mixed'
+  },
+  custom: {
+    value: 'custom',
+    isId: true,
+    displayAs: 'Custom ID'
   }
 };
 

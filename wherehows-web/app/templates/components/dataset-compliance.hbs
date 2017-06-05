@@ -13,29 +13,31 @@
     </div>
   {{else}}
     <section class="action-bar">
-      <div class="container action-bar__content">
-        <button class="nacho-button nacho-button--large-inverse action-bar__item"
-                title={{unless isDatasetFullyClassified
-                               "Ensure you have provided a yes/no value for all dataset tags"
-                               "Save"}}
-                  disabled={{not isDatasetFullyClassified}}
-          {{action "saveCompliance"}}>
-          Save
-        </button>
+      {{#if isEditing}}
+        <div class="container action-bar__content">
+          <button class="nacho-button nacho-button--large-inverse action-bar__item"
+                  title={{unless isDatasetFullyClassified
+                                 "Ensure you have provided a yes/no value for all dataset tags"
+                                 "Save"}}
+                    disabled={{not isDatasetFullyClassified}}
+            {{action "saveCompliance"}}>
+            Save
+          </button>
 
-        <button class="nacho-button nacho-button--large action-bar__item"
-          {{action "resetCompliance"}}>
-          <i class="fa fa-times" title="Start Over">
-          </i>
-          Start Over
-        </button>
+          <button class="nacho-button nacho-button--large action-bar__item"
+            {{action "resetCompliance"}}>
+            <i class="fa fa-times" title="Start Over">
+            </i>
+            Start Over
+          </button>
 
-        {{#if _message}}
-          <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
-            {{_message}}
-          </div>
-        {{/if}}
-      </div>
+          {{#if _message}}
+            <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
+              {{_message}}
+            </div>
+          {{/if}}
+        </div>
+      {{/if}}
     </section>
   {{/if}}
 
@@ -44,10 +46,19 @@
       Last saved:
       <span class="policy-last-saved__saved">
         {{if isNewComplianceInfo 'Never'
-             (moment-calendar policyModificationTimeInEpoch sameElse="MMM Do YYYY, h:mm a")}}
+             (moment-from-now policyModificationTimeInEpoch)}}
       </span>
     </div>
-    {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+
+    {{#if isEditing}}
+      {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+    {{else}}
+      <button
+        {{action "onEdit"}}
+        class="nacho-button--large nacho-button--secondary secondary-actions__action">
+        Edit
+      </button>
+    {{/if}}
 
     {{#unless isNewComplianceInfo}}
       <button
@@ -57,16 +68,6 @@
       </button>
     {{/unless}}
   </div>
-
-  {{#if isNewComplianceInfo}}
-    <div class="alert alert-info" role="alert">
-      <p>
-        A policy does not currently exist for this dataset.
-        <br>
-        Even if there are no privacy concerns, please ensure you click "Save".
-      </p>
-    </div>
-  {{/if}}
 
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
@@ -93,13 +94,15 @@
     <thead>
     <tr>
       <th>Dataset Content Type</th>
-      <th>Is this type of member data contained in this dataset?</th>
+      <th>
+        <span class="dataset-field-value">Is this type of member data contained in this dataset?</span>
+      </th>
     </tr>
     </thead>
     <tbody>
     {{#each-in datasetClassification as |classification props|}}
       <tr>
-        <td>
+        <td class="dataset-field-content">
           {{props.label}}
 
           <span class="dataset-tag-container">
@@ -115,20 +118,22 @@
           </span>
         </td>
         <td>
-          {{#radio-button-composer
-            value=true
-            name=classification
-            groupValue=(readonly props.value)
-            changed=(action "onChangeDatasetClassification")}}
-            Yes
-          {{/radio-button-composer}}
-          {{#radio-button-composer
-            value=false
-            name=classification
-            groupValue=(readonly props.value)
-            changed=(action "onChangeDatasetClassification")}}
-            No
-          {{/radio-button-composer}}
+          <span class="dataset-field-value">
+            {{#radio-button-composer
+              value=true
+              name=classification
+              groupValue=(readonly props.value)
+              changed=(action "onChangeDatasetClassification")}}
+              Yes
+            {{/radio-button-composer}}
+            {{#radio-button-composer
+              value=false
+              name=classification
+              groupValue=(readonly props.value)
+              changed=(action "onChangeDatasetClassification")}}
+              No
+            {{/radio-button-composer}}
+          </span>
         </td>
       </tr>
     {{/each-in}}
@@ -230,6 +235,7 @@
           {{/row.cell}}
           {{#row.cell}}
             {{ember-selector
+              disabled=(not isEditing)
               values=fieldIdentifierOptions
               selected=field.identifierType
               selectionDidChange=(action "onFieldIdentifierTypeChange" field)
@@ -239,7 +245,7 @@
             {{#power-select
               options=field.fieldFormats
               selected=field.logicalType
-              disabled=field.isFieldFormatDisabled
+              disabled=(or field.isFieldFormatDisabled (not isEditing))
               placeholder="Select Format"
               allowClear=true
               searchField="label"
@@ -253,7 +259,7 @@
               class="nacho-select--hidden-state"
               values=classifiers
               selected=field.classification
-              disabled=(not field.logicalType)
+              disabled=(or (not isEditing) (not field.logicalType))
               selectionDidChange=(action "onFieldClassificationChange" field)
             }}
           {{/row.cell}}
