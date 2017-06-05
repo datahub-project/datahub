@@ -1,0 +1,18 @@
+/// Wrapper for dataset compliance component
+.compliance-container {
+  &--edit-mode {
+    .dataset-field-value {
+      visibility: visible;
+    }
+  }
+}
+
+/// Forces td cells on dataset field classification table to not wrap
+.dataset-field-content {
+  white-space: nowrap;
+}
+
+/// Default visual state for dataset-field-value selector
+.dataset-field-value {
+  visibility: hidden;
+}
