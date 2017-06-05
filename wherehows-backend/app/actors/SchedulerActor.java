@@ -14,19 +14,17 @@
 package actors;
 
 import akka.actor.UntypedActor;
-import java.util.Set;
-import metadata.etl.models.EtlJobStatus;
-import shared.Global;
 import java.util.Date;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
-import metadata.etl.models.EtlType;
-import metadata.etl.models.EtlJobName;
-import metadata.etl.models.RefIdType;
+import java.util.Properties;
+import metadata.etl.models.EtlJobStatus;
+import models.daos.EtlJobDao;
 import msgs.EtlJobMessage;
 import play.Logger;
-import play.libs.Json;
-import models.daos.EtlJobDao;
+import play.Play;
+import shared.Global;
+import utils.JobsUtil;
 
 
 /**
@@ -34,7 +32,7 @@ import models.daos.EtlJobDao;
  */
 public class SchedulerActor extends UntypedActor {
 
-  public static final int ETL_JOB_DEFAULT_TIMEOUT_SECOND = 20000;
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString("etl.jobs.dir");
 
   /**
    * Search for etl jobs that are ready to run and update the time for next run
@@ -44,46 +42,60 @@ public class SchedulerActor extends UntypedActor {
   @Override
   public void onReceive(Object message) throws Exception {
     if (message.equals("checking")) {
-      List<Map<String, Object>> dueJobs = EtlJobDao.getDueJobs();
-      Set<Integer> whiteList = Global.getWhiteList();
-      Logger.info("total " + dueJobs.size() + " jobs due, white list : " + whiteList);
-      for (Map<String, Object> dueJob : dueJobs) {
-        Integer whEtlJobId = ((Long) dueJob.get("wh_etl_job_id")).intValue();
-        if (whiteList != null && !whiteList.contains(whEtlJobId)) {
-          continue; // if we config the white list and it's not in white list, skip this job
-        }
-        Logger.info("running job: job id :" + whEtlJobId);
-        EtlJobName etlJobName = EtlJobName.valueOf((String) dueJob.get("wh_etl_job_name"));
-        EtlType etlType = EtlType.valueOf((String) dueJob.get("wh_etl_type"));
-        Integer refId = (Integer) dueJob.get("ref_id");
-        RefIdType refIdType = RefIdType.valueOf((String) dueJob.get("ref_id_type"));
-        String cmdParam = (String) dueJob.get("cmd_param");
-        Integer timeout =
-            dueJob.get("timeout") != null ? (Integer) dueJob.get("timeout") : ETL_JOB_DEFAULT_TIMEOUT_SECOND;
+      runDueJobs();
+    }
+  }
 
-        EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, etlType, whEtlJobId, refId, refIdType, cmdParam, timeout);
-        if (dueJob.get("input_params") != null) {
-          etlMsg.setInputParams(Json.parse((String) dueJob.get("input_params")));
-        }
+  private Map<String, Long> getScheduledJobs() throws Exception {
+    Map<String, Long> map = new HashMap<>();
+    for (Map<String, Object> job : EtlJobDao.getAllScheduledJobs()) {
+      String jobName = (String) job.get("wh_etl_job_name");
+      Long nextRun = (Long) job.get("next_run");
+      map.put(jobName, nextRun);
+    }
+    return map;
+  }
 
-        EtlJobDao.updateNextRun(whEtlJobId, (String) dueJob.get("cron_expr"), new Date());
-        Long whExecId = EtlJobDao.insertNewRun(whEtlJobId);
-        etlMsg.setWhEtlExecId(whExecId);
+  private void runDueJobs() throws Exception {
+    Map<String, Properties> enabledJobs = JobsUtil.getScheduledJobs(ETL_JOBS_DIR);
+    Logger.info("Enabled jobs: {}", enabledJobs.keySet());
 
-        StringBuilder s = new StringBuilder("Current running jobs : ");
-        for (int i : Global.getCurrentRunningJob()) {
-          s.append(i).append("\t");
-        }
-        Logger.info(s.toString());
+    Map<String, Long> scheduledJobs = getScheduledJobs();
+    Logger.info("Scheduled jobs: {}", scheduledJobs);
 
-        if (Global.getCurrentRunningJob().contains(etlMsg.getWhEtlJobId())) {
-          Logger.error("The previous job is still running! Abort this job : " + etlMsg.toDebugString());
-          EtlJobDao.endRun(etlMsg.getWhEtlExecId(), EtlJobStatus.ERROR, "Previous is still running, Aborted!");
-        } else {
-          Global.getCurrentRunningJob().add(etlMsg.getWhEtlJobId());
-          Logger.info("Send message : " + etlMsg.toDebugString());
-          ActorRegistry.etlJobActor.tell(etlMsg, getSelf());
-        }
+    long now = System.currentTimeMillis() / 1000;
+    for (Map.Entry<String, Properties> entry : enabledJobs.entrySet()) {
+      String etlJobName = entry.getKey();
+      if (scheduledJobs.getOrDefault(etlJobName, 0L) > now) {
+        continue;
+      }
+
+      Logger.info("Running job: {}", etlJobName);
+      Properties properties = entry.getValue();
+      EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, properties);
+
+      // Schedule next run if a cron expr is defined.
+      String cronExpr = etlMsg.getCronExpr();
+      if (cronExpr != null) {
+        EtlJobDao.updateNextRun(etlMsg.getEtlJobName(), cronExpr, new Date());
+      }
+
+      Long whExecId = EtlJobDao.insertNewRun(etlJobName);
+      etlMsg.setWhEtlExecId(whExecId);
+
+      StringBuilder s = new StringBuilder("Current running jobs : ");
+      for (String j : Global.getCurrentRunningJob()) {
+        s.append(j).append("\t");
+      }
+      Logger.info(s.toString());
+
+      if (Global.getCurrentRunningJob().contains(etlJobName)) {
+        Logger.error("The previous job is still running! Abort this job : " + etlMsg.toDebugString());
+        EtlJobDao.endRun(etlMsg.getWhEtlExecId(), EtlJobStatus.ERROR, "Previous is still running, Aborted!");
+      } else {
+        Global.getCurrentRunningJob().add(etlJobName);
+        Logger.info("Send message : " + etlMsg.toDebugString());
+        ActorRegistry.etlJobActor.tell(etlMsg, getSelf());
       }
     }
   }

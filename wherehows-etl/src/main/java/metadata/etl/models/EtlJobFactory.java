@@ -13,6 +13,7 @@
  */
 package metadata.etl.models;
 
+import java.lang.reflect.Constructor;
 import java.util.Properties;
 import metadata.etl.EtlJob;
 import metadata.etl.dataset.espresso.EspressoMetadataEtl;
@@ -23,18 +24,18 @@ import metadata.etl.dataset.oracle.OracleMetadataEtl;
 import metadata.etl.dataset.teradata.TeradataMetadataEtl;
 import metadata.etl.dataset.voldemort.VoldemortMetadataEtl;
 import metadata.etl.elasticsearch.ElasticSearchBuildIndexETL;
+import metadata.etl.git.CodeSearchMetadataEtl;
 import metadata.etl.git.GitMetadataEtl;
 import metadata.etl.git.MultiproductMetadataEtl;
+import metadata.etl.ldap.LdapEtl;
 import metadata.etl.lineage.AzLineageMetadataEtl;
 import metadata.etl.lineage.appworx.AppworxLineageEtl;
 import metadata.etl.metadata.DatasetDescriptionEtl;
 import metadata.etl.ownership.DaliViewOwnerEtl;
 import metadata.etl.ownership.DatasetOwnerEtl;
-import metadata.etl.ldap.LdapEtl;
 import metadata.etl.scheduler.appworx.AppworxExecEtl;
 import metadata.etl.scheduler.azkaban.AzkabanExecEtl;
 import metadata.etl.scheduler.oozie.OozieExecEtl;
-import metadata.etl.git.CodeSearchMetadataEtl;
 import metadata.etl.security.DatasetConfidentialFieldEtl;
 
 
@@ -43,54 +44,10 @@ import metadata.etl.security.DatasetConfidentialFieldEtl;
  */
 public class EtlJobFactory {
 
-  public static EtlJob getEtlJob(EtlJobName etlJobName, Integer refId, Long whExecId, Properties properties) {
-    switch (etlJobName) {
-      case AZKABAN_EXECUTION_METADATA_ETL:
-        return new AzkabanExecEtl(refId, whExecId, properties);
-      case APPWORX_EXECUTION_METADATA_ETL:
-        return new AppworxExecEtl(refId, whExecId, properties);
-      case OOZIE_EXECUTION_METADATA_ETL:
-        return new OozieExecEtl(refId, whExecId, properties);
-      case HADOOP_DATASET_METADATA_ETL:
-        return new HdfsMetadataEtl(refId, whExecId, properties);
-      case TERADATA_DATASET_METADATA_ETL:
-        return new TeradataMetadataEtl(refId, whExecId, properties);
-      case AZKABAN_LINEAGE_METADATA_ETL:
-        return new AzLineageMetadataEtl(refId, whExecId, properties);
-      case APPWORX_LINEAGE_METADATA_ETL:
-        return new AppworxLineageEtl(refId, whExecId, properties);
-      case HADOOP_DATASET_OWNER_ETL:
-        return new DatasetOwnerEtl(refId, whExecId, properties);
-      case LDAP_USER_ETL:
-        return new LdapEtl(refId, whExecId, properties);
-      case GIT_MEDATA_ETL:
-        return new GitMetadataEtl(refId, whExecId, properties);
-      case HIVE_DATASET_METADATA_ETL:
-        return new HiveMetadataEtl(refId, whExecId, properties);
-      case ELASTICSEARCH_EXECUTION_INDEX_ETL:
-        return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
-      case TREEBUILDER_EXECUTION_DATASET_ETL:
-        return new ElasticSearchBuildIndexETL(refId, whExecId, properties);
-      case ORACLE_DATASET_METADATA_ETL:
-        return new OracleMetadataEtl(refId, whExecId, properties);
-      case PRODUCT_REPO_METADATA_ETL:
-        return new MultiproductMetadataEtl(refId, whExecId, properties);
-      case DATABASE_SCM_METADATA_ETL:
-        return new CodeSearchMetadataEtl(refId, whExecId, properties);
-      case DALI_VIEW_OWNER_ETL:
-        return new DaliViewOwnerEtl(refId, whExecId, properties);
-      case CONFIDENTIAL_FIELD_METADATA_ETL:
-        return new DatasetConfidentialFieldEtl(refId, whExecId, properties);
-      case DATASET_DESCRIPTION_METADATA_ETL:
-        return new DatasetDescriptionEtl(refId, whExecId, properties);
-      case ESPRESSO_DATASET_METADATA_ETL:
-        return new EspressoMetadataEtl(refId, whExecId, properties);
-      case VOLDEMORT_DATASET_METADATA_ETL:
-        return new VoldemortMetadataEtl(refId, whExecId, properties);
-      case KAFKA_DATASET_METADATA_ETL:
-        return new KafkaMetadataEtl(refId, whExecId, properties);
-      default:
-        throw new UnsupportedOperationException("Unsupported job type: " + etlJobName);
-    }
+  public static EtlJob getEtlJob(String etlClassName, int refId, long whExecId, Properties properties)
+      throws Exception {
+    Class etlClass = Class.forName(etlClassName);
+    Constructor<?> ctor = etlClass.getConstructor(int.class, long.class, Properties.class);
+    return (EtlJob) ctor.newInstance(refId, whExecId, properties);
   }
 }

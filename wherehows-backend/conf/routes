@@ -61,24 +61,6 @@ GET         /flow/owner                   controllers.FlowController.getFlowOwne
 # Get flow schedules
 GET         /flow/schedule                controllers.FlowController.getFlowSchedules(flowPath:String)
 
-# Add a new metadata etl job
-POST        /etl                          controllers.EtlJobController.addEtlJob()
-
-# Get a metadata etl job
-GET         /etl                          controllers.EtlJobController.getEtlJobById(id:Int)
-
-# Get all etl jobs
-GET         /etls                         controllers.EtlJobController.getAllJobs()
-
-# Update etl job property
-PUT         /etl/property                 controllers.EtlJobPropertyController.updateJobProperty()
-
-# Update etl job status
-PUT         /etl/control                  controllers.EtlJobController.updateEtlJobStatus()
-
-# Update etl job schedule
-PUT         /etl/schedule                 controllers.EtlJobController.updateEtlJobSchedule()
-
 # Get all applications
 GET         /cfg/apps                     controllers.CfgController.getAllApps
 

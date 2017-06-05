@@ -15,6 +15,7 @@ dependencies{
     play externalDependency.kafka
     play externalDependency.kafka_clients
 
+    playTest 'com.github.stefanbirkner:system-rules:1.16.0'
     playTest 'org.easytesting:fest-assert-core:2.0M10'
     playTest externalDependency.mockito
 }
@@ -28,6 +29,18 @@ configurations {
             substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
             //prefer 'log4j-over-slf4j' over 'log4j'
             force 'com.typesafe:config:1.3.1', 'io.netty:netty:3.10.6.Final'
+        }
+    }
+}
+
+model {
+    distributions {
+        playBinary {
+            contents {
+                from("jobs") {
+                    into "jobs"
+                }
+            }
         }
     }
 }

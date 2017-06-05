@@ -14,16 +14,12 @@
 package actors;
 
 import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
-import java.util.List;
-import metadata.etl.Launcher;
-import metadata.etl.models.EtlJobName;
-import wherehows.common.Constant;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Properties;
+import wherehows.common.Constant;
 
 import static org.apache.commons.lang3.StringUtils.*;
 
@@ -40,39 +36,29 @@ class ConfigUtil {
    * Generate the config file in the 'wherehows.app_folder' folder
    * The file name is {whEtlExecId}.config
    *
-   * @param etlJobName
-   * @param refId
    * @param whEtlExecId
    * @param props
    * @return void
    */
-  static void generateProperties(EtlJobName etlJobName, int refId, long whEtlExecId, Properties props)
-          throws IOException {
-
-    props.setProperty(Launcher.JOB_NAME_KEY, etlJobName.name());
-    props.setProperty(Launcher.REF_ID_KEY, String.valueOf(refId));
-    props.setProperty(Launcher.WH_ETL_EXEC_ID_KEY, String.valueOf(whEtlExecId));
-
-    String dirName = props.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY) + "/exec";
-    File dir = new File(dirName);
+  static void generateProperties(long whEtlExecId, Properties props, String outDir) throws IOException {
+    File dir = new File(outDir);
     if (!dir.exists()) {
       dir.mkdirs();
     }
-    File configFile = new File(dirName, whEtlExecId + ".properties");
+    File configFile = new File(dir,  whEtlExecId + ".properties");
     FileWriter writer = new FileWriter(configFile);
     props.store(writer, "exec id : " + whEtlExecId + " job configurations");
     writer.close();
   }
 
-  static void deletePropertiesFile(Properties props, long whEtlExecId) {
-    String dirName = props.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY) + "/exec";
-    File configFile = new File(dirName, whEtlExecId + ".properties");
+  static void deletePropertiesFile(long whEtlExecId, String outDir) {
+    File configFile = new File(outDir, whEtlExecId + ".properties");
     if (configFile.exists()) {
       configFile.delete();
     }
   }
 
-  static ProcessBuilder buildProcess(EtlJobName etlJobName, long whEtlExecId, String cmdParam,
+  static ProcessBuilder buildProcess(String etlJobName, long whEtlExecId, String cmdParam,
       Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
     String outDir = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
@@ -82,15 +68,16 @@ class ConfigUtil {
 
     ProcessBuilder pb = new ProcessBuilder(new ImmutableList.Builder<String>().add(javaCmd)
         .addAll(Arrays.asList(cmdParams))
-        .add("-cp").add(classPath)
+        .add("-cp")
+        .add(classPath)
         .add("-Dconfig=" + configFile)
-        .add("-DCONTEXT=" + etlJobName.name())
+        .add("-DCONTEXT=" + etlJobName)
         .add("-Dlogback.configurationFile=etl_logback.xml")
         .add("-DLOG_DIR=" + outDir)
         .add("metadata.etl.Launcher")
         .build());
-    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName.name() + ".stdout")));
-    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName.name() + ".stderr")));
+    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stdout")));
+    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stderr")));
     return pb;
   }
 }
