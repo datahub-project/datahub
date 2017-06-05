@@ -14,34 +14,25 @@
 package msgs;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Properties;
 import metadata.etl.models.EtlType;
-import metadata.etl.models.EtlJobName;
 import metadata.etl.models.RefIdType;
+import wherehows.common.Constant;
 
 
 /**
  * Created by zechen on 9/4/15.
  */
 public class EtlJobMessage {
-  private Long whEtlExecId;
-  private EtlJobName etlJobName;
-  private EtlType etlType;
-  private Integer refId;
-  private RefIdType refIdType;
-  private JsonNode inputParams;
-  private Integer whEtlJobId;
-  private String cmdParam;
-  private int timeout;
+  private static int DEFAULT_TIMEOUT = 20000;
 
-  public EtlJobMessage(EtlJobName etlJobName, EtlType etlType, Integer whEtlJobId, Integer refId, RefIdType refIdType,
-      String cmdParam, int timeout) {
+  private Long whEtlExecId;
+  private String etlJobName;
+  private Properties etlJobProperties;
+
+  public EtlJobMessage(String etlJobName, Properties etlJobProperties) {
     this.etlJobName = etlJobName;
-    this.etlType = etlType;
-    this.refId = refId;
-    this.refIdType = refIdType;
-    this.whEtlJobId = whEtlJobId;
-    this.cmdParam = cmdParam;
-    this.timeout = timeout;
+    this.etlJobProperties = etlJobProperties;
   }
 
   public Long getWhEtlExecId() {
@@ -52,56 +43,28 @@ public class EtlJobMessage {
     this.whEtlExecId = whEtlExecId;
   }
 
-  public EtlJobName getEtlJobName() {
+  public String getEtlJobName() {
     return etlJobName;
   }
 
-  public EtlType getEtlType() {
-    return etlType;
-  }
-
-  public JsonNode getInputParams() {
-    return inputParams;
-  }
-
-  public void setInputParams(JsonNode inputParams) {
-    this.inputParams = inputParams;
-  }
-
-  public Integer getWhEtlJobId() {
-    return whEtlJobId;
-  }
-
-  public Integer getRefId() {
-    return refId;
-  }
-
-  public void setRefId(Integer refId) {
-    this.refId = refId;
-  }
-
-  public RefIdType getRefIdType() {
-    return refIdType;
-  }
-
-  public void setRefIdType(RefIdType refIdType) {
-    this.refIdType = refIdType;
+  public Properties getEtlJobProperties() {
+    return etlJobProperties;
   }
 
   public String getCmdParam() {
-    return cmdParam;
-  }
-
-  public void setCmdParam(String cmdParam) {
-    this.cmdParam = cmdParam;
+    return etlJobProperties.getProperty(Constant.JOB_CMD_PARAMS_KEY, "");
   }
 
   public int getTimeout() {
-    return timeout;
+    String timeout = etlJobProperties.getProperty(Constant.JOB_TIMEOUT_KEY, null);
+    if (timeout == null) {
+      return DEFAULT_TIMEOUT;
+    }
+    return Integer.parseInt(timeout);
   }
 
-  public void setTimeout(int timeout) {
-    this.timeout = timeout;
+  public String getCronExpr() {
+    return etlJobProperties.getProperty(Constant.JOB_CRON_EXPR_KEY, null);
   }
 
   /**
@@ -109,7 +72,6 @@ public class EtlJobMessage {
    * @return
    */
   public String toDebugString() {
-    return String.format("(jobType:%1s refIdType:%2s refId:%3d whEtlJobId:%4d whEtlExecId:%5d)", this.etlJobName.name(),
-        this.refIdType, this.refId, this.whEtlJobId, this.whEtlExecId);
+    return String.format("(jobName:%s, whEtlExecId:%d)", this.etlJobName, this.whEtlExecId);
   }
 }

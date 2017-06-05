@@ -13,82 +13,42 @@
 --
 
 -- configuration tables
-CREATE TABLE `wh_etl_job` (
-  `wh_etl_job_id`   INT(10) UNSIGNED  NOT NULL AUTO_INCREMENT
-  COMMENT 'id of the etl job',
-  `wh_etl_job_name` VARCHAR(127)      NOT NULL
+CREATE TABLE `wh_etl_job_schedule` (
+  `wh_etl_job_name` VARCHAR(127)  NOT NULL
   COMMENT 'etl job name',
-  `wh_etl_type`     VARCHAR(127)               DEFAULT NULL
-  COMMENT 'type of the etl service',
-  `cron_expr`       VARCHAR(127)               DEFAULT NULL
-  COMMENT 'frequency in crob expression',
-  `ref_id`          SMALLINT(6)       NOT NULL
-  COMMENT 'id of application/database where etl job runs',
-  `ref_id_type`     ENUM('APP', 'DB') NOT NULL
-  COMMENT 'flag the ref_id is an application or a database',
-  `timeout`         INT(11)                    DEFAULT NULL
-  COMMENT 'timeout in seconds for this etl job',
-  `next_run`        INT(10) UNSIGNED           DEFAULT NULL
+  `next_run` INT(10) UNSIGNED     DEFAULT NULL
   COMMENT 'next run time',
-  `comments`        VARCHAR(200)               DEFAULT NULL,
-  `cmd_param`       VARCHAR(500)               DEFAULT ''
-  COMMENT 'command line parameters for launch the job',
-  `is_active`       CHAR(1)                    DEFAULT 'Y'
-  COMMENT 'determine if this job is active or not',
-  PRIMARY KEY (`wh_etl_job_id`),
-  UNIQUE KEY `etl_unique` (`wh_etl_job_name`, `ref_id`)
+  PRIMARY KEY (`wh_etl_job_name`),
+  UNIQUE KEY `etl_unique` (`wh_etl_job_name`)
 )
   ENGINE = InnoDB
-  AUTO_INCREMENT = 1
-  DEFAULT CHARSET = utf8
-  COMMENT = 'WhereHows ETL jobs table';
+  DEFAULT CHARSET=utf8
+  COMMENT='WhereHows ETL job scheduling table';
 
-CREATE TABLE `wh_etl_job_execution` (
-  `wh_etl_exec_id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT
+CREATE TABLE `wh_etl_job_history` (
+  `wh_etl_exec_id`  BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT
   COMMENT 'job execution id',
-  `wh_etl_job_id`  INT(10) UNSIGNED             DEFAULT NULL
-  COMMENT 'id of the etl job',
-  `status`         VARCHAR(31)                  DEFAULT NULL
+  `wh_etl_job_name` VARCHAR(127)                 NOT NULL
+  COMMENT 'name of the etl job',
+  `status`          VARCHAR(31)                  DEFAULT NULL
   COMMENT 'status of etl job execution',
-  `request_time`   INT(10) UNSIGNED             DEFAULT NULL
+  `request_time`    INT(10) UNSIGNED             DEFAULT NULL
   COMMENT 'request time of the execution',
-  `start_time`     INT(10) UNSIGNED             DEFAULT NULL
+  `start_time`      INT(10) UNSIGNED             DEFAULT NULL
   COMMENT 'start time of the execution',
-  `end_time`       INT(10) UNSIGNED             DEFAULT NULL
+  `end_time`        INT(10) UNSIGNED             DEFAULT NULL
   COMMENT 'end time of the execution',
-  `message`        VARCHAR(1024)                DEFAULT NULL
+  `message`         VARCHAR(1024)                DEFAULT NULL
   COMMENT 'debug information message',
-  `host_name`      VARCHAR(200)                 DEFAULT NULL
+  `host_name`       VARCHAR(200)                 DEFAULT NULL
   COMMENT 'host machine name of the job execution',
-  `process_id`     INT UNSIGNED                 DEFAULT NULL
+  `process_id`      INT UNSIGNED                 DEFAULT NULL
   COMMENT 'job execution process id',
   PRIMARY KEY (`wh_etl_exec_id`)
 )
   ENGINE = InnoDB
   DEFAULT CHARSET = utf8
-  COMMENT = 'WhereHows ETL execution table';
-
-CREATE TABLE `wh_etl_job_property` (
-  `id`              INT(10)           NOT NULL AUTO_INCREMENT,
-  `wh_etl_job_name` VARCHAR(127)      NOT NULL
-  COMMENT 'etl job name',
-  `ref_id`          SMALLINT(6)       NOT NULL
-  COMMENT 'id of application/database where etl job runs',
-  `ref_id_type`     ENUM('APP', 'DB') NOT NULL
-  COMMENT 'flag the ref_id is an application or a database',
-  `property_name`   VARCHAR(127)      NOT NULL
-  COMMENT 'property name',
-  `property_value`  TEXT COMMENT 'property value',
-  `is_encrypted`    CHAR(1)                    DEFAULT 'N'
-  COMMENT 'whether the value is encrypted',
-  `comments`        VARCHAR(100)               DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `property_unique` (`wh_etl_job_name`, `ref_id`, `property_name`)
-)
-  ENGINE = InnoDB
-  AUTO_INCREMENT = 1
-  DEFAULT CHARSET = utf8
-  COMMENT = 'Etl job configuration table';
+  COMMENT = 'WhereHows ETL execution history table';
 
 CREATE TABLE `wh_property` (
   `property_name`  VARCHAR(127) NOT NULL

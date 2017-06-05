@@ -27,36 +27,28 @@ import utils.SchedulerUtil;
 public class Global extends GlobalSettings {
 
   // the jobs id that allowed to run on this instance
-  private static Set<Integer> whiteList;
-  private static Set<Integer> currentRunningJob;
+  private static Set<String> currentRunningJob;
 
   @Override
   public void onStart(Application arg0) {
     Logger.info("on start---===");
-
-    whiteList = SchedulerUtil.getJobIdsFromConfig("scheduler.jobid.whitelist");
-    Logger.info("ETL job IDs from configuration: " + whiteList);
 
     SchedulerUtil.start();
 
     currentRunningJob = new HashSet<>();
   }
 
-  public static Set<Integer> getWhiteList() {
-    return whiteList;
-  }
-
-  public static Set<Integer> getCurrentRunningJob() {
+  public static Set<String> getCurrentRunningJob() {
     return currentRunningJob;
   }
 
-  public static void setCurrentRunningJob(Set<Integer> currentRunningJob) {
+  public static void setCurrentRunningJob(Set<String> currentRunningJob) {
     Global.currentRunningJob = currentRunningJob;
   }
 
-  public static void removeRunningJob(int jobId) {
-    if (currentRunningJob.contains(jobId)) {
-      currentRunningJob.remove(jobId);
+  public static void removeRunningJob(String jobName) {
+    if (currentRunningJob.contains(jobName)) {
+      currentRunningJob.remove(jobName);
     }
   }
 }

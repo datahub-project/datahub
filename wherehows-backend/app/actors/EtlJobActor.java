@@ -14,8 +14,15 @@
 package actors;
 
 import akka.actor.UntypedActor;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
 import java.net.UnknownHostException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import metadata.etl.Launcher;
 import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import models.daos.EtlJobPropertyDao;
@@ -23,11 +30,6 @@ import msgs.EtlJobMessage;
 import play.Logger;
 import play.Play;
 import shared.Global;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.util.Properties;
 import wherehows.common.Constant;
 
 
@@ -38,28 +40,29 @@ public class EtlJobActor extends UntypedActor {
 
   private Process process;
 
-  private static final String ETL_TEMP_DIR = Play.application().configuration().getString("etl.temp_dir");
+  private static final String ETL_TEMP_DIR = Play.application().configuration().getString("etl.temp.dir");
 
   @Override
-  public void onReceive(Object message)
-          throws Exception {
+  public void onReceive(Object message) throws Exception {
+    final String configDir = ETL_TEMP_DIR + "/exec";
     Properties props = null;
     if (message instanceof EtlJobMessage) {
       EtlJobMessage msg = (EtlJobMessage) message;
       try {
-        props = EtlJobPropertyDao.getJobProperties(msg.getEtlJobName(), msg.getRefId());
+        props = msg.getEtlJobProperties();
         Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
         props.putAll(whProps);
         props.setProperty(Constant.WH_APP_FOLDER_KEY, ETL_TEMP_DIR);
+        props.setProperty(Launcher.WH_ETL_EXEC_ID_KEY, String.valueOf(msg.getWhEtlExecId()));
 
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 
         // start a new process here
-        final ProcessBuilder pb = ConfigUtil.buildProcess(
-            msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
+        final ProcessBuilder pb =
+            ConfigUtil.buildProcess(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
         Logger.debug("run command : " + pb.command() + " ; timeout: " + msg.getTimeout());
 
-        ConfigUtil.generateProperties(msg.getEtlJobName(), msg.getRefId(), msg.getWhEtlExecId(), props);
+        ConfigUtil.generateProperties(msg.getWhEtlExecId(), props, configDir);
         int retry = 0;
         int execResult = 0;
         Boolean execFinished = false;
@@ -103,8 +106,9 @@ public class EtlJobActor extends UntypedActor {
         if (execResult > 0) {
           BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
           String errString = "Error Details:\n";
-          while ((line = br.readLine()) != null)
+          while ((line = br.readLine()) != null) {
             errString = errString.concat(line).concat("\n");
+          }
           Logger.error("*** Process + " + getPid(process) + " failed, status: " + execResult);
           Logger.error(errString);
           throw new Exception("Process + " + getPid(process) + " failed");
@@ -113,11 +117,11 @@ public class EtlJobActor extends UntypedActor {
         EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.SUCCEEDED, "Job succeed!");
         Logger.info("ETL job {} finished", msg.toDebugString());
 
-        if (msg.getEtlJobName().affectDataset()) {
+        if (props.getProperty(Constant.REBUILD_TREE_DATASET) != null) {
           ActorRegistry.treeBuilderActor.tell("dataset", getSelf());
         }
 
-        if (msg.getEtlJobName().affectFlow()) {
+        if (props.getProperty(Constant.REBUILD_TREE_FLOW) != null) {
           ActorRegistry.treeBuilderActor.tell("flow", getSelf());
         }
       } catch (Throwable e) { // catch all throwable at the highest level.
@@ -128,9 +132,11 @@ public class EtlJobActor extends UntypedActor {
         }
         EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
       } finally {
-        Global.removeRunningJob(((EtlJobMessage) message).getWhEtlJobId());
+        Global.removeRunningJob(msg.getEtlJobName());
         if (!Logger.isDebugEnabled()) // if debug enable, won't delete the config files.
-          ConfigUtil.deletePropertiesFile(props, msg.getWhEtlExecId());
+        {
+          ConfigUtil.deletePropertiesFile(msg.getWhEtlExecId(), configDir);
+        }
       }
     }
   }
