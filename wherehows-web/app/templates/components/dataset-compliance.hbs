@@ -184,17 +184,16 @@
       {{#head.column columnName="dataType"}}Data Type{{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}
         Member, Organization, or Group, ID's
-        <sup>
-          <span
-            class="glyphicon glyphicon-question-sign"
-            title="Help Text">
-            {{tooltip-on-component
-              event="click"
-              hideOn="click"
-              text=helpText.subjectOwner
-            }}
-          </span>
-        </sup>
+        <a
+          target="_blank"
+          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-compliance">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on various IDs"></span>
+          </sup>
+        </a>
       {{/head.column}}
       {{#head.column}}
         Field Format?
