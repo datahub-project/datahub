@@ -7,6 +7,7 @@ const datasetClassifiers = {
   MESSAGING_DATA: 'Messaging Data (Metadata + Content)',
   THIRD_PARTY_INTEGRATIONS: 'Third Party Integrations In Use',
   ACTIVITY: 'Activity (Newsfeed Posts + Shares + Likes)',
+  SETTINGS: 'Settings (Mail Settings, All psettings values)',
   JOB_APPLICATION_FLOW_DATA: 'Job Application Flow Data (Job Application + AWLI + Resumes + Application Answers)',
   ENTERPRISE_PRODUCT_DATA: 'Enterprise Product Data',
   ACCOUNT_STATUS: 'Account Status',
