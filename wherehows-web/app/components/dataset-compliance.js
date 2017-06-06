@@ -398,11 +398,19 @@ export default Component.extend({
 
   /**
    * Sets the default classification for the given identifier field
-   * @param {String} identifierField
-   * @param {String} logicalType
+   * Using the provided logicalType, or in some cases the identifierType, determines the fields
+   * default security classification based on a lookup
+   * @param {String} identifierField the field for which the default classification should apply
+   * @param {String} [identifierType] the current identifier type for the field
+   * @param {String} [logicalType] the logicalType / (field format) for the identifierField
    */
-  setDefaultClassification({ identifierField }, { value: logicalType = '' } = {}) {
-    const defaultTypeClassification = defaultFieldDataTypeClassification[logicalType] || null;
+  setDefaultClassification({ identifierField, identifierType }, { value: logicalType = '' } = {}) {
+    let defaultTypeClassification = defaultFieldDataTypeClassification[logicalType] || null;
+    // If the identifierType is of custom, set the default classification to the of a CUSTOM_ID, otherwise use value
+    // based on logicalType
+    defaultTypeClassification = identifierType === fieldIdentifierTypes.custom.value
+      ? defaultFieldDataTypeClassification['CUSTOM_ID']
+      : defaultTypeClassification;
     this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
   },
 
@@ -462,7 +470,10 @@ export default Component.extend({
       const policy = JSON.parse(textString);
       if (isPolicyExpectedShape(policy)) {
         const currentPolicy = get(this, 'complianceInfo');
-        return set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+        set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+
+        // If all is good, then we can saveCompliance so user does not have to manually click
+        return this.saveCompliance();
       }
 
       alert('Received policy in an unexpected format! Please check the provided attributes and try again.');
@@ -496,15 +507,25 @@ export default Component.extend({
       const complianceList = get(this, policyComplianceEntitiesKey);
       // A reference to the current field in the compliance list if it exists
       const currentFieldInComplianceList = complianceList.findBy('identifierField', identifierField);
-      const subjectId = fieldIdentifierTypes.subjectMember.value;
+      const subjectIdString = fieldIdentifierTypes.subjectMember.value;
+      // Some rendered identifierTypes may be masks of other underlying types, e.g. subjectId Member type is really
+      // a memberId with an attribute of isSubject in the affirmative
+      const unwrappedIdentifierType = subjectIdString === identifierType
+        ? fieldIdentifierTypes.member.value
+        : identifierType;
       const updatedEntity = Object.assign({}, currentFieldInComplianceList, {
         identifierField,
-        identifierType: subjectId === identifierType ? fieldIdentifierTypes.member.value : identifierType,
-        isSubject: subjectId === identifierType ? true : null,
+        identifierType: unwrappedIdentifierType,
+        isSubject: subjectIdString === identifierType ? true : null,
+        // If the field is currently not in the complianceList,
+        // we will set the logicalType to be the provided value, otherwise, set to undefined
+        // since the next step removes it from the updated list
         logicalType: !currentFieldInComplianceList ? logicalType : void 0
       });
       let transientComplianceList = complianceList;
 
+      // If the identifierField is in the current compliance list,
+      // create a filtered list excluding the identifierField before updating the list
       if (currentFieldInComplianceList) {
         transientComplianceList = complianceList.filter(
           ({ identifierField: fieldName }) => fieldName !== identifierField
@@ -512,7 +533,10 @@ export default Component.extend({
       }
 
       complianceList.setObjects([updatedEntity, ...transientComplianceList]);
-      this.setDefaultClassification({ identifierField });
+      // Set the defaultClassification for the identifierField,
+      // although the classification is based on the logicalType,
+      // an identifierField may only have one valid logicalType for it's given identifierType
+      this.setDefaultClassification({ identifierField, identifierType: unwrappedIdentifierType });
     },
 
     /**
