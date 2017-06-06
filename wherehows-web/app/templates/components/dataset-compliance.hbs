@@ -26,9 +26,9 @@
 
           <button class="nacho-button nacho-button--large action-bar__item"
             {{action "resetCompliance"}}>
-            <i class="fa fa-times" title="Start Over">
+            <i class="fa fa-times" title="Cancel">
             </i>
-            Start Over
+            Cancel
           </button>
 
           {{#if _message}}
@@ -58,15 +58,15 @@
         class="nacho-button--large nacho-button--secondary secondary-actions__action">
         Edit
       </button>
-    {{/if}}
 
-    {{#unless isNewComplianceInfo}}
-      <button
-        {{action "onComplianceDownloadJson"}}
-        class="nacho-button nacho-button--large-inverse secondary-actions__action">
-        Download as a JSON file
-      </button>
-    {{/unless}}
+      {{#unless isNewComplianceInfo}}
+        <button
+          {{action "onComplianceDownloadJson"}}
+          class="nacho-button nacho-button--large-inverse secondary-actions__action">
+          Download as a JSON file
+        </button>
+      {{/unless}}
+    {{/if}}
   </div>
 
   <section class="metadata-prompt">

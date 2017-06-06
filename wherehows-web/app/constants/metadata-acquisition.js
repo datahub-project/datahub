@@ -4,6 +4,12 @@
  */
 const idLogicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
 
+/**
+ * A list of custom logical types that may be treated ids but have a different behaviour from regular ids
+ * @type {Array.<String>}
+ */
+const customIdLogicalTypes = ['CUSTOM_ID'];
+
 // Default mapping of field data types to security classification
 // https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
 const nonIdFieldLogicalTypes = {
@@ -82,10 +88,13 @@ const nonIdFieldLogicalTypes = {
 };
 
 /**
- * A map of id logical types to the default field classification for Ids
+ * A map of id logical types including custom ids to the default field classification for Ids
  * @type {Object}
  */
-const idFieldDataTypeClassification = idLogicalTypes.reduce((classification, idLogicalType) => {
+const idFieldDataTypeClassification = [
+  ...customIdLogicalTypes,
+  ...idLogicalTypes
+].reduce((classification, idLogicalType) => {
   return Object.assign(classification, { [idLogicalType]: 'limitedDistribution' });
 }, {});
 
@@ -155,7 +164,9 @@ const fieldIdentifierTypes = {
   },
   custom: {
     value: 'custom',
-    isId: true,
+    isId: false,
+    // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
+    // ids, a logicalType / (field format) is not required to update this fields properties
     displayAs: 'Custom ID'
   }
 };
