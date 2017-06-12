@@ -995,7 +995,7 @@ public class Dataset extends Controller
         }
 
         try {
-            DatasetsDAO.updateDatasetComplianceInfo(datasetId, request().body().asJson());
+            DatasetsDAO.updateDatasetComplianceInfo(datasetId, request().body().asJson(), username);
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
