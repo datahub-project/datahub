@@ -29,6 +29,7 @@ public class DatasetCompliance {
   private String recordOwnerType;
   private Map<String, Object> retentionPolicy;
   private Map<String, Object> geographicAffinity;
+  private String modifiedBy;
   private Long modifiedTime;
 
   public DatasetCompliance() {
@@ -112,6 +113,14 @@ public class DatasetCompliance {
 
   public void setGeographicAffinity(Map<String, Object> geographicAffinity) {
     this.geographicAffinity = geographicAffinity;
+  }
+
+  public String getModifiedBy() {
+    return modifiedBy;
+  }
+
+  public void setModifiedBy(String modifiedBy) {
+    this.modifiedBy = modifiedBy;
   }
 
   public Long getModifiedTime() {

@@ -162,6 +162,8 @@ CREATE TABLE `dataset_compliance` (
   COMMENT 'JSON: specification of retention',
   `geographic_affinity`       VARCHAR(500)     DEFAULT NULL
   COMMENT 'JSON: must be stored in the geo region',
+  `modified_by`               VARCHAR(50)      DEFAULT NULL
+  COMMENT 'last modified by',
   `modified_time`             INT UNSIGNED DEFAULT NULL
   COMMENT 'the modified time in epoch',
   PRIMARY KEY (`dataset_id`),
