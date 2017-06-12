@@ -421,26 +421,26 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private static final String GET_DATASAT_COMPLIANCE_BY_DATASET_ID =
 			"SELECT dataset_id, dataset_urn, compliance_purge_type, compliance_entities, confidentiality, "
 					+ "dataset_classification, field_classification, record_owner_type, retention_policy, "
-					+ "geographic_affinity, modified_time "
+					+ "geographic_affinity, modified_by, modified_time "
 					+ "FROM dataset_compliance WHERE dataset_id = ?";
 
 	private static final String GET_DATASET_COMPLIANCE_BY_URN =
 			"SELECT dataset_id, dataset_urn, compliance_purge_type, compliance_entities, confidentiality, "
 					+ "dataset_classification, field_classification, record_owner_type, retention_policy, "
-					+ "geographic_affinity, modified_time "
+					+ "geographic_affinity, modified_by, modified_time "
 					+ "FROM dataset_compliance WHERE dataset_urn = ?";
 
 	private final static String INSERT_DATASET_COMPLIANCE =
 			"INSERT INTO dataset_compliance (dataset_id, dataset_urn, compliance_purge_type, compliance_entities, "
 					+ "confidentiality, dataset_classification, field_classification, record_owner_type, retention_policy, "
-					+ "geographic_affinity, modified_time) "
+					+ "geographic_affinity, modified_by, modified_time) "
 					+ "VALUES (:id, :urn, :compliance_type, :compliance_entities, :confidentiality, :dataset_classification, "
-					+ ":field_classification, :ownerType, :policy, :geo, :modified) "
+					+ ":field_classification, :ownerType, :policy, :geo, :modified_by, :modified_time) "
 					+ "ON DUPLICATE KEY UPDATE "
 					+ "compliance_purge_type = :compliance_type, compliance_entities = :compliance_entities, "
 					+ "confidentiality = :confidentiality, dataset_classification = :dataset_classification, "
 					+ "field_classification = :field_classification, record_owner_type = :ownerType, retention_policy = :policy, "
-					+ "geographic_affinity = :geo, modified_time = :modified";
+					+ "geographic_affinity = :geo, modified_by = :modified_by, modified_time = :modified_time";
 
 
 	public static List<String> getDatasetOwnerTypes()
@@ -2340,11 +2340,12 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		record.setGeographicAffinity(
 				jsonToObject((String) result.get("geographic_affinity"), new TypeReference<Map<String, Object>>() {
 				}));
+		record.setModifiedBy((String) result.get("modified_by"));
 		record.setModifiedTime((long) result.get("modified_time"));
 		return record;
 	}
 
-	public static void updateDatasetComplianceInfo(int datasetId, JsonNode node) throws Exception {
+	public static void updateDatasetComplianceInfo(int datasetId, JsonNode node, String user) throws Exception {
 
 		ObjectMapper om = new ObjectMapper();
 		DatasetCompliance record = om.convertValue(node, DatasetCompliance.class);
@@ -2365,7 +2366,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		parameters.put("ownerType", record.getRecordOwnerType());
 		parameters.put("policy", om.writeValueAsString(record.getRetentionPolicy()));
 		parameters.put("geo", om.writeValueAsString(record.getGeographicAffinity()));
-		parameters.put("modified", System.currentTimeMillis() / 1000);
+		parameters.put("modified_by", user);
+		parameters.put("modified_time", System.currentTimeMillis() / 1000);
 		getNamedParameterJdbcTemplate().update(INSERT_DATASET_COMPLIANCE, parameters);
 	}
 }
