@@ -34,11 +34,13 @@ const hiddenTrackingFieldsMsg = htmlSafe(
     'Hopefully, this saves you some scrolling!</p>'
 );
 const helpText = {
-  classification: 'The default value is taken from go/dht and should be good enough in most cases. ' +
-    'You can optionally override it if required by house security.',
-  subjectOwner: 'Member ID (Subject Owner): Choose this option if the member specified here is not the owner of this ' +
-    'record, e.g. the profile ID viewed, or recipient ID of a message. See wiki for more explanation. ' +
-    'Mixed ID: Choose this option if the field is a URN containing a mixture of member, organization, or group ID.'
+  classification:
+    'The default value is taken from go/dht and should be good enough in most cases. ' +
+      'You can optionally override it if required by house security.',
+  subjectOwner:
+    'Member ID (Subject Owner): Choose this option if the member specified here is not the owner of this ' +
+      'record, e.g. the profile ID viewed, or recipient ID of a message. See wiki for more explanation. ' +
+      'Mixed ID: Choose this option if the field is a URN containing a mixture of member, organization, or group ID.'
 };
 
 /**
@@ -329,8 +331,9 @@ export default Component.extend({
           isFieldFormatDisabled: isMixed || isCustom,
           identifierType: computedIdentifierType,
           // Check specific use case for urn only field format / logicalType
-          classification: fieldClassification[identifierField] ||
-            (isMixed && defaultFieldDataTypeClassification[urnFieldFormat.value]),
+          classification:
+            fieldClassification[identifierField] ||
+              (isMixed && defaultFieldDataTypeClassification[urnFieldFormat.value]),
           // Same object reference for equality comparision
           logicalType: logicalTypeObject
         };
@@ -346,9 +349,7 @@ export default Component.extend({
   checkEachEntityByLogicalType: (sourceEntities = [], logicalTypes = []) =>
     sourceEntities.every(
       ({ logicalType }) =>
-        (typeof logicalType === 'object'
-          ? logicalTypes.includes(logicalType.value)
-          : logicalTypes.includes(logicalType))
+        typeof logicalType === 'object' ? logicalTypes.includes(logicalType.value) : logicalTypes.includes(logicalType)
     ),
 
   /**
@@ -473,7 +474,7 @@ export default Component.extend({
         set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
 
         // If all is good, then we can saveCompliance so user does not have to manually click
-        return this.saveCompliance();
+        return this.actions.saveCompliance();
       }
 
       alert('Received policy in an unexpected format! Please check the provided attributes and try again.');
