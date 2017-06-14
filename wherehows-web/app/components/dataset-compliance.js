@@ -435,7 +435,8 @@ export default Component.extend({
     if (!isEmpty(unformattedFields)) {
       isConfirmed = confirm(
         `There are ${unformattedFields.length} non-ID fields that have no field format specified. ` +
-          `Are you sure they don't contain any of the following?`
+          `Are you sure they don't contain any of the following PII?\n\n` +
+          `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`
       );
 
       // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
