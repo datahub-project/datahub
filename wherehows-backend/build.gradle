@@ -4,7 +4,7 @@ apply from: '../gradle/scripts/play.gradle'
 project.ext.httpPort = 19000
 project.ext.playBinaryBaseName = "wherehows-backend"
 
-dependencies{
+dependencies {
     // User defined libraries (will be copied to lib/ before `play compile`)
     play project(":wherehows-common")
     play project(":wherehows-etl")
