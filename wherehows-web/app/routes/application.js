@@ -27,6 +27,25 @@ export default Route.extend(ApplicationRouteMixin, {
   },
 
   /**
+   * Returns an object containing properties for the application route
+   * @return {{feedbackMail: {href: string, target: string, title: string}}}
+   * @override
+   */
+  model() {
+    /**
+     * properties for the navigation link to allow a user to provide feedback
+     * @type {{href: string, target: string, title: string}}
+     */
+    const feedbackMail = {
+      href: 'mailto:wherehows-dev@linkedin.com?subject=WhereHows Feedback',
+      target: '_blank',
+      title: 'Provide Feedback'
+    };
+
+    return { feedbackMail };
+  },
+
+  /**
    * Perform post model operations
    * @return {Promise}
    */
