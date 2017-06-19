@@ -1,10 +1,7 @@
 import Ember from 'ember';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 
-// TODO: DSS-6581 Create URL retrieval module
-const appConfigUrl = '/config';
-
-const { Route, run, get, $: { getJSON }, inject: { service }, testing } = Ember;
+const { Route, run, get, inject: { service }, testing } = Ember;
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
@@ -37,7 +34,9 @@ export default Route.extend(ApplicationRouteMixin, {
    * @return {{feedbackMail: {href: string, target: string, title: string}}}
    * @override
    */
-  model() {
+  async model() {
+    const isInternal = await get(this, 'configurator.getConfig')('isInternal');
+
     /**
      * properties for the navigation link to allow a user to provide feedback
      * @type {{href: string, target: string, title: string}}
@@ -48,7 +47,11 @@ export default Route.extend(ApplicationRouteMixin, {
       title: 'Provide Feedback'
     };
 
-    return { feedbackMail };
+    const brand = {
+      logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : ''
+    };
+
+    return { feedbackMail, brand };
   },
 
   /**
@@ -58,7 +61,7 @@ export default Route.extend(ApplicationRouteMixin, {
   afterModel() {
     this._super(...arguments);
 
-    return this._setupMetricsTrackers();
+    return Promise.all([this._setupMetricsTrackers(), this._trackCurrentUser()]);
   },
 
   /**
@@ -109,28 +112,41 @@ export default Route.extend(ApplicationRouteMixin, {
    * @return {Promise.<TResult>}
    * @private
    */
-  _setupMetricsTrackers() {
-    // TODO: DSS-6813 Make this request for appConfig a singleton object
-    return Promise.resolve(getJSON(appConfigUrl)).then(({ status, config = {} }) => {
-      const { tracking = {} } = config;
+  async _setupMetricsTrackers() {
+    const { tracking = {} } = await get(this, 'configurator.getConfig')();
 
-      if (status === 'ok' && tracking.isEnabled) {
-        const metrics = get(this, 'metrics');
-        const { trackers = {} } = tracking;
-        const { piwikSiteId, piwikUrl = '//piwik.corp.linkedin.com/piwik/' } = trackers.piwik;
+    if (tracking.isEnabled) {
+      const metrics = get(this, 'metrics');
+      const { trackers = {} } = tracking;
+      const { piwikSiteId, piwikUrl = '//piwik.corp.linkedin.com/piwik/' } = trackers.piwik;
 
-        metrics.activateAdapters([
-          {
-            name: 'Piwik',
-            environments: ['all'],
-            config: {
-              piwikUrl,
-              siteId: piwikSiteId
-            }
+      metrics.activateAdapters([
+        {
+          name: 'Piwik',
+          environments: ['all'],
+          config: {
+            piwikUrl,
+            siteId: piwikSiteId
           }
-        ]);
-      }
-    });
+        }
+      ]);
+    }
+  },
+
+  /**
+   * Tracks the currently logged in user
+   * @return {Promise.<isEnabled|((feature:string)=>boolean)|*>}
+   * @private
+   */
+  async _trackCurrentUser() {
+    const { tracking = {} } = await get(this, 'configurator.getConfig')();
+
+    // Check if tracking is enabled prior to invoking
+    // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
+    return (
+      tracking.isEnabled &&
+      get(this, 'sessionUser').trackCurrentUser(userId => get(this, 'metrics').identify({ userId }))
+    );
   },
 
   init() {

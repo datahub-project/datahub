@@ -2,6 +2,12 @@ import Ember from 'ember';
 
 const { get, set, isBlank, $: { getJSON }, inject: { service }, Service } = Ember;
 const currentUserUrl = '/api/v1/user/me';
+/**
+ * Indicates that the current user has already been tracked in the current session
+ * @type {boolean}
+ * @private
+ */
+let _hasUserBeenTracked = false;
 
 export default Service.extend({
   session: service(),
@@ -25,9 +31,9 @@ export default Service.extend({
     if (get(this, 'session.isAuthenticated')) {
       return Promise.resolve(getJSON(currentUserUrl)).then(
         ({ status = 'failed', user = {} }) =>
-          (status === 'ok'
+          status === 'ok'
             ? Promise.resolve(set(this, 'currentUser', user))
-            : Promise.reject(new Error(`Load current user failed with status: ${status}`)))
+            : Promise.reject(new Error(`Load current user failed with status: ${status}`))
       );
     }
 
@@ -42,5 +48,24 @@ export default Service.extend({
   invalidateSession() {
     const sessionService = get(this, 'session');
     return sessionService.isAuthenticated && sessionService.invalidate();
+  },
+
+  /**
+   * Uses the provided tracking function to track the currently logged in user's userId
+
+   * This is not a self-contained method, since it depends on other values that cannot be enforced as dependency
+   * of this service as a whole. The dependency on the tracking implementation is also not a concern of this service,
+   * injecting as a function is the better approach.
+   * @param {Function} userIdTracker a function that takes the userId and tracks it
+   */
+  trackCurrentUser(userIdTracker = () => ({})) {
+    const userId = get(this, 'userName') || get(this, 'currentUser.userName');
+
+    // If we have a non-empty userId, the user hasn't already been tracked and the userIdTracker is a valid argument
+    // then track the user and toggle the flag affirmative
+    if (userId && !_hasUserBeenTracked && typeof userIdTracker === 'function') {
+      userIdTracker(userId);
+      _hasUserBeenTracked = true;
+    }
   }
 });
