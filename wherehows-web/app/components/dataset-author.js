@@ -1,13 +1,6 @@
 import Ember from 'ember';
 
-const {
-  set,
-  get,
-  getWithDefault,
-  computed,
-  Component,
-  inject: { service }
-} = Ember;
+const { set, get, getWithDefault, computed, Component, inject: { service } } = Ember;
 
 /**
  * Array of source names to restrict from user updates
@@ -20,7 +13,9 @@ const restrictedSources = ['SCM', 'NUAGE'];
  * @type {RegExp}
  */
 const restrictedSourcesPattern = new RegExp(`.*${restrictedSources.join('|')}.*`, 'i');
-const removeFromSourceMessage = `Owners sourced from ${restrictedSources.join(', ')} should be removed directly from that source`;
+const removeFromSourceMessage = `Owners sourced from ${restrictedSources.join(
+  ', '
+)} should be removed directly from that source`;
 
 // Class to toggle readonly mode vs edit mode
 const userNameEditableClass = 'dataset-author-cell--editing';
@@ -39,7 +34,7 @@ const _defaultOwnerProps = {
   name: '',
   isGroup: false,
   namespace: 'urn:li:griduser',
-  type: 'Producer',
+  type: 'Owner',
   subType: null,
   sortId: 0,
   source: ''
@@ -80,8 +75,7 @@ export default Component.extend({
   loggedInUserName() {
     // Current user service provides the userName on one of two api
     //   TODO: DSS-6718 Refactor. merge this into one
-    return get(this, 'sessionUser.userName') ||
-      get(this, 'sessionUser.currentUser.userName');
+    return get(this, 'sessionUser.userName') || get(this, 'sessionUser.currentUser.userName');
   },
 
   // Combination macro to check that the entered username is valid
@@ -93,8 +87,7 @@ export default Component.extend({
   //   type is `Owner` and idType is `USER`.
   confirmedOwners: computed('owners.[]', function() {
     return getWithDefault(this, 'owners', []).filter(
-      ({ confirmedBy, type, idType }) =>
-        confirmedBy && type === 'Owner' && idType === 'USER'
+      ({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === 'USER'
     );
   }),
 
@@ -103,10 +96,7 @@ export default Component.extend({
    * @type {Ember.ComputedProperty}
    * @requires minRequiredConfirmed
    */
-  requiredMinNotConfirmed: computed.lt(
-    'confirmedOwners.length',
-    minRequiredConfirmed
-  ),
+  requiredMinNotConfirmed: computed.lt('confirmedOwners.length', minRequiredConfirmed),
 
   /**
    * Checks that the list of owners does not contain an owner
@@ -115,9 +105,7 @@ export default Component.extend({
    * @requires _defaultOwnerUserName
    */
   userNameInvalid: computed('owners.[]', function() {
-    return getWithDefault(this, 'owners', []).filter(
-        ({ userName }) => userName === _defaultOwnerUserName
-      ).length > 0;
+    return getWithDefault(this, 'owners', []).filter(({ userName }) => userName === _defaultOwnerUserName).length > 0;
   }),
 
   didInsertElement() {
@@ -261,13 +249,15 @@ export default Component.extend({
       const regex = new RegExp(`.*${newOwner.userName}.*`, 'i');
       let updatedOwners = [];
 
-      const ownerAlreadyExists = currentOwners
-        .mapBy('userName')
-        .some(userName => regex.test(userName));
+      const ownerAlreadyExists = currentOwners.mapBy('userName').some(userName => regex.test(userName));
 
       if (!ownerAlreadyExists) {
         updatedOwners = [newOwner, ...currentOwners];
-        return set(this, 'owners', updatedOwners);
+        const owners = set(this, 'owners', updatedOwners);
+        // By default, newly added Owners should be confirmed by the user adding them
+        this.actions.confirmOwner.call(this, newOwner, { target: { checked: true } });
+
+        return owners;
       }
 
       set(
@@ -304,7 +294,7 @@ export default Component.extend({
      *   that confirmed ownership, or null or void otherwise
      * @param {Boolean = false} checked flag for the current ui checked state
      */
-    confirmOwner(owner, { target: { checked } = false }) {
+    confirmOwner(owner, { target: { checked = false } = {} }) {
       // Attempt to get the userName from the currentUser service
       const userName = get(this, 'loggedInUserName').call(this);
       // If checked, assign userName otherwise, null
@@ -335,25 +325,18 @@ export default Component.extend({
     updateOwners() {
       const closureAction = get(this, 'attrs.save');
 
-      return typeof closureAction === 'function' &&
+      return (
+        typeof closureAction === 'function' &&
         closureAction(get(this, 'owners'))
-          .then(({
-                   status
-                 } = {}) => {
+          .then(({ status } = {}) => {
             if (status === 'ok') {
-              set(
-                this,
-                'actionMessage',
-                'Successfully updated ownership for this dataset'
-              );
+              set(this, 'actionMessage', 'Successfully updated ownership for this dataset');
             }
           })
           .catch(({ msg }) =>
-            set(
-              this,
-              'errorMessage',
-              `An error occurred while saving. Please let us know of this incident. ${msg}`
-            ));
+            set(this, 'errorMessage', `An error occurred while saving. Please let us know of this incident. ${msg}`)
+          )
+      );
     }
   }
 });
