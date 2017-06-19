@@ -51,6 +51,7 @@
               Help
               <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
             </li>
+
             <li>
               <!--TODO: DSS-6716-->
               <!-- DRY out with wrapper component that takes the link as an attribute-->
@@ -60,11 +61,13 @@
                 See Metadata Coverage
               </a>
             </li>
+
             <li>
-              {{#link-to 'help.feedback'}}
+              {{#dynamic-link params=model.feedbackMail}}
                 Provide Feedback?
-              {{/link-to}}
+              {{/dynamic-link}}
             </li>
+
             <li role="separator" class="divider"></li>
 
             {{#nav-link 'logout' tagName="li"}}Logout{{/nav-link}}
