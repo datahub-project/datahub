@@ -11,19 +11,25 @@ export default Route.extend(ApplicationRouteMixin, {
   sessionUser: service('current-user'),
 
   /**
+   * Runtime application configuration options
+   * @type {Ember.Service}
+   */
+  configurator: service(),
+
+  /**
    * Metrics tracking service
    * @type {Ember.Service}
    */
   metrics: service(),
 
   /**
-   * Attempt to load the current user
+   * Attempt to load the current user and application configuration options
    * @returns {Promise}
    */
   beforeModel() {
     this._super(...arguments);
 
-    return this._loadCurrentUser();
+    return Promise.all([this._loadCurrentUser(), this._loadConfig()]);
   },
 
   /**
@@ -86,6 +92,15 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   _loadCurrentUser() {
     return get(this, 'sessionUser').load().catch(() => get(this, 'sessionUser').invalidateSession());
+  },
+
+  /**
+   * Loads the application configuration object
+   * @return {Promise.<any>|void}
+   * @private
+   */
+  _loadConfig() {
+    return get(this, 'configurator.load')();
   },
 
   /**
