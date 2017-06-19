@@ -1,6 +1,4 @@
-var toOuterHTML = function(data) {
-	return jQuery('<div />').append(data.eq(0).clone()).html();
-};
+
 
 var timestampToTimeString = function(timestamp) {
 	timestamp = Math.floor(timestamp);
@@ -15,43 +13,6 @@ var timestampToTimeString = function(timestamp) {
 	return hours + ":" + minutes + ":" + seconds + "." + milliseconds;
 }
 
-var d3LineageTooltip = function(gravity) {
-
-	var tp = Tooltip(gravity).title(function(d) {
-        if (!(g_currentData && g_currentData.nodes))
-          return '';
-
-      var data;
-
-      data = g_currentData.nodes[d];
-      if (!data)
-        return '';
-      var t = $("<div>").attr("class", "xtrace-tooltip");
-
-      if (data.hasOwnProperty('_sort_list')){
-        for(k in data['_sort_list']){
-          var key = data['_sort_list'][k];
-          appendRow(key, data[key], t);
-        }
-      }else{
-        $.each(data, function(d) {
-          //appendRow(d.key, data[d].join(", "), tooltip);
-          appendRow(d, data[d], t);
-        });
-      }
-		//var reserved = ["Source", "Operation", "Agent", "Label", "Class", "Timestamp", "HRT", "Cycles", "Host", "ProcessID", "ThreadID", "ThreadName", "X-Trace"];
-
-	  function appendRow(key, value, tooltip) {
-	    var keyrow = $("<div>").attr("class", "key").append(key);
-	    var valrow = $("<div>").attr("class", "value").append(value);
-	    var clearrow = $("<div>").attr("class", "clear");
-	    tooltip.append($("<div>").append(keyrow).append(valrow).append(clearrow));
-	  }
-      //return tooltip.outerHTML();
-      return toOuterHTML(t);
-	  });
-    return tp;
-}
 
 var CompareTooltip = function() {
 
@@ -114,7 +75,7 @@ var d3LineageContextMenu = function(graph, graphSVG) {
     var onMenuClick = function(d) {
         if (d.operation=="viewcode") {
           var url;
-          url = g_currentData.nodes[this.__data__]['git_location'];
+          url = window.g_currentData.nodes[this.__data__]['git_location'];
           if (url){
             window.open(url);
           }
@@ -178,7 +139,7 @@ var d3LineageContextMenu = function(graph, graphSVG) {
 
             var items = [];
             var data;
-            data = g_currentData.nodes[d];
+          data = window.g_currentData.nodes[d];
             if (data['git_location']){
               items.push({
                 "operation": "viewcode",

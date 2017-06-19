@@ -141,13 +141,6 @@
 
 /*** Controls ***/
 
-#controls {
-  position: fixed;
-  top: 65px;
-  right: 26px;
-
-}
-
 /* button reset */
 #controls button::-moz-focus-inner {
   border:0;
