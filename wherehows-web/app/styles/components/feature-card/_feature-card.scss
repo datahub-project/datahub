@@ -1,3 +1,6 @@
+/// Default width & height measure for feature card image
+$feature-card-image-size: 50px !default;
+
 .feature-card {
   border-radius: 2px;
   margin: 30px 0;
@@ -6,6 +9,7 @@
   box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.08);
 
   &__title {
+    display: inline-flex;
     color: set-color(blue, curious);
     font-weight: fw(normal, 4);
     font-size: 20px;
@@ -13,6 +17,14 @@
 
   &__description {
     color: set-color(black, dune);
+  }
+
+  /// Sets rules for displaying an image in a feature card component
+  &__image {
+    display: inline-flex;
+    width: $feature-card-image-size;
+    height: $feature-card-image-size;
+    object-fit: contain;
   }
 }
 
