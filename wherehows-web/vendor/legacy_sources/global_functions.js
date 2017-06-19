@@ -163,11 +163,6 @@ var updatePreview = function () {
 var g;
 var svg;
 var l;
-var rotation = 1;
-var g_currentData;
-var g_scale = 1;
-var g_upLevel = 1;
-var g_downLevel = 1;
 
 function initializeColumnTreeGrid() {
   $('#json-table').treegrid();
