@@ -1,17 +1,8 @@
 import Ember from 'ember';
-import {
-  createInitialComplianceInfo
-} from 'wherehows-web/utils/datasets/functions';
+import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 
-const {
-  Route,
-  get,
-  set,
-  setProperties,
-  isPresent,
-  $: { getJSON }
-} = Ember;
+const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Create URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
@@ -27,13 +18,18 @@ const getDatasetPartitionsUrl = id => `${datasetUrl(id)}/access`;
 const getDatasetReferencesUrl = id => `${datasetUrl(id)}/references`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
-const getDatasetVersionUrl = (id, dbId) =>
-  `${datasetUrl(id)}/versions/db/${dbId}`;
+const getDatasetVersionUrl = (id, dbId) => `${datasetUrl(id)}/versions/db/${dbId}`;
 const getDatasetPrivacyUrl = id => `${datasetUrl(id)}/privacy`;
 
 let getDatasetColumn;
 
 export default Route.extend({
+  /**
+   * Runtime application configuration options
+   * @type {Ember.Service}
+   */
+  configurator: service(),
+
   //TODO: DSS-6632 Correct server-side if status:error and record not found but response is 200OK
   setupController(controller, model) {
     let source = '';
@@ -45,7 +41,7 @@ export default Route.extend({
      * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
      */
     const fetchThenSetOnController = {
-      async complianceInfo(id, controller) {
+      async complianceInfo(controller, { id }) {
         const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
         const { msg, status, complianceInfo = createInitialComplianceInfo(id) } = response;
         const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
@@ -55,10 +51,8 @@ export default Route.extend({
         return this;
       },
 
-      datasetSchemaFieldNamesAndTypes(id, controller) {
-        Promise.resolve(getJSON(datasetUrl(id))).then(({
-          dataset: { schema } = { schema: undefined }
-        } = {}) => {
+      datasetSchemaFieldNamesAndTypes(controller, { id }) {
+        Promise.resolve(getJSON(datasetUrl(id))).then(({ dataset: { schema } = { schema: undefined } } = {}) => {
           /**
                * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
                * @param {JSON} schema
@@ -75,17 +69,13 @@ export default Route.extend({
                  * @param {Array} [fields]
                  * @returns {Array.<*>}
                  */
-            function getFieldTypeMappingArray(
-              { schema: { fields: nestedFields = [] } = { schema: {} }, fields }
-            ) {
+            function getFieldTypeMappingArray({ schema: { fields: nestedFields = [] } = { schema: {} }, fields }) {
               fields = Array.isArray(fields) ? fields : nestedFields;
 
               // As above, field may contain a label with string property or a name property
               return fields.map(({ label: { string } = {}, name, type }) => ({
                 name: string || name,
-                type: Array.isArray(type)
-                  ? type[0] === 'null' ? type.slice(1) : type
-                  : [type]
+                type: Array.isArray(type) ? (type[0] === 'null' ? type.slice(1) : type) : [type]
               }));
             }
 
@@ -93,14 +83,21 @@ export default Route.extend({
             return [...getFieldTypeMappingArray(schema)];
           }
 
-          set(
-            controller,
-            'datasetSchemaFieldsAndTypes',
-            getFieldNamesAndTypesFrom(schema)
-          );
+          set(controller, 'datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
         });
 
         return this;
+      },
+
+      /**
+       * Sets the isInternal flag as a property on the controller
+       * @param controller {Ember.Controller} the controller to set the internal flag on
+       * @param configurator {Ember.Service}
+       * @return {Promise.<void>}
+       */
+      async isInternal(controller, { configurator }) {
+        const isInternal = await configurator.getConfig('isInternal');
+        set(controller, 'isInternal', isInternal);
       }
     };
 
@@ -129,11 +126,11 @@ export default Route.extend({
       // Creates list of partially applied functions from `fetchThenSetController` and invokes each in turn
       Object.keys(fetchThenSetOnController)
         .map(funcRef =>
-          fetchThenSetOnController[funcRef]['bind'](
-            fetchThenSetOnController,
+          fetchThenSetOnController[funcRef]['bind'](fetchThenSetOnController, controller, {
             id,
-            controller
-          ))
+            configurator: get(this, 'configurator')
+          })
+        )
         .forEach(func => func());
     }
 
@@ -150,9 +147,7 @@ export default Route.extend({
             latestInstance: firstInstance
           });
 
-          return Promise.resolve(
-            getJSON(getDatasetVersionUrl(id, dbId))
-          ).then(({ status, versions = [] }) => {
+          return Promise.resolve(getJSON(getDatasetVersionUrl(id, dbId))).then(({ status, versions = [] }) => {
             if (status === 'ok' && versions.length) {
               const [firstVersion] = versions;
 
@@ -164,9 +159,7 @@ export default Route.extend({
               });
             }
 
-            return Promise.reject(
-              new Error('Dataset versions request failed.')
-            );
+            return Promise.reject(new Error('Dataset versions request failed.'));
           });
         }
 
@@ -198,14 +191,13 @@ export default Route.extend({
     // Get the list of ownerTypes from endpoint,
     //   then prevent display of the `consumer`
     //   insert on controller
-    Promise.resolve(getJSON(ownerTypeUrlRoot)).then(
-      ({status, ownerTypes = []}) => {
-        ownerTypes = ownerTypes.filter(ownerType => String(ownerType).toLowerCase() !== 'consumer')
-          .sort((a, b) => a.localeCompare(b));
+    Promise.resolve(getJSON(ownerTypeUrlRoot)).then(({ status, ownerTypes = [] }) => {
+      ownerTypes = ownerTypes
+        .filter(ownerType => String(ownerType).toLowerCase() !== 'consumer')
+        .sort((a, b) => a.localeCompare(b));
 
-        status === 'ok' && set(controller, 'ownerTypes', ownerTypes);
-      }
-    );
+      status === 'ok' && set(controller, 'ownerTypes', ownerTypes);
+    });
 
     Promise.resolve(getJSON(userSettingsUrlRoot)).then(({ status, user }) => {
       if (status === 'ok') {
@@ -246,12 +238,14 @@ export default Route.extend({
 
           return Promise.reject(new Error('Dataset columns request failed.'));
         })
-        .then(columns => columns.map(({dataType, fullFieldPath}) => ({dataType, fieldName: fullFieldPath})))
+        .then(columns => columns.map(({ dataType, fullFieldPath }) => ({ dataType, fieldName: fullFieldPath })))
         .then(set.bind(Ember, controller, 'schemaFieldNamesMappedToDataTypes'))
-        .catch(() => setProperties(controller, {
+        .catch(() =>
+          setProperties(controller, {
             hasSchemas: false,
             schemas: null
-          }));
+          })
+        );
 
     getDatasetColumn(id);
 
@@ -259,9 +253,7 @@ export default Route.extend({
       Promise.resolve(getJSON(getDatasetPropertiesUrl(id)))
         .then(({ status, properties }) => {
           if (status === 'ok' && properties) {
-            const propertyArray = window.convertPropertiesToArray(
-              properties
-            ) || [];
+            const propertyArray = window.convertPropertiesToArray(properties) || [];
             if (propertyArray.length) {
               controller.set('hasProperty', true);
 
@@ -269,9 +261,7 @@ export default Route.extend({
             }
           }
 
-          return Promise.reject(
-            new Error('Dataset properties request failed.')
-          );
+          return Promise.reject(new Error('Dataset properties request failed.'));
         })
         .catch(() => controller.set('hasProperty', false));
 
@@ -282,8 +272,7 @@ export default Route.extend({
             const { length } = sample;
             if (length) {
               const samplesObject = sample.reduce(
-                (sampleObject, record, index) =>
-                  ((sampleObject[`record${index}`] = record), sampleObject),
+                (sampleObject, record, index) => ((sampleObject[`record${index}`] = record), sampleObject),
                 {}
               );
               // TODO: DSS-6122 Refactor global function reference
@@ -292,23 +281,16 @@ export default Route.extend({
               controller.set('hasSamples', true);
 
               // TODO: DSS-6122 Refactor setTimeout
-              setTimeout(
-                function() {
-                  const jsonHuman = document.getElementById(
-                    'datasetSampleData-json-human'
-                  );
-                  if (jsonHuman) {
-                    if (jsonHuman.children && jsonHuman.children.length) {
-                      jsonHuman.removeChild(
-                        jsonHuman.childNodes[jsonHuman.children.length - 1]
-                      );
-                    }
-
-                    jsonHuman.appendChild(node);
+              setTimeout(function() {
+                const jsonHuman = document.getElementById('datasetSampleData-json-human');
+                if (jsonHuman) {
+                  if (jsonHuman.children && jsonHuman.children.length) {
+                    jsonHuman.removeChild(jsonHuman.childNodes[jsonHuman.children.length - 1]);
                   }
-                },
-                500
-              );
+
+                  jsonHuman.appendChild(node);
+                }
+              }, 500);
             }
 
             return;
@@ -320,10 +302,7 @@ export default Route.extend({
     }
 
     if (source.toLowerCase() === 'pinot') {
-      Promise.resolve(getJSON(getDatasetPropertiesUrl(id))).then(({
-        status,
-        properties = {}
-      }) => {
+      Promise.resolve(getJSON(getDatasetPropertiesUrl(id))).then(({ status, properties = {} }) => {
         if (status === 'ok') {
           const { elements = [] } = properties;
           const [{ columnNames = [], results } = {}] = elements;
@@ -352,9 +331,7 @@ export default Route.extend({
           }
         }
 
-        return Promise.reject(
-          new Error('Dataset impact analysis request failed.')
-        );
+        return Promise.reject(new Error('Dataset impact analysis request failed.'));
       })
       .catch(() => set(controller, 'hasImpacts', false));
 
@@ -409,17 +386,18 @@ export default Route.extend({
       .then(({ status, owners = [] }) => {
         if (status === 'ok') {
           const minRequiredConfirmed = 2;
-          const requiredMinNotConfirmed = owners.filter(
-              ({ confirmedBy, type, idType }) =>
-              confirmedBy && type === 'Owner' && idType === 'USER'
-            ).length < minRequiredConfirmed;
+          const requiredMinNotConfirmed =
+            owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === 'USER')
+              .length < minRequiredConfirmed;
 
           setProperties(controller, {
             requiredMinNotConfirmed,
-            owners: owners.map(owner => Object.assign({}, owner, {
-              // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as Date instance
-              modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime * 1000)
-            }))
+            owners: owners.map(owner =>
+              Object.assign({}, owner, {
+                // Date format returned by api is epoch time in seconds, convert to milliseconds and assign as Date instance
+                modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime * 1000)
+              })
+            )
           });
         }
       })
@@ -445,17 +423,16 @@ export default Route.extend({
   model: ({ dataset_id }) => {
     const datasetUrl = `${datasetsUrlRoot}/${dataset_id}`;
 
-    return Promise.resolve(getJSON(datasetUrl))
-      .then(({ status, dataset, message = '' }) => {
-        return status === 'ok' && isPresent(dataset) ?
-          dataset :
-          Promise.reject(
+    return Promise.resolve(getJSON(datasetUrl)).then(({ status, dataset, message = '' }) => {
+      return status === 'ok' && isPresent(dataset)
+        ? dataset
+        : Promise.reject(
             new Error(
               `Request for ${datasetUrl} failed with status: ${status}.
               ${message}`
             )
           );
-      });
+    });
   },
 
   actions: {
@@ -469,11 +446,8 @@ export default Route.extend({
     },
 
     getDataset() {
-      Promise.resolve(
-        getJSON(datasetUrl(this.get('controller.model.id')))
-      ).then(
-        ({ status, dataset }) =>
-          status === 'ok' && set(this, 'controller.model', dataset)
+      Promise.resolve(getJSON(datasetUrl(this.get('controller.model.id')))).then(
+        ({ status, dataset }) => status === 'ok' && set(this, 'controller.model', dataset)
       );
     }
   }

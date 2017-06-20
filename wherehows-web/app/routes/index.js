@@ -1,16 +1,19 @@
 import Ember from 'ember';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
-import fetch from 'ember-network/fetch';
 
 const { get, Route, inject: { service } } = Ember;
-
-const appConfigUrl = '/config';
 
 export default Route.extend(AuthenticatedRouteMixin, {
   /**
    * @type {Ember.Service}
    */
   sessionUser: service('current-user'),
+
+  /**
+   * Runtime application configuration options
+   * @type {Ember.Service}
+   */
+  configurator: service(),
 
   /**
    * Metrics tracking service
@@ -73,14 +76,13 @@ export default Route.extend(AuthenticatedRouteMixin, {
    * @private
    */
   async _trackCurrentUser() {
-    const { status, config = {} } = await fetch(appConfigUrl).then(response => response.json());
-    const { tracking = {} } = config;
-    const userId = get(this, 'sessionUser.userName') || get(this, 'sessionUser.currentUser.userName');
+    const { tracking = {} } = await get(this, 'configurator.getConfig')();
 
-    if (status === 'ok' && tracking.isEnabled) {
-      const metrics = get(this, 'metrics');
-      // Track currently logged in user
-      metrics.identify({ userId });
-    }
+    // Check if tracking is enabled prior to invoking
+    // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
+    return (
+      tracking.isEnabled &&
+      get(this, 'sessionUser').trackCurrentUser(userId => get(this, 'metrics').identify({ userId }))
+    );
   }
 });

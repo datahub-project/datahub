@@ -19,38 +19,38 @@ export default Service.extend({
   /**
    * Fetches the application configuration object from the provided endpoint and augments the appConfig object
    * @return {Promise.<any>}
-   * @throws
    */
   async load() {
     try {
-      const config = await fetch(appConfigUrl).then(response => response.json());
-      configLoaded = true;
+      const { status, config } = await fetch(appConfigUrl).then(response => response.json());
 
-      return Object.assign(appConfig, config);
+      if (status === 'ok') {
+        return (configLoaded = true) && Object.assign(appConfig, config);
+      }
+
+      return Promise.reject(new Error(`Configuration load failed with status: ${status}`));
     } catch (e) {
       configLoaded = false;
 
-      throw e;
+      return Promise.reject(e);
     }
   },
 
   /**
    * Returns the last saved configuration object if one was successfully retrieved
-   * @param {String} key if provided and the key attribute is present on the config hash, the value is returned
-   * @return {any|null}
+   * @param {String} key if provided, the value is returned with that key on the config hash is returned
+   * @return {any}
    */
   getConfig: key => {
-    assert('Please ensure you have invoked the load method successfully prior to calling getConfig', configLoaded);
+    assert('Please ensure you have invoked the `load` method successfully prior to calling `getConfig`.', configLoaded);
 
     // Ensure that the application configuration has been successfully cached
     if (configLoaded) {
-      if (key in appConfig) {
+      if (key) {
         return deepClone(appConfig[key]);
       }
 
       return deepClone(appConfig);
     }
-
-    return null;
   }
 });

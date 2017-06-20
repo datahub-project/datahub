@@ -137,16 +137,18 @@
         <span class="notification-dot" aria-hidden="true"></span>
       {{/if}}
     </li>
-    <li id="compliance">
-      <a data-toggle="tab"
-         title="Compliance"
-         href="#compliancetab">
-        Compliance
-      </a>
-      {{#if isNewComplianceInfo}}
-        <span class="notification-dot" aria-hidden="true"></span>
-      {{/if}}
-    </li>
+    {{#if isInternal}}
+      <li id="compliance">
+        <a data-toggle="tab"
+           title="Compliance"
+           href="#compliancetab">
+          Compliance
+        </a>
+        {{#if isNewComplianceInfo}}
+          <span class="notification-dot" aria-hidden="true"></span>
+        {{/if}}
+      </li>
+    {{/if}}
     {{#unless isSFDC}}
       <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
     {{/unless}}
