@@ -203,7 +203,7 @@ class TeradataExtract:
     from DBC.Tables a where a.TableKind = 'T'
     AND  a.DatabaseName = '%s'
     %s
-    AND  a.TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', 'ut!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
+    AND  a.TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
     AND  RTRIM(a.TableName) NOT LIKE ALL ('%%!_tmp', '%%!_temp', '%%!_ERR!_.', '%%!_bkp', '%%!_backup') ESCAPE '!'
     AND  REGEXP_SIMILAR(RTRIM(a.TableName), '.*_tmp_[0-9]+','i') = 0
     AND  REGEXP_SIMILAR(RTRIM(a.TableName), '.*_tmp[0-9]+','i') = 0
@@ -236,7 +236,7 @@ class TeradataExtract:
     '''
     table_size_sql = """select RTrim(TableName), cast(sum(CurrentPerm)/1024/1024 as BIGINT) size_in_mb
         from DBC.TableSize where DatabaseName = '%s'
-        AND TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', 'ut!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
+        AND TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
         AND  RTRIM(TableName) NOT LIKE ALL ('%%!_tmp', '%%!_temp', '%%!_ERR!_.', '%%!_bkp', '%%!_backup') ESCAPE '!'
         AND  REGEXP_SIMILAR(RTRIM(TableName), '.*_tmp_[0-9]+','i') = 0
         AND  REGEXP_SIMILAR(RTRIM(TableName), '.*_tmp[0-9]+','i') = 0
