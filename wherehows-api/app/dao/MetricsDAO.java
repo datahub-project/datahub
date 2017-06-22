@@ -434,6 +434,11 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 					metric.id = (int)row.get("metric_id");
 					metric.name = (String)row.get("metric_name");
 					metric.description = (String)row.get("metric_description");
+					Integer sourceId = (Integer) row.get("metric_source_dataset_id");
+					metric.sourceDatasetId = sourceId == null ? 0 : new Long(sourceId);
+					metric.owners = (String) row.get("owners");
+					metric.tags = (String) row.get("tags");
+					metric.urn = (String) row.get("urn");
 					metric.refID = (String)row.get("metric_ref_id");
 					metric.refIDType = (String)row.get("metric_ref_id_type");
 					metric.dashboardName = (String)row.get("dashboard_name");
