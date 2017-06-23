@@ -200,7 +200,7 @@ class TeradataExtract:
            a.LastAccessTimestamp,
            a.AccessCount TableAccessCount,
            a.CreatorName
-    from DBC.Tables a where a.TableKind = 'T'
+    from DBC.Tables a where a.TableKind IN ('T', 'O')
     AND  a.DatabaseName = '%s'
     %s
     AND  a.TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
