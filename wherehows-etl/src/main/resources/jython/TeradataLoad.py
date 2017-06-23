@@ -47,7 +47,6 @@ class TeradataLoad:
            OR `name` like 'tmp\_%'
            OR `name` like '%\_tmp'
            OR `name` like '#%'
-           OR `name` like 'ut\_%'
            OR `name` regexp '^LS_[[:alnum:]_]+_[[:digit:]]')
         ;
 
