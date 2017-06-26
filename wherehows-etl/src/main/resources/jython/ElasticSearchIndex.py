@@ -22,13 +22,13 @@ import urllib2
 class ElasticSearchIndex():
   def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
-    self.elasticsearch_index_url = args[Constant.WH_ELASTICSEARCH_URL_KEY]
-    self.elasticsearch_port = args[Constant.WH_ELASTICSEARCH_PORT_KEY]
+    self.elasticsearch_index_url = args[Constant.ELASTICSEARCH_URL_KEY]
+    self.elasticsearch_port = args[Constant.ELASTICSEARCH_PORT_KEY]
 
-    if Constant.WH_ELASTICSEARCH_INDEX_KEY not in args:
+    if Constant.ELASTICSEARCH_INDEX_KEY not in args:
         self.elasticsearch_index = "wherehows"
     else:
-        self.elasticsearch_index = args[Constant.WH_ELASTICSEARCH_INDEX_KEY]
+        self.elasticsearch_index = args[Constant.ELASTICSEARCH_INDEX_KEY]
 
 
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY],
