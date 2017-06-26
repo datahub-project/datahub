@@ -42,6 +42,11 @@ public class EtlJobActor extends UntypedActor {
 
   private static final String ETL_TEMP_DIR = Play.application().configuration().getString("etl.temp.dir");
 
+  private static final String WH_DB_URL = Play.application().configuration().getString("db.wherehows.url");
+  private static final String WH_DB_USERNAME = Play.application().configuration().getString("db.wherehows.username");
+  private static final String WH_DB_PASSWORD = Play.application().configuration().getString("db.wherehows.password");
+  private static final String WH_DB_DRIVER = Play.application().configuration().getString("db.wherehows.driver");
+
   @Override
   public void onReceive(Object message) throws Exception {
     final String configDir = ETL_TEMP_DIR + "/exec";
@@ -52,6 +57,10 @@ public class EtlJobActor extends UntypedActor {
         props = msg.getEtlJobProperties();
         Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
         props.putAll(whProps);
+        props.setProperty(Constant.WH_DB_URL_KEY, WH_DB_URL);
+        props.setProperty(Constant.WH_DB_USERNAME_KEY, WH_DB_USERNAME);
+        props.setProperty(Constant.WH_DB_PASSWORD_KEY, WH_DB_PASSWORD);
+        props.setProperty(Constant.WH_DB_DRIVER_KEY, WH_DB_DRIVER);
         props.setProperty(Constant.WH_APP_FOLDER_KEY, ETL_TEMP_DIR);
         props.setProperty(Launcher.WH_ETL_EXEC_ID_KEY, String.valueOf(msg.getWhEtlExecId()));
 
