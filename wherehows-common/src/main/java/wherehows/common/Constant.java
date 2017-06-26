@@ -231,9 +231,9 @@ public class Constant {
   /** Property name of wherehows execution id for ETL process. */
   public static final String WH_EXEC_ID_KEY = "wh.exec.id";
 
-  public static final String WH_ELASTICSEARCH_URL_KEY = "wh.elasticsearch.url";
-  public static final String WH_ELASTICSEARCH_PORT_KEY = "wh.elasticsearch.port";
-  public static final String WH_ELASTICSEARCH_INDEX_KEY = "wh.elasticsearch.index";
+  public static final String ELASTICSEARCH_URL_KEY = "elasticsearch.url";
+  public static final String ELASTICSEARCH_PORT_KEY = "elasticsearch.port";
+  public static final String ELASTICSEARCH_INDEX_KEY = "elasticsearch.index";
 
   // Oracle
   public static final String ORA_DB_USERNAME_KEY = "oracle.db.username";
