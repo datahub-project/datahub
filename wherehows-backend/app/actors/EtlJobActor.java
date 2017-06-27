@@ -47,6 +47,9 @@ public class EtlJobActor extends UntypedActor {
   private static final String WH_DB_PASSWORD = Play.application().configuration().getString("db.wherehows.password");
   private static final String WH_DB_DRIVER = Play.application().configuration().getString("db.wherehows.driver");
 
+  private static final String DATASET_TREE_BUILDER_JOB = "DATASET_TREE_BUILDER";
+  private static final String FLOW_TREE_BUILDER_JOB = "FLOW_TREE_BUILDER";
+
   @Override
   public void onReceive(Object message) throws Exception {
     final String configDir = ETL_TEMP_DIR + "/exec";
@@ -127,11 +130,11 @@ public class EtlJobActor extends UntypedActor {
         Logger.info("ETL job {} finished", msg.toDebugString());
 
         if (props.getProperty(Constant.REBUILD_TREE_DATASET) != null) {
-          ActorRegistry.treeBuilderActor.tell("dataset", getSelf());
+          ActorRegistry.treeBuilderActor.tell(DATASET_TREE_BUILDER_JOB, getSelf());
         }
 
         if (props.getProperty(Constant.REBUILD_TREE_FLOW) != null) {
-          ActorRegistry.treeBuilderActor.tell("flow", getSelf());
+          ActorRegistry.treeBuilderActor.tell(FLOW_TREE_BUILDER_JOB, getSelf());
         }
       } catch (Throwable e) { // catch all throwable at the highest level.
         e.printStackTrace();

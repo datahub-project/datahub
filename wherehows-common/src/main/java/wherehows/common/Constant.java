@@ -20,13 +20,13 @@ public class Constant {
 
   // Job property keys
   public static final String JOB_CLASS_KEY = "job.class";
+  public static final String JOB_SCRIPT_KEY = "job.script";
   public static final String JOB_TYPE = "job.type";
   public static final String JOB_CRON_EXPR_KEY = "job.cron.expr";
   public static final String JOB_DISABLED_KEY = "job.disabled";
   public static final String JOB_CMD_PARAMS_KEY = "job.cmd.params";
   public static final String JOB_TIMEOUT_KEY = "job.timeout";
   public static final String JOB_REF_ID = "job.ref.id";
-
 
   public static final String KAFKA_CONSUMER_JOB_TYPE = "kafka-consumer";
 
