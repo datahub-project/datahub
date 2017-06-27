@@ -521,11 +521,6 @@ if __name__ == "__main__":
   e = HiveExtract()
   e.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
 
-  keytab_file = args[Constant.KERBEROS_KEYTAB_FILE_KEY]
-  krb5_dir = os.getenv("WHZ_KRB5_DIR")
-  if keytab_file and krb5_dir:
-    keytab_file = os.path.join(krb5_dir, keytab_file)
-
   try:
     e.databases = e.get_all_databases(database_white_list, database_black_list)
     e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY],
@@ -534,6 +529,6 @@ if __name__ == "__main__":
           args[Constant.HDFS_NAMENODE_IPC_URI_KEY],
           args[Constant.KERBEROS_AUTH_KEY],
           args[Constant.KERBEROS_PRINCIPAL_KEY],
-          keytab_file)
+          args[Constant.KERBEROS_KEYTAB_FILE_KEY])
   finally:
     e.conn_hms.close()
