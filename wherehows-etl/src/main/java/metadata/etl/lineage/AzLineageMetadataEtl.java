@@ -65,11 +65,10 @@ public class AzLineageMetadataEtl extends EtlJob {
 
   public void setUp()
     throws SQLException {
-    String wherehowsHost = this.prop.getProperty(Constant.WH_DB_URL_KEY);
+    String wherehowsUrl = this.prop.getProperty(Constant.WH_DB_URL_KEY);
     String wherehowsUserName = this.prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     String wherehowsPassWord = this.prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
-    conn =
-      DriverManager.getConnection(wherehowsHost + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord);
+    conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
   }
 
   @Override
