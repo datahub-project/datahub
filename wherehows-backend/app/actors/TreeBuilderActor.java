@@ -14,59 +14,82 @@
 package actors;
 
 import akka.actor.UntypedActor;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 import metadata.etl.EtlJob;
-import models.daos.EtlJobPropertyDao;
 import org.python.core.PyDictionary;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
 import org.python.util.PythonInterpreter;
 import play.Logger;
+import play.Play;
+import utils.JobsUtil;
+import wherehows.common.Constant;
 
-import java.io.InputStream;
-import java.util.Properties;
 
 /**
  * Created by zechen on 11/8/15.
  */
 public class TreeBuilderActor extends UntypedActor {
 
-  public PythonInterpreter interpreter;
-  public PySystemState sys;
+  private static final String WH_DB_URL = Play.application().configuration().getString("db.wherehows.url");
+  private static final String WH_DB_USERNAME = Play.application().configuration().getString("db.wherehows.username");
+  private static final String WH_DB_PASSWORD = Play.application().configuration().getString("db.wherehows.password");
+  private static final String WH_DB_DRIVER = Play.application().configuration().getString("db.wherehows.driver");
+
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString("etl.jobs.dir");
+
+  private static final String TREE_JOB_TYPE = "tree";
+
+  private static Map<String, Properties> treeJobList = new HashMap<>();
+
+  private PythonInterpreter interpreter;
+  private PySystemState sys;
+
+  @Override
+  public void preStart() throws Exception {
+    treeJobList = JobsUtil.getEnabledJobsByType(ETL_JOBS_DIR, TREE_JOB_TYPE);
+  }
 
   @Override
   public void onReceive(Object o) throws Exception {
-    if (o instanceof String) {
-      Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
-      PyDictionary config = new PyDictionary();
-      for (String key : whProps.stringPropertyNames()) {
-        String value = whProps.getProperty(key);
-        config.put(new PyString(key), new PyString(value));
-      }
-      sys = new PySystemState();
-      sys.argv.append(config);
-      interpreter = new PythonInterpreter(null, sys);
-      String msg = (String) o;
-      Logger.info("Start build {} tree", msg);
-      InputStream in = null;
-      switch (msg) {
-        case "dataset":
-          in = EtlJob.class.getClassLoader().getResourceAsStream("jython/DatasetTreeBuilder.py");
-          break;
-        case "flow":
-          //in = EtlJob.class.getClassLoader().getResourceAsStream("jython/FlowTreeBuilder.py");
-          break;
-        default:
-          Logger.error("unknown message : {}", msg);
-      }
-      if (in != null) {
-        interpreter.execfile(in);
-        in.close();
-        Logger.info("Finish build {} tree", msg);
-      } else {
-        Logger.error("can not find jython script");
-      }
-    } else {
+    if (!(o instanceof String)) {
       throw new Exception("message type is not supported!");
+    }
+
+    String jobName = (String) o;
+    Logger.info("Start tree job {}", jobName);
+
+    Properties props = treeJobList.get(jobName);
+    if (props == null) {
+      Logger.error("unknown job {}", jobName);
+      return;
+    }
+
+    PyDictionary config = new PyDictionary();
+    for (String key : props.stringPropertyNames()) {
+      String value = props.getProperty(key);
+      config.put(new PyString(key), new PyString(value));
+    }
+    config.put(new PyString(Constant.WH_DB_URL_KEY), new PyString(WH_DB_URL));
+    config.put(new PyString(Constant.WH_DB_USERNAME_KEY), new PyString(WH_DB_USERNAME));
+    config.put(new PyString(Constant.WH_DB_PASSWORD_KEY), new PyString(WH_DB_PASSWORD));
+    config.put(new PyString(Constant.WH_DB_DRIVER_KEY), new PyString(WH_DB_DRIVER));
+
+    sys = new PySystemState();
+    sys.argv.append(config);
+    interpreter = new PythonInterpreter(null, sys);
+
+    String script = props.getProperty(Constant.JOB_SCRIPT_KEY);
+    InputStream in = EtlJob.class.getClassLoader().getResourceAsStream(script);
+    if (in != null) {
+      interpreter.execfile(in);
+      in.close();
+      Logger.info("Finish tree job {}", jobName);
+    } else {
+      Logger.error("can not find jython script {}", script);
     }
   }
 }
