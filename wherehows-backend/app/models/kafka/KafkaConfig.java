@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Properties;
 import kafka.javaapi.consumer.ConsumerConnector;
 import metadata.etl.models.EtlJobName;
-import models.daos.EtlJobPropertyDao;
 import org.apache.avro.generic.GenericData;
 import play.Logger;
 import utils.JdbcUtil;

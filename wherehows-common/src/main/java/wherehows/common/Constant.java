@@ -30,9 +30,6 @@ public class Constant {
 
   public static final String KAFKA_CONSUMER_JOB_TYPE = "kafka-consumer";
 
-  // For environmental variable names
-  public static final String WHZ_MASTER_KEY = "WHZ_MASTER_KEY";
-
   // Rebuild properties
   public static final String REBUILD_TREE_DATASET = "rebuild.tree.dataset";
   public static final String REBUILD_TREE_FLOW = "rebuild.tree.flow";
