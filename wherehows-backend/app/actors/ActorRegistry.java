@@ -18,6 +18,7 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import akka.actor.Scheduler;
 import akka.routing.SmallestMailboxPool;
+import play.Play;
 import scala.concurrent.ExecutionContext;
 
 
@@ -25,6 +26,9 @@ import scala.concurrent.ExecutionContext;
  * Created by zechen on 9/4/15.
  */
 public class ActorRegistry {
+
+  private static final int ETL_POOL_SIZE = Play.application().configuration().getInt("etl.max.concurrent.jobs");
+
   private static ActorSystem actorSystem = ActorSystem.create("WhereHowsETLService");
 
   public static ExecutionContext dispatcher = actorSystem.dispatcher();
@@ -34,9 +38,10 @@ public class ActorRegistry {
   public static ActorRef schedulerActor = actorSystem.actorOf(Props.create(SchedulerActor.class), "SchedulerActor");
 
   public static ActorRef etlJobActor =
-      actorSystem.actorOf(new SmallestMailboxPool(10).props(Props.create(EtlJobActor.class)), "EtlJobActor");
+      actorSystem.actorOf(new SmallestMailboxPool(ETL_POOL_SIZE).props(Props.create(EtlJobActor.class)), "EtlJobActor");
 
-  public static ActorRef treeBuilderActor = actorSystem.actorOf(Props.create(TreeBuilderActor.class), "TreeBuilderActor");
+  public static ActorRef treeBuilderActor =
+      actorSystem.actorOf(Props.create(TreeBuilderActor.class), "TreeBuilderActor");
 
   public static ActorRef kafkaConsumerMaster =
       actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
