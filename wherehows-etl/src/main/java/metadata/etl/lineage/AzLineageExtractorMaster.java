@@ -94,9 +94,8 @@ public class AzLineageExtractorMaster {
     String wherehowsUrl = prop.getProperty(Constant.WH_DB_URL_KEY);
     String wherehowsUserName = prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     String wherehowsPassWord = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
-    String connUrl = wherehowsUrl + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord;
-    Connection conn = DriverManager.getConnection(connUrl);
-    DatabaseWriter databaseWriter = new DatabaseWriter(connUrl, "stg_job_execution_data_lineage");
+    Connection conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
+    DatabaseWriter databaseWriter = new DatabaseWriter(conn.getMetaData().getURL(), "stg_job_execution_data_lineage");
 
     AzLogParser.initialize(conn);
     PathAnalyzer.initialize(conn);

@@ -51,11 +51,10 @@ public class LineageCombinerTest {
     } else {
       throw new FileNotFoundException("Lack of configuration file for testing: " + TEST_PROP_FILE_NAME);
     }
-    String wherehowsHost = testProp.getProperty("wherehows.db.jdbc.url");
+    String wherehowsUrl = testProp.getProperty("wherehows.db.jdbc.url");
     String wherehowsUserName = testProp.getProperty("wherehows.db.username");
     String wherehowsPassWord = testProp.getProperty("wherehows.db.password");
-    Connection conn = DriverManager
-        .getConnection(wherehowsHost + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord);
+    Connection conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
 
     lineageCombiner = new LineageCombiner(conn);
     PathAnalyzer.initialize(conn);
