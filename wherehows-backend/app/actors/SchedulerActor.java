@@ -66,11 +66,6 @@ public class SchedulerActor extends UntypedActor {
     long now = System.currentTimeMillis() / 1000;
     for (Map.Entry<String, Properties> entry : enabledJobs.entrySet()) {
       String etlJobName = entry.getKey();
-      if (scheduledJobs.getOrDefault(etlJobName, 0L) > now) {
-        continue;
-      }
-
-      Logger.info("Running job: {}", etlJobName);
       Properties properties = entry.getValue();
       EtlJobMessage etlMsg = new EtlJobMessage(etlJobName, properties);
 
@@ -79,6 +74,12 @@ public class SchedulerActor extends UntypedActor {
       if (cronExpr != null) {
         EtlJobDao.updateNextRun(etlMsg.getEtlJobName(), cronExpr, new Date());
       }
+
+      if (scheduledJobs.getOrDefault(etlJobName, Long.MAX_VALUE) > now) {
+        continue;
+      }
+
+      Logger.info("Running job: {}", etlJobName);
 
       Long whExecId = EtlJobDao.insertNewRun(etlJobName);
       etlMsg.setWhEtlExecId(whExecId);
