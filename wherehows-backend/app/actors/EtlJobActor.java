@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 import metadata.etl.Launcher;
 import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
-import models.daos.EtlJobPropertyDao;
 import msgs.EtlJobMessage;
 import play.Logger;
 import play.Play;
@@ -58,8 +57,6 @@ public class EtlJobActor extends UntypedActor {
       EtlJobMessage msg = (EtlJobMessage) message;
       try {
         props = msg.getEtlJobProperties();
-        Properties whProps = EtlJobPropertyDao.getWherehowsProperties();
-        props.putAll(whProps);
         props.setProperty(Constant.WH_DB_URL_KEY, WH_DB_URL);
         props.setProperty(Constant.WH_DB_USERNAME_KEY, WH_DB_USERNAME);
         props.setProperty(Constant.WH_DB_PASSWORD_KEY, WH_DB_PASSWORD);
