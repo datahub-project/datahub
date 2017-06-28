@@ -43,11 +43,10 @@ public class AzLogParserTest {
     throws SQLException {
     Properties prop = new LineageTest().properties;
 
-    String wherehowsHost = prop.getProperty(Constant.WH_DB_URL_KEY);
+    String wherehowsUrl = prop.getProperty(Constant.WH_DB_URL_KEY);
     String wherehowsUserName = prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     String wherehowsPassWord = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
-    Connection conn =
-      DriverManager.getConnection(wherehowsHost + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord);
+    Connection conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
     AzLogParser.initialize(conn);
   }
 
