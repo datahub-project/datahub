@@ -44,9 +44,9 @@ public class DatabaseWriter extends Writer {
     this.tableName = tableName;
   }
 
-  public DatabaseWriter(String connectionUrl, String tableName)
+  public DatabaseWriter(String connectionUrl, String username, String password, String tableName)
       throws SQLException {
-    DriverManagerDataSource dataSource = new DriverManagerDataSource(connectionUrl);
+    DriverManagerDataSource dataSource = new DriverManagerDataSource(connectionUrl, username, password);
     this.jdbcTemplate = new JdbcTemplate(dataSource);
     this.tableName = tableName;
   }
