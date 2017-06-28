@@ -43,8 +43,7 @@ public class AzLineageExtractorTest {
     String wherehowsUrl = prop.getProperty(Constant.WH_DB_URL_KEY);
     String wherehowsUserName = prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     String wherehowsPassWord = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
-    connUrl = wherehowsUrl + "?" + "user=" + wherehowsUserName + "&password=" + wherehowsPassWord;
-    this.conn = DriverManager.getConnection(connUrl);
+    this.conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
     AzLogParser.initialize(conn);
     PathAnalyzer.initialize(conn);
   }
