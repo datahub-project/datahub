@@ -54,35 +54,6 @@ sudo mkdir /var/tmp/wherehows/resource
 ```
 cd /opt/wherehows/wherehows-backend
 ```
-Ensure that wherehows configuration tables are initialized by running the insert scripts (download 1.9 KB wherehows.dump ). Please note, to change the mysql host property for wherehows database (on <mysqlhost>). The initial SQL:
-~~~~
---
--- Dumping data for table `wh_etl_job`
---
-
-INSERT INTO `wh_etl_job` VALUES (21,'HIVE_DATASET_METADATA_ETL','DATASET','5 * * * * ?',61,'DB',NULL,1470390365,'comments','','Y');
-
-
-
---
--- Dumping data for table `wh_etl_job_property`
---
-
-INSERT INTO `wh_etl_job_property` VALUES (117,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.jdbc.url','jdbc:mysql://10.153.252.111:3306/metastore','N','url to connect to hive metastore'),(118,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.jdbc.driver','com.mysql.jdbc.Driver','N',NULL),(119,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.password','hive','N',NULL),(120,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.metastore.username','hive','N',NULL),(121,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.schema_json_file','/var/tmp/wherehows/hive_schema.json','N',NULL),(122,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.schema_csv_file','/var/tmp/wherehows/hive_schema.csv','N',NULL),(123,'HIVE_DATASET_METADATA_ETL',61,'DB','hive.field_metadata','/var/tmp/wherehows/hive_field_metadata.csv','N',NULL);
-
---
--- Table structure for table `wh_property`
---
-
-
---
--- Dumping data for table `wh_property`
---
-
-INSERT INTO `wh_property` VALUES ('wherehows.app_folder','/var/tmp/wherehows','N',NULL),('wherehows.db.driver','com.mysql.jdbc.Driver','N',NULL),('wherehows.db.jdbc.url','jdbc:mysql://localhost/wherehows','N',NULL),('wherehows.db.password','wherehows','N',NULL),('wherehows.db.username','wherehows','N',NULL),('wherehows.ui.tree.dataset.file','/var/tmp/wherehows/resource/dataset.json','N',NULL),('wherehows.ui.tree.flow.file','/var/tmp/wherehows/resource/flow.json','N',NULL);
-
-
-~~~~
 
 The hive metastore (as MySQL database) properties need to match the hadoop cluster:
 ```
@@ -121,44 +92,6 @@ Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
 ### Troubleshooting
-To check the configuration properties:
-```
-select * from wh_etl_job;
-select * from wh_etl_job_property;
-select * from wh_property;
-
-select distinct wh_etl_job_name from wh_etl_job;
-
-select j.wh_etl_job_name, j.ref_id_type, j.ref_id,
-       coalesce(d.db_code, a.app_code) db_or_app_code,
-       j.cron_expr, p.property_name, p.property_value
-from wh_etl_job j join wh_etl_job_property p
-  on j.wh_etl_job_name = p.wh_etl_job_name
- and j.ref_id_type = p.ref_id_type
- and j.ref_id = p.ref_id
-     left join cfg_database d
-  on j.ref_id = d.db_id
- and j.ref_id_type = 'DB'
-     left join cfg_application a
-  on j.ref_id = a.app_id
- and j.ref_id_type = 'APP'
-where j.wh_etl_job_name = 'HIVE_DATASET_METADATA_ETL'
-/*  AZKABAN_EXECUTION_METADATA_ETL
-    AZKABAN_LINEAGE_METADATA_ETL
-    ELASTICSEARCH_EXECUTION_INDEX_ETL
-    HADOOP_DATASET_METADATA_ETL
-    HADOOP_DATASET_OWNER_ETL
-    HIVE_DATASET_METADATA_ETL
-    KAFKA_CONSUMER_ETL
-    LDAP_USER_ETL
-    OOZIE_EXECUTION_METADATA_ETL
-    ORACLE_DATASET_METADATA_ETL
-    PRODUCT_REPO_METADATA_ETL
-    TERADATA_DATASET_METADATA_ETL */
---  and j.ref_id = 123
-/*  based on cfg_database or cfg_application */
-order by j.wh_etl_job_name, db_or_app_code, p.property_name;
-```
 To log in the first time to the web UI:
 
 You have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.

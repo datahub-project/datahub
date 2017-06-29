@@ -50,20 +50,6 @@ CREATE TABLE `wh_etl_job_history` (
   DEFAULT CHARSET = utf8
   COMMENT = 'WhereHows ETL execution history table';
 
-CREATE TABLE `wh_property` (
-  `property_name`  VARCHAR(127) NOT NULL
-  COMMENT 'property name',
-  `property_value` TEXT COMMENT 'property value',
-  `is_encrypted`   CHAR(1)      DEFAULT 'N'
-  COMMENT 'whether the value is encrypted',
-  `group_name`     VARCHAR(127) DEFAULT NULL
-  COMMENT 'group name for the property',
-  PRIMARY KEY (`property_name`)
-)
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8
-  COMMENT = 'WhereHows properties table';
-
 CREATE TABLE `cfg_application` (
   `app_id`                  SMALLINT    UNSIGNED NOT NULL,
   `app_code`                VARCHAR(128)         NOT NULL,
