@@ -40,7 +40,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   private static final String DATASET_URN_PREFIX = "hdfs://";
   private static final String DATASET_OWNER_SOURCE = "IDPC";
 
-  // TODO: Make these regex patterns wh_etl_job_properties
+  // TODO: Make these regex patterns part of job file
   private static final Pattern LOCATION_PREFIX_PATTERN = Pattern.compile("/[^/]+(/[^/]+)?");
 
   private static final Pattern SHORT_NAME_PATTERN = Pattern.compile("(/[^/]+/[^/]+)$");
