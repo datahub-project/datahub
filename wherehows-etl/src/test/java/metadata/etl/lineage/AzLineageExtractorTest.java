@@ -65,7 +65,7 @@ public class AzLineageExtractorTest {
     Statement statement = conn.createStatement();
     statement.execute("TRUNCATE TABLE stg_job_execution_data_lineage");
     AzExecMessage message = new AzExecMessage(aje, prop);
-    message.databaseWriter = new DatabaseWriter(connUrl, "stg_job_execution_data_lineage");
+    message.databaseWriter = new DatabaseWriter(connUrl, "", "", "stg_job_execution_data_lineage");
     message.hnne = new HadoopJobHistoryNodeExtractor(prop);
     message.adc = new AzDbCommunicator(prop);
     message.connection = conn;
