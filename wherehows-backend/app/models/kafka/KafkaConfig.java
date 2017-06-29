@@ -59,7 +59,7 @@ public class KafkaConfig {
   private SchemaRegistryClient _schemaRegistryClient;
 
   /**
-   * Update Kafka properties and topics from wh_etl_job_properties table
+   * Update Kafka properties and topics from job files
    * @throws Exception
    */
   public void updateKafkaProperties(String jobName, Properties props)

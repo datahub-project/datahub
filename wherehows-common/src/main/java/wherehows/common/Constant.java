@@ -34,43 +34,40 @@ public class Constant {
   public static final String REBUILD_TREE_DATASET = "rebuild.tree.dataset";
   public static final String REBUILD_TREE_FLOW = "rebuild.tree.flow";
 
-  // For property_name in wh_property table
-  /** The property_name field in wh_property table for WhereHows database connection information */
+  /** The property_name for WhereHows database connection information */
   public static final String WH_DB_URL_KEY = "wherehows.db.jdbc.url";
   public static final String WH_DB_USERNAME_KEY = "wherehows.db.username";
   public static final String WH_DB_PASSWORD_KEY = "wherehows.db.password";
   public static final String WH_DB_DRIVER_KEY = "wherehows.db.driver";
 
-  /** The property_name field in wh_property table. Location of the folder that store interim csv file. */
+  /** Location of the folder that store interim csv file. */
   public static final String WH_APP_FOLDER_KEY = "wherehows.app_folder";
 
   /** The property_name for logback CONTEXT_NAME. Used to set/fetch the system property */
   public static final String LOGGER_CONTEXT_NAME_KEY = "CONTEXT_NAME";
 
-  // For property_name in wh_etl_job_property table
-  // Lineage
-  /** The property_name field in wh_etl_job_property table. Azkaban database connection info */
+  /** The property_name field in job file. Azkaban database connection info */
   public static final String AZ_DB_URL_KEY = "az.db.jdbc.url";
   public static final String AZ_DB_USERNAME_KEY = "az.db.username";
   public static final String AZ_DB_PASSWORD_KEY = "az.db.password";
   public static final String AZ_DB_DRIVER_KEY = "az.db.driver";
 
-  /** The property_name field in wh_etl_job_property table. The time period backtrace for execution data ETL */
+  /** The property_name field in job file. The time period backtrace for execution data ETL */
   public static final String AZ_EXEC_ETL_LOOKBACK_MINS_KEY = "az.exec_etl.lookback_period.in.minutes";
 
-  /** The property_name field in wh_etl_job_property table. Hadoop job history url for retrieving map-reduce job logs */
+  /** The property_name field in job file. Hadoop job history url for retrieving map-reduce job logs */
   public static final String AZ_HADOOP_JOBHISTORY_KEY = "az.hadoop.jobhistory.server.url";
-  /** The property_name field in wh_etl_job_property table. Default hadoop database id for this azkaban instance */
+  /** The property_name field in job file. Default hadoop database id for this azkaban instance */
   public static final String AZ_DEFAULT_HADOOP_DATABASE_ID_KEY = "az.default.hadoop.database.id";
-  /** The property_name field in wh_etl_job_property table. For this period of jobs that finished, we will extract their lineage */
+  /** The property_name field in job file. For this period of jobs that finished, we will extract their lineage */
   public static final String AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY = "az.lineage_etl.lookback_period.in.minutes";
-  /** The property_name field in wh_etl_job_property table. In lineage ETl, Akka actor time out time */
+  /** The property_name field in job file. In lineage ETl, Akka actor time out time */
   public static final String LINEAGE_ACTOR_TIMEOUT_KEY = "az.lineage.actor.timeout";
 
   public static final String LINEAGE_ACTOR_NUM = "az.lineage.actor.num";
-  /** The property_name field in wh_etl_job_property table. Optional property used for debug. Default end timestamp is now */
+  /** The property_name field in job file. Optional property used for debug. Default end timestamp is now */
   public static final String AZ_LINEAGE_ETL_END_TIMESTAMP_KEY = "az.lineage_etl.end_timestamp";
-  /** The property_name field in wh_etl_job_property table. Azkaban Server URL (optional way to get azkaban execution log) */
+  /** The property_name field in job file. Azkaban Server URL (optional way to get azkaban execution log) */
   public static final String AZ_SERVICE_URL_KEY = "az.server.url";
   public static final String AZ_SERVICE_USERNAME_KEY = "az.server.username";
   public static final String AZ_SERVICE_PASSWORD_KEY = "az.server.password";
@@ -89,86 +86,86 @@ public class Constant {
   public static final String AW_BTEQ_SOURCE_TARGET_OVERRIDE = "aw.bteq_source_target_override";
   public static final String AW_METRIC_OVERRIDE = "aw.metric_override";
   public static final String AW_SKIP_ALREADY_PARSED = "aw.skip_already_parsed";
-  /** The property_name field in wh_etl_job_property table. The time period backtrace for execution data ETL */
+  /** The property_name field in job file. The time period backtrace for execution data ETL */
   public static final String AW_EXEC_ETL_LOOKBACK_KEY = "aw.exec_etl.lookback_period.in.days";
   public static final String AW_LINEAGE_ETL_LOOKBACK_KEY = "aw.lineage_etl.lookback_period.in.days";
 
   // Oozie
-  /** The property_name field in wh_etl_job_property table. Oozie database connection info */
+  /** The property_name field in job file. Oozie database connection info */
   public static final String OZ_DB_URL_KEY = "oz.db.jdbc.url";
   public static final String OZ_DB_USERNAME_KEY = "oz.db.username";
   public static final String OZ_DB_PASSWORD_KEY = "oz.db.password";
   public static final String OZ_DB_DRIVER_KEY = "oz.db.driver";
-  /** The property_name field in wh_etl_job_property table. Oozie execution info ETL lookback time */
+  /** The property_name field in job file. Oozie execution info ETL lookback time */
   public static final String OZ_EXEC_ETL_LOOKBACK_MINS_KEY = "oz.exec_etl.lookback_period.in.minutes";
 
-  /** Optional. The property_name field in wh_etl_job_property table. Set innodb_lock_wait_timeout for mysql */
+  /** Optional. The property_name field in job file. Set innodb_lock_wait_timeout for mysql */
   public static final String INNODB_LOCK_WAIT_TIMEOUT = "innodb_lock_wait_timeout";
 
   // Teradata
-  /** The property_name field in wh_etl_job_property table. Teradata connection info */
+  /** The property_name field in job file. Teradata connection info */
   public static final String TD_DB_URL_KEY = "teradata.db.jdbc.url";
   public static final String TD_DB_USERNAME_KEY = "teradata.db.username";
   public static final String TD_DB_PASSWORD_KEY = "teradata.db.password";
   public static final String TD_DB_DRIVER_KEY = "teradata.db.driver";
-  /** The property_name field in wh_etl_job_property table. Teradata metadata raw interim file store location */
+  /** The property_name field in job file. Teradata metadata raw interim file store location */
   public static final String TD_METADATA_KEY = "teradata.metadata";
-  /** The property_name field in wh_etl_job_property table. Teradata field metadata interim file store location */
+  /** The property_name field in job file. Teradata field metadata interim file store location */
   public static final String TD_FIELD_METADATA_KEY = "teradata.field_metadata";
-  /** The property_name field in wh_etl_job_property table. Teradata schema interim file store location */
+  /** The property_name field in job file. Teradata schema interim file store location */
   public static final String TD_SCHEMA_OUTPUT_KEY = "teradata.schema_output";
-  /** The property_name field in wh_etl_job_property table. Teradata sample data interim file store location */
+  /** The property_name field in job file. Teradata sample data interim file store location */
   public static final String TD_SAMPLE_OUTPUT_KEY = "teradata.sample_output";
-  /** The property_name field in wh_etl_job_property table. Teradata log file store location */
+  /** The property_name field in job file. Teradata log file store location */
   public static final String TD_LOG_KEY = "teradata.log";
-  /** The property_name field in wh_etl_job_property table. Teradata databases to collect metadata */
+  /** The property_name field in job file. Teradata databases to collect metadata */
   public static final String TD_TARGET_DATABASES_KEY = "teradata.databases";
-  /** The property_name field in wh_etl_job_property table. Used for connecting */
+  /** The property_name field in job file. Used for connecting */
   public static final String TD_DEFAULT_DATABASE_KEY = "teradata.default_database";
-  /** Optional. The property_name field in wh_etl_job_property table. Decide whether load sample data or not */
+  /** Optional. The property_name field in job file. Decide whether load sample data or not */
   public static final String TD_LOAD_SAMPLE = "teradata.load_sample";
-  /** The property_name field in wh_etl_job_property table. Collect sample data collection only for certain weekdays */
+  /** The property_name field in job file. Collect sample data collection only for certain weekdays */
   public static final String TD_COLLECT_SAMPLE_DATA_DAYS = "teradata.collect.sample.data.days";
 
   // Hdfs
-  /** The property_name field in wh_etl_job_property table. Whether using remote mode or not */
+  /** The property_name field in job file. Whether using remote mode or not */
   public static final String HDFS_REMOTE = "hdfs.remote.mode";
-  /** The property_name field in wh_etl_job_property table. The hfds remote user that run the hadoop job on gateway */
+  /** The property_name field in job file. The hfds remote user that run the hadoop job on gateway */
   public static final String HDFS_REMOTE_USER_KEY = "hdfs.remote.user";
-  /** The property_name field in wh_etl_job_property table. The gateway machine name*/
+  /** The property_name field in job file. The gateway machine name*/
   public static final String HDFS_REMOTE_MACHINE_KEY = "hdfs.remote.machine";
-  /** The property_name field in wh_etl_job_property table. The private key location of remote user */
+  /** The property_name field in job file. The private key location of remote user */
   public static final String HDFS_PRIVATE_KEY_LOCATION_KEY = "hdfs.private_key_location";
-  /** The property_name field in wh_etl_job_property table. The jar file location that need to run */
+  /** The property_name field in job file. The jar file location that need to run */
   public static final String HDFS_REMOTE_JAR_KEY = "hdfs.remote.jar";
-  /** The property_name field in wh_etl_job_property table. The raw hfds metadata file (in json format) location store on local machine */
+  /** The property_name field in job file. The raw hfds metadata file (in json format) location store on local machine */
   public static final String HDFS_SCHEMA_LOCAL_PATH_KEY = "hdfs.local.raw_metadata";
-  /** The property_name field in wh_etl_job_property table. The hfds metadata file location store on remote hadoop gateway */
+  /** The property_name field in job file. The hfds metadata file location store on remote hadoop gateway */
   public static final String HDFS_SCHEMA_REMOTE_PATH_KEY = "hdfs.remote.raw_metadata";
-  /** The property_name field in wh_etl_job_property table. The hfds sample data file location store on local machine */
+  /** The property_name field in job file. The hfds sample data file location store on local machine */
   public static final String HDFS_SAMPLE_LOCAL_PATH_KEY = "hdfs.local.sample";
-  /** The property_name field in wh_etl_job_property table. The hfds sample data file location store on remote hadoop gateway */
+  /** The property_name field in job file. The hfds sample data file location store on remote hadoop gateway */
   public static final String HDFS_SAMPLE_REMOTE_PATH_KEY = "hdfs.remote.sample";
-  /** The property_name field in wh_etl_job_property table. Hadoop cluster name in short form */
+  /** The property_name field in job file. Hadoop cluster name in short form */
   public static final String HDFS_CLUSTER_KEY = "hdfs.cluster";
-  /** The property_name field in wh_etl_job_property table. The list of directories as a start point to fetch metadata.
+  /** The property_name field in job file. The list of directories as a start point to fetch metadata.
    * (include all of their sub directories) */
   public static final String HDFS_WHITE_LIST_KEY = "hdfs.white_list";
-  /** The property_name field in wh_etl_job_property table. Number of thread to do the metadata collecting */
+  /** The property_name field in job file. Number of thread to do the metadata collecting */
   public static final String HDFS_NUM_OF_THREAD_KEY = "hdfs.num_of_thread";
-  /** The property_name field in wh_etl_job_property table.  The hfds metadata file (in csv format) location store on local machine */
+  /** The property_name field in job file.  The hfds metadata file (in csv format) location store on local machine */
   public static final String HDFS_SCHEMA_RESULT_KEY = "hdfs.local.metadata";
-  /** The property_name field in wh_etl_job_property table.  The field metadata file (in csv format) location store on local machine */
+  /** The property_name field in job file.  The field metadata file (in csv format) location store on local machine */
   public static final String HDFS_FIELD_RESULT_KEY = "hdfs.local.field_metadata";
-  /** The property_name field in wh_etl_job_property table.  The map of file path regex and dataset source
+  /** The property_name field in job file.  The map of file path regex and dataset source
    * e.g. [{"/data/tracking.*":"Kafka"},{"/data/retail.*":"Teradata"}] */
   public static final String HDFS_FILE_SOURCE_MAP_KEY = "hdfs.file_path_regex_source_map";
-  /** The property_name field in wh_etl_job_property table. Keytab file location */
+  /** The property_name field in job file. Keytab file location */
   public static final String HDFS_REMOTE_KEYTAB_LOCATION_KEY = "hdfs.remote.keytab.location";
-  /** The property_name field in wh_etl_job_property table. hdfs default uri (IPC) */
+  /** The property_name field in job file. hdfs default uri (IPC) */
   public static final String HDFS_NAMENODE_IPC_URI_KEY = "hdfs.namenode.ipc.uri";
 
-  /** The property_name field in wh_etl_job_property table. For dataset owner ETL. The hfds location to copy files */
+  /** The property_name field in job file. For dataset owner ETL. The hfds location to copy files */
   public static final String HDFS_REMOTE_WORKING_DIR = "hdfs.remote.working.dir";
 
   // ui
