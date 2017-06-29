@@ -314,7 +314,7 @@ class OracleLoad:
       begin = datetime.datetime.now().strftime("%H:%M:%S")
       self.load_tables()
       self.load_fields()
-      # self.load_sample()
+      self.load_sample()
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Load Oracle metadata [%s -> %s]" % (str(begin), str(end)))
     finally:
