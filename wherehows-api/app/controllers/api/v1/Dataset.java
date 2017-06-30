@@ -16,34 +16,35 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.linkedin.dataset.SchemaFieldArray;
-import dao.MetadataStoreDao;
+import controllers.Application;
+import dao.AbstractMySQLOpenSourceDAO;
+import dao.DatasetsDAO;
 import dao.ReturnCode;
-import models.DatasetColumn;
-import models.DatasetPrivacyCompliance;
-import models.DatasetDependency;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import models.DatasetCompliance;
+import models.DatasetDependency;
+import models.DatasetPrivacyCompliance;
 import models.DatasetSecurity;
 import models.ImpactDataset;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
+import org.springframework.jdbc.core.JdbcTemplate;
+import play.Logger;
 import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import play.Logger;
-import org.apache.commons.lang3.StringUtils;
-import dao.DatasetsDAO;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import wherehows.dao.DatasetsDao;
+import wherehows.models.DatasetColumn;
 
 
 public class Dataset extends Controller
 {
-    private static final Boolean
-        LINKEDIN_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
+    private static final JdbcTemplate jdbcTemplate = AbstractMySQLOpenSourceDAO.getJdbcTemplate();
+    private static final DatasetsDao datasetsDao = Application.daoFactory.getDatasetsDao();
 
     public static Result getDatasetOwnerTypes()
     {
@@ -126,7 +127,7 @@ public class Dataset extends Controller
 
     public static Result getDatasetColumnByID(int datasetId, int columnId)
     {
-        List<DatasetColumn> datasetColumnList = DatasetsDAO.getDatasetColumnByID(datasetId, columnId);
+        List<DatasetColumn> datasetColumnList = datasetsDao.getDatasetColumnByID(jdbcTemplate, datasetId, columnId);
 
         ObjectNode result = Json.newObject();
 
@@ -155,23 +156,7 @@ public class Dataset extends Controller
             return ok(result);
         }
 
-        // try to access dataset fields from Metadata Store schemaMetadata first
-        if (LINKEDIN_INTERNAL) {
-            try {
-                SchemaFieldArray datasetFields = MetadataStoreDao.getLatestSchemaByWhUrn(urn).getFields();
-
-                if (datasetFields != null && datasetFields.size() > 0) {
-                    List<DatasetColumn> columns = MetadataStoreDao.datasetColumnsMapper(datasetFields);
-                    result.put("status", "ok");
-                    result.set("columns", Json.toJson(columns));
-                    return ok(result);
-                }
-            } catch (Exception e) {
-                Logger.debug("Fail to fetch schema from Metadata-store for URN: " + urn + ", Exception: " + e.getMessage());
-            }
-        }
-
-        List<DatasetColumn> columns = DatasetsDAO.getDatasetColumnsByID(id);
+        List<DatasetColumn> columns = datasetsDao.getDatasetColumnsByID(jdbcTemplate, id);
         if (columns != null && columns.size() > 0) {
             result.put("status", "ok");
             result.set("columns", Json.toJson(columns));
