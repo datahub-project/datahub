@@ -1,2 +1,18 @@
-include "wherehows-common", "wherehows-hadoop", "wherehows-etl", "wherehows-data-model", "wherehows-backend",
-  "wherehows-api", "restli-client", "wherehows-web"
+def modules = [
+    "wherehows-api",
+    "wherehows-backend",
+    "wherehows-common",
+    "wherehows-dao",
+    "wherehows-data-model",
+    "wherehows-etl",
+    "wherehows-hadoop",
+    "wherehows-web",
+]
+
+modules.each { module ->
+  if (!file("${rootDir}/${module}").directory) {
+    throw new GradleException("Module '$module' specified in the settings.gradle file must be a valid directory in the root project.")
+  }
+  include "${module}"
+}
+

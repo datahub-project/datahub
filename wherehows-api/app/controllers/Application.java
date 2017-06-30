@@ -13,27 +13,27 @@
  */
 package controllers;
 
-import java.io.InputStream;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.FlowsDAO;
 import dao.MetricsDAO;
 import dao.UserDAO;
+import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import org.apache.commons.lang3.StringUtils;
+import play.Logger;
 import play.Play;
 import play.data.DynamicForm;
-import play.mvc.Controller;
-import play.mvc.Result;
-import play.Logger;
-import play.mvc.Security;
-import utils.Tree;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import play.libs.Json;
 import play.mvc.BodyParser;
-
-import static play.data.Form.form;
-import org.apache.commons.lang3.StringUtils;
+import play.mvc.Controller;
+import play.mvc.Result;
+import play.mvc.Security;
 import security.AuthenticationManager;
+import utils.Tree;
+import wherehows.dao.DaoFactory;
+
+import static play.data.Form.*;
 
 public class Application extends Controller
 {
@@ -42,6 +42,20 @@ public class Application extends Controller
     private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
     private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
     private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
+
+    public static final DaoFactory daoFactory = createDaoFactory();
+
+    private static DaoFactory createDaoFactory() {
+        try {
+            String className =
+                Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
+            Class factoryClass = Class.forName(className);
+            Constructor<? extends DaoFactory> ctor = factoryClass.getConstructor();
+            return ctor.newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * Serves the build output index.html for any given path

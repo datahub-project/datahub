@@ -263,9 +263,6 @@ public class Constant {
   public static final String KAFKA_OUTPUT_KEY = "kafka.metadata";
   public static final String KAFKA_BLACKLIST_KEY = "kafka.topic_blacklist";
 
-  // metadata-store restli server
-  public static final String WH_RESTLI_SERVER_URL = "wherehows.restli.server.url";
-
   // kerberos
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";

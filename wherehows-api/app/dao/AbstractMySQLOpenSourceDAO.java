@@ -25,7 +25,7 @@ public class AbstractMySQLOpenSourceDAO
     private static NamedParameterJdbcTemplate namedJdbcTemplate =
         new NamedParameterJdbcTemplate(DataSource.getDataSource(MYSQL_DB_WHEREHOWS_OPENSOURCE));
 
-    protected static JdbcTemplate getJdbcTemplate()
+    public static JdbcTemplate getJdbcTemplate()
   {
     return jdbcTemplate;
   }

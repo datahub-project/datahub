@@ -44,6 +44,7 @@ import play.Logger;
 import play.Play;
 import play.libs.Json;
 import models.*;
+import wherehows.models.DatasetColumn;
 
 public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 {
@@ -149,16 +150,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON " +
 			"(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN field_comments c ON " +
 			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? ORDER BY dfd.sort_id";
-
-	private final static String GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID = "SELECT dfd.field_id, " +
-			"dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, " +
-			"dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, " +
-			"dfd.is_distributed as distributed, c.text as comment, " +
-			"( SELECT count(*) FROM dict_dataset_field_comment ddfc " +
-			"WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count " +
-			"FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON " +
-			"(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON " +
-			"c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
 	private final static String GET_DATASET_OWNERS_BY_ID = "SELECT o.owner_id, u.display_name, o.sort_id, " +
 			"o.owner_type, o.namespace, o.owner_id_type, o.owner_source, o.owner_sub_type, o.confirmed_by, " +
@@ -848,18 +839,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		}
 
 		return dataset;
-	}
-
-	public static List<DatasetColumn> getDatasetColumnByID(int datasetId, int columnId)
-	{
-		return getJdbcTemplate().query(GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID,
-      new DatasetColumnRowMapper(), datasetId, columnId);
-	}
-
-	public static List<DatasetColumn> getDatasetColumnsByID(int datasetId)
-	{
-		return getJdbcTemplate().query(GET_DATASET_COLUMNS_BY_DATASET_ID,
-      new DatasetColumnRowMapper(), datasetId);
 	}
 
 	public static JsonNode getDatasetPropertiesByID(int id)
