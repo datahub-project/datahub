@@ -148,14 +148,6 @@ public class Dataset extends Controller
     public static Result getDatasetColumnsByID(int id) {
         ObjectNode result = Json.newObject();
 
-        String urn = DatasetsDAO.getDatasetUrnById(id);
-        if (urn == null || urn.length() < 6) {
-            Logger.debug("Dataset id " + id + " not found.");
-            result.put("status", "error");
-            result.put("message", "Dataset id not found");
-            return ok(result);
-        }
-
         List<DatasetColumn> columns = datasetsDao.getDatasetColumnsByID(jdbcTemplate, id);
         if (columns != null && columns.size() > 0) {
             result.put("status", "ok");
