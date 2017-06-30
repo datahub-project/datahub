@@ -256,13 +256,6 @@ public class Constant {
   public static final String DALI_GIT_URN_KEY = "dali.git.urn";
   public static final String GIT_COMMITTER_BLACKLIST_KEY = "git.committer.blacklist";
 
-  // Nuage
-  public static final String D2_PROXY_URL = "d2.proxy.url";
-  public static final String ESPRESSO_OUTPUT_KEY = "espresso.metadata";
-  public static final String VOLDEMORT_OUTPUT_KEY = "voldemort.metadata";
-  public static final String KAFKA_OUTPUT_KEY = "kafka.metadata";
-  public static final String KAFKA_BLACKLIST_KEY = "kafka.topic_blacklist";
-
   // kerberos
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";
