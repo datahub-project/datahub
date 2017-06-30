@@ -10,7 +10,8 @@ configurations {
 
 dependencies{
     assets project(path: ':wherehows-web', configuration: 'assets')
-    play project(':restli-client')
+
+    play project(":wherehows-dao")
 
     play externalDependency.play_java_ws
     play externalDependency.play_java_jdbc
