@@ -1,10 +1,10 @@
 def modules = [
-    "wherehows-api",
     "wherehows-backend",
     "wherehows-common",
     "wherehows-dao",
     "wherehows-data-model",
     "wherehows-etl",
+    "wherehows-frontend",
     "wherehows-hadoop",
     "wherehows-web",
 ]
