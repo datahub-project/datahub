@@ -10,7 +10,6 @@ before_install:
   # extralibs
   - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
   - mkdir -p wherehows-etl/extralibs; unzip extralibs.zip -d wherehows-etl/extralibs
-  - mkdir -p restli-client/extralibs; unzip extralibs.zip -d restli-client/extralibs
 
 cache:
   directories:
