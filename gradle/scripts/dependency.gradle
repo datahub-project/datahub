@@ -42,5 +42,7 @@ ext.externalDependency = [
 
     "kafka"               : "org.apache.kafka:kafka_2.10:0.10.0.1",
     "kafka_clients"       : "org.apache.kafka:kafka-clients:0.10.0.1",
-    "confluent_common_cfg": "io.confluent:common-config:3.0.1"
+    "confluent_common_cfg": "io.confluent:common-config:3.0.1",
+
+    "parquet_avro"        : "org.apache.parquet:parquet-avro:1.8.1",
 ]
