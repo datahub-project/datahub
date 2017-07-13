@@ -1,0 +1,6 @@
+archives/
+!.gitkeep
+runtime/
+wherehows-frontend/tmp
+wherehows-backend/tmp
+wherehows-mysql/init.sql
