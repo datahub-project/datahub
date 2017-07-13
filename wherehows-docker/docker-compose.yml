@@ -1,0 +1,35 @@
+version: "3"
+services:
+  wherehows-mysql:
+    image: "linkedin/wherehows-mysql:latest"
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: ${WHZ_DB_NAME}
+      MYSQL_USER: ${WHZ_DB_USERNAME}
+      MYSQL_PASSWORD: ${WHZ_DB_PASSWORD}
+  wherehows-backend:
+    image: "linkedin/wherehows-backend:latest"
+    ports:
+      - "9001:9000"
+    environment:
+      WHZ_SECRET: ${WHZ_SECRET}
+      WHZ_DB_USERNAME: ${WHZ_DB_USERNAME}
+      WHZ_DB_PASSWORD: ${WHZ_DB_PASSWORD}
+      WHZ_DB_URL: jdbc:mysql://wherehows-mysql:3306/${WHZ_DB_NAME}
+    command: dockerize -wait tcp://wherehows-mysql:3306 -timeout 120s bin/playBinary
+    links:
+      - "wherehows-mysql:wherehows-mysql"
+  wherehows-frontend:
+    image: "linkedin/wherehows-frontend:latest"
+    ports:
+      - "9000:9000"
+    environment:
+      WHZ_SECRET: ${WHZ_SECRET}
+      WHZ_DB_USERNAME: ${WHZ_DB_USERNAME}
+      WHZ_DB_PASSWORD: ${WHZ_DB_PASSWORD}
+      WHZ_DB_URL: jdbc:mysql://wherehows-mysql:3306/${WHZ_DB_NAME}
+    command: dockerize -wait tcp://wherehows-mysql:3306 -timeout 120s bin/playBinary
+    links:
+      - "wherehows-mysql:wherehows-mysql"
