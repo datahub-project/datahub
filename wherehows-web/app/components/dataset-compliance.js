@@ -495,7 +495,22 @@ export default Component.extend({
       const href = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(policy))}`;
       const download = `${get(this, 'datasetName')}_policy.json`;
       const anchor = document.createElement('a');
+      const anchorParent = document.body;
+
+      /**
+       *  Post download housekeeping
+       */
+      const cleanupPostDownload = () => {
+        anchor.removeEventListener('click', cleanupPostDownload);
+        anchorParent.removeChild(anchor);
+      };
+
       Object.assign(anchor, { download, href });
+      anchor.addEventListener('click', cleanupPostDownload);
+
+      // Element needs to be in DOM to receive event in firefox
+      anchorParent.appendChild(anchor);
+
       anchor.click();
     },
 
