@@ -1,0 +1,19 @@
+job.class=metadata.etl.lineage.AzLineageMetadataEtl
+job.cron.expr=0 10 0/1 1/1 * ? *
+job.timeout=1200
+#job.cmd.params=
+#job.disabled=1
+job.ref.id=14
+
+az.db.driver=com.mysql.jdbc.Driver
+az.db.jdbc.url=your_jdbc_url
+az.db.username=your_db_username
+az.db.password=your_db_password
+az.default.hadoop.database.id=20
+az.hadoop.jobhistory.server.url=your_jobhistory_server_url
+az.lineage_etl.lookback_period.in.minutes=90
+az.lineage.actor.num=10
+az.lineage.actor.timeout=600
+
+krb5.kdc=your_kdc
+krb5.realm=your_realm

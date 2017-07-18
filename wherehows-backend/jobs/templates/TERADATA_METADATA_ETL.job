@@ -1,0 +1,23 @@
+# Fetch Teradata dataset metadata
+job.class=metadata.etl.dataset.teradata.TeradataMetadataEtl
+job.cron.expr=0 0 5 ? * TUE,THU,SUN *
+job.timeout=15000
+#job.cmd.params=
+#job.disabled=1
+job.ref.id=3
+
+teradata.db.username=your_db_username
+teradata.db.password=your_db_password
+teradata.db.driver=com.teradata.jdbc.TeraDriver
+teradata.db.jdbc.url=your_jdbc_url
+teradata.log=td_metadata.log
+teradata.metadata=td_metadata.dat
+teradata.databases=db1,db2
+teradata.default_database=your_default_db
+teradata.schema_output=td_schema.json
+teradata.field_metadata=td_field_metadata.dat
+teradata.sample_output=td_sampledata.csv
+teradata.sample.skip.list=
+innodb_lock_wait_timeout=1500
+teradata.load_sample=True
+teradata.collect.sample.data.days=Sun

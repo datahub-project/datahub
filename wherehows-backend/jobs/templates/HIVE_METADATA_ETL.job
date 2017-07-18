@@ -1,0 +1,31 @@
+# Fetch Hive and Dali dataset metadata on Holdem
+job.class=metadata.etl.dataset.hive.HiveMetadataEtl
+job.cron.expr=0 0 19 * * ? *
+job.timeout=12000
+#job.cmd.params=
+#job.disabled=1
+job.ref.id=65
+
+hdfs.namenode.ipc.uri=your_namenode_ipc_uri
+
+hive.database_black_list=your_databsae_black_list
+hive.database_white_list=your_database_white_list
+hive.dependency_csv_file=/var/tmp/hive_dependency.csv
+hive.field_metadata=/var/tmp/hive_field_metadata.csv
+hive.hdfs_map_csv_file=/var/tmp/hive_hdfs_map.csv
+hive.instance_csv_file=/var/tmp/hive_instance.csv
+hive.metastore.jdbc.driver=com.mysql.jdbc.Driver
+hive.metastore.jdbc.url=your_metastore_jdb_url
+hive.metastore.password=your_metastore_password
+hive.metastore.username=your_metastore_username
+hive.schema_csv_file=/var/tmp/hive_schema.csv
+hive.schema_json_file=/var/tmp/hive_schema.json
+
+innodb_lock_wait_timeout=1500
+
+kerberos.auth=True
+kerberos.keytab.file=your_keytab_file
+kerberos.principal=your_principal
+
+krb5.kdc=your_kdc
+krb5.realm=your_realm
