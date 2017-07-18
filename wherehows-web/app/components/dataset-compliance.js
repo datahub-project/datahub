@@ -6,7 +6,8 @@ import {
   fieldIdentifierTypes,
   idLogicalTypes,
   nonIdFieldLogicalTypes,
-  defaultFieldDataTypeClassification
+  defaultFieldDataTypeClassification,
+  compliancePolicyStrings
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/functions';
 
@@ -23,25 +24,14 @@ const {
   String: { htmlSafe }
 } = Ember;
 
-// TODO: DSS-6671 Extract to constants module
-const missingTypes = 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?';
-const successUpdating = 'Your changes have been successfully saved!';
-const failedUpdating = 'Oops! We are having trouble updating this dataset at the moment.';
+const { complianceDataException, missingTypes, successUpdating, failedUpdating, helpText } = compliancePolicyStrings;
+
 const hiddenTrackingFieldsMsg = htmlSafe(
   '<p>Some fields in this dataset have been hidden from the table(s) below. ' +
     "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
     '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
     'Hopefully, this saves you some scrolling!</p>'
 );
-const helpText = {
-  classification:
-    'The default value is taken from go/dht and should be good enough in most cases. ' +
-      'You can optionally override it if required by house security.',
-  subjectOwner:
-    'Member ID (Subject Owner): Choose this option if the member specified here is not the owner of this ' +
-      'record, e.g. the profile ID viewed, or recipient ID of a message. See wiki for more explanation. ' +
-      'Mixed ID: Choose this option if the field is a URN containing a mixture of member, organization, or group ID.'
-};
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
@@ -85,10 +75,10 @@ const policyFieldClassificationKey = 'complianceInfo.fieldClassification';
 const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
 /**
  * Duplicate check using every to short-circuit iteration
- * @param {Array} names = [] the list to check for dupes
+ * @param {Array} list = [] the list to check for dupes
  * @return {Boolean} true is unique, false otherwise
  */
-const fieldNamesAreUnique = (names = []) => names.every((name, index) => names.indexOf(name) === index);
+const listIsUnique = (list = []) => new Set(list).size === list.length;
 
 assert('`fieldIdentifierTypes` contains an object with a key `none`', typeof fieldIdentifierTypes.none === 'object');
 const fieldIdentifierTypeKeysBarNone = Object.keys(fieldIdentifierTypes).filter(k => k !== 'none');
@@ -146,8 +136,17 @@ export default Component.extend({
   fieldIdentifierOptions,
   hiddenTrackingFields: hiddenTrackingFieldsMsg,
   classNames: ['compliance-container'],
-  isEditing: false,
   classNameBindings: ['isEditing:compliance-container--edit-mode'],
+  /**
+   * Flag indicating that the component is in edit mode
+   * @type {String}
+   */
+  isEditing: false,
+  /**
+   * Flag indicating that the component is currently saving / attempting to save the privacy policy
+   * @type {String}
+   */
+  isSaving: false,
 
   didReceiveAttrs() {
     this._super(...arguments);
@@ -164,7 +163,8 @@ export default Component.extend({
   validateAttrs() {
     const fieldNames = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).mapBy('fieldName');
 
-    if (fieldNamesAreUnique(fieldNames.sort())) {
+    // identifier field names from the column api should be unique
+    if (listIsUnique(fieldNames.sort())) {
       return set(this, '_hasBadData', false);
     }
 
@@ -221,6 +221,28 @@ export default Component.extend({
       .map(key => ({ value: datasetClassification[key].value }))
       .every(({ value }) => [true, false].includes(value));
   }),
+
+  /**
+   * Determines if the save feature is allowed for the current dataset, otherwise e.g. interface should be disabled
+   * @type {Ember.computed}
+   */
+  isSavingDisabled: computed('isDatasetFullyClassified', 'isSaving', function() {
+    const { isDatasetFullyClassified, isSaving } = getProperties(this, ['isDatasetFullyClassified', 'isSaving']);
+
+    return !isDatasetFullyClassified || isSaving;
+  }),
+
+  /**
+   * Checks to ensure the the number of fields added to compliance entities is less than or equal
+   * to what is available on the dataset schema
+   * @return {boolean}
+   */
+  isSchemaFieldLengthGreaterThanComplianceEntities() {
+    const { length: columnFieldsLength } = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []);
+    const { length: complianceListLength } = get(this, policyComplianceEntitiesKey);
+
+    return columnFieldsLength >= complianceListLength;
+  },
 
   /**
    * Computed property that is dependent on all the keys in the datasetClassification map
@@ -372,7 +394,7 @@ export default Component.extend({
    * @param { Boolean} [isSaving = false] optional flag indicating when the user intends to persist / save
    */
   whenRequestCompletes(request, { successMessage, isSaving = false } = {}) {
-    Promise.resolve(request)
+    return Promise.resolve(request)
       .then(({ status = 'error' }) => {
         return status === 'ok'
           ? setProperties(this, {
@@ -421,10 +443,11 @@ export default Component.extend({
    */
   confirmUnformattedFields() {
     // Current list of compliance entities on policy
-    const complianceList = get(this, policyComplianceEntitiesKey);
+    const complianceEntities = get(this, policyComplianceEntitiesKey);
     // All candidate fields that can be on policy
     const datasetFields = get(this, 'complianceDataFieldsSansHiddenTracking');
-    // Fields that do not have a logicalType and not identifierType or identifierType is `fieldIdentifierTypes.none`
+    const fieldsCurrentlyInComplianceList = complianceEntities.mapBy('identifierField');
+    // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
     const unformattedFields = datasetFields.filter(
       ({ identifierType, logicalType }) =>
         !logicalType && (fieldIdentifierTypes.none.value === identifierType || !identifierType)
@@ -433,6 +456,17 @@ export default Component.extend({
 
     // If there are unformatted fields, require confirmation from user
     if (!isEmpty(unformattedFields)) {
+      // Ensure that the unformatted fields to be added to the entities are not already present
+      // in the previous compliance entities list
+      const unformattedComplianceEntities = unformattedFields
+        .filter(({ identifierField }) => !fieldsCurrentlyInComplianceList.includes(identifierField))
+        .map(({ identifierField }) => ({
+          identifierField,
+          identifierType: fieldIdentifierTypes.none.value,
+          isSubject: null,
+          logicalType: void 0
+        }));
+
       isConfirmed = confirm(
         `There are ${unformattedFields.length} non-ID fields that have no field format specified. ` +
           `Are you sure they don't contain any of the following PII?\n\n` +
@@ -441,19 +475,41 @@ export default Component.extend({
 
       // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
       //   to be saved
-      isConfirmed &&
-        complianceList.setObjects([
-          ...complianceList,
-          ...unformattedFields.map(({ identifierField }) => ({
-            identifierField,
-            identifierType: fieldIdentifierTypes.none.value,
-            isSubject: null,
-            logicalType: void 0
-          }))
-        ]);
+      isConfirmed && complianceEntities.setObjects([...complianceEntities, ...unformattedComplianceEntities]);
     }
 
     return isConfirmed;
+  },
+
+  /**
+   * Ensures the fields in the updated list of compliance entities meet the criteria
+   * checked in the function. If criteria is not met, an the returned promise is settled
+   * in a rejected state, otherwise fulfilled
+   * @method
+   * @return {any | Promise<any>}
+   */
+  validateFields() {
+    const complianceEntities = get(this, policyComplianceEntitiesKey);
+    const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
+      complianceEntities.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType)),
+      [...genericLogicalTypes, ...idLogicalTypes]
+    );
+    const fieldIdentifiersAreUnique = listIsUnique(complianceEntities.mapBy('identifierField'));
+    const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
+
+    //
+    if (!fieldIdentifiersAreUnique || !schemaFieldLengthGreaterThanComplianceEntities) {
+      return Promise.reject(new Error(complianceDataException));
+    }
+
+    if (!idFieldsHaveValidLogicalType) {
+      return Promise.reject(
+        setProperties(this, {
+          _message: missingTypes,
+          _alertType: 'danger'
+        })
+      );
+    }
   },
 
   actions: {
@@ -634,26 +690,31 @@ export default Component.extend({
     /**
      * If all validity checks are passed, invoke onSave action on controller
      */
-    saveCompliance() {
-      const complianceList = get(this, policyComplianceEntitiesKey);
-      const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
-        complianceList.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType)),
-        [...genericLogicalTypes, ...idLogicalTypes]
-      );
+    async saveCompliance() {
+      const setSaveFlag = (flag = false) => set(this, 'isSaving', flag);
+      // If fields are confirmed as unique we can proceed with saving compliance entities
       const saveConfirmed = this.confirmUnformattedFields();
 
       // If user provides confirmation for unformatted fields or there are none,
-      // then check if id type fields have a specified logical type
-      // otherwise we should inform the user of missing field formats for id fields, which are not allowed
+      // then validate fields against expectations
+      // otherwise inform user of validation exception
       if (saveConfirmed) {
-        if (idFieldsHaveValidLogicalType) {
-          return this.whenRequestCompletes(get(this, 'onSave')(), { isSaving: true });
-        }
+        try {
+          const isSaving = true;
+          const onSave = get(this, 'onSave');
+          setSaveFlag(isSaving);
+          await this.validateFields();
 
-        setProperties(this, {
-          _message: missingTypes,
-          _alertType: 'danger'
-        });
+          return await this.whenRequestCompletes(onSave(), { isSaving });
+        } catch (e) {
+          // Flag this dataset's data as problematic
+          if (e instanceof Error && e.message === complianceDataException) {
+            set(this, '_hasBadData', true);
+            window.scrollTo(0, 0);
+          }
+        } finally {
+          setSaveFlag();
+        }
       }
     },
 

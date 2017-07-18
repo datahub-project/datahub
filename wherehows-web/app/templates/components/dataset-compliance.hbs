@@ -15,11 +15,12 @@
     <section class="action-bar">
       {{#if isEditing}}
         <div class="container action-bar__content">
-          <button class="nacho-button nacho-button--large-inverse action-bar__item"
-                  title={{unless isDatasetFullyClassified
-                                 "Ensure you have provided a yes/no value for all dataset tags"
-                                 "Save"}}
-                    disabled={{not isDatasetFullyClassified}}
+          <button
+            class="nacho-button nacho-button--large-inverse action-bar__item"
+            title={{unless isDatasetFullyClassified
+                           "Ensure you have provided a yes/no value for all dataset tags"
+                           "Save"}}
+              disabled={{isSavingDisabled}}
             {{action "saveCompliance"}}>
             Save
           </button>
@@ -51,7 +52,9 @@
     </div>
 
     {{#if isEditing}}
-      {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+      {{#if (not _hasBadData)}}
+        {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+      {{/if}}
     {{else}}
       <button
         {{action "onEdit"}}
