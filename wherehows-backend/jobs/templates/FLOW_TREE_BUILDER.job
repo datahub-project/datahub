@@ -1,0 +1,5 @@
+# Rebuild flow tree
+job.type=tree
+job.script=jython/FlowTreeBuilder.py
+
+tree.flow.file=/var/tmp/wherehows/resource/flow.json

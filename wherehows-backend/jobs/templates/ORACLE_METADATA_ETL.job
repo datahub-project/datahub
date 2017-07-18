@@ -1,0 +1,19 @@
+# Fetch Oracle EI112 dataset metadata
+job.class=metadata.etl.dataset.oracle.OracleMetadataEtl
+job.cron.expr=0 30 15 1/1 * ? *
+job.timeout=600
+#job.cmd.params=
+#job.disabled=1
+job.ref.id=82
+
+oracle.db.driver=oracle.jdbc.OracleDriver
+oracle.db.name=your_db_name
+oracle.db.username=your_db_username
+oracle.db.password=your_db_password
+oracle.db.jdbc.url=your_db_jdbc_url
+oracle.metadata=oracle.csv
+oracle.field_metadata=oracle_field.csv
+oracle.sample_data=oracle_sample.csv
+oracle.load_sample=
+oracle.exclude_db=
+innodb_lock_wait_timeout=1500
