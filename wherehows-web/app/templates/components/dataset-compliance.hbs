@@ -33,7 +33,7 @@
           </button>
 
           {{#if _message}}
-            <div class="alert alert-{{_alertType}} post-action-notification" role="alert">
+            <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
               {{_message}}
             </div>
           {{/if}}
@@ -168,7 +168,7 @@
 
   {{#dataset-table
     class="nacho-table--stripped"
-    fields=complianceDataFieldsSansHiddenTracking
+    fields=complianceDataFields
     sortColumnWithName=sortColumnWithName
     filterBy=filterBy
     sortDirection=sortDirection

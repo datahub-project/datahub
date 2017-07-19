@@ -196,18 +196,20 @@ export default Component.extend({
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
    */
-  containsHiddenTrackingFields: computed('complianceDataFieldsSansHiddenTracking.length', function() {
-    // If their is a diff in complianceDataFields and complianceDataFieldsSansHiddenTracking,
+  containsHiddenTrackingFields: computed('truncatedSchemaFields.length', function() {
+    // If their is a diff in complianceDataFields and truncatedSchemaFields,
     //   then we have hidden tracking fields
-    return get(this, 'complianceDataFieldsSansHiddenTracking.length') !== get(this, 'complianceDataFields.length');
+    return get(this, 'truncatedSchemaFields.length') !== get(this, 'complianceDataFields.length');
   }),
 
   /**
    * @type {Array.<Object>} Filters the mapped compliance data fields without `kafka type`
    *   tracking headers
    */
-  complianceDataFieldsSansHiddenTracking: computed('complianceDataFields.[]', function() {
-    return get(this, 'complianceDataFields').filter(({ identifierField }) => !isTrackingHeaderField(identifierField));
+  truncatedSchemaFields: computed('schemaFieldNamesMappedToDataTypes', function() {
+    return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).filter(
+      ({ fieldName }) => !isTrackingHeaderField(fieldName)
+    );
   }),
 
   /**
@@ -272,7 +274,7 @@ export default Component.extend({
     `${policyComplianceEntitiesKey}.@each.identifierType`,
     `${policyComplianceEntitiesKey}.[]`,
     policyFieldClassificationKey,
-    'schemaFieldNamesMappedToDataTypes',
+    'truncatedSchemaFields',
     function() {
       /**
        * Retrieves an attribute on the `policyComplianceEntitiesKey` where the identifierField is the same as the
@@ -283,7 +285,17 @@ export default Component.extend({
        */
       const getAttributeOnField = (attribute, fieldName) => {
         const complianceEntities = get(this, policyComplianceEntitiesKey) || [];
-        const sourceField = complianceEntities.find(({ identifierField }) => identifierField === fieldName);
+        // const sourceField = complianceEntities.find(({ identifierField }) => identifierField === fieldName);
+        let sourceField;
+
+        // For long records: >500 elements, the find operation is consistently less performant than a for-loop:
+        // trading elegance for efficiency here
+        for (let i = 0; i < complianceEntities.length; i++) {
+          if (complianceEntities[i]['identifierField'] === fieldName) {
+            sourceField = complianceEntities[i];
+            break;
+          }
+        }
         return sourceField ? sourceField[attribute] : null;
       };
 
@@ -299,11 +311,7 @@ export default Component.extend({
 
       // Set default or if already in policy, retrieve current values from
       //   privacyCompliancePolicy.complianceEntities
-      return getWithDefault(
-        this,
-        'schemaFieldNamesMappedToDataTypes',
-        []
-      ).map(({ fieldName: identifierField, dataType }) => {
+      return getWithDefault(this, 'truncatedSchemaFields', []).map(({ fieldName: identifierField, dataType }) => {
         const [identifierType, isSubject, logicalType] = getAttributesOnField(
           ['identifierType', 'isSubject', 'logicalType'],
           identifierField
@@ -444,8 +452,8 @@ export default Component.extend({
   confirmUnformattedFields() {
     // Current list of compliance entities on policy
     const complianceEntities = get(this, policyComplianceEntitiesKey);
-    // All candidate fields that can be on policy
-    const datasetFields = get(this, 'complianceDataFieldsSansHiddenTracking');
+    // All candidate fields that can be on policy, excluding tracking type fields
+    const datasetFields = get(this, 'complianceDataFields');
     const fieldsCurrentlyInComplianceList = complianceEntities.mapBy('identifierField');
     // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
     const unformattedFields = datasetFields.filter(
