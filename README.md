@@ -59,11 +59,11 @@ Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 
 
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
-[GS]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
+[GS]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
 [CON]: https://github.com/LinkedIn/Wherehows/wiki/Contributing
 [VM]: https://github.com/LinkedIn/Wherehows/wiki/Quick-Start-With-VM
-[EXJAR]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#download-third-party-jar-files
+[EXJAR]: https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs
 [DDL]: https://github.com/linkedin/WhereHows/tree/master/wherehows-data-model/DDL
-[DB]: https://github.com/LinkedIn/Wherehows/wiki/Getting-Started#set-up-your-database
+[DB]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md#database-setup
 [LIST]: https://groups.google.com/forum/#!forum/wherehows
 [GITTER]: https://gitter.im/wherehows
