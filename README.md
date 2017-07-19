@@ -49,6 +49,16 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 4. Start the metadata ETL and API service: ```./gradlew wherehows-backend:runPlayBinary```
 5. In a new terminal, start the web front-end: ```./gradlew wherehows-frontend:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```wherehows-frontend/build.gradle```.
 
+## Who uses WhereHows?
+
+Here is a list of companies known to use WhereHows. Let us know if we missed your company!
+
+* [LinkedIn](http://www.linkedin.com)
+* [Overstock.com](http://www.overstock.com)
+* [Fitbit](http://www.fitbit.com)
+* [Carbonite](https://www.carbonite.com)
+
+
 ## Contribute
 
 Want to contribute? Check out the [Contributors Guide][CON]
