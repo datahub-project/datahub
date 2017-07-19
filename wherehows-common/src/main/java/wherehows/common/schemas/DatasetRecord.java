@@ -35,7 +35,7 @@ public class DatasetRecord extends AbstractRecord {
   String locationPrefix;
   String refDatasetUrn;
   Integer refDatasetId;
-  Integer statusId;
+  Boolean isActive;
   Character isPartitioned;
   String samplePartitionFullPath;
   Integer partitionLayoutPatternId;
@@ -62,7 +62,7 @@ public class DatasetRecord extends AbstractRecord {
     allFields.add(parentName);
     allFields.add(storageType);
     allFields.add(refDatasetId);
-    allFields.add(statusId);
+    allFields.add(isActive);
     allFields.add(datasetType);
     allFields.add(hiveSerdesClass);
     allFields.add(isPartitioned);
@@ -76,6 +76,7 @@ public class DatasetRecord extends AbstractRecord {
     allFields.add(null);
     return allFields;
   }
+
   public List<String> fillAllFieldNames() {
     List<String> allFieldNames = new ArrayList<>();
     allFieldNames.add("id");
@@ -90,7 +91,7 @@ public class DatasetRecord extends AbstractRecord {
     allFieldNames.add("parent_name");
     allFieldNames.add("storage_type");
     allFieldNames.add("ref_dataset_id");
-    allFieldNames.add("status_id");
+    allFieldNames.add("is_active");
     allFieldNames.add("dataset_type");
     allFieldNames.add("hive_serdes_class");
     allFieldNames.add("is_partitioned");
@@ -111,9 +112,9 @@ public class DatasetRecord extends AbstractRecord {
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i < allFields.size(); i++) {
       Object o = allFields.get(i);
-      if (o != null)   {
+      if (o != null) {
         String fieldName = allFieldNames.get(i);
-        sb.append("`"+fieldName+"`");
+        sb.append("`" + fieldName + "`");
         sb.append("=");
         sb.append(StringUtil.toDbString(o));
         sb.append(",");
@@ -121,9 +122,7 @@ public class DatasetRecord extends AbstractRecord {
     }
     sb.deleteCharAt(sb.length() - 1);
     return sb.toString();
-
   }
-
 
   public Integer getId() {
     return id;
@@ -221,6 +220,14 @@ public class DatasetRecord extends AbstractRecord {
     this.refDatasetUrn = refDatasetUrn;
   }
 
+  public Boolean getIsActive() {
+    return isActive;
+  }
+
+  public void setIsActive(Boolean isActive) {
+    this.isActive = isActive;
+  }
+
   public Character getIsPartitioned() {
     return isPartitioned;
   }
@@ -275,14 +282,6 @@ public class DatasetRecord extends AbstractRecord {
 
   public void setRefDatasetId(Integer refDatasetId) {
     this.refDatasetId = refDatasetId;
-  }
-
-  public Integer getStatusId() {
-    return statusId;
-  }
-
-  public void setStatusId(Integer statusId) {
-    this.statusId = statusId;
   }
 
   public Integer getPartitionLayoutPatternId() {

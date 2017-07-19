@@ -30,7 +30,8 @@ CREATE TABLE `stg_dict_dataset` (
   `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_name`            VARCHAR(200) NULL,
   `ref_dataset_id`              INT(11) UNSIGNED NULL COMMENT 'Refer to Master/Main dataset for Views/ExternalTables',
-  `status_id`                   SMALLINT(6) UNSIGNED NULL COMMENT 'Reserve for dataset status',
+  `is_active`                   BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
+  `is_deprecated`               BOOLEAN NULL COMMENT 'is the dataset deprecated by user ?',
   `dataset_type`                VARCHAR(30) NULL
   COMMENT 'hdfs, hive, kafka, teradata, mysql, sqlserver, file, nfs, pinot, salesforce, oracle, db2, netezza, cassandra, hbase, qfs, zfs',
   `hive_serdes_class`           VARCHAR(300)                                                                                NULL,
@@ -69,8 +70,8 @@ CREATE TABLE `dict_dataset` (
   `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_id`              INT(11) UNSIGNED                                                                            NULL
   COMMENT 'Refer to Master/Main dataset for Views/ExternalTables',
-  `status_id`                   SMALLINT(6) UNSIGNED                                                                        NULL
-  COMMENT 'Reserve for dataset status',
+  `is_active`                   BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
+  `is_deprecated`               BOOLEAN NULL COMMENT 'is the dataset deprecated by user ?',
   `dataset_type`                VARCHAR(30)                                                                                 NULL
   COMMENT 'hdfs, hive, kafka, teradata, mysql, sqlserver, file, nfs, pinot, salesforce, oracle, db2, netezza, cassandra, hbase, qfs, zfs',
   `hive_serdes_class`           VARCHAR(300)                                                                                NULL,
@@ -282,7 +283,8 @@ CREATE TABLE dict_dataset_instance  (
 	data_center          	varchar(30) COMMENT 'data center code: lva1, ltx1, dc2, dc3...'  NULL DEFAULT '*',
 	server_cluster       	varchar(150) COMMENT 'sfo1-bigserver, jfk3-sqlserver03'  NULL DEFAULT '*',
 	slice                	varchar(50) COMMENT 'virtual group/tenant id/instance tag'  NOT NULL DEFAULT '*',
-	status_id            	smallint(6) UNSIGNED COMMENT 'Reserve for dataset status'  NULL,
+  is_active             BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
+  is_deprecated         BOOLEAN NULL COMMENT 'is the dataset deprecated by user ?',
 	native_name          	varchar(250) NOT NULL,
 	logical_name         	varchar(250) NOT NULL,
 	version              	varchar(30) COMMENT '1.2.3 or 0.3.131'  NULL,
@@ -324,7 +326,8 @@ CREATE TABLE stg_dict_dataset_instance  (
 	data_center          	varchar(30) COMMENT 'data center code: lva1, ltx1, dc2, dc3...'  NULL DEFAULT '*',
 	server_cluster       	varchar(150) COMMENT 'sfo1-bigserver'  NULL DEFAULT '*',
 	slice                	varchar(50) COMMENT 'virtual group/tenant id/instance tag'  NOT NULL DEFAULT '*',
-	status_id            	smallint(6) UNSIGNED COMMENT 'Reserve for dataset status'  NULL,
+  is_active             BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
+  is_deprecated         BOOLEAN NULL COMMENT 'is the dataset deprecated by user ?',
 	native_name          	varchar(250) NOT NULL,
 	logical_name         	varchar(250) NOT NULL,
 	version              	varchar(30) COMMENT '1.2.3 or 0.3.131'  NULL,

@@ -188,7 +188,7 @@ class HiveTransform:
                                                 '',
                                                 '',
                                                 '*',
-                                                0,
+                                                True,
                                                 table['native_name'],
                                                 table['logical_name'],
                                                 table['version'],

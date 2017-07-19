@@ -27,7 +27,7 @@ public class DatasetInstanceRecord extends AbstractRecord {
   String dataCenter;
   String serverCluster;
   String slice;
-  Integer statusId;
+  Boolean isActive;
   String nativeName;
   String logicalName;
   String version;
@@ -36,16 +36,15 @@ public class DatasetInstanceRecord extends AbstractRecord {
   String viewExpandedText;
   String abstractedDatasetUrn;
 
-  public DatasetInstanceRecord(String datasetUrn, String deploymentTier, String dataCenter,
-                               String serverCluster, String slice, Integer statusId, String nativeName,
-                               String logicalName, String version, Long instanceCreatedUnixtime,
-                               String schema, String viewExpandedText, String abstractedDatasetUrn) {
+  public DatasetInstanceRecord(String datasetUrn, String deploymentTier, String dataCenter, String serverCluster,
+      String slice, Boolean isActive, String nativeName, String logicalName, String version,
+      Long instanceCreatedUnixtime, String schema, String viewExpandedText, String abstractedDatasetUrn) {
     this.datasetUrn = datasetUrn;
     this.deploymentTier = deploymentTier;
     this.dataCenter = dataCenter;
     this.serverCluster = serverCluster;
     this.slice = slice;
-    this.statusId = statusId;
+    this.isActive = isActive;
     this.nativeName = nativeName;
     this.logicalName = logicalName;
     this.version = version;
@@ -63,7 +62,7 @@ public class DatasetInstanceRecord extends AbstractRecord {
     allFields.add(dataCenter);
     allFields.add(serverCluster);
     allFields.add(slice);
-    allFields.add(statusId);
+    allFields.add(isActive);
     allFields.add(nativeName);
     allFields.add(logicalName);
     allFields.add(version);
@@ -73,6 +72,4 @@ public class DatasetInstanceRecord extends AbstractRecord {
     allFields.add(abstractedDatasetUrn);
     return allFields;
   }
-
-
 }
