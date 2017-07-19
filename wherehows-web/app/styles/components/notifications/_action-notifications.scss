@@ -1,7 +1,11 @@
 .post-action-notification {
   margin-bottom: 0;
-  display: inline-block;
   border-radius: 2px;
   padding: 5px;
   vertical-align: top;
+}
+
+/// Defines styles for a notification bar in an action bar
+.action-footer-notification {
+  display: inline-block;
 }
