@@ -59,6 +59,10 @@ Here is a list of companies known to use WhereHows. Let us know if we missed you
 * [Carbonite](https://www.carbonite.com)
 
 
+## Roadmap
+
+Check out the current [roadmap][RM] for WhereHows.
+
 ## Contribute
 
 Want to contribute? Check out the [Contributors Guide][CON]
@@ -71,6 +75,7 @@ Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
 [GS]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
 [CON]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/contributing.md
+[RM]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/roadmap.md
 [VM]: https://github.com/LinkedIn/Wherehows/wiki/Quick-Start-With-VM
 [EXJAR]: https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs
 [DDL]: https://github.com/linkedin/WhereHows/tree/master/wherehows-data-model/DDL
