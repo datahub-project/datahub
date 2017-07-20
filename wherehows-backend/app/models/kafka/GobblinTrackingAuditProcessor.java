@@ -121,6 +121,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     dataset.setSource("Hdfs");
     dataset.setParentName(getParentName(datasetName));
     dataset.setDatasetType("hdfs");
+    dataset.setIsActive(true);
     dataset.setSourceModifiedTime(getsourceModifiedTime(metadata.get("modificationTime")));
 
     Matcher matcher = LOCATION_PREFIX_PATTERN.matcher(datasetName);

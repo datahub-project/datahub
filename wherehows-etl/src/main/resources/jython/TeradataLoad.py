@@ -37,8 +37,9 @@ class TeradataLoad:
         FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
         (`name`, `schema`, properties, fields, urn, source, sample_partition_full_path, source_created_time, source_modified_time)
         SET db_id = {db_id},
-        storage_type = 'Table',
-        wh_etl_exec_id = {wh_etl_exec_id};
+            storage_type = 'Table',
+            is_active = TRUE,
+            wh_etl_exec_id = {wh_etl_exec_id};
 
         -- SELECT COUNT(*) FROM stg_dict_dataset;
         -- clear
@@ -67,7 +68,7 @@ class TeradataLoad:
           data_center,
           server_cluster,
           slice,
-          status_id,
+          is_active,
           native_name,
           logical_name,
           `version`,
@@ -78,13 +79,13 @@ class TeradataLoad:
           schema_text
         )
         select s.urn, {db_id}, d.deployment_tier, d.data_center, d.cluster,
-          '*', 0, s.name, s.name, 0, s.source_created_time, s.created_time,
+          '*', s.is_active, s.name, s.name, 0, s.source_created_time, s.created_time,
            {wh_etl_exec_id}, s.urn, s.schema
         from stg_dict_dataset s JOIN cfg_database d on s.db_id = d.db_id
         where s.db_id = {db_id}
         on duplicate key update
           deployment_tier=d.deployment_tier, data_center=d.data_center,
-          server_cluster=d.cluster, native_name=s.name, logical_name=s.name,
+          server_cluster=d.cluster, is_active=s.is_active, native_name=s.name, logical_name=s.name,
           instance_created_time=s.source_created_time, created_time=s.created_time,
           wh_etl_exec_id={wh_etl_exec_id}, abstract_dataset_urn=s.urn, schema_text=s.schema;
 
@@ -101,7 +102,7 @@ class TeradataLoad:
           parent_name,
           storage_type,
           ref_dataset_id,
-          status_id,
+          is_active,
           dataset_type,
           hive_serdes_class,
           is_partitioned,
@@ -115,7 +116,7 @@ class TeradataLoad:
         select s.name, s.schema, s.schema_type, s.fields,
           s.properties, s.urn,
           s.source, s.location_prefix, s.parent_name,
-          s.storage_type, s.ref_dataset_id, s.status_id,
+          s.storage_type, s.ref_dataset_id, s.is_active,
           s.dataset_type, s.hive_serdes_class, s.is_partitioned,
           s.partition_layout_pattern_id, s.sample_partition_full_path,
           s.source_created_time, s.source_modified_time, UNIX_TIMESTAMP(now()),
@@ -125,11 +126,11 @@ class TeradataLoad:
         on duplicate key update
           `name`=s.name, `schema`=s.schema, schema_type=s.schema_type, fields=s.fields,
           properties=s.properties, source=s.source, location_prefix=s.location_prefix, parent_name=s.parent_name,
-            storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, status_id=s.status_id,
-                     dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
+          storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, is_active=s.is_active,
+          dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
           partition_layout_pattern_id=s.partition_layout_pattern_id, sample_partition_full_path=s.sample_partition_full_path,
           source_created_time=s.source_created_time, source_modified_time=s.source_modified_time,
-            modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
+          modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
         ;
         analyze table dict_dataset;
 
@@ -146,7 +147,7 @@ class TeradataLoad:
           data_center,
           server_cluster,
           slice,
-          status_id,
+          is_active,
           native_name,
           logical_name,
           version,
@@ -158,7 +159,7 @@ class TeradataLoad:
           wh_etl_exec_id
         )
         select s.dataset_id, s.db_id, s.deployment_tier, s.data_center,
-          s.server_cluster, s.slice, s.status_id, s.native_name, s.logical_name, s.version,
+          s.server_cluster, s.slice, s.is_active, s.native_name, s.logical_name, s.version,
           case when s.version regexp '[0-9]+\.[0-9]+\.[0-9]+'
             then cast(substring_index(s.version, '.', 1) as unsigned) * 100000000 +
                  cast(substring_index(substring_index(s.version, '.', 2), '.', -1) as unsigned) * 10000 +
@@ -170,7 +171,7 @@ class TeradataLoad:
         where s.db_id = {db_id}
         on duplicate key update
           deployment_tier=s.deployment_tier, data_center=s.data_center, server_cluster=s.server_cluster, slice=s.slice,
-          status_id=s.status_id, native_name=s.native_name, logical_name=s.logical_name, version=s.version,
+          is_active=s.is_active, native_name=s.native_name, logical_name=s.logical_name, version=s.version,
           schema_text=s.schema_text, ddl_text=s.ddl_text,
           instance_created_time=s.instance_created_time, created_time=s.created_time, wh_etl_exec_id=s.wh_etl_exec_id
           ;

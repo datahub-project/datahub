@@ -41,7 +41,7 @@ class OracleLoad:
       lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
       self.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
-    temp_dir = FileUtil.etl_temp_dir(args, "ORACLE");
+    temp_dir = FileUtil.etl_temp_dir(args, "ORACLE")
     self.input_table_file = os.path.join(temp_dir, args[Constant.ORA_SCHEMA_OUTPUT_KEY])
     self.input_field_file = os.path.join(temp_dir, args[Constant.ORA_FIELD_OUTPUT_KEY])
     self.input_sample_file = os.path.join(temp_dir, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
@@ -62,7 +62,8 @@ class OracleLoad:
     (`name`, `schema`, `schema_type`, `properties`, `urn`, `source`, `location_prefix`, `parent_name`,
     `storage_type`, `dataset_type`, `is_partitioned`)
     SET db_id = {db_id},
-    wh_etl_exec_id = {wh_etl_exec_id};
+        wh_etl_exec_id = {wh_etl_exec_id},
+        is_active = TRUE;
 
     -- insert into final table
     INSERT INTO dict_dataset
@@ -77,7 +78,7 @@ class OracleLoad:
       parent_name,
       storage_type,
       ref_dataset_id,
-      status_id,
+      is_active,
       dataset_type,
       hive_serdes_class,
       is_partitioned,
@@ -90,7 +91,7 @@ class OracleLoad:
     )
     select s.name, s.schema, s.schema_type, s.fields, s.properties, s.urn,
         s.source, s.location_prefix, s.parent_name,
-        s.storage_type, s.ref_dataset_id, s.status_id,
+        s.storage_type, s.ref_dataset_id, s.is_active,
         s.dataset_type, s.hive_serdes_class, s.is_partitioned,
         s.partition_layout_pattern_id, s.sample_partition_full_path,
         s.source_created_time, s.source_modified_time, UNIX_TIMESTAMP(now()),
@@ -100,7 +101,7 @@ class OracleLoad:
     on duplicate key update
         `name`=s.name, `schema`=s.schema, schema_type=s.schema_type, `fields`=s.fields,
         properties=s.properties, `source`=s.source, location_prefix=s.location_prefix, parent_name=s.parent_name,
-        storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, status_id=s.status_id,
+        storage_type=s.storage_type, ref_dataset_id=s.ref_dataset_id, is_active=s.is_active,
         dataset_type=s.dataset_type, hive_serdes_class=s.hive_serdes_class, is_partitioned=s.is_partitioned,
         partition_layout_pattern_id=s.partition_layout_pattern_id, sample_partition_full_path=s.sample_partition_full_path,
         source_created_time=s.source_created_time, source_modified_time=s.source_modified_time,

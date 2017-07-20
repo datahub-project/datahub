@@ -1238,6 +1238,7 @@ public class DatasetInfoDao {
       record.setSchemaType(rec.getOriginalSchema().getFormat());
       record.setFields((String) StringUtil.objectToJsonString(rec.getFieldSchema()));
       record.setSource("API");
+      record.setIsActive(true);
 
       Urn urnType = new Urn(urn);
       record.setDatasetType(urnType.datasetType);
