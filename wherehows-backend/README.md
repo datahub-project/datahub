@@ -31,7 +31,7 @@ Folder:	/opt/wherehows
 Please become familiar with these pages:
 - https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
 - https://github.com/linkedin/WhereHows
-- https://github.com/LinkedIn/Wherehows/wiki/Getting-Started
+- https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
 
 ### Build:
 ```
