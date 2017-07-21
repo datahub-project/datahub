@@ -49,6 +49,11 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 4. Start the metadata ETL and API service: ```./gradlew wherehows-backend:runPlayBinary```
 5. In a new terminal, start the web front-end: ```./gradlew wherehows-frontend:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```wherehows-frontend/build.gradle```.
 
+## Use Cases
+
+How WhereHows is used inside of LinkedIn and other potential [use cases][USE].
+
+
 ## Who uses WhereHows?
 
 Here is a list of companies known to use WhereHows. Let us know if we missed your company!
@@ -75,6 +80,7 @@ Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 [wiki]: https://github.com/LinkedIn/Wherehows/wiki
 [GS]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
 [CON]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/contributing.md
+[USE]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/use-cases.md
 [RM]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/roadmap.md
 [VM]: https://github.com/LinkedIn/Wherehows/wiki/Quick-Start-With-VM
 [EXJAR]: https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs
