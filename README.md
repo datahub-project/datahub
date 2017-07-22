@@ -11,6 +11,22 @@ WhereHows serves as the single platform that:
 * enables crowdsourcing for data knowledge
 * provides data governance and provenance based on ownership and lineage
 
+
+## Who Uses WhereHows?
+
+Here is a list of companies known to use WhereHows. Let us know if we missed your company!
+
+* [LinkedIn](http://www.linkedin.com)
+* [Overstock.com](http://www.overstock.com)
+* [Fitbit](http://www.fitbit.com)
+* [Carbonite](https://www.carbonite.com)
+
+
+## How Is WhereHows Used?
+
+How WhereHows is used inside of LinkedIn and other potential [use cases][USE].
+
+
 ## Documentation
 
 The detailed information can be found in the [Wiki][wiki]
@@ -24,6 +40,7 @@ There is a pre-built vmware image (about 11GB) to quickly demonstrate the functi
 ## Getting Started
 
 New to Wherehows? Check out the [Getting Started Guide][GS]
+
 
 ### Preparation
 
@@ -40,7 +57,6 @@ GRANT ALL ON wherehows.* TO 'wherehows'
 
 Execute the [DDL files][DDL] to create the required repository tables in **wherehows** database.
 
-
 ### Build
 
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
@@ -49,28 +65,16 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 4. Start the metadata ETL and API service: ```./gradlew wherehows-backend:runPlayBinary```
 5. In a new terminal, start the web front-end: ```./gradlew wherehows-frontend:runPlayBinary```. The WhereHows UI is available at http://localhost:9000 by default. You can change the port number by editing the value of ```project.ext.httpPort``` in ```wherehows-frontend/build.gradle```.
 
-## Use Cases
-
-How WhereHows is used inside of LinkedIn and other potential [use cases][USE].
-
-
-## Who uses WhereHows?
-
-Here is a list of companies known to use WhereHows. Let us know if we missed your company!
-
-* [LinkedIn](http://www.linkedin.com)
-* [Overstock.com](http://www.overstock.com)
-* [Fitbit](http://www.fitbit.com)
-* [Carbonite](https://www.carbonite.com)
-
 
 ## Roadmap
 
 Check out the current [roadmap][RM] for WhereHows.
 
+
 ## Contribute
 
 Want to contribute? Check out the [Contributors Guide][CON]
+
 
 ## Community
 
