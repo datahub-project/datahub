@@ -13,14 +13,14 @@
 #
 
 import datetime
+import FileUtil
 import os
 import sys
 
 from com.ziclix.python.sql import zxJDBC
-from wherehows.common import Constant
+from distutils.util import strtobool
 from org.slf4j import LoggerFactory
-
-import FileUtil
+from wherehows.common import Constant
 
 
 class OracleLoad:
@@ -46,9 +46,12 @@ class OracleLoad:
     self.input_field_file = os.path.join(temp_dir, args[Constant.ORA_FIELD_OUTPUT_KEY])
     self.input_sample_file = os.path.join(temp_dir, args[Constant.ORA_SAMPLE_OUTPUT_KEY])
 
+    self.collect_sample = False
+    if Constant.ORA_LOAD_SAMPLE in args:
+      self.collect_sample = strtobool(args[Constant.ORA_LOAD_SAMPLE])
+
     self.logger.info("Load Oracle Metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
-
 
   def load_tables(self):
     load_tables_cmd = '''
@@ -113,7 +116,6 @@ class OracleLoad:
 
     self.executeCommands(load_tables_cmd)
     self.logger.info("finish loading oracle table metadata from {}".format(self.input_table_file))
-
 
   def load_fields(self):
     load_fields_cmd = '''
@@ -268,7 +270,6 @@ class OracleLoad:
     self.executeCommands(load_fields_cmd)
     self.logger.info("finish loading oracle table fields from {}".format(self.input_field_file))
 
-
   def load_sample(self):
     load_sample_cmd = '''
     DELETE FROM stg_dict_dataset_sample where db_id = {db_id};
@@ -277,39 +278,25 @@ class OracleLoad:
     INTO TABLE stg_dict_dataset_sample
     FIELDS TERMINATED BY '\Z' ESCAPED BY '\0'
     IGNORE 1 LINES
-    (urn,ref_urn,data)
+    (urn, data)
     SET db_id = {db_id};
-
-    -- update reference id in staging table
-    UPDATE  stg_dict_dataset_sample s
-    LEFT JOIN dict_dataset d ON s.ref_urn = d.urn
-    SET s.ref_id = d.id
-    WHERE s.db_id = {db_id};
 
     -- first insert ref_id as 0
     INSERT INTO dict_dataset_sample
     ( `dataset_id`,
       `urn`,
-      `ref_id`,
       `data`,
       created
     )
-    select d.id as dataset_id, s.urn, s.ref_id, s.data, now()
-    from stg_dict_dataset_sample s left join dict_dataset d on d.urn = s.urn
-          where s.db_id = {db_id}
+    SELECT d.id as dataset_id, s.urn, s.data, now()
+    FROM stg_dict_dataset_sample s LEFT JOIN dict_dataset d on d.urn = s.urn
+    WHERE s.db_id = {db_id}
     on duplicate key update
       `data`=s.data, modified=now();
-
-      -- update reference id in final table
-    UPDATE dict_dataset_sample d
-    RIGHT JOIN stg_dict_dataset_sample s ON d.urn = s.urn
-    SET d.ref_id = s.ref_id
-    WHERE s.db_id = {db_id} AND d.ref_id = 0;
     '''.format(source_file=self.input_sample_file, db_id=self.db_id)
 
     self.executeCommands(load_sample_cmd)
     self.logger.info("finish loading oracle sample data from {}".format(self.input_sample_file))
-
 
   def executeCommands(self, commands):
     for cmd in commands.split(";"):
@@ -322,7 +309,8 @@ class OracleLoad:
       begin = datetime.datetime.now().strftime("%H:%M:%S")
       self.load_tables()
       self.load_fields()
-      self.load_sample()
+      if self.collect_sample:
+        self.load_sample()
       end = datetime.datetime.now().strftime("%H:%M:%S")
       self.logger.info("Load Oracle metadata [%s -> %s]" % (str(begin), str(end)))
     finally:
