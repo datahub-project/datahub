@@ -12,3 +12,6 @@ unzip ../../wherehows-backend/build/distributions/wherehows-backend.zip -d tmp
 
 docker build --force-rm -t linkedin/wherehows-backend:$VERSION .
 docker build --force-rm -t linkedin/wherehows-backend:latest .
+
+# Clean up
+rm -rf tmp

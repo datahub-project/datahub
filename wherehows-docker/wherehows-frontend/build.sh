@@ -12,3 +12,6 @@ unzip ../../wherehows-frontend/build/distributions/wherehows-frontend.zip -d tmp
 
 docker build --force-rm -t linkedin/wherehows-frontend:$VERSION .
 docker build --force-rm -t linkedin/wherehows-frontend:latest .
+
+# Clean up
+rm -rf tmp
