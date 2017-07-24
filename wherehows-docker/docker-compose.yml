@@ -3,12 +3,24 @@ services:
   wherehows-mysql:
     image: "linkedin/wherehows-mysql:latest"
     ports:
-      - "3306:3306"
+      - "3307:3306"
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: "yes"
       MYSQL_DATABASE: ${WHZ_DB_NAME}
       MYSQL_USER: ${WHZ_DB_USERNAME}
       MYSQL_PASSWORD: ${WHZ_DB_PASSWORD}
+  wherehows-elasticsearch:
+    image: "linkedin/wherehows-elasticsearch:latest"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      http.host: "0.0.0.0"
+      transport.host: "127.0.0.1"
+    ulimits:
+       memlock:
+         soft: -1
+         hard: -1
   wherehows-backend:
     image: "linkedin/wherehows-backend:latest"
     ports:
@@ -21,6 +33,7 @@ services:
     command: dockerize -wait tcp://wherehows-mysql:3306 -timeout 120s bin/playBinary
     links:
       - "wherehows-mysql:wherehows-mysql"
+      - "wherehows-elasticsearch:wherehows-elasticsearch"
   wherehows-frontend:
     image: "linkedin/wherehows-frontend:latest"
     ports:
@@ -36,3 +49,4 @@ services:
     command: dockerize -wait tcp://wherehows-mysql:3306 -timeout 120s bin/playBinary
     links:
       - "wherehows-mysql:wherehows-mysql"
+      - "wherehows-elasticsearch:wherehows-elasticsearch"

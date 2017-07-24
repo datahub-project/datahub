@@ -12,11 +12,12 @@ fi
 
 # Build the application's distribution zip
 (cd .. && ./gradlew dist)
-  
+
 # Build docker images
 (cd wherehows-frontend && ./build.sh $VERSION)
 (cd wherehows-backend && ./build.sh $VERSION)
 (cd wherehows-mysql && ./build.sh $VERSION)
+(cd wherehows-elasticsearch && ./build.sh $VERSION)
 
 cd ..
 echo "now run this to start the application:"
