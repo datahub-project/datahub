@@ -11,5 +11,3 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
 ADD tmp/wherehows-frontend /application
 WORKDIR /application
 RUN mkdir -p logs
-
-CMD bin/playBinary
