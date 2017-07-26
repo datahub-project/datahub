@@ -13,5 +13,3 @@ WORKDIR /application
 RUN mkdir -p logs/etl
 ENV WHZ_ETL_JOBS_DIR=/application/jobs
 ENV WHZ_ETL_TEMP_DIR=/application/logs/etl
-
-CMD bin/playBinary
