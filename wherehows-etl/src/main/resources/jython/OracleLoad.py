@@ -18,7 +18,6 @@ import os
 import sys
 
 from com.ziclix.python.sql import zxJDBC
-from distutils.util import strtobool
 from org.slf4j import LoggerFactory
 from wherehows.common import Constant
 
@@ -48,7 +47,7 @@ class OracleLoad:
 
     self.collect_sample = False
     if Constant.ORA_LOAD_SAMPLE in args:
-      self.collect_sample = strtobool(args[Constant.ORA_LOAD_SAMPLE])
+      self.collect_sample = FileUtil.parse_bool(args[Constant.ORA_LOAD_SAMPLE], False)
 
     self.logger.info("Load Oracle Metadata into {}, db_id {}, wh_exec_id {}"
                      .format(JDBC_URL, self.db_id, self.wh_etl_exec_id))
