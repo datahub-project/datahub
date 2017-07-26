@@ -104,3 +104,19 @@ CREATE TABLE job_attempt_source_code  (
 )
 ENGINE = InnoDB
 DEFAULT CHARSET = utf8;
+
+CREATE TABLE `job_execution_script` (
+  `app_id` int(11) NOT NULL,
+  `job_id` int(11) NOT NULL,
+  `script_name` varchar(512) NOT NULL DEFAULT '',
+  `script_path` varchar(128) DEFAULT NULL,
+  `script_type` varchar(16) NOT NULL,
+  `chain_name` varchar(30) DEFAULT NULL,
+  `job_name` varchar(30) DEFAULT NULL,
+  `committer_name` varchar(128) NOT NULL DEFAULT '',
+  `committer_email` varchar(128) DEFAULT NULL,
+  `committer_ldap` varchar(30) DEFAULT NULL,
+  `commit_time` datetime DEFAULT NULL,
+  `script_url` varchar(512) DEFAULT NULL,
+  PRIMARY KEY (`app_id`,`job_id`,`script_name`(100),`committer_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

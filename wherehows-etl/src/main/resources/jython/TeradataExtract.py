@@ -13,19 +13,17 @@
 #
 
 import datetime
+import FileUtil
 import json
 import os
 import re
 import sys
 
 from com.ziclix.python.sql import zxJDBC
-from distutils.util import strtobool
+from org.slf4j import LoggerFactory
 from wherehows.common.schemas import SampleDataRecord
 from wherehows.common.writers import FileWriter
 from wherehows.common import Constant
-from org.slf4j import LoggerFactory
-
-import FileUtil
 
 
 class TeradataExtract:
@@ -33,11 +31,11 @@ class TeradataExtract:
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
 
   def get_view_info(self, database_name, view_name):
-    '''
+    """
     :param database_name:
     :param view_name:
     :return:
-    '''
+    """
     view_cols = []
     curs_vw = self.conn_td.cursor()
     view_sql = '''
@@ -113,12 +111,12 @@ class TeradataExtract:
     return view_cols
 
   def get_table_info(self, database_name, table_name):
-    '''
+    """
     get table, column info from teradata DBC.Tables
     :param database_name:
     :param table_name: not used in common case
     :return:
-    '''
+    """
     td_table_name_filter = ''
     if not database_name is None:
       td_database_name = database_name
@@ -229,11 +227,11 @@ class TeradataExtract:
     return rows
 
   def get_extra_table_info(self, database_name):
-    '''
+    """
     Index, Partition, Size info
     :param database_name:
     :return: size, partition, indice
-    '''
+    """
     table_size_sql = """select RTrim(TableName), cast(sum(CurrentPerm)/1024/1024 as BIGINT) size_in_mb
         from DBC.TableSize where DatabaseName = '%s'
         AND TableName NOT LIKE ALL ('INFA%%', 'tmp!_%%', 'temp!_%%', '!_%%', '#%%' 'ET!_%%', 'LS!_%%', 'VT!_%%', 'LOGTABLE%%', 'backup%%', 'bkp%%', 'W!_%%') ESCAPE '!'
@@ -324,13 +322,13 @@ class TeradataExtract:
     return extra_table_info
 
   def format_view_metadata(self, rows, schema):
-    '''
+    """
     add view info from rows into schema
     note : view's original name is the same as full name
     :param rows:
     :param schema:
     :return:
-    '''
+    """
     db_dict = {}
     table_dict = {}
     for row in rows:
@@ -362,12 +360,12 @@ class TeradataExtract:
       datetime.datetime.now(), table_idx + 1, len(rows), row[0]))
 
   def format_table_metadata(self, rows, schema):
-    '''
+    """
     add table info from rows into schema
     :param rows: input. each row is a database with all it's tables
     :param schema: {database : _, type : _, tables : ['name' : _, ... 'original_name' : _] }
     :return:
-    '''
+    """
     db_dict = {}
     table_dict = {}
     db_idx = len(schema) - 1
@@ -551,7 +549,7 @@ if __name__ == "__main__":
   e.conn_td = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   do_sample = False
   if Constant.TD_LOAD_SAMPLE in args:
-    do_sample = strtobool(args[Constant.TD_LOAD_SAMPLE])
+    do_sample = FileUtil.parse_bool(args[Constant.TD_LOAD_SAMPLE], False)
 
   if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
     do_sample = False
