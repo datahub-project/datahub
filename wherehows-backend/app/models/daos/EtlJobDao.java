@@ -13,47 +13,44 @@
  */
 package models.daos;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import metadata.etl.models.EtlJobName;
 import metadata.etl.models.EtlJobStatus;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.support.KeyHolder;
 import play.libs.Time;
 import utils.JdbcUtil;
-import utils.JsonUtil;
-
-import java.sql.SQLException;
 
 
 /**
  * Created by zechen on 9/25/15.
  */
 public class EtlJobDao {
-  public static final String GET_ALL_SCHEDULED_JOBS = "SELECT * FROM wh_etl_job_schedule";
+
+  public static final String GET_ALL_SCHEDULED_JOBS =
+      "SELECT wh_etl_job_name, enabled, next_run FROM wh_etl_job_schedule";
 
   public static final String UPDATE_NEXT_RUN =
-    "REPLACE INTO wh_etl_job_schedule(wh_etl_job_name, next_run) VALUES (:whEtlJobName, :nextRun)";
+      "INSERT INTO wh_etl_job_schedule (wh_etl_job_name, enabled, next_run) VALUES (:whEtlJobName, :enabled, :nextRun) "
+          + "ON DUPLICATE KEY UPDATE next_run = :nextRun";
 
   public static final String INSERT_NEW_RUN = "INSERT INTO wh_etl_job_history(wh_etl_job_name, status, request_time) "
-    + "VALUES (:whEtlJobName, :status, :requestTime)";
+      + "VALUES (:whEtlJobName, :status, :requestTime)";
 
   public static final String START_RUN =
-    "UPDATE wh_etl_job_history set status = :status, message = :message, start_time = :startTime where wh_etl_exec_id = :whEtlExecId";
+      "UPDATE wh_etl_job_history set status = :status, message = :message, start_time = :startTime where wh_etl_exec_id = :whEtlExecId";
 
   public static final String END_RUN =
-    "UPDATE wh_etl_job_history set status = :status, message = :message, end_time = :endTime where wh_etl_exec_id = :whEtlExecId";
+      "UPDATE wh_etl_job_history set status = :status, message = :message, end_time = :endTime where wh_etl_exec_id = :whEtlExecId";
 
   public static final String UPDATE_JOB_PROCESS_ID_AND_HOSTNAME =
-    "UPDATE wh_etl_job_history SET process_id=?, host_name=? WHERE wh_etl_exec_id =?";
+      "UPDATE wh_etl_job_history SET process_id=?, host_name=? WHERE wh_etl_exec_id =?";
 
-
+  /**
+   * Get all scheduled jobs from DB
+   */
   public static List<Map<String, Object>> getAllScheduledJobs() throws Exception {
     return JdbcUtil.wherehowsJdbcTemplate.queryForList(GET_ALL_SCHEDULED_JOBS);
   }
@@ -61,17 +58,16 @@ public class EtlJobDao {
   /**
    * Update the next run time for the etl job using Quartz cron expression
    */
-  public static void updateNextRun(String etlJobName, String cronExprStr, Date startTime)
-    throws Exception {
+  public static void updateNextRun(String etlJobName, String cronExprStr, Date startTime) throws Exception {
     Time.CronExpression cronExpression = new Time.CronExpression(cronExprStr);
     Date nextTime = cronExpression.getNextValidTimeAfter(startTime);
     updateNextRun(etlJobName, nextTime);
   }
 
-  public static void updateNextRun(String etlJobName, Date nextTime)
-    throws Exception {
+  public static void updateNextRun(String etlJobName, Date nextTime) throws Exception {
     Map<String, Object> params = new HashMap<>();
     params.put("nextRun", String.valueOf(nextTime.getTime() / 1000));
+    params.put("enabled", true);
     params.put("whEtlJobName", etlJobName);
     JdbcUtil.wherehowsNamedJdbcTemplate.update(UPDATE_NEXT_RUN, params);
   }
@@ -103,8 +99,7 @@ public class EtlJobDao {
     JdbcUtil.wherehowsNamedJdbcTemplate.update(END_RUN, params);
   }
 
-  public static void updateJobProcessInfo(long whEtlExecId, int processId, String hostname)
-      throws DataAccessException {
+  public static void updateJobProcessInfo(long whEtlExecId, int processId, String hostname) throws DataAccessException {
     JdbcUtil.wherehowsJdbcTemplate.update(UPDATE_JOB_PROCESS_ID_AND_HOSTNAME, processId, hostname, whEtlExecId);
   }
 }

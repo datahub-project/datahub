@@ -16,7 +16,9 @@
 CREATE TABLE `wh_etl_job_schedule` (
   `wh_etl_job_name` VARCHAR(127)  NOT NULL
   COMMENT 'etl job name',
-  `next_run` INT(10) UNSIGNED     DEFAULT NULL
+  `enabled`         BOOLEAN       DEFAULT NULL
+  COMMENT 'job currently enabled or disabled',
+  `next_run`        INT(10) UNSIGNED     DEFAULT NULL
   COMMENT 'next run time',
   PRIMARY KEY (`wh_etl_job_name`),
   UNIQUE KEY `etl_unique` (`wh_etl_job_name`)
