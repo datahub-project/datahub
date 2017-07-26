@@ -1,4 +1,6 @@
-# Fetch Hive and Dali dataset metadata on Holdem
+# Fetch Hive dataset metadata
+
+# Common ETL configs
 job.class=metadata.etl.dataset.hive.HiveMetadataEtl
 job.cron.expr=0 0 19 * * ? *
 job.timeout=12000
@@ -6,26 +8,50 @@ job.timeout=12000
 #job.disabled=1
 job.ref.id=65
 
-hdfs.namenode.ipc.uri=your_namenode_ipc_uri
+# hive metastore jdbc url
+hive.metastore.jdbc.url=your_metastore_jdb_url
+
+# hive metastore jdbc driver
+hive.metastore.jdbc.driver=com.mysql.jdbc.Driver
+
+# hive metastore user name
+hive.metastore.username=your_metastore_username
+
+# hive metastore password
+hive.metastore.password=your_metastore_password
 
 hive.database_black_list=your_databsae_black_list
+
 hive.database_white_list=your_database_white_list
-hive.dependency_csv_file=/var/tmp/hive_dependency.csv
-hive.field_metadata=/var/tmp/hive_field_metadata.csv
-hive.hdfs_map_csv_file=/var/tmp/hive_hdfs_map.csv
-hive.instance_csv_file=/var/tmp/hive_instance.csv
-hive.metastore.jdbc.driver=com.mysql.jdbc.Driver
-hive.metastore.jdbc.url=your_metastore_jdb_url
-hive.metastore.password=your_metastore_password
-hive.metastore.username=your_metastore_username
+
+# Place to store the schema csv file
 hive.schema_csv_file=/var/tmp/hive_schema.csv
+
+# Place to store the schema json file
 hive.schema_json_file=/var/tmp/hive_schema.json
 
-innodb_lock_wait_timeout=1500
+# Place to store the field metadata csv file
+hive.field_metadata=/var/tmp/hive_field_metadata.csv
 
+# Place to store the hdfs map csv file
+hive.hdfs_map_csv_file=/var/tmp/hive_hdfs_map.csv
+
+# Place to store the hive instance csv file
+hive.instance_csv_file=/var/tmp/hive_instance.csv
+
+# Place to store the dependency csv file
+hive.dependency_csv_file=/var/tmp/hive_dependency.csv
+
+# HDFS namenode IPC URI
+hdfs.namenode.ipc.uri=your_namenode_ipc_uri
+
+# Enable/disable kerberos authentication & related configs
 kerberos.auth=True
 kerberos.keytab.file=your_keytab_file
 kerberos.principal=your_principal
 
 krb5.kdc=your_kdc
 krb5.realm=your_realm
+
+# innodb_lock_wait_timeout when accessing MySQL Db
+innodb_lock_wait_timeout=1500
