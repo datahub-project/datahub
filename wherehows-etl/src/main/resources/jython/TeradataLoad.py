@@ -13,15 +13,13 @@
 #
 
 import datetime
+import FileUtil
 import os
 import sys
 
 from com.ziclix.python.sql import zxJDBC
-from distutils.util import strtobool
-from wherehows.common import Constant
 from org.slf4j import LoggerFactory
-
-import FileUtil
+from wherehows.common import Constant
 
 
 class TeradataLoad:
@@ -416,7 +414,7 @@ if __name__ == "__main__":
 
   do_sample = False
   if Constant.TD_LOAD_SAMPLE in args:
-    do_sample = strtobool(args[Constant.TD_LOAD_SAMPLE])
+    do_sample = FileUtil.parse_bool(args[Constant.TD_LOAD_SAMPLE], False)
 
   if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
     do_sample = False

@@ -20,7 +20,6 @@ import os
 import sys
 
 from com.ziclix.python.sql import zxJDBC
-from distutils.util import strtobool
 from org.slf4j import LoggerFactory
 from wherehows.common import Constant
 
@@ -276,7 +275,7 @@ class OracleExtract:
             row_data.append(unicode(value, errors='ignore'))
         sample_data.append(row_data)
     except Exception as ex:
-      self.logger.error("Error fetch sample for {}: {}".format(table_fullname, ex.message))
+      self.logger.error("Error fetch sample for {}: {}".format(table_fullname, str(ex)))
       return
 
     cursor.close()
@@ -352,10 +351,11 @@ if __name__ == "__main__":
 
   e = OracleExtract()
   e.conn_db = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+
+  exclude_databases = filter(bool, args[Constant.ORA_EXCLUDE_DATABASES_KEY].split(','))
   collect_sample = False
   if Constant.ORA_LOAD_SAMPLE in args:
-    collect_sample = strtobool(args[Constant.ORA_LOAD_SAMPLE])
-  exclude_databases = filter(bool, args[Constant.ORA_EXCLUDE_DATABASES_KEY].split(','))
+    collect_sample = FileUtil.parse_bool(args[Constant.ORA_LOAD_SAMPLE], False)
 
   temp_dir = FileUtil.etl_temp_dir(args, "ORACLE")
   table_output_file = os.path.join(temp_dir, args[Constant.ORA_SCHEMA_OUTPUT_KEY])

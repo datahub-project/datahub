@@ -14,6 +14,7 @@
 
 import os
 
+from distutils.util import strtobool
 from wherehows.common import Constant
 
 def etl_temp_dir(args, etl_type):
@@ -24,3 +25,17 @@ def etl_temp_dir(args, etl_type):
     return dir
 
 
+def parse_bool(value, default):
+    """
+    parse string to bool value, if error, return default.
+    True values are y, yes, t, true, on and 1; false values are n, no, f, false, off and 0.
+    :param value: input string value
+    :param default: default output value (True/False) if parsing error
+    :return: boolean
+    """
+    try:
+        # Use 'strtobool'. True values are y, yes, t, true, on and 1; false values are n, no, f, false, off and 0.
+        # Raises ValueError if val is anything else.
+        return strtobool(value)
+    except ValueError:
+        return default
