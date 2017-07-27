@@ -27,11 +27,13 @@ import wherehows.common.schemas.Record;
 public class StringUtil {
 
   public static String toDbString(Object object) {
-    if (object != null) {
-      return "'" + object.toString().replace("\\", "\\\\").replace("\'", "\\\'").replace("\"", "\\\"") + "'";
-    } else {
+    if (object == null) {
       return "null";
     }
+    if (object instanceof Boolean) {
+      return (Boolean) object ? "true" : "false";
+    }
+    return "'" + object.toString().replace("\\", "\\\\").replace("\'", "\\\'").replace("\"", "\\\"") + "'";
   }
 
   public static String toCsvString(Object object) {
