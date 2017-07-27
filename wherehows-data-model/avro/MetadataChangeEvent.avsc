@@ -66,118 +66,157 @@
       "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
     },
     {
-      "name": "urn",
-      "type": [
-        "null",
-        "string"
-      ],
-      "doc": "The applicable URN - urn:li:dataset:(urn:li:dataPlatform:dali, search_mp.search_event_event, PROD), urn:salesforce:table:opportunity, arn:aws:dynamodb::<account>:table/<table>. This is the preferred identifier for a dataset."
-    },
-    {
       "name": "datasetIdentifier",
-      "type": [
-        "null",
-        {
-          "type": "record",
-          "name": "DatasetIdentifier",
-          "fields": [
-            {
-              "name": "dataPlatformUrn",
-              "type": "string",
-              "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+      "type": {
+        "type": "record",
+        "name": "DatasetIdentifier",
+        "fields": [
+          {
+            "name": "dataPlatformUrn",
+            "type": "string",
+            "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+          },
+          {
+            "name": "nativeName",
+            "type": "string",
+            "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
+          },
+          {
+            "name": "dataOrigin",
+            "type": {
+              "type": "enum",
+              "name": "DataOrigin",
+              "symbols": [
+                "PROD",
+                "CORP",
+                "EI",
+                "DEV"
+              ]
             },
-            {
-              "name": "nativeName",
-              "type": "string",
-              "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
-            },
-            {
-              "name": "dataOrigin",
-              "type": {
-                "type": "enum",
-                "name": "DeploymentTier",
-                "symbols": [
-                  "PROD",
-                  "CORP",
-                  "GRID",
-                  "PREPROD",
-                  "CANARY",
-                  "DMZ",
-                  "STG",
-                  "UAT",
-                  "UAT1",
-                  "UAT2",
-                  "UAT3",
-                  "QA",
-                  "QA1",
-                  "QA2",
-                  "QA3",
-                  "EI",
-                  "EI1",
-                  "EI2",
-                  "EI3",
-                  "QEI",
-                  "QEI1",
-                  "QEI2",
-                  "QEI3",
-                  "TEST",
-                  "LIT",
-                  "SIT",
-                  "INT",
-                  "DEV",
-                  "LOCAL",
-                  "ARCHIVE",
-                  "DROPBOX",
-                  "SANDBOX",
-                  "POC"
-                ]
-              },
-              "doc": "Origin/Source Tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
-              "default": "PROD"
-            }
-          ]
-        }
-      ],
-      "doc": "This has the same function as URN, but it can be used when the source system does not provide the URN"
+            "doc": "Origin/Source tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
+            "default": "PROD"
+          }
+        ]
+      },
+      "doc": "Unique Identifier of a dataset, which contains three parts: dataPlatform, name, origin"
     },
     {
-      "name": "datasetProperties",
+      "name": "changeAuditStamp",
+      "type": {
+        "type": "record",
+        "name": "ChangeAuditStamp",
+        "fields": [
+          {
+            "name": "actorUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
+          },
+          {
+            "name": "impersonatorUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "urn:li:group:espresso-sre, urn:li:team:xyz, urn:li:service:money"
+          },
+          {
+            "name": "type",
+            "type": {
+              "type": "enum",
+              "name": "ChangeType",
+              "symbols": [
+                "CREATE",
+                "UPDATE",
+                "DELETE"
+              ]
+            },
+            "doc": "Type of change"
+          },
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "Epoch",
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "references",
+            "type": [
+              "null",
+              {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "record",
+                    "name": "JiraReference",
+                    "fields": [
+                      {
+                        "name": "jiraIssue",
+                        "type": "string",
+                        "doc": "jira issue number: META-123"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "ReviewBoardReference",
+                    "fields": [
+                      {
+                        "name": "reviewId",
+                        "type": "int",
+                        "doc": "review id: 123"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "WikiReference",
+                    "fields": [
+                      {
+                        "name": "wikiUrl",
+                        "type": "string",
+                        "doc": "wiki url"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "record",
+                    "name": "ScmReference",
+                    "fields": [
+                      {
+                        "name": "scmUrl",
+                        "type": "string",
+                        "doc": "source code url in SCM: git://abc, svn://abc"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "doc": "Array of reference info, e.g. links to records in other systems that resulted in this metadata change."
+          },
+          {
+            "name": "note",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Extra detail about the changes"
+          }
+        ]
+      },
+      "doc": "The change auditing information, including actor, change type and timestamp, etc"
+    },
+    {
+      "name": "datasetProperty",
       "type": [
         "null",
         {
           "type": "record",
           "name": "DatasetProperty",
           "fields": [
-            {
-              "name": "changeAuditStamp",
-              "type": {
-                "type": "record",
-                "name": "ChangeAuditStamp",
-                "fields": [
-                  {
-                    "name": "actorUrn",
-                    "type": "string",
-                    "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
-                  },
-                  {
-                    "name": "type",
-                    "type": "string",
-                    "doc": "CREATE, UPDATE, DELETE"
-                  },
-                  {
-                    "name": "time",
-                    "type": "long",
-                    "doc": "Epoch",
-                    "logicalType": "timestamp-millis"
-                  },
-                  {
-                    "name": "note",
-                    "type": "string",
-                    "doc": "Extra detail about the changes"
-                  }
-                ]
-              }
-            },
             {
               "name": "nativeType",
               "type": {
@@ -203,8 +242,7 @@
                 "null",
                 "string"
               ],
-              "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts.",
-              "default": null
+              "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
             },
             {
               "name": "caseSensitivity",
@@ -239,113 +277,81 @@
           ]
         }
       ],
-      "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, Audit Stamp"
+      "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, URI"
     },
     {
       "name": "owners",
-      "type": {
-        "type": "array",
-        "items": {
-          "type": "record",
-          "name": "OwnerInfo",
-          "fields": [
-            {
-              "name": "ownerCategory",
-              "type": {
-                "type": "enum",
-                "name": "OwnerCategory",
-                "symbols": [
-                  "OWNER",
-                  "PRODUCER",
-                  "DELEGATE",
-                  "STAKEHOLDER"
-                ]
-              },
-              "doc": "Owner, Producer, Delegate, Stakeholder",
-              "default": "OWNER"
-            },
-            {
-              "name": "owner",
-              "type": "string",
-              "doc": "urn:li:corp:ldap, urn:li:group:abc, urn:li:service:mp_name, user_id, group_name"
-            },
-            {
-              "name": "ownerType",
-              "type": {
-                "type": "enum",
-                "name": "OwnerType",
-                "symbols": [
-                  "URN",
-                  "USER",
-                  "GROUP",
-                  "ROLE",
-                  "SERVICE"
-                ]
-              },
-              "doc": "user, group, role, service, or urn",
-              "default": "URN"
-            },
-            {
-              "name": "ownerSource",
-              "type": "string",
-              "doc": "JIRA,SCM,RB,DB,FS,AUDIT,NUAGE from where the owner id is extracted"
-            }
-          ]
-        }
-      },
-      "default": []
-    },
-    {
-      "name": "references",
       "type": [
         "null",
         {
           "type": "array",
           "items": {
             "type": "record",
-            "name": "Reference",
+            "name": "OwnerInfo",
             "fields": [
               {
-                "name": "referenceType",
+                "name": "ownerCategory",
                 "type": {
                   "type": "enum",
-                  "name": "ReferenceType",
+                  "name": "OwnerCategory",
                   "symbols": [
-                    "JIRA",
-                    "RB",
-                    "LIX",
-                    "CR",
-                    "WIKI",
-                    "SCM"
+                    "DATA_OWNER",
+                    "PRODUCER",
+                    "DELEGATE",
+                    "STAKEHOLDER",
+                    "CONSUMER"
                   ]
-                }
-              },
-              {
-                "name": "referenceFormat",
-                "type": {
-                  "type": "enum",
-                  "name": "ReferenceFormat",
-                  "symbols": [
-                    "ID",
-                    "URN",
-                    "URL",
-                    "URI"
-                  ]
-                }
-              },
-              {
-                "name": "referenceList",
-                "type": {
-                  "type": "array",
-                  "items": "string"
                 },
-                "doc": "list of reference ids, keys or uris"
+                "doc": "The category of the owner role"
+              },
+              {
+                "name": "owner",
+                "type": "string",
+                "doc": "urn:li:corp:ldap, urn:li:group:abc, urn:li:service:mp_name, user_id, group_name"
+              },
+              {
+                "name": "ownerType",
+                "type": {
+                  "type": "enum",
+                  "name": "OwnerType",
+                  "symbols": [
+                    "URN",
+                    "USER",
+                    "GROUP",
+                    "ROLE",
+                    "SERVICE",
+                    "MULTIPRODUCT"
+                  ]
+                },
+                "doc": "user, group, role, service, or urn"
+              },
+              {
+                "name": "ownershipProvider",
+                "type": [
+                  "null",
+                  {
+                    "type": "enum",
+                    "name": "OwnershipProvider",
+                    "symbols": [
+                      "SCM",
+                      "NUAGE",
+                      "SOS",
+                      "JIRA",
+                      "RB",
+                      "DB",
+                      "FS",
+                      "AUDIT",
+                      "OTHER"
+                    ]
+                  }
+                ],
+                "doc": "The provider or source of the ownership information"
               }
             ]
           }
         }
       ],
-      "default": null
+      "doc": "A complete list of owners info"
     },
     {
       "name": "partitionSpec",
@@ -358,11 +364,10 @@
             {
               "name": "totalPartitionLevel",
               "type": [
-                "int",
-                "null"
+                "null",
+                "int"
               ],
-              "doc": "What is the deepest partition level",
-              "default": 1
+              "doc": "What is the deepest partition level, start at level 1. See Composite partitioning in https://en.wikipedia.org/wiki/Partition_(database)"
             },
             {
               "name": "partitionSpecText",
@@ -370,26 +375,23 @@
                 "null",
                 "string"
               ],
-              "doc": "Original partition DDL",
-              "default": null
+              "doc": "Original partition spec or DDL"
             },
             {
               "name": "hasTimePartition",
               "type": [
-                "boolean",
-                "null"
+                "null",
+                "boolean"
               ],
-              "doc": "Does the dataset contain time partition?",
-              "default": false
+              "doc": "Does the dataset contain time partition?"
             },
             {
               "name": "hasHashPartition",
               "type": [
-                "boolean",
-                "null"
+                "null",
+                "boolean"
               ],
-              "doc": "Does the dataset contain hash/shard partition?",
-              "default": false
+              "doc": "Does the dataset contain hash/shard partition?"
             },
             {
               "name": "partitionKeys",
@@ -421,14 +423,6 @@
                         }
                       },
                       {
-                        "name": "timeGranularity",
-                        "type": [
-                          "null",
-                          "string"
-                        ],
-                        "doc": "The most granular level: Month, Week, Day, Hour, Minute or Second"
-                      },
-                      {
                         "name": "timeFormat",
                         "type": [
                           "null",
@@ -442,7 +436,7 @@
                           "type": "array",
                           "items": "string"
                         },
-                        "doc": "Partition keys (use the full field path for nested fields)",
+                        "doc": "Partition keys (use the full field path for nested fields, e.g. header.time)",
                         "default": []
                       },
                       {
@@ -451,7 +445,7 @@
                           "type": "array",
                           "items": "string"
                         },
-                        "doc": "For RANGE: [min, next_partition_min_value); for LIST: [value1, value2...], for CASE: [expr1, expr2]; for Hive: [value]; for HASH: N/A",
+                        "doc": "The complete array of partition values. For RANGE: [min, next_partition_min_value); for LIST: [value1, value2...], for CASE: [expr1, expr2]; for Hive: [value]; for HASH: N/A",
                         "default": []
                       },
                       {
@@ -466,16 +460,7 @@
                   }
                 }
               ],
-              "doc": "Array of partition keys/fields",
-              "default": null
-            },
-            {
-              "name": "timePartitionExpression",
-              "type": [
-                "null",
-                "string"
-              ],
-              "doc": "ds=yyyy-MM-dd/ts=HH, datepartition=yyyy-MM-dd-HH, or dt=yyyyMMdd"
+              "doc": "Array of partition keys/fields"
             }
           ]
         }
@@ -494,7 +479,45 @@
             "fields": [
               {
                 "name": "deploymentTier",
-                "type": "DeploymentTier",
+                "type": {
+                  "type": "enum",
+                  "name": "DeploymentTier",
+                  "symbols": [
+                    "PROD",
+                    "CORP",
+                    "GRID",
+                    "PREPROD",
+                    "CANARY",
+                    "DMZ",
+                    "STG",
+                    "UAT",
+                    "UAT1",
+                    "UAT2",
+                    "UAT3",
+                    "QA",
+                    "QA1",
+                    "QA2",
+                    "QA3",
+                    "EI",
+                    "EI1",
+                    "EI2",
+                    "EI3",
+                    "QEI",
+                    "QEI1",
+                    "QEI2",
+                    "QEI3",
+                    "TEST",
+                    "LIT",
+                    "SIT",
+                    "INT",
+                    "DEV",
+                    "LOCAL",
+                    "ARCHIVE",
+                    "DROPBOX",
+                    "SANDBOX",
+                    "POC"
+                  ]
+                },
                 "doc": "defined in [dataOrigin], such as DEV,TEST,PROD",
                 "default": "PROD"
               },
@@ -504,8 +527,7 @@
                   "null",
                   "string"
                 ],
-                "doc": "DC1, DC2, LTX3, LVA4, ...",
-                "default": null
+                "doc": "DC1, DC2, LTX3, LVA4, ..."
               },
               {
                 "name": "region",
@@ -513,8 +535,7 @@
                   "null",
                   "string"
                 ],
-                "doc": "Region name if applicable, such as us-central2, eu-west3",
-                "default": null
+                "doc": "Region name if applicable, such as us-central2, eu-west3"
               },
               {
                 "name": "zone",
@@ -522,8 +543,7 @@
                   "null",
                   "string"
                 ],
-                "doc": "Zone name or id if applicable, such as asia-east1-b, us-west1-a",
-                "default": null
+                "doc": "Zone name or id if applicable, such as asia-east1-b, us-west1-a"
               },
               {
                 "name": "cluster",
@@ -531,8 +551,7 @@
                   "null",
                   "string"
                 ],
-                "doc": "Cluster name or a comma-delimited list of Servers",
-                "default": null
+                "doc": "Cluster name or a comma-delimited list of Servers"
               },
               {
                 "name": "container",
@@ -540,14 +559,12 @@
                   "null",
                   "string"
                 ],
-                "doc": "Container or tenant name",
-                "default": null
+                "doc": "Container or tenant name"
               },
               {
                 "name": "enabled",
                 "type": "boolean",
-                "doc": "is the dataset instance enabled under this deployment environment",
-                "default": true
+                "doc": "is the dataset instance enabled under this deployment environment"
               },
               {
                 "name": "additionalDeploymentInfo",
@@ -561,15 +578,17 @@
           }
         }
       ],
-      "doc": "The deployment info",
-      "default": null
+      "doc": "The deployment info"
     },
     {
       "name": "tags",
-      "type": {
-        "type": "array",
-        "items": "string"
-      },
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
       "doc": "Tags of the dataset object"
     },
     {
@@ -586,8 +605,7 @@
                 "null",
                 "boolean"
               ],
-              "doc": "Is this reversion compatible with the previous revision? null means unknown",
-              "default": null
+              "doc": "Is this revision compatible with the previous revision? null means unknown"
             },
             {
               "name": "isFieldNameCaseSensitive",
@@ -634,10 +652,10 @@
               "doc": "description"
             },
             {
-              "name": "originalSchema",
+              "name": "rawSchema",
               "type": {
                 "type": "record",
-                "name": "OriginalSchema",
+                "name": "RawSchema",
                 "fields": [
                   {
                     "name": "format",
@@ -657,17 +675,34 @@
                     "default": "TEXT"
                   },
                   {
-                    "name": "text",
+                    "name": "content",
                     "type": "string",
                     "doc": "The raw schema content"
                   },
                   {
                     "name": "checksum",
-                    "type": {
-                      "type": "map",
-                      "values": "string"
-                    },
-                    "doc": "Map key can be MD5,SHA-1,CRC32. Checksum is hex string in lower case."
+                    "type": [
+                      "null",
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "SchemaChecksum",
+                          "fields": [
+                            {
+                              "name": "checksumType",
+                              "type": "string",
+                              "doc": "MD5, SHA-1, CRC32, etc"
+                            },
+                            {
+                              "name": "checksumValue",
+                              "type": "string",
+                              "doc": "checksum value"
+                            }
+                          ]
+                        }
+                      }
+                    ]
                   }
                 ]
               }
@@ -704,19 +739,17 @@
                   "type": "array",
                   "items": {
                     "type": "record",
-                    "name": "FieldSchemaRecord",
+                    "name": "FieldSchema",
                     "fields": [
                       {
                         "name": "position",
                         "type": "int",
-                        "doc": "Field position id, SORT_ID. Starting from 1",
-                        "default": 1
+                        "doc": "Field position id, SORT_ID. Starting from 1"
                       },
                       {
                         "name": "parentFieldPosition",
                         "type": "int",
-                        "doc": "Position id of the parent field for nested structure. 0 means this field is the top-level field",
-                        "default": 0
+                        "doc": "Position id of the parent field for nested structure. 0 means this field is a top-level field"
                       },
                       {
                         "name": "fieldPath",
@@ -741,11 +774,14 @@
                       },
                       {
                         "name": "aliases",
-                        "type": {
-                          "type": "array",
-                          "items": "string"
-                        },
-                        "doc": "Field aliaes."
+                        "type": [
+                          "null",
+                          {
+                            "type": "array",
+                            "items": "string"
+                          }
+                        ],
+                        "doc": "Field aliases."
                       },
                       {
                         "name": "type",
@@ -758,7 +794,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "logical data type when the native type is too generic, DateTime, NUMBER(15,2), GUID, Epoch(3), Epoch(0)"
+                        "doc": "when the native type is too generic, logical data type is specified. e.g. DateTime, NUMBER(15,2), GUID, Epoch(3), Epoch(0)"
                       },
                       {
                         "name": "semanticType",
@@ -766,7 +802,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "semantic data type. can be Urn, MemberId, Email, PhoneNumber, GroupName"
+                        "doc": "semantic data type. can be Urn, MemberId, Email, PhoneNumber, GroupName, etc. https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Taxonomy+for+Data+Sets"
                       },
                       {
                         "name": "abstractType",
@@ -783,7 +819,7 @@
                               "TIMESTAMP",
                               "ARRAY",
                               "MAP",
-                              "RECORD",
+                              "STRUCT",
                               "UNION"
                             ]
                           }
@@ -834,7 +870,7 @@
                           "null",
                           "string"
                         ],
-                        "doc": "ascii, utf8, utf16, latin, iso8859"
+                        "doc": "ascii, utf8, utf16, latin, etc. https://en.wikipedia.org/wiki/Character_encoding"
                       },
                       {
                         "name": "precision",
@@ -855,14 +891,13 @@
                       {
                         "name": "isRecursive",
                         "type": "boolean",
-                        "doc": "Does this field contains recursive structure?",
-                        "default": false
+                        "doc": "Does this field contains recursive structure?"
                       }
                     ]
                   }
                 }
               ],
-              "doc": "flattened/normalized field-level schema definition"
+              "doc": "flattened/normalized field-level schema definition with fully-qualified field path"
             },
             {
               "name": "changeDataCaptureFields",
@@ -891,43 +926,11 @@
                   ]
                 }
               }
-            },
-            {
-              "name": "auditFields",
-              "type": {
-                "type": "array",
-                "items": {
-                  "type": "record",
-                  "name": "AuditField",
-                  "fields": [
-                    {
-                      "name": "fieldPath",
-                      "type": "string",
-                      "doc": "field path"
-                    },
-                    {
-                      "name": "role",
-                      "type": {
-                        "type": "enum",
-                        "name": "AuditFieldType",
-                        "symbols": [
-                          "TOKEN",
-                          "DATA_TIME",
-                          "LOG_TIME",
-                          "TIME"
-                        ]
-                      }
-                    }
-                  ]
-                }
-              },
-              "default": []
             }
           ]
         }
       ],
-      "doc": "The schema/structure definition of a dataset. For Key-Value and Document db, a dedicated KeySchema is provided. Schema includes KeySchema, OriginalSchema, FieldSchema, ChangeDataCaptureFields, AuditFields",
-      "default": null
+      "doc": "The schema/structure definition of a dataset. For Key-Value and Document db, a dedicated KeySchema is provided. Schema includes KeySchema, OriginalSchema, FieldSchema, ChangeDataCaptureFields, AuditFields"
     },
     {
       "name": "constraints",
@@ -946,7 +949,7 @@
                   "name": "ConstraintType",
                   "symbols": [
                     "CONSTRAINT",
-                    "REFERETIAL",
+                    "REFERENTIAL",
                     "INDEX",
                     "DATAQUALITY",
                     "SECURITY"
@@ -990,7 +993,7 @@
                   "type": "array",
                   "items": {
                     "type": "record",
-                    "name": "ReferrenceField",
+                    "name": "ReferenceField",
                     "fields": [
                       {
                         "name": "position",
@@ -1010,18 +1013,14 @@
                 "name": "additionalReferences",
                 "type": [
                   "null",
-                  {
-                    "type": "map",
-                    "values": "string"
-                  }
+                  "string"
                 ],
-                "doc": "When map key = Index, the value = PK/AK index name; when key = Constraint, the value refers to another dataset's constraint, such as FK; when key = DataQuality, the value points to data quality rule."
+                "doc": "additional reference for constraint. When type = Index, refers to PK/AK index name; when type = Constraint, refers to another dataset's constraint, such as FK; when type = DataQuality, points to data quality rule."
               }
             ]
           }
         }
-      ],
-      "default": null
+      ]
     },
     {
       "name": "indices",
@@ -1036,7 +1035,7 @@
               {
                 "name": "indexType",
                 "type": "string",
-                "doc": "BTree, Hash, Fulltext, Normal"
+                "doc": "Original index type, e.g. BTree, Hash, Fulltext, Normal, etc"
               },
               {
                 "name": "indexName",
@@ -1068,13 +1067,20 @@
                         "doc": "Field name or expression"
                       },
                       {
-                        "name": "descend",
+                        "name": "ordering",
                         "type": [
                           "null",
-                          "string"
+                          {
+                            "type": "enum",
+                            "name": "DataOrdering",
+                            "symbols": [
+                              "ASC",
+                              "DESC",
+                              "UNORDERED"
+                            ]
+                          }
                         ],
-                        "doc": "ASC or DESC",
-                        "defualt": "ASC"
+                        "doc": "data ordering"
                       },
                       {
                         "name": "prefixLength",
@@ -1100,8 +1106,7 @@
             ]
           }
         }
-      ],
-      "default": null
+      ]
     },
     {
       "name": "capacity",
@@ -1160,22 +1165,21 @@
             ]
           }
         }
-      ],
-      "default": null
+      ]
     },
     {
-      "name": "privacyCompliancePolicy",
+      "name": "compliancePolicy",
       "type": [
         "null",
         {
           "type": "record",
-          "name": "PrivacyCompliancePolicy",
+          "name": "CompliancePolicy",
           "fields": [
             {
-              "name": "complianceType",
+              "name": "compliancePurgeType",
               "type": {
                 "type": "enum",
-                "name": "PrivacyComplianceType",
+                "name": "CompliancePurgeType",
                 "symbols": [
                   "AUTO_PURGE",
                   "CUSTOM_PURGE",
@@ -1185,269 +1189,215 @@
               }
             },
             {
-              "name": "compliancePurgeEntities",
+              "name": "complianceEntities",
               "type": [
                 "null",
                 {
                   "type": "array",
                   "items": {
                     "type": "record",
-                    "name": "PurgeableEntityField",
+                    "name": "ComplianceEntity",
                     "fields": [
                       {
-                        "name": "identifierType",
+                        "name": "fieldPath",
+                        "type": "string",
+                        "doc": "a fieldPath / pathspec to a field of the record schema"
+                      },
+                      {
+                        "name": "complianceDataType",
                         "type": {
                           "type": "enum",
-                          "name": "PurgeableEntityFieldIdentifierType",
+                          "name": "ComplianceDataType",
                           "symbols": [
+                            "NONE",
                             "MEMBER_ID",
                             "SUBJECT_MEMBER_ID",
-                            "URN",
-                            "SUBJECT_URN",
-                            "COMPANY_ID",
                             "GROUP_ID",
-                            "CUSTOMER_ID",
-                            "SUBJECT_CUSTOMER_ID"
+                            "COMPANY_ID",
+                            "MIXED_ID",
+                            "CUSTOM_ID",
+                            "EMAIL",
+                            "NAME",
+                            "PHONE",
+                            "ADDRESS",
+                            "LATITUDE_LONGITUDE",
+                            "CITY_STATE_REGION",
+                            "IP_ADDRESS",
+                            "FINANCIAL_NUMBER",
+                            "PAYMENT_INFO",
+                            "PASSWORD_CREDENTIAL",
+                            "AUTHENTICATION_TOKEN",
+                            "MESSAGE",
+                            "NATIONAL_ID",
+                            "SOCIAL_NETWORK_ID",
+                            "EVENT_TIME",
+                            "TRANSACTION_TIME",
+                            "COOKIE_BEACON_BROWSER_ID",
+                            "DEVICE_ID_ADVERTISING_ID"
                           ]
                         }
                       },
                       {
-                        "name": "identifierField",
-                        "type": "string",
-                        "doc": "a pathspec to a field inside of the record containing an identifier for a purgeable entity, e.g. header.memberId, header.viewerUrn, value.activity.actorUrn, etc."
+                        "name": "fieldFormat",
+                        "type": [
+                          "null",
+                          {
+                            "type": "enum",
+                            "name": "FieldFormat",
+                            "symbols": [
+                              "NUMERIC",
+                              "URN",
+                              "REVERSED_URN",
+                              "COMPOSITE_URN"
+                            ]
+                          }
+                        ],
+                        "doc": "Specify the optional field format"
+                      },
+                      {
+                        "name": "securityClassification",
+                        "type": {
+                          "type": "enum",
+                          "name": "SecurityClassification",
+                          "symbols": [
+                            "CONFIDENTIAL",
+                            "HIGHLY_CONFIDENTIAL",
+                            "LIMITED_DISTRIBUTION",
+                            "UNCLASSIFIED"
+                          ]
+                        },
+                        "doc": "Field security classification that governs data handling."
                       }
                     ]
                   }
                 }
               ],
-              "doc": "The fields which identify purgeable entities in records"
-            }
-          ]
-        }
-      ],
-      "doc": "Describe the purgeable entity fields",
-      "default": null
-    },
-    {
-      "name": "securitySpecification",
-      "type": [
-        "null",
-        {
-          "type": "record",
-          "name": "SecuritySpecification",
-          "fields": [
+              "doc": "The fields which identify compliance entities in records"
+            },
             {
-              "name": "classification",
+              "name": "datasetConfidentiality",
+              "type": "SecurityClassification",
+              "doc": "dataset level confidential category"
+            },
+            {
+              "name": "datasetClassification",
               "type": {
                 "type": "record",
-                "name": "ConfidentialClassification",
+                "name": "DatasetClassification",
                 "fields": [
                   {
-                    "name": "highlyConfidential",
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    ],
-                    "doc": "list of highly confidential fields",
-                    "default": null
+                    "name": "connectionsOrFollowersOrFollowing",
+                    "type": "boolean",
+                    "doc": "Dataset contains information about member connections, followers or following"
                   },
                   {
-                    "name": "confidential",
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    ],
-                    "doc": "list of confidential fields",
-                    "default": null
+                    "name": "profile",
+                    "type": "boolean",
+                    "doc": "Dataset contains member profile data"
                   },
                   {
-                    "name": "limitedDistribution",
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    ],
-                    "doc": "list of limited distribution fields",
-                    "default": null
+                    "name": "messaging",
+                    "type": "boolean",
+                    "doc": "Dataset contains messaging data, including both the message content and metadata (sender, receiver, time, etc)"
                   },
                   {
-                    "name": "mustBeEncrypted",
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    ],
-                    "doc": "list of fields that must be encrypted",
-                    "default": null
+                    "name": "thirdPartyIntegrationsInUse",
+                    "type": "boolean",
+                    "doc": "Dataset contains third party integration usage data"
                   },
                   {
-                    "name": "mustBeMasked",
-                    "type": [
-                      "null",
-                      {
-                        "type": "array",
-                        "items": "string"
-                      }
-                    ],
-                    "doc": "list of fields that must be masked",
-                    "default": null
+                    "name": "activity",
+                    "type": "boolean",
+                    "doc": "Dataset contains member activity information that is viewable to other members (newsfeed posts, blog posts, shares, likes, etc)"
+                  },
+                  {
+                    "name": "settings",
+                    "type": "boolean",
+                    "doc": "Dataset contains member personal settings"
+                  },
+                  {
+                    "name": "jobApplicationFlow",
+                    "type": "boolean",
+                    "doc": "Dataset contains job application flow information: job applications, resumes, application status, etc"
+                  },
+                  {
+                    "name": "enterpriseProduct",
+                    "type": "boolean",
+                    "doc": "Dataset contains enterprise product data: recruiter search data, sales navigator data, etc"
+                  },
+                  {
+                    "name": "accountStatus",
+                    "type": "boolean",
+                    "doc": "Dataset contains member account status: premium, sales navigator user, etc"
+                  },
+                  {
+                    "name": "addressBookImports",
+                    "type": "boolean",
+                    "doc": "Dataset contains address book import data or data derived from imported address book data"
+                  },
+                  {
+                    "name": "microsoftData",
+                    "type": "boolean",
+                    "doc": "Dataset contains data coming over from Microsoft"
+                  },
+                  {
+                    "name": "subsidiaryData",
+                    "type": "boolean",
+                    "doc": "Dataset contains data from companies LinkedIn acquired (Lynda, Slideshare, etc)"
+                  },
+                  {
+                    "name": "otherThirdPartyIntegrations",
+                    "type": "boolean",
+                    "doc": "Dataset contains other third party integrations: cell phone uploads, etc"
+                  },
+                  {
+                    "name": "device",
+                    "type": "boolean",
+                    "doc": "Dataset contains member device information: IP address, device ID, browser ID, etc"
+                  },
+                  {
+                    "name": "searchHistory",
+                    "type": "boolean",
+                    "doc": "Dataset contains search history on LinkedIn platforms"
+                  },
+                  {
+                    "name": "courseViewingHistory",
+                    "type": "boolean",
+                    "doc": "Dataset contains course viewing history on LinkedIn Learning"
+                  },
+                  {
+                    "name": "whoViewedMyProfile",
+                    "type": "boolean",
+                    "doc": "Dataset contains data that is ingested/created/inferred/derived in relation to providing the WVMP feature"
+                  },
+                  {
+                    "name": "profileViewsByMe",
+                    "type": "boolean",
+                    "doc": "Dataset contains data regarding which profiles a member viewed (member IDs for the other profiles, referring URLs, etc)"
+                  },
+                  {
+                    "name": "advertising",
+                    "type": "boolean",
+                    "doc": "Dataset contains advertising data: data from advertising partners, ad clicks/views, etc"
+                  },
+                  {
+                    "name": "usageOrErrorOrConnectivity",
+                    "type": "boolean",
+                    "doc": "Dataset contains member usage, error reporting or connectivity data"
+                  },
+                  {
+                    "name": "otherClickstreamOrBrowsingData",
+                    "type": "boolean",
+                    "doc": "Dataset contains other click-related data that doesn't fit into a bucket above."
                   }
                 ]
               },
-              "doc": "Classify the sensitive fields into 5 categories: HighlyConfidential, Confidential, LimitedDistribution, MustBeEncrypted, MustBeMasked. If every field is confidential, * can be used."
-            },
-            {
-              "name": "recordOwnerType",
-              "type": {
-                "type": "enum",
-                "name": "RecordOwnerType",
-                "symbols": [
-                  "MEMBER",
-                  "CUSTOMER",
-                  "JOINT",
-                  "INTERNAL",
-                  "COMPANY"
-                ]
-              }
-            },
-            {
-              "name": "retentionPolicy",
-              "type": [
-                "null",
-                {
-                  "type": "record",
-                  "name": "RetentionPolicy",
-                  "fields": [
-                    {
-                      "name": "retentionType",
-                      "type": {
-                        "type": "enum",
-                        "name": "RetentionType",
-                        "symbols": [
-                          "LIMITED",
-                          "LEGAL_HOLD",
-                          "UNLIMITED"
-                        ]
-                      },
-                      "doc": "Retention type on dataset"
-                    },
-                    {
-                      "name": "retentionWindow",
-                      "type": [
-                        "null",
-                        "long"
-                      ],
-                      "doc": "Time in (unit) how long data is retained for in case of LIMITED retention",
-                      "default": null
-                    },
-                    {
-                      "name": "retentionWindowUnit",
-                      "type": [
-                        "null",
-                        {
-                          "type": "enum",
-                          "name": "TimePeriodUnit",
-                          "symbols": [
-                            "YEAR",
-                            "MONTH",
-                            "WEEK",
-                            "DAY",
-                            "HOUR",
-                            "MINUTE",
-                            "SECOND",
-                            "MILLISECOND"
-                          ]
-                        }
-                      ],
-                      "default": null
-                    }
-                  ]
-                }
-              ],
-              "doc": "Retention"
-            },
-            {
-              "name": "geographicAffinity",
-              "type": [
-                "null",
-                {
-                  "type": "record",
-                  "name": "GeographicAffinity",
-                  "fields": [
-                    {
-                      "name": "affinity",
-                      "type": [
-                        "null",
-                        {
-                          "type": "enum",
-                          "name": "AffinityType",
-                          "symbols": [
-                            "LIMITED",
-                            "EXCLUDED"
-                          ]
-                        }
-                      ],
-                      "doc": "Affinity type",
-                      "default": null
-                    },
-                    {
-                      "name": "locations",
-                      "type": {
-                        "type": "array",
-                        "items": {
-                          "type": "record",
-                          "name": "Locale",
-                          "namespace": "com.linkedin.common",
-                          "fields": [
-                            {
-                              "name": "language",
-                              "type": "string",
-                              "doc": "A lowercase two-letter language code as defined by ISO-639."
-                            },
-                            {
-                              "name": "country",
-                              "type": [
-                                "null",
-                                "string"
-                              ],
-                              "doc": "An uppercase two-letter country code as defined by ISO-3166.",
-                              "default": null
-                            },
-                            {
-                              "name": "variant",
-                              "type": [
-                                "null",
-                                "string"
-                              ],
-                              "doc": "Vendor or browser-specific code.",
-                              "default": null
-                            }
-                          ]
-                        }
-                      },
-                      "doc": "List of locations data should be stored at"
-                    }
-                  ]
-                }
-              ],
-              "doc": "Geographic affinity if applicable",
-              "default": null
+              "doc": "dataset level classification: dataset contains such category of data or not, e.g. 'PROFILE_DATA':false"
             }
           ]
         }
       ],
-      "doc": "Classify the confidential specification",
-      "default": null
+      "doc": "Describe the purgeable entity fields"
     }
   ]
 }

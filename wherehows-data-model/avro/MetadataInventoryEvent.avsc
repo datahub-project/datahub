@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "MetadataInventoryEvent",
-  "namespace": "com.linkedin.events.wherehows",
+  "namespace": "com.linkedin.events.metadata",
   "fields": [
     {
       "name": "auditHeader",
@@ -13,13 +13,12 @@
           {
             "name": "time",
             "type": "long",
-            "doc": "The time at which the event was emitted into Kafka.",
-            "logicalType": "timestamp-millis"
+            "doc": "The time at which the event was emitted into kafka."
           },
           {
             "name": "server",
             "type": "string",
-            "doc": "The fully-qualified name of the host of this event."
+            "doc": "The fully qualified name of the host from which the event is being emitted."
           },
           {
             "name": "instance",
@@ -27,12 +26,12 @@
               "null",
               "string"
             ],
-            "doc": "The name of the application instance on the server. e.g. i002,stg05,group003"
+            "doc": "The instance on the server from which the event is being emitted. e.g. i001"
           },
           {
             "name": "appName",
             "type": "string",
-            "doc": "The name of the application/service from which the event is emitted."
+            "doc": "The name of the application from which the event is being emitted. see go/appname"
           },
           {
             "name": "messageId",
@@ -42,15 +41,29 @@
               "namespace": "com.linkedin.events",
               "size": 16
             },
-            "doc": "A unique identifier for the message."
+            "doc": "A unique identifier for the message"
+          },
+          {
+            "name": "auditVersion",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+            "default": null
+          },
+          {
+            "name": "fabricUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+            "default": null
           }
         ]
-      }
-    },
-    {
-      "name": "dataPlatformUrn",
-      "type": "string",
-      "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+      },
+      "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application. For more information see go/kafkaauditheader"
     },
     {
       "name": "datasetList",
@@ -58,95 +71,51 @@
         "type": "array",
         "items": {
           "type": "record",
-          "name": "DatasetIventoryItem",
+          "name": "DatasetInventoryItem",
           "fields": [
             {
-              "name": "nativeName",
-              "type": "string",
-              "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
-            },
-            {
-              "name": "dataOrigin",
+              "name": "datasetIdentifier",
               "type": {
-                "type": "enum",
-                "name": "DeploymentTier",
-                "symbols": [
-                  "PROD",
-                  "CORP",
-                  "GRID",
-                  "PREPROD",
-                  "CANARY",
-                  "DMZ",
-                  "STG",
-                  "UAT",
-                  "UAT1",
-                  "UAT2",
-                  "UAT3",
-                  "QA",
-                  "QA1",
-                  "QA2",
-                  "QA3",
-                  "EI",
-                  "EI1",
-                  "EI2",
-                  "EI3",
-                  "QEI",
-                  "QEI1",
-                  "QEI2",
-                  "QEI3",
-                  "TEST",
-                  "LIT",
-                  "SIT",
-                  "INT",
-                  "DEV",
-                  "LOCAL",
-                  "ARCHIVE",
-                  "DROPBOX",
-                  "SANDBOX",
-                  "POC"
+                "type": "record",
+                "name": "DatasetIdentifier",
+                "fields": [
+                  {
+                    "name": "dataPlatformUrn",
+                    "type": "string",
+                    "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+                  },
+                  {
+                    "name": "nativeName",
+                    "type": "string",
+                    "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
+                  },
+                  {
+                    "name": "dataOrigin",
+                    "type": {
+                      "type": "enum",
+                      "name": "DataOrigin",
+                      "symbols": [
+                        "PROD",
+                        "CORP",
+                        "EI",
+                        "DEV"
+                      ]
+                    },
+                    "doc": "Origin/Source tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
+                    "default": "PROD"
+                  }
                 ]
               },
-              "doc": "Origin/Source Tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
-              "default": "PROD"
+              "doc": "Unique Identifier of a dataset, which contains three parts: dataPlatform, name, origin"
             },
             {
-              "name": "datasetProperties",
+              "name": "datasetProperty",
               "type": [
                 "null",
                 {
                   "type": "record",
-                  "name": "DatasetProperties",
+                  "name": "DatasetProperty",
                   "fields": [
-                    {
-                      "name": "changeAuditStamp",
-                      "type": {
-                        "type": "record",
-                        "name": "ChangeAuditStamp",
-                        "fields": [
-                          {
-                            "name": "actorUrn",
-                            "type": "string",
-                            "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
-                          },
-                          {
-                            "name": "type",
-                            "type": "string",
-                            "doc": "CREATE, UPDATE, DELETE"
-                          },
-                          {
-                            "name": "time",
-                            "type": "long",
-                            "doc": "Epoch",
-                            "logicalType": "timestamp-millis"
-                          },
-                          {
-                            "name": "note",
-                            "type": "string",
-                            "doc": "Extra detail about the changes"
-                          }
-                        ]
-                      }
-                    },
                     {
                       "name": "nativeType",
                       "type": {
@@ -169,8 +138,8 @@
                     {
                       "name": "uri",
                       "type": [
-                        "string",
-                        "null"
+                        "null",
+                        "string"
                       ],
                       "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
                     },
@@ -206,11 +175,13 @@
                     }
                   ]
                 }
-              ]
+              ],
+              "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, URI"
             }
           ]
         }
-      }
+      },
+      "doc": "A complete list inventory of datasets with only name and basic properties"
     }
   ]
 }
