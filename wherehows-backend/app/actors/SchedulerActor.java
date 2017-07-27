@@ -50,8 +50,12 @@ public class SchedulerActor extends UntypedActor {
     Map<String, Long> map = new HashMap<>();
     for (Map<String, Object> job : EtlJobDao.getAllScheduledJobs()) {
       String jobName = (String) job.get("wh_etl_job_name");
+      Boolean enabled = (Boolean) job.get("enabled");
       Long nextRun = (Long) job.get("next_run");
-      map.put(jobName, nextRun);
+      // filter for only enabled jobs
+      if (enabled != null && enabled) {
+        map.put(jobName, nextRun);
+      }
     }
     return map;
   }
@@ -72,7 +76,7 @@ public class SchedulerActor extends UntypedActor {
       // Schedule next run if a cron expr is defined.
       String cronExpr = etlMsg.getCronExpr();
       if (cronExpr != null) {
-        EtlJobDao.updateNextRun(etlMsg.getEtlJobName(), cronExpr, new Date());
+        EtlJobDao.updateNextRun(etlJobName, cronExpr, new Date());
       }
 
       if (scheduledJobs.getOrDefault(etlJobName, Long.MAX_VALUE) > now) {
