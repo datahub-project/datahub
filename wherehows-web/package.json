@@ -12,8 +12,7 @@
   "scripts": {
     "build": "ember build",
     "start": "ember server",
-    "test": "ember test",
-    "precommit": "lint-staged"
+    "test": "ember test"
   },
   "devDependencies": {
     "bower": "1.8.0",
