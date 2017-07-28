@@ -1,3 +1,4 @@
+#!/bin/bash
 set -a
 source application.env
 set +a
