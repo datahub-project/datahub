@@ -52,7 +52,7 @@ Specify what it takes to deploy your app.
   * [ember inspector for firefox](https://addons.mozilla.org/en-US/firefox/addon/ember-inspector/)
 
 ## Troubleshooting
-### git commit SyntaxError 
+### git commit SyntaxError on Mac 
 > git commit -m 'foo bar'  
 >> husky - npm run -s precommit  
 >> const path = require('path')  
