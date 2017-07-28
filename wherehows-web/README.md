@@ -50,3 +50,18 @@ Specify what it takes to deploy your app.
 * Development Browser Extensions
   * [ember inspector for chrome](https://chrome.google.com/webstore/detail/ember-inspector/bmdblncegkenkacieihfhpjfppoconhi)
   * [ember inspector for firefox](https://addons.mozilla.org/en-US/firefox/addon/ember-inspector/)
+
+## Troubleshooting
+### git commit SyntaxError 
+> git commit -m 'foo bar'  
+>> husky - npm run -s precommit  
+>> const path = require('path')  
+>> ^^^^^`  
+>> SyntaxError: Use of const in strict mode.
+
+```
+# Re-install npm global packages
+npm cache clean -f
+sudo npm install -g n
+sudo n stable 
+```
