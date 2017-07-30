@@ -17,7 +17,6 @@ dependencies{
     play externalDependency.play_java_jdbc
     play externalDependency.play_filter
     play externalDependency.play_cache
-    play externalDependency.spring_jdbc
     play externalDependency.mysql
 
     playTest 'org.easytesting:fest-assert-core:2.0M10'
