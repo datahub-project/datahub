@@ -13,8 +13,8 @@
  */
 package dao;
 
-import models.ImpactDataset;
-import models.LineagePathInfo;
+import wherehows.models.ImpactDataset;
+import wherehows.models.LineagePathInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import utils.Lineage;

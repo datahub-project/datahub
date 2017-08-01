@@ -13,18 +13,16 @@
  */
 package dao;
 
-import models.Dataset;
-import models.User;
+import wherehows.models.Dataset;
+import wherehows.models.User;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
-import play.Logger;
 import play.Play;
 
 import java.sql.Time;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 public class DatasetRowMapper implements RowMapper<Dataset>
 {

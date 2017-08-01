@@ -13,7 +13,7 @@
  */
 package dao;
 
-import models.Flow;
+import wherehows.models.Flow;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

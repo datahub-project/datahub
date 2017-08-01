@@ -13,7 +13,7 @@
  */
 package dao;
 
-import models.SchemaDataset;
+import wherehows.models.SchemaDataset;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 

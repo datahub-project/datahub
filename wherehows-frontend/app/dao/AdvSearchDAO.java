@@ -15,9 +15,9 @@ package dao;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import models.Dataset;
-import models.FlowJob;
-import models.Metric;
+import wherehows.models.Dataset;
+import wherehows.models.FlowJob;
+import wherehows.models.Metric;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;

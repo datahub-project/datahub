@@ -43,8 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.Play;
 import play.libs.Json;
-import models.*;
-import wherehows.models.DatasetColumn;
+import wherehows.models.*;
 
 public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 {

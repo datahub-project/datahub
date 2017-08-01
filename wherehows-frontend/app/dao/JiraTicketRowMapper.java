@@ -13,11 +13,7 @@
  */
 package dao;
 
-import controllers.api.v1.Jira;
-import models.DatasetComment;
-import models.JiraTicket;
-import models.LdapInfo;
-import org.apache.commons.lang3.StringUtils;
+import wherehows.models.JiraTicket;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

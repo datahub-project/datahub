@@ -18,7 +18,6 @@ import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import models.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -28,6 +27,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import play.Logger;
 import play.libs.Json;
 import utils.Lineage;
+import wherehows.models.*;
 
 
 public class LineageDAO extends AbstractMySQLOpenSourceDAO

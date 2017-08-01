@@ -23,16 +23,15 @@ import dao.ReturnCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import models.DatasetCompliance;
-import models.DatasetDependency;
-import models.DatasetPrivacyCompliance;
-import models.DatasetSecurity;
-import models.ImpactDataset;
+import wherehows.models.DatasetCompliance;
+import wherehows.models.DatasetDependency;
+import wherehows.models.DatasetPrivacyCompliance;
+import wherehows.models.DatasetSecurity;
+import wherehows.models.ImpactDataset;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import play.Logger;
-import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
@@ -107,7 +106,7 @@ public class Dataset extends Controller
     public static Result getDatasetByID(int id)
     {
         String username = session("user");
-        models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
+        wherehows.models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
 
         ObjectNode result = Json.newObject();
 

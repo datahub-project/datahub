@@ -14,8 +14,7 @@
 package dao;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import models.SchemaDataset;
-import models.SchemaHistoryData;
+import wherehows.models.SchemaHistoryData;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import play.Logger;
@@ -23,8 +22,6 @@ import play.libs.Json;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Date;
-import java.sql.Time;
 
 public class SchemaHistoryDataRowMapper implements RowMapper<SchemaHistoryData>
 {

@@ -15,16 +15,13 @@ package controllers.api.v1;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.JiraDAO;
-import dao.UserDAO;
-import models.JiraTicket;
-import org.apache.commons.lang3.StringUtils;
+import wherehows.models.JiraTicket;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class Jira extends Controller
 {

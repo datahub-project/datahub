@@ -13,7 +13,7 @@
  */
 package dao;
 
-import models.DatasetOwner;
+import wherehows.models.DatasetOwner;
 import org.springframework.jdbc.core.RowMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;

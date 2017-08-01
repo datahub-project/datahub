@@ -4,4 +4,7 @@ dependencies {
   compile externalDependency.commons_lang3
   compile externalDependency.slf4j_api
   compile externalDependency.spring_jdbc
+  compile externalDependency.jackson_databind
+  compile externalDependency.jackson_core
+  compile externalDependency.jackson_annotations
 }
