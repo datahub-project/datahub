@@ -13,14 +13,11 @@
  */
 package dao;
 
-import models.ScriptInfo;
-import org.apache.commons.lang3.StringUtils;
+import wherehows.models.ScriptInfo;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
 
 public class ScriptInfoRowMapper implements RowMapper<ScriptInfo>
 {

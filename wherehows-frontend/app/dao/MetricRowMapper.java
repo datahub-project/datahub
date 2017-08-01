@@ -13,7 +13,7 @@
  */
 package dao;
 
-import models.Metric;
+import wherehows.models.Metric;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 

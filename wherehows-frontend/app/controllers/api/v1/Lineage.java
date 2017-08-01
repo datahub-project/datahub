@@ -15,7 +15,6 @@ package controllers.api.v1;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.DatasetsDAO;
-import dao.FlowsDAO;
 import dao.LineageDAO;
 import play.Play;
 import play.libs.Json;
@@ -39,7 +38,7 @@ public class Lineage extends Controller
             return ok(result);
         }
 
-        models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
+        wherehows.models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
         if (dataset == null || StringUtils.isBlank(dataset.urn))
         {
             result.put("status", "error");

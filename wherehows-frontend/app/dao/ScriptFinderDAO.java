@@ -13,7 +13,6 @@
  */
 package dao;
 
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +20,6 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.common.primitives.Ints;
-import models.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -32,6 +29,9 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
+import wherehows.models.ScriptInfo;
+import wherehows.models.ScriptLineage;
+import wherehows.models.ScriptRuntime;
 
 public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 

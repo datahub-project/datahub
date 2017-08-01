@@ -13,13 +13,11 @@
  */
 package dao;
 
-import models.Project;
+import wherehows.models.Project;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
-import java.sql.Date;
 
 public class ProjectRowMapper implements RowMapper<Project>
 {

@@ -16,9 +16,9 @@ package controllers.api.v1;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.UserDAO;
 import java.util.List;
-import models.CompanyUser;
-import models.Group;
-import models.UserEntity;
+import wherehows.models.CompanyUser;
+import wherehows.models.Group;
+import wherehows.models.UserEntity;
 import org.apache.commons.lang3.StringUtils;
 import play.cache.Cache;
 import play.libs.Json;
@@ -45,7 +45,7 @@ public class User extends Controller
             return ok(result);
         }
 
-        models.User user = UserDAO.getCurrentUser(username);
+        wherehows.models.User user = UserDAO.getCurrentUser(username);
         if (StringUtils.isBlank(user.userName))
         {
             result.put("status", "failed");

@@ -15,10 +15,13 @@ package dao;
 
 import java.util.*;
 
-import models.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
+import wherehows.models.CompanyUser;
+import wherehows.models.Group;
+import wherehows.models.User;
+import wherehows.models.UserEntity;
 
 public class UserDAO extends AbstractMySQLOpenSourceDAO
 {

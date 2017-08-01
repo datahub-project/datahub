@@ -180,7 +180,7 @@ public class Metric extends Controller
     public static Result getMetricByID(int id)
     {
         String user = session("user");
-        models.Metric metric = MetricsDAO.getMetricByID(id, user);
+        wherehows.models.Metric metric = MetricsDAO.getMetricByID(id, user);
 
         ObjectNode result = Json.newObject();
 

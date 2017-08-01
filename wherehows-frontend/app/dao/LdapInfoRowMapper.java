@@ -13,9 +13,7 @@
  */
 package dao;
 
-import models.DatasetComment;
-import models.LdapInfo;
-import org.apache.commons.lang3.StringUtils;
+import wherehows.models.LdapInfo;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

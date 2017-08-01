@@ -13,7 +13,7 @@
  */
 package dao;
 
-import models.DatasetColumnComment;
+import wherehows.models.DatasetColumnComment;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 
