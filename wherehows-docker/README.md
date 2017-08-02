@@ -117,13 +117,15 @@ Ensure all docker container instances are up and running
 ## Troubleshooting
 - Docker. Error: Cannot start container: port has already been allocated  
   From the docker ps output, there is a container which is listening on port. Need to stop your host server daemon.
+  If you have a MySQL server on local machine, you should kill a mysqld on the host.
   ```
-  $ docker ps
+  $ docker ps  
+  
   ```
-
+  
 
 - Not updated backend/frontend code after you change code  
-  Need to rebuild docker images and restart docker containers
+  Need to rebuild docker images and restart docker containers 
   ```
   $ ./build 1
   $ docker-compose up
