@@ -1,21 +1,26 @@
 # WhereHows Docker 
-The docker directory contains all docker related source code.
+[Docker](http://www.docker.com) is a bit like a virtual machine.  Docker allows applications to use the same Linux kernel as the system that they're running on and only requires applications be shipped with things not already running on the host computer. This gives a significant performance boost and reduces the size of the application.   
+  
+The docker directory contains all docker related source code. 
+Through the docker build provides a whole server instance running in docker container.   
 
 ## Quick Installation
-1. install docker and docker-compose (http://www.docker.com)  
+1. install ```docker``` and ```docker-compose``` (http://www.docker.com)  
 1. From the wherehows-docker, run ```build.sh 1```
 1. Edit .env to match your environment
 1. From the docker directory: ```$ docker-compose up```
-1. In your local browser, open localhost:9000
-1. Also, the backend app is hosted on localhost:9001
+1. In your local browser, open http://localhost:9000
+1. The backend app is hosted on http://localhost:9001
+1. The Elasticsearch server is hosted on http://localhost:9200
 
-## About Docker?
-Docker is a bit like a virtual machine. But unlike a virtual machine, rather than creating a whole virtual operating system, Docker allows applications to use the same Linux kernel as the system that they're running on and only requires applications be shipped with things not already running on the host computer. This gives a significant performance boost and reduces the size of the application.  
+If any step fails in the script, you can run individual steps in it, the script is pretty intuitive and has comments.
 
 ## Prerequisites
-- Mac OS: Mac must be a 2010 or newer model, with Intel’s hardware support for memory management unit (MMU) virtualization; i.e., Extended Page Tables (EPT) and Unrestricted Mode.
+- Mac OS: Mac must be a 2010 or newer model, with Intel’s hardware support for memory management unit (MMU) virtualization;  
+  i.e. Extended Page Tables (EPT) and Unrestricted Mode.
 - Windows: Docker for Windows requires Microsoft Hyper-V to run.
-- Linux: A 64-bit installation, Linux kernel version 3.10 or higher (ie. RHEL 7.x above)
+- Linux: A 64-bit installation, Linux kernel version 3.10 or higher.  
+  ie. RHEL 7.x above
 
 > First ensure that docker and docker-compose are installed, and that the user running this is a member of the docker group, or is root.
 > The docker compose script uses version 3, so be sure that the version you install supports that.
@@ -24,7 +29,7 @@ https://docs.docker.com/engine/installation/
 
 
 ## Set up your environment
-Edit ```.env``` in wherehows-docker
+Edit **.env** in wherehows-docker
 ```
 # Secret
 WHZ_SECRET=your_crpto_secret
@@ -99,15 +104,27 @@ wherehows-backend_1        | 2017-08-01 16:57:17 INFO  p.c.s.NettyServer:165 - L
 
 ## Running Servers
 Ensure all docker container instances are up and running
-- Frontend app: 
-  >http://localhost:9000
-- Backend app: 
-  >http://localhost:9001
-- Elasticsearch Server: 
-  >localhost:9200  
-- MySQL: 
-  >host:localhost port:3306
+- Frontend app:  
+    ```http://localhost:9000```  
+- Backend app:  
+    ```http://localhost:9001```  
+- Elasticsearch server:   
+    ```http://localhost:9200```    
+- MySQL server:    
+    ```host:localhost```   
+    ```port:3306```
+
+## Troubleshooting
+- Docker. Error: Cannot start container: port has already been allocated  
+  From the docker ps output, there is a container which is listening on port. Need to stop your host server daemon.
+  ```
+  $ docker ps
+  ```
 
 
-If any step fails in the script, you can run individual steps in it, the script is pretty intuitive and has comments.
-
+- Not updated backend/frontend code after you change code  
+  Need to rebuild docker images and restart docker containers
+  ```
+  $ ./build 1
+  $ docker-compose up
+  ```
