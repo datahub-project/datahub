@@ -13,26 +13,24 @@
  */
 package wherehows.dao;
 
+import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import wherehows.models.DatasetClassification;
 
 
-public class DaoFactory {
+public class DatasetClassificationDao {
 
-  private static DatasetsDao datasetsDao;
   private final EntityManagerFactory entityManagerFactory;
 
-  public DatasetsDao getDatasetsDao() {
-    if (datasetsDao == null) {
-      datasetsDao = new DatasetsDao();
-    }
-    return datasetsDao;
+  public DatasetClassificationDao(EntityManagerFactory factory) {
+    this.entityManagerFactory = factory;
   }
 
-  public DaoFactory(EntityManagerFactory entityManagerFactory) {
-    this.entityManagerFactory = entityManagerFactory;
-  }
-
-  public DatasetClassificationDao getDatasetClassificationDao() {
-    return new DatasetClassificationDao(entityManagerFactory);
+  public void updateDatasetClassification(DatasetClassification record) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    entityManager.getTransaction().begin();
+    entityManager.merge(record);
+    entityManager.getTransaction().commit();
+    entityManager.close();
   }
 }
