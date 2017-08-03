@@ -35,10 +35,10 @@ Please become familiar with these pages:
 
 ### Build:
 ```
-./gradlew build dist
+$ ./gradlew build dist
 ```
 
-### Install:
+### Install (In Production):
 Download/upload the distribution binaries, unzip to
 ```
 /opt/wherehows/wherehows-backend
@@ -46,13 +46,13 @@ Download/upload the distribution binaries, unzip to
 
 Create temp space for wherehows
 ```
-sudo mkdir /var/tmp/wherehows
-sudo chmod a+rw /var/tmp/wherehows
-sudo mkdir /var/tmp/wherehows/resource
+$ sudo mkdir /var/tmp/wherehows
+$ sudo chmod a+rw /var/tmp/wherehows
+$ sudo mkdir /var/tmp/wherehows/resource
 ```
 
 ```
-cd /opt/wherehows/wherehows-backend
+$ cd /opt/wherehows/wherehows-backend
 ```
 
 The hive metastore (as MySQL database) properties need to match the hadoop cluster:
@@ -77,12 +77,12 @@ To run the backend service:
 
 Set the variables in application.env to configure the application.
 
-To Run backend service application on port 19001 (from the wherehows-backend folder):
+To Run backend service application on port 9001 (from the wherehows-backend folder):
 ```
-./runBackend
+$ ./runBackend
 ```
 
-Open browser to ```http://<edge node>:19001/```
+Open browser to ```http://<edge node>:9001/```
 This will show ‘TEST’. This is the RESTful api endpoint
 
 
@@ -91,7 +91,22 @@ Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
-### Troubleshooting
-To log in the first time to the web UI:
+## Troubleshooting
+- To log in the first time to the web UI:
 
-You have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.
+   You have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.
+
+- Compile error with the below messages
+   ```
+   TAliasClause aliasClouse = tablelist.getTable(i).getAliasClause();
+   ^
+   symbol:   class TAliasClause
+   location: class UpdateStmt
+   ...
+   * What went wrong:
+   Execution failed for task ':wherehows-etl:compileJava'.
+   > Compilation failed; see the compiler error output for details.
+   
+   ```
+   You should install extra libs:  [Install extra libs](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs)
+   
