@@ -29,7 +29,7 @@ How WhereHows is used inside of LinkedIn and other potential [use cases][USE].
 The detailed information can be found in the [Wiki][wiki]
 
 
-## Examples in VM
+## Examples in VM (Deprecated)
 There is a pre-built vmware image (about 11GB) to quickly demonstrate the functionality of WhereHows. Check out the [VM Guide][VM]
 
 ## WhereHows Docker
