@@ -1,7 +1,19 @@
-#WhereHows Frontend UI
-Enterprise Metadata Platform for Big Data
+# WhereHows Frontend UI 
+The Web UI provides navigation between the bits of information and the ability to annotate the collected data with comments, ownership and more. The example below is for collecting Hive metadata collected from the Cloudera Hadoop VM
 
-### Build Frontend:
+Wherehows comes in three operational components:
+- [Backend service](../wherehows-backend/README.md)
+- **A web-ui service**
+- Database schema for MySQL
+
+## Key notes
+Please become familiar with these pages:
+- https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
+- https://github.com/linkedin/WhereHows
+- https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
+
+
+## Build
 ```
 $ ../gradlew build dist  
   
@@ -21,7 +33,7 @@ BUILD SUCCESSFUL in 56s
 21 actionable tasks: 9 executed, 12 up-to-date
 ```
 
-### Install (In Production):
+## Install (In Production)
 Download/upload the distribution binaries, unzip to
 **/opt/wherehows/wherehows-frontend**
 
@@ -37,7 +49,7 @@ $ sudo mkdir /var/tmp/wherehows/resource
 $ cd /opt/wherehows/wherehows-frontend
 ```
 
-### Configuration
+## Configuration
 Forntend has a seperate configuration file in **wherehows-frontend/application.env**
 ```
 # Secret Key
@@ -71,7 +83,7 @@ PIWIK_URL="change_to_your_piwik_url"
 ```
 
 
-### Run
+## Run
 To run frontend app, go to **wherehows-frontend**
 ```
 $ ./runFrontend
@@ -85,5 +97,7 @@ NettyServer.main is deprecated. Please start your Play server with the
 Open browser to ```http://<edge node>:9000/```
 This will show WhereHows login page. 
 
-### Troubleshooting
-- 
+## Troubleshooting
+- To log in the first time to the web UI:
+   You have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.
+ 
