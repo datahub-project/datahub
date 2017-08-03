@@ -13,7 +13,6 @@ WhereHows serves as the single platform that:
 
 
 ## Who Uses WhereHows?
-
 Here is a list of companies known to use WhereHows. Let us know if we missed your company!
 
 * [LinkedIn](http://www.linkedin.com)
@@ -23,27 +22,24 @@ Here is a list of companies known to use WhereHows. Let us know if we missed you
 
 
 ## How Is WhereHows Used?
-
 How WhereHows is used inside of LinkedIn and other potential [use cases][USE].
 
 
 ## Documentation
-
 The detailed information can be found in the [Wiki][wiki]
 
 
-## Examples in VM
-
+## Examples in VM (Deprecated)
 There is a pre-built vmware image (about 11GB) to quickly demonstrate the functionality of WhereHows. Check out the [VM Guide][VM]
 
+## WhereHows Docker
+Docker can provide configuration free dev/production setup quickly, please check out [Docker Getting Start Guide](https://github.com/linkedin/WhereHows/tree/master/wherehows-docker/README.md)
 
 ## Getting Started
-
 New to Wherehows? Check out the [Getting Started Guide][GS]
 
 
 ### Preparation
-
 First, please [setup the metadata repository][DB] in MySQL.
 ```
 CREATE DATABASE wherehows
@@ -58,7 +54,6 @@ GRANT ALL ON wherehows.* TO 'wherehows'
 Execute the [DDL files][DDL] to create the required repository tables in **wherehows** database.
 
 ### Build
-
 1. Get the source code: ```git clone https://github.com/linkedin/WhereHows.git```
 2. Put a few 3rd-party jar files to **wherehows-etl/extralibs** directory. Some of these jar files may not be available in Maven Central or Artifactory. See [the download instrucitons][EXJAR] for more detail. ```cd WhereHows/wherehows-etl/extralibs```
 3. From the **WhereHows** root directory and build all the modules: ```./gradlew build```
@@ -67,17 +62,14 @@ Execute the [DDL files][DDL] to create the required repository tables in **where
 
 
 ## Roadmap
-
 Check out the current [roadmap][RM] for WhereHows.
 
 
 ## Contribute
-
 Want to contribute? Check out the [Contributors Guide][CON]
 
 
 ## Community
-
 Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 
 

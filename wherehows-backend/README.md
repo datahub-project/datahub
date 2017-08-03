@@ -3,16 +3,13 @@
 Wherehows works by sending out ‘crawlers’ to capture metadata from databases, hdfs, directory services, schedulers, and data integration tools. The collected metadata is loaded into an integrated data warehouse. Wherehows provides a web-ui service and a backend service.
 
 Wherehows comes in three operational components:
-- A web-ui service
-- Backend service
+- **Backend service**
+- [A web-ui service](../wherehows-frontend/README.md)
 - Database schema for MySQL
 
 The backend service provides the RESTful api but more importantly runs the ETL jobs that go and gather the metadata. The backend service relies heavily on the mysql wherehows database instance for configuration information and as a location for where the metadata will land.
 
-The Web UI provides navigation between the bits of information and the ability to annotate the collected data with comments, ownership and more. The example below is for collecting Hive metadata collected from the Cloudera Hadoop VM
-
-
-Configuration notes:
+Configuration notes
 MySQL database for the Wherehows metadata database
 ```
 host:	<mysqlhost>
@@ -26,19 +23,18 @@ Host:	<edge node>
 Folder:	/opt/wherehows
 ```
 
-# Key notes:
-
+## Key notes
 Please become familiar with these pages:
 - https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
 - https://github.com/linkedin/WhereHows
 - https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
 
-### Build:
+### Build
 ```
-./gradlew build dist
+$ ./gradlew build dist
 ```
 
-### Install:
+### Install (In Production)
 Download/upload the distribution binaries, unzip to
 ```
 /opt/wherehows/wherehows-backend
@@ -46,13 +42,13 @@ Download/upload the distribution binaries, unzip to
 
 Create temp space for wherehows
 ```
-sudo mkdir /var/tmp/wherehows
-sudo chmod a+rw /var/tmp/wherehows
-sudo mkdir /var/tmp/wherehows/resource
+$ sudo mkdir /var/tmp/wherehows
+$ sudo chmod a+rw /var/tmp/wherehows
+$ sudo mkdir /var/tmp/wherehows/resource
 ```
 
 ```
-cd /opt/wherehows/wherehows-backend
+$ cd /opt/wherehows/wherehows-backend
 ```
 
 The hive metastore (as MySQL database) properties need to match the hadoop cluster:
@@ -66,23 +62,18 @@ URL	 jdbc:mysql://<metastore host>:3306/metastore
 Set the hive metastore driver class to ```com.mysql.jdbc.Driver```
 other properties per configuration.
 
-Ensure these JAR files are present
-```
- lib/jython-standalone-2.7.0.jar
- lib/mysql-connector-java-5.1.36.jar
-```
 
 ### Run
 To run the backend service:
 
 Set the variables in application.env to configure the application.
 
-To Run backend service application on port 19001 (from the wherehows-backend folder):
+To Run backend service application on port 9001 (from the wherehows-backend folder):
 ```
-./runBackend
+$ ./runBackend
 ```
 
-Open browser to ```http://<edge node>:19001/```
+Open browser to ```http://<edge node>:9001/```
 This will show ‘TEST’. This is the RESTful api endpoint
 
 
@@ -91,7 +82,30 @@ Once the Hive ETL is fully flushed out, look at the HDFS metadata ETL
 Configure multiple Hive & HDFS jobs to gather data from all Hadoop clusters
 Add additional crawlers, for Oracle, Teradata, ETL and schedulers
 
-### Troubleshooting
-To log in the first time to the web UI:
+## Troubleshooting
 
-You have to create an account. In the upper right corner there is a "Not a member yet? Join Now" link. Click on that and get a form to fill out.
+- Compile error with the below messages:
+   ```
+   TAliasClause aliasClouse = tablelist.getTable(i).getAliasClause();
+   ^
+   symbol:   class TAliasClause
+   location: class UpdateStmt
+   ...
+   * What went wrong:
+   Execution failed for task ':wherehows-etl:compileJava'.
+   > Compilation failed; see the compiler error output for details.
+   
+   ```
+   You should install extra libs:  [Install extra libs](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs)
+   
+-  Other Running library failure:  
+   Ensure these JAR files are present in **wherehows-backend/build/stage/wherehows-backend/lib**
+   ```
+   ...
+   gsp.jar
+   hsqldb-hsqldb-1.8.0.10.jar
+   mysql-mysql-connector-java-5.1.40.jar
+   ojdbc7.jar
+   terajdbc4.jar
+   ...
+   ```
