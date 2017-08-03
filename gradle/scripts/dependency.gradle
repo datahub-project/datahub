@@ -44,4 +44,8 @@ ext.externalDependency = [
     "confluent_common_cfg": "io.confluent:common-config:3.0.1",
 
     "parquet_avro"        : "org.apache.parquet:parquet-avro:1.8.1",
+
+    "hibernate_core"      : "org.hibernate:hibernate-core:5.2.5.Final",
+    "hibernate_hikaricp"  : "org.hibernate:hibernate-hikaricp:5.2.5.Final",
+    "lombok"              : "org.projectlombok:lombok:1.16.18",
 ]
