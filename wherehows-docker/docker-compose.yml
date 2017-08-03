@@ -21,7 +21,7 @@ services:
   wherehows-backend:
     image: "linkedin/wherehows-backend:latest"
     ports:
-      - 9001:9000
+      - 19001:19001
     environment:
       WHZ_SECRET: ${WHZ_SECRET}
       WHZ_DB_USERNAME: ${WHZ_DB_USERNAME}
@@ -33,7 +33,7 @@ services:
   wherehows-frontend:
     image: "linkedin/wherehows-frontend:latest"
     ports:
-      - 9000:9000
+      - 9001:9001
     environment:
       WHZ_SECRET: ${WHZ_SECRET}
       WHZ_DB_USERNAME: ${WHZ_DB_USERNAME}
