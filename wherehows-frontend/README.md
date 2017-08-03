@@ -94,7 +94,7 @@ NettyServer.main is deprecated. Please start your Play server with the
 
 ```
 
-Open browser to ```http://<edge node>:9000/```
+Open browser to ```http://<edge node>:9001/```
 This will show WhereHows login page. 
 
 ## Troubleshooting

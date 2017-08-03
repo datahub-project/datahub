@@ -9,8 +9,8 @@ Through the docker build provides a whole server instance running in docker cont
 1. From the wherehows-docker, run ```build.sh 1```
 1. Edit .env to match your environment
 1. From the docker directory: ```$ docker-compose up```
-1. In your local browser, open http://localhost:9000
-1. The backend app is hosted on http://localhost:9001
+1. In your local browser, open http://localhost:9001
+1. The backend app is hosted on http://localhost:19001
 1. The Elasticsearch server is hosted on http://localhost:9200
 
 If any step fails in the script, you can run individual steps in it, the script is pretty intuitive and has comments.
@@ -78,7 +78,7 @@ Successfully tagged linkedin/wherehows-elasticsearch:latest
 now run this to start the application:
 docker-compose up
 ``` 
- 
+
  
 ## Run Docker Container
 ```
@@ -98,16 +98,16 @@ Attaching to wherehowsdocker_wherehows-elasticsearch_1, wherehowsdocker_wherehow
 wherehows-backend_1        | 2017-08-01 16:57:16 INFO  application:146 - Terminating KafkaConsumerMaster...
 wherehows-backend_1        | 2017-08-01 16:57:16 INFO  application:65 - Enabled jobs: []
 wherehows-backend_1        | 2017-08-01 16:57:16 INFO  p.a.Play:97 - Application started (Prod)
-wherehows-backend_1        | 2017-08-01 16:57:17 INFO  p.c.s.NettyServer:165 - Listening for HTTP on /0.0.0.0:9000   
+wherehows-backend_1        | 2017-08-01 16:57:17 INFO  p.c.s.NettyServer:165 - Listening for HTTP on /0.0.0.0:19001   
 
 ```
 
 ## Running Servers
 Ensure all docker container instances are up and running
 - Frontend app:  
-    ```http://localhost:9000```  
-- Backend app:  
     ```http://localhost:9001```  
+- Backend app:  
+    ```http://localhost:19001```  
 - Elasticsearch server:   
     ```http://localhost:9200```    
 - MySQL server:    

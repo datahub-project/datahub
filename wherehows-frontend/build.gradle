@@ -1,7 +1,7 @@
 apply from: '../gradle/scripts/play.gradle'
 
 // Change this to listen on a different port
-project.ext.httpPort = 9000
+project.ext.httpPort = 9001
 project.ext.playBinaryBaseName = "wherehows-frontend"
 
 configurations {
