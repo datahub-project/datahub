@@ -16,6 +16,8 @@ package models.kafka;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import controllers.Application;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -29,6 +31,8 @@ import wherehows.common.schemas.Record;
 import wherehows.common.utils.StringUtil;
 import play.libs.Json;
 import play.Logger;
+import wherehows.dao.DatasetClassificationDao;
+import wherehows.models.DatasetClassification;
 
 
 public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
@@ -40,29 +44,35 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   private static final String DATASET_URN_PREFIX = "hdfs://";
   private static final String DATASET_OWNER_SOURCE = "IDPC";
 
+  private DatasetClassificationDao datasetClassificationDao;
+
+  public GobblinTrackingAuditProcessor() {
+    this.datasetClassificationDao = Application.daoFactory.getDatasetClassificationDao();
+  }
+
   // TODO: Make these regex patterns part of job file
   private static final Pattern LOCATION_PREFIX_PATTERN = Pattern.compile("/[^/]+(/[^/]+)?");
 
   private static final Pattern SHORT_NAME_PATTERN = Pattern.compile("(/[^/]+/[^/]+)$");
 
-  private static final List<Pattern> PARENT_PATTERNS = ImmutableList.<Pattern>builder()
-      .add(Pattern.compile("/data/external/gobblin/(.+)"))
-      .add(Pattern.compile("/data/(databases|dbchange|external)/.+"))
-      .add(Pattern.compile("/([^/]*data)/tracking/.+"))
-      .add(Pattern.compile("/([^/]*data)/derived/.+"))
-      .add(Pattern.compile("/(data)/service/.+"))
-      .add(Pattern.compile("/([^/]+)/.+"))
-      .build();
+  private static final List<Pattern> PARENT_PATTERNS =
+      ImmutableList.<Pattern>builder().add(Pattern.compile("/data/external/gobblin/(.+)"))
+          .add(Pattern.compile("/data/(databases|dbchange|external)/.+"))
+          .add(Pattern.compile("/([^/]*data)/tracking/.+"))
+          .add(Pattern.compile("/([^/]*data)/derived/.+"))
+          .add(Pattern.compile("/(data)/service/.+"))
+          .add(Pattern.compile("/([^/]+)/.+"))
+          .build();
 
-  private static final List<Pattern> BLACKLISTED_DATASET_PATTERNS = ImmutableList.<Pattern>builder()
-      .add(Pattern.compile("(\\b|_)temporary(\\b|_)"))
-      .add(Pattern.compile("(\\b|_)temp(\\b|_)"))
-      .add(Pattern.compile("(\\b|_)tmp(\\b|_)"))
-      .add(Pattern.compile("(\\b|_)staging(\\b|_)"))
-      .add(Pattern.compile("(\\b|_)stg(\\b|_)"))
-      .add(Pattern.compile("_distcp_"))
-      .add(Pattern.compile("/output/"))
-      .build();
+  private static final List<Pattern> BLACKLISTED_DATASET_PATTERNS =
+      ImmutableList.<Pattern>builder().add(Pattern.compile("(\\b|_)temporary(\\b|_)"))
+          .add(Pattern.compile("(\\b|_)temp(\\b|_)"))
+          .add(Pattern.compile("(\\b|_)tmp(\\b|_)"))
+          .add(Pattern.compile("(\\b|_)staging(\\b|_)"))
+          .add(Pattern.compile("(\\b|_)stg(\\b|_)"))
+          .add(Pattern.compile("_distcp_"))
+          .add(Pattern.compile("/output/"))
+          .build();
 
   /**
    * Process a Gobblin tracking event audit record
@@ -115,7 +125,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
 
     DatasetRecord dataset = new DatasetRecord();
     dataset.setName(getShortName(datasetName));
-    dataset.setUrn("hdfs://" + datasetName);
+    dataset.setUrn(DATASET_URN_PREFIX + datasetName);
     dataset.setSchema(metadata.get("schema"));
     dataset.setSchemaType("JSON");
     dataset.setSource("Hdfs");
@@ -141,6 +151,19 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
 
     Logger.info("Updating dataset {}", datasetName);
     DatasetDao.setDatasetRecord(dataset);
+    updateDatasetClassificationResult(metadata);
+  }
+
+  private void updateDatasetClassificationResult(Map<String, String> metadata) {
+    try {
+      String urn = DATASET_URN_PREFIX + metadata.get("dataset");
+      String classificationResult = metadata.get("classificationResult");
+
+      DatasetClassification record = new DatasetClassification(urn, classificationResult, new Date());
+      datasetClassificationDao.updateDatasetClassification(record);
+    } catch (Exception e) {
+      logger.info("unable to update classification result due to {}", e.getMessage());
+    }
   }
 
   private boolean isDatasetNameBlacklisted(String datasetName) {

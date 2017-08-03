@@ -7,4 +7,7 @@ dependencies {
   compile externalDependency.jackson_databind
   compile externalDependency.jackson_core
   compile externalDependency.jackson_annotations
+  compile externalDependency.lombok
+  compile externalDependency.hibernate_core
+  compile externalDependency.hibernate_hikaricp
 }

@@ -14,17 +14,17 @@
 package wherehows.models;
 
 public class DatasetColumn {
-    public Long id;
-    public int sortID;
-    public int parentSortID;
-    public String fieldName;
-    public String fullFieldPath;
-    public String dataType;
-    public String comment;
-    public boolean partitioned;
-    public boolean nullable;
-    public boolean distributed;
-    public boolean indexed;
-    public Long commentCount;
-    public String treeGridClass;
+  public Long id;
+  public int sortID;
+  public int parentSortID;
+  public String fieldName;
+  public String fullFieldPath;
+  public String dataType;
+  public String comment;
+  public boolean partitioned;
+  public boolean nullable;
+  public boolean distributed;
+  public boolean indexed;
+  public Long commentCount;
+  public String treeGridClass;
 }

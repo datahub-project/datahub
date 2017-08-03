@@ -68,12 +68,12 @@ To run the backend service:
 
 Set the variables in application.env to configure the application.
 
-To Run backend service application on port 19001 (from the wherehows-backend folder):
+To Run backend service application on port 9001 (from the wherehows-backend folder):
 ```
 $ ./runBackend
 ```
 
-Open browser to ```http://<edge node>:19001/```
+Open browser to ```http://<edge node>:9001/```
 This will show ‘TEST’. This is the RESTful api endpoint
 
 
