@@ -151,7 +151,7 @@ CREATE TABLE `stg_dict_field_detail` (
   PRIMARY KEY (`urn`, `sort_id`, `db_id`)
 )
   ENGINE = InnoDB
-  DEFAULT CHARSET = latin1
+  DEFAULT CHARSET = utf8
   PARTITION BY HASH(db_id)
   PARTITIONS 8;
 

@@ -111,6 +111,7 @@ class HiveLoad:
 
         LOAD DATA LOCAL INFILE '{source_file}'
         INTO TABLE stg_dict_field_detail
+        CHARACTER SET utf8
         FIELDS TERMINATED BY '\Z'
         (urn, sort_id, parent_sort_id, parent_path, field_name, data_type,
          @is_nullable, @default_value, @data_size, @namespace, @description)
