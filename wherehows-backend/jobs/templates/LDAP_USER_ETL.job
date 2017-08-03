@@ -13,7 +13,7 @@ ldap.context.provider.url=your_provider_url
 ldap.context.security.principal=your_security_principal
 ldap.context.security.credentials=your_security_credentials
 ldap.search.domains=["your_search_domain"]
-ldap.search.return.attributes=["your_return_attributes"]
+ldap.search.return.attributes=["attribute1","attribute2","attribute3"]
 ldap.inactive.domain=your_inactive_domain
 
 ldap.group.app.id=301
@@ -22,4 +22,4 @@ ldap.group.context.provider.url=your_group_provider_url
 ldap.group.context.security.principal=your_group_security_principal
 ldap.group.context.security.credentials=your_group_security_credentials
 ldap.group.search.domains=["your_group_search_domains"]
-ldap.group.search.return.attributes=["your_group_return_attributes"]
+ldap.group.search.return.attributes=["attribute1","attribute2","attribute3"]
