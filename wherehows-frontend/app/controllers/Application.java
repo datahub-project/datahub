@@ -1,12 +1,12 @@
 /**
  * Copyright 2015 LinkedIn Corp. All rights reserved.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,8 +18,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dao.FlowsDAO;
 import dao.MetricsDAO;
 import dao.UserDAO;
+
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+
 import java.lang.reflect.Constructor;
+
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.Play;
@@ -35,9 +42,10 @@ import wherehows.dao.DaoFactory;
 
 import static play.data.Form.*;
 
-public class Application extends Controller
-{
+public class Application extends Controller {
+
     private static String TREE_NAME_SUBFIX = ".tree.name";
+    private static final String WHZ_APP_ENV = System.getenv("WHZ_APP_HOME");
     private static final String APP_VERSION = Play.application().configuration().getString("app.version");
     private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
     private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
@@ -48,7 +56,7 @@ public class Application extends Controller
     private static DaoFactory createDaoFactory() {
         try {
             String className =
-                Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
+                    Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
             Class factoryClass = Class.forName(className);
             Constructor<? extends DaoFactory> ctor = factoryClass.getConstructor();
             return ctor.newInstance();
@@ -59,6 +67,7 @@ public class Application extends Controller
 
     /**
      * Serves the build output index.html for any given path
+     *
      * @param path takes a path string, which essentially is ignored
      *             routing is managed client side
      * @return {Result} build output index.html resource
@@ -70,13 +79,43 @@ public class Application extends Controller
         return ok(indexHtml).as("text/html");
     }
 
-    public static Result healthcheck()
-    {
+    public static Result healthcheck() {
         return ok("GOOD");
     }
 
+    public static Result printDeps() {
+        String libPath = WHZ_APP_ENV + "/lib";
+        String commitFile = WHZ_APP_ENV + "/commit";
+        String libraries = "";
+        String commit = "";
+
+        if (WHZ_APP_ENV == null) {
+            return ok("WHZ_APP_HOME environmental variable not defined");
+        }
+
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(commitFile));
+            commit = br.readLine();
+        } catch (IOException ioe) {
+            Logger.error("Error while reading commit file. Error message: " +
+                    ioe.getMessage());
+        }
+
+        //get all the files from a directory
+        File directory = new File(libPath);
+        for (File file : directory.listFiles()) {
+            if (file.isFile()) {
+                libraries += file.getName() + "\n";
+            }
+        }
+
+        return ok("commit: " + commit + "\n" + libraries);
+    }
+
+
     /**
      * index Action proxies to serveAsset
+     *
      * @param path takes a path string which is either index.html or the path segment after /
      * @return {Result} response from serveAsset method
      */
@@ -127,22 +166,18 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result lineage()
-    {
+    public static Result lineage() {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
         return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result datasetLineage(int id)
-    {
+    public static Result datasetLineage(int id) {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
 
@@ -150,11 +185,9 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result metricLineage(int id)
-    {
+    public static Result metricLineage(int id) {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
 
@@ -162,16 +195,13 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result flowLineage(String application, String project, String flow)
-    {
+    public static Result flowLineage(String application, String project, String flow) {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
         String type = "azkaban";
-        if (StringUtils.isNotBlank(application) && (application.toLowerCase().indexOf("appworx") != -1))
-        {
+        if (StringUtils.isNotBlank(application) && (application.toLowerCase().indexOf("appworx") != -1)) {
             type = "appworx";
 
         }
@@ -180,11 +210,9 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result schemaHistory()
-    {
+    public static Result schemaHistory() {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
 
@@ -192,11 +220,9 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result scriptFinder()
-    {
+    public static Result scriptFinder() {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
 
@@ -204,29 +230,24 @@ public class Application extends Controller
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result idpc()
-    {
+    public static Result idpc() {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
         return serveAsset("");
     }
 
     @Security.Authenticated(Secured.class)
-    public static Result dashboard()
-    {
+    public static Result dashboard() {
         String username = session("user");
-        if (username == null)
-        {
+        if (username == null) {
             username = "";
         }
         return serveAsset("");
     }
 
-    public static Result login()
-    {
+    public static Result login() {
         //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
         String csrfToken = "";
         return serveAsset("");
@@ -277,8 +298,7 @@ public class Application extends Controller
         return ok(response);
     }
 
-    public static Result signUp()
-    {
+    public static Result signUp() {
         DynamicForm loginForm = form().bindFromRequest();
         String username = loginForm.get("inputName");
         String firstName = loginForm.get("inputFirstName");
@@ -286,62 +306,47 @@ public class Application extends Controller
         String email = loginForm.get("inputEmail");
         String password = loginForm.get("inputPassword");
         String errorMessage = "";
-        try
-        {
+        try {
             errorMessage = UserDAO.signUp(username, firstName, lastName, email, password);
-            if (StringUtils.isNotBlank(errorMessage))
-            {
+            if (StringUtils.isNotBlank(errorMessage)) {
                 flash("error", errorMessage);
-            }
-            else
-            {
+            } else {
                 flash("success", "Congratulations! Your account has been created. Please login.");
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             flash("error", e.getMessage());
         }
 
         return serveAsset("");
     }
 
-    public static Result logout()
-    {
+    public static Result logout() {
         session().clear();
         return ok();
     }
 
-    public static Result loadTree(String key)
-    {
-        if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("flows"))
-        {
+    public static Result loadTree(String key) {
+        if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("flows")) {
             return ok(FlowsDAO.getFlowApplicationNodes());
-        }
-        else if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("metrics"))
-        {
+        } else if (StringUtils.isNotBlank(key) && key.equalsIgnoreCase("metrics")) {
             return ok(MetricsDAO.getMetricDashboardNodes());
         }
         return ok(Tree.loadTreeJsonNode(key + TREE_NAME_SUBFIX));
     }
 
-    public static Result loadFlowProjects(String app)
-    {
+    public static Result loadFlowProjects(String app) {
         return ok(FlowsDAO.getFlowProjectNodes(app));
     }
 
-    public static Result loadFlowNodes(String app, String project)
-    {
+    public static Result loadFlowNodes(String app, String project) {
         return ok(FlowsDAO.getFlowNodes(app, project));
     }
 
-    public static Result loadMetricGroups(String dashboard)
-    {
+    public static Result loadMetricGroups(String dashboard) {
         return ok(MetricsDAO.getMetricGroupNodes(dashboard));
     }
 
-    public static Result loadMetricNodes(String dashboard, String group)
-    {
+    public static Result loadMetricNodes(String dashboard, String group) {
         return ok(MetricsDAO.getMetricNodes(dashboard, group));
     }
 
