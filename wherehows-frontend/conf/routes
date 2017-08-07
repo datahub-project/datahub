@@ -8,6 +8,8 @@ GET           /                                                                 
 
 GET           /admin                                                            controllers.Application.healthcheck()
 
+GET           /deps                                                             controllers.Application.printDeps()
+
 GET           /config                                                           controllers.Application.appConfig()
 
 GET           /login                                                            controllers.Application.login()

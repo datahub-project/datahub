@@ -8,6 +8,9 @@ GET         /                             controllers.Application.index()
 # Health check endpoint
 GET         /admin                        controllers.Application.healthcheck()
 
+#container libraries
+GET        /deps                          controllers.Application.printDeps()
+
 # Map static resources from the /public folder to the /assets URL path
 GET         /assets/*file                 controllers.Assets.at(path="/public", file)
 
