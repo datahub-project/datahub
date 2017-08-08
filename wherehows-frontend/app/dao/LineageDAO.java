@@ -146,7 +146,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			"   AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY";
 
 	private final static String GET_LATEST_FLOW_EXEC_ID =
-			"SELECT max(flow_exec_id) " +
+			"SELECT MAX(flow_exec_id) " +
 			"  FROM flow_execution " +
 			" WHERE flow_exec_status IN ('SUCCEEDED', 'FINISHED') " +
 			"   AND app_id = ? " +
