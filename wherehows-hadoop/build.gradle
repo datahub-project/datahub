@@ -1,3 +1,5 @@
+apply plugin: 'java'
+
 configurations {
   // configuration that holds jars to copy into lib
   extraLibs
