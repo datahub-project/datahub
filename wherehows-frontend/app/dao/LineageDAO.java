@@ -35,122 +35,168 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 	private final static String GET_APPLICATION_ID = "SELECT DISTINCT app_id FROM " +
 			"job_execution_data_lineage WHERE abstracted_object_name = ?";
 
-	private final static String GET_FLOW_NAME = "SELECT flow_name FROM " +
-			"flow WHERE app_id = ? and flow_id = ?";
+	private final static String GET_FLOW_NAME =
+			"SELECT flow_name "	+
+			"  FROM flow " +
+			" WHERE app_id = ? AND flow_id = ?";
 
-	private final static String GET_JOB = "SELECT ca.app_id, ca.app_code as cluster, " +
-			"jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, " +
-			"jedl.operation, MAX(jedl.source_srl_no), MAX(jedl.srl_no), " +
-			"MAX(jedl.job_exec_id) as job_exec_id FROM job_execution_data_lineage jedl " +
-			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
-			"LEFT JOIN job_execution je on jedl.app_id = je.app_id " +
-			"and jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
-			"LEFT JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
-			"WHERE abstracted_object_name in ( :names ) and " +
-			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.source_target_type, " +
-			"jedl.storage_type, jedl.operation " +
-			"ORDER BY jedl.source_target_type DESC, job_exec_id";
+	private final static String GET_JOB =
+			"SELECT ca.app_id, ca.app_code AS cluster, jedl.job_name, fj.job_path, fj.job_type, " +
+			"       jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, MAX(jedl.source_srl_no), " +
+			"		    MAX(jedl.srl_no), MAX(jedl.job_exec_id) AS job_exec_id " +
+			"  FROM job_execution_data_lineage jedl " +
+			"  JOIN cfg_application ca" +
+			"    ON ca.app_id = jedl.app_id " +
+			"  LEFT JOIN job_execution je " +
+			"    ON jedl.app_id = je.app_id AND jedl.flow_exec_id = je.flow_exec_id AND jedl.job_exec_id = je.job_exec_id " +
+			"  LEFT JOIN flow_job fj " +
+			"		 ON je.app_id = fj.app_id AND je.flow_id = fj.flow_id AND je.job_id = fj.job_id " +
+			" WHERE abstracted_object_name IN ( :names ) " +
+			"   AND jedl.flow_path NOT REGEXP '^(rent-metrics:|tracking-investigation:)' " +
+			"   AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
+			" GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, " +
+			"       jedl.source_target_type, jedl.storage_type, jedl.operation " +
+			" ORDER BY jedl.source_target_type DESC, job_exec_id";
 
-	private final static String GET_UP_LEVEL_JOB = "SELECT ca.app_id, ca.app_code as cluster, " +
-			"jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, " +
-			"jedl.operation, MAX(jedl.source_srl_no), MAX(jedl.srl_no), " +
-			"MAX(jedl.job_exec_id) as job_exec_id FROM job_execution_data_lineage jedl " +
-			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
-			"LEFT JOIN job_execution je on jedl.app_id = je.app_id " +
-			"and jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
-			"LEFT JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
-			"WHERE abstracted_object_name in ( :names ) and jedl.source_target_type = 'target' and " +
-			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.source_target_type, " +
-			"jedl.storage_type, jedl.operation " +
-			"ORDER BY jedl.source_target_type DESC, job_exec_id";
+	private final static String GET_UP_LEVEL_JOB =
+			"SELECT ca.app_id, ca.app_code AS cluster, jedl.job_name, fj.job_path, fj.job_type, " +
+	    "       jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, MAX(jedl.source_srl_no), " +
+			"       MAX(jedl.srl_no), MAX(jedl.job_exec_id) AS job_exec_id " +
+			"  FROM job_execution_data_lineage jedl " +
+			"  JOIN cfg_application ca " +
+			"		 ON ca.app_id = jedl.app_id " +
+			"  LEFT JOIN job_execution je " +
+			"    ON jedl.app_id = je.app_id AND jedl.flow_exec_id = je.flow_exec_id AND jedl.job_exec_id = je.job_exec_id " +
+			"  LEFT JOIN flow_job fj " +
+		  "    ON je.app_id = fj.app_id AND je.flow_id = fj.flow_id AND je.job_id = fj.job_id " +
+			" WHERE abstracted_object_name IN ( :names ) " +
+			"   AND jedl.source_target_type = 'target' " +
+			"   AND jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' " +
+			"   AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
+			" GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, " +
+			"          jedl.source_target_type, jedl.storage_type, jedl.operation " +
+			" ORDER BY jedl.source_target_type DESC, job_exec_id";
 
-	private final static String GET_JOB_WITH_SOURCE = "SELECT ca.app_id, ca.app_code as cluster, " +
-			"jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, " +
-			"jedl.operation, MAX(jedl.source_srl_no), MAX(jedl.srl_no), " +
-			"MAX(jedl.job_exec_id) as job_exec_id FROM job_execution_data_lineage jedl " +
-			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
-			"LEFT JOIN job_execution je on jedl.app_id = je.app_id " +
-			"and jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
-			"LEFT JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
-			"WHERE abstracted_object_name in ( :names ) and jedl.source_target_type != (:type) and " +
-			"jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
-			"GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.source_target_type, " +
-			"jedl.storage_type, jedl.operation " +
-			"ORDER BY jedl.source_target_type DESC, job_exec_id";
+	private final static String GET_JOB_WITH_SOURCE =
+			"SELECT ca.app_id, ca.app_code AS cluster, jedl.job_name, fj.job_path, fj.job_type, " +
+			"       jedl.flow_path, jedl.storage_type, jedl.source_target_type, jedl.operation, MAX(jedl.source_srl_no), " +
+			"       MAX(jedl.srl_no), MAX(jedl.job_exec_id) AS job_exec_id " +
+			"  FROM job_execution_data_lineage jedl " +
+			"  JOIN cfg_application ca " +
+			"    ON ca.app_id = jedl.app_id " +
+			"  LEFT JOIN job_execution je " +
+			"    ON jedl.app_id = je.app_id AND jedl.flow_exec_id = je.flow_exec_id AND jedl.job_exec_id = je.job_exec_id " +
+			"  LEFT JOIN flow_job fj " +
+			"    ON je.app_id = fj.app_id AND je.flow_id = fj.flow_id AND je.job_id = fj.job_id " +
+			" WHERE abstracted_object_name IN ( :names ) " +
+			"   AND jedl.source_target_type != (:type) " +
+			"   AND jedl.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' " +
+			"   AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL (:days) DAY " +
+			" GROUP BY ca.app_id, cluster, jedl.job_name, fj.job_path, fj.job_type, " +
+			"          jedl.flow_path, jedl.source_target_type, jedl.storage_type, jedl.operation " +
+			" ORDER BY jedl.source_target_type DESC, job_exec_id";
 
-	private final static String GET_DATA = "SELECT storage_type, operation, " +
-			"abstracted_object_name, source_target_type, job_start_unixtime, job_finished_unixtime, " +
-			"FROM_UNIXTIME(job_start_unixtime) as start_time, " +
-			"FROM_UNIXTIME(job_finished_unixtime) as end_time " +
-			"FROM job_execution_data_lineage WHERE app_id = ? and job_exec_id = ? and " +
-			"flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
-			"COALESCE(source_srl_no, srl_no) = srl_no ORDER BY source_target_type DESC";
+	private final static String GET_DATA =
+			"SELECT storage_type, operation, abstracted_object_name, source_target_type, job_start_unixtime, " +
+			"       job_finished_unixtime, FROM_UNIXTIME(job_start_unixtime) AS start_time, " +
+			"       FROM_UNIXTIME(job_finished_unixtime) AS end_time " +
+			"  FROM job_execution_data_lineage " +
+			" WHERE app_id = ? " +
+			"   AND job_exec_id = ? " +
+			"   AND flow_path NOT REGEXP '^(rent-metrics:|tracking-investigation:)' " +
+			"		AND COALESCE(source_srl_no, srl_no) = srl_no " +
+			" ORDER BY source_target_type DESC";
 
-	private final static String GET_DATA_FILTER_OUT_LASSEN = "SELECT j1.storage_type, j1.operation, " +
-			"j1.abstracted_object_name, j1.source_target_type, j1.job_start_unixtime, j1.job_finished_unixtime, " +
-			"FROM_UNIXTIME(j1.job_start_unixtime) as start_time, " +
-			"FROM_UNIXTIME(j1.job_finished_unixtime) as end_time " +
-			"FROM job_execution_data_lineage j1 " +
-			"JOIN job_execution_data_lineage j2 on j1.app_id = j2.app_id and j1.job_exec_id = j2.job_exec_id " +
-			"and j2.abstracted_object_name in (:names) and j2.source_target_type = 'source' " +
-			"WHERE j1.app_id = (:appid) and j1.job_exec_id = (:execid) and " +
-			"j1.flow_path not REGEXP '^(rent-metrics:|tracking-investigation:)' and " +
-			"COALESCE(j1.source_srl_no, j1.srl_no) = j2.srl_no ORDER BY j1.source_target_type DESC";
+	private final static String GET_DATA_FILTER_OUT_LASSEN =
+			"SELECT j1.storage_type, j1.operation, j1.abstracted_object_name, j1.source_target_type, j1.job_start_unixtime, " +
+			"       j1.job_finished_unixtime, FROM_UNIXTIME(j1.job_start_unixtime) AS start_time, " +
+			"       FROM_UNIXTIME(j1.job_finished_unixtime) AS end_time " +
+			"  FROM job_execution_data_lineage j1 " +
+			"  JOIN job_execution_data_lineage j2 " +
+			"    ON j1.app_id = j2.app_id AND j1.job_exec_id = j2.job_exec_id " +
+			"       AND j2.abstracted_object_name IN (:names) AND j2.source_target_type = 'source' " +
+			" WHERE j1.app_id = (:appid) " +
+			"   AND j1.job_exec_id = (:execid) " +
+			"   AND j1.flow_path NOT REGEXP '^(rent-metrics:|tracking-investigation:)' " +
+			"   AND COALESCE(j1.source_srl_no, j1.srl_no) = j2.srl_no " +
+			" ORDER BY j1.source_target_type DESC";
 
 
-	private final static String GET_APP_ID  = "SELECT app_id FROM cfg_application WHERE LOWER(app_code) = ?";
+	private final static String GET_APP_ID  =
+			"SELECT app_id" +
+			"  FROM cfg_application" +
+			" WHERE LOWER(app_code) = ?";
 
 
-	private final static String GET_FLOW_JOB = "SELECT ca.app_id, ca.app_code, je.flow_id, je.job_id, " +
-			"jedl.job_name, fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, " +
-			"jedl.source_target_type, jedl.operation, jedl.job_exec_id, fj.pre_jobs, fj.post_jobs, " +
-			"FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
-			"FROM_UNIXTIME(jedl.job_finished_unixtime) as end_time " +
-			"FROM job_execution_data_lineage jedl " +
-			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
-			"JOIN job_execution je on jedl.app_id = je.app_id and " +
-			"jedl.flow_exec_id = je.flow_exec_id and jedl.job_exec_id = je.job_exec_id " +
-			"JOIN flow_job fj on je.app_id = fj.app_id and je.flow_id = fj.flow_id and je.job_id = fj.job_id " +
-			"WHERE jedl.app_id = ? and jedl.flow_exec_id = ? and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY";
+	private final static String GET_FLOW_JOB =
+			"SELECT ca.app_id, ca.app_code, je.flow_id, je.job_id, jedl.job_name, " +
+			"       fj.job_path, fj.job_type, jedl.flow_path, jedl.storage_type, jedl.source_target_type, " +
+			"       jedl.operation, jedl.job_exec_id, fj.pre_jobs, fj.post_jobs, " +
+			"       FROM_UNIXTIME(jedl.job_start_unixtime) AS start_time, " +
+			"       FROM_UNIXTIME(jedl.job_finished_unixtime) AS end_time " +
+			"  FROM job_execution_data_lineage jedl " +
+			"  JOIN cfg_application ca " +
+			"    ON ca.app_id = jedl.app_id " +
+			"  JOIN job_execution je " +
+			"    ON jedl.app_id = je.app_id AND jedl.flow_exec_id = je.flow_exec_id AND jedl.job_exec_id = je.job_exec_id " +
+			"  JOIN flow_job fj " +
+			"    ON je.app_id = fj.app_id AND je.flow_id = fj.flow_id AND je.job_id = fj.job_id " +
+			" WHERE jedl.app_id = ? " +
+			"   AND jedl.flow_exec_id = ? " +
+			"   AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL ? DAY";
 
-	private final static String GET_LATEST_FLOW_EXEC_ID = "SELECT max(flow_exec_id) FROM " +
-			"flow_execution where flow_exec_status in ('SUCCEEDED', 'FINISHED') and app_id = ? and flow_id = ?";
+	private final static String GET_LATEST_FLOW_EXEC_ID =
+			"SELECT MAX(flow_exec_id) " +
+			"  FROM flow_execution " +
+			" WHERE flow_exec_status IN ('SUCCEEDED', 'FINISHED') " +
+			"   AND app_id = ? " +
+			"   AND flow_id = ?";
 
-	private final static String GET_FLOW_DATA_LINEAGE = "SELECT ca.app_code, jedl.job_exec_id, jedl.job_name, " +
-			"jedl.storage_type, jedl.abstracted_object_name, jedl.source_target_type, jedl.record_count, " +
-			"jedl.app_id, jedl.partition_type, jedl.operation, jedl.partition_start, " +
-			"jedl.partition_end, jedl.full_object_name, " +
-			"FROM_UNIXTIME(jedl.job_start_unixtime) as start_time, " +
-			"FROM_UNIXTIME(jedl.job_finished_unixtime) as end_time FROM job_execution_data_lineage jedl " +
-			"JOIN cfg_application ca on ca.app_id = jedl.app_id " +
-			"WHERE jedl.app_id = ? and jedl.flow_exec_id = ? ORDER BY jedl.partition_end DESC";
+	private final static String GET_FLOW_DATA_LINEAGE =
+			"SELECT ca.app_code, jedl.job_exec_id, jedl.job_name, jedl.storage_type, jedl.abstracted_object_name, " +
+			"       jedl.source_target_type, jedl.record_count, jedl.app_id, jedl.partition_type, jedl.operation, " +
+			"       jedl.partition_start, jedl.partition_end, jedl.full_object_name, " +
+			"       FROM_UNIXTIME(jedl.job_start_unixtime) AS start_time, " +
+			"       FROM_UNIXTIME(jedl.job_finished_unixtime) AS end_time " +
+			"  FROM job_execution_data_lineage jedl " +
+			"  JOIN cfg_application ca " +
+			"    ON ca.app_id = jedl.app_id " +
+			" WHERE jedl.app_id = ? " +
+			"   AND jedl.flow_exec_id = ? " +
+			" ORDER BY jedl.partition_end DESC";
 
-	private final static String GET_ONE_LEVEL_IMPACT_DATABASES = "SELECT DISTINCT j.storage_type, " +
-			"j.abstracted_object_name, d.id FROM job_execution_data_lineage j " +
-			"LEFT JOIN dict_dataset d ON d.urn = concat(j.storage_type, '://', j.abstracted_object_name) " +
-			"WHERE (app_id, job_exec_id) in ( " +
-			"SELECT app_id, job_exec_id FROM job_execution_data_lineage " +
-			"WHERE abstracted_object_name in (:pathlist) and source_target_type = 'source' and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL 60 DAY ) and " +
-			"abstracted_object_name not like '/tmp/%' and abstracted_object_name not like '%tmp' " +
-			"and source_target_type = 'target' and " +
-			"FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL 60 DAY";
+	private final static String GET_ONE_LEVEL_IMPACT_DATABASES =
+			"SELECT DISTINCT j.storage_type, j.abstracted_object_name, d.id " +
+			"  FROM job_execution_data_lineage j " +
+			"  LEFT JOIN dict_dataset d "+
+			"    ON d.urn = concat(j.storage_type, '://', j.abstracted_object_name) " +
+			" WHERE (app_id, job_exec_id) IN " +
+			"         ( SELECT app_id, job_exec_id " +
+			"             FROM job_execution_data_lineage " +
+			"            WHERE abstracted_object_name IN (:pathlist) " +
+			"              AND source_target_type = 'source' " +
+			"              AND FROM_UNIXTIME(job_finished_unixtime) >  CURRENT_DATE - INTERVAL 60 DAY ) " +
+			"   AND abstracted_object_name NOT LIKE '/tmp/%' " +
+			"   AND abstracted_object_name NOT LIKE '%tmp' " +
+			"   AND source_target_type = 'target' "+
+			"   AND FROM_UNIXTIME(job_finished_unixtime) > CURRENT_DATE - INTERVAL 60 DAY";
 
-	private final static String GET_MAPPED_OBJECT_NAME = "SELECT mapped_object_name " +
-			"FROM cfg_object_name_map WHERE object_name = ?";
+	private final static String GET_MAPPED_OBJECT_NAME =
+			"SELECT mapped_object_name " +
+			"  FROM cfg_object_name_map " +
+			"	WHERE object_name = ?";
 
-	private final static String GET_OBJECT_NAME_BY_MAPPED_NAME = "SELECT object_name " +
-			"FROM cfg_object_name_map WHERE mapped_object_name = ?";
+	private final static String GET_OBJECT_NAME_BY_MAPPED_NAME =
+			"SELECT object_name " +
+			"  FROM cfg_object_name_map" +
+			" WHERE mapped_object_name = ?";
 
-	private final static String GET_SCRIPT_INFO_BY_JOB_ID = "SELECT script_url, " +
-			"script_name, script_path, script_type " +
-			"FROM job_execution_script WHERE app_id = ? and job_id = ? LIMIT 1";
+	private final static String GET_SCRIPT_INFO_BY_JOB_ID =
+			"SELECT script_url, script_name, script_path, script_type " +
+			"  FROM job_execution_script " +
+			" WHERE app_id = ? " +
+			"   AND job_id = ? " +
+			" LIMIT 1";
 
 
 	public static JsonNode getObjectAdjacnet(String urn, int upLevel, int downLevel, int lookBackTime)
