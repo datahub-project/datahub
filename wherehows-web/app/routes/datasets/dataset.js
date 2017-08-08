@@ -33,24 +33,13 @@ export default Route.extend({
   //TODO: DSS-6632 Correct server-side if status:error and record not found but response is 200OK
   setupController(controller, model) {
     let source = '';
-    var id = 0;
-    var urn = '';
+    let id = 0;
+    let urn = '';
 
     /**
      * Series of chain-able functions invoked to set set properties on the controller required for dataset tab sections
-     * @type {{privacyCompliancePolicy: ((id)), securitySpecification: ((id)), datasetSchemaFieldNamesAndTypes: ((id))}}
      */
     const fetchThenSetOnController = {
-      async complianceInfo(controller, { id }) {
-        const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
-        const { msg, status, complianceInfo = createInitialComplianceInfo(id) } = response;
-        const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
-
-        setProperties(controller, { complianceInfo, isNewComplianceInfo });
-
-        return this;
-      },
-
       datasetSchemaFieldNamesAndTypes(controller, { id }) {
         Promise.resolve(getJSON(datasetUrl(id))).then(({ dataset: { schema } = { schema: undefined } } = {}) => {
           /**
@@ -132,6 +121,73 @@ export default Route.extend({
           })
         )
         .forEach(func => func());
+
+      /**
+       * Fetches the current compliance policy for the rendered dataset
+       * @param {number} id the id of the dataset
+       * @return {Promise.<{complianceInfo: *, isNewComplianceInfo: boolean}>}
+       */
+      const getComplianceInfo = async id => {
+        const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
+        const { msg, status, complianceInfo = createInitialComplianceInfo(id) } = response;
+        const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
+
+        return { complianceInfo, isNewComplianceInfo };
+      };
+
+      /**
+       * Fetch the datasetColumn
+       * @param {number} id the id of the dataset
+       */
+      getDatasetColumn = id =>
+        Promise.resolve(getJSON(getDatasetColumnUrl(id)))
+          .then(({ status, columns }) => {
+            if (status === 'ok') {
+              if (columns && columns.length) {
+                const columnsWithHTMLComments = columns.map(column => {
+                  const { comment } = column;
+
+                  if (comment) {
+                    // TODO: DSS-6122 Refactor global function reference
+                    column.commentHtml = window.marked(comment).htmlSafe();
+                  }
+
+                  return column;
+                });
+
+                controller.set('hasSchemas', true);
+                controller.set('schemas', columnsWithHTMLComments);
+
+                // TODO: DSS-6122 Refactor direct method invocation on controller
+                controller.buildJsonView();
+                // TODO: DSS-6122 Refactor setTimeout,
+                //   global function reference
+                setTimeout(window.initializeColumnTreeGrid, 500);
+              }
+
+              return columns;
+            }
+
+            return Promise.reject(new Error('Dataset columns request failed.'));
+          })
+          .then(columns => columns.map(({ dataType, fullFieldPath }) => ({ dataType, fieldName: fullFieldPath })))
+          .catch(() => setProperties(controller, { hasSchemas: false, schemas: null }));
+
+      /**
+       * async IIFE sets the the complianceInfo and schemaFieldNamesMappedToDataTypes
+       * at once so observers will be buffered
+       * @param {number} id the dataset id
+       * @return {Promise.<void>}
+       */
+      (async id => {
+        const [columns, privacy] = await Promise.all([getDatasetColumn(id), getComplianceInfo(id)]);
+        const { complianceInfo, isNewComplianceInfo } = privacy;
+        setProperties(controller, {
+          complianceInfo,
+          isNewComplianceInfo,
+          schemaFieldNamesMappedToDataTypes: columns
+        });
+      })(id);
     }
 
     Promise.resolve(getJSON(getDatasetInstanceUrl(id)))
@@ -206,48 +262,6 @@ export default Route.extend({
         controller.set('currentUser', user);
       }
     });
-
-    getDatasetColumn = id =>
-      Promise.resolve(getJSON(getDatasetColumnUrl(id)))
-        .then(({ status, columns }) => {
-          if (status === 'ok') {
-            if (columns && columns.length) {
-              const columnsWithHTMLComments = columns.map(column => {
-                const { comment } = column;
-
-                if (comment) {
-                  // TODO: DSS-6122 Refactor global function reference
-                  column.commentHtml = window.marked(comment).htmlSafe();
-                }
-
-                return column;
-              });
-
-              controller.set('hasSchemas', true);
-              controller.set('schemas', columnsWithHTMLComments);
-
-              // TODO: DSS-6122 Refactor direct method invocation on controller
-              controller.buildJsonView();
-              // TODO: DSS-6122 Refactor setTimeout,
-              //   global function reference
-              setTimeout(window.initializeColumnTreeGrid, 500);
-            }
-
-            return columns;
-          }
-
-          return Promise.reject(new Error('Dataset columns request failed.'));
-        })
-        .then(columns => columns.map(({ dataType, fullFieldPath }) => ({ dataType, fieldName: fullFieldPath })))
-        .then(set.bind(Ember, controller, 'schemaFieldNamesMappedToDataTypes'))
-        .catch(() =>
-          setProperties(controller, {
-            hasSchemas: false,
-            schemas: null
-          })
-        );
-
-    getDatasetColumn(id);
 
     if (source.toLowerCase() !== 'pinot') {
       Promise.resolve(getJSON(getDatasetPropertiesUrl(id)))

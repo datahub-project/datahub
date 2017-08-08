@@ -166,54 +166,56 @@
     {{/if}}
   </section>
 
-  {{#dataset-table
-    class="nacho-table--stripped dataset-compliance-fields"
-    fields=complianceDataFields
-    sortColumnWithName=sortColumnWithName
-    filterBy=filterBy
-    sortDirection=sortDirection
-    searchTerm=searchTerm as |table|
-  }}
-    <caption>
-      <input
-        type="text"
-        title="Search fields"
-        placeholder="Search fields"
-        value="{{table.searchTerm}}"
-        oninput={{action table.filterDidChange value="target.value"}}>
-    </caption>
-    {{#table.head as |head|}}
-      {{#head.column columnName="identifierField"}}Field{{/head.column}}
-      {{#head.column columnName="dataType"}}Data Type{{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
-        Member, Organization, or Group, ID's
-        <a
-          target="_blank"
-          href="http://go/metadata_acquisition#ProjectOverview-compliance">
-          <sup>
-            More Info
+  {{#if mergedComplianceEntitiesAndColumnFields.length}}
+    {{#dataset-table
+      class="nacho-table--stripped dataset-compliance-fields"
+      fields=mergedComplianceEntitiesAndColumnFields
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy
+      sortDirection=sortDirection
+      tableRowComponent='dataset-compliance-row'
+      searchTerm=searchTerm as |table|
+    }}
+      <caption>
+        <input
+          type="text"
+          title="Search fields"
+          placeholder="Search fields"
+          value="{{table.searchTerm}}"
+          oninput={{action table.filterDidChange value="target.value"}}>
+      </caption>
+      {{#table.head as |head|}}
+        {{#head.column columnName="identifierField"}}Field{{/head.column}}
+        {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+        {{#head.column class="nacho-table-cell-wrapped"}}
+          Member, Organization, or Group, ID's
+          <a
+            target="_blank"
+            href="http://go/metadata_acquisition#ProjectOverview-compliance">
+            <sup>
+              More Info
 
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on various IDs"></span>
-          </sup>
-        </a>
-      {{/head.column}}
-      {{#head.column}}
-        Field Format?
-        <a
-          target="_blank"
-          href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
-          <sup>
-            More Info
+              <span class="glyphicon glyphicon-question-sign"
+                    title="More information on various IDs"></span>
+            </sup>
+          </a>
+        {{/head.column}}
+        {{#head.column}}
+          Field Format?
+          <a
+            target="_blank"
+            href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
+            <sup>
+              More Info
 
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on Field Format"></span>
-          </sup>
-        </a>
-      {{/head.column}}
-      {{#head.column}}
-        Security Classification
-        <sup>
+              <span class="glyphicon glyphicon-question-sign"
+                    title="More information on Field Format"></span>
+            </sup>
+          </a>
+        {{/head.column}}
+        {{#head.column}}
+          Security Classification
+          <sup>
           <span
             class="glyphicon glyphicon-question-sign"
             title={{helpText.classification}}>
@@ -223,52 +225,62 @@
               text=helpText.classification
             }}
           </span>
-        </sup>
-      {{/head.column}}
-    {{/table.head}}
-    {{#table.body as |body|}}
-      {{#each (sort-by table.sortBy table.data) as |field|}}
-        {{#body.row as |row|}}
-          {{#row.cell}}
-            {{field.identifierField}}
-          {{/row.cell}}
-          {{#row.cell}}
-            {{field.dataType}}
-          {{/row.cell}}
-          {{#row.cell}}
-            {{ember-selector
-              disabled=(not isEditing)
-              values=fieldIdentifierOptions
-              selected=field.identifierType
-              selectionDidChange=(action "onFieldIdentifierTypeChange" field)
-            }}
-          {{/row.cell}}
-          {{#row.cell}}
-            {{#power-select
-              options=field.fieldFormats
-              selected=field.logicalType
-              disabled=(or field.isFieldFormatDisabled (not isEditing))
-              placeholder="Select Format"
-              allowClear=true
-              searchField="label"
-              triggerClass="ember-power-select-trigger-search"
-              onchange=(action "onFieldLogicalTypeChange" field) as |fieldFormat|}}
-              {{fieldFormat.label}}
-            {{/power-select}}
-          {{/row.cell}}
-          {{#row.cell}}
-            {{ember-selector
-              class="nacho-select--hidden-state"
-              values=classifiers
-              selected=field.classification
-              disabled=(or (not isEditing) (not field.logicalType))
-              selectionDidChange=(action "onFieldClassificationChange" field)
-            }}
-          {{/row.cell}}
-        {{/body.row}}
-      {{/each}}
-    {{/table.body}}
-  {{/dataset-table}}
+          </sup>
+        {{/head.column}}
+      {{/table.head}}
+      {{#table.body as |body|}}
+        {{#each (sort-by table.sortBy table.data) as |field|}}
+          {{#body.row
+            field=field
+            onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
+            onFieldClassificationChange=(action 'onFieldClassificationChange')
+            onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')as |row|}}
+
+            {{#row.cell}}
+              {{row.identifierField}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{row.dataType}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{ember-selector
+                disabled=(not isEditing)
+                values=fieldIdentifierOptions
+                selected=(readonly row.identifierType)
+                selectionDidChange=(action row.onFieldIdentifierTypeChange)
+              }}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{#power-select
+                options=row.fieldFormats
+                selected=row.logicalType
+                disabled=(or row.isFieldFormatDisabled (not isEditing))
+                placeholder="Select Format"
+                allowClear=true
+                searchField="label"
+                triggerClass="ember-power-select-trigger-search"
+                onchange=(action row.onFieldLogicalTypeChange) as |fieldFormat|}}
+                {{fieldFormat.label}}
+              {{/power-select}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{ember-selector
+                class="nacho-select--hidden-state"
+                values=classifiers
+                selected=row.classification
+                disabled=(or (not isEditing) (not row.logicalType))
+                selectionDidChange=(action row.onFieldClassificationChange)
+              }}
+            {{/row.cell}}
+          {{/body.row}}
+        {{/each}}
+      {{/table.body}}
+    {{/dataset-table}}
+  {{/if}}
 </div>
 
 {{yield}}

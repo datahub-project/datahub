@@ -10,6 +10,7 @@ import {
   compliancePolicyStrings
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/functions';
+import scrollMonitor from 'scrollmonitor';
 
 const {
   assert,
@@ -20,7 +21,6 @@ const {
   setProperties,
   getProperties,
   getWithDefault,
-  isEmpty,
   String: { htmlSafe }
 } = Ember;
 
@@ -105,7 +105,7 @@ const fieldIdentifierOptions = fieldDisplayKeys.map(fieldIdentifierType => {
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
  * @type {any[]|Array.<String>}
  */
-const fieldIdentifierTypeIds = Object.keys(fieldIdentifierTypes)
+export const fieldIdentifierTypeIds = Object.keys(fieldIdentifierTypes)
   .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
   .filter(({ isId }) => isId)
   .mapBy('value');
@@ -126,6 +126,12 @@ const cachedLogicalTypes = logicalType =>
         : value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
     }));
   });
+
+// Map logicalTypes to options consumable by DOM
+export const logicalTypesForIds = cachedLogicalTypes('id');
+
+// Map generic logical type to options consumable in DOM
+export const logicalTypesForGeneric = cachedLogicalTypes('generic');
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',
@@ -157,6 +163,75 @@ export default Component.extend({
   },
 
   /**
+   * @override
+   */
+  didRender() {
+    this._super(...arguments);
+    // Hides DOM elements that are not currently visible in the UI and unhides them once the user scrolls the
+    // elements into view
+    this.enableDomCloaking();
+  },
+
+  /**
+   * A `lite` / intermediary step to occlusion culling, this helps to improve the rendering of
+   * elements that are currently rendered in the viewport by hiding that aren't.
+   * Setting them to visibility hidden doesn't remove them from the document flow, but the browser
+   * doesn't have to deal with layout for the affected elements since they are off-screen
+   */
+  enableDomCloaking() {
+    const [dom] = this.$('.dataset-compliance-fields');
+    const triggerCount = 100;
+    if (dom) {
+      const rows = dom.querySelectorAll('tbody tr');
+
+      // if we already have watchers for elements, or if the elements previously cached are no longer valid,
+      // e.g. those elements were destroyed when new data was received, pagination etc
+      if (rows.length > triggerCount && (!this.complianceWatchers || !this.complianceWatchers.has(rows[0]))) {
+        /**
+         * If an item is not in the viewport add a class to occlude it
+         */
+        const cloaker = function() {
+          if (!this.isInViewport) {
+            return this.watchItem.classList.add('compliance-row--off-screen');
+          }
+          this.watchItem.classList.remove('compliance-row--off-screen');
+        };
+        this.watchers = [];
+
+        // Retain a weak reference to DOM nodes
+        this.complianceWatchers = new WeakMap(
+          [...rows].map(row => {
+            const watcher = scrollMonitor.create(row);
+            watcher['stateChange'](cloaker);
+            cloaker.call(watcher);
+            this.watchers = [...this.watchers, watcher];
+
+            return [watcher.watchItem, watcher];
+          })
+        );
+      }
+    }
+  },
+
+  /**
+   * Cleans up the artifacts from the dom cloaking operation, drops references held by scroll monitor
+   */
+  disableDomCloaking() {
+    if (!this.watchers || !Array.isArray(this.watchers)) {
+      return;
+    }
+
+    this.watchers.forEach(watcher => watcher.destroy());
+  },
+
+  /**
+   * @override
+   */
+  willDestroyElement() {
+    this.disableDomCloaking();
+  },
+
+  /**
    * Ensure that props received from on this component
    * are valid, otherwise flag
    */
@@ -173,10 +248,10 @@ export default Component.extend({
   },
 
   // Map logicalTypes to options consumable by DOM
-  idLogicalTypes: cachedLogicalTypes('id'),
+  idLogicalTypes: logicalTypesForIds,
 
   // Map generic logical type to options consumable in DOM
-  genericLogicalTypes: cachedLogicalTypes('generic'),
+  genericLogicalTypes: logicalTypesForGeneric,
 
   // Map classifiers to options better consumed in DOM
   classifiers: ['', ...classifiers.sort()].map(value => ({
@@ -196,17 +271,17 @@ export default Component.extend({
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
    */
-  containsHiddenTrackingFields: computed('truncatedSchemaFields.length', function() {
-    // If their is a diff in complianceDataFields and truncatedSchemaFields,
+  containsHiddenTrackingFields: computed('truncatedColumnFields.length', function() {
+    // If their is a diff in schemaFieldNamesMappedToDataTypes and truncatedColumnFields,
     //   then we have hidden tracking fields
-    return get(this, 'truncatedSchemaFields.length') !== get(this, 'complianceDataFields.length');
+    return get(this, 'truncatedColumnFields.length') !== get(this, 'schemaFieldNamesMappedToDataTypes.length');
   }),
 
   /**
    * @type {Array.<Object>} Filters the mapped compliance data fields without `kafka type`
    *   tracking headers
    */
-  truncatedSchemaFields: computed('schemaFieldNamesMappedToDataTypes', function() {
+  truncatedColumnFields: computed('schemaFieldNamesMappedToDataTypes', function() {
     return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).filter(
       ({ fieldName }) => !isTrackingHeaderField(fieldName)
     );
@@ -270,106 +345,75 @@ export default Component.extend({
    * privacyCompliancePolicy.complianceEntities.
    * The returned list is a map of fields with current or default privacy properties
    */
-  complianceDataFields: computed(
-    `${policyComplianceEntitiesKey}.@each.identifierType`,
-    `${policyComplianceEntitiesKey}.[]`,
-    policyFieldClassificationKey,
-    'truncatedSchemaFields',
-    function() {
-      /**
-       * Retrieves an attribute on the `policyComplianceEntitiesKey` where the identifierField is the same as the
-       *   provided field name
-       * @param attribute
-       * @param fieldName
-       * @return {null}
-       */
-      const getAttributeOnField = (attribute, fieldName) => {
-        const complianceEntities = get(this, policyComplianceEntitiesKey) || [];
-        // const sourceField = complianceEntities.find(({ identifierField }) => identifierField === fieldName);
-        let sourceField;
-
-        // For long records: >500 elements, the find operation is consistently less performant than a for-loop:
-        // trading elegance for efficiency here
-        for (let i = 0; i < complianceEntities.length; i++) {
-          if (complianceEntities[i]['identifierField'] === fieldName) {
-            sourceField = complianceEntities[i];
-            break;
-          }
-        }
-        return sourceField ? sourceField[attribute] : null;
+  mergeComplianceEntitiesAndColumnFields(columnIdFieldsToCurrentPrivacyPolicy = {}, truncatedColumnFields = []) {
+    return truncatedColumnFields.map(({ fieldName: identifierField, dataType }) => {
+      const { [identifierField]: { identifierType, isSubject, logicalType } } = columnIdFieldsToCurrentPrivacyPolicy;
+      const { [identifierField]: classification } = get(this, policyFieldClassificationKey) || {};
+      return {
+        identifierField,
+        dataType,
+        identifierType,
+        isSubject,
+        logicalType,
+        classification
       };
+    });
+  },
 
-      /**
-       * Get value for a list of attributes
-       * @param {Array} attributes list of attribute keys to pull from
-       *   sourceField
-       * @param {String} fieldName name of the field to lookup
-       * @return {Array} list of attribute values
-       */
-      const getAttributesOnField = (attributes = [], fieldName) =>
-        attributes.map(attr => getAttributeOnField(attr, fieldName));
+  /**
+   *
+   * @param {Array} columnFieldNames
+   * @return {*|{}|any}
+   */
+  mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldNames) {
+    const complianceEntities = get(this, policyComplianceEntitiesKey) || [];
+    const getKeysOnField = (keys = [], fieldName, source = []) => {
+      const sourceField = source.find(({ identifierField }) => identifierField === fieldName) || {};
+      let ret = {};
 
-      // Set default or if already in policy, retrieve current values from
-      //   privacyCompliancePolicy.complianceEntities
-      return getWithDefault(this, 'truncatedSchemaFields', []).map(({ fieldName: identifierField, dataType }) => {
-        const [identifierType, isSubject, logicalType] = getAttributesOnField(
-          ['identifierType', 'isSubject', 'logicalType'],
-          identifierField
-        );
-        /**
-         * Flag indicating that the field has an identifierType matching a generic type
-         * @type {Boolean}
-         */
-        const isMixed = identifierType === fieldIdentifierTypes.generic.value;
-        /**
-         * Flag indicating that the field has an identifierType matching a custom id type
-         * @type {Boolean}
-         */
-        const isCustom = identifierType === fieldIdentifierTypes.custom.value;
-        // Runtime converts the identifierType to subjectMember if the isSubject flag is true
-        const computedIdentifierType = identifierType === fieldIdentifierTypes.member.value && isSubject
-          ? fieldIdentifierTypes.subjectMember.value
-          : identifierType;
-        const idLogicalTypes = get(this, 'idLogicalTypes');
-        // Filtered list of id logical types that end with urn, or have no value
-        const urnFieldFormat = idLogicalTypes.findBy('value', 'URN');
-        // Get the current classification list
-        const fieldClassification = get(this, policyFieldClassificationKey) || {};
-        // The field formats applicable to the current identifierType
-        let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
-          ? idLogicalTypes
-          : get(this, 'genericLogicalTypes');
-        /**
-         * If field is a mixed identifier, avail only the urnFieldFormat, otherwise use the prev determined fieldFormats
-         * @type {any|Object}
-         */
-        fieldFormats = isMixed ? urnFieldFormat : fieldFormats;
-        fieldFormats = isCustom ? void 0 : fieldFormats;
-        /**
-         * An object referencing the fieldFormat for this field
-         * @type {any|Object}
-         */
-        const logicalTypeObject = Array.isArray(fieldFormats)
-          ? fieldFormats.findBy('value', logicalType)
-          : fieldFormats;
+      for (const [key, value] of Object.entries(sourceField)) {
+        if (keys.includes(key)) {
+          ret = { ...ret, [key]: value };
+        }
+      }
+      return ret;
+    };
 
-        return {
-          dataType,
-          identifierField,
-          fieldFormats,
-          // Boolean flag indicating that the list of field formats is unchanging
-          isFieldFormatDisabled: isMixed || isCustom,
-          identifierType: computedIdentifierType,
-          // Check specific use case for urn only field format / logicalType
-          classification:
-            fieldClassification[identifierField] ||
-              (isMixed && defaultFieldDataTypeClassification[urnFieldFormat.value]),
-          // Same object reference for equality comparision
-          logicalType: logicalTypeObject
-        };
-      });
+    return columnFieldNames.reduce((acc, identifierField) => {
+      const currentPrivacyAttrs = getKeysOnField(
+        ['identifierType', 'isSubject', 'logicalType'],
+        identifierField,
+        complianceEntities
+      );
+
+      return { ...acc, ...{ [identifierField]: currentPrivacyAttrs } };
+    }, {});
+  },
+
+  /**
+   * Computed prop over the current Id fields in the Privacy Policy
+   * @type {Ember.computed}
+   */
+  columnIdFieldsToCurrentPrivacyPolicy: computed(
+    'truncatedColumnFields',
+    `${policyComplianceEntitiesKey}.[]`,
+    function() {
+      const columnFieldNames = get(this, 'truncatedColumnFields').map(({ fieldName }) => fieldName);
+      return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldNames);
     }
   ),
+
+  /**
+   * Caches a reference to the generated list of merged data between the column api and the current compliance entities list
+   * @type {Ember.computed}
+   */
+  mergedComplianceEntitiesAndColumnFields: computed('columnIdFieldsToCurrentPrivacyPolicy', function() {
+    // truncatedColumnFields is a dependency for cp columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
+    return this.mergeComplianceEntitiesAndColumnFields(
+      get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
+      get(this, 'truncatedColumnFields')
+    );
+  }),
 
   /**
    * Checks that each entity in sourceEntities has a generic
@@ -453,38 +497,49 @@ export default Component.extend({
     // Current list of compliance entities on policy
     const complianceEntities = get(this, policyComplianceEntitiesKey);
     // All candidate fields that can be on policy, excluding tracking type fields
-    const datasetFields = get(this, 'complianceDataFields');
-    const fieldsCurrentlyInComplianceList = complianceEntities.mapBy('identifierField');
+    const datasetFields = get(
+      this,
+      'mergedComplianceEntitiesAndColumnFields'
+    ).map(({ identifierField, identifierType, isSubject, logicalType }) => ({
+      identifierField,
+      identifierType,
+      isSubject,
+      logicalType
+    }));
     // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
-    const unformattedFields = datasetFields.filter(
-      ({ identifierType, logicalType }) =>
-        !logicalType && (fieldIdentifierTypes.none.value === identifierType || !identifierType)
+    const { formatted, unformatted } = datasetFields.reduce(
+      ({ formatted, unformatted }, field) => {
+        const { identifierType, logicalType } = getProperties(field, ['identifierType', 'logicalType']);
+        if (!logicalType && (fieldIdentifierTypes.none.value === identifierType || !identifierType)) {
+          unformatted = [...unformatted, field];
+        } else {
+          formatted = [...formatted, field];
+        }
+        return { formatted, unformatted };
+      },
+      { formatted: [], unformatted: [] }
     );
     let isConfirmed = true;
+    let unformattedComplianceEntities = [];
 
     // If there are unformatted fields, require confirmation from user
-    if (!isEmpty(unformattedFields)) {
-      // Ensure that the unformatted fields to be added to the entities are not already present
-      // in the previous compliance entities list
-      const unformattedComplianceEntities = unformattedFields
-        .filter(({ identifierField }) => !fieldsCurrentlyInComplianceList.includes(identifierField))
-        .map(({ identifierField }) => ({
-          identifierField,
-          identifierType: fieldIdentifierTypes.none.value,
-          isSubject: null,
-          logicalType: void 0
-        }));
+    if (unformatted.length) {
+      unformattedComplianceEntities = unformatted.map(({ identifierField }) => ({
+        identifierField,
+        identifierType: fieldIdentifierTypes.none.value,
+        isSubject: null,
+        logicalType: void 0
+      }));
 
       isConfirmed = confirm(
-        `There are ${unformattedFields.length} non-ID fields that have no field format specified. ` +
+        `There are ${unformatted.length} non-ID fields that have no field format specified. ` +
           `Are you sure they don't contain any of the following PII?\n\n` +
           `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`
       );
-
-      // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
-      //   to be saved
-      isConfirmed && complianceEntities.setObjects([...complianceEntities, ...unformattedComplianceEntities]);
     }
+    // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
+    //   to be saved
+    isConfirmed && complianceEntities.setObjects([...formatted, ...unformattedComplianceEntities]);
 
     return isConfirmed;
   },
@@ -585,35 +640,20 @@ export default Component.extend({
      * @param {String} identifierType
      */
     onFieldIdentifierTypeChange({ identifierField, logicalType }, { value: identifierType }) {
-      const complianceList = get(this, policyComplianceEntitiesKey);
+      const currentComplianceEntities = get(this, 'mergedComplianceEntitiesAndColumnFields');
       // A reference to the current field in the compliance list if it exists
-      const currentFieldInComplianceList = complianceList.findBy('identifierField', identifierField);
+      const currentFieldInComplianceList = currentComplianceEntities.findBy('identifierField', identifierField);
       const subjectIdString = fieldIdentifierTypes.subjectMember.value;
       // Some rendered identifierTypes may be masks of other underlying types, e.g. subjectId Member type is really
       // a memberId with an attribute of isSubject in the affirmative
       const unwrappedIdentifierType = subjectIdString === identifierType
         ? fieldIdentifierTypes.member.value
         : identifierType;
-      const updatedEntity = Object.assign({}, currentFieldInComplianceList, {
-        identifierField,
+      setProperties(currentFieldInComplianceList, {
         identifierType: unwrappedIdentifierType,
         isSubject: subjectIdString === identifierType ? true : null,
-        // If the field is currently not in the complianceList,
-        // we will set the logicalType to be the provided value, otherwise, set to undefined
-        // since the next step removes it from the updated list
-        logicalType: !currentFieldInComplianceList ? logicalType : void 0
+        logicalType: void 0
       });
-      let transientComplianceList = complianceList;
-
-      // If the identifierField is in the current compliance list,
-      // create a filtered list excluding the identifierField before updating the list
-      if (currentFieldInComplianceList) {
-        transientComplianceList = complianceList.filter(
-          ({ identifierField: fieldName }) => fieldName !== identifierField
-        );
-      }
-
-      complianceList.setObjects([updatedEntity, ...transientComplianceList]);
       // Set the defaultClassification for the identifierField,
       // although the classification is based on the logicalType,
       // an identifierField may only have one valid logicalType for it's given identifierType
@@ -627,23 +667,18 @@ export default Component.extend({
      * @param {Event} e the DOM change event
      * @return {*}
      */
-    onFieldLogicalTypeChange(field, e) {
+    onFieldLogicalTypeChange(field, { value: logicalType } = {}) {
       const { identifierField } = field;
-      const { value: logicalType } = e || {};
-      let sourceIdentifierField = get(this, policyComplianceEntitiesKey).findBy('identifierField', identifierField);
 
       // If the identifierField does not current exist, invoke onFieldIdentifierChange to add it on the compliance list
-      if (!sourceIdentifierField) {
+      if (!field) {
         this.actions.onFieldIdentifierTypeChange.call(
           this,
-          {
-            identifierField,
-            logicalType
-          },
+          { identifierField, logicalType },
           { value: fieldIdentifierTypes.none.value }
         );
       } else {
-        set(sourceIdentifierField, 'logicalType', logicalType);
+        set(field, 'logicalType', logicalType);
       }
 
       return this.setDefaultClassification({ identifierField }, { value: logicalType });
@@ -656,6 +691,10 @@ export default Component.extend({
      * @return {*}
      */
     onFieldClassificationChange({ identifierField }, { value: classification = null }) {
+      const currentFieldInComplianceList = get(this, 'mergedComplianceEntitiesAndColumnFields').findBy(
+        'identifierField',
+        identifierField
+      );
       let fieldClassification = get(this, policyFieldClassificationKey);
       let updatedFieldClassification = {};
       // For datasets initially without a fieldClassification, the default value is null
@@ -675,6 +714,8 @@ export default Component.extend({
         updatedFieldClassification = Object.assign({}, fieldClassification, { [identifierField]: classification });
       }
 
+      // Apply the updated classification value to the current instance of the field in working copy
+      set(currentFieldInComplianceList, 'classification', classification);
       set(this, policyFieldClassificationKey, updatedFieldClassification);
     },
 

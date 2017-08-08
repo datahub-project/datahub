@@ -16,3 +16,10 @@
 .dataset-field-value {
   visibility: hidden;
 }
+
+/// Visual state for compliance elements
+.compliance-row {
+  &--off-screen {
+    visibility: hidden;
+  }
+}
