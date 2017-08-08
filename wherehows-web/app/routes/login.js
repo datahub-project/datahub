@@ -1,10 +1,6 @@
 import Ember from 'ember';
 
-const {
-  Route,
-  get,
-  inject: { service }
-} = Ember;
+const { Route, get, inject: { service } } = Ember;
 
 export default Route.extend({
   session: service(),
@@ -17,5 +13,16 @@ export default Route.extend({
     if (get(this, 'session.isAuthenticated')) {
       this.transitionTo('index');
     }
+  },
+
+  /**
+   * Overrides the default method with a custom op
+   * renders the default template into the login outlet
+   * @override
+   */
+  renderTemplate() {
+    this.render({
+      outlet: 'login'
+    });
   }
 });

@@ -17,7 +17,7 @@ module.exports = function(defaults) {
     },
 
     fingerprint: {
-      enabled: true
+      enabled: EmberApp.env() === 'production'
     },
 
     'ember-cli-bootstrap-sassy': {
@@ -25,6 +25,7 @@ module.exports = function(defaults) {
     },
 
     minifyJS: {
+      enabled: EmberApp.env() === 'production',
       options: {
         exclude: ['**/vendor.js', 'legacy-app/**']
       }
@@ -130,6 +131,8 @@ module.exports = function(defaults) {
   app.import('bower_components/jsondiffpatch/public/build/jsondiffpatch.min.js');
   app.import('bower_components/jsondiffpatch/public/build/jsondiffpatch-formatters.min.js');
   app.import('bower_components/x-editable/dist/bootstrap3-editable/js/bootstrap-editable.min.js');
+  app.import('bower_components/scrollMonitor/scrollMonitor.js');
+  app.import('vendor/shims/scrollmonitor.js');
 
   return app.toTree(new MergeTrees([faFontTree, bsFontTree, treegridImgTree]));
 };

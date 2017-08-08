@@ -1,0 +1,13 @@
+{{yield (hash
+          cell=(component 'dataset-table-cell')
+          isFieldFormatDisabled=isFieldFormatDisabled
+          identifierType=identifierType
+          identifierField=identifierField
+          dataType=dataType
+          fieldFormats=fieldFormats
+          logicalType=logicalType
+          classification=classification
+          onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')
+          onFieldClassificationChange=(action 'onFieldClassificationChange')
+          onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
+        )}}
