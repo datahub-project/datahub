@@ -18,7 +18,7 @@ node {
   workDir = file("${project.buildDir}/nodejs")
 
   // Set the work directory for NPM
-  yarnWorkDir = file("${project.buildDir}/ywarn")
+  yarnWorkDir = file("${project.buildDir}/yarn")
 
   // Set the work directory where node_modules should be located
   nodeModulesDir = file("${project.projectDir}")
