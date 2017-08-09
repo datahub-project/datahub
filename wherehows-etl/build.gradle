@@ -1,5 +1,4 @@
 apply plugin: 'application'
-apply plugin: 'java'
 mainClassName = 'metadata.etl.Launcher'
 
 configurations {
