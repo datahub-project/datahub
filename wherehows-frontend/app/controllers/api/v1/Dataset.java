@@ -23,6 +23,7 @@ import dao.ReturnCode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetDependency;
 import wherehows.models.DatasetPrivacyCompliance;
@@ -43,6 +44,10 @@ import wherehows.models.DatasetColumn;
 public class Dataset extends Controller
 {
     private static final JdbcTemplate jdbcTemplate = AbstractMySQLOpenSourceDAO.getJdbcTemplate();
+
+    private static final NamedParameterJdbcTemplate namedJdbcTemplate =
+        AbstractMySQLOpenSourceDAO.getNamedParameterJdbcTemplate();
+
     private static final DatasetsDao datasetsDao = Application.daoFactory.getDatasetsDao();
 
     public static Result getDatasetOwnerTypes()
@@ -943,7 +948,7 @@ public class Dataset extends Controller
     public static Promise<Result> getDatasetPrivacy(int datasetId) {
         DatasetCompliance record = null;
         try {
-            record = DatasetsDAO.getDatasetComplianceInfoByDatasetId(datasetId);
+            record = datasetsDao.getDatasetComplianceInfoByDatasetId(jdbcTemplate, datasetId);
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
@@ -971,7 +976,8 @@ public class Dataset extends Controller
         }
 
         try {
-            DatasetsDAO.updateDatasetComplianceInfo(datasetId, request().body().asJson(), username);
+            datasetsDao.updateDatasetComplianceInfo(jdbcTemplate, namedJdbcTemplate, datasetId,
+                request().body().asJson(), username);
         } catch (Exception e) {
             JsonNode result = Json.newObject()
                 .put("status", "failed")
