@@ -2,10 +2,10 @@ apply plugin: "com.moowork.node"
 
 node {
   // Version of node to use.
-  version = '7.8.0'
+  version = '7.10.1'
 
   // Version of yarn to use.
-  yarnVersion = '0.21.3'
+  yarnVersion = '0.27.5'
 
   // Base URL for fetching node distributions (change if you have a mirror).
   distBaseUrl = 'https://nodejs.org/dist'
