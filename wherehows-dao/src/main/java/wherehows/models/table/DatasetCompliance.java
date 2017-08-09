@@ -13,6 +13,13 @@
  */
 package wherehows.models.table;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
 import java.util.List;
 import java.util.Map;
 
