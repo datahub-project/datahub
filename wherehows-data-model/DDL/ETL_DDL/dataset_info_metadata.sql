@@ -105,44 +105,6 @@ CREATE TABLE dataset_partition (
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
 
-CREATE TABLE `dataset_privacy_compliance` (
-  `dataset_id`                INT(10) UNSIGNED NOT NULL,
-  `dataset_urn`               VARCHAR(200)     NOT NULL,
-  `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
-  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
-  `compliance_purge_entities` VARCHAR(5000)    DEFAULT NULL
-  COMMENT 'JSON: compliance fields',
-  `modified_time`             INT UNSIGNED DEFAULT NULL
-  COMMENT 'the modified time in epoch',
-  PRIMARY KEY (`dataset_id`),
-  UNIQUE KEY `dataset_urn` (`dataset_urn`)
-)
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8;
-
-CREATE TABLE `dataset_security` (
-  `dataset_id`                INT(10) UNSIGNED NOT NULL,
-  `dataset_urn`               VARCHAR(200)     NOT NULL,
-  `dataset_classification`    VARCHAR(1000)    DEFAULT NULL
-  COMMENT 'JSON: dataset level confidential classification',
-  `confidentiality`           VARCHAR(50)      DEFAULT NULL
-  COMMENT 'dataset level confidential category: confidential, highly confidential, etc',
-  `classification`            VARCHAR(5000)    DEFAULT NULL
-  COMMENT 'JSON: field level confidential classification',
-  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
-  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
-  `retention_policy`          VARCHAR(200)     DEFAULT NULL
-  COMMENT 'JSON: specification of retention',
-  `geographic_affinity`       VARCHAR(200)     DEFAULT NULL
-  COMMENT 'JSON: must be stored in the geo region',
-  `modified_time`             INT UNSIGNED DEFAULT NULL
-  COMMENT 'the modified time in epoch',
-  PRIMARY KEY (`dataset_id`),
-  UNIQUE KEY `dataset_urn` (`dataset_urn`)
-)
-  ENGINE = InnoDB
-  DEFAULT CHARSET = utf8;
-
 CREATE TABLE `dataset_compliance` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
   `dataset_urn`               VARCHAR(200)     NOT NULL,
