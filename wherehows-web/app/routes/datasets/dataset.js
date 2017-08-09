@@ -141,7 +141,7 @@ export default Route.extend({
        */
       getDatasetColumn = id =>
         Promise.resolve(getJSON(getDatasetColumnUrl(id)))
-          .then(({ status, columns }) => {
+          .then(({ status, columns = [] }) => {
             if (status === 'ok') {
               if (columns && columns.length) {
                 const columnsWithHTMLComments = columns.map(column => {
@@ -171,7 +171,10 @@ export default Route.extend({
             return Promise.reject(new Error('Dataset columns request failed.'));
           })
           .then(columns => columns.map(({ dataType, fullFieldPath }) => ({ dataType, fieldName: fullFieldPath })))
-          .catch(() => setProperties(controller, { hasSchemas: false, schemas: null }));
+          .catch(() => {
+            setProperties(controller, { hasSchemas: false, schemas: null });
+            return [];
+          });
 
       /**
        * async IIFE sets the the complianceInfo and schemaFieldNamesMappedToDataTypes
