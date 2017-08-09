@@ -13,94 +13,123 @@
  */
 package wherehows.models;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
 import java.util.List;
 import java.util.Map;
 
 
+@Data
+@Entity
+@Table(name = "dataset_security")
+@AllArgsConstructor
 public class DatasetSecurity {
 
-  private Integer datasetId;
-  private String datasetUrn;
-  private Map<String, Object> datasetClassification;
-  private String confidentiality;
-  private Map<String, String> classification;
-  private String recordOwnerType;
-  private Map<String, Object> retentionPolicy;
-  private Map<String, Object> geographicAffinity;
-  private Long modifiedTime;
+    @Id
+    @Column(name = "dataset_id")
+    Integer datasetId;
 
-  public DatasetSecurity() {
-  }
+    @Column(name = "dataset_urn")
+    String datasetUrn;
 
-  public Integer getDatasetId() {
-    return datasetId;
-  }
+    @Column(name = "dataset_classification")
+    Map<String, Object> datasetClassification;
 
-  public void setDatasetId(Integer datasetId) {
-    this.datasetId = datasetId;
-  }
+    @Column(name = "confidentiality")
+    String confidentiality;
 
-  public String getDatasetUrn() {
-    return datasetUrn;
-  }
+    @Column(name = "classification")
+    Map<String, String> classification;
 
-  public void setDatasetUrn(String datasetUrn) {
-    this.datasetUrn = datasetUrn;
-  }
+    @Column(name = "record_owner_type")
+    String recordOwnerType;
 
-  public Map<String, Object> getDatasetClassification() {
-    return datasetClassification;
-  }
+    @Column(name = "retention_policy")
+    Map<String, Object> retentionPolicy;
 
-  public void setDatasetClassification(Map<String, Object> datasetClassification) {
-    this.datasetClassification = datasetClassification;
-  }
+    @Column(name = "geographic_affinity")
+    Map<String, Object> geographicAffinity;
 
-  public String getConfidentiality() {
-    return confidentiality;
-  }
+    @Column(name = "modified_time")
+    Long modifiedTime;
 
-  public void setConfidentiality(String confidentiality) {
-    this.confidentiality = confidentiality;
-  }
+    public DatasetSecurity() {
+    }
 
-  public Map<String, String> getClassification() {
-    return classification;
-  }
+    public Integer getDatasetId() {
+        return datasetId;
+    }
 
-  public void setClassification(Map<String, String> classification) {
-    this.classification = classification;
-  }
+    public void setDatasetId(Integer datasetId) {
+        this.datasetId = datasetId;
+    }
 
-  public String getRecordOwnerType() {
-    return recordOwnerType;
-  }
+    public String getDatasetUrn() {
+        return datasetUrn;
+    }
 
-  public void setRecordOwnerType(String recordOwnerType) {
-    this.recordOwnerType = recordOwnerType;
-  }
+    public void setDatasetUrn(String datasetUrn) {
+        this.datasetUrn = datasetUrn;
+    }
 
-  public Map<String, Object> getRetentionPolicy() {
-    return retentionPolicy;
-  }
+    public Map<String, Object> getDatasetClassification() {
+        return datasetClassification;
+    }
 
-  public void setRetentionPolicy(Map<String, Object> retentionPolicy) {
-    this.retentionPolicy = retentionPolicy;
-  }
+    public void setDatasetClassification(Map<String, Object> datasetClassification) {
+        this.datasetClassification = datasetClassification;
+    }
 
-  public Map<String, Object> getGeographicAffinity() {
-    return geographicAffinity;
-  }
+    public String getConfidentiality() {
+        return confidentiality;
+    }
 
-  public void setGeographicAffinity(Map<String, Object> geographicAffinity) {
-    this.geographicAffinity = geographicAffinity;
-  }
+    public void setConfidentiality(String confidentiality) {
+        this.confidentiality = confidentiality;
+    }
 
-  public Long getModifiedTime() {
-    return modifiedTime;
-  }
+    public Map<String, String> getClassification() {
+        return classification;
+    }
 
-  public void setModifiedTime(Long modifiedTime) {
-    this.modifiedTime = modifiedTime;
-  }
+    public void setClassification(Map<String, String> classification) {
+        this.classification = classification;
+    }
+
+    public String getRecordOwnerType() {
+        return recordOwnerType;
+    }
+
+    public void setRecordOwnerType(String recordOwnerType) {
+        this.recordOwnerType = recordOwnerType;
+    }
+
+    public Map<String, Object> getRetentionPolicy() {
+        return retentionPolicy;
+    }
+
+    public void setRetentionPolicy(Map<String, Object> retentionPolicy) {
+        this.retentionPolicy = retentionPolicy;
+    }
+
+    public Map<String, Object> getGeographicAffinity() {
+        return geographicAffinity;
+    }
+
+    public void setGeographicAffinity(Map<String, Object> geographicAffinity) {
+        this.geographicAffinity = geographicAffinity;
+    }
+
+    public Long getModifiedTime() {
+        return modifiedTime;
+    }
+
+    public void setModifiedTime(Long modifiedTime) {
+        this.modifiedTime = modifiedTime;
+    }
 }
