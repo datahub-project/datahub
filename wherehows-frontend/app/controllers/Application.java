@@ -54,7 +54,8 @@ public class Application extends Controller {
   private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
   private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
   private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
-  private static final String DB_WHEREHOWS_URL = Play.application().configuration().getString("db.wherehows.url");
+  private static final String DB_WHEREHOWS_URL =
+      Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
       Play.application().configuration().getString("hikaricp.dataSourceClassName");
   private static final String DB_WHEREHOWS_USERNAME =
