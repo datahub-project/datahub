@@ -1,7 +1,6 @@
 apply plugin: 'application'
 mainClassName = 'metadata.etl.Launcher'
 
-
 configurations {
   //Libraries needed at compilation time but not to be
   //exported as part of the distribution

@@ -26,8 +26,6 @@ configurations.all {
 }
 
 subprojects {
-  apply plugin: 'java'
-
   task excludegroup(type: Test) {
     useTestNG() {
       excludeGroups 'needConfig'
@@ -36,10 +34,6 @@ subprojects {
     testLogging {
       showStandardStreams = true
     }
-  }
-
-  task buildWithWarning(type: JavaCompile, dependsOn: build) {
-    compileJava.options.compilerArgs << "-Xlint:deprecation" << "-Xlint:unchecked"
   }
 }
 
