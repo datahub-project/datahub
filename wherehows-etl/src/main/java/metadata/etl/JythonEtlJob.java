@@ -22,7 +22,7 @@ import wherehows.common.Constant;
 public class JythonEtlJob extends EtlJob {
 
   public JythonEtlJob(int dbId, long whExecId, Properties prop) {
-    super(null, dbId, whExecId, prop);
+    super(dbId, dbId, whExecId, prop);
   }
 
   @Override
