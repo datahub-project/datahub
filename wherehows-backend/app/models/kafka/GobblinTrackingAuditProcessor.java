@@ -47,7 +47,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
   private DatasetClassificationDao datasetClassificationDao;
 
   public GobblinTrackingAuditProcessor() {
-    this.datasetClassificationDao = Application.daoFactory.getDatasetClassificationDao();
+    this.datasetClassificationDao = Application.DAO_FACTORY.getDatasetClassificationDao();
   }
 
   // TODO: Make these regex patterns part of job file
