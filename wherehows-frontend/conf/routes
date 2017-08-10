@@ -144,14 +144,6 @@ GET           /api/v1/datasets/:id/compliance                                   
 
 POST          /api/v1/datasets/:id/compliance                                   controllers.api.v1.Dataset.updateDatasetCompliance(id:Int)
 
-GET           /api/v1/datasets/:id/security                                     controllers.api.v1.Dataset.getDatasetSecurity(id:Int)
-
-POST          /api/v1/datasets/:id/security                                     controllers.api.v1.Dataset.updateDatasetSecurity(id:Int)
-
-GET           /api/v1/datasets/:id/privacy                                      controllers.api.v1.Dataset.getDatasetPrivacy(id:Int)
-
-POST          /api/v1/datasets/:id/privacy                                      controllers.api.v1.Dataset.updateDatasetPrivacy(id:Int)
-
 GET           /api/v1/urn/watch                                                 controllers.api.v1.Dataset.getWatchedUrnId()
 
 POST          /api/v1/urn/watch                                                 controllers.api.v1.Dataset.watchURN()

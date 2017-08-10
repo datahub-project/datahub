@@ -80,7 +80,7 @@ public class DatasetsDao {
           + "geographic_affinity = :geo, modified_by = :modified_by, modified_time = :modified_time";
 
 
-  public static String getDatasetUrnById(JdbcTemplate jdbcTemplate, int dataset_id) {
+  public String getDatasetUrnById(JdbcTemplate jdbcTemplate, int dataset_id) {
     try {
       return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, dataset_id);
     } catch (EmptyResultDataAccessException e) {

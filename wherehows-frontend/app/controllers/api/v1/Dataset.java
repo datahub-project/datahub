@@ -26,8 +26,6 @@ import java.util.Map;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetDependency;
-import wherehows.models.DatasetPrivacyCompliance;
-import wherehows.models.DatasetSecurity;
 import wherehows.models.ImpactDataset;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -856,96 +854,6 @@ public class Dataset extends Controller
     }
 
     public static Promise<Result> getDatasetCompliance(int datasetId) {
-        DatasetPrivacyCompliance record = null;
-        try {
-            record = DatasetsDAO.getDatasetPrivacyComplianceByDatasetId(datasetId);
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Fetch data Error: " + e.getMessage());
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        JsonNode result = Json.newObject().put("status", "ok")
-            .set("privacyCompliancePolicy", Json.toJson(record));
-
-        return Promise.promise(() -> ok(result));
-    }
-
-    public static Promise<Result> updateDatasetCompliance(int datasetId) {
-        String username = session("user");
-        if (StringUtils.isBlank(username)) {
-            JsonNode result =
-                Json.newObject().put("status", "failed")
-                    .put("error", "true")
-                    .put("msg", "Unauthorized User.");
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        try {
-            DatasetsDAO.updateDatasetPrivacyCompliancePolicy(datasetId, request().body().asJson());
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Update Error: " + e.getMessage());
-
-            Logger.warn("Update fail", e);
-
-            return Promise.promise(() -> ok(result));
-        }
-        return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
-    }
-
-    public static Promise<Result> getDatasetSecurity(int datasetId) {
-        DatasetSecurity record = null;
-        try {
-            record = DatasetsDAO.getDatasetSecurityByDatasetId(datasetId);
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Fetch data Error: " + e.getMessage());
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        JsonNode result = Json.newObject().put("status", "ok")
-            .set("securitySpecification", Json.toJson(record));
-
-        return Promise.promise(() -> ok(result));
-    }
-
-    public static Promise<Result> updateDatasetSecurity(int datasetId) {
-        String username = session("user");
-        if (StringUtils.isBlank(username)) {
-            JsonNode result =
-                Json.newObject().put("status", "failed")
-                    .put("error", "true")
-                    .put("msg", "Unauthorized User.");
-
-            return Promise.promise(() -> ok(result));
-        }
-
-        try {
-            DatasetsDAO.updateDatasetSecurityInfo(datasetId, request().body().asJson());
-        } catch (Exception e) {
-            JsonNode result = Json.newObject()
-                .put("status", "failed")
-                .put("error", "true")
-                .put("msg", "Update Error: " + e.getMessage());
-
-            Logger.warn("Update fail", e);
-
-            return Promise.promise(() -> ok(result));
-        }
-        return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
-    }
-
-    public static Promise<Result> getDatasetPrivacy(int datasetId) {
         DatasetCompliance record = null;
         try {
             record = datasetsDao.getDatasetComplianceInfoByDatasetId(jdbcTemplate, datasetId);
@@ -964,7 +872,7 @@ public class Dataset extends Controller
         return Promise.promise(() -> ok(result));
     }
 
-    public static Promise<Result> updateDatasetPrivacy(int datasetId) {
+    public static Promise<Result> updateDatasetCompliance(int datasetId) {
         String username = session("user");
         if (StringUtils.isBlank(username)) {
             JsonNode result =
