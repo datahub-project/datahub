@@ -1,10 +1,15 @@
 # Fetch Appworx Execution metadata
-job.class=metadata.etl.scheduler.appworx.AppworxExecEtl
+job.class=metadata.etl.JythonEtlJob
 job.cron.expr=0 10 1/2 1/1 * ? *
 job.timeout=1800
 #job.cmd.params=
 #job.disabled=1
 job.ref.id=3
+
+# Jython scripts
+job.jython.extract=jython/AppworxExtract.py
+job.jython.transform=jython/AppworxTransform.py
+job.jython.load=jython/AppworxLoad.py
 
 aw.db.jdbc.url=your_db_jdbc
 aw.db.username=your_db-username
