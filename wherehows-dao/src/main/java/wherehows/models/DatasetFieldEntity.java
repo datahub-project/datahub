@@ -18,7 +18,7 @@ public class DatasetFieldEntity {
   private String identifierType;
   private String identifierField;
   private String logicalType;
-  private Boolean isSubject;
+  private String securityClassification;
 
   public DatasetFieldEntity() {
   }
@@ -47,11 +47,11 @@ public class DatasetFieldEntity {
     this.logicalType = logicalType;
   }
 
-  public Boolean getIsSubject() {
-    return isSubject;
+  public String getSecurityClassification() {
+    return securityClassification;
   }
 
-  public void setIsSubject(Boolean isSubject) {
-    this.isSubject = isSubject;
+  public void setSecurityClassification(String securityClassification) {
+    this.securityClassification = securityClassification;
   }
 }
