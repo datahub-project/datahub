@@ -13,6 +13,7 @@
  */
 package metadata.etl.ownership;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -25,14 +26,12 @@ public class DatasetOwnerEtlTest {
   DatasetOwnerEtl doe;
 
   @BeforeTest
-  public void setUp()
-      throws Exception {
-    doe = new DatasetOwnerEtl(21, 0L);
+  public void setUp() throws Exception {
+    doe = new DatasetOwnerEtl(21, 0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})
-  public void testExtract()
-      throws Exception {
+  public void testExtract() throws Exception {
     doe.extract();
   }
 

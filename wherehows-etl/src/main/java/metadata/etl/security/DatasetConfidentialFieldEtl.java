@@ -29,10 +29,6 @@ import wherehows.common.Constant;
 
 
 public class DatasetConfidentialFieldEtl extends EtlJob {
-  @Deprecated
-  public DatasetConfidentialFieldEtl(int dbId, long whExecId) {
-    super(null, dbId, whExecId);
-  }
 
   public DatasetConfidentialFieldEtl(int dbId, long whExecId, Properties prop) {
     super(null, dbId, whExecId, prop);

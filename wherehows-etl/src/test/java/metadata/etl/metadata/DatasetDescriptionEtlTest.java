@@ -13,6 +13,7 @@
  */
 package metadata.etl.metadata;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -22,9 +23,8 @@ public class DatasetDescriptionEtlTest {
   DatasetDescriptionEtl datasetDescriptionEtl;
 
   @BeforeTest
-  public void setUp()
-      throws Exception {
-    datasetDescriptionEtl = new DatasetDescriptionEtl(50, 0L);
+  public void setUp() throws Exception {
+    datasetDescriptionEtl = new DatasetDescriptionEtl(50, 0L, new Properties());
   }
 
   /*

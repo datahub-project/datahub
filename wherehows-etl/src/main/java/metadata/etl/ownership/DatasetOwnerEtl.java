@@ -39,10 +39,6 @@ import wherehows.common.Constant;
  * This DatasetOwnerEtl job is extract ownership info from the hive table, transform and store into WhereHows database.
  */
 public class DatasetOwnerEtl extends EtlJob {
-  @Deprecated
-  public DatasetOwnerEtl(int dbId, long whExecId) {
-    super(null, dbId, whExecId);
-  }
 
   public DatasetOwnerEtl(int dbId, long whExecId, Properties prop) {
     super(null, dbId, whExecId, prop);

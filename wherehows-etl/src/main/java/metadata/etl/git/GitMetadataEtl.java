@@ -36,10 +36,6 @@ public class GitMetadataEtl extends EtlJob {
   protected final Logger logger = LoggerFactory.getLogger(getClass());
   public static final String COMMIT_OUTPUT_FILE = "commit.csv";
 
-  public GitMetadataEtl(int appId, long whExecId) {
-    super(appId, null, whExecId);
-  }
-
   public GitMetadataEtl(int appId, long whExecId, Properties prop) {
     super(appId, null, whExecId, prop);
   }

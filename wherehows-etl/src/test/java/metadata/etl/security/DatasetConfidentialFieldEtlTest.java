@@ -13,6 +13,7 @@
  */
 package metadata.etl.security;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -22,14 +23,12 @@ public class DatasetConfidentialFieldEtlTest {
   DatasetConfidentialFieldEtl confidentialFieldEtl;
 
   @BeforeTest
-  public void setUp()
-      throws Exception {
-    confidentialFieldEtl = new DatasetConfidentialFieldEtl(49, 0L);
+  public void setUp() throws Exception {
+    confidentialFieldEtl = new DatasetConfidentialFieldEtl(49, 0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})
-  public void testExtract()
-      throws Exception {
+  public void testExtract() throws Exception {
     confidentialFieldEtl.extract();
   }
 

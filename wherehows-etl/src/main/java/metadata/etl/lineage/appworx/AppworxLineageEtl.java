@@ -26,15 +26,6 @@ public class AppworxLineageEtl extends EtlJob {
 
     Connection conn;
 
-    public AppworxLineageEtl(int appId, long whExecId) {
-        super(appId, null, whExecId);
-        try {
-            setUp();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     public AppworxLineageEtl(int appId, long whExecId, Properties properties) {
         super(appId, null, whExecId, properties);
         try {

@@ -27,10 +27,6 @@ public class DaliViewOwnerEtl extends EtlJob {
   public ClassLoader classLoader = getClass().getClassLoader();
   protected final Logger logger = LoggerFactory.getLogger(getClass());
 
-  public DaliViewOwnerEtl(int dbId, long whExecId) {
-    super(null, dbId, whExecId);
-  }
-
   public DaliViewOwnerEtl(int appId, long whExecId, Properties prop) {
     super(appId, null, whExecId, prop);
   }

@@ -46,16 +46,6 @@ import wherehows.common.Constant;
 public class HdfsMetadataEtl extends EtlJob {
 
   /**
-   * Constructor used in test
-   * @param dbId
-   * @param whExecId
-   */
-  @Deprecated
-  public HdfsMetadataEtl(Integer dbId, Long whExecId) {
-    super(null, dbId, whExecId);
-  }
-
-  /**
    * Copy the jar to remote gateway, run the collecting job on remote, copy back the result.
    * @param dbId the database need to collect
    * @param whExecId

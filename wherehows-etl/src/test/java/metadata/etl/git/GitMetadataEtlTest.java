@@ -13,6 +13,7 @@
  */
 package metadata.etl.git;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -24,32 +25,27 @@ public class GitMetadataEtlTest {
   GitMetadataEtl git;
 
   @BeforeMethod
-  public void setUp()
-      throws Exception {
-    this.git = new GitMetadataEtl(500, 0L);
+  public void setUp() throws Exception {
+    this.git = new GitMetadataEtl(500, 0L, new Properties());
   }
 
   @Test
-  public void testExtract()
-      throws Exception {
+  public void testExtract() throws Exception {
     git.extract();
   }
 
   @Test
-  public void testTransform()
-      throws Exception {
+  public void testTransform() throws Exception {
     git.transform();
   }
 
   @Test
-  public void testLoad()
-      throws Exception {
+  public void testLoad() throws Exception {
     git.load();
   }
 
   @Test
-  public void testRun()
-      throws Exception {
+  public void testRun() throws Exception {
     git.run();
   }
 }
