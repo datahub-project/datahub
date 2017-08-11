@@ -13,6 +13,7 @@
  */
 package metadata.etl.dataset.hdfs;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -24,34 +25,29 @@ public class HdfsMetadataEtlTest {
   HdfsMetadataEtl ds;
 
   @BeforeTest
-  public void setUp()
-    throws Exception {
-    ds = new HdfsMetadataEtl(2, 0L);
+  public void setUp() throws Exception {
+    ds = new HdfsMetadataEtl(2, 0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})
-  public void testRun()
-    throws Exception {
+  public void testRun() throws Exception {
     ds.run();
   }
 
   @Test(groups = {"needConfig"})
-  public void testExtract()
-    throws Exception {
+  public void testExtract() throws Exception {
     ds.extract();
     //TODO check it copy back the files
   }
 
   @Test(groups = {"needConfig"})
-  public void testTransform()
-    throws Exception {
+  public void testTransform() throws Exception {
     ds.transform();
     //TODO check it generate the final csv file
   }
 
   @Test(groups = {"needConfig"})
-  public void testLoad()
-    throws Exception {
+  public void testLoad() throws Exception {
     ds.load();
   }
 }

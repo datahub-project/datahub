@@ -32,20 +32,6 @@ public class AzLineageMetadataEtl extends EtlJob {
   Connection conn;
 
   /**
-   * Assume that all job running on one Azkaban instance will running on the same Hadoop instance
-   * @param azkabanInstanceId
-   */
-  public AzLineageMetadataEtl(int azkabanInstanceId) {
-    super(azkabanInstanceId, null, 0L);
-    // for default
-    try {
-      setUp();
-    } catch (SQLException e) {
-      e.printStackTrace();
-    }
-  }
-
-  /**
    * Used by backend server
    * @param appId The application id for the target azkaban server
    * @param whExecId

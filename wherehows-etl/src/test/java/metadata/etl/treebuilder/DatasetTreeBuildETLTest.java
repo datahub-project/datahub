@@ -13,18 +13,17 @@
  */
 package metadata.etl.treebuilder;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 
-
-public class DatasetTreeBuildETLTest{
+public class DatasetTreeBuildETLTest {
   DatasetTreeBuildETL datasetTreeBuildETL;
 
   @BeforeTest
-  public void setUp()
-      throws Exception {
-    datasetTreeBuildETL = new DatasetTreeBuildETL(40, 0L);
+  public void setUp() throws Exception {
+    datasetTreeBuildETL = new DatasetTreeBuildETL(40, 0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})

@@ -13,6 +13,7 @@
  */
 package metadata.etl.dataset.hive;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -24,38 +25,32 @@ public class HiveTest {
   HiveMetadataEtl hm;
 
   @BeforeTest
-  public void setUp()
-    throws Exception {
-    hm = new HiveMetadataEtl(3, 0L);
+  public void setUp() throws Exception {
+    hm = new HiveMetadataEtl(3, 0L, new Properties());
   }
 
   @Test
-  public void extractTest()
-    throws Exception {
+  public void extractTest() throws Exception {
     hm.extract();
     // check the json file
   }
 
   @Test
-  public void transformTest()
-      throws Exception {
+  public void transformTest() throws Exception {
     hm.transform();
     // check the csv file
   }
 
   @Test
-  public void loadTest()
-      throws Exception {
+  public void loadTest() throws Exception {
     hm.load();
     // check in database
   }
 
   @Test
-  public void runTest()
-    throws Exception {
+  public void runTest() throws Exception {
     extractTest();
     transformTest();
     loadTest();
   }
-
 }

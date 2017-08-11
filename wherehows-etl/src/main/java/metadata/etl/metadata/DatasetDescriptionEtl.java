@@ -29,10 +29,6 @@ import wherehows.common.Constant;
 
 
 public class DatasetDescriptionEtl extends EtlJob {
-  @Deprecated
-  public DatasetDescriptionEtl(int dbId, long whExecId) {
-    super(null, dbId, whExecId);
-  }
 
   public DatasetDescriptionEtl(int dbId, long whExecId, Properties prop) {
     super(null, dbId, whExecId, prop);

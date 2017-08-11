@@ -13,38 +13,36 @@
  */
 package metadata.etl.lineage.appworx;
 
+import java.util.Properties;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 
-public class AppworxLineageEtlTest{
-    AppworxLineageEtl awl;
+public class AppworxLineageEtlTest {
+  AppworxLineageEtl awl;
 
-    @BeforeTest
-    public void setUp()
-            throws Exception {
-        awl = new AppworxLineageEtl(3, 0L);
-    }
+  @BeforeTest
+  public void setUp() throws Exception {
+    awl = new AppworxLineageEtl(3, 0L, new Properties());
+  }
 
+  @Test(groups = {"needConfig"})
+  public void testExtract() throws Exception {
+    awl.extract();
+  }
 
-    @Test(groups = {"needConfig"})
-    public void testExtract() throws Exception {
-        awl.extract();
-    }
+  @Test(groups = {"needConfig"})
+  public void testTransform() throws Exception {
+    awl.transform();
+  }
 
-    @Test(groups = {"needConfig"})
-    public void testTransform() throws Exception {
-        awl.transform();
-    }
+  @Test(groups = {"needConfig"})
+  public void testLoad() throws Exception {
+    awl.load();
+  }
 
-    @Test(groups = {"needConfig"})
-    public void testLoad() throws Exception {
-        awl.load();
-    }
-
-    @Test(groups = {"needConfig"})
-    public void testRun() throws Exception {
-        awl.run();
-    }
-
+  @Test(groups = {"needConfig"})
+  public void testRun() throws Exception {
+    awl.run();
+  }
 }
