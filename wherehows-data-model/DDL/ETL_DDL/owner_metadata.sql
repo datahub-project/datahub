@@ -107,6 +107,33 @@ CREATE TABLE `dir_external_user_info` (
   KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+CREATE TABLE `stg_dir_external_user_info` (
+  `app_id` smallint(5) unsigned NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `urn` varchar(200) DEFAULT NULL,
+  `full_name` varchar(200) DEFAULT NULL,
+  `display_name` varchar(200) DEFAULT NULL,
+  `title` varchar(200) DEFAULT NULL,
+  `employee_number` int(10) unsigned DEFAULT NULL,
+  `manager_urn` varchar(200) DEFAULT NULL,
+  `manager_user_id` varchar(50) DEFAULT NULL,
+  `manager_employee_number` int(10) unsigned DEFAULT NULL,
+  `default_group_name` varchar(100) DEFAULT NULL,
+  `email` varchar(200) DEFAULT NULL,
+  `department_id` int(10) unsigned DEFAULT '0',
+  `department_name` varchar(200) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `mobile_phone` varchar(50) DEFAULT NULL,
+  `is_active` char(1) DEFAULT 'Y',
+  `org_hierarchy` varchar(500) DEFAULT NULL,
+  `org_hierarchy_depth` tinyint(3) unsigned DEFAULT NULL,
+  `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
+  PRIMARY KEY (`app_id`,`user_id`),
+  KEY `email` (`email`),
+  KEY `app_id` (`app_id`,`urn`),
+  KEY `app_id_2` (`app_id`,`manager_urn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 CREATE TABLE `dir_external_group_user_map` (
   `app_id` smallint(5) unsigned NOT NULL,
   `group_id` varchar(50) NOT NULL,
@@ -115,6 +142,38 @@ CREATE TABLE `dir_external_group_user_map` (
   `user_id` varchar(50) NOT NULL,
   `created_time` int(10) unsigned DEFAULT NULL COMMENT 'the create time in epoch',
   `modified_time` int(10) unsigned DEFAULT NULL COMMENT 'the modified time in epoch',
+  `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
+  PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `stg_dir_external_group_user_map` (
+  `app_id` smallint(5) unsigned NOT NULL,
+  `group_id` varchar(50) NOT NULL,
+  `sort_id` smallint(6) NOT NULL,
+  `user_app_id` smallint(5) unsigned NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
+  PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `dir_external_group_user_map_flatten` (
+  `app_id` smallint(5) unsigned NOT NULL,
+  `group_id` varchar(50) NOT NULL,
+  `sort_id` smallint(6) NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `user_app_id` smallint(5) unsigned NOT NULL,
+  `created_time` int(10) unsigned DEFAULT NULL COMMENT 'the create time in epoch',
+  `modified_time` int(10) unsigned DEFAULT NULL COMMENT 'the modified time in epoch',
+  `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
+  PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `stg_dir_external_group_user_map_flatten` (
+  `app_id` smallint(5) unsigned NOT NULL,
+  `group_id` varchar(50) NOT NULL,
+  `sort_id` smallint(6) NOT NULL,
+  `user_id` varchar(50) NOT NULL,
+  `user_app_id` smallint(5) unsigned NOT NULL,
   `wh_etl_exec_id` bigint(20) DEFAULT NULL COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`app_id`,`group_id`,`user_app_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
