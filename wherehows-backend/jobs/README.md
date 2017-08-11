@@ -12,3 +12,12 @@ job.timeout | Seconds to wait before killing the job
 job.cmd.params | Optional extra command line arguments to pass to the job 
 job.cmd.disabled | If defined, regardless of it value, the job will not be run
 job.ref.id | A unique reference ID for the job (To be removed in the future)
+
+
+For pure Jython-based ETL jobs, set `job.class` to [metadata.etl.JythonEtlJob](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/src/main/java/metadata/etl/JythonEtlJob.java) and simply set the path to your ETL scripts in the [resources](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/src/main/resources) folder.
+
+Configuration Key | Description
+--- | ---
+job.jython.extract | Path to your Extract Jython script. No extract is performed if not set.
+job.jython.transform | Path to your Transform Jython script. No transform is performed if not set.
+job.jython.load | Path to your Load Jython script. No load is performed if not set.

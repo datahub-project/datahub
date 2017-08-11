@@ -1,12 +1,17 @@
 # Fetch Teradata dataset metadata
 
 # Common ETL configs
-job.class=metadata.etl.dataset.teradata.TeradataMetadataEtl
+job.class=metadata.etl.JythonEtlJob
 job.cron.expr=0 0 5 ? * TUE,THU,SUN *
 job.timeout=15000
 #job.cmd.params=
 #job.disabled=1
 job.ref.id=3
+
+# Jython scripts
+job.jython.extract=jython/TeradataExtract.py
+job.jython.transform=jython/TeradataTransform.py
+job.jython.load=jython/TeradataLoad.py
 
 # Teradata database username
 teradata.db.username=your_db_username

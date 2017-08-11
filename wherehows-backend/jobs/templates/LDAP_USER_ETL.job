@@ -1,10 +1,17 @@
 # Fetch LDAP info, every day
-job.class=metadata.etl.ldap.LdapEtl
+
+# Common ETL configs
+job.class=metadata.etl.JythonEtlJob
 job.cron.expr=0 0 0 * * ?
 job.timeout=600
 #job.cmd.params=
 #job.disabled=1
 job.ref.id=300
+
+# Jython scripts
+job.jython.extract=jython/LdapExtract.py
+job.jython.transform=jython/LdapTransform.py
+job.jython.load=jython/LdapLoad.py
 
 ldap.ceo.user.id=your_ceo_user_id
 

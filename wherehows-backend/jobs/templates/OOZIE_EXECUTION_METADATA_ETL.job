@@ -1,12 +1,17 @@
 # Fetch Oozie execution metadata
 
 # Common ETL configs
-job.class=metadata.etl.scheduler.OozieExecEtl
+job.class=metadata.etl.JythonEtlJob
 job.cron.expr=0 30 1/1 1/1 * ? *
 job.timeout=3600
 #job.cmd.params=
 #job.disabled=1
 job.ref.id=14
+
+# Jython scripts
+job.jython.extract=jython/OozieExtract.py
+job.jython.transform=jython/OozieTransform.py
+job.jython.load=jython/OozieLoad.py
 
 # Oozie database driver
 oz.db.driver=com.mysql.jdbc.Driver

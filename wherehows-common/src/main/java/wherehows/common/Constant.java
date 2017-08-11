@@ -28,6 +28,11 @@ public class Constant {
   public static final String JOB_TIMEOUT_KEY = "job.timeout";
   public static final String JOB_REF_ID = "job.ref.id";
 
+  // Jython-specific keys
+  public static final String JOB_JYTHON_EXTRACT_KEY = "job.jython.extract";
+  public static final String JOB_JYTHON_TRANSFORM_KEY = "job.jython.transform";
+  public static final String JOB_JYTHON_LOAD_KEY = "job.jython.load";
+
   public static final String KAFKA_CONSUMER_JOB_TYPE = "kafka-consumer";
 
   // Rebuild properties
