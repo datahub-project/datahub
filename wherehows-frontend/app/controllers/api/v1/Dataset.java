@@ -46,7 +46,7 @@ public class Dataset extends Controller
     private static final NamedParameterJdbcTemplate namedJdbcTemplate =
         AbstractMySQLOpenSourceDAO.getNamedParameterJdbcTemplate();
 
-    private static final DatasetsDao datasetsDao = Application.daoFactory.getDatasetsDao();
+    private static final DatasetsDao datasetsDao = Application.DAO_FACTORY.getDatasetsDao();
 
     public static Result getDatasetOwnerTypes()
     {

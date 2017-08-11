@@ -48,7 +48,8 @@ import static play.data.Form.*;
 
 public class Application extends Controller {
 
-  private static String TREE_NAME_SUBFIX = ".tree.name";
+  private static final String TREE_NAME_SUBFIX = ".tree.name";
+
   private static final String WHZ_APP_ENV = System.getenv("WHZ_APP_HOME");
   private static final String APP_VERSION = Play.application().configuration().getString("app.version");
   private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
@@ -63,31 +64,27 @@ public class Application extends Controller {
   private static final String DB_WHEREHOWS_PASSWORD =
       Play.application().configuration().getString("database.opensource.password");
   private static final String DB_WHEREHOWS_DIALECT = Play.application().configuration().getString("hikaricp.dialect");
+  private static final String DAO_FACTORY_CLASS =
+      Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
 
-  public static final EntityManagerFactory entityManagerFactory;
+  private static final EntityManagerFactory ENTITY_MANAGER_FACTORY = ConnectionPoolProperties.builder()
+      .providerClass(HikariCPConnectionProvider.class.getName())
+      .dataSourceClassName(WHZ_DB_DSCLASSNAME)
+      .dataSourceURL(DB_WHEREHOWS_URL)
+      .dataSourceUser(DB_WHEREHOWS_USERNAME)
+      .dataSourcePassword(DB_WHEREHOWS_PASSWORD)
+      .dialect(DB_WHEREHOWS_DIALECT)
+      .build()
+      .buildEntityManagerFactory();
 
-  static {
-    entityManagerFactory = ConnectionPoolProperties.builder()
-        .providerClass(HikariCPConnectionProvider.class.getName())
-        .dataSourceClassName(WHZ_DB_DSCLASSNAME)
-        .dataSourceURL(DB_WHEREHOWS_URL)
-        .dataSourceUser(DB_WHEREHOWS_USERNAME)
-        .dataSourcePassword(DB_WHEREHOWS_PASSWORD)
-        .dialect(DB_WHEREHOWS_DIALECT)
-        .build()
-        .buildEntityManagerFactory();
-  }
-
-  public static final DaoFactory daoFactory = createDaoFactory();
+  public static final DaoFactory DAO_FACTORY = createDaoFactory();
 
   private static DaoFactory createDaoFactory() {
     try {
-      String className = Play.application()
-          .configuration()
-          .getString("dao.entityManagerFactory.class", DaoFactory.class.getCanonicalName());
-      Class factoryClass = Class.forName(className);
+      Logger.info("Creating DAO factory: " + DAO_FACTORY_CLASS);
+      Class factoryClass = Class.forName(DAO_FACTORY_CLASS);
       Constructor<? extends DaoFactory> ctor = factoryClass.getConstructor(EntityManagerFactory.class);
-      return ctor.newInstance(entityManagerFactory);
+      return ctor.newInstance(ENTITY_MANAGER_FACTORY);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -114,7 +111,6 @@ public class Application extends Controller {
   public static Result printDeps() {
     String libPath = WHZ_APP_ENV + "/lib";
     String commitFile = WHZ_APP_ENV + "/commit";
-    String libraries = "";
     String commit = "";
 
     if (WHZ_APP_ENV == null) {
@@ -122,21 +118,23 @@ public class Application extends Controller {
     }
 
     try {
-      BufferedReader br = new BufferedReader(new FileReader(commitFile));
-      commit = br.readLine();
+      commit = new BufferedReader(new FileReader(commitFile)).readLine();
     } catch (IOException ioe) {
       Logger.error("Error while reading commit file. Error message: " + ioe.getMessage());
     }
 
-    //get all the files from a directory
+    //get all the files from /libs directory
     File directory = new File(libPath);
-    for (File file : directory.listFiles()) {
-      if (file.isFile()) {
-        libraries += file.getName() + "\n";
+    StringBuilder sb = new StringBuilder();
+    if (directory.listFiles() != null) {
+      for (File file : directory.listFiles()) {
+        if (file.isFile()) {
+          sb.append(file.getName()).append("\n");
+        }
       }
     }
 
-    return ok("commit: " + commit + "\n" + libraries);
+    return ok("commit: " + commit + "\n" + "libraries: " + sb.toString());
   }
 
   /**
@@ -160,9 +158,9 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
-    config.put("tracking", trackingInfo());
+    config.set("tracking", trackingInfo());
     response.put("status", "ok");
-    response.put("config", config);
+    response.set("config", config);
 
     return ok(response);
   }
@@ -184,8 +182,8 @@ public class Application extends Controller {
 
     piwik.put("piwikSiteId", siteId);
     piwik.put("piwikUrl", PIWIK_URL);
-    trackers.put("piwik", piwik);
-    trackingConfig.put("trackers", trackers);
+    trackers.set("piwik", piwik);
+    trackingConfig.set("trackers", trackers);
     trackingConfig.put("isEnabled", true);
 
     return trackingConfig;
