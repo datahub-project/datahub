@@ -1,12 +1,16 @@
 # Fetch Oracle dataset metadata
 
 # Common ETL configs
-job.class=metadata.etl.dataset.oracle.OracleMetadataEtl
+job.class=metadata.etl.JythonEtlJob
 job.cron.expr=0 30 15 1/1 * ? *
 job.timeout=600
 #job.cmd.params=
 #job.disabled=1
 job.ref.id=82
+
+# Jython scripts
+job.jython.extract=jython/OracleExtract.py
+job.jython.load=jython/OracleLoad.py
 
 # Oracle JDBC driver
 oracle.db.driver=oracle.jdbc.OracleDriver
