@@ -36,6 +36,7 @@ public class DatasetRecord extends AbstractRecord {
   String refDatasetUrn;
   Integer refDatasetId;
   Boolean isActive;
+  Boolean isDeprecated;
   Character isPartitioned;
   String samplePartitionFullPath;
   Integer partitionLayoutPatternId;
@@ -62,8 +63,9 @@ public class DatasetRecord extends AbstractRecord {
     allFields.add(parentName);
     allFields.add(storageType);
     allFields.add(refDatasetId);
-    allFields.add(isActive);
     allFields.add(datasetType);
+    allFields.add(isActive);
+    allFields.add(isDeprecated);
     allFields.add(hiveSerdesClass);
     allFields.add(isPartitioned);
     allFields.add(partitionLayoutPatternId);
@@ -91,8 +93,9 @@ public class DatasetRecord extends AbstractRecord {
     allFieldNames.add("parent_name");
     allFieldNames.add("storage_type");
     allFieldNames.add("ref_dataset_id");
-    allFieldNames.add("is_active");
     allFieldNames.add("dataset_type");
+    allFieldNames.add("is_active");
+    allFieldNames.add("is_deprecated");
     allFieldNames.add("hive_serdes_class");
     allFieldNames.add("is_partitioned");
     allFieldNames.add("partition_layout_pattern_id");
