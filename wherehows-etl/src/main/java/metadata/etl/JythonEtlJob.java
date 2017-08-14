@@ -41,6 +41,7 @@ public class JythonEtlJob extends EtlJob {
     String script = prop.getProperty(Constant.JOB_JYTHON_TRANSFORM_KEY);
     if (script == null) {
       logger.info("Skipped transform as no script is defined in {}", Constant.JOB_JYTHON_TRANSFORM_KEY);
+      return;
     }
 
     runScript(script);
@@ -51,6 +52,7 @@ public class JythonEtlJob extends EtlJob {
     String script = prop.getProperty(Constant.JOB_JYTHON_LOAD_KEY);
     if (script == null) {
       logger.info("Skipped load as no script is defined in {}", Constant.JOB_JYTHON_LOAD_KEY);
+      return;
     }
 
     runScript(script);
