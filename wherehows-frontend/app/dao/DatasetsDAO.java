@@ -501,18 +501,18 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 							for (int i = 0; i < owners.length; i++)
 							{
 								User datasetOwner = new User();
-								datasetOwner.userName = owners[i];
-								if (datasetOwner.userName.equalsIgnoreCase(user))
+								datasetOwner.setUserName(owners[i]);
+								if (datasetOwner.getUserName().equalsIgnoreCase(user))
 								{
 									ds.isOwned = true;
 								}
 								if (StringUtils.isBlank(ownerNames[i]) || ownerNames[i].equalsIgnoreCase("*"))
 								{
-									datasetOwner.name = owners[i];
+									datasetOwner.setName(owners[i]);
 								}
 								else
 								{
-									datasetOwner.name = ownerNames[i];
+									datasetOwner.setName(ownerNames[i]);
 								}
 								ds.owners.add(datasetOwner);
 							}
@@ -678,8 +678,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				dislayName = ownerId;
 			}
 			User owner = new User();
-			owner.userName = ownerId;
-			owner.name = dislayName;
+			owner.setUserName(ownerId);
+			owner.setName(dislayName);
 			owners.add(owner);
 		}
 		if (result)
@@ -717,8 +717,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				dislayName = ownerId;
 			}
 			User owner = new User();
-			owner.userName = ownerId;
-			owner.name = dislayName;
+			owner.setUserName(ownerId);
+			owner.setName(dislayName);
 			owners.add(owner);
 			int updatedRows = getJdbcTemplate().update(UPDATE_DATASET_OWNER_SORT_ID, sortId++, id, ownerId, namespace);
 			if (ret <= 0)

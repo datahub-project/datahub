@@ -78,9 +78,9 @@ public class DatasetRowMapper implements RowMapper<Dataset>
             for (int i = 0; i < owners.length; i++)
             {
                 User user = new User();
-                user.userName = owners[i];
-                user.name = ownerNames[i];
-                user.email = ownerEmail[i];
+                user.setUserName(owners[i]);
+                user.setName(ownerNames[i]);
+                user.setEmail(ownerEmail[i]);
                 dataset.owners.add(user);
             }
         }

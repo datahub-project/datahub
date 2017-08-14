@@ -13,8 +13,11 @@
  */
 package wherehows.models;
 
+import lombok.Data;
+
+@Data
 public class UserSetting {
 
-    public String detailDefaultView;
-    public String defaultWatch;
+    private String detailDefaultView;
+    private String defaultWatch;
 }

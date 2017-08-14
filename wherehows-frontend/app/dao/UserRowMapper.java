@@ -44,14 +44,14 @@ public class UserRowMapper implements RowMapper<User>
 
         User user = new User();
         UserSetting userSetting = new UserSetting();
-        userSetting.detailDefaultView = defaultView;
-        userSetting.defaultWatch = defaultWatch;
-        user.id = id;
-        user.name = name;
-        user.email = email;
-        user.userName = username;
-        user.departmentNum = departmentNum;
-        user.userSetting = userSetting;
+        userSetting.setDetailDefaultView(defaultView);
+        userSetting.setDefaultWatch(defaultWatch);
+        user.setId(id);
+        user.setName(name);
+        user.setEmail(email);
+        user.setUserName(username);
+        user.setDepartmentNum(departmentNum);
+        user.setUserSetting(userSetting);
 
         return user;
     }

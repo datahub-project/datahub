@@ -43,7 +43,7 @@ public class User extends Controller {
     }
 
     wherehows.models.User user = UserDAO.getCurrentUser(username);
-    if (StringUtils.isBlank(user.userName)) {
+    if (StringUtils.isBlank(user.getUserName())) {
       result.put("status", "failed");
       result.put("message", "can't find user info");
       return ok(result);
