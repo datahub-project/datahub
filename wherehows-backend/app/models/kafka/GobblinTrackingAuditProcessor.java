@@ -124,8 +124,9 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     }
 
     DatasetRecord dataset = new DatasetRecord();
+    String urn = DATASET_URN_PREFIX + datasetName;
     dataset.setName(getShortName(datasetName));
-    dataset.setUrn(DATASET_URN_PREFIX + datasetName);
+    dataset.setUrn(urn);
     dataset.setSchema(metadata.get("schema"));
     dataset.setSchemaType("JSON");
     dataset.setSource("Hdfs");
@@ -151,14 +152,17 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
 
     Logger.info("Updating dataset {}", datasetName);
     DatasetDao.setDatasetRecord(dataset);
-    updateDatasetClassificationResult(metadata);
+
+    String classificationResult = metadata.get("classificationResult");
+    if (classificationResult != null && !classificationResult.equals("null")) {
+      updateDatasetClassificationResult(urn, classificationResult);
+    } else {
+      logger.warn("skip insertion since classification result is empty");
+    }
   }
 
-  private void updateDatasetClassificationResult(Map<String, String> metadata) {
+  private void updateDatasetClassificationResult(String urn, String classificationResult) {
     try {
-      String urn = DATASET_URN_PREFIX + metadata.get("dataset");
-      String classificationResult = metadata.get("classificationResult");
-
       DatasetClassification record = new DatasetClassification(urn, classificationResult, new Date());
       datasetClassificationDao.updateDatasetClassification(record);
     } catch (Exception e) {
