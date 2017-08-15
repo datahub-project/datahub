@@ -144,6 +144,8 @@ GET           /api/v1/datasets/:id/compliance                                   
 
 POST          /api/v1/datasets/:id/compliance                                   controllers.api.v1.Dataset.updateDatasetCompliance(id:Int)
 
+GET           /api/v1/datasets/:id/compliance/suggestions                       controllers.api.v1.Dataset.getDatasetAutoClassification(id:Int)
+
 GET           /api/v1/urn/watch                                                 controllers.api.v1.Dataset.getWatchedUrnId()
 
 POST          /api/v1/urn/watch                                                 controllers.api.v1.Dataset.watchURN()

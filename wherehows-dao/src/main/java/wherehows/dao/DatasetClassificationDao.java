@@ -33,4 +33,11 @@ public class DatasetClassificationDao {
     entityManager.getTransaction().commit();
     entityManager.close();
   }
+
+  public DatasetClassification getDatasetClassification(String urn) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
+    entityManager.close();
+    return result;
+  }
 }
