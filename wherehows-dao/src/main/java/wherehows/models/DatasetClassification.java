@@ -33,11 +33,11 @@ public class DatasetClassification {
 
   @Id
   @Column(name = "dataset_urn")
-  String urn;
+  private String urn;
 
   @Column(name = "classification_result")
-  String classificationResult;
+  private String classificationResult;
 
   @Column(name = "last_modified")
-  Date lastModified;
+  private Date lastModified;
 }

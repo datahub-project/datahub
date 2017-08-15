@@ -13,17 +13,22 @@
  */
 package controllers.api.v1;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import controllers.Application;
 import dao.AbstractMySQLOpenSourceDAO;
 import dao.DatasetsDAO;
 import dao.ReturnCode;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import wherehows.dao.DatasetClassificationDao;
+import wherehows.models.DatasetClassification;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetDependency;
 import wherehows.models.ImpactDataset;
@@ -47,6 +52,9 @@ public class Dataset extends Controller
         AbstractMySQLOpenSourceDAO.getNamedParameterJdbcTemplate();
 
     private static final DatasetsDao datasetsDao = Application.DAO_FACTORY.getDatasetsDao();
+
+    private static final DatasetClassificationDao CLASSIFICATION_DAO =
+        Application.DAO_FACTORY.getDatasetClassificationDao();
 
     public static Result getDatasetOwnerTypes()
     {
@@ -898,5 +906,61 @@ public class Dataset extends Controller
         }
 
         return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
+    }
+
+    public static Promise<Result> getDatasetAutoClassification(int datasetId) {
+        DatasetClassification record = null;
+        try {
+            String urn = datasetsDao.getDatasetUrnById(jdbcTemplate, datasetId);
+            if (urn == null) {
+                throw new IllegalArgumentException("Dataset not found, ID: " + datasetId);
+            }
+
+            record = trimDatasetClassification(CLASSIFICATION_DAO.getDatasetClassification(urn));
+        } catch (Exception e) {
+            JsonNode result = Json.newObject()
+                .put("status", "failed")
+                .put("error", "true")
+                .put("msg", "Fetch data Error: " + e.getMessage());
+
+            return Promise.promise(() -> ok(result));
+        }
+
+        JsonNode result = Json.newObject().put("status", "ok").set("autoClassification", Json.toJson(record));
+
+        return Promise.promise(() -> ok(result));
+    }
+
+    /**
+     * Trim not required information from DatasetClassification for UI, return a new record.
+     * @param record DatasetClassification
+     * @return DatasetClassification
+     * @throws IOException
+     */
+    private static DatasetClassification trimDatasetClassification(DatasetClassification record) throws IOException {
+        ObjectMapper mapper = Json.mapper();
+        DatasetClassification newRecord = new DatasetClassification(record.getUrn(), null, record.getLastModified());
+
+        List<Map<String, Object>> entities =
+            mapper.readValue(record.getClassificationResult(), new TypeReference<List<Map<String, Object>>>() { });
+
+        for (Map<String, Object> entity : entities) {
+            entity.remove("dataType");
+            Map<String, Object> identifierTypePrediction = (Map<String, Object>) entity.get("identifierTypePrediction");
+            if (identifierTypePrediction != null) {
+                identifierTypePrediction.remove("priority");
+                identifierTypePrediction.remove("type");
+                identifierTypePrediction.remove("exclusive");
+            }
+            Map<String, Object> logicalTypePrediction = (Map<String, Object>) entity.get("logicalTypePrediction");
+            if (logicalTypePrediction != null) {
+                logicalTypePrediction.remove("priority");
+                logicalTypePrediction.remove("type");
+                logicalTypePrediction.remove("exclusive");
+            }
+        }
+
+        newRecord.setClassificationResult(mapper.writeValueAsString(entities));
+        return newRecord;
     }
 }
