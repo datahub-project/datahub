@@ -6,6 +6,6 @@ job.timeout=12000
 #job.disabled=1
 job.ref.id=31
 
+druid.host.url=[your druid host url]
 druid.datasource.metadata.csv.file=/var/tmp/druid_schema.csv
 druid.field.metadata.csv.file=/var/tmp/druid_field.csv
-druid.host.url=[your druid host url]
