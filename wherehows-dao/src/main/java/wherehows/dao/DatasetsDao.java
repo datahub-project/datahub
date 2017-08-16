@@ -17,17 +17,25 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import wherehows.models.DatasetColumn;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import wherehows.mapper.DatasetColumnRowMapper;
+import wherehows.mapper.DatasetOwnerRowMapper;
+import wherehows.models.DatasetColumn;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetFieldEntity;
+import wherehows.models.DatasetOwner;
 
 import static wherehows.util.JsonUtil.*;
 
@@ -57,15 +65,35 @@ public class DatasetsDao {
           + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON "
           + "c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
+  private final static String GET_DATASET_OWNERS_BY_ID =
+      "SELECT o.owner_id, u.display_name, o.sort_id, o.owner_type, o.namespace, o.owner_id_type, o.owner_source, "
+          + "o.owner_sub_type, o.confirmed_by, u.email, u.is_active, is_group, o.modified_time "
+          + "FROM dataset_owner o "
+          + "LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) "
+          + "WHERE o.dataset_id = ? and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
+
+  private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
+      "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
+          + "is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, "
+          + "owner_id_type, owner_source, confirmed_by, confirmed_on) "
+          + "VALUES(?, ?, ?, ?, ?, ?, ?, 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?, ?, ?, ?, ?) "
+          + "ON DUPLICATE KEY UPDATE owner_type = ?, is_group = ?, is_deleted = 'N', "
+          + "sort_id = ?, modified_time= UNIX_TIMESTAMP(), owner_sub_type=?, confirmed_by=?, confirmed_on=?";
+
+  private final static String MARK_DATASET_OWNERS_AS_DELETED =
+      "UPDATE dataset_owner SET is_deleted = 'Y' WHERE dataset_id = ?";
+
   private static final String GET_DATASAT_COMPLIANCE_BY_DATASET_ID =
       "SELECT dataset_id, dataset_urn, compliance_purge_type, compliance_entities, confidentiality, "
           + "dataset_classification, field_classification, record_owner_type, retention_policy, "
-          + "geographic_affinity, modified_by, modified_time " + "FROM dataset_compliance WHERE dataset_id = ?";
+          + "geographic_affinity, modified_by, modified_time "
+          + "FROM dataset_compliance WHERE dataset_id = ?";
 
   private static final String GET_DATASET_COMPLIANCE_BY_URN =
       "SELECT dataset_id, dataset_urn, compliance_purge_type, compliance_entities, confidentiality, "
           + "dataset_classification, field_classification, record_owner_type, retention_policy, "
-          + "geographic_affinity, modified_by, modified_time " + "FROM dataset_compliance WHERE dataset_urn = ?";
+          + "geographic_affinity, modified_by, modified_time "
+          + "FROM dataset_compliance WHERE dataset_urn = ?";
 
   private static final String INSERT_DATASET_COMPLIANCE =
       "INSERT INTO dataset_compliance (dataset_id, dataset_urn, compliance_purge_type, compliance_entities, "
@@ -96,6 +124,63 @@ public class DatasetsDao {
   public List<DatasetColumn> getDatasetColumnByID(JdbcTemplate jdbcTemplate, int datasetId, int columnId) {
     return jdbcTemplate.query(GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID, new DatasetColumnRowMapper(), datasetId,
         columnId);
+  }
+
+  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate, int datasetId) {
+    return jdbcTemplate.query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), datasetId);
+  }
+
+  public void updateDatasetOwners(JdbcTemplate jdbcTemplate, int datasetId, List<DatasetOwner> owners) {
+    // first mark existing owners as deleted, new owners will be updated later
+    jdbcTemplate.update(MARK_DATASET_OWNERS_AS_DELETED, datasetId);
+
+    if (owners.size() > 0) {
+      String urn = getDatasetUrnById(jdbcTemplate, datasetId);
+      updateDatasetOwnerDatabase(jdbcTemplate, datasetId, urn, owners);
+    }
+  }
+
+  private void updateDatasetOwnerDatabase(JdbcTemplate jdbcTemplate, int datasetId, String datasetUrn,
+      List<DatasetOwner> owners) {
+    jdbcTemplate.batchUpdate(UPDATE_DATASET_CONFIRMED_OWNERS, new BatchPreparedStatementSetter() {
+      @Override
+      public void setValues(PreparedStatement ps, int i) throws SQLException {
+        DatasetOwner owner = owners.get(i);
+        ps.setInt(1, datasetId);
+        ps.setString(2, owner.userName);
+        ps.setInt(3, owner.isGroup ? 301 : 300);
+        ps.setString(4, owner.namespace);
+        ps.setString(5, owner.type);
+        ps.setString(6, owner.isGroup ? "Y" : "N");
+        ps.setString(7, owner.isActive != null && owner.isActive ? "Y" : "N");
+        ps.setInt(8, owner.sortId);
+        ps.setString(9, datasetUrn);
+        ps.setString(10, owner.subType);
+        ps.setString(11, owner.idType);
+        ps.setString(12, owner.source);
+        ps.setString(13, owner.confirmedBy);
+        if (StringUtils.isBlank(owner.confirmedBy)) {
+          ps.setLong(14, 0L);
+        } else {
+          ps.setLong(14, Instant.now().getEpochSecond());
+        }
+        ps.setString(15, owner.type);
+        ps.setString(16, owner.isGroup ? "Y" : "N");
+        ps.setInt(17, owner.sortId);
+        ps.setString(18, owner.subType);
+        ps.setString(19, owner.confirmedBy);
+        if (StringUtils.isBlank(owner.confirmedBy)) {
+          ps.setLong(20, 0L);
+        } else {
+          ps.setLong(20, Instant.now().getEpochSecond());
+        }
+      }
+
+      @Override
+      public int getBatchSize() {
+        return owners.size();
+      }
+    });
   }
 
   public DatasetCompliance getDatasetComplianceInfoByDatasetId(JdbcTemplate jdbcTemplate, int datasetId)
