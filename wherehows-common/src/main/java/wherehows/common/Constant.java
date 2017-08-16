@@ -264,4 +264,7 @@ public class Constant {
   // kerberos
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";
+
+  // ump metrics
+  public static final String UMP_METRIC_CSV_FILE_KEY = "ump.metric_csv_file";
 }
