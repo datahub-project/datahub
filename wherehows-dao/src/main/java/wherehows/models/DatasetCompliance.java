@@ -24,7 +24,7 @@ public class DatasetCompliance {
   private String complianceType;
   private List<DatasetFieldEntity> complianceEntities;
   private String confidentiality;
-  private Map<String, Object> datasetClassification;
+  private Map<String, Boolean> datasetClassification;
   private Map<String, String> fieldClassification;
   private String recordOwnerType;
   private Map<String, Object> retentionPolicy;
@@ -75,11 +75,11 @@ public class DatasetCompliance {
     this.confidentiality = confidentiality;
   }
 
-  public Map<String, Object> getDatasetClassification() {
+  public Map<String, Boolean> getDatasetClassification() {
     return datasetClassification;
   }
 
-  public void setDatasetClassification(Map<String, Object> datasetClassification) {
+  public void setDatasetClassification(Map<String, Boolean> datasetClassification) {
     this.datasetClassification = datasetClassification;
   }
 

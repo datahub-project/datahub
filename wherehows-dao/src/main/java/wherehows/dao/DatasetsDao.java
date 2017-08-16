@@ -139,7 +139,7 @@ public class DatasetsDao {
     return record;
   }
 
-  public void updateDatasetComplianceInfo(JdbcTemplate jdbcTemplate,
+  public DatasetCompliance updateDatasetComplianceInfo(JdbcTemplate jdbcTemplate,
       NamedParameterJdbcTemplate namedParameterJdbcTemplate, int datasetId, JsonNode node, String user)
       throws Exception {
 
@@ -148,8 +148,10 @@ public class DatasetsDao {
     if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
       throw new IllegalArgumentException("Dataset id doesn't match.");
     }
+    record.setDatasetId(datasetId);
 
     String urn = record.getDatasetUrn() != null ? record.getDatasetUrn() : getDatasetUrnById(jdbcTemplate, datasetId);
+    record.setDatasetUrn(urn);
 
     Map<String, Object> parameters = new HashMap<>();
     parameters.put("id", datasetId);
@@ -165,5 +167,7 @@ public class DatasetsDao {
     parameters.put("modified_by", user);
     parameters.put("modified_time", System.currentTimeMillis() / 1000);
     namedParameterJdbcTemplate.update(INSERT_DATASET_COMPLIANCE, parameters);
+
+    return record;
   }
 }
