@@ -63,12 +63,6 @@ const datasetClassificationKey = 'complianceInfo.datasetClassification';
 const datasetClassifiersKeys = Object.keys(datasetClassifiers);
 
 /**
- * String constant identifying the classified fields on the security spec
- * @type {String}
- */
-const policyFieldClassificationKey = 'complianceInfo.fieldClassification';
-
-/**
  * A reference to the compliance policy entities on the complianceInfo map
  * @type {string}
  */
@@ -347,15 +341,16 @@ export default Component.extend({
    */
   mergeComplianceEntitiesAndColumnFields(columnIdFieldsToCurrentPrivacyPolicy = {}, truncatedColumnFields = []) {
     return truncatedColumnFields.map(({ fieldName: identifierField, dataType }) => {
-      const { [identifierField]: { identifierType, isSubject, logicalType } } = columnIdFieldsToCurrentPrivacyPolicy;
-      const { [identifierField]: classification } = get(this, policyFieldClassificationKey) || {};
+      const {
+        [identifierField]: { identifierType, logicalType, securityClassification }
+      } = columnIdFieldsToCurrentPrivacyPolicy;
+
       return {
         identifierField,
         dataType,
         identifierType,
-        isSubject,
         logicalType,
-        classification
+        classification: securityClassification
       };
     });
   },
@@ -381,7 +376,7 @@ export default Component.extend({
 
     return columnFieldNames.reduce((acc, identifierField) => {
       const currentPrivacyAttrs = getKeysOnField(
-        ['identifierType', 'isSubject', 'logicalType'],
+        ['identifierType', 'logicalType', 'securityClassification'],
         identifierField,
         complianceEntities
       );
@@ -483,9 +478,10 @@ export default Component.extend({
     let defaultTypeClassification = defaultFieldDataTypeClassification[logicalType] || null;
     // If the identifierType is of custom, set the default classification to the of a CUSTOM_ID, otherwise use value
     // based on logicalType
-    defaultTypeClassification = identifierType === fieldIdentifierTypes.custom.value
-      ? defaultFieldDataTypeClassification['CUSTOM_ID']
-      : defaultTypeClassification;
+    defaultTypeClassification =
+      identifierType === fieldIdentifierTypes.custom.value
+        ? defaultFieldDataTypeClassification['CUSTOM_ID']
+        : defaultTypeClassification;
     this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
   },
 
@@ -590,8 +586,7 @@ export default Component.extend({
     onComplianceJsonUpload(textString) {
       const policy = JSON.parse(textString);
       if (isPolicyExpectedShape(policy)) {
-        const currentPolicy = get(this, 'complianceInfo');
-        set(this, 'complianceInfo', Object.assign({}, currentPolicy, policy));
+        set(this, 'complianceInfo', policy);
 
         // If all is good, then we can saveCompliance so user does not have to manually click
         return this.actions.saveCompliance();
@@ -605,11 +600,7 @@ export default Component.extend({
      */
     onComplianceDownloadJson() {
       const currentPolicy = get(this, 'complianceInfo');
-      const policyProps = [
-        datasetClassificationKey,
-        policyFieldClassificationKey,
-        policyComplianceEntitiesKey
-      ].map(name => name.split('.').pop());
+      const policyProps = [datasetClassificationKey, policyComplianceEntitiesKey].map(name => name.split('.').pop());
       const policy = Object.assign({}, getProperties(currentPolicy, policyProps));
       const href = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(policy))}`;
       const download = `${get(this, 'datasetName')}_policy.json`;
@@ -639,25 +630,19 @@ export default Component.extend({
      * @param {String} logicalType
      * @param {String} identifierType
      */
-    onFieldIdentifierTypeChange({ identifierField, logicalType }, { value: identifierType }) {
+    onFieldIdentifierTypeChange({ identifierField }, { value: identifierType }) {
       const currentComplianceEntities = get(this, 'mergedComplianceEntitiesAndColumnFields');
-      // A reference to the current field in the compliance list if it exists
+      // A reference to the current field in the compliance list, it should exist even for empty complianceEntities
+      // since this is a reference created in the working copy: mergedComplianceEntitiesAndColumnFields
       const currentFieldInComplianceList = currentComplianceEntities.findBy('identifierField', identifierField);
-      const subjectIdString = fieldIdentifierTypes.subjectMember.value;
-      // Some rendered identifierTypes may be masks of other underlying types, e.g. subjectId Member type is really
-      // a memberId with an attribute of isSubject in the affirmative
-      const unwrappedIdentifierType = subjectIdString === identifierType
-        ? fieldIdentifierTypes.member.value
-        : identifierType;
       setProperties(currentFieldInComplianceList, {
-        identifierType: unwrappedIdentifierType,
-        isSubject: subjectIdString === identifierType ? true : null,
+        identifierType,
         logicalType: void 0
       });
       // Set the defaultClassification for the identifierField,
       // although the classification is based on the logicalType,
       // an identifierField may only have one valid logicalType for it's given identifierType
-      this.setDefaultClassification({ identifierField, identifierType: unwrappedIdentifierType });
+      this.setDefaultClassification({ identifierField, identifierType });
     },
 
     /**
@@ -695,28 +680,11 @@ export default Component.extend({
         'identifierField',
         identifierField
       );
-      let fieldClassification = get(this, policyFieldClassificationKey);
-      let updatedFieldClassification = {};
-      // For datasets initially without a fieldClassification, the default value is null
-      if (fieldClassification === null) {
-        fieldClassification = set(this, policyFieldClassificationKey, {});
-      }
-
       // TODO:DSS-6719 refactor into mixin
       this.clearMessages();
 
-      if (!classification && identifierField in fieldClassification) {
-        updatedFieldClassification = Object.assign(updatedFieldClassification, fieldClassification);
-        delete updatedFieldClassification[identifierField];
-      } else {
-        // fieldNames/identifierField can be paths i.e. identifierField.identifierPath.subPath
-        //   using Ember.set trips up Ember and throws
-        updatedFieldClassification = Object.assign({}, fieldClassification, { [identifierField]: classification });
-      }
-
       // Apply the updated classification value to the current instance of the field in working copy
       set(currentFieldInComplianceList, 'classification', classification);
-      set(this, policyFieldClassificationKey, updatedFieldClassification);
     },
 
     /**
