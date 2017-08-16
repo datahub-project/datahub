@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.dao;
+package wherehows.mapper;
 
 import wherehows.models.DatasetColumn;
 import org.springframework.jdbc.core.RowMapper;

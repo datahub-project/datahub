@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import controllers.Application;
 import dao.AbstractMySQLOpenSourceDAO;
 import dao.DatasetsDAO;
-import dao.ReturnCode;
+import wherehows.models.DatasetOwner;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -178,20 +178,6 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
-  public static Result getDatasetOwnersByID(int id) {
-    ObjectNode result = Json.newObject();
-
-    try {
-      result.set("owners", Json.toJson(DatasetsDAO.getDatasetOwnersByID(id)));
-      result.put("status", "ok");
-    } catch (Exception e) {
-      result.put("status", "failed");
-      result.put("message", "Error: " + e.getMessage());
-    }
-
-    return ok(result);
-  }
-
   public static Result getDatasetImpactAnalysisByID(int id) {
     List<ImpactDataset> impactDatasetList = DatasetsDAO.getImpactAnalysisByID(id);
 
@@ -208,29 +194,96 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
+  public static Result getDatasetOwnersByID(int id) {
+    ObjectNode result = Json.newObject();
+
+    try {
+      result.set("owners", Json.toJson(DATASETS_DAO.getDatasetOwnersByID(JDBC_TEMPLATE, id)));
+      result.put("status", "ok");
+    } catch (Exception e) {
+      result.put("status", "failed");
+      result.put("message", "Error: " + e.getMessage());
+    }
+
+    return ok(result);
+  }
+
   public static Result updateDatasetOwners(int id) {
     ObjectNode result = Json.newObject();
     String username = session("user");
-    Map<String, String[]> params = request().body().asFormUrlEncoded();
 
-    if (StringUtils.isNotBlank(username)) {
-      ReturnCode code = DatasetsDAO.updateDatasetOwners(id, params, username);
-
-      if (code == ReturnCode.Success) {
-        result.put("status", "success");
-      } else if (code == ReturnCode.RuleViolation) {
-        result.put("status", "failed");
-        result.put("error", "true");
-        result.put("msg", "Less than 2 confirmed owners.");
-      } else {
-        result.put("status", "failed");
-        result.put("error", "true");
-        result.put("msg", "Could not update dataset owners.");
-      }
-    } else {
+    if (StringUtils.isBlank(username)) {
       result.put("status", "failed");
       result.put("error", "true");
       result.put("msg", "Unauthorized User.");
+      return ok(result);
+    }
+
+    Map<String, String[]> params = request().body().asFormUrlEncoded();
+    // params should contain mapping 'owners': ['ownerInfoJsonString']
+    if (params == null || !params.containsKey("owners") || params.get("owners") == null
+        || params.get("owners").length == 0) {
+      result.put("status", "failed");
+      result.put("error", "true");
+      result.put("msg", "Could not update dataset owners: missing fields");
+      return ok(result);
+    }
+    final JsonNode node = Json.parse(params.get("owners")[0]);
+
+    final List<DatasetOwner> owners = new ArrayList<>();
+    int confirmedOwnerUserCount = 0;
+
+    for (int i = 0; i < node.size(); i++) {
+      final JsonNode ownerNode = node.get(i);
+      if (ownerNode != null) {
+        String userName = ownerNode.has("userName") ? ownerNode.get("userName").asText() : "";
+        if (StringUtils.isBlank(userName)) {
+          continue;
+        }
+
+        Boolean isGroup = ownerNode.has("isGroup") && ownerNode.get("isGroup").asBoolean();
+        String type = ownerNode.has("type") && !ownerNode.get("type").isNull() ? ownerNode.get("type").asText() : "";
+        String subType =
+            ownerNode.has("subType") && !ownerNode.get("subType").isNull() ? ownerNode.get("subType").asText() : "";
+        String confirmedBy =
+            ownerNode.has("confirmedBy") && !ownerNode.get("confirmedBy").isNull() ? ownerNode.get("confirmedBy")
+                .asText() : "";
+        String idType = ownerNode.has("idType") ? ownerNode.get("idType").asText() : "";
+        String source = ownerNode.has("source") ? ownerNode.get("source").asText() : "";
+
+        DatasetOwner owner = new DatasetOwner();
+        owner.userName = userName;
+        owner.isGroup = isGroup;
+        owner.namespace = isGroup ? "urn:li:griduser" : "urn:li:corpuser";
+        owner.type = type;
+        owner.subType = subType;
+        owner.idType = idType;
+        owner.source = source;
+        owner.confirmedBy = confirmedBy;
+        owner.sortId = i;
+        owners.add(owner);
+
+        if (type.equalsIgnoreCase("owner") && idType.equalsIgnoreCase("user") && StringUtils.isNotBlank(confirmedBy)) {
+          confirmedOwnerUserCount++;
+        }
+      }
+    }
+
+    // enforce at least two confirmed owner for a dataset before making any changes
+    if (confirmedOwnerUserCount < 2) {
+      result.put("status", "failed");
+      result.put("error", "true");
+      result.put("msg", "Less than 2 confirmed owners.");
+      return ok(result);
+    }
+
+    try {
+      DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, id, owners);
+      result.put("status", "success");
+    } catch (Exception e) {
+      result.put("status", "failed");
+      result.put("error", "true");
+      result.put("msg", "Could not update dataset owners: " + e.getMessage());
     }
     return ok(result);
   }
