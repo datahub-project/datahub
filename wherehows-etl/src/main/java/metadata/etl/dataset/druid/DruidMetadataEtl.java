@@ -27,10 +27,6 @@ public class DruidMetadataEtl extends EtlJob{
     public void extract()
             throws Exception {
         logger.info("Running Druid metadata Extractor");
-//        InputStream inputStream = classLoader.getResourceAsStream(("jython/DruidExtract.py"));
-//        logger.info("call scripts with args: "+interpreter.getSystemState().argv);
-//        interpreter.execfile(inputStream);
-//        inputStream.close();
         DruidMetadataExtractor extractor = new DruidMetadataExtractor(prop);
         extractor.run();
     }
@@ -44,10 +40,6 @@ public class DruidMetadataEtl extends EtlJob{
     @Override
     public void load() throws Exception {
         logger.info("Running Druid Load");
-//        logger.info("In Vertica metadata ETL, launch load jython scripts");
-//        InputStream inputStream = classLoader.getResourceAsStream("jython/DruidLoad.py");
-//        interpreter.execfile(inputStream);
-//        inputStream.close();
         DruidMetadataLoader loader = new DruidMetadataLoader(prop);
         loader.run();
     }
