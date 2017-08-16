@@ -261,9 +261,8 @@ public class DruidMetadataExtractor {
             dict_dataset.put("fields", fields.toString());
             dict_dataset.put("urn", "druid:///"+"datasources/"+datasource);
             dict_dataset.put("source", "Druid");
-            dict_dataset.put("storage_type", "Table");		// TODO: check with Pekka/Wesley/Tomas about the value of "storage_type"
+            dict_dataset.put("storage_type", "Table");
             dict_dataset.put("is_partitioned", "T");
-            //		dict_dataset.put("partition_layout_pattern_id", "");		//TODO: Check the partition layout pattern
 
             String out = dict_dataset.get("name") + "\t"
                     + dict_dataset.get("schema") + "\t"
@@ -274,7 +273,6 @@ public class DruidMetadataExtractor {
                     + dict_dataset.get("source") + "\t"
                     + dict_dataset.get("storage_type") + "\t"
                     + dict_dataset.get("is_partitioned")
-                    //				   + dict_dataset.get("partition_layout_pattern_id", "")
                     + "\n"
                     ;
             druid_ds_csv_file.write(out);
