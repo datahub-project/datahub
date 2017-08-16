@@ -264,4 +264,9 @@ public class Constant {
   // kerberos
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";
+
+  // Druid 
+  public static final String DRUID_HOST_URL = "druid.host.url"
+  public static final String DRUID_DATASOURCE_METADATA_CSV_FILE = "druid.datasource.metadata.csv.file"
+  public static final String DRUID_FIELD_METADATA_CVS_FILE = "druid.field.metadata.csv.file"
 }
