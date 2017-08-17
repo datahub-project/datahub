@@ -126,11 +126,12 @@ public class DatasetsDao {
         columnId);
   }
 
-  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate, int datasetId) {
+  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate, NamedParameterJdbcTemplate namedJdbcTemplate, int datasetId) {
     return jdbcTemplate.query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), datasetId);
   }
 
-  public void updateDatasetOwners(JdbcTemplate jdbcTemplate, int datasetId, List<DatasetOwner> owners) {
+  public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, List<DatasetOwner> owners)
+      throws Exception {
     // first mark existing owners as deleted, new owners will be updated later
     jdbcTemplate.update(MARK_DATASET_OWNERS_AS_DELETED, datasetId);
 
