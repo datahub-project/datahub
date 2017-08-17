@@ -16,6 +16,7 @@ package metadata.etl.models;
 import java.util.Properties;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+import wherehows.common.jobs.JobFactory;
 
 
 public class EtlJobFactoryTest {
@@ -23,7 +24,7 @@ public class EtlJobFactoryTest {
   @Test
   public void testGetEtlJob() throws Exception {
     Properties properties = new Properties();
-    DummyEtlJob job = (DummyEtlJob) EtlJobFactory.getEtlJob(DummyEtlJob.class.getCanonicalName(), 1, 2L, properties);
+    DummyEtlJob job = (DummyEtlJob) JobFactory.getJob(DummyEtlJob.class.getCanonicalName(), 1, 2L, properties);
 
     Assert.assertEquals(job.refId, 1);
     Assert.assertEquals(job.whExecId, 2L);

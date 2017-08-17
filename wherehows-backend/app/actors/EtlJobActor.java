@@ -18,18 +18,16 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.UnknownHostException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import metadata.etl.Launcher;
-import metadata.etl.models.EtlJobStatus;
 import models.daos.EtlJobDao;
 import msgs.EtlJobMessage;
 import play.Logger;
 import play.Play;
 import shared.Global;
 import wherehows.common.Constant;
+import wherehows.common.jobs.JobStatus;
+import wherehows.common.jobs.Launcher;
 
 
 /**
@@ -123,7 +121,7 @@ public class EtlJobActor extends UntypedActor {
           throw new Exception("Process + " + getPid(process) + " failed");
         }
 
-        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.SUCCEEDED, "Job succeed!");
+        EtlJobDao.endRun(msg.getWhEtlExecId(), JobStatus.SUCCEEDED, "Job succeed!");
         Logger.info("ETL job {} finished", msg.toDebugString());
 
         if (props.getProperty(Constant.REBUILD_TREE_DATASET) != null) {
@@ -139,11 +137,10 @@ public class EtlJobActor extends UntypedActor {
         if (process.isAlive()) {
           process.destroy();
         }
-        EtlJobDao.endRun(msg.getWhEtlExecId(), EtlJobStatus.ERROR, e.getMessage());
+        EtlJobDao.endRun(msg.getWhEtlExecId(), JobStatus.ERROR, e.getMessage());
       } finally {
         Global.removeRunningJob(msg.getEtlJobName());
-        if (!Logger.isDebugEnabled()) // if debug enable, won't delete the config files.
-        {
+        if (!Logger.isDebugEnabled()) { // if debug enable, won't delete the config files.
           ConfigUtil.deletePropertiesFile(msg.getWhEtlExecId(), configDir);
         }
       }

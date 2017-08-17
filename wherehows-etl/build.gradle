@@ -1,5 +1,4 @@
-apply plugin: 'application'
-mainClassName = 'metadata.etl.Launcher'
+apply plugin: 'java'
 
 configurations {
   //Libraries needed at compilation time but not to be

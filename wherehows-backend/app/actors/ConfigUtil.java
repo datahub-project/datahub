@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
 import wherehows.common.Constant;
+import wherehows.common.jobs.Launcher;
 
 import static org.apache.commons.lang3.StringUtils.*;
 
@@ -74,7 +75,7 @@ class ConfigUtil {
         .add("-DCONTEXT=" + etlJobName)
         .add("-Dlogback.configurationFile=etl_logback.xml")
         .add("-DLOG_DIR=" + outDir)
-        .add("metadata.etl.Launcher")
+        .add(Launcher.class.getCanonicalName())
         .build());
     pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stdout")));
     pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stderr")));

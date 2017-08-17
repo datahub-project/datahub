@@ -11,15 +11,20 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.models;
+package wherehows.common.jobs;
 
-/**
- * Created by zechen on 9/24/15.
- */
-public enum EtlJobStatus {
-  REQUESTED,
-  STARTED,
-  PROCESSING,
-  ERROR,
-  SUCCEEDED
+import java.lang.reflect.Constructor;
+import java.util.Properties;
+
+
+public class JobFactory {
+
+  private JobFactory() {
+  }
+
+  public static BaseJob getJob(String jobClassName, int refId, long whExecId, Properties properties) throws Exception {
+    Class jobClass = Class.forName(jobClassName);
+    Constructor<?> ctor = jobClass.getConstructor(int.class, long.class, Properties.class);
+    return (BaseJob) ctor.newInstance(refId, whExecId, properties);
+  }
 }
