@@ -55,7 +55,6 @@ public class DruidMetadataExtractor {
         druid_host = prop.getProperty(Constant.DRUID_HOST_URL);
         druid_ds_metadata_csv_file = prop.getProperty(Constant.DRUID_DATASOURCE_METADATA_CSV_FILE);
         druid_col_metadata_csv_file = prop.getProperty(Constant.DRUID_FIELD_METADATA_CSV_FILE);
-        logger.debug("druid_host="+druid_host);
     }
 
     public DruidMetadataExtractor(String host, String ds_csv_file, String col_csv_file) throws Exception{
@@ -71,6 +70,7 @@ public class DruidMetadataExtractor {
     }
 
     public void run() throws Exception{
+        logger.info("Remove existing metadata files:"+druid_ds_metdata_csv_file+","+druid_col_metadata_csv_file);
         Files.deleteIfExists(FileSystems.getDefault().getPath(druid_ds_metadata_csv_file));
         Files.deleteIfExists(FileSystems.getDefault().getPath(druid_col_metadata_csv_file));
         getDatasources();
@@ -102,9 +102,10 @@ public class DruidMetadataExtractor {
             String response_str = response.toString().replace("[", "").replace("]", "").replace("\"", "");
             if (response_str.length()>0){
                 datasources = response_str.split(",");
+                logger.info(response_str.length()+" datasources found");
             }
             else{
-                logger.info("Cannot find data source on Druid: " + druid_host);
+                logger.warn("Cannot find data source on Druid: " + druid_host);
             }
             br.close();
             con.disconnect();
@@ -146,13 +147,14 @@ public class DruidMetadataExtractor {
                 minTime = json.getString("minTime");
             }
             else{
-                logger.info("No meta data for data source: )" + datasource);
+                logger.warn("No meta data for data source: )" + datasource);
             }
         }
 
     }
 
     public JSONArray getSegmentMetadata(String datasource, String maxTime, String minTime) throws Exception{
+        logger.info("Extract metadata of segment from "+maxTime+" to "+minTime);
         DateTime max_datetime = DATETIME_FORMAT.parseDateTime(maxTime);
         String interval = DATETIME_FORMAT.print(max_datetime.minusHours(1)) + "/" + maxTime;
         String query = SEGMENT_QUERY.replace("$DATASOURCE", datasource).replace("$INTERVAL", interval);

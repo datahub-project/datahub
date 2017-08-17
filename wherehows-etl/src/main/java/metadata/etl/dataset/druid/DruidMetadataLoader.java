@@ -207,32 +207,31 @@ public class DruidMetadataLoader {
         JDBC_PASSWORD = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
         DB_ID = prop.getProperty(Constant.DB_ID_KEY);
         WH_ETL_EXEC_ID = prop.getProperty(Constant.WH_EXEC_ID_KEY);
-        logger.info("druid_ds_metadata_csv_file="+druid_ds_metadata_csv_file);
-        logger.info("druid_col_metadata_csv_file="+druid_col_metadata_csv_file);
-        logger.info("JDBC_URL="+JDBC_URL);
-        logger.info("JDBC_DRIVER="+JDBC_DRIVER);
-        logger.info("JDBC_USERNAME="+JDBC_USERNAME);
-        logger.info("JDBC_PASSWORD="+JDBC_PASSWORD);
-        logger.info("DB_ID="+DB_ID);
-        logger.info("WH_ETL_EXEC_ID="+WH_ETL_EXEC_ID);
-
+        logger.debug("druid_ds_metadata_csv_file="+druid_ds_metadata_csv_file);
+        logger.debug("druid_col_metadata_csv_file="+druid_col_metadata_csv_file);
+        logger.debug("JDBC_URL="+JDBC_URL);
+        logger.debug("JDBC_DRIVER="+JDBC_DRIVER);
+        logger.debug("JDBC_USERNAME="+JDBC_USERNAME);
+        logger.debug("JDBC_PASSWORD="+JDBC_PASSWORD);
+        logger.debug("DB_ID="+DB_ID);
+        logger.debug("WH_ETL_EXEC_ID="+WH_ETL_EXEC_ID);
     }
 
     public DruidMetadataLoader(String ds_csv_file, String col_csv_file, String db_id, String exec_id, String url, String driver, String usr, String pwd) throws Exception{
         if (ds_csv_file==null || ds_csv_file.length()==0){
-            throw new Exception("CSV file is not specified");
+            throw new Exception("CSV file is invalid");
         }
         if (url==null || url.length()==0){
-            throw new Exception("JDBC URL is not specified");
+            throw new Exception("JDBC URL is invalid");
         }
         if (driver==null || driver.length()==0){
-            throw new Exception("JDBC Driver is not specified");
+            throw new Exception("JDBC Driver is invalid");
         }
         if (usr==null || usr.length()==0){
-            throw new Exception("JDBC Username is not specified");
+            throw new Exception("JDBC Username is invalid");
         }
         if (pwd==null || pwd.length()==0){
-            throw new Exception("JDBC Password is not specified");
+            throw new Exception("JDBC Password is invalid");
         }
 
         druid_ds_metadata_csv_file = ds_csv_file;
@@ -253,48 +252,44 @@ public class DruidMetadataLoader {
         Class.forName(JDBC_DRIVER);
         Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD);
         Statement stmt = conn.createStatement();
-		/*
-		 * Load druid_ds_metadata_csv_file to dict_dataset table
-		 */
-        logger.info("Running query:"+DROP_DS_METADATA);
+
+        logger.info("Load file "+druid_ds_metadata_csv_file+" to table 'dict_dataset'");
+        logger.debug("Running query:"+DROP_DS_METADATA);
         stmt.executeUpdate(DROP_DS_METADATA);
-        logger.info("Running query:"+CREATE_DS_METADAT);
+        logger.debug("Running query:"+CREATE_DS_METADAT);
         stmt.executeUpdate(CREATE_DS_METADAT);
-        logger.info("Running query:"+LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
+        logger.debug("Running query:"+LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
         stmt.executeUpdate(LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
-        logger.info("Running query:"+DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+LOAD_STG_DATASET_META.replace("$DB_ID", DB_ID).replace("$WH_ETL_EXEC_ID", WH_ETL_EXEC_ID));
+        logger.debug("Running query:"+LOAD_STG_DATASET_META.replace("$DB_ID", DB_ID).replace("$WH_ETL_EXEC_ID", WH_ETL_EXEC_ID));
         stmt.executeUpdate(LOAD_STG_DATASET_META.replace("$DB_ID", DB_ID).replace("$WH_ETL_EXEC_ID", WH_ETL_EXEC_ID));
-        logger.info("Running query:"+DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
-		/*
-		 * Load druid_col_metadata_csv_file to dict_field table
-		 */
-        logger.info("Running query:"+DROP_COL_METADATA);
+
+        logger.info("Load file " + druid_col_metadata_csv_file + " to table 'dict_field'");
+        logger.debug("Running query:"+DROP_COL_METADATA);
         stmt.executeUpdate(DROP_COL_METADATA);
-        logger.info("Running query:"+CREATE_COL_METADAT);
+        logger.debug("Running query:"+CREATE_COL_METADAT);
         stmt.executeUpdate(CREATE_COL_METADAT);
-        logger.info("Running query:"+LOAD_COL_METADATA.replace("$DRUID_COL_METADATA_CSV_FILE", druid_col_metadata_csv_file));
+        logger.debug("Running query:"+LOAD_COL_METADATA.replace("$DRUID_COL_METADATA_CSV_FILE", druid_col_metadata_csv_file));
         stmt.executeUpdate(LOAD_COL_METADATA.replace("$DRUID_COL_METADATA_CSV_FILE", druid_col_metadata_csv_file));
-        logger.info("Running query:"+DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(DUMP_NON_EXIST_FIELD.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+DELETE_NON_EXIST_FIELD);
+        logger.debug("Running query:"+DELETE_NON_EXIST_FIELD);
         stmt.executeUpdate(DELETE_NON_EXIST_FIELD);
-        logger.info("Running query:"+UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
-        logger.info("Running query:"+INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
+        logger.debug("Running query:"+INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
         stmt.executeUpdate(INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
 
-
         stmt.close();
-
     }
 
 
