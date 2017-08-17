@@ -112,13 +112,13 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 
 	public static void addLdapUser(User user)
 	{
-		if (user != null && StringUtils.isNotBlank(user.userName))
+		if (user != null && StringUtils.isNotBlank(user.getUserName()))
 		{
 			getJdbcTemplate().update(CREATE_LDAP_USER,
-				user.name,
-				user.userName,
-				user.email,
-				user.departmentNum);
+				user.getName(),
+				user.getUserName(),
+				user.getEmail(),
+				user.getDepartmentNum());
 		}
 	}
 
@@ -284,8 +284,8 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 				String displayName = (String) row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
 				if (StringUtils.isNotBlank(userName)) {
 					CompanyUser user = new CompanyUser();
-					user.userName = userName;
-					user.displayName = displayName;
+					user.setUserName(userName);
+					user.setDisplayName(displayName);
 					users.add(user);
 				}
 			}
@@ -301,7 +301,7 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 				String name = (String) row.get(UserRowMapper.USER_FULL_NAME_COLUMN);
 				if (StringUtils.isNotBlank(name)) {
 					Group group = new Group();
-					group.name = name;
+					group.setName(name);
 					groups.add(group);
 				}
 			}
