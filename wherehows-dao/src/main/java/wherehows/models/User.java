@@ -13,12 +13,35 @@
  */
 package wherehows.models;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+import lombok.Data;
+
+
+@Data
+@Entity
+@Table(name = "users")
 public class User {
 
-    public int id;
-    public String userName; // ldap user id
-    public int departmentNum;
-    public String email;
-    public String name; // ldap display name
-    public UserSetting userSetting;
+  @Id
+  @Column(name = "id")
+  private int id;
+
+  @Column(name = "username")
+  private String userName; // ldap user id
+
+  @Column(name = "department_number")
+  private int departmentNum;
+
+  @Column(name = "email")
+  private String email;
+
+  @Column(name = "name")
+  private String name; // ldap display name
+
+  @Transient
+  private UserSetting userSetting;
 }

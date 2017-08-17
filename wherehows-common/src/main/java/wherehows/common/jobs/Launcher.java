@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl;
+package wherehows.common.jobs;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -19,7 +19,6 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Properties;
-import metadata.etl.models.EtlJobFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
@@ -42,48 +41,47 @@ public class Launcher {
 
   /**
    * Read config file location from command line. Read all configuration from command line, execute the job.
-   * Example command line : java -Dconfig=/path/to/config/file -cp "lib/*" metadata.etl.Launcher
+   * Example command line : java -Dconfig=/path/to/config/file -cp "lib/*" wherehows.common.jobs.Launcher
    * @param args contain the config file location parameter 'confg'
    * @throws Exception
    */
-  public static void main(String[] args)
-      throws Exception {
+  public static void main(String[] args) throws Exception {
 
-    String property_file = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
-    String etlClassName = null;
+    String propertyFile = System.getProperty(CONFIG_FILE_LOCATION_KEY, null);
+    String jobClassName = null;
     int refId = 0;
     long whEtlExecId = 0;
     Properties props = new Properties();
 
-    try (InputStream propFile = new FileInputStream(property_file)) {
+    try (InputStream propFile = new FileInputStream(propertyFile)) {
       props.load(propFile);
-      etlClassName = props.getProperty(Constant.JOB_CLASS_KEY);
+      jobClassName = props.getProperty(Constant.JOB_CLASS_KEY);
       refId = Integer.valueOf(props.getProperty(Constant.JOB_REF_ID, "0"));
       whEtlExecId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
 
-      System.setProperty(LOGGER_CONTEXT_NAME_KEY, etlClassName);
+      System.setProperty(LOGGER_CONTEXT_NAME_KEY, jobClassName);
     } catch (IOException e) {
-       //logger.error("property file '{}' not found" , property_file);
+      //logger.error("property file '{}' not found" , property_file);
       e.printStackTrace();
       System.exit(1);
     }
 
-    if (etlClassName == null) {
+    if (jobClassName == null) {
       logger.error("Must specify {} in properties file", Constant.JOB_CLASS_KEY);
       System.exit(1);
     }
 
     // create the etl job
-    EtlJob etlJob = null;
+    BaseJob job = null;
     try {
-      etlJob = EtlJobFactory.getEtlJob(etlClassName, refId, whEtlExecId, props);
+      job = JobFactory.getJob(jobClassName, refId, whEtlExecId, props);
     } catch (Exception e) {
-      logger.error("Failed to create ETL job {}: {}", etlClassName, e.getMessage());
+      logger.error("Failed to create ETL job {}: {}", jobClassName, e.getMessage());
       System.exit(1);
     }
 
     try {
-      etlJob.run();
+      job.run();
     } catch (Exception e) {
       StringWriter sw = new StringWriter();
       e.printStackTrace(new PrintWriter(sw));
@@ -98,5 +96,4 @@ public class Launcher {
     logger.info("whEtlExecId=" + whEtlExecId + " finished.");
     System.exit(0);
   }
-
 }

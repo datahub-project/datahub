@@ -1,6 +1,6 @@
 import Ember from 'ember';
-import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
+import { datasetComplianceFor } from 'wherehows-web/utils/api';
 
 const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Create URL retrieval module
@@ -19,7 +19,6 @@ const getDatasetReferencesUrl = id => `${datasetUrl(id)}/references`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
 const getDatasetVersionUrl = (id, dbId) => `${datasetUrl(id)}/versions/db/${dbId}`;
-const getDatasetPrivacyUrl = id => `${datasetUrl(id)}/privacy`;
 
 let getDatasetColumn;
 
@@ -123,19 +122,6 @@ export default Route.extend({
         .forEach(func => func());
 
       /**
-       * Fetches the current compliance policy for the rendered dataset
-       * @param {number} id the id of the dataset
-       * @return {Promise.<{complianceInfo: *, isNewComplianceInfo: boolean}>}
-       */
-      const getComplianceInfo = async id => {
-        const response = await Promise.resolve(getJSON(getDatasetPrivacyUrl(id)));
-        const { msg, status, complianceInfo = createInitialComplianceInfo(id) } = response;
-        const isNewComplianceInfo = status === 'failed' && String(msg).includes('actual 0');
-
-        return { complianceInfo, isNewComplianceInfo };
-      };
-
-      /**
        * Fetch the datasetColumn
        * @param {number} id the id of the dataset
        */
@@ -183,8 +169,8 @@ export default Route.extend({
        * @return {Promise.<void>}
        */
       (async id => {
-        const [columns, privacy] = await Promise.all([getDatasetColumn(id), getComplianceInfo(id)]);
-        const { complianceInfo, isNewComplianceInfo } = privacy;
+        const [columns, compliance] = await Promise.all([getDatasetColumn(id), datasetComplianceFor(id)]);
+        const { complianceInfo, isNewComplianceInfo } = compliance;
         setProperties(controller, {
           complianceInfo,
           isNewComplianceInfo,

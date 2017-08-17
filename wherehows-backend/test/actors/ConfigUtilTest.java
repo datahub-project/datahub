@@ -36,7 +36,7 @@ public class ConfigUtilTest {
     // then:
     assertThat(pb.command()).contains("java", "-cp", System.getProperty("java.class.path"),
         "-Dconfig=/var/tmp/wherehows/exec/0.properties", "-DCONTEXT=hdfs_metadata_etl",
-        "-Dlogback.configurationFile=etl_logback.xml", "metadata.etl.Launcher");
+        "-Dlogback.configurationFile=etl_logback.xml", "wherehows.common.jobs.Launcher");
   }
 
   @Test
@@ -54,7 +54,7 @@ public class ConfigUtilTest {
     assertThat(pb.command()).contains("java", "-a", "-b", "-cp", System.getProperty("java.class.path"),
         "-Dconfig=" + applicationDirectory + "/exec/1.properties", "-DCONTEXT=ldap_user_etl",
         "-DLOG_DIR=" + applicationDirectory, "-Dlogback.configurationFile=etl_logback.xml",
-        "metadata.etl.Launcher");
+        "wherehows.common.jobs.Launcher");
     assertThat(pb.redirectError().file().getPath().equals("./temp/LDAP_USER_ETL.stderr"));
     assertThat(pb.redirectOutput().file().getPath().equals("./temp/LDAP_USER_ETL.stdout"));
   }

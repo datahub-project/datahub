@@ -177,10 +177,10 @@ public class AuthenticationManager {
       }
     }
     User user = new User();
-    user.email = email;
-    user.userName = userName;
-    user.name = firstName + " " + lastName;
-    user.departmentNum = departmentNum;
+    user.setEmail(email);
+    user.setUserName(userName);
+    user.setName(firstName + " " + lastName);
+    user.setDepartmentNum(departmentNum);
     return user;
   }
 }

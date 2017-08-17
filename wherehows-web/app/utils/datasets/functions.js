@@ -1,4 +1,7 @@
+import Ember from 'ember';
 import { datasetClassifiers } from 'wherehows-web/constants/dataset-classification';
+
+const { assert } = Ember;
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
@@ -29,13 +32,12 @@ const policyShape = {
       keys: [
         'identifierField:string',
         'identifierType:string',
-        'isSubject:boolean|object',
+        'securityClassification:string',
         'logicalType:string|object|undefined'
       ]
     }
   },
-  datasetClassification: { type: 'object', keys: Object.keys(datasetClassifiers).map(key => `${key}:boolean`) },
-  fieldClassification: { type: 'object' }
+  datasetClassification: { type: 'object', keys: Object.keys(datasetClassifiers).map(key => `${key}:boolean`) }
 };
 
 /**
@@ -45,20 +47,25 @@ const policyShape = {
  */
 const isPolicyExpectedShape = (candidatePolicy = {}) => {
   const candidateMatchesShape = policyKey => {
+    assert(
+      `Expected each compliance policy attribute to be one of ${Object.keys(policyShape)}, but got ${policyKey}`,
+      policyShape.hasOwnProperty(policyKey)
+    );
+
     const policyProps = policyShape[policyKey];
     const expectedType = policyProps.type;
     const policyKeyValue = candidatePolicy[policyKey];
-    const isValueExpectedType = expectedType === 'array'
-      ? Array.isArray(policyKeyValue)
-      : typeof policyKeyValue === expectedType;
-    const typeDeclarations = {
-      get array() {
-        return policyProps.of.keys;
-      },
-      get object() {
-        return policyProps.keys;
-      }
-    }[expectedType] || [];
+    const isValueExpectedType =
+      expectedType === 'array' ? Array.isArray(policyKeyValue) : typeof policyKeyValue === expectedType;
+    const typeDeclarations =
+      {
+        get array() {
+          return policyProps.of.keys;
+        },
+        get object() {
+          return policyProps.keys;
+        }
+      }[expectedType] || [];
 
     if (!policyKeyValue || !isValueExpectedType) {
       return false;

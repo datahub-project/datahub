@@ -25,3 +25,4 @@ logs/
 dist
 tmp
 /commit
+/.vscode/

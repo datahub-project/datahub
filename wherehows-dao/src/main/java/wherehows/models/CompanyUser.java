@@ -13,8 +13,23 @@
  */
 package wherehows.models;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+@Data
+@Entity
+@Table(name = "dir_external_user_info")
 public class CompanyUser {
 
-    public String userName;
-    public String displayName;
+    @Id
+    @Column(name = "user_id")
+    private String userName;
+
+    @Column(name = "display_name")
+    private String displayName;
 }

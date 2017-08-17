@@ -17,7 +17,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import metadata.etl.models.EtlJobStatus;
+import wherehows.common.jobs.JobStatus;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.support.KeyHolder;
 import play.libs.Time;
@@ -75,7 +75,7 @@ public class EtlJobDao {
   public static long insertNewRun(String etlJobName) {
     Map<String, Object> params = new HashMap<>();
     params.put("whEtlJobName", etlJobName);
-    params.put("status", EtlJobStatus.REQUESTED.toString());
+    params.put("status", JobStatus.REQUESTED.toString());
     params.put("requestTime", System.currentTimeMillis() / 1000);
     KeyHolder keyHolder = JdbcUtil.insertRow(INSERT_NEW_RUN, params);
     return (Long) keyHolder.getKey();
@@ -84,13 +84,13 @@ public class EtlJobDao {
   public static void startRun(long whEtlExecId, String message) {
     Map<String, Object> params = new HashMap<>();
     params.put("whEtlExecId", whEtlExecId);
-    params.put("status", EtlJobStatus.STARTED.toString());
+    params.put("status", JobStatus.STARTED.toString());
     params.put("startTime", System.currentTimeMillis() / 1000);
     params.put("message", message);
     JdbcUtil.wherehowsNamedJdbcTemplate.update(START_RUN, params);
   }
 
-  public static void endRun(long whEtlExecId, EtlJobStatus status, String message) {
+  public static void endRun(long whEtlExecId, JobStatus status, String message) {
     Map<String, Object> params = new HashMap<>();
     params.put("whEtlExecId", whEtlExecId);
     params.put("status", status.toString());

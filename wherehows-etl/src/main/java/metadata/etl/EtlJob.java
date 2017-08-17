@@ -13,20 +13,15 @@
  */
 package metadata.etl;
 
-import java.io.FileInputStream;
+import java.io.File;
+import java.net.URL;
+import java.util.Properties;
 import org.python.core.PyDictionary;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
 import org.python.util.PythonInterpreter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.Properties;
+import wherehows.common.jobs.BaseJob;
 
 
 /**
@@ -35,15 +30,11 @@ import java.util.Properties;
  * Each ETL process that implement this interface will have their own extract, transform, load function.
  * Created by zsun on 7/29/15.
  */
-public abstract class EtlJob {
+public abstract class EtlJob extends BaseJob {
+
+  public final ClassLoader classLoader = getClass().getClassLoader();
 
   public PythonInterpreter interpreter;
-  public Properties prop;
-  public ClassLoader classLoader = getClass().getClassLoader();
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
-
-  // default location of local test configuration file
-  private final static String DEFAULT_CONFIG_FILE_LOCATION = System.getProperty("user.home") + "/.wherehows/local_test.properties";
 
   /**
    * Used by backend service
@@ -53,7 +44,16 @@ public abstract class EtlJob {
    * @param properties
    */
   public EtlJob(Integer appId, Integer dbId, Long whExecId, Properties properties) {
-    PySystemState sys = configFromProperties(appId, dbId, whExecId, properties);
+    super(whExecId, properties);
+
+    if (appId != null) {
+      prop.setProperty(Constant.APP_ID_KEY, String.valueOf(appId));
+    }
+    if (dbId != null) {
+      prop.setProperty(Constant.DB_ID_KEY, String.valueOf(dbId));
+    }
+
+    PySystemState sys = configFromProperties();
     addJythonToPath(sys);
     interpreter = new PythonInterpreter(null, sys);
   }
@@ -71,52 +71,36 @@ public abstract class EtlJob {
   }
 
   /**
-   * Copy all properties into jython envirenment
-   * @param appId
-   * @param whExecId
-   * @param properties
+   * Copy all properties into jython environment
    * @return PySystemState A PySystemState that contain all the arguments.
    */
-  private PySystemState configFromProperties(Integer appId, Integer dbId, Long whExecId, Properties properties) {
-    this.prop = properties;
-    if (appId != null)
-      prop.setProperty(Constant.APP_ID_KEY, String.valueOf(appId));
-    if (dbId != null)
-      prop.setProperty(Constant.DB_ID_KEY, String.valueOf(dbId));
-    prop.setProperty(Constant.WH_EXEC_ID_KEY, String.valueOf(whExecId));
-    PyDictionary config = new PyDictionary();
+  private PySystemState configFromProperties() {
+    final PyDictionary config = new PyDictionary();
     for (String key : prop.stringPropertyNames()) {
-      String value = prop.getProperty(key);
-      config.put(new PyString(key), new PyString(value));
+      config.put(new PyString(key), new PyString(prop.getProperty(key)));
     }
     PySystemState sys = new PySystemState();
     sys.argv.append(config);
     return sys;
   }
 
-  public abstract void extract()
-    throws Exception;
+  public abstract void extract() throws Exception;
 
-  public abstract void transform()
-    throws Exception;
+  public abstract void transform() throws Exception;
 
-  public abstract void load()
-    throws Exception;
+  public abstract void load() throws Exception;
 
-  public void setup()
-    throws Exception {
+  public void setup() throws Exception {
     // redirect error to out
     System.setErr(System.out);
   }
 
-  public void close()
-    throws Exception {
+  public void close() throws Exception {
     interpreter.cleanup();
     interpreter.close();
   }
 
-  public void run()
-    throws Exception {
+  public void run() throws Exception {
     setup();
     logger.info("PySystem path: " + interpreter.getSystemState().path.toString());
     extract();

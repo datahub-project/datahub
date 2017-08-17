@@ -11,8 +11,6 @@ npm-debug.log*
 testem.log
 yarn-error.log
 
-# idea *.ts files
-typings/
-
 # vscode
 jsconfig.json
+/.vscode/
