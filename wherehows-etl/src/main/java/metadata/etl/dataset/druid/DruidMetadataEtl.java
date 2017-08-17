@@ -33,7 +33,6 @@ public class DruidMetadataEtl extends EtlJob{
 
     @Override
     public void transform() throws Exception {
-        // TODO Auto-generated method stub
         logger.info("Running Druid Trasform!");
 
     }
