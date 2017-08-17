@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2015",
+    "moduleResolution": "node",
+    "noEmitOnError": true,
+    "baseUrl": ".",
+    "sourceMap": true,
+    "noEmit": true,
+    "strict": true,
+    "pretty": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "experimentalDecorators": true,
+    "paths": {
+      "wherehows-web/*": ["app/*"],
+      "wherehows-web/tests/*": ["tests/*"]
+    }
+  },
+  "include": ["app/**/*", "tests/**/*", "mirage/**/*"],
+  "exclude": ["tmp", "dist", "node_modules", "bower_components", "vendor", ".git", ".gradle", ".idea", "logs"]
+}
