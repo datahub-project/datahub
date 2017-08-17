@@ -18,7 +18,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import metadata.etl.models.EtlJobStatus;
+import wherehows.common.jobs.JobStatus;
 import models.daos.EtlJobDao;
 import msgs.EtlJobMessage;
 import play.Logger;
@@ -96,7 +96,7 @@ public class SchedulerActor extends UntypedActor {
 
       if (Global.getCurrentRunningJob().contains(etlJobName)) {
         Logger.error("The previous job is still running! Abort this job : " + etlMsg.toDebugString());
-        EtlJobDao.endRun(etlMsg.getWhEtlExecId(), EtlJobStatus.ERROR, "Previous is still running, Aborted!");
+        EtlJobDao.endRun(etlMsg.getWhEtlExecId(), JobStatus.ERROR, "Previous is still running, Aborted!");
       } else {
         Global.getCurrentRunningJob().add(etlJobName);
         Logger.info("Send message : " + etlMsg.toDebugString());

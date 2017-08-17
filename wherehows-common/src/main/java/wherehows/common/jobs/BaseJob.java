@@ -11,21 +11,24 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package metadata.etl.models;
+package wherehows.common.jobs;
 
-import java.lang.reflect.Constructor;
 import java.util.Properties;
-import metadata.etl.EtlJob;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import wherehows.common.Constant;
 
-/**
- * Created by zechen on 10/21/15.
- */
-public class EtlJobFactory {
 
-  public static EtlJob getEtlJob(String etlClassName, int refId, long whExecId, Properties properties)
-      throws Exception {
-    Class etlClass = Class.forName(etlClassName);
-    Constructor<?> ctor = etlClass.getConstructor(int.class, long.class, Properties.class);
-    return (EtlJob) ctor.newInstance(refId, whExecId, properties);
+public abstract class BaseJob {
+
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+  public final Properties prop;
+
+  public BaseJob(long whExecId, Properties properties) {
+    this.prop = properties;
+    this.prop.setProperty(Constant.WH_EXEC_ID_KEY, String.valueOf(whExecId));
   }
+
+  public abstract void run() throws Exception;
 }

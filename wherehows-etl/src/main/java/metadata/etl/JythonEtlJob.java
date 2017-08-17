@@ -15,14 +15,13 @@ package metadata.etl;
 
 import java.io.InputStream;
 import java.util.Properties;
-import metadata.etl.EtlJob;
 import wherehows.common.Constant;
 
 
 public class JythonEtlJob extends EtlJob {
 
-  public JythonEtlJob(int dbId, long whExecId, Properties prop) {
-    super(dbId, dbId, whExecId, prop);
+  public JythonEtlJob(int refId, long whExecId, Properties prop) {
+    super(refId, refId, whExecId, prop);
   }
 
   @Override
