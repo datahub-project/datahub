@@ -70,7 +70,7 @@ public class DruidMetadataExtractor {
     }
 
     public void run() throws Exception{
-        logger.info("Remove existing metadata files:"+druid_ds_metdata_csv_file+","+druid_col_metadata_csv_file);
+        logger.info("Remove existing metadata files:"+druid_ds_metadata_csv_file+","+druid_col_metadata_csv_file);
         Files.deleteIfExists(FileSystems.getDefault().getPath(druid_ds_metadata_csv_file));
         Files.deleteIfExists(FileSystems.getDefault().getPath(druid_col_metadata_csv_file));
         getDatasources();
