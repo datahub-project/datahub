@@ -17,29 +17,29 @@ import java.io.InputStream;
 import java.util.Properties;
 import metadata.etl.EtlJob;
 
-public class DruidMetadataEtl extends EtlJob{
 
-    public DruidMetadataEtl(int dbId, long whExecId, Properties prop) {
-        super(null, dbId, whExecId, prop);
-    }
+public class DruidMetadataEtl extends EtlJob {
 
-    @Override
-    public void extract()
-            throws Exception {
-        logger.info("Running Druid metadata Extractor");
-        DruidMetadataExtractor extractor = new DruidMetadataExtractor(prop);
-        extractor.run();
-    }
+  public DruidMetadataEtl(int dbId, long whExecId, Properties prop) {
+    super(null, dbId, whExecId, prop);
+  }
 
-    @Override
-    public void transform() throws Exception {
-        logger.info("Running Druid Trasform!");
+  @Override
+  public void extract() throws Exception {
+    logger.info("Running Druid metadata Extractor");
+    DruidMetadataExtractor extractor = new DruidMetadataExtractor(prop);
+    extractor.run();
+  }
 
-    }
-    @Override
-    public void load() throws Exception {
-        logger.info("Running Druid Load");
-        DruidMetadataLoader loader = new DruidMetadataLoader(prop);
-        loader.run();
-    }
+  @Override
+  public void transform() throws Exception {
+    logger.info("Running Druid Trasform!");
+  }
+
+  @Override
+  public void load() throws Exception {
+    logger.info("Running Druid Load");
+    DruidMetadataLoader loader = new DruidMetadataLoader(prop);
+    loader.run();
+  }
 }
