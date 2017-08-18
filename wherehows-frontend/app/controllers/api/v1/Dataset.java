@@ -198,7 +198,7 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     try {
-      result.set("owners", Json.toJson(DATASETS_DAO.getDatasetOwnersByID(JDBC_TEMPLATE, id)));
+      result.set("owners", Json.toJson(DATASETS_DAO.getDatasetOwnersByID(JDBC_TEMPLATE, NAMED_JDBC_TEMPLATE, id)));
       result.put("status", "ok");
     } catch (Exception e) {
       result.put("status", "failed");
@@ -278,7 +278,7 @@ public class Dataset extends Controller {
     }
 
     try {
-      DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, id, owners);
+      DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, username, id, owners);
       result.put("status", "success");
     } catch (Exception e) {
       result.put("status", "failed");
