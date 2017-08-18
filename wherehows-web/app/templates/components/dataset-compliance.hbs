@@ -185,8 +185,12 @@
           oninput={{action table.filterDidChange value="target.value"}}>
       </caption>
       {{#table.head as |head|}}
+        {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
         {{#head.column columnName="identifierField"}}Field{{/head.column}}
         {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+        {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
+          System Suggestion Confidence
+        {{/head.column}}
         {{#head.column class="nacho-table-cell-wrapped"}}
           Member, Organization, or Group, ID's
           <a
@@ -232,9 +236,17 @@
         {{#each (sort-by table.sortBy table.data) as |field|}}
           {{#body.row
             field=field
+            class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
             onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
             onFieldClassificationChange=(action 'onFieldClassificationChange')
             onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')as |row|}}
+
+            {{#row.cell}}
+              {{#if row.suggestion}}
+                <span class="notification-dot notification-dot--has-prediction"
+                      aria-label="Has Suggested Values"></span>
+              {{/if}}
+            {{/row.cell}}
 
             {{#row.cell}}
               {{row.identifierField}}
@@ -242,6 +254,14 @@
 
             {{#row.cell}}
               {{row.dataType}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{#if row.suggestion}}
+                {{row.suggestion.confidence}}%
+              {{else}}
+                &mdash;
+              {{/if}}
             {{/row.cell}}
 
             {{#row.cell}}

@@ -28,7 +28,7 @@ export interface IComplianceSuggestion {
 interface IAutoClassification {
   // The urn for the dataset
   urn: string;
-  // a JSON string representing the classifications available for this dataset
+  // a JSON string: array of suggestions available for  fields on this dataset
   classificationResult: string;
   // the last modified date for the suggestion
   lastModified: number;

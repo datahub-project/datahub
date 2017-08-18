@@ -1,14 +1,25 @@
-/// Styles a dot that indicates that user attention is required for the related tab
+@import "../variables";
+
+/// Styles a dot that indicates that user attention is required
 .notification-dot {
-  position: absolute;
   width: 0;
   height: 0;
-  top: 0;
-  bottom: 26px;
-  right: 5px;
+  display: block;
   margin: auto;
   border-style: solid;
   border-width: 4px;
   border-color: set-color(red, maroonflush);
   border-radius: 50%;
+
+  &--has-prediction {
+    border-color: $compliance-suggestion-hint;
+  }
+
+  /// Adapts the notification-dot for a tab header
+  &--on-tab {
+    position: absolute;
+    top: 0;
+    bottom: 26px;
+    right: 5px;
+  }
 }
