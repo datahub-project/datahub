@@ -13,6 +13,8 @@
  */
 package dao;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -20,16 +22,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.util.*;
 import java.text.SimpleDateFormat;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -40,7 +40,21 @@ import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.Play;
 import play.libs.Json;
-import wherehows.models.*;
+import wherehows.models.DashboardDataset;
+import wherehows.models.Dataset;
+import wherehows.models.DatasetAccessItem;
+import wherehows.models.DatasetAccessibility;
+import wherehows.models.DatasetColumnComment;
+import wherehows.models.DatasetComment;
+import wherehows.models.DatasetDependency;
+import wherehows.models.DatasetInstance;
+import wherehows.models.DatasetListViewNode;
+import wherehows.models.DatasetPartition;
+import wherehows.models.ImpactDataset;
+import wherehows.models.SimilarColumns;
+import wherehows.models.SimilarComments;
+import wherehows.models.User;
+
 
 public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 {
@@ -347,35 +361,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"from_unixtime(l.log_time_epoch) as log_time_str FROM log_dataset_instance_load_status l " +
 			"JOIN cfg_database d on l.db_id = d.db_id WHERE dataset_id = ? and partition_grain = ? " +
 			"ORDER by l.data_time_expr DESC";
-
-	private static final String GET_DATASET_PRIVACY_COMPLIANCE_BY_DATASET_ID =
-			"SELECT * FROM dataset_privacy_compliance WHERE dataset_id = ?";
-
-	private static final String GET_DATASET_PRIVACY_COMPLIANCE_BY_URN =
-			"SELECT * FROM dataset_privacy_compliance WHERE dataset_urn = ?";
-
-	private final static String INSERT_DATASET_PRIVACY_COMPLIANCE =
-			"INSERT INTO dataset_privacy_compliance (dataset_id, dataset_urn, compliance_purge_type, "
-					+ "compliance_purge_entities, modified_time) VALUES (:id, :urn, :type, :entities, :modified) "
-					+ "ON DUPLICATE KEY UPDATE compliance_purge_type = :type, compliance_purge_entities = :entities, "
-					+ "modified_time = :modified";
-
-	private static final String GET_DATASET_SECURITY_BY_DATASET_ID =
-			"SELECT dataset_id, dataset_urn, dataset_classification, confidentiality, classification, record_owner_type, "
-			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_id = ?";
-
-	private static final String GET_DATASET_SECURITY_BY_URN =
-			"SELECT dataset_id, dataset_urn, dataset_classification, confidentiality, classification, record_owner_type, "
-			+ "retention_policy, geographic_affinity, modified_time FROM dataset_security WHERE dataset_urn = ?";
-
-	private final static String INSERT_DATASET_SECURITY =
-			"INSERT INTO dataset_security (dataset_id, dataset_urn, dataset_classification, confidentiality, classification, "
-					+ "record_owner_type, retention_policy, geographic_affinity, modified_time) "
-					+ "VALUES (:id, :urn, :dataset_classification, :confidentiality, :classification, :ownerType, :policy, :geo, :modified) "
-					+ "ON DUPLICATE KEY UPDATE "
-					+ "dataset_classification = :dataset_classification, confidentiality = :confidentiality, "
-					+ "classification = :classification, record_owner_type = :ownerType, retention_policy = :policy, "
-					+ "geographic_affinity = :geo, modified_time = :modified";
 
 
 	public static List<String> getDatasetOwnerTypes()
