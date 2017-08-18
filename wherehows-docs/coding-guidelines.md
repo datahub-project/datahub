@@ -1,5 +1,5 @@
 # Code formatting
-Use standard [LinkedIn code](LinkedIn%20Style.xml) style in IntelliJ to format the code.
+Use standard [LinkedIn code style](LinkedIn%20Style.xml) in IntelliJ to format the code.
 
 # Testing
 > Note: Info here is for pre-v1.0.0 and will need to be updated
