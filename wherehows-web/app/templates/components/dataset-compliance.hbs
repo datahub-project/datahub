@@ -259,6 +259,8 @@
             {{#row.cell}}
               {{#if row.suggestion}}
                 {{row.suggestion.confidence}}%
+                {{auto-suggest-action type="accept"}}
+                {{auto-suggest-action}}
               {{else}}
                 &mdash;
               {{/if}}
