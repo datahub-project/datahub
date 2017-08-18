@@ -21,7 +21,7 @@ const nonIdFieldLogicalTypes = {
     classification: 'confidential',
     displayAs: 'E-mail'
   },
-  PHONE_NUMBER: {
+  PHONE: {
     classification: 'confidential',
     displayAs: 'Phone Number'
   },
@@ -29,11 +29,11 @@ const nonIdFieldLogicalTypes = {
     classification: 'confidential',
     displayAs: 'Address'
   },
-  LATITUDE_AND_LONGITUDE: {
+  LATITUDE_LONGITUDE: {
     classification: 'confidential',
     displayAs: 'Latitude and Longitude'
   },
-  'CITY_/STATE_/REGION_ETC': {
+  CITY_STATE_REGION: {
     classification: 'limitedDistribution',
     displayAs: 'City, State, Region, etcetera'
   },
@@ -49,7 +49,7 @@ const nonIdFieldLogicalTypes = {
     classification: 'highlyConfidential',
     displayAs: 'Payment Info'
   },
-  PASSWORD_AND_CREDENTIALS: {
+  PASSWORD_CREDENTIAL: {
     classification: 'highlyConfidential',
     displayAs: 'Password and Credentials'
   },
@@ -77,11 +77,11 @@ const nonIdFieldLogicalTypes = {
     classification: 'limitedDistribution',
     displayAs: 'Transaction Time'
   },
-  COOKIES_AND_BEACONS_AND_BROWSER_ID: {
+  COOKIE_BEACON_BROWSER_ID: {
     classification: 'confidential',
     displayAs: 'Cookies and Beacons and Browser Id'
   },
-  DEVICE_ID_AND_ADVERTISING_ID: {
+  DEVICE_ID_ADVERTISING_ID: {
     classification: 'confidential',
     displayAs: 'Device Id and Advertising Id'
   }
@@ -133,37 +133,37 @@ const classifiers = Object.values(defaultFieldDataTypeClassification).filter(
  */
 const fieldIdentifierTypes = {
   none: {
-    value: 'none',
+    value: 'NONE',
     isId: false,
     displayAs: 'Not an ID'
   },
   member: {
-    value: 'member',
+    value: 'MEMBER_ID',
     isId: true,
     displayAs: 'Member ID'
   },
   subjectMember: {
-    value: 'subjectMember',
+    value: 'SUBJECT_MEMBER_ID',
     isId: true,
     displayAs: 'Member ID (Subject Owner)'
   },
   group: {
-    value: 'group',
+    value: 'GROUP_ID',
     isId: true,
     displayAs: 'Group ID'
   },
   organization: {
-    value: 'organization',
+    value: 'COMPANY_ID',
     isId: true,
     displayAs: 'Organization ID'
   },
   generic: {
-    value: 'mixed',
+    value: 'MIXED_ID',
     isId: false,
     displayAs: 'Mixed'
   },
   custom: {
-    value: 'custom',
+    value: 'CUSTOM_ID',
     isId: false,
     // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
     // ids, a logicalType / (field format) is not required to update this fields properties
@@ -176,5 +176,6 @@ export {
   classifiers,
   fieldIdentifierTypes,
   idLogicalTypes,
+  customIdLogicalTypes,
   nonIdFieldLogicalTypes
 };
