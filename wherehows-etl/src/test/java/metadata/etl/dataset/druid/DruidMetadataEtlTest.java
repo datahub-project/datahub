@@ -13,7 +13,8 @@
 */
 package metadata.etl.dataset.druid; 
 
-import org.junit.Test;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.Test;
 
 public class DruidMetadataEtlTest {
     DruidMetadataEtl dm;
