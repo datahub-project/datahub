@@ -85,4 +85,4 @@ const datasetComplianceSuggestionsFor = async (id: number): Promise<Array<ICompl
   return complianceSuggestions;
 };
 
-export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor };
+export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };

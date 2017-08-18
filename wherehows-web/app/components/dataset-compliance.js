@@ -622,6 +622,16 @@ export default Component.extend({
     },
 
     /**
+     * Augments the field props with w a suggestionAuthority indicating that the field
+     * suggestion has either been accepted or ignored, and assigns the value of that change to the prop
+     * @param {object} field field for which this suggestion intent should apply
+     * @param {string | void} [intent] user's intended action for suggestion, Defaults to `ignore`
+     */
+    onFieldSuggestionIntentChange(field, intent = 'ignore') {
+      set(field, 'suggestionAuthority', intent);
+    },
+
+    /**
      * Receives the json representation for compliance and applies each key to the policy
      * @param {String} textString string representation for the JSON file
      */

@@ -8,6 +8,11 @@ import {
 } from 'wherehows-web/components/dataset-compliance';
 
 const { computed, get, getProperties } = Ember;
+/**
+ * String indicating that the user affirms a suggestion
+ * @type {string}
+ */
+const acceptIntent = 'accept';
 
 /**
  * Checks if the identifierType is a mixed Id
@@ -168,8 +173,13 @@ export default DatasetTableRow.extend({
    * Extracts the field suggestions into a cached computed property, if a suggestion exists
    * @type {Ember.computed}
    */
-  prediction: computed('field.suggestion', function() {
-    const suggestion = get(this, 'field.suggestion');
+  prediction: computed('field.suggestion', 'field.suggestionAuthority', function() {
+    const field = get(this, 'field') || {};
+    // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
+    // the suggestion for this field. It's value should not be take into account on re-renders
+    // this line takes that into account and substitutes an empty suggestion
+    const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? {} : field;
+
     if (suggestion) {
       const { identifierTypePrediction, logicalTypePrediction } = suggestion;
       // The order of the array supplied to getFieldSuggestions is importance to it's order of operations
@@ -215,6 +225,32 @@ export default DatasetTableRow.extend({
       const { onFieldClassificationChange } = this.attrs;
       if (typeof onFieldClassificationChange === 'function') {
         onFieldClassificationChange(get(this, 'field'), { value });
+      }
+    },
+
+    /**
+     * Handler for user interactions with a suggested value. Applies / ignores the suggestion
+     * Then invokes the parent supplied suggestion handler
+     * @param {string | void} intent a binary indicator to accept or ignore suggestion
+     */
+    onSuggestionAction(intent) {
+      const { onSuggestionIntent } = this.attrs;
+
+      // Accept the suggestion for either identifierType and/or logicalType
+      if (intent === acceptIntent) {
+        const { identifierType, logicalType } = get(this, 'prediction');
+        if (identifierType) {
+          this.actions.onFieldIdentifierTypeChange.call(this, { value: identifierType });
+        }
+
+        if (logicalType) {
+          this.actions.onFieldLogicalTypeChange.call(this, { value: logicalType });
+        }
+      }
+
+      // Invokes parent handle to  runtime ignore future suggesting this suggestion
+      if (typeof onSuggestionIntent === 'function') {
+        onSuggestionIntent(get(this, 'field'), intent);
       }
     }
   }

@@ -239,6 +239,7 @@
             class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
             onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
             onFieldClassificationChange=(action 'onFieldClassificationChange')
+            onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
             onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')as |row|}}
 
             {{#row.cell}}
@@ -259,8 +260,8 @@
             {{#row.cell}}
               {{#if row.suggestion}}
                 {{row.suggestion.confidence}}%
-                {{auto-suggest-action type="accept"}}
-                {{auto-suggest-action}}
+                {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
+                {{auto-suggest-action action=(action row.onSuggestionAction)}}
               {{else}}
                 &mdash;
               {{/if}}
