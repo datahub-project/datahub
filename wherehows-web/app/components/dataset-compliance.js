@@ -339,19 +339,32 @@ export default Component.extend({
    * privacyCompliancePolicy.complianceEntities.
    * The returned list is a map of fields with current or default privacy properties
    */
-  mergeComplianceEntitiesAndColumnFields(columnIdFieldsToCurrentPrivacyPolicy = {}, truncatedColumnFields = []) {
+  mergeComplianceEntitiesAndColumnFields(
+    columnIdFieldsToCurrentPrivacyPolicy = {},
+    truncatedColumnFields = [],
+    identifierFieldMappedToSuggestions = {}
+  ) {
     return truncatedColumnFields.map(({ fieldName: identifierField, dataType }) => {
       const {
         [identifierField]: { identifierType, logicalType, securityClassification }
       } = columnIdFieldsToCurrentPrivacyPolicy;
 
-      return {
+      //Cache the mapped suggestion into a local
+      const suggestion = identifierFieldMappedToSuggestions[identifierField];
+      let field = {
         identifierField,
         dataType,
         identifierType,
         logicalType,
         classification: securityClassification
       };
+
+      // If a suggestion exists for this field add the suggestion attribute to the field properties
+      if (suggestion) {
+        field = { ...field, suggestion };
+      }
+
+      return field;
     });
   },
 
@@ -406,8 +419,36 @@ export default Component.extend({
     // truncatedColumnFields is a dependency for cp columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
     return this.mergeComplianceEntitiesAndColumnFields(
       get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
-      get(this, 'truncatedColumnFields')
+      get(this, 'truncatedColumnFields'),
+      get(this, 'identifierFieldToSuggestion')
     );
+  }),
+
+  /**
+   * Creates a mapping of compliance suggestions to identifierField
+   * This improves performance in a subsequent merge op since this loop
+   * happens only once and is cached
+   * @type {Ember.computed}
+   */
+  identifierFieldToSuggestion: computed('complianceSuggestions', function() {
+    const identifierFieldToSuggestion = {};
+    const complianceSuggestions = getWithDefault(this, 'complianceSuggestions', []);
+    // If the compliance suggestions array contains suggestions the create reduced map,
+    // otherwise, ignore
+    if (complianceSuggestions.length) {
+      return complianceSuggestions.reduce(
+        (identifierFieldToSuggestion, { fieldName, identifierTypePrediction, logicalTypePrediction }) => ({
+          ...identifierFieldToSuggestion,
+          [fieldName]: {
+            identifierTypePrediction,
+            logicalTypePrediction
+          }
+        }),
+        identifierFieldToSuggestion
+      );
+    }
+
+    return identifierFieldToSuggestion;
   }),
 
   /**
@@ -496,11 +537,11 @@ export default Component.extend({
     const datasetFields = get(
       this,
       'mergedComplianceEntitiesAndColumnFields'
-    ).map(({ identifierField, identifierType, isSubject, logicalType }) => ({
+    ).map(({ identifierField, identifierType, logicalType, classification }) => ({
       identifierField,
       identifierType,
-      isSubject,
-      logicalType
+      logicalType,
+      classification
     }));
     // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
     const { formatted, unformatted } = datasetFields.reduce(
@@ -511,6 +552,7 @@ export default Component.extend({
         } else {
           formatted = [...formatted, field];
         }
+
         return { formatted, unformatted };
       },
       { formatted: [], unformatted: [] }
@@ -523,8 +565,8 @@ export default Component.extend({
       unformattedComplianceEntities = unformatted.map(({ identifierField }) => ({
         identifierField,
         identifierType: fieldIdentifierTypes.none.value,
-        isSubject: null,
-        logicalType: void 0
+        logicalType: void 0,
+        classification: void 0
       }));
 
       isConfirmed = confirm(
@@ -577,6 +619,16 @@ export default Component.extend({
      */
     onEdit() {
       set(this, 'isEditing', true);
+    },
+
+    /**
+     * Augments the field props with w a suggestionAuthority indicating that the field
+     * suggestion has either been accepted or ignored, and assigns the value of that change to the prop
+     * @param {object} field field for which this suggestion intent should apply
+     * @param {string | void} [intent] user's intended action for suggestion, Defaults to `ignore`
+     */
+    onFieldSuggestionIntentChange(field, intent = 'ignore') {
+      set(field, 'suggestionAuthority', intent);
     },
 
     /**

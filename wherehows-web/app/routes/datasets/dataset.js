@@ -1,6 +1,7 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { datasetComplianceFor } from 'wherehows-web/utils/api';
+import { datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets';
 
 const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Create URL retrieval module
@@ -169,11 +170,16 @@ export default Route.extend({
        * @return {Promise.<void>}
        */
       (async id => {
-        const [columns, compliance] = await Promise.all([getDatasetColumn(id), datasetComplianceFor(id)]);
+        const [columns, compliance, complianceSuggestions] = await Promise.all([
+          getDatasetColumn(id),
+          datasetComplianceFor(id),
+          datasetComplianceSuggestionsFor(id)
+        ]);
         const { complianceInfo, isNewComplianceInfo } = compliance;
         setProperties(controller, {
           complianceInfo,
           isNewComplianceInfo,
+          complianceSuggestions,
           schemaFieldNamesMappedToDataTypes: columns
         });
       })(id);

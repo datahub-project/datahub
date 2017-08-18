@@ -1,18 +1,12 @@
 import Ember from 'ember';
+import { datasetComplianceUrlById } from 'wherehows-web/utils/api';
 
-const {
-  get,
-  debug,
-  getWithDefault,
-  setProperties,
-  $: { post, getJSON }
-} = Ember;
+const { get, debug, getWithDefault, setProperties, $: { post, getJSON } } = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
-
 
 export default Ember.Controller.extend({
   hasProperty: false,
@@ -25,49 +19,45 @@ export default Ember.Controller.extend({
   latestVersion: '0',
   ownerTypes: [],
   datasetSchemaFieldsAndTypes: [],
-  userTypes: [{name: "Corporate User", value: "urn:li:corpuser"}, {name: "Group User", value: "urn:li:griduser"}],
-  isPinot: function () {
-    var model = this.get("model");
+  userTypes: [{ name: 'Corporate User', value: 'urn:li:corpuser' }, { name: 'Group User', value: 'urn:li:griduser' }],
+  isPinot: function() {
+    var model = this.get('model');
     if (model) {
       if (model.source) {
         return model.source.toLowerCase() == 'pinot';
       }
     }
     return false;
-
   }.property('model.source'),
-  isHDFS: function () {
-    var model = this.get("model");
+  isHDFS: function() {
+    var model = this.get('model');
     if (model) {
       if (model.urn) {
         return model.urn.substring(0, 7) == 'hdfs://';
       }
     }
     return false;
-
   }.property('model.urn'),
-  isSFDC: function () {
-    var model = this.get("model");
+  isSFDC: function() {
+    var model = this.get('model');
     if (model) {
       if (model.source) {
         return model.source.toLowerCase() == 'salesforce';
       }
     }
     return false;
-
   }.property('model.source'),
-  lineageUrl: function () {
-    var model = this.get("model");
+  lineageUrl: function() {
+    var model = this.get('model');
     if (model) {
       if (model.id) {
         return '/lineage/dataset/' + model.id;
       }
     }
     return '';
-
   }.property('model.id'),
-  schemaHistoryUrl: function () {
-    var model = this.get("model");
+  schemaHistoryUrl: function() {
+    var model = this.get('model');
     if (model) {
       if (model.id) {
         return '/schemaHistory#/schemas/' + model.id;
@@ -75,49 +65,50 @@ export default Ember.Controller.extend({
     }
     return '';
   }.property('model.id'),
-  adjustPanes: function () {
-    var hasProperty = this.get('hasProperty')
-    var isHDFS = this.get('isHDFS')
+  adjustPanes: function() {
+    var hasProperty = this.get('hasProperty');
+    var isHDFS = this.get('isHDFS');
     if (hasProperty && !isHDFS) {
-      $("#sampletab").css('overflow', 'scroll');
+      $('#sampletab').css('overflow', 'scroll');
       // Adjust the height
       // Set global adjuster
-      var height = ($(window).height() * 0.99) - 185;
-      $("#sampletab").css('height', height);
-      $(window).resize(function () {
-        var height = ($(window).height() * 0.99) - 185;
-        $('#sampletab').height(height)
-      })
+      var height = $(window).height() * 0.99 - 185;
+      $('#sampletab').css('height', height);
+      $(window).resize(function() {
+        var height = $(window).height() * 0.99 - 185;
+        $('#sampletab').height(height);
+      });
     }
-  }.observes('hasProperty', 'isHDFS').on('init'),
-  buildJsonView: function () {
-    var model = this.get("model");
-    var schema = JSON.parse(model.schema)
-    setTimeout(function () {
-      $("#json-viewer").JSONView(schema)
+  }
+    .observes('hasProperty', 'isHDFS')
+    .on('init'),
+  buildJsonView: function() {
+    var model = this.get('model');
+    var schema = JSON.parse(model.schema);
+    setTimeout(function() {
+      $('#json-viewer').JSONView(schema);
     }, 500);
   },
-  refreshVersions: function (dbId) {
-    var model = this.get("model");
+  refreshVersions: function(dbId) {
+    var model = this.get('model');
     if (!model || !model.id) {
       return;
     }
-    var versionUrl = '/api/v1/datasets/' + model.id + "/versions/db/" + dbId;
+    var versionUrl = '/api/v1/datasets/' + model.id + '/versions/db/' + dbId;
     $.get(versionUrl, data => {
-      if (data && data.status == "ok" && data.versions && data.versions.length > 0) {
-        this.set("hasversions", true);
-        this.set("versions", data.versions);
-        this.set("latestVersion", data.versions[0]);
+      if (data && data.status == 'ok' && data.versions && data.versions.length > 0) {
+        this.set('hasversions', true);
+        this.set('versions', data.versions);
+        this.set('latestVersion', data.versions[0]);
         this.changeVersion(data.versions[0]);
-      }
-      else {
-        this.set("hasversions", false);
-        this.set("currentVersion", '0');
-        this.set("latestVersion", '0');
+      } else {
+        this.set('hasversions', false);
+        this.set('currentVersion', '0');
+        this.set('latestVersion', '0');
       }
     });
   },
-  changeVersion: function (version) {
+  changeVersion: function(version) {
     _this = this;
     var currentVersion = _this.get('currentVersion');
     var latestVersion = _this.get('latestVersion');
@@ -131,32 +122,29 @@ export default Ember.Controller.extend({
         $(objs[i]).removeClass('btn-primary');
         if (version == $(objs[i]).attr('data-value')) {
           $(objs[i]).addClass('btn-primary');
-        }
-        else {
+        } else {
           $(objs[i]).addClass('btn-default');
         }
       }
     }
-    var model = this.get("model");
+    var model = this.get('model');
     if (version != latestVersion) {
       if (!model || !model.id) {
         return;
       }
       _this.set('hasSchemas', false);
-      var schemaUrl = "/api/v1/datasets/" + model.id + "/schema/" + version;
-      $.get(schemaUrl, function (data) {
-        if (data && data.status == "ok") {
-          setTimeout(function () {
-            $("#json-viewer").JSONView(JSON.parse(data.schema_text))
+      var schemaUrl = '/api/v1/datasets/' + model.id + '/schema/' + version;
+      $.get(schemaUrl, function(data) {
+        if (data && data.status == 'ok') {
+          setTimeout(function() {
+            $('#json-viewer').JSONView(JSON.parse(data.schema_text));
           }, 500);
         }
       });
-    }
-    else {
+    } else {
       if (_this.schemas) {
         _this.set('hasSchemas', true);
-      }
-      else {
+      } else {
         _this.buildJsonView();
       }
     }
@@ -178,13 +166,14 @@ export default Ember.Controller.extend({
     };
 
     // If the return_code is not 200 reject the Promise
-    return Promise.resolve(post(request))
-      .then(({ status, msg = '' }) => status === 'ok' || Promise.reject(new Error(msg)));
+    return Promise.resolve(post(request)).then(
+      ({ status, msg = '' }) => status === 'ok' || Promise.reject(new Error(msg))
+    );
   },
 
   getUrlFor(urlId) {
     return {
-      compliance: () => `/api/v1/datasets/${get(this, 'datasetId')}/privacy`
+      compliance: () => datasetComplianceUrlById(`${get(this, 'datasetId')}`)
     }[urlId]();
   },
 
@@ -215,25 +204,25 @@ export default Ember.Controller.extend({
             csrfToken,
             owners: JSON.stringify(updatedOwners)
           }
-        }).then(({status = 'failed', msg = 'An error occurred.'}) => {
+        }).then(({ status = 'failed', msg = 'An error occurred.' }) => {
           if (['success', 'ok'].includes(status)) {
-            return {status: 'ok'};
+            return { status: 'ok' };
           }
 
-          Promise.reject({status, msg});
+          Promise.reject({ status, msg });
         })
       );
     },
 
-    setView: function (view) {
+    setView: function(view) {
       switch (view) {
-        case "tabular":
+        case 'tabular':
           this.set('isTable', true);
           this.set('isJSON', false);
           $('#json-viewer').hide();
           $('#json-table').show();
           break;
-        case "json":
+        case 'json':
           this.set('isTable', false);
           this.set('isJSON', true);
           this.buildJsonView();
@@ -247,10 +236,10 @@ export default Ember.Controller.extend({
           $('#json-table').show();
       }
     },
-    updateVersion: function (version) {
+    updateVersion: function(version) {
       this.changeVersion(version);
     },
-    updateInstance: function (instance) {
+    updateInstance: function(instance) {
       var currentInstance = this.get('currentInstance');
       var latestInstance = this.get('latestInstance');
       if (currentInstance == instance.dbId) {
@@ -264,8 +253,7 @@ export default Ember.Controller.extend({
 
           if (instance.dbCode == $(objs[i]).attr('data-value')) {
             $(objs[i]).addClass('btn-primary');
-          }
-          else {
+          } else {
             $(objs[i]).addClass('btn-default');
           }
         }
@@ -282,10 +270,11 @@ export default Ember.Controller.extend({
      */
     resetPrivacyCompliancePolicy() {
       return getJSON(this.getUrlFor('compliance'), ({ status, complianceInfo }) => {
-        status === 'ok' && setProperties(this, {
-          complianceInfo,
-          isNewComplianceInfo: false
-        });
+        status === 'ok' &&
+          setProperties(this, {
+            complianceInfo,
+            isNewComplianceInfo: false
+          });
       });
     },
 
@@ -295,8 +284,8 @@ export default Ember.Controller.extend({
      */
     savePrivacyCompliancePolicy() {
       return this.saveJson('compliance', get(this, 'complianceInfo'))
-          .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
-          .catch(this.exceptionOnSave);
+        .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
+        .catch(this.exceptionOnSave);
     }
   }
 });

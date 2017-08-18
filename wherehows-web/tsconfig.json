@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "es2015",
     "moduleResolution": "node",
+    "allowJs": true,
     "noEmitOnError": true,
     "baseUrl": ".",
     "sourceMap": true,

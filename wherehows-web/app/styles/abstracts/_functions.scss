@@ -14,7 +14,7 @@
 /// @param {String} $base [$base-url] - base URL
 /// @return {Url}
 /// @require $base-url
-@function image($path, $base: $base-url) {
+@function image-res($path, $base: $base-url) {
   @return asset($base, 'images/', $path);
 }
 

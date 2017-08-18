@@ -134,7 +134,7 @@
     <li id="ownership" class="active">
       <a data-toggle="tab" href="#ownertab">Ownership</a>
       {{#if requiredMinNotConfirmed}}
-        <span class="notification-dot" aria-hidden="true"></span>
+        <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
       {{/if}}
     </li>
     {{#if isInternal}}
@@ -145,7 +145,7 @@
           Compliance
         </a>
         {{#if isNewComplianceInfo}}
-          <span class="notification-dot" aria-hidden="true"></span>
+          <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
         {{/if}}
       </li>
     {{/if}}
@@ -222,6 +222,7 @@
       {{dataset-compliance
         datasetName=model.name
         complianceInfo=complianceInfo
+        complianceSuggestions=complianceSuggestions
         isNewComplianceInfo=isNewComplianceInfo
         schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
         onSave=(action "savePrivacyCompliancePolicy")

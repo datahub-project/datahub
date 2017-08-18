@@ -7,10 +7,56 @@ import {
   logicalTypesForGeneric
 } from 'wherehows-web/components/dataset-compliance';
 
-const { computed, get } = Ember;
+const { computed, get, getProperties } = Ember;
+/**
+ * String indicating that the user affirms a suggestion
+ * @type {string}
+ */
+const acceptIntent = 'accept';
 
+/**
+ * Checks if the identifierType is a mixed Id
+ * @param {string} identifierType
+ */
 const isMixedId = identifierType => identifierType === fieldIdentifierTypes.generic.value;
+/**
+ * Checks if the identifierType is a custom Id
+ * @param {string} identifierType
+ */
 const isCustomId = identifierType => identifierType === fieldIdentifierTypes.custom.value;
+
+/**
+ * Caches a list of fieldIdentifierTypes values
+ * @type {any[]}
+ */
+const fieldIdentifierTypeValues = Object.keys(fieldIdentifierTypes)
+  .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
+  .mapBy('value');
+
+/**
+ * Extracts the suggestions for identifierType, logicalType suggestions, and confidence from a list of predictions
+ * The last item in the list holds the highest precedence
+ * @param {Array<Object>} predictions
+ * @returns Array<Object>
+ */
+const getFieldSuggestions = predictions =>
+  predictions.reduce((suggested, { value, confidence = 0 }) => {
+    if (value) {
+      if (fieldIdentifierTypeValues.includes(value)) {
+        suggested = { ...suggested, identifierType: value };
+      } else {
+        suggested = { ...suggested, logicalType: value };
+      }
+
+      return {
+        ...suggested,
+        // value is Percent. identifierType value should be the last element in the list
+        confidence: (confidence * 100).toFixed(2)
+      };
+    }
+
+    return suggested;
+  }, {});
 
 export default DatasetTableRow.extend({
   /**
@@ -58,15 +104,16 @@ export default DatasetTableRow.extend({
 
   /**
    * Returns a computed value for the field identifierType
-   * isSubject flag on the field is represented as MemberId(Subject Member Id)
    * @type {Ember.computed<string>}
    */
-  identifierType: computed('field.identifierType', 'field.isSubject', function() {
-    const identifierType = get(this, 'field.identifierType');
+  identifierType: computed('field.identifierType', 'prediction', function() {
+    const identifierTypePath = 'field.identifierType';
+    const {
+      [identifierTypePath]: identifierType,
+      prediction: { identifierType: suggestedIdentifierType } = {}
+    } = getProperties(this, [identifierTypePath, 'prediction']);
 
-    return identifierType === fieldIdentifierTypes.member.value && get(this, 'field.isSubject')
-      ? fieldIdentifierTypes.subjectMember.value
-      : identifierType;
+    return suggestedIdentifierType || identifierType;
   }).readOnly(),
 
   /**
@@ -92,11 +139,18 @@ export default DatasetTableRow.extend({
 
   /**
    * The fields logical type, rendered as an Object
+   * If a prediction exists for this field, the predicted value is shown instead
    * @type {Ember.computed<Object>}
    */
-  logicalType: computed('field.logicalType', function() {
-    const fieldFormats = get(this, 'fieldFormats');
-    const logicalType = get(this, 'field.logicalType');
+  logicalType: computed('field.logicalType', 'prediction', function() {
+    const logicalTypePath = 'field.logicalType';
+    let {
+      fieldFormats,
+      [logicalTypePath]: logicalType,
+      prediction: { logicalType: suggestedLogicalType } = {}
+    } = getProperties(this, ['fieldFormats', logicalTypePath, 'prediction']);
+
+    suggestedLogicalType && (logicalType = suggestedLogicalType);
 
     // Same object reference for equality comparision
     return Array.isArray(fieldFormats) ? fieldFormats.findBy('value', logicalType) : fieldFormats;
@@ -113,6 +167,30 @@ export default DatasetTableRow.extend({
     const urnFieldFormat = get(this, 'logicalTypesForIds').findBy('value', 'URN');
 
     return get(this, 'field.classification') || (mixed && defaultFieldDataTypeClassification[urnFieldFormat.value]);
+  }),
+
+  /**
+   * Extracts the field suggestions into a cached computed property, if a suggestion exists
+   * @type {Ember.computed}
+   */
+  prediction: computed('field.suggestion', 'field.suggestionAuthority', function() {
+    const field = get(this, 'field') || {};
+    // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
+    // the suggestion for this field. It's value should not be take into account on re-renders
+    // this line takes that into account and substitutes an empty suggestion
+    const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? {} : field;
+
+    if (suggestion) {
+      const { identifierTypePrediction, logicalTypePrediction } = suggestion;
+      // The order of the array supplied to getFieldSuggestions is importance to it's order of operations
+      // the last element in the array takes highest precedence: think Object.assign
+      const { identifierType, logicalType, confidence } = getFieldSuggestions([
+        logicalTypePrediction,
+        identifierTypePrediction
+      ]);
+
+      return { identifierType, logicalType, confidence };
+    }
   }),
 
   actions: {
@@ -147,6 +225,32 @@ export default DatasetTableRow.extend({
       const { onFieldClassificationChange } = this.attrs;
       if (typeof onFieldClassificationChange === 'function') {
         onFieldClassificationChange(get(this, 'field'), { value });
+      }
+    },
+
+    /**
+     * Handler for user interactions with a suggested value. Applies / ignores the suggestion
+     * Then invokes the parent supplied suggestion handler
+     * @param {string | void} intent a binary indicator to accept or ignore suggestion
+     */
+    onSuggestionAction(intent) {
+      const { onSuggestionIntent } = this.attrs;
+
+      // Accept the suggestion for either identifierType and/or logicalType
+      if (intent === acceptIntent) {
+        const { identifierType, logicalType } = get(this, 'prediction');
+        if (identifierType) {
+          this.actions.onFieldIdentifierTypeChange.call(this, { value: identifierType });
+        }
+
+        if (logicalType) {
+          this.actions.onFieldLogicalTypeChange.call(this, { value: logicalType });
+        }
+      }
+
+      // Invokes parent handle to  runtime ignore future suggesting this suggestion
+      if (typeof onSuggestionIntent === 'function') {
+        onSuggestionIntent(get(this, 'field'), intent);
       }
     }
   }

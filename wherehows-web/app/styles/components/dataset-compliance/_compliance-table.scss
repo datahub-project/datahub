@@ -1,0 +1,11 @@
+@import "../variables";
+
+.dataset-compliance-fields {
+  &__has-suggestions {
+    color: $compliance-suggestion-hint;
+  }
+
+  &__notification-column {
+    width: 5%
+  }
+}

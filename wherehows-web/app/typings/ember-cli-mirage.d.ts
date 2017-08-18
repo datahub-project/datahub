@@ -25,3 +25,21 @@ export interface IMirageServer {
   createList: <T>(type: string, amount: number, traitsAndOverrides?: object) => Array<T>;
   shutdown: (this: IMirageServer) => void;
 }
+
+/**
+ * Describes the public interface for the IBaseRouteHandler
+ */
+interface IBaseRouteHandler {
+  getModelClassFromPath: (fullPath: string) => string;
+}
+
+/**
+ * Describes the interface for the IFunctionRouteHandler: the execution context for route handlers in
+ * Mirage's config file - mirage/config.ts
+ */
+export interface IFunctionRouteHandler extends IBaseRouteHandler {
+  handle: (request: any) => any;
+  setRequest: (request: any) => void;
+  serialize: (response: any, serializerType?: string) => any;
+  normalizedRequestAttrs: () => any;
+}

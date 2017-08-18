@@ -1,7 +1,7 @@
 import Ember from 'ember';
 /// <reference path='wherehows-web/typings/untyped-js-module' />
 import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
-import { apiRoot, ApiStatus } from 'wherehows-web/utils/api';
+import { apiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { IComplianceSuggestion, IComplianceSuggestionResponse } from 'wherehows-web/typings/api/datasets/compliance';
 
 const { $: { getJSON }, assert } = Ember;
@@ -85,4 +85,4 @@ const datasetComplianceSuggestionsFor = async (id: number): Promise<Array<ICompl
   return complianceSuggestions;
 };
 
-export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor };
+export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };
