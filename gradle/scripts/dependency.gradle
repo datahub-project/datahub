@@ -7,7 +7,7 @@ ext.externalDependency = [
     "hadoop_auth"         : "org.apache.hadoop:hadoop-auth:2.7.3",
     "hadoop_hdfs"         : "org.apache.hadoop:hadoop-hdfs:2.7.1",
     "pig"                 : "org.apache.pig:pig:0.15.0",
-    "hive_exec"           : "org.apache.hive:hive-exec:1.2.1",
+    "hive_exec"           : "org.apache.hive:hive-exec:1.2.1:core",
     "avro"                : "org.apache.avro:avro:1.7.7",
     "avro_mapred"         : "org.apache.avro:avro-mapred:1.7.7",
     "jsch"                : "com.jcraft:jsch:0.1.54",
