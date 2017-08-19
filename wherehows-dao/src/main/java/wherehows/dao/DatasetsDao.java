@@ -14,7 +14,6 @@
 package wherehows.dao;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.sql.PreparedStatement;
@@ -225,12 +224,11 @@ public class DatasetsDao {
     return record;
   }
 
-  public DatasetCompliance updateDatasetComplianceInfo(JdbcTemplate jdbcTemplate,
-      NamedParameterJdbcTemplate namedParameterJdbcTemplate, int datasetId, JsonNode node, String user)
+  public void updateDatasetComplianceInfo(JdbcTemplate jdbcTemplate,
+      NamedParameterJdbcTemplate namedParameterJdbcTemplate, int datasetId, DatasetCompliance record, String user)
       throws Exception {
-
     ObjectMapper om = new ObjectMapper();
-    DatasetCompliance record = om.convertValue(node, DatasetCompliance.class);
+
     if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
       throw new IllegalArgumentException("Dataset id doesn't match.");
     }
@@ -253,7 +251,5 @@ public class DatasetsDao {
     parameters.put("modified_by", user);
     parameters.put("modified_time", System.currentTimeMillis() / 1000);
     namedParameterJdbcTemplate.update(INSERT_DATASET_COMPLIANCE, parameters);
-
-    return record;
   }
 }
