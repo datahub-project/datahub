@@ -51,11 +51,7 @@
       </span>
     </div>
 
-    {{#if isEditing}}
-      {{#if (not _hasBadData)}}
-        {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
-      {{/if}}
-    {{else}}
+    {{#unless isEditing}}
       <button
         {{action "onEdit"}}
         class="nacho-button--large nacho-button--secondary secondary-actions__action">
@@ -69,13 +65,17 @@
           Download as a JSON file
         </button>
       {{/unless}}
-    {{/if}}
+    {{/unless}}
   </div>
+
+  {{#if (and isEditing (not _hasBadData))}}
+    {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+  {{/if}}
 
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        1. Does this dataset contain the following types of Member data:
+        Does this dataset contain the following types of Member data?
 
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
@@ -96,57 +96,73 @@
   <table class="nacho-table nacho-table--bordered nacho-table--stripped">
     <thead>
     <tr>
-      <th>Dataset Content Type</th>
-      <th>
+      <th>Types of Member Data</th>
+      <th class="dataset-field-content__header">
         <span class="dataset-field-value">Is this type of member data contained in this dataset?</span>
       </th>
     </tr>
     </thead>
     <tbody>
-    {{#each-in datasetClassification as |classification props|}}
+    {{#each datasetClassification as |classification|}}
       <tr>
-        <td class="dataset-field-content">
-          {{props.label}}
-
+        <td class="dataset-field-content__prompt">
           <span class="dataset-tag-container">
-            {{#if (eq props.value true)}}
-              <i class="glyphicon glyphicon-ok dataset-classification-indicator--tagged"
-                 title="{{props.label}} is in dataset"></i>
+            {{#if (eq classification.value true)}}
+
+              <i class="dataset-classification-indicator dataset-classification-indicator--tagged"
+                 title="{{classification.label}} is in dataset">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
+                  <g class="large-icon" style="fill: currentColor">
+                    <path
+                        d="M19.68,4L9,17.7,4.36,12,3,13.06l5.42,6.67A0.72,0.72,0,0,0,9,20a0.7,0.7,0,0,0,.59-0.28L21,5.05Z"></path>
+                  </g>
+                </svg>
+              </i>
+
             {{/if}}
 
-            {{#if (eq props.value false)}}
-              <i class="glyphicon glyphicon-remove dataset-classification-indicator--not-tagged"
-                 title="{{props.label}} is not in dataset"></i>
+            {{#if (eq classification.value false)}}
+              <i class="dataset-classification-indicator dataset-classification-indicator--not-tagged"
+                 title="{{classification.label}} is not in dataset">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
+                  <g class="large-icon" style="fill: currentColor">
+                    <path
+                      d="M20,5.32L13.32,12,20,18.68,18.66,20,12,13.33,5.34,20,4,18.68,10.68,12,4,5.32,5.32,4,12,10.69,18.68,4Z"></path>
+                  </g>
+                </svg>
+              </i>
             {{/if}}
+
+            {{classification.label}}
           </span>
         </td>
-        <td>
+        <td class="dataset-field-content__input">
           <span class="dataset-field-value">
             {{#radio-button-composer
               value=true
-              name=classification
-              groupValue=(readonly props.value)
+              name=classification.classifier
+              groupValue=(readonly classification.value)
               changed=(action "onChangeDatasetClassification")}}
               Yes
             {{/radio-button-composer}}
             {{#radio-button-composer
               value=false
-              name=classification
-              groupValue=(readonly props.value)
+              name=classification.classifier
+              groupValue=(readonly classification.value)
               changed=(action "onChangeDatasetClassification")}}
               No
             {{/radio-button-composer}}
           </span>
         </td>
       </tr>
-    {{/each-in}}
+    {{/each}}
     </tbody>
   </table>
 
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        2. Do fields in the schema contain the ID of a member (e.g. id, urn,
+        Do fields in the schema contain the ID of a member (e.g. id, urn,
         etcetera) and what are the formats of the fields in the schema?
         <a
           target="_blank"
@@ -245,7 +261,12 @@
             {{#row.cell}}
               {{#if row.suggestion}}
                 <span class="notification-dot notification-dot--has-prediction"
-                      aria-label="Has Suggested Values"></span>
+                      aria-label="Compliance fields have suggested values"></span>
+              {{/if}}
+
+              {{#if isNewComplianceInfo}}
+                <span class="notification-dot notification-dot--is-unsaved"
+                      aria-label="Compliance has not been saved"></span>
               {{/if}}
             {{/row.cell}}
 
@@ -263,7 +284,11 @@
                 {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
                 {{auto-suggest-action action=(action row.onSuggestionAction)}}
               {{else}}
-                &mdash;
+                {{#if row.suggestionAuthority}}
+                  {{capitalize row.suggestionResolution}}
+                {{else}}
+                  &mdash;
+                {{/if}}
               {{/if}}
             {{/row.cell}}
 

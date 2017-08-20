@@ -323,14 +323,16 @@ export default Component.extend({
   datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
     const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
 
-    return Object.keys(datasetClassifiers).reduce((datasetClassification, classifier) => {
-      return Object.assign({}, datasetClassification, {
-        [classifier]: {
+    return Object.keys(datasetClassifiers).sort().reduce((classifiers, classifier) => {
+      return [
+        ...classifiers,
+        {
+          classifier,
           value: sourceDatasetClassification[classifier],
           label: datasetClassifiers[classifier]
         }
-      });
-    }, {});
+      ];
+    }, []);
   }),
 
   /**

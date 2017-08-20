@@ -1,10 +1,23 @@
 .nacho-uploader {
-  @include flex-center;
-  display: inline-flex;
+  display: block;
 
   &__label {
-    width: 250px;
-    margin-bottom: 0;
-    padding-right: 5px;
+    margin: 20px 0 10px;
   }
+
+  &__cta,
+  &__cta-subtext {
+    display: block;
+  }
+
+  &__cta {
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+    margin-bottom: 10px;
+  }
+
+  &__cta-subtext {
+    font-weight: fw(normal, 4);
+  }
+
 }

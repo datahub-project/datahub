@@ -13,30 +13,26 @@
   }
 
   &__header {
-    font-size: 24px;
-    font-weight: fw(normal, 2);
+    font-size: 20px;
+    font-weight: fw(normal, 4);
   }
 }
 
 /// Wraps a status notification icon for a given dataset
 .dataset-tag-container {
   width: 20px;
-  display: inline-block;
+  display: flex;
 }
 
 .dataset-classification-indicator {
   /// A notification that a dataset contains a tag
   &--tagged {
-    &::before {
-      color: set-color(green, green5);
-    }
+    color: set-color(green, green5);
   }
 
   /// A notification that a dataset does not contains a tag
   &--not-tagged {
-    &::before {
-      color: set-color(red, red5);
-    }
+    color: set-color(red, red5);
   }
 }
 
