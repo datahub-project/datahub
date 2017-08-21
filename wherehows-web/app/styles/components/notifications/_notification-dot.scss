@@ -15,6 +15,10 @@
     border-color: $compliance-suggestion-hint;
   }
 
+  &--is-unsaved {
+    border-color: set-color(blue, blue5);
+  }
+
   /// Adapts the notification-dot for a tab header
   &--on-tab {
     position: absolute;

@@ -65,24 +65,28 @@ const datasetComplianceFor = async (id: number): Promise<{ isNewComplianceInfo: 
  * @param {number} id the id of the dataset
  * @return {Promise<Array<IComplianceSuggestion>>}
  */
-const datasetComplianceSuggestionsFor = async (id: number): Promise<Array<IComplianceSuggestion>> => {
+const datasetComplianceSuggestionsFor = async (
+  id: number
+): Promise<{ complianceSuggestions: Array<IComplianceSuggestion>; lastModified: number | void }> => {
   const response: IComplianceSuggestionResponse = await Promise.resolve(
     getJSON(datasetComplianceSuggestionsUrlById(id))
   );
-  const { status, autoClassification = { classificationResult: '[]' } } = response;
+  const { status, autoClassification = { classificationResult: '[]', lastModified: 0 } } = response;
   let complianceSuggestions: Array<IComplianceSuggestion> = [];
+  let lastModifiedDate;
 
   if (status === ApiStatus.OK) {
-    const { classificationResult } = autoClassification;
+    const { classificationResult, lastModified } = autoClassification;
 
     try {
       complianceSuggestions = [...JSON.parse(classificationResult)];
+      lastModifiedDate = lastModified;
     } catch (e) {
       throw e;
     }
   }
 
-  return complianceSuggestions;
+  return { complianceSuggestions, lastModified: lastModifiedDate };
 };
 
 export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };

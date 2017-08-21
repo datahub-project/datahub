@@ -9,7 +9,19 @@
 
 /// Forces td cells on dataset field classification table to not wrap
 .dataset-field-content {
-  white-space: nowrap;
+  &__prompt {
+    white-space: nowrap;
+  }
+
+  &__header {
+    text-align: right;
+  }
+
+  &__input {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
 }
 
 /// Default visual state for dataset-field-value selector

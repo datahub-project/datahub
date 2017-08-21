@@ -15,6 +15,12 @@ const { computed, get, getProperties } = Ember;
 const acceptIntent = 'accept';
 
 /**
+ * String indicating that the user ignored a suggestion
+ * @type {string}
+ */
+const ignoreIntent = 'ignore';
+
+/**
  * Checks if the identifierType is a mixed Id
  * @param {string} identifierType
  */
@@ -92,6 +98,23 @@ export default DatasetTableRow.extend({
    * @type {Ember.computed<string>}
    */
   dataType: computed.alias('field.dataType'),
+
+  /**
+   * aliases the suggestionAuthority field property if present
+   * @type {Ember.computed}
+   */
+  suggestionAuthority: computed.alias('field.suggestionAuthority'),
+
+  /**
+   * Maps the suggestion response to a string resolution
+   * @type {Ember.computed}
+   */
+  suggestionResolution: computed('field.suggestionAuthority', function() {
+    return {
+      [acceptIntent]: 'Accepted',
+      [ignoreIntent]: 'Discarded'
+    }[get(this, 'field.suggestionAuthority')];
+  }),
 
   /**
    * Checks if the field format drop-down should be disabled based on the type of the field
@@ -173,14 +196,14 @@ export default DatasetTableRow.extend({
    * Extracts the field suggestions into a cached computed property, if a suggestion exists
    * @type {Ember.computed}
    */
-  prediction: computed('field.suggestion', 'field.suggestionAuthority', function() {
-    const field = get(this, 'field') || {};
+  prediction: computed('field.suggestion', 'field.suggestionAuthority', 'hasRecentSuggestions', function() {
+    const { field = {}, hasRecentSuggestions } = getProperties(this, 'field', 'hasRecentSuggestions');
     // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
     // the suggestion for this field. It's value should not be take into account on re-renders
     // this line takes that into account and substitutes an empty suggestion
     const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? {} : field;
 
-    if (suggestion) {
+    if (suggestion && hasRecentSuggestions) {
       const { identifierTypePrediction, logicalTypePrediction } = suggestion;
       // The order of the array supplied to getFieldSuggestions is importance to it's order of operations
       // the last element in the array takes highest precedence: think Object.assign

@@ -261,6 +261,26 @@ export default Component.extend({
   }),
 
   /**
+   * Checks that suggested values postdate the last save date or that suggestions exist
+   * @type {boolean}
+   */
+  hasRecentSuggestions: computed('policyModificationTimeInEpoch', 'complianceSuggestion', function() {
+    const { policyModificationTimeInEpoch, complianceSuggestion = {} } = getProperties(this, [
+      'policyModificationTimeInEpoch',
+      'complianceSuggestion'
+    ]);
+    const { lastModified: suggestionsLastModified, complianceSuggestions = [] } = complianceSuggestion;
+
+    // If modification dates exist, check that the suggestions are newer than the last time the policy was saved
+    // and we have at least 1 suggestion, otherwise check that the count of suggestions is at least 1
+    if (policyModificationTimeInEpoch && suggestionsLastModified) {
+      return complianceSuggestions.length && suggestionsLastModified > policyModificationTimeInEpoch;
+    }
+
+    return !!complianceSuggestions.length;
+  }),
+
+  /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
@@ -294,6 +314,12 @@ export default Component.extend({
   }),
 
   /**
+   * Determines if all member data fields should be shown in the member data table i.e. show only fields contained in
+   * this dataset or otherwise
+   */
+  isShowingAllMemberData: computed.or('showAllDatasetMemberData', 'isEditing'),
+
+  /**
    * Determines if the save feature is allowed for the current dataset, otherwise e.g. interface should be disabled
    * @type {Ember.computed}
    */
@@ -323,14 +349,16 @@ export default Component.extend({
   datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
     const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
 
-    return Object.keys(datasetClassifiers).reduce((datasetClassification, classifier) => {
-      return Object.assign({}, datasetClassification, {
-        [classifier]: {
+    return datasetClassifiersKeys.sort().reduce((classifiers, classifier) => {
+      return [
+        ...classifiers,
+        {
+          classifier,
           value: sourceDatasetClassification[classifier],
           label: datasetClassifiers[classifier]
         }
-      });
-    }, {});
+      ];
+    }, []);
   }),
 
   /**
@@ -430,9 +458,9 @@ export default Component.extend({
    * happens only once and is cached
    * @type {Ember.computed}
    */
-  identifierFieldToSuggestion: computed('complianceSuggestions', function() {
+  identifierFieldToSuggestion: computed('complianceSuggestion', function() {
     const identifierFieldToSuggestion = {};
-    const complianceSuggestions = getWithDefault(this, 'complianceSuggestions', []);
+    const complianceSuggestions = getWithDefault(this, 'complianceSuggestion.complianceSuggestions', []);
     // If the compliance suggestions array contains suggestions the create reduced map,
     // otherwise, ignore
     if (complianceSuggestions.length) {
@@ -613,7 +641,48 @@ export default Component.extend({
     }
   },
 
+  /**
+   * Gets a reference to the current dataset classification object
+   */
+  getDatasetClassificationRef() {
+    let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+
+    // For datasets initially without a datasetClassification, the default value is null
+    if (sourceDatasetClassification === null) {
+      sourceDatasetClassification = set(this, datasetClassificationKey, {});
+    }
+
+    return sourceDatasetClassification;
+  },
+
   actions: {
+    /**
+     * Sets each datasetClassification value as false
+     */
+    markDatasetAsNotContainingMemberData() {
+      const willMarkAllAsNo = confirm(
+        'Are you sure that any this dataset does not contain any of the listed types of member data'
+      );
+
+      return (
+        willMarkAllAsNo &&
+        setProperties(
+          this.getDatasetClassificationRef(),
+          datasetClassifiersKeys.reduce(
+            (classification, classifier) => ({ ...classification, ...{ [classifier]: false } }),
+            {}
+          )
+        )
+      );
+    },
+
+    /**
+     * Sets the flag to show all member potential member data fields that may be contained in this dataset
+     */
+    onShowAllDatasetMemberData() {
+      return set(this, 'showAllDatasetMemberData', true);
+    },
+
     /**
      * Handle the user intent to place this compliance component in edit mode
      */
@@ -746,14 +815,7 @@ export default Component.extend({
      * @return {*}
      */
     onChangeDatasetClassification(classifier, value) {
-      let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
-
-      // For datasets initially without a datasetClassification, the default value is null
-      if (sourceDatasetClassification === null) {
-        sourceDatasetClassification = set(this, datasetClassificationKey, {});
-      }
-
-      return set(sourceDatasetClassification, classifier, value);
+      return set(this.getDatasetClassificationRef(), classifier, value);
     },
 
     /**

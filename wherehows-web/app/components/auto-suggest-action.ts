@@ -19,7 +19,11 @@ export default Component.extend({
    * Action handler for click event, invokes closure action with type as argument
    */
   click() {
-    const { intent, action } = getProperties(this, 'type', 'action');
+    const { type: intent, action } = <{ type: string | void; action: Function | void }>getProperties(
+      this,
+      'type',
+      'action'
+    );
 
     if (typeof action === 'function') {
       return action(intent);
