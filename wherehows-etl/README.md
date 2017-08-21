@@ -268,7 +268,7 @@ Loading from staging table into final table.
 
 ## Druid Dataset
 
-Collect dataset metadata from Druid
+Collect dataset metadata from Druid.
 
 [Job file template](../wherehows-backend/jobs/templates/DRUID_METADATA_ETL.job)
 
