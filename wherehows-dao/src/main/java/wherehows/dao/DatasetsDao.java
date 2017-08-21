@@ -220,7 +220,7 @@ public class DatasetsDao {
         jsonToTypedObject((String) result.get("geographic_affinity"), new TypeReference<Map<String, Object>>() {
         }));
     record.setModifiedBy((String) result.get("modified_by"));
-    record.setModifiedTime((long) result.get("modified_time"));
+    record.setModifiedTime((long) result.get("modified_time") * 1000);
     return record;
   }
 
