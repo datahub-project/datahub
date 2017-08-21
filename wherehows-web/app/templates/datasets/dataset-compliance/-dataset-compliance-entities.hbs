@@ -1,0 +1,182 @@
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      {{if isEditing "Do fields in the schema contain the ID of a member (e.g. id, urn,
+        etcetera) and what are the formats of the fields in the schema?" "Field formats in the schema"}}
+      <a
+        target="_blank"
+        href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-Field-levelDataTypelists">
+        <sup>
+          More Info
+
+          <span class="glyphicon glyphicon-question-sign"
+                title="More information on Schema field format and types"></span>
+        </sup>
+      </a>
+    </p>
+  </header>
+  {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
+  {{#if containsHiddenTrackingFields}}
+    {{hiddenTrackingFields}}
+  {{/if}}
+</section>
+
+{{#if mergedComplianceEntitiesAndColumnFields.length}}
+  {{#dataset-table
+    class="nacho-table--stripped dataset-compliance-fields"
+    fields=mergedComplianceEntitiesAndColumnFields
+    sortColumnWithName=sortColumnWithName
+    filterBy=filterBy
+    sortDirection=sortDirection
+    tableRowComponent='dataset-compliance-row'
+    searchTerm=searchTerm as |table|}}
+
+    <caption>
+      <input
+        type="text"
+        title="Search fields"
+        placeholder="Search fields"
+        value="{{table.searchTerm}}"
+        oninput={{action table.filterDidChange value="target.value"}}>
+
+      {{#if hasRecentSuggestions}}
+        <span class="dataset-compliance-fields__has-suggestions">
+            {{complianceSuggestion.complianceSuggestions.length}} fields to be reviewed
+          </span>
+      {{/if}}
+    </caption>
+
+    {{#table.head as |head|}}
+      {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
+      {{#head.column columnName="identifierField"}}Field{{/head.column}}
+      {{#head.column columnName="dataType"}}Data Type{{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
+        System Suggestion Confidence
+      {{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}
+        Member, Organization, or Group, ID's
+        <a
+          target="_blank"
+          href="http://go/metadata_acquisition#ProjectOverview-compliance">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on various IDs"></span>
+          </sup>
+        </a>
+      {{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}
+        Field Format?
+        <a
+          target="_blank"
+          href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
+          <sup>
+            More Info
+
+            <span class="glyphicon glyphicon-question-sign"
+                  title="More information on Field Format"></span>
+          </sup>
+        </a>
+      {{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}
+        Security Classification
+        <sup>
+          <span
+            class="glyphicon glyphicon-question-sign"
+            title={{helpText.classification}}>
+            {{tooltip-on-component
+              event="click"
+              hideOn="click"
+              text=helpText.classification
+            }}
+          </span>
+        </sup>
+      {{/head.column}}
+    {{/table.head}}
+
+    {{#table.body as |body|}}
+      {{#each (sort-by table.sortBy table.data) as |field|}}
+        {{#body.row
+          field=field
+          class=(if (and hasRecentSuggestions field.suggestion) "dataset-compliance-fields__has-suggestions")
+          hasRecentSuggestions=hasRecentSuggestions
+          onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
+          onFieldClassificationChange=(action 'onFieldClassificationChange')
+          onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
+          onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')as |row|}}
+
+          {{#row.cell}}
+            {{#if row.suggestion}}
+              <span class="notification-dot notification-dot--has-prediction"
+                    aria-label="Compliance fields have suggested values"></span>
+            {{/if}}
+
+            {{#if isNewComplianceInfo}}
+              <span class="notification-dot notification-dot--is-unsaved"
+                    aria-label="Compliance has not been saved"></span>
+            {{/if}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{row.identifierField}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{row.dataType}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{#if row.suggestion}}
+              {{row.suggestion.confidence}}%
+              {{#if isEditing}}
+                {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
+                {{auto-suggest-action action=(action row.onSuggestionAction)}}
+              {{/if}}
+            {{else}}
+              {{#if row.suggestionAuthority}}
+                {{capitalize row.suggestionResolution}}
+              {{else}}
+                &mdash;
+              {{/if}}
+            {{/if}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{ember-selector
+              disabled=(not isEditing)
+              values=fieldIdentifierOptions
+              selected=(readonly row.identifierType)
+              selectionDidChange=(action row.onFieldIdentifierTypeChange)
+            }}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{#power-select
+              options=row.fieldFormats
+              selected=row.logicalType
+              disabled=(or row.isFieldFormatDisabled (not isEditing))
+              placeholder="Select Format"
+              allowClear=true
+              searchField="label"
+              triggerClass="ember-power-select-trigger-search"
+              onchange=(action row.onFieldLogicalTypeChange) as |fieldFormat|}}
+              {{fieldFormat.label}}
+            {{/power-select}}
+          {{/row.cell}}
+
+          {{#row.cell}}
+            {{ember-selector
+              class="nacho-select--hidden-state"
+              values=classifiers
+              selected=row.classification
+              disabled=(or (not isEditing) (not row.logicalType))
+              selectionDidChange=(action row.onFieldClassificationChange)
+            }}
+          {{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+
+  {{/dataset-table}}
+{{/if}}
