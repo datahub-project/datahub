@@ -294,6 +294,12 @@ export default Component.extend({
   }),
 
   /**
+   * Determines if all member data fields should be shown in the member data table i.e. show only fields contained in
+   * this dataset or otherwise
+   */
+  isShowingAllMemberData: computed.or('showAllDatasetMemberData', 'isEditing'),
+
+  /**
    * Determines if the save feature is allowed for the current dataset, otherwise e.g. interface should be disabled
    * @type {Ember.computed}
    */
@@ -648,6 +654,13 @@ export default Component.extend({
           )
         )
       );
+    },
+
+    /**
+     * Sets the flag to show all member potential member data fields that may be contained in this dataset
+     */
+    onShowAllDatasetMemberData() {
+      return set(this, 'showAllDatasetMemberData', true);
     },
 
     /**

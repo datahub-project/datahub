@@ -101,20 +101,23 @@
     </header>
   </section>
 
-  <table class="nacho-table nacho-table--bordered nacho-table--stripped">
-    <thead>
-    <tr>
-      <th>Types of member data</th>
-      <th class="dataset-field-content__header">
+  {{#dataset-table
+    class="nacho-table nacho-table--bordered nacho-table--stripped"
+    fields=datasetClassification as |table|}}
+
+    {{#table.head as |head|}}
+      {{#head.column}}Types of member data{{/head.column}}
+
+      {{#head.column class="dataset-field-content__header"}}
         <span class="dataset-field-value">Is this type of member data contained in this dataset?</span>
-      </th>
-    </tr>
-    </thead>
-    <tbody>
-    {{#each datasetClassification as |classification|}}
-      <tr>
-        <td class="dataset-field-content__prompt">
-          <span class="dataset-tag-container">
+      {{/head.column}}
+    {{/table.head}}
+
+    {{#table.body as |body|}}
+      {{#each (if isShowingAllMemberData table.data (filter-by "value" true table.data)) as |classification|}}
+        {{#body.row as |row|}}
+          {{#row.cell class="dataset-field-content__prompt"}}
+            <span class="dataset-tag-container">
             {{#if (eq classification.value true)}}
 
               <i class="dataset-classification-indicator dataset-classification-indicator--tagged"
@@ -122,16 +125,16 @@
                 <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
                   <g class="large-icon" style="fill: currentColor">
                     <path
-                        d="M19.68,4L9,17.7,4.36,12,3,13.06l5.42,6.67A0.72,0.72,0,0,0,9,20a0.7,0.7,0,0,0,.59-0.28L21,5.05Z"></path>
+                      d="M19.68,4L9,17.7,4.36,12,3,13.06l5.42,6.67A0.72,0.72,0,0,0,9,20a0.7,0.7,0,0,0,.59-0.28L21,5.05Z"></path>
                   </g>
                 </svg>
               </i>
 
             {{/if}}
 
-            {{#if (eq classification.value false)}}
-              <i class="dataset-classification-indicator dataset-classification-indicator--not-tagged"
-                 title="{{classification.label}} is not in dataset">
+              {{#if (eq classification.value false)}}
+                <i class="dataset-classification-indicator dataset-classification-indicator--not-tagged"
+                   title="{{classification.label}} is not in dataset">
                 <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
                   <g class="large-icon" style="fill: currentColor">
                     <path
@@ -139,13 +142,14 @@
                   </g>
                 </svg>
               </i>
-            {{/if}}
+              {{/if}}
 
-            {{classification.label}}
+              {{classification.label}}
           </span>
-        </td>
-        <td class="dataset-field-content__input">
-          <span class="dataset-field-value">
+          {{/row.cell}}
+
+          {{#row.cell class="dataset-field-content__input"}}
+            <span class="dataset-field-value">
             {{#radio-button-composer
               value=true
               name=classification.classifier
@@ -153,19 +157,31 @@
               changed=(action "onChangeDatasetClassification")}}
               Yes
             {{/radio-button-composer}}
-            {{#radio-button-composer
-              value=false
-              name=classification.classifier
-              groupValue=(readonly classification.value)
-              changed=(action "onChangeDatasetClassification")}}
-              No
-            {{/radio-button-composer}}
-          </span>
+              {{#radio-button-composer
+                value=false
+                name=classification.classifier
+                groupValue=(readonly classification.value)
+                changed=(action "onChangeDatasetClassification")}}
+                No
+              {{/radio-button-composer}}
+          </span>{{/row.cell}}
+        {{/body.row}}
+      {{/each}}
+    {{/table.body}}
+
+    {{#unless isShowingAllMemberData}}
+      {{#table.foot}}
+        <td colspan="2" class="text-center">
+          <button
+            {{action "onShowAllDatasetMemberData"}}
+            class="nacho-button--large nacho-button--tertiary">
+            See More <span class="caret" aria-label="See More Dataset Member Data"></span>
+          </button>
         </td>
-      </tr>
-    {{/each}}
-    </tbody>
-  </table>
+      {{/table.foot}}
+    {{/unless}}
+
+  {{/dataset-table}}
 
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
