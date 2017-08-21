@@ -257,7 +257,7 @@ export default Component.extend({
    * Caches the policy's modification time in milliseconds
    */
   policyModificationTimeInEpoch: computed('complianceInfo', function() {
-    return getWithDefault(this, 'complianceInfo.modifiedTime', 0) * 1000;
+    return getWithDefault(this, 'complianceInfo.modifiedTime', 0);
   }),
 
   /**
