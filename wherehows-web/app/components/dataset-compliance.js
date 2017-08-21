@@ -323,7 +323,7 @@ export default Component.extend({
   datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
     const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
 
-    return Object.keys(datasetClassifiers).sort().reduce((classifiers, classifier) => {
+    return datasetClassifiersKeys.sort().reduce((classifiers, classifier) => {
       return [
         ...classifiers,
         {
@@ -615,7 +615,41 @@ export default Component.extend({
     }
   },
 
+  /**
+   * Gets a reference to the current dataset classification object
+   */
+  getDatasetClassificationRef() {
+    let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
+
+    // For datasets initially without a datasetClassification, the default value is null
+    if (sourceDatasetClassification === null) {
+      sourceDatasetClassification = set(this, datasetClassificationKey, {});
+    }
+
+    return sourceDatasetClassification;
+  },
+
   actions: {
+    /**
+     * Sets each datasetClassification value as false
+     */
+    markDatasetAsNotContainingMemberData() {
+      const willMarkAllAsNo = confirm(
+        'Are you sure that any this dataset does not contain any of the listed types of member data'
+      );
+
+      return (
+        willMarkAllAsNo &&
+        setProperties(
+          this.getDatasetClassificationRef(),
+          datasetClassifiersKeys.reduce(
+            (classification, classifier) => ({ ...classification, ...{ [classifier]: false } }),
+            {}
+          )
+        )
+      );
+    },
+
     /**
      * Handle the user intent to place this compliance component in edit mode
      */
@@ -748,14 +782,7 @@ export default Component.extend({
      * @return {*}
      */
     onChangeDatasetClassification(classifier, value) {
-      let sourceDatasetClassification = getWithDefault(this, datasetClassificationKey, {});
-
-      // For datasets initially without a datasetClassification, the default value is null
-      if (sourceDatasetClassification === null) {
-        sourceDatasetClassification = set(this, datasetClassificationKey, {});
-      }
-
-      return set(sourceDatasetClassification, classifier, value);
+      return set(this.getDatasetClassificationRef(), classifier, value);
     },
 
     /**

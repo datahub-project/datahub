@@ -90,13 +90,21 @@
           </sup>
         </a>
       </p>
+
+      {{#if isEditing}}
+        <button
+          {{action "markDatasetAsNotContainingMemberData"}}
+          class="nacho-button--large nacho-button--secondary mark-dataset-no-button">
+          Mark all as No
+        </button>
+      {{/if}}
     </header>
   </section>
 
   <table class="nacho-table nacho-table--bordered nacho-table--stripped">
     <thead>
     <tr>
-      <th>Types of Member Data</th>
+      <th>Types of member data</th>
       <th class="dataset-field-content__header">
         <span class="dataset-field-value">Is this type of member data contained in this dataset?</span>
       </th>
