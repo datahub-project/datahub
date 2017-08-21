@@ -270,5 +270,17 @@ Loading from staging table into final table.
 
 Collect dataset metadata from Druid
 
-[Job file template](../wherehows-backend/jobs/templates/DRUID_METADATA_ETL.job
+[Job file template](../wherehows-backend/jobs/templates/DRUID_METADATA_ETL.job)
+
+### Extract
+Major related file: [DruidMetadataExtractor.java](src/main/java/metadata/etl/dataset/druid/DruidMetadataExtractor.java)
+
+Get metadata of data sources from Druid cluster and store into local JSON files.
+
+### Load
+Major related file: [DruidMetadataLoader.java](src/main/java/metadata/etl/dataset/druid/DruidMetadataLoader.java)
+
+Loading from local JSON files to staging tables and finally into final table.
+
+Related tables: dict_dataset, dict_field_detail
 
