@@ -13,6 +13,7 @@ This directory contains the code for all the ETL jobs that WhereHows can run.
 1. [Appworx Lineage](#appworx-lineage)
 1. [Elastic Search](#elastic-search)
 1. [LDAP Directory](#ldap-directory)
+1. [Druid Dataset](#druid-dataset)
 
 The ETL jobs are scheduled and configured via job files. Please refer to [this directory](../wherehows-backend/jobs) for more details. 
 
@@ -264,3 +265,22 @@ Additional derived information is added during the transform stage: hierarchy. T
 Major related files: [LdapLoad.py](src/main/resources/jython/LdapLoad.py)
 
 Loading from staging table into final table.
+
+## Druid Dataset
+
+Collect dataset metadata from Druid.
+
+[Job file template](../wherehows-backend/jobs/templates/DRUID_METADATA_ETL.job)
+
+### Extract
+Major related file: [DruidMetadataExtractor.java](src/main/java/metadata/etl/dataset/druid/DruidMetadataExtractor.java)
+
+Get metadata of data sources from Druid cluster and store into local JSON files.
+
+### Load
+Major related file: [DruidMetadataLoader.java](src/main/java/metadata/etl/dataset/druid/DruidMetadataLoader.java)
+
+Loading from local JSON files to staging tables and finally into final table.
+
+Related tables: dict_dataset, dict_field_detail
+

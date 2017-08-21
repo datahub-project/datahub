@@ -174,3 +174,7 @@ kafka.topic_blacklist=
 # wherehows metadata store restli server
 wherehows.restli.server.url=
 
+druid.host.url=
+druid.datasource.metadata.csv.file=
+druid.field.metadata.csv.file=
+

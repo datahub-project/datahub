@@ -265,6 +265,11 @@ public class Constant {
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";
 
+  // Druid 
+  public static final String DRUID_HOST_URL = "druid.host.url";
+  public static final String DRUID_DATASOURCE_METADATA_CSV_FILE = "druid.datasource.metadata.csv.file";
+  public static final String DRUID_FIELD_METADATA_CSV_FILE = "druid.field.metadata.csv.file";
+
   // ump metrics
   public static final String UMP_METRIC_CSV_FILE_KEY = "ump.metric_csv_file";
 }
