@@ -170,7 +170,7 @@ export default Route.extend({
        * @return {Promise.<void>}
        */
       (async id => {
-        const [columns, compliance, complianceSuggestions] = await Promise.all([
+        const [columns, compliance, complianceSuggestion] = await Promise.all([
           getDatasetColumn(id),
           datasetComplianceFor(id),
           datasetComplianceSuggestionsFor(id)
@@ -179,7 +179,7 @@ export default Route.extend({
         setProperties(controller, {
           complianceInfo,
           isNewComplianceInfo,
-          complianceSuggestions,
+          complianceSuggestion,
           schemaFieldNamesMappedToDataTypes: columns
         });
       })(id);

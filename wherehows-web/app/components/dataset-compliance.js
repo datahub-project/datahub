@@ -261,6 +261,26 @@ export default Component.extend({
   }),
 
   /**
+   * Checks that suggested values postdate the last save date or that suggestions exist
+   * @type {boolean}
+   */
+  hasRecentSuggestions: computed('policyModificationTimeInEpoch', 'complianceSuggestion', function() {
+    const { policyModificationTimeInEpoch, complianceSuggestion = {} } = getProperties(this, [
+      'policyModificationTimeInEpoch',
+      'complianceSuggestion'
+    ]);
+    const { lastModified: suggestionsLastModified, complianceSuggestions = [] } = complianceSuggestion;
+
+    // If modification dates exist, check that the suggestions are newer than the last time the policy was saved
+    // and we have at least 1 suggestion, otherwise check that the count of suggestions is at least 1
+    if (policyModificationTimeInEpoch && suggestionsLastModified) {
+      return complianceSuggestions.length && suggestionsLastModified > policyModificationTimeInEpoch;
+    }
+
+    return !!complianceSuggestions.length;
+  }),
+
+  /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
@@ -438,9 +458,9 @@ export default Component.extend({
    * happens only once and is cached
    * @type {Ember.computed}
    */
-  identifierFieldToSuggestion: computed('complianceSuggestions', function() {
+  identifierFieldToSuggestion: computed('complianceSuggestion', function() {
     const identifierFieldToSuggestion = {};
-    const complianceSuggestions = getWithDefault(this, 'complianceSuggestions', []);
+    const complianceSuggestions = getWithDefault(this, 'complianceSuggestion.complianceSuggestions', []);
     // If the compliance suggestions array contains suggestions the create reduced map,
     // otherwise, ignore
     if (complianceSuggestions.length) {

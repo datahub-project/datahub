@@ -62,7 +62,7 @@
         <button
           {{action "onComplianceDownloadJson"}}
           class="nacho-button nacho-button--large-inverse secondary-actions__action">
-          Download as a JSON file
+          Download compliance metadata
         </button>
       {{/unless}}
     {{/unless}}
@@ -75,7 +75,9 @@
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        Does this dataset contain the following types of Member data?
+        {{if isEditing
+             "Does this dataset contain the following types of Member data?"
+             "Types of member data contained in this dataset"}}
 
         <!--TODO: DSS-6716-->
         <!-- DRY out with wrapper component that takes the link as an attribute-->
@@ -186,8 +188,8 @@
   <section class="metadata-prompt">
     <header class="metadata-prompt__header">
       <p>
-        Do fields in the schema contain the ID of a member (e.g. id, urn,
-        etcetera) and what are the formats of the fields in the schema?
+        {{if isEditing "Do fields in the schema contain the ID of a member (e.g. id, urn,
+        etcetera) and what are the formats of the fields in the schema?" "Field formats in the schema"}}
         <a
           target="_blank"
           href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-Field-levelDataTypelists">
@@ -214,8 +216,8 @@
       filterBy=filterBy
       sortDirection=sortDirection
       tableRowComponent='dataset-compliance-row'
-      searchTerm=searchTerm as |table|
-    }}
+      searchTerm=searchTerm as |table|}}
+
       <caption>
         <input
           type="text"
@@ -223,7 +225,14 @@
           placeholder="Search fields"
           value="{{table.searchTerm}}"
           oninput={{action table.filterDidChange value="target.value"}}>
+
+        {{#if hasRecentSuggestions}}
+          <span class="dataset-compliance-fields__has-suggestions">
+            {{complianceSuggestion.complianceSuggestions.length}} fields to be reviewed
+          </span>
+        {{/if}}
       </caption>
+
       {{#table.head as |head|}}
         {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
         {{#head.column columnName="identifierField"}}Field{{/head.column}}
@@ -272,11 +281,13 @@
           </sup>
         {{/head.column}}
       {{/table.head}}
+
       {{#table.body as |body|}}
         {{#each (sort-by table.sortBy table.data) as |field|}}
           {{#body.row
             field=field
-            class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
+            class=(if (and hasRecentSuggestions field.suggestion) "dataset-compliance-fields__has-suggestions")
+            hasRecentSuggestions=hasRecentSuggestions
             onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
             onFieldClassificationChange=(action 'onFieldClassificationChange')
             onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
@@ -305,8 +316,10 @@
             {{#row.cell}}
               {{#if row.suggestion}}
                 {{row.suggestion.confidence}}%
-                {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
-                {{auto-suggest-action action=(action row.onSuggestionAction)}}
+                {{#if isEditing}}
+                  {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
+                  {{auto-suggest-action action=(action row.onSuggestionAction)}}
+                {{/if}}
               {{else}}
                 {{#if row.suggestionAuthority}}
                   {{capitalize row.suggestionResolution}}
@@ -351,6 +364,7 @@
           {{/body.row}}
         {{/each}}
       {{/table.body}}
+
     {{/dataset-table}}
   {{/if}}
 </div>
