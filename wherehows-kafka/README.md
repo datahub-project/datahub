@@ -37,9 +37,8 @@ hikaricp.dataSourceClassName = "com.mysql.jdbc.jdbc2.optional.MysqlDataSource"
 hikaricp.dialect = "org.hibernate.dialect.MySQL5InnoDBDialect"
 hikaricp.dialect = ${?WHZ_DB_DIALECT}
 
-# example values for different db: org.hibernate.dialect.MySQL5InnoDBDialect, org.hibernate.dialect.H2Dialect
-etl.jobs.dir = "/Users/hzhang2/temp/jobs"
-etl.temp.dir = "/Users/hzhang2/temp/wherehows"
+# Directory for kafka consumers
+kafka.consumer.dir = "/var/tmp/consumers"
 ```
 
 

@@ -103,6 +103,7 @@ public class DictFieldDetail {
   @Column(name = "hcatalog_data_type")
   String hcatalogDataType;
 
+  @Column(name = "modified")
   Date modified;
 
   @Column(name = "confidential_flags")

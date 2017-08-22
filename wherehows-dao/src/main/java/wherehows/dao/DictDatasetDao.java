@@ -13,16 +13,17 @@
  */
 package wherehows.dao;
 
+import java.util.Objects;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 import lombok.SneakyThrows;
 import wherehows.models.DictDataset;
 
 
-public class DictDatasetDao extends AbstractDao {
-
-  private static final String FIND_BY_URN = "SELECT * FROM dict_dataset WHERE urn = :urn";
-  private static final String FIND_BY_ID = "SELECT * FROM dict_dataset WHERE id = :id";
+public class DictDatasetDao extends BaseDao {
 
   public DictDatasetDao(EntityManagerFactory factory) {
     super(factory);
@@ -31,11 +32,13 @@ public class DictDatasetDao extends AbstractDao {
   @SneakyThrows
   public DictDataset findByUrn(String urn) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
+    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+    CriteriaQuery<DictDataset> criteria = cb.createQuery(DictDataset.class);
+    Root<DictDataset> entityRoot = criteria.from(DictDataset.class);
+    criteria.select(entityRoot);
+    criteria.where(cb.equal(entityRoot.get("urn"), urn));
     try {
-      return (DictDataset) entityManager.createQuery(FIND_BY_URN)
-          .setParameter("urn", urn)
-          .getResultList()
-          .get(0);
+      return entityManager.createQuery(criteria).getSingleResult();
     } finally {
       entityManager.close();
     }
@@ -44,11 +47,13 @@ public class DictDatasetDao extends AbstractDao {
   @SneakyThrows
   public DictDataset findById(int datasetId) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
+    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+    CriteriaQuery<DictDataset> criteria = cb.createQuery(DictDataset.class);
+    Root<DictDataset> entityRoot = criteria.from(DictDataset.class);
+    criteria.select(entityRoot);
+    criteria.where(cb.equal(entityRoot.get("dataset_id"), datasetId));
     try {
-      return (DictDataset) entityManager.createQuery(FIND_BY_ID)
-          .setParameter("id", datasetId)
-          .getResultList()
-          .get(0);
+      return entityManager.createQuery(criteria).getSingleResult();
     } finally {
       entityManager.close();
     }

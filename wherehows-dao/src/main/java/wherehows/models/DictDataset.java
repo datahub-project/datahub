@@ -32,7 +32,7 @@ public class DictDataset {
   @Id
   int id;
 
-  @Column(name = "name", nullable = false)
+  @Column(name = "`name`", nullable = false)
   String name;
 
   @Column(name = "`schema`")
@@ -41,9 +41,16 @@ public class DictDataset {
   @Column(name = "schema_type")
   String schemaType;
 
+  @Column(name = "properties")
   String properties;
+
+  @Column(name = "fields")
   String fields;
+
+  @Column(name = "urn")
   String urn;
+
+  @Column(name = "source")
   String source;
 
   @Column(name = "location_prefix")

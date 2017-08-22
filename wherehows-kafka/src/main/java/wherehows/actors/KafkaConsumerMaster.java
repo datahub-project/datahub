@@ -45,7 +45,7 @@ public class KafkaConsumerMaster extends UntypedActor {
 
   public static final Config config = ConfigFactory.load();
 
-  public static final String ETL_JOBS_DIR = config.getString("etl.jobs.dir");
+  public static final String KAFKA_CONSUMER_JOB = config.getString("kafka.consumer.dir");
 
   private static final String KAFKA_JOB_TYPE = "kafka";
 
@@ -57,7 +57,7 @@ public class KafkaConsumerMaster extends UntypedActor {
   @Override
   public void preStart() throws Exception {
 
-    _kafkaJobList = JobsUtil.getEnabledJobsByType(ETL_JOBS_DIR, KAFKA_JOB_TYPE);
+    _kafkaJobList = JobsUtil.getEnabledJobsByType(KAFKA_CONSUMER_JOB, KAFKA_JOB_TYPE);
     log.info("Kafka jobs: {}", _kafkaJobList.keySet());
 
     if (_kafkaJobList.size() == 0) {

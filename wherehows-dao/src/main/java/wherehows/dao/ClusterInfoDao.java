@@ -16,13 +16,14 @@ package wherehows.dao;
 import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 import lombok.SneakyThrows;
 import wherehows.models.ClusterInfo;
 
 
-public class ClusterInfoDao extends AbstractDao {
-
-  private static final String GET_CLUSTER_INFO = "SELECT c FROM ClusterInfo c";
+public class ClusterInfoDao extends BaseDao {
 
   public ClusterInfoDao(EntityManagerFactory factory) {
     super(factory);
@@ -31,10 +32,16 @@ public class ClusterInfoDao extends AbstractDao {
   @SneakyThrows
   public List<ClusterInfo> findAll() {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
+    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+    CriteriaQuery<ClusterInfo> criteria = cb.createQuery(ClusterInfo.class);
+    Root<ClusterInfo> entityRoot = criteria.from(ClusterInfo.class);
+    criteria.select(entityRoot);
     try {
-      return entityManager.createQuery(GET_CLUSTER_INFO, ClusterInfo.class).getResultList();
+      return entityManager.createQuery(criteria)
+          .getResultList();
     } finally {
       entityManager.close();
     }
+
   }
 }

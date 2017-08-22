@@ -15,13 +15,14 @@ package wherehows.dao;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 import lombok.SneakyThrows;
 import wherehows.models.DatasetSchemaInfo;
 
 
-public class DatasetSchemaInfoDao extends AbstractDao {
-
-  private static final String FIND_BY_DATASET_ID = "SELECT * FROM dataset_schema_info WHERE dataset_id = :datasetId";
+public class DatasetSchemaInfoDao extends BaseDao {
 
   public DatasetSchemaInfoDao(EntityManagerFactory factory) {
     super(factory);
@@ -30,11 +31,13 @@ public class DatasetSchemaInfoDao extends AbstractDao {
   @SneakyThrows
   public DatasetSchemaInfo findById(int datasetId) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
+    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+    CriteriaQuery<DatasetSchemaInfo> criteria = cb.createQuery(DatasetSchemaInfo.class);
+    Root<DatasetSchemaInfo> entityRoot = criteria.from(DatasetSchemaInfo.class);
+    criteria.select(entityRoot).where(cb.equal(entityRoot.get("dataset_id"), datasetId));
+
     try {
-      return entityManager.createQuery(FIND_BY_DATASET_ID, DatasetSchemaInfo.class)
-          .setParameter("dataset_Id", datasetId)
-          .getResultList()
-          .get(0);
+      return entityManager.createQuery(criteria).getSingleResult();
     } finally {
       entityManager.close();
     }

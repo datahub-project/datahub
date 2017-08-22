@@ -1,4 +1,5 @@
 /**
+/**
  * Copyright 2015 LinkedIn Corp. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import wherehows.common.utils.StringUtil;
 import wherehows.dao.DatasetSchemaInfoDao;
 import wherehows.dao.DictDatasetDao;
-import wherehows.dao.DictFieldDetailDao;
+import wherehows.dao.FieldDetailDao;
 import wherehows.models.DatasetFieldSchema;
 import wherehows.models.DatasetSchemaInfo;
 import wherehows.models.DictDataset;
@@ -37,8 +38,8 @@ import wherehows.util.Urn;
 @RequiredArgsConstructor
 public class MetadataChangeService {
 
-  private final DictDatasetDao dictDatasetDao;
-  private final DictFieldDetailDao dictFieldDetailDao;
+  private final DictDatasetDao datasetDao;
+  private final FieldDetailDao _fieldDetailDao;
   private final DatasetSchemaInfoDao datasetSchemaInfoDao;
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -60,7 +61,7 @@ public class MetadataChangeService {
   private Object[] findIdAndUrn(Integer datasetId) throws SQLException {
     String urn = null;
     if (datasetId != null) {
-      DictDataset dataset = dictDatasetDao.findById(datasetId);
+      DictDataset dataset = datasetDao.findById(datasetId);
       if (dataset != null) {
         urn = dataset.getUrn();
       }
@@ -71,7 +72,7 @@ public class MetadataChangeService {
   private Object[] findIdAndUrn(String urn) throws SQLException {
     Integer datasetId = null;
     if (urn != null) {
-      DictDataset dataset = dictDatasetDao.findByUrn(urn);
+      DictDataset dataset = datasetDao.findByUrn(urn);
       if (dataset != null) {
         datasetId = dataset.getRefDatasetId();
       }
@@ -168,32 +169,32 @@ public class MetadataChangeService {
 
       // DB insert
 
-      datasetId = dictDatasetDao.findByUrn(urn).getId();
+      datasetId = datasetDao.findByUrn(urn).getId();
       schemaInfo.setDatasetId(datasetId);
     }// if dataset already exist in dict_dataset, update info
     else {
-      DictDataset dataset = dictDatasetDao.findById(datasetId);
+      DictDataset dataset = datasetDao.findById(datasetId);
       //TODO noticed DB doesn't have DatasetOriginalSchemaRecord table, so i just put the whole info in schema and schema type.
       dataset.setSchema(schemaInfo.getOriginalSchema());
       dataset.setSchemaType(schemaInfo.getOriginalSchema());
       dataset.setFields(schemaInfo.getFieldSchema());
       dataset.setSource("api");
 
-      dictDatasetDao.update(dataset);
+      datasetDao.update(dataset);
     }
 
-    List<DictFieldDetail> dictFieldDetails = dictFieldDetailDao.findById(datasetId);
+    List<DictFieldDetail> dictFieldDetails = _fieldDetailDao.findById(datasetId);
 
     // NOTE:  removed merge old info step since there's no information need to merge to new table
     //  namespace, commentIds, defaultCommentId, isPartitioned, isIndexed
 
     // remove old info then insert new info
 
-    dictFieldDetailDao.deleteByDatasetId(datasetId);
+    _fieldDetailDao.deleteByDatasetId(datasetId);
     List<DatasetFieldSchema> fieldSchemas = OBJECT_MAPPER.readValue(schemaInfo.getFieldSchema(), new TypeReference<List<DatasetFieldSchema>>(){});
     if (fieldSchemas != null && fieldSchemas.size() > 0) {
       for (DatasetFieldSchema field : fieldSchemas) {
-        dictFieldDetailDao.update(field);
+        _fieldDetailDao.update(field);
       }
     }
     datasetSchemaInfoDao.update(schemaInfo);

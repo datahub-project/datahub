@@ -13,13 +13,25 @@
  */
 package wherehows.dao;
 
+import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
 
-public class DatasetOwnerDao extends AbstractDao {
+public class BaseDao {
 
-  public DatasetOwnerDao(EntityManagerFactory factory) {
-    super(factory);
+  final EntityManagerFactory entityManagerFactory;
+
+  public BaseDao(EntityManagerFactory factory) {
+    this.entityManagerFactory = factory;
   }
+
+  public void update(Object record) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    entityManager.getTransaction().begin();
+    entityManager.merge(record);
+    entityManager.getTransaction().commit();
+    entityManager.close();
+  }
+
 
 }

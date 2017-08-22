@@ -18,7 +18,7 @@ import javax.persistence.EntityManagerFactory;
 import wherehows.models.DatasetClassification;
 
 
-public class DatasetClassificationDao extends AbstractDao {
+public class DatasetClassificationDao extends BaseDao {
 
   public DatasetClassificationDao(EntityManagerFactory factory) {
     super(factory);
