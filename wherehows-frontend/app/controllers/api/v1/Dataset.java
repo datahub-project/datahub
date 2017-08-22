@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import controllers.Application;
 import dao.AbstractMySQLOpenSourceDAO;
 import dao.DatasetsDAO;
-import wherehows.models.DatasetOwner;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +40,7 @@ import wherehows.models.DatasetClassification;
 import wherehows.models.DatasetColumn;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetDependency;
+import wherehows.models.DatasetOwner;
 import wherehows.models.ImpactDataset;
 
 
@@ -254,7 +254,7 @@ public class Dataset extends Controller {
         DatasetOwner owner = new DatasetOwner();
         owner.setUserName(userName);
         owner.setIsGroup(isGroup);
-        owner.setNamespace(isGroup ? "urn:li:griduser" : "urn:li:corpuser");
+        owner.setNamespace(isGroup ? "urn:li:corpGroup" : "urn:li:corpuser");
         owner.setType(type);
         owner.setSubType(subType);
         owner.setIdType(idType);

@@ -159,21 +159,13 @@ public class DatasetsDao {
         ps.setString(11, owner.getIdType());
         ps.setString(12, owner.getSource());
         ps.setString(13, owner.getConfirmedBy());
-        if (StringUtils.isBlank(owner.getConfirmedBy())) {
-          ps.setLong(14, 0L);
-        } else {
-          ps.setLong(14, Instant.now().getEpochSecond());
-        }
+        ps.setLong(14, StringUtils.isBlank(owner.getConfirmedBy()) ? 0L : Instant.now().getEpochSecond());
         ps.setString(15, owner.getType());
         ps.setString(16, owner.getIsGroup() ? "Y" : "N");
         ps.setInt(17, owner.getSortId());
         ps.setString(18, owner.getSubType());
         ps.setString(19, owner.getConfirmedBy());
-        if (StringUtils.isBlank(owner.getConfirmedBy())) {
-          ps.setLong(20, 0L);
-        } else {
-          ps.setLong(20, Instant.now().getEpochSecond());
-        }
+        ps.setLong(20, StringUtils.isBlank(owner.getConfirmedBy()) ? 0L : Instant.now().getEpochSecond());
       }
 
       @Override
