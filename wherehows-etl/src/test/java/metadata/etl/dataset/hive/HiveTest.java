@@ -26,7 +26,7 @@ public class HiveTest {
 
   @BeforeTest
   public void setUp() throws Exception {
-    hm = new HiveMetadataEtl(3, 0L, new Properties());
+    hm = new HiveMetadataEtl(0L, new Properties());
   }
 
   @Test

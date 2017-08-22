@@ -23,7 +23,7 @@ public class DruidMetadataEtlTest {
 
   @BeforeTest
   public void setUp() throws Exception {
-    dm = new DruidMetadataEtl(1, 0L, new Properties());
+    dm = new DruidMetadataEtl(0L, new Properties());
   }
 
   @Test
@@ -34,6 +34,8 @@ public class DruidMetadataEtlTest {
   @Test
   public void transformTest() throws Exception {
     dm.transform();
+
+
   }
 
   @Test

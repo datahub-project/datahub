@@ -20,8 +20,8 @@ import metadata.etl.EtlJob;
 
 public class DatasetTreeBuildETL extends EtlJob {
 
-  public DatasetTreeBuildETL(int appId, long whExecId, Properties properties) {
-    super(appId, null, whExecId, properties);
+  public DatasetTreeBuildETL(long whExecId, Properties properties) {
+    super(whExecId, properties);
   }
 
   @Override

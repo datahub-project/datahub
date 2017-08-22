@@ -134,7 +134,7 @@ public class DruidMetadataLoader {
     JDBC_DRIVER = prop.getProperty(Constant.WH_DB_DRIVER_KEY);
     JDBC_USERNAME = prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     JDBC_PASSWORD = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
-    DB_ID = prop.getProperty(Constant.DB_ID_KEY);
+    DB_ID = prop.getProperty(Constant.JOB_REF_ID_KEY);
     WH_ETL_EXEC_ID = prop.getProperty(Constant.WH_EXEC_ID_KEY);
     logger.debug("druid_ds_metadata_csv_file=" + druid_ds_metadata_csv_file);
     logger.debug("druid_col_metadata_csv_file=" + druid_col_metadata_csv_file);

@@ -26,7 +26,7 @@ public class GitMetadataEtlTest {
 
   @BeforeMethod
   public void setUp() throws Exception {
-    this.git = new GitMetadataEtl(500, 0L, new Properties());
+    this.git = new GitMetadataEtl(0L, new Properties());
   }
 
   @Test

@@ -27,7 +27,7 @@ public class AppworxLineageEtl extends EtlJob {
     Connection conn;
 
     public AppworxLineageEtl(int appId, long whExecId, Properties properties) {
-        super(appId, null, whExecId, properties);
+        super(whExecId, properties);
         try {
             setUp();
         } catch (SQLException e) {
@@ -76,7 +76,7 @@ public class AppworxLineageEtl extends EtlJob {
                 "source_target_type, srl_no, source_srl_no, operation, record_count, insert_count, " +
                 "delete_count, update_count, UNIX_TIMESTAMP(NOW()), " + this.prop.getProperty(Constant.WH_EXEC_ID_KEY) +
                 " FROM stg_job_execution_data_lineage WHERE app_id = " +
-                this.prop.getProperty(Constant.APP_ID_KEY)  + " )";
+                this.prop.getProperty(Constant.JOB_REF_ID_KEY)  + " )";
 
         logger.info("Appworx Lineage load cmd :\n" + insertIntoSql);
         conn.createStatement().execute(insertIntoSql);

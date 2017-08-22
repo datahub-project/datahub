@@ -31,7 +31,7 @@ class OracleLoad:
     JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
     JDBC_URL = args[Constant.WH_DB_URL_KEY]
 
-    self.db_id = args[Constant.DB_ID_KEY]
+    self.db_id = args[Constant.JOB_REF_ID_KEY]
     self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
     self.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
     self.conn_cursor = self.conn_mysql.cursor()

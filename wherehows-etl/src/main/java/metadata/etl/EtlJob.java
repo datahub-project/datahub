@@ -38,20 +38,11 @@ public abstract class EtlJob extends BaseJob {
 
   /**
    * Used by backend service
-   * @param appId nullable
-   * @param dbId nullable
    * @param whExecId
    * @param properties
    */
-  public EtlJob(Integer appId, Integer dbId, Long whExecId, Properties properties) {
+  public EtlJob(Long whExecId, Properties properties) {
     super(whExecId, properties);
-
-    if (appId != null) {
-      prop.setProperty(Constant.APP_ID_KEY, String.valueOf(appId));
-    }
-    if (dbId != null) {
-      prop.setProperty(Constant.DB_ID_KEY, String.valueOf(dbId));
-    }
 
     PySystemState sys = configFromProperties();
     addJythonToPath(sys);

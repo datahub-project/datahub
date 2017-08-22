@@ -22,9 +22,9 @@ public class JobFactory {
   private JobFactory() {
   }
 
-  public static BaseJob getJob(String jobClassName, int refId, long whExecId, Properties properties) throws Exception {
+  public static BaseJob getJob(String jobClassName, long whExecId, Properties properties) throws Exception {
     Class jobClass = Class.forName(jobClassName);
-    Constructor<?> ctor = jobClass.getConstructor(int.class, long.class, Properties.class);
-    return (BaseJob) ctor.newInstance(refId, whExecId, properties);
+    Constructor<?> ctor = jobClass.getConstructor(long.class, Properties.class);
+    return (BaseJob) ctor.newInstance(whExecId, properties);
   }
 }

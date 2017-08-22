@@ -103,7 +103,7 @@ public class JobsUtil {
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
         Properties prop = getResolvedProperties(file.toPath());
-        if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE, "").equals(type)) {
+        if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE_KEY, "").equals(type)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
         }

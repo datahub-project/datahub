@@ -42,7 +42,7 @@ public class AzJobChecker {
 
   public AzJobChecker(Properties prop)
     throws SQLException {
-    appId = Integer.valueOf(prop.getProperty(Constant.APP_ID_KEY));
+    appId = Integer.valueOf(prop.getProperty(Constant.JOB_REF_ID_KEY));
     String url = prop.getProperty(Constant.AZ_DB_URL_KEY);
     String userName = prop.getProperty(Constant.AZ_DB_USERNAME_KEY);
     String passWord = prop.getProperty(Constant.AZ_DB_PASSWORD_KEY);

@@ -21,7 +21,7 @@ from org.slf4j import LoggerFactory
 class SchedulerLoad:
   def __init__(self, args):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
-    self.app_id = int(args[Constant.APP_ID_KEY])
+    self.app_id = int(args[Constant.JOB_REF_ID_KEY])
     self.wh_con = zxJDBC.connect(args[Constant.WH_DB_URL_KEY], args[Constant.WH_DB_USERNAME_KEY],
                                  args[Constant.WH_DB_PASSWORD_KEY], args[Constant.WH_DB_DRIVER_KEY])
     self.wh_cursor = self.wh_con.cursor()

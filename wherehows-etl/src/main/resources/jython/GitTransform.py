@@ -45,7 +45,7 @@ class OwnerTransform:
                                  args[Constant.WH_DB_PASSWORD_KEY],
                                  args[Constant.WH_DB_DRIVER_KEY])
     self.wh_cursor = self.wh_con.cursor()
-    self.app_id = int(args[Constant.APP_ID_KEY])
+    self.app_id = int(args[Constant.JOB_REF_ID_KEY])
     self.wh_etl_exec_id = int(args[Constant.WH_EXEC_ID_KEY])
     self.app_folder = args[Constant.WH_APP_FOLDER_KEY]
     self.metadata_folder = self.app_folder + "/" + str(self.app_id)

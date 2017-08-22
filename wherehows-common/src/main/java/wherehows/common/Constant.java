@@ -21,12 +21,12 @@ public class Constant {
   // Job property keys
   public static final String JOB_CLASS_KEY = "job.class";
   public static final String JOB_SCRIPT_KEY = "job.script";
-  public static final String JOB_TYPE = "job.type";
+  public static final String JOB_TYPE_KEY = "job.type";
   public static final String JOB_CRON_EXPR_KEY = "job.cron.expr";
   public static final String JOB_DISABLED_KEY = "job.disabled";
   public static final String JOB_CMD_PARAMS_KEY = "job.cmd.params";
   public static final String JOB_TIMEOUT_KEY = "job.timeout";
-  public static final String JOB_REF_ID = "job.ref.id";
+  public static final String JOB_REF_ID_KEY = "job.ref.id";
 
   // Jython-specific keys
   public static final String JOB_JYTHON_EXTRACT_KEY = "job.jython.extract";
@@ -223,10 +223,6 @@ public class Constant {
   public static final String KERBEROS_PRINCIPAL_KEY = "kerberos.principal";
   public static final String KERBEROS_KEYTAB_FILE_KEY = "kerberos.keytab.file";
 
-  /** Property name of app id. For ETL process. ETL process will use this to identify the application */
-  public static final String APP_ID_KEY = "app.id";
-  /** Property name of database id. ETL process will use this to identify the database */
-  public static final String DB_ID_KEY = "db.id";
   /** Property name of wherehows execution id for ETL process. */
   public static final String WH_EXEC_ID_KEY = "wh.exec.id";
 
@@ -265,7 +261,7 @@ public class Constant {
   public static final String KRB5_REALM = "krb5.realm";
   public static final String KRB5_KDC = "krb5.kdc";
 
-  // Druid 
+  // Druid
   public static final String DRUID_HOST_URL = "druid.host.url";
   public static final String DRUID_DATASOURCE_METADATA_CSV_FILE = "druid.datasource.metadata.csv.file";
   public static final String DRUID_FIELD_METADATA_CSV_FILE = "druid.field.metadata.csv.file";

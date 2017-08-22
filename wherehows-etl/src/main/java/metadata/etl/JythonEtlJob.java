@@ -20,8 +20,8 @@ import wherehows.common.Constant;
 
 public class JythonEtlJob extends EtlJob {
 
-  public JythonEtlJob(int refId, long whExecId, Properties prop) {
-    super(refId, refId, whExecId, prop);
+  public JythonEtlJob(long whExecId, Properties prop) {
+    super(whExecId, prop);
   }
 
   @Override

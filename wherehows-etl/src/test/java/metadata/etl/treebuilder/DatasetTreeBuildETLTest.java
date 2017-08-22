@@ -23,7 +23,7 @@ public class DatasetTreeBuildETLTest {
 
   @BeforeTest
   public void setUp() throws Exception {
-    datasetTreeBuildETL = new DatasetTreeBuildETL(40, 0L, new Properties());
+    datasetTreeBuildETL = new DatasetTreeBuildETL(0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})
