@@ -24,19 +24,19 @@ public class DatasetOwnerRowMapper implements RowMapper<DatasetOwner> {
   public DatasetOwner mapRow(ResultSet rs, int rowNum) throws SQLException {
     final DatasetOwner owner = new DatasetOwner();
 
-    owner.userName = rs.getString("owner_id");
-    owner.name = rs.getString("display_name");
-    owner.namespace = rs.getString("namespace");
-    owner.email = rs.getString("email");
-    owner.type = rs.getString("owner_type");
-    owner.subType = rs.getString("owner_sub_type");
-    owner.idType = rs.getString("owner_id_type");
-    owner.source = rs.getString("owner_source");
-    owner.isGroup = "Y".equalsIgnoreCase(rs.getString("is_group"));
-    owner.isActive = "Y".equalsIgnoreCase(rs.getString("is_active"));
-    owner.sortId = rs.getInt("sort_id");
-    owner.confirmedBy = rs.getString("confirmed_by");
-    owner.modifiedTime = rs.getLong("modified_time") * 1000;
+    owner.setUserName(rs.getString("owner_id"));
+    owner.setName(rs.getString("display_name"));
+    owner.setNamespace(rs.getString("namespace"));
+    owner.setEmail(rs.getString("email"));
+    owner.setType(rs.getString("owner_type"));
+    owner.setSubType(rs.getString("owner_sub_type"));
+    owner.setIdType(rs.getString("owner_id_type"));
+    owner.setSource(rs.getString("owner_source"));
+    owner.setIsGroup("Y".equalsIgnoreCase(rs.getString("is_group")));
+    owner.setIsActive("Y".equalsIgnoreCase(rs.getString("is_active")));
+    owner.setSortId(rs.getInt("sort_id"));
+    owner.setConfirmedBy(rs.getString("confirmed_by"));
+    owner.setModifiedTime(rs.getLong("modified_time") * 1000);
 
     return owner;
   }

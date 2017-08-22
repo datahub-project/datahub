@@ -106,7 +106,6 @@ public class DatasetsDao {
           + "field_classification = :field_classification, record_owner_type = :ownerType, retention_policy = :policy, "
           + "geographic_affinity = :geo, modified_by = :modified_by, modified_time = :modified_time";
 
-
   public String getDatasetUrnById(JdbcTemplate jdbcTemplate, int dataset_id) {
     try {
       return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, dataset_id);
@@ -125,7 +124,8 @@ public class DatasetsDao {
         columnId);
   }
 
-  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate, NamedParameterJdbcTemplate namedJdbcTemplate, int datasetId) {
+  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate,
+      NamedParameterJdbcTemplate namedJdbcTemplate, int datasetId) {
     return jdbcTemplate.query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), datasetId);
   }
 
@@ -147,29 +147,29 @@ public class DatasetsDao {
       public void setValues(PreparedStatement ps, int i) throws SQLException {
         DatasetOwner owner = owners.get(i);
         ps.setInt(1, datasetId);
-        ps.setString(2, owner.userName);
-        ps.setInt(3, owner.isGroup ? 301 : 300);
-        ps.setString(4, owner.namespace);
-        ps.setString(5, owner.type);
-        ps.setString(6, owner.isGroup ? "Y" : "N");
-        ps.setString(7, owner.isActive != null && owner.isActive ? "Y" : "N");
-        ps.setInt(8, owner.sortId);
+        ps.setString(2, owner.getUserName());
+        ps.setInt(3, owner.getIsGroup() ? 301 : 300);
+        ps.setString(4, owner.getNamespace());
+        ps.setString(5, owner.getType());
+        ps.setString(6, owner.getIsGroup() ? "Y" : "N");
+        ps.setString(7, owner.getIsActive() != null && owner.getIsActive() ? "Y" : "N");
+        ps.setInt(8, owner.getSortId());
         ps.setString(9, datasetUrn);
-        ps.setString(10, owner.subType);
-        ps.setString(11, owner.idType);
-        ps.setString(12, owner.source);
-        ps.setString(13, owner.confirmedBy);
-        if (StringUtils.isBlank(owner.confirmedBy)) {
+        ps.setString(10, owner.getSubType());
+        ps.setString(11, owner.getIdType());
+        ps.setString(12, owner.getSource());
+        ps.setString(13, owner.getConfirmedBy());
+        if (StringUtils.isBlank(owner.getConfirmedBy())) {
           ps.setLong(14, 0L);
         } else {
           ps.setLong(14, Instant.now().getEpochSecond());
         }
-        ps.setString(15, owner.type);
-        ps.setString(16, owner.isGroup ? "Y" : "N");
-        ps.setInt(17, owner.sortId);
-        ps.setString(18, owner.subType);
-        ps.setString(19, owner.confirmedBy);
-        if (StringUtils.isBlank(owner.confirmedBy)) {
+        ps.setString(15, owner.getType());
+        ps.setString(16, owner.getIsGroup() ? "Y" : "N");
+        ps.setInt(17, owner.getSortId());
+        ps.setString(18, owner.getSubType());
+        ps.setString(19, owner.getConfirmedBy());
+        if (StringUtils.isBlank(owner.getConfirmedBy())) {
           ps.setLong(20, 0L);
         } else {
           ps.setLong(20, Instant.now().getEpochSecond());

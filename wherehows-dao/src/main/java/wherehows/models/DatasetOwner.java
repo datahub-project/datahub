@@ -13,19 +13,65 @@
  */
 package wherehows.models;
 
+import java.io.Serializable;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.IdClass;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+import lombok.Data;
+
+
+@Data
+@Entity
+@IdClass(value = DatasetOwner.DatasetOwnerKeys.class)
+@Table(name = "dataset_owner")
 public class DatasetOwner {
 
-    public String userName;
-    public String email;
-    public String name;
-    public Boolean isGroup;
-    public Boolean isActive;
-    public String idType;
-    public String source;
-    public String namespace;
-    public String type;
-    public String subType;
-    public Integer sortId;
-    public String confirmedBy;
-    public Long modifiedTime;
+  @Id
+  @Column(name = "owner_id")
+  private String userName;
+
+  @Transient
+  private String email;
+
+  @Transient
+  private String name;
+
+  @Column(name = "is_group")
+  private Boolean isGroup;
+
+  @Column(name = "is_active")
+  private Boolean isActive;
+
+  @Column(name = "owner_id_type")
+  private String idType;
+
+  @Id
+  @Column(name = "owner_source")
+  private String source;
+
+  @Column(name = "namespace")
+  private String namespace;
+
+  @Column(name = "owner_type")
+  private String type;
+
+  @Column(name = "owner_sub_type")
+  private String subType;
+
+  @Column(name = "sort_id")
+  private Integer sortId;
+
+  @Column(name = "confirmed_by")
+  private String confirmedBy;
+
+  @Column(name = "modified_time")
+  private Long modifiedTime;
+
+  static class DatasetOwnerKeys implements Serializable {
+    private String userName;
+    private String source;
+  }
 }
