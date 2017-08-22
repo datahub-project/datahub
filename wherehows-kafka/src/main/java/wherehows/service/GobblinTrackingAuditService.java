@@ -11,44 +11,35 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package models.kafka;
+package wherehows.service;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
-import controllers.Application;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import models.daos.DatasetDao;
-import models.daos.DatasetInfoDao;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericData;
 import org.apache.commons.lang3.StringUtils;
-import wherehows.common.schemas.DatasetRecord;
-import wherehows.common.schemas.Record;
-import wherehows.common.utils.StringUtil;
-import play.libs.Json;
-import play.Logger;
 import wherehows.dao.DatasetClassificationDao;
+import wherehows.dao.DictDatasetDao;
 import wherehows.models.DatasetClassification;
+import wherehows.models.DictDataset;
+import wherehows.utils.StringUtil;
 
 
-public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
+@Slf4j
+@RequiredArgsConstructor
+public class GobblinTrackingAuditService {
 
-  private static final String DALI_LIMITED_RETENTION_AUDITOR = "DaliLimitedRetentionAuditor";
-  private static final String DALI_AUTOPURGED_AUDITOR = "DaliAutoPurgeAuditor";
-  private static final String DS_IGNORE_IDPC_AUDITOR = "DsIgnoreIDPCAuditor";
-  private static final String METADATA_FILE_CLASSIFIER = "MetadataFileClassifier";
   private static final String DATASET_URN_PREFIX = "hdfs://";
-  private static final String DATASET_OWNER_SOURCE = "IDPC";
 
-  private DatasetClassificationDao datasetClassificationDao;
-
-  public GobblinTrackingAuditProcessor() {
-    this.datasetClassificationDao = Application.DAO_FACTORY.getDatasetClassificationDao();
-  }
+  private final DatasetClassificationDao datasetClassificationDao;
+  private final DictDatasetDao dictDatasetDao;
 
   // TODO: Make these regex patterns part of job file
   private static final Pattern LOCATION_PREFIX_PATTERN = Pattern.compile("/[^/]+(/[^/]+)?");
@@ -74,56 +65,17 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
           .add(Pattern.compile("/output/"))
           .build();
 
-  /**
-   * Process a Gobblin tracking event audit record
-   * @param record
-   * @param topic
-   * @return null
-   * @throws Exception
-   */
-  public Record process(GenericData.Record record, String topic) throws Exception {
-
-    if (record == null || record.get("name") == null) {
-      return null;
-    }
-
-    final String name = record.get("name").toString();
-    // only handle "DaliLimitedRetentionAuditor","DaliAutoPurgeAuditor" and "DsIgnoreIDPCAuditor"
-    if (name.equals(DALI_LIMITED_RETENTION_AUDITOR) || name.equals(DALI_AUTOPURGED_AUDITOR) || name.equals(
-        DS_IGNORE_IDPC_AUDITOR)) {
-      // TODO: Re-enable this once it's fixed.
-      //updateKafkaDatasetOwner(record);
-    } else if (name.equals(METADATA_FILE_CLASSIFIER)) {
-      updateHdfsDatasetSchema(record);
-    }
-
-    return null;
-  }
-
-  private void updateKafkaDatasetOwner(GenericData.Record record) throws Exception {
-    Long timestamp = (Long) record.get("timestamp");
-    Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
-
-    String hasError = metadata.get("HasError");
-    if (!hasError.equalsIgnoreCase("true")) {
-      String datasetPath = metadata.get("DatasetPath");
-      String datasetUrn = DATASET_URN_PREFIX + (datasetPath.startsWith("/") ? "" : "/") + datasetPath;
-      String ownerUrns = metadata.get("OwnerURNs");
-      DatasetInfoDao.updateKafkaDatasetOwner(datasetUrn, ownerUrns, DATASET_OWNER_SOURCE, timestamp);
-    }
-  }
-
-  private void updateHdfsDatasetSchema(GenericData.Record record) throws Exception {
+  public void updateHdfsDatasetSchema(GenericData.Record record) throws Exception {
     Long timestamp = (Long) record.get("timestamp");
     Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
 
     String datasetName = metadata.get("dataset");
     if (StringUtils.isEmpty(datasetName) || isDatasetNameBlacklisted(datasetName)) {
-      Logger.info("Skipped processing metadata event for dataset {}", datasetName);
+      log.info("Skipped processing metadata event for dataset {}", datasetName);
       return;
     }
 
-    DatasetRecord dataset = new DatasetRecord();
+    DictDataset dataset = new DictDataset();
     String urn = DATASET_URN_PREFIX + datasetName;
     dataset.setName(getShortName(datasetName));
     dataset.setUrn(urn);
@@ -140,7 +92,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       dataset.setLocationPrefix(matcher.group());
     }
 
-    ObjectNode properties = Json.newObject();
+    ObjectNode properties = new ObjectMapper().createObjectNode();
     properties.put("owner", metadata.get("owner"));
     properties.put("group", metadata.get("group"));
     properties.put("file_permission", metadata.get("permission"));
@@ -150,14 +102,14 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     properties.put("abstract_path", metadata.get("abstractPath"));
     dataset.setProperties(new ObjectMapper().writeValueAsString(properties));
 
-    Logger.info("Updating dataset {}", datasetName);
-    DatasetDao.setDatasetRecord(dataset);
+    log.info("Updating dataset {}", datasetName);
+    dictDatasetDao.update(dataset);
 
     String classificationResult = metadata.get("classificationResult");
     if (classificationResult != null && !classificationResult.equals("null")) {
       updateDatasetClassificationResult(urn, classificationResult);
     } else {
-      logger.warn("skip insertion since classification result is empty");
+      log.warn("skip insertion since classification result is empty");
     }
   }
 
@@ -166,7 +118,7 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       DatasetClassification record = new DatasetClassification(urn, classificationResult, new Date());
       datasetClassificationDao.update(record);
     } catch (Exception e) {
-      logger.info("unable to update classification result due to {}", e.getMessage());
+      log.info("unable to update classification result due to {}", e.getMessage());
     }
   }
 
@@ -197,10 +149,12 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
     return "";
   }
 
-  private String getsourceModifiedTime(String hdfsModifiedTime) {
-    if (hdfsModifiedTime == null) {
-      return null;
+  //TODO the retuen time should be timeStamp
+  private int getsourceModifiedTime(String hdfsModifiedTime) {
+    long result = Long.parseLong(hdfsModifiedTime) / 1000;
+    if (hdfsModifiedTime == null || result > Integer.MAX_VALUE) {
+      return 0;
     }
-    return Long.toString(Long.parseLong(hdfsModifiedTime) / 1000);
+    return (int) result;
   }
 }

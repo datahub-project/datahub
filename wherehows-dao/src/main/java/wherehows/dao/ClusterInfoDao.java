@@ -13,21 +13,28 @@
  */
 package wherehows.dao;
 
+import java.util.List;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DatasetClassification;
+import lombok.SneakyThrows;
+import wherehows.models.ClusterInfo;
 
 
-public class DatasetClassificationDao extends AbstractDao {
+public class ClusterInfoDao extends AbstractDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
+  private static final String GET_CLUSTER_INFO = "SELECT c FROM ClusterInfo c";
+
+  public ClusterInfoDao(EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
+  @SneakyThrows
+  public List<ClusterInfo> findAll() {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
-    entityManager.close();
-    return result;
+    try {
+      return entityManager.createQuery(GET_CLUSTER_INFO, ClusterInfo.class).getResultList();
+    } finally {
+      entityManager.close();
+    }
   }
 }

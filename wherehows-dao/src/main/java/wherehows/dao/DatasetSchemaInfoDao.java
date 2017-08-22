@@ -15,19 +15,28 @@ package wherehows.dao;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DatasetClassification;
+import lombok.SneakyThrows;
+import wherehows.models.DatasetSchemaInfo;
 
 
-public class DatasetClassificationDao extends AbstractDao {
+public class DatasetSchemaInfoDao extends AbstractDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
+  private static final String FIND_BY_DATASET_ID = "SELECT * FROM dataset_schema_info WHERE dataset_id = :datasetId";
+
+  public DatasetSchemaInfoDao(EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
+  @SneakyThrows
+  public DatasetSchemaInfo findById(int datasetId) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
-    entityManager.close();
-    return result;
+    try {
+      return entityManager.createQuery(FIND_BY_DATASET_ID, DatasetSchemaInfo.class)
+          .setParameter("dataset_Id", datasetId)
+          .getResultList()
+          .get(0);
+    } finally {
+      entityManager.close();
+    }
   }
 }

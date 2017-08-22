@@ -13,21 +13,13 @@
  */
 package wherehows.dao;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DatasetClassification;
 
 
-public class DatasetClassificationDao extends AbstractDao {
+public class DatasetOwnerDao extends AbstractDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
+  public DatasetOwnerDao(EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
-    entityManager.close();
-    return result;
-  }
 }

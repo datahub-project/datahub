@@ -1,0 +1,29 @@
+apply plugin: 'application'
+
+mainClassName = "wherehows.main.ApplicationStart"
+
+dependencies {
+    compile project(':wherehows-dao')
+    compile project(':wherehows-common')
+    compile externalDependency.jackson_databind
+    compile externalDependency.jackson_core
+    compile externalDependency.jackson_annotations
+    compile externalDependency.lombok
+    compile externalDependency.akka
+    compile externalDependency.mysql
+    compile externalDependency.guava
+    compile externalDependency.slf4j_simple
+}
+
+configurations {
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j'
+
+    all*.resolutionStrategy {
+        dependencySubstitution {
+            substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
+            //prefer 'log4j-over-slf4j' over 'log4j'
+            force 'com.typesafe:config:1.3.1', 'io.netty:netty:3.10.6.Final'
+        }
+    }
+}

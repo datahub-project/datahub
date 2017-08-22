@@ -35,4 +35,20 @@ public class DaoFactory {
   public DatasetClassificationDao getDatasetClassificationDao() {
     return new DatasetClassificationDao(entityManagerFactory);
   }
+
+  public DictDatasetDao getDictDatasetDao() {
+    return new DictDatasetDao(entityManagerFactory);
+  }
+
+  public DictFieldDetailDao getDictFieldDetailDao() {
+    return new DictFieldDetailDao(entityManagerFactory);
+  }
+
+  public DatasetSchemaInfoDao getDatasetSchemaInfoDao() {
+    return new DatasetSchemaInfoDao(entityManagerFactory);
+  }
+
+  public ClusterInfoDao getClusterInfoDao() {
+    return new ClusterInfoDao(entityManagerFactory);
+  }
 }

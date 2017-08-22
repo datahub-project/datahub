@@ -15,19 +15,28 @@ package wherehows.dao;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DatasetClassification;
+import lombok.SneakyThrows;
+import wherehows.models.CFGApplication;
 
 
-public class DatasetClassificationDao extends AbstractDao {
+public class CFGApplicationDao extends AbstractDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
-    super(factory);
+  private static final String FIND_BY_APP_CODE = "SELECT * FROM cfg_application where app_code = :app_code";
+
+  public CFGApplicationDao(EntityManagerFactory entityManagerFactory) {
+    super(entityManagerFactory);
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
+  @SneakyThrows
+  public CFGApplication findByAppCode(String appCode) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
-    entityManager.close();
-    return result;
+    try {
+      return (CFGApplication) entityManager.createQuery(FIND_BY_APP_CODE)
+          .setParameter("app_code", appCode)
+          .getResultList()
+          .get(0);
+    } finally {
+      entityManager.close();
+    }
   }
 }

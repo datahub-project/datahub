@@ -7,6 +7,7 @@ def modules = [
     "wherehows-frontend",
     "wherehows-hadoop",
     "wherehows-web",
+    "wherehows-kafka",
 ]
 
 modules.each { module ->
