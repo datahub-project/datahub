@@ -252,15 +252,15 @@ public class Dataset extends Controller {
         String source = ownerNode.has("source") ? ownerNode.get("source").asText() : "";
 
         DatasetOwner owner = new DatasetOwner();
-        owner.userName = userName;
-        owner.isGroup = isGroup;
-        owner.namespace = isGroup ? "urn:li:griduser" : "urn:li:corpuser";
-        owner.type = type;
-        owner.subType = subType;
-        owner.idType = idType;
-        owner.source = source;
-        owner.confirmedBy = confirmedBy;
-        owner.sortId = i;
+        owner.setUserName(userName);
+        owner.setIsGroup(isGroup);
+        owner.setNamespace(isGroup ? "urn:li:griduser" : "urn:li:corpuser");
+        owner.setType(type);
+        owner.setSubType(subType);
+        owner.setIdType(idType);
+        owner.setSource(source);
+        owner.setConfirmedBy(confirmedBy);
+        owner.setSortId(i);
         owners.add(owner);
 
         if (type.equalsIgnoreCase("owner") && idType.equalsIgnoreCase("user") && StringUtils.isNotBlank(confirmedBy)) {

@@ -61,7 +61,7 @@ public class Flow {
   @Column(name = "app_id")
   private Integer appId;
 
-  static class FlowKeys {
+  static class FlowKeys implements Serializable {
     private String flow_id;
     private String appId;
   }
