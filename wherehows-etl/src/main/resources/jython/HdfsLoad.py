@@ -413,7 +413,7 @@ if __name__ == "__main__":
   l.input_field_file = args[Constant.HDFS_FIELD_RESULT_KEY]
   l.input_sample_file = args[Constant.HDFS_SAMPLE_LOCAL_PATH_KEY]
 
-  l.db_id = args[Constant.DB_ID_KEY]
+  l.db_id = args[Constant.JOB_REF_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   l.conn_cursor = l.conn_mysql.cursor()

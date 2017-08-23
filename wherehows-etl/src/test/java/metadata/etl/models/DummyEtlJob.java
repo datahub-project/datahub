@@ -19,13 +19,11 @@ import metadata.etl.EtlJob;
 
 public class DummyEtlJob extends EtlJob {
 
-  public final int refId;
   public final long whExecId;
   public final Properties properties;
 
-  public DummyEtlJob(int refId, long whExecId, Properties prop) {
-    super(null, null, whExecId, prop);
-    this.refId = refId;
+  public DummyEtlJob(long whExecId, Properties prop) {
+    super(whExecId, prop);
     this.whExecId = whExecId;
     this.properties = prop;
   }

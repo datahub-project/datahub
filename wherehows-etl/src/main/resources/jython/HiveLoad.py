@@ -429,7 +429,7 @@ if __name__ == "__main__":
   l.input_field_file = args[Constant.HIVE_FIELD_METADATA_KEY]
   l.input_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
   l.input_dependency_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
-  l.db_id = args[Constant.DB_ID_KEY]
+  l.db_id = args[Constant.JOB_REF_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   l.conn_cursor = l.conn_mysql.cursor()

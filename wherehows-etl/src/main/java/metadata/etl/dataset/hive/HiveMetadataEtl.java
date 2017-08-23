@@ -24,8 +24,8 @@ import wherehows.common.Constant;
  */
 public class HiveMetadataEtl extends EtlJob {
 
-  public HiveMetadataEtl(int dbId, long whExecId, Properties prop) {
-    super(null, dbId, whExecId, prop);
+  public HiveMetadataEtl(long whExecId, Properties prop) {
+    super(whExecId, prop);
   }
 
   @Override

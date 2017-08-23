@@ -419,7 +419,7 @@ if __name__ == "__main__":
   if datetime.datetime.now().strftime('%a') not in args[Constant.TD_COLLECT_SAMPLE_DATA_DAYS]:
     do_sample = False
 
-  l.db_id = args[Constant.DB_ID_KEY]
+  l.db_id = args[Constant.JOB_REF_ID_KEY]
   l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
   l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
   l.conn_cursor = l.conn_mysql.cursor()

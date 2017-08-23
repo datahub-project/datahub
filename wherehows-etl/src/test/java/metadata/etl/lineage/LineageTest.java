@@ -28,7 +28,7 @@ public class LineageTest {
   AzLineageMetadataEtl lm;
 
   public LineageTest() {
-    lm = new AzLineageMetadataEtl(31, 0L, properties);
+    lm = new AzLineageMetadataEtl(0L, properties);
     properties = lm.prop;
   }
 

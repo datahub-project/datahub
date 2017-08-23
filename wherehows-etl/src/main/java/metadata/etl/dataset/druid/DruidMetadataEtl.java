@@ -20,8 +20,8 @@ import metadata.etl.EtlJob;
 
 public class DruidMetadataEtl extends EtlJob {
 
-  public DruidMetadataEtl(int dbId, long whExecId, Properties prop) {
-    super(null, dbId, whExecId, prop);
+  public DruidMetadataEtl(long whExecId, Properties prop) {
+    super(whExecId, prop);
   }
 
   @Override

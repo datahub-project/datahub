@@ -26,7 +26,7 @@ class GitLoad:
                                  args[Constant.WH_DB_PASSWORD_KEY],
                                  args[Constant.WH_DB_DRIVER_KEY])
     self.wh_cursor = self.wh_con.cursor()
-    self.app_id = int(args[Constant.APP_ID_KEY])
+    self.app_id = int(args[Constant.JOB_REF_ID_KEY])
 
   def run(self):
     try:

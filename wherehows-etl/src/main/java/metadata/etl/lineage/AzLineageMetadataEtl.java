@@ -37,8 +37,8 @@ public class AzLineageMetadataEtl extends EtlJob {
    * @param whExecId
    * @param properties All the properties for this azkaban instance lineage collecting.
    */
-  public AzLineageMetadataEtl(int appId, long whExecId, Properties properties) {
-    super(appId, null, whExecId, properties);
+  public AzLineageMetadataEtl(long whExecId, Properties properties) {
+    super(whExecId, properties);
     this.timeFrame = Integer.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_LOOKBACK_MINS_KEY, "90")); //default lookback 90 mins
     if (this.prop.contains(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY))
       this.endTimeStamp = Long.valueOf(this.prop.getProperty(Constant.AZ_LINEAGE_ETL_END_TIMESTAMP_KEY));
@@ -60,9 +60,9 @@ public class AzLineageMetadataEtl extends EtlJob {
   @Override
   public void extract()
     throws Exception {
-    logger.info("Azkaban lineage metadata extract for {} begin", this.prop.getProperty(Constant.APP_ID_KEY));
+    logger.info("Azkaban lineage metadata extract for {} begin", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
     String emptyStaggingTable =
-      "DELETE FROM stg_job_execution_data_lineage WHERE app_id = " + this.prop.getProperty(Constant.APP_ID_KEY);
+      "DELETE FROM stg_job_execution_data_lineage WHERE app_id = " + this.prop.getProperty(Constant.JOB_REF_ID_KEY);
     conn.createStatement().execute(emptyStaggingTable);
     AzLineageExtractorMaster azLineageExtractorMaster = new AzLineageExtractorMaster(prop);
     // get lineage
@@ -75,7 +75,7 @@ public class AzLineageMetadataEtl extends EtlJob {
     } else {
       azLineageExtractorMaster.run(10);
     }
-    logger.info("Azkaban lineage metadata extract for {} end", this.prop.getProperty(Constant.APP_ID_KEY));
+    logger.info("Azkaban lineage metadata extract for {} end", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
   }
 
   @Override
@@ -101,7 +101,7 @@ public class AzLineageMetadataEtl extends EtlJob {
       + "layout_id, storage_type, source_target_type, srl_no, source_srl_no, operation,\n"
       + "record_count, insert_count, delete_count, update_count, flow_path, UNIX_TIMESTAMP(NOW()), " + this.prop
       .getProperty(Constant.WH_EXEC_ID_KEY) + " FROM stg_job_execution_data_lineage where app_id = " + this.prop
-      .getProperty(Constant.APP_ID_KEY);
+      .getProperty(Constant.JOB_REF_ID_KEY);
     logger.info("Azkaban Lineage load cmd :\n" + insertIntoFinalTable);
     conn.createStatement().execute(insertIntoFinalTable);
 

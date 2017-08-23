@@ -36,15 +36,15 @@ public class GitMetadataEtl extends EtlJob {
   protected final Logger logger = LoggerFactory.getLogger(getClass());
   public static final String COMMIT_OUTPUT_FILE = "commit.csv";
 
-  public GitMetadataEtl(int appId, long whExecId, Properties prop) {
-    super(appId, null, whExecId, prop);
+  public GitMetadataEtl(long whExecId, Properties prop) {
+    super(whExecId, prop);
   }
 
   public void extract() throws Exception {
     logger.info("git extract");
     String gitHost = this.prop.getProperty(Constant.GIT_HOST_KEY);
     String[] projects = (this.prop.getProperty(Constant.GIT_PROJECT_WHITELIST_KEY)).trim().split("\\s*,\\s*");
-    String localDir = this.prop.getProperty(Constant.WH_APP_FOLDER_KEY) + "/" + this.prop.getProperty(Constant.APP_ID_KEY);
+    String localDir = this.prop.getProperty(Constant.WH_APP_FOLDER_KEY) + "/" + this.prop.getProperty(Constant.JOB_REF_ID_KEY);
     File dir = new File(localDir);
     if (!dir.exists()) {
       if (!dir.mkdirs()) {

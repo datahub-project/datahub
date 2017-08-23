@@ -51,8 +51,8 @@ public class HdfsMetadataEtl extends EtlJob {
    * @param whExecId
    * @param prop all the properties that needed in ETL
    */
-  public HdfsMetadataEtl(int dbId, long whExecId, Properties prop) {
-    super(null, dbId, whExecId, prop);
+  public HdfsMetadataEtl(long whExecId, Properties prop) {
+    super(whExecId, prop);
   }
 
   @Override

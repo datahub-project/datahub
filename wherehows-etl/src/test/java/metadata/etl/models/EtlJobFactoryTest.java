@@ -24,9 +24,8 @@ public class EtlJobFactoryTest {
   @Test
   public void testGetEtlJob() throws Exception {
     Properties properties = new Properties();
-    DummyEtlJob job = (DummyEtlJob) JobFactory.getJob(DummyEtlJob.class.getCanonicalName(), 1, 2L, properties);
+    DummyEtlJob job = (DummyEtlJob) JobFactory.getJob(DummyEtlJob.class.getCanonicalName(), 2L, properties);
 
-    Assert.assertEquals(job.refId, 1);
     Assert.assertEquals(job.whExecId, 2L);
     Assert.assertEquals(job.properties, properties);
   }
