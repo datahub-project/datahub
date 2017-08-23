@@ -52,7 +52,4 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
       gobblinTrackingAuditService.updateHdfsDatasetSchema(record);
     }
   }
-
-
-
 }

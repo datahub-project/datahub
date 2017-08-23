@@ -69,9 +69,8 @@ public class ApplicationStart {
     ClusterInfoDao clusterInfoDao = DAO_FACTORY.getClusterInfoDao();
     ClusterUtil.updateClusterInfo(clusterInfoDao.findAll());
 
-    ActorSystem actorSystem = ActorSystem.create("WhereHowsETLService");
-    ActorRef kafkaMaster = actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
-
-
+    log.info("start WhereHows KAFKA Consumer Service");
+    ActorSystem actorSystem = ActorSystem.create("WhereHowsKAFKAConsumerService");
+    actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
   }
 }
