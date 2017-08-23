@@ -32,9 +32,9 @@ public class JobsUtil {
 
   // Patterns for environmental variables resolution in jobs file.
   private static final List<Pattern> ENV_VAR_PATTERNS = ImmutableList.<Pattern>builder()
-        .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
-        .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
-        .build();
+      .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
+      .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
+      .build();
 
   /**
    * Reads {@link Properties} from the given file and resolves all environmental variables denoted by ${ENV_VAR_NAME}.
@@ -103,7 +103,7 @@ public class JobsUtil {
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
         Properties prop = getResolvedProperties(file.toPath());
-        if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE, "").equals(type)) {
+        if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE_KEY, "").equals(type)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
         }
