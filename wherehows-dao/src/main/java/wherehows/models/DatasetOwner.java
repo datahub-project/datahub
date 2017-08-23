@@ -21,11 +21,13 @@ import javax.persistence.IdClass;
 import javax.persistence.Table;
 import javax.persistence.Transient;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 
 @Data
+@NoArgsConstructor
 @Entity
-@IdClass(value = DatasetOwner.DatasetOwnerKeys.class)
+@IdClass(DatasetOwner.DatasetOwnerKey.class)
 @Table(name = "dataset_owner")
 public class DatasetOwner {
 
@@ -33,11 +35,18 @@ public class DatasetOwner {
   @Column(name = "owner_id")
   private String userName;
 
-  @Transient
-  private String email;
+  @Id
+  @Column(name = "owner_source")
+  private String source;
+
+  @Column(name = "namespace")
+  private String namespace;
 
   @Transient
   private String name;
+
+  @Transient
+  private String email;
 
   @Column(name = "is_group")
   private Boolean isGroup;
@@ -47,13 +56,6 @@ public class DatasetOwner {
 
   @Column(name = "owner_id_type")
   private String idType;
-
-  @Id
-  @Column(name = "owner_source")
-  private String source;
-
-  @Column(name = "namespace")
-  private String namespace;
 
   @Column(name = "owner_type")
   private String type;
@@ -70,8 +72,25 @@ public class DatasetOwner {
   @Column(name = "modified_time")
   private Long modifiedTime;
 
-  static class DatasetOwnerKeys implements Serializable {
+  static class DatasetOwnerKey implements Serializable {
     private String userName;
     private String source;
+  }
+
+  // Copy constructor
+  public DatasetOwner(DatasetOwner owner) {
+    this.userName = owner.getUserName();
+    this.email = owner.getEmail();
+    this.name = owner.getName();
+    this.namespace = owner.getNamespace();
+    this.idType = owner.getIdType();
+    this.source = owner.getSource();
+    this.type = owner.getType();
+    this.subType = owner.getSubType();
+    this.isGroup = owner.getIsGroup();
+    this.isActive = owner.getIsActive();
+    this.sortId = owner.getSortId();
+    this.confirmedBy = owner.getConfirmedBy();
+    this.modifiedTime = owner.getModifiedTime();
   }
 }

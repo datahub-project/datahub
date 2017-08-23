@@ -33,8 +33,15 @@ public class Flow {
   @Column(name = "flow_id")
   private Long flow_id;
 
+  @Id
+  @Column(name = "app_id")
+  private Integer appId;
+
   @Column(name = "flow_name")
   private String name;
+
+  @Column(name = "flow_group")
+  private String group;
 
   @Column(name = "flow_path")
   private String path;
@@ -53,13 +60,6 @@ public class Flow {
 
   @Transient
   private String appCode;
-
-  @Column(name = "flow_group")
-  private String group;
-
-  @Id
-  @Column(name = "app_id")
-  private Integer appId;
 
   static class FlowKeys implements Serializable {
     private String flow_id;
