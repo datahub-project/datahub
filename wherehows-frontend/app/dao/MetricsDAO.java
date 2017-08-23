@@ -239,15 +239,15 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
     {
         List<MetricListViewNode> nodes = new ArrayList<MetricListViewNode>();
         Metric metric = getMetricBasicInfoById(metricId);
-        if (StringUtils.isBlank(metric.dashboardName))
+        if (StringUtils.isBlank(metric.getDashboardName()))
         {
-            metric.dashboardName = "(Other)";
+            metric.setDashboardName("(Other)");
         }
-        if (StringUtils.isBlank(metric.group))
+        if (StringUtils.isBlank(metric.getGroup()))
         {
-            metric.group = "(Other)";
+            metric.setGroup("(Other)");
         }
-        return getMetricListViewMetricNodes(metric.dashboardName, metric.group);
+        return getMetricListViewMetricNodes(metric.getDashboardName(), metric.getGroup());
     }
 
 
@@ -431,20 +431,20 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 				List<Metric> pagedMetrics = new ArrayList<>();
 				for (Map row : rows) {
 					Metric metric = new Metric();
-					metric.id = (int)row.get("metric_id");
-					metric.name = (String)row.get("metric_name");
-					metric.description = (String)row.get("metric_description");
+					metric.setId((int)row.get("metric_id"));
+					metric.setName((String)row.get("metric_name"));
+					metric.setDescription((String)row.get("metric_description"));
 					Integer sourceId = (Integer) row.get("metric_source_dataset_id");
-					metric.sourceDatasetId = sourceId == null ? 0 : new Long(sourceId);
-					metric.owners = (String) row.get("owners");
-					metric.tags = (String) row.get("tags");
-					metric.urn = (String) row.get("urn");
-					metric.refID = (String)row.get("metric_ref_id");
-					metric.refIDType = (String)row.get("metric_ref_id_type");
-					metric.dashboardName = (String)row.get("dashboard_name");
-					metric.category = (String)row.get("metric_category");
-					metric.group = (String)row.get("metric_group");
-          metric.watchId = (Long)row.get("watch_id");
+					metric.setSourceDatasetId(sourceId == null ? 0 : new Long(sourceId));
+					metric.setOwners((String)row.get("owners"));
+					metric.setTags((String)row.get("tags"));
+					metric.setUrn((String) row.get("urn"));
+					metric.setRefID((String)row.get("metric_ref_id"));
+					metric.setRefIDType((String)row.get("metric_ref_id_type"));
+					metric.setDashboardName((String)row.get("dashboard_name"));
+					metric.setCategory((String)row.get("metric_category"));
+					metric.setGroup((String)row.get("metric_group"));
+          metric.setWatchId((Long)row.get("watch_id"));
 					pagedMetrics.add(metric);
 				}
 				long count = 0;
@@ -487,8 +487,8 @@ public class MetricsDAO extends AbstractMySQLOpenSourceDAO
                 {
                     String dashboard = (String)row.get(MetricRowMapper.METRIC_DASHBOARD_NAME_COLUMN);
                     String group = (String)row.get(MetricRowMapper.METRIC_GROUP_COLUMN);
-                    metric.dashboardName = dashboard;
-                    metric.group = group;
+                    metric.setDashboardName(dashboard);
+                    metric.setGroup(group);
                 }
             }
 

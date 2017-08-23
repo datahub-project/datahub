@@ -327,36 +327,36 @@ public class AdvSearchDAO extends AbstractMySQLOpenSourceDAO
 								JsonNode node = arrayIterator.next();
 								if (node.isContainerNode() && node.has("_id")) {
 									Metric metric = new Metric();
-									metric.id = node.get("_id").asInt();
+									metric.setId(node.get("_id").asInt());
 									if (node.has("_source")) {
 										JsonNode sourceNode = node.get("_source");
 										if (sourceNode != null) {
 											if (sourceNode.has("metric_name")) {
-												metric.name = sourceNode.get("metric_name").asText();
+												metric.setName(sourceNode.get("metric_name").asText());
 											}
 											if (sourceNode.has("metric_description")) {
-												metric.description = sourceNode.get("metric_description").asText();
+												metric.setDescription(sourceNode.get("metric_description").asText());
 											}
 											if (sourceNode.has("dashboard_name")) {
-												metric.dashboardName = sourceNode.get("dashboard_name").asText();
+												metric.setDashboardName(sourceNode.get("dashboard_name").asText());
 											}
 											if (sourceNode.has("metric_group")) {
-												metric.group = sourceNode.get("metric_group").asText();
+												metric.setGroup(sourceNode.get("metric_group").asText());
 											}
 											if (sourceNode.has("metric_category")) {
-												metric.category = sourceNode.get("metric_category").asText();
+												metric.setCategory(sourceNode.get("metric_category").asText());
 											}
 											if (sourceNode.has("urn")) {
-												metric.urn = sourceNode.get("urn").asText();
+												metric.setUrn(sourceNode.get("urn").asText());
 											}
 											if (sourceNode.has("metric_source")) {
-												metric.source = sourceNode.get("metric_source").asText();
-												if (StringUtils.isBlank(metric.source))
+												metric.setSource(sourceNode.get("metric_source").asText());
+												if (StringUtils.isBlank(metric.getSource()))
 												{
-													metric.source = null;
+													metric.setSource(null);
 												}
 											}
-											metric.schema = sourceNode.toString();
+											metric.setSchema(sourceNode.toString());
 										}
 									}
 									pagedMetrics.add(metric);
