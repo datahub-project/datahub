@@ -569,7 +569,7 @@ export default Component.extend({
       identifierField,
       identifierType,
       logicalType,
-      classification
+      securityClassification: classification
     }));
     // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
     const { formatted, unformatted } = datasetFields.reduce(
@@ -593,8 +593,8 @@ export default Component.extend({
       unformattedComplianceEntities = unformatted.map(({ identifierField }) => ({
         identifierField,
         identifierType: fieldIdentifierTypes.none.value,
-        logicalType: void 0,
-        classification: void 0
+        logicalType: null,
+        securityClassification: null
       }));
 
       isConfirmed = confirm(
