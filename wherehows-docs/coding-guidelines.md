@@ -1,6 +1,9 @@
 # Code formatting
 Use standard [LinkedIn code style](LinkedIn%20Style.xml) in IntelliJ to format the code.
 
+# License Header
+Please add the [Apache License Header](license_header.txt) to all source files. You can automate this using the `licenseFormat` gradle task.
+
 # Testing
 > Note: Info here is for pre-v1.0.0 and will need to be updated
 
