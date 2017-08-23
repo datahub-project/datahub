@@ -1,4 +1,4 @@
-# Code formatting
+# Code Formatting
 Use standard [LinkedIn code style](LinkedIn%20Style.xml) in IntelliJ to format the code.
 
 # License Header
