@@ -6,7 +6,7 @@ tasks.withType(PlayRun) {
 
 // Manually define a sourceSet for license checking
 sourceSets {
-  licsense {
+  license {
     java {
         srcDirs = ['app', 'test']
     }
