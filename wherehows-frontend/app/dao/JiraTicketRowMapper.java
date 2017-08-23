@@ -19,56 +19,42 @@ import org.springframework.jdbc.core.RowMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class JiraTicketRowMapper implements RowMapper<JiraTicket>
-{
-    public static String USER_ID_COLUMN = "user_id";
-    public static String FULL_NAME_COLUMN = "full_name";
-    public static String DISPLAY_NAME_COLUMN = "display_name";
-    public static String EMAIL_COLUMN = "email";
-    public static String ORG_HIERARCHY_COLUMN = "org_hierarchy";
-    public static String TITLE_COLUMN = "title";
-    public static String MANAGER_USER_ID_COLUMN = "manager_user_id";
-    public static String HDFS_NAME_COLUMN = "hdfs_name";
-    public static String DIRECTORY_PATH_COLUMN = "directory_path";
-    public static String TOTAL_SIZE_COLUMN = "total_size_mb";
-    public static String NUM_OF_FILES_COLUMN = "num_of_files";
-    public static String JIRA_KEY_COLUMN = "jira_key";
-    public static String JIRA_STATUS_COLUMN = "jira_status";
-    public static String JIRA_COMPONENT_COLUMN = "jira_component";
 
-    @Override
-    public JiraTicket mapRow(ResultSet rs, int rowNum) throws SQLException    {
+public class JiraTicketRowMapper implements RowMapper<JiraTicket> {
+  public static String USER_ID_COLUMN = "user_id";
+  public static String FULL_NAME_COLUMN = "full_name";
+  public static String DISPLAY_NAME_COLUMN = "display_name";
+  public static String EMAIL_COLUMN = "email";
+  public static String ORG_HIERARCHY_COLUMN = "org_hierarchy";
+  public static String TITLE_COLUMN = "title";
+  public static String MANAGER_USER_ID_COLUMN = "manager_user_id";
+  public static String HDFS_NAME_COLUMN = "hdfs_name";
+  public static String DIRECTORY_PATH_COLUMN = "directory_path";
+  public static String TOTAL_SIZE_COLUMN = "total_size_mb";
+  public static String NUM_OF_FILES_COLUMN = "num_of_files";
+  public static String JIRA_KEY_COLUMN = "jira_key";
+  public static String JIRA_STATUS_COLUMN = "jira_status";
+  public static String JIRA_COMPONENT_COLUMN = "jira_component";
 
-        String userId = rs.getString(USER_ID_COLUMN);
-        String fullName = rs.getString(FULL_NAME_COLUMN);
-        String displayName = rs.getString(DISPLAY_NAME_COLUMN);
-        String title = rs.getString(TITLE_COLUMN);
-        String managerId = rs.getString(MANAGER_USER_ID_COLUMN);
-        String email = rs.getString(EMAIL_COLUMN);
-        String orgHierarchy = rs.getString(ORG_HIERARCHY_COLUMN);
-        String hdfsName = rs.getString(HDFS_NAME_COLUMN);
-        String directoryPath = rs.getString(DIRECTORY_PATH_COLUMN);
-        Long totalSize = rs.getLong(TOTAL_SIZE_COLUMN);
-        Long numOfFiles = rs.getLong(NUM_OF_FILES_COLUMN);
-        String jiraKey = rs.getString(JIRA_KEY_COLUMN);
-        String jiraStatus = rs.getString(JIRA_STATUS_COLUMN);
-        String jiraComponent = rs.getString(JIRA_COMPONENT_COLUMN);
-        JiraTicket ticket = new JiraTicket();
-        ticket.currentAssignee = userId;
-        ticket.assigneeDisplayName = displayName;
-        ticket.assigneeFullName = fullName;
-        ticket.assigneeTitle = title;
-        ticket.assigneeEmail = email;
-        ticket.currentAssigneeOrgHierarchy = orgHierarchy;
-        ticket.assigneeManagerId = managerId;
-        ticket.ticketHdfsName = hdfsName;
-        ticket.ticketDirectoryPath = directoryPath;
-        ticket.ticketTotalSize = totalSize;
-        ticket.ticketNumOfFiles = numOfFiles;
-        ticket.ticketKey = jiraKey;
-        ticket.ticketStatus = jiraStatus;
-        ticket.ticketComponent = jiraComponent;
+  @Override
+  public JiraTicket mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-        return ticket;
-    }
+    JiraTicket ticket = new JiraTicket();
+    ticket.setCurrentAssignee(rs.getString(USER_ID_COLUMN));
+    ticket.setAssigneeDisplayName(rs.getString(DISPLAY_NAME_COLUMN));
+    ticket.setAssigneeFullName(rs.getString(FULL_NAME_COLUMN));
+    ticket.setAssigneeTitle(rs.getString(TITLE_COLUMN));
+    ticket.setAssigneeEmail(rs.getString(EMAIL_COLUMN));
+    ticket.setCurrentAssigneeOrgHierarchy(rs.getString(ORG_HIERARCHY_COLUMN));
+    ticket.setAssigneeManagerId(rs.getString(MANAGER_USER_ID_COLUMN));
+    ticket.setTicketHdfsName(rs.getString(HDFS_NAME_COLUMN));
+    ticket.setTicketDirectoryPath(rs.getString(DIRECTORY_PATH_COLUMN));
+    ticket.setTicketTotalSize(rs.getLong(TOTAL_SIZE_COLUMN));
+    ticket.setTicketNumOfFiles(rs.getLong(NUM_OF_FILES_COLUMN));
+    ticket.setTicketKey(rs.getString(JIRA_KEY_COLUMN));
+    ticket.setTicketStatus(rs.getString(JIRA_STATUS_COLUMN));
+    ticket.setTicketComponent(rs.getString(JIRA_COMPONENT_COLUMN));
+
+    return ticket;
+  }
 }

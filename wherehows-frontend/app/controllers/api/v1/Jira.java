@@ -51,7 +51,7 @@ public class Jira extends Controller {
     List<JiraTicket> tickets = JiraDAO.getUserTicketsByManagerId(managerId);
     if (tickets != null && tickets.size() > 0) {
       for (JiraTicket ticket : tickets) {
-        if (ticket.ticketComponent.equalsIgnoreCase(HEADLESS_COMPONENT)) {
+        if (HEADLESS_COMPONENT.equalsIgnoreCase(ticket.getTicketComponent())) {
           headlessTickets.add(ticket);
         } else {
           userTickets.add(ticket);
