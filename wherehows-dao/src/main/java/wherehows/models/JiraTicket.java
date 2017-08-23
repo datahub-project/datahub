@@ -13,20 +13,26 @@
  */
 package wherehows.models;
 
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@NoArgsConstructor
 public class JiraTicket {
 
-    public String currentAssignee;
-    public String currentAssigneeOrgHierarchy;
-    public String assigneeDisplayName;
-    public String assigneeFullName;
-    public String assigneeTitle;
-    public String assigneeManagerId;
-    public String assigneeEmail;
-    public String ticketHdfsName;
-    public String ticketDirectoryPath;
-    public Long ticketTotalSize;
-    public Long ticketNumOfFiles;
-    public String ticketKey;
-    public String ticketStatus;
-    public String ticketComponent;
+  private String currentAssignee;
+  private String currentAssigneeOrgHierarchy;
+  private String assigneeDisplayName;
+  private String assigneeFullName;
+  private String assigneeTitle;
+  private String assigneeManagerId;
+  private String assigneeEmail;
+  private String ticketHdfsName;
+  private String ticketDirectoryPath;
+  private Long ticketTotalSize;
+  private Long ticketNumOfFiles;
+  private String ticketKey;
+  private String ticketStatus;
+  private String ticketComponent;
 }
