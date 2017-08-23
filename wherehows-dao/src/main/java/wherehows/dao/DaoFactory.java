@@ -14,13 +14,19 @@
 package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DictDataset;
 
 
 public class DaoFactory {
 
+  protected final EntityManagerFactory entityManagerFactory;
+
   private static DatasetsDao datasetsDao;
-  private final EntityManagerFactory entityManagerFactory;
+
+  private static MetadataReadOnlyDao metadataReadOnlyDao;
+
+  public DaoFactory(EntityManagerFactory entityManagerFactory) {
+    this.entityManagerFactory = entityManagerFactory;
+  }
 
   public DatasetsDao getDatasetsDao() {
     if (datasetsDao == null) {
@@ -29,8 +35,11 @@ public class DaoFactory {
     return datasetsDao;
   }
 
-  public DaoFactory(EntityManagerFactory entityManagerFactory) {
-    this.entityManagerFactory = entityManagerFactory;
+  public MetadataReadOnlyDao getMetadataReadOnlyDao() {
+    if (metadataReadOnlyDao == null) {
+      metadataReadOnlyDao = new MetadataReadOnlyDao(entityManagerFactory);
+    }
+    return metadataReadOnlyDao;
   }
 
   public DatasetClassificationDao getDatasetClassificationDao() {

@@ -30,7 +30,6 @@ import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.mapper.DatasetColumnRowMapper;
-import wherehows.mapper.DatasetOwnerRowMapper;
 import wherehows.models.DatasetColumn;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetFieldEntity;
@@ -63,13 +62,6 @@ public class DatasetsDao {
           + "FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON "
           + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON "
           + "c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
-
-  private final static String GET_DATASET_OWNERS_BY_ID =
-      "SELECT o.owner_id, u.display_name, o.sort_id, o.owner_type, o.namespace, o.owner_id_type, o.owner_source, "
-          + "o.owner_sub_type, o.confirmed_by, u.email, u.is_active, is_group, o.modified_time "
-          + "FROM dataset_owner o "
-          + "LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) "
-          + "WHERE o.dataset_id = ? and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
 
   private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
       "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
@@ -122,11 +114,6 @@ public class DatasetsDao {
   public List<DatasetColumn> getDatasetColumnByID(JdbcTemplate jdbcTemplate, int datasetId, int columnId) {
     return jdbcTemplate.query(GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID, new DatasetColumnRowMapper(), datasetId,
         columnId);
-  }
-
-  public List<DatasetOwner> getDatasetOwnersByID(JdbcTemplate jdbcTemplate,
-      NamedParameterJdbcTemplate namedJdbcTemplate, int datasetId) {
-    return jdbcTemplate.query(GET_DATASET_OWNERS_BY_ID, new DatasetOwnerRowMapper(), datasetId);
   }
 
   public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, List<DatasetOwner> owners)
