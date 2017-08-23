@@ -1,6 +1,6 @@
 apply plugin: 'license'
 
-ext.licenseFile = file('.license_header.txt')
+ext.licenseFile = file('wherehows-docs/license_header.txt')
 
 subprojects {
   apply plugin: 'com.github.hierynomus.license'
