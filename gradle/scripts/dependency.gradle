@@ -47,5 +47,9 @@ ext.externalDependency = [
 
     "hibernate_core"      : "org.hibernate:hibernate-core:5.2.5.Final",
     "hibernate_hikaricp"  : "org.hibernate:hibernate-hikaricp:5.2.5.Final",
+
     "lombok"              : "org.projectlombok:lombok:1.16.18",
+    "slf4j_simple"        : "org.slf4j:slf4j-simple:1.7.25",
+
+    "guava"               : "com.google.guava:guava:23.0",
 ]

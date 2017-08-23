@@ -15,19 +15,23 @@ package wherehows.dao;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.DatasetClassification;
 
 
-public class DatasetClassificationDao extends BaseDao {
+public class BaseDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
-    super(factory);
+  final EntityManagerFactory entityManagerFactory;
+
+  public BaseDao(EntityManagerFactory factory) {
+    this.entityManagerFactory = factory;
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
+  public void update(Object record) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
+    entityManager.getTransaction().begin();
+    entityManager.merge(record);
+    entityManager.getTransaction().commit();
     entityManager.close();
-    return result;
   }
+
+
 }

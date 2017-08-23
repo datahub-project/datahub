@@ -14,6 +14,7 @@
 package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
+import wherehows.models.DictDataset;
 
 
 public class DaoFactory {
@@ -34,5 +35,21 @@ public class DaoFactory {
 
   public DatasetClassificationDao getDatasetClassificationDao() {
     return new DatasetClassificationDao(entityManagerFactory);
+  }
+
+  public DictDatasetDao getDictDatasetDao() {
+    return new DictDatasetDao(entityManagerFactory);
+  }
+
+  public FieldDetailDao getDictFieldDetailDao() {
+    return new FieldDetailDao(entityManagerFactory);
+  }
+
+  public DatasetSchemaInfoDao getDatasetSchemaInfoDao() {
+    return new DatasetSchemaInfoDao(entityManagerFactory);
+  }
+
+  public ClusterInfoDao getClusterInfoDao() {
+    return new ClusterInfoDao(entityManagerFactory);
   }
 }

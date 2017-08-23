@@ -1,0 +1,21 @@
+apply plugin: 'application'
+
+mainClassName = "wherehows.main.ApplicationStart"
+
+dependencies {
+    compile project(':wherehows-dao')
+    compile project(':wherehows-common')
+    compile externalDependency.jackson_databind
+    compile externalDependency.jackson_core
+    compile externalDependency.jackson_annotations
+    compile externalDependency.lombok
+    compile externalDependency.akka
+    compile externalDependency.mysql
+    compile externalDependency.guava
+    compile externalDependency.slf4j_simple
+}
+
+configurations {
+    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    all*.exclude group: 'log4j'
+}
