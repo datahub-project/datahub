@@ -26,7 +26,7 @@ public class AppworxLineageEtl extends EtlJob {
 
     Connection conn;
 
-    public AppworxLineageEtl(int appId, long whExecId, Properties properties) {
+    public AppworxLineageEtl(long whExecId, Properties properties) {
         super(whExecId, properties);
         try {
             setUp();
