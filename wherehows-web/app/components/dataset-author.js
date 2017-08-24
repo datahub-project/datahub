@@ -174,10 +174,10 @@ export default Component.extend({
         updatedOwner,
         ...updatingOwners.slice(ownerPosition + 1)
       ];
-      // The list of ldap userNames currently in the list
-      const userNames = updatedOwners.mapBy('userName');
+      // The list of ldap userNames with sources currently in the list
+      const userKeys = updatedOwners.map(({ userName, source }) => `${userName}:${source}`);
       // Checks that the userNames are not already in the list of current owners
-      const hasDuplicates = new Set(userNames).size !== userNames.length;
+      const hasDuplicates = new Set(userKeys).size !== userKeys.length;
 
       if (hasDuplicates) {
         set(
