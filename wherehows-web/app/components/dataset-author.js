@@ -33,7 +33,7 @@ const _defaultOwnerProps = {
   email: null,
   name: '',
   isGroup: false,
-  namespace: 'urn:li:griduser',
+  namespace: 'urn:li:corpGroup',
   type: 'Owner',
   subType: null,
   sortId: 0,

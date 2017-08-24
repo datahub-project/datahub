@@ -1,7 +1,12 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
-import { datasetComplianceFor } from 'wherehows-web/utils/api';
-import { datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets';
+import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
+import {
+  getDatasetOwners,
+  getPartyEntities,
+  isRequiredMinOwnersNotConfirmed,
+  getPartyEntitiesMap
+} from 'wherehows-web/utils/api/datasets/owners';
 
 const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Create URL retrieval module
@@ -9,7 +14,6 @@ const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const ownerTypeUrlRoot = '/api/v1/owner/types';
 const userSettingsUrlRoot = '/api/v1/user/me';
-const partyEntitiesUrl = '/api/v1/party/entities';
 const getDatasetColumnUrl = id => `${datasetUrl(id)}/columns`;
 const getDatasetPropertiesUrl = id => `${datasetUrl(id)}/properties`;
 const getDatasetSampleUrl = id => `${datasetUrl(id)}/sample`;
@@ -17,7 +21,6 @@ const getDatasetImpactAnalysisUrl = id => `${datasetUrl(id)}/impacts`;
 const getDatasetDependsUrl = id => `${datasetUrl(id)}/depends`;
 const getDatasetPartitionsUrl = id => `${datasetUrl(id)}/access`;
 const getDatasetReferencesUrl = id => `${datasetUrl(id)}/references`;
-const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
 const getDatasetVersionUrl = (id, dbId) => `${datasetUrl(id)}/versions/db/${dbId}`;
 
@@ -391,41 +394,18 @@ export default Route.extend({
       .catch(() => set(controller, 'hasReferences', false));
 
     // Retrieve the current owners of the dataset and store on the controller
-    Promise.resolve(getJSON(getDatasetOwnersUrl(id)))
-      .then(({ status, owners = [] }) => {
-        if (status === 'ok') {
-          const minRequiredConfirmed = 2;
-          const requiredMinNotConfirmed =
-            owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === 'USER')
-              .length < minRequiredConfirmed;
-
-          setProperties(controller, {
-            requiredMinNotConfirmed,
-            owners: owners.map(owner =>
-              Object.assign({}, owner, {
-                modifiedTime: owner.modifiedTime && new Date(owner.modifiedTime)
-              })
-            )
-          });
-        }
-      })
-      .then(() => getJSON(partyEntitiesUrl))
-      .then(({ status, userEntities = [] }) => {
-        if (status === 'ok' && userEntities.length) {
-          /**
-           * @type {Object} userEntitiesMaps hash of userEntities: label -> displayName
-           */
-          const userEntitiesMaps = userEntities.reduce(
-            (map, { label, displayName }) => ((map[label] = displayName), map),
-            {}
-          );
-
-          setProperties(controller, {
-            userEntitiesMaps,
-            userEntitiesSource: Object.keys(userEntitiesMaps)
-          });
+    (async id => {
+      const [owners, userEntities] = await Promise.all([getDatasetOwners(id), getPartyEntities()]);
+      setProperties(controller, {
+        requiredMinNotConfirmed: isRequiredMinOwnersNotConfirmed(owners),
+        owners,
+        userEntitiesMaps: getPartyEntitiesMap(userEntities),
+        get userEntitiesSource() {
+          // TODO: memoize
+          return Object.keys(this.userEntitiesMaps);
         }
       });
+    })(id);
   },
 
   model: ({ dataset_id }) => {

@@ -1,23 +1,11 @@
 import Ember from 'ember';
 /// <reference path='wherehows-web/typings/untyped-js-module' />
 import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
-import { apiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
+import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { IComplianceSuggestion, IComplianceSuggestionResponse } from 'wherehows-web/typings/api/datasets/compliance';
 
 const { $: { getJSON }, assert } = Ember;
-
-/**
- * Defines the endpoint for datasets
- * @type {string}
- */
-const datasetsUrlRoot = `${apiRoot}/datasets`;
-
-/**
- * Constructs a url to get a dataset with a given id
- * @param {number} id the id of the dataset
- * @return {string} the dataset url
- */
-const datasetUrlById = (id: number): string => `${datasetsUrlRoot}/${id}`;
 
 /**
  * Constructs the dataset compliance url
@@ -89,4 +77,4 @@ const datasetComplianceSuggestionsFor = async (
   return { complianceSuggestions, lastModified: lastModifiedDate };
 };
 
-export { datasetsUrlRoot, datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };
+export { datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };
