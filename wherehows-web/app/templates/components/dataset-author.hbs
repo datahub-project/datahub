@@ -65,9 +65,9 @@
   <table class="nacho-table nacho-table--bordered nacho-table--stripped">
     <thead>
     <tr>
-      <th>User Name</th>
+      <th class="dataset-author-column--wide">User Name</th>
       <th>Full Name</th>
-      <th>ID Type</th>
+      <th  class="dataset-author-column--narrow">ID Type</th>
       <th>Source</th>
       <th>Last Modified</th>
       <th>
@@ -84,13 +84,13 @@
           </sup>
         </a>
       </th>
-      <th>Confirm?</th>
+      <th  class="dataset-author-column--narrow">Confirm?</th>
       <th>Remove</th>
     </tr>
     </thead>
     <tbody data-attribute="owner-table">
     {{#each owners as |owner|}}
-      <tr class="dataset-author-row">
+      <tr>
         <td class="dataset-author-cell"
             onclick={{action "willEditUserName"
                              owner}}>
@@ -99,9 +99,9 @@
             {{owner.userName}}
           </label>
           {{aupac-typeahead
+            source=userNamesResolver
             action=(action "editUserName" owner)
             autoFocus=true
-            source=userNamesResolver
             async=true
             limit=10
             minLength=2

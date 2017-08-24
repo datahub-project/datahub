@@ -1,10 +1,6 @@
 import Ember from 'ember';
 
-const {
-  isEmpty,
-  Service,
-  $: { getJSON }
-} = Ember;
+const { isEmpty, Service, $: { getJSON } } = Ember;
 const partyEntitiesUrl = '/api/v1/party/entities';
 
 const cache = {
@@ -37,14 +33,14 @@ const getLDAPUsers = () =>
             {}
           );
 
-          return ({
+          return {
             userEntities,
             userEntitiesMaps,
             userEntitiesSource: Object.keys(userEntitiesMaps)
-          });
+          };
         }
       })
-      .then(results => cache.partyEntities = results)
+      .then(results => (cache.partyEntities = results))
       .then(resolve);
   });
 
@@ -59,8 +55,7 @@ const ldapResolver = (userNameQuery, syncResults, asyncResults) => {
   const regex = new RegExp(`^${userNameQuery}.*`, 'i');
 
   getLDAPUsers()
-    .then(({ userEntitiesMaps = {} }) =>
-      Object.values(userEntitiesMaps).filter(entity => regex.test(entity)))
+    .then(({ userEntitiesSource = {} }) => userEntitiesSource.filter(entity => regex.test(entity)))
     .then(asyncResults);
 };
 
@@ -69,11 +64,8 @@ const ldapResolver = (userNameQuery, syncResults, asyncResults) => {
  * @param {String} userName the unique userName
  * @return {Promise.<TResult|null>} resolves with the userEntity or null otherwise
  */
-const getPartyEntityWithUserName = userName => getLDAPUsers()
-  .then(
-    ({ userEntities }) => userEntities.find(({ displayName }) => displayName === userName) ||
-    null
-  );
+const getPartyEntityWithUserName = userName =>
+  getLDAPUsers().then(({ userEntities }) => userEntities.find(({ label }) => label === userName) || null);
 
 export default Service.extend({
   getPartyEntityWithUserName,

@@ -47,3 +47,14 @@ $user-name-width: 170px;
     }
   }
 }
+
+// Adds rules for the column in a dataset-author table
+.dataset-author-column {
+  &--wide {
+    width: 15%;
+  }
+
+  &--narrow {
+    width: 9%;
+  }
+}
