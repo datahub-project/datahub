@@ -1,4 +1,4 @@
-import { ApiStatus } from 'wherehows-web/utils/api';
+import { ApiStatus } from 'wherehows-web/utils/api/shared';
 
 /**
  * Describes the prediction property in a compliance suggestion
