@@ -174,6 +174,20 @@ export default Component.extend({
         updatedOwner,
         ...updatingOwners.slice(ownerPosition + 1)
       ];
+      // The list of ldap userNames currently in the list
+      const userNames = updatedOwners.mapBy('userName');
+      // Checks that the userNames are not already in the list of current owners
+      const hasDuplicates = new Set(userNames).size !== userNames.length;
+
+      if (hasDuplicates) {
+        set(
+          this,
+          'errorMessage',
+          `Uh oh! Looks like there are duplicates in the list of owners, please remove them first.`
+        );
+
+        return;
+      }
 
       // Full reset of the `owners` list with the new list
       sourceOwners.setObjects(updatedOwners);
@@ -213,6 +227,7 @@ export default Component.extend({
      * @return {Promise.<void>}
      */
     async editUserName(currentOwner, userName) {
+      set(this, 'errorMessage', '');
       if (userName) {
         // getUser returns a promise, treat as such
         const getUser = get(this, 'ldapUsers.getPartyEntityWithUserName');

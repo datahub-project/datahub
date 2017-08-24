@@ -1,7 +1,12 @@
 import Ember from 'ember';
 import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
-import { IPartyEntity, IPartyEntityResponse } from 'wherehows-web/typings/api/datasets/party-entities';
+import {
+  IPartyEntity,
+  IPartyEntityResponse,
+  IPartyProps,
+  userEntityMap
+} from 'wherehows-web/typings/api/datasets/party-entities';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 
 /**
@@ -49,11 +54,63 @@ export const getPartyEntities = async (): Promise<Array<IPartyEntity>> => {
 };
 
 /**
+ * IIFE prepares the environment scope and returns a closure function that ensures that
+ * there is ever only one inflight request for userEntities.
+ * Resolves all subsequent calls with the result for the initial invocation.
+ * userEntitiesSource property is also lazy evaluated and cached for app lifetime.
+ * @type {() => Promise<IPartyProps>}
+ */
+export const getUserEntities: () => Promise<IPartyProps> = (() => {
+  /**
+   * Memoized reference to the resolved value of a previous invocation to curried function in getUserEntities
+   * @type {{result: IPartyProps | null}}
+   */
+  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof userEntityMap> } = {
+    result: null,
+    userEntitiesSource: []
+  };
+  let inflightRequest: Promise<Array<IPartyEntity>>;
+
+  /**
+   * Invokes the requestor for party entities, and adds perf optimizations listed above
+   * @return {Promise<IPartyProps>}
+   */
+  return async (): Promise<IPartyProps> => {
+    // If a previous request has already resolved, return the cached value
+    if (cache.result) {
+      return cache.result;
+    }
+    // If we don't already have a previous api request for party entities,
+    // assign a new one to free variable
+    if (!inflightRequest) {
+      inflightRequest = getPartyEntities();
+    }
+
+    const userEntities: Array<IPartyEntity> = await inflightRequest;
+
+    return (cache.result = {
+      userEntities,
+      userEntitiesMaps: getPartyEntitiesMap(userEntities),
+      // userEntitiesSource is not usually needed immediately
+      // hence using a getter for lazy evaluation
+      get userEntitiesSource() {
+        const userEntitiesSource = cache.userEntitiesSource;
+        if (userEntitiesSource.length) {
+          return userEntitiesSource;
+        }
+
+        return (cache.userEntitiesSource = Object.keys(this.userEntitiesMaps));
+      }
+    });
+  };
+})();
+
+/**
  * Transforms a list of party entities into a map of entity label to displayName value
  * @param {Array<IPartyEntity>} partyEntities
  * @return {Object<string>}
  */
-export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): { [label: string]: string } =>
+export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEntityMap =>
   partyEntities.reduce(
     (map: { [label: string]: string }, { label, displayName }: IPartyEntity) => ((map[label] = displayName), map),
     {}

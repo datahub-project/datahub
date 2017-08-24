@@ -3,9 +3,8 @@ import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
 import {
   getDatasetOwners,
-  getPartyEntities,
-  isRequiredMinOwnersNotConfirmed,
-  getPartyEntitiesMap
+  getUserEntities,
+  isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/utils/api/datasets/owners';
 
 const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
@@ -395,15 +394,15 @@ export default Route.extend({
 
     // Retrieve the current owners of the dataset and store on the controller
     (async id => {
-      const [owners, userEntities] = await Promise.all([getDatasetOwners(id), getPartyEntities()]);
+      const [owners, { userEntitiesSource, userEntitiesMaps }] = await Promise.all([
+        getDatasetOwners(id),
+        getUserEntities()
+      ]);
       setProperties(controller, {
         requiredMinNotConfirmed: isRequiredMinOwnersNotConfirmed(owners),
         owners,
-        userEntitiesMaps: getPartyEntitiesMap(userEntities),
-        get userEntitiesSource() {
-          // TODO: memoize
-          return Object.keys(this.userEntitiesMaps);
-        }
+        userEntitiesMaps,
+        userEntitiesSource
       });
     })(id);
   },

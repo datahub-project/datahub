@@ -16,3 +16,19 @@ export interface IPartyEntityResponse {
   status: ApiStatus;
   userEntities?: Array<IPartyEntity>;
 }
+
+/**
+ * Describes a userEntityMap interface
+ */
+export interface userEntityMap {
+  [label: string]: string;
+}
+
+/**
+ * Describes the props resolved by the getUserEntities function
+ */
+export interface IPartyProps {
+  userEntities: Array<IPartyEntity>;
+  userEntitiesMaps: userEntityMap;
+  userEntitiesSource: Array<keyof userEntityMap>;
+}
