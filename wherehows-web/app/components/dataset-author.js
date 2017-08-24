@@ -183,7 +183,7 @@ export default Component.extend({
         set(
           this,
           'errorMessage',
-          `Uh oh! Looks like there are duplicates in the list of owners, please remove them first.`
+          'Uh oh! Looks like there are duplicates in the list of owners, please remove them first.'
         );
 
         return;
