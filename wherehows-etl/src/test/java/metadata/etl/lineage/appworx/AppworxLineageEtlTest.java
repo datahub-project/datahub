@@ -23,7 +23,7 @@ public class AppworxLineageEtlTest {
 
   @BeforeTest
   public void setUp() throws Exception {
-    awl = new AppworxLineageEtl(3, 0L, new Properties());
+    awl = new AppworxLineageEtl(0L, new Properties());
   }
 
   @Test(groups = {"needConfig"})
