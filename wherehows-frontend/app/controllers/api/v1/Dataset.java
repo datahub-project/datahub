@@ -201,6 +201,7 @@ public class Dataset extends Controller {
       result.set("owners", Json.toJson(DATASETS_DAO.getDatasetOwnersByID(JDBC_TEMPLATE, NAMED_JDBC_TEMPLATE, id)));
       result.put("status", "ok");
     } catch (Exception e) {
+      Logger.warn("Failed to get owners: " + e.toString());
       result.put("status", "failed");
       result.put("message", "Error: " + e.getMessage());
     }
@@ -281,6 +282,7 @@ public class Dataset extends Controller {
       DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, username, id, owners);
       result.put("status", "success");
     } catch (Exception e) {
+      Logger.error("Owner updating error: ", e);
       result.put("status", "failed");
       result.put("error", "true");
       result.put("msg", "Could not update dataset owners: " + e.getMessage());
@@ -755,6 +757,7 @@ public class Dataset extends Controller {
     try {
       record = DATASETS_DAO.getDatasetComplianceInfoByDatasetId(JDBC_TEMPLATE, datasetId);
     } catch (Exception e) {
+      Logger.warn("Failed to get compliance: " + e.toString());
       JsonNode result = Json.newObject()
           .put("status", "failed")
           .put("error", "true")
