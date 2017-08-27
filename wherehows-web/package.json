@@ -13,7 +13,8 @@
     "build": "ember build",
     "start": "ember server",
     "test": "ember test",
-    "precommit": "lint-staged"
+    "precommit": "lint-staged",
+    "eslint-check-prettier-conflict": "./node_modules/.bin/eslint --print-config .eslintrc.js | ./node_modules/.bin/eslint-config-prettier-check"
   },
   "devDependencies": {
     "@types/ember": "^2.7.44",
@@ -51,11 +52,17 @@
     "ember-redux-thunk-shim": "^1.1.2",
     "ember-resolver": "^2.1.1",
     "ember-symbol-observable": "^0.1.2",
+    "eslint": "^4.5.0",
+    "eslint-config-airbnb-base": "^11.3.2",
+    "eslint-config-prettier": "^2.3.0",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-prettier": "^2.2.0",
     "eyeglass": "^1.2.1",
     "eyeglass-restyle": "^1.0.19",
     "husky": "^0.13.3",
     "lint-staged": "^3.4.2",
     "node-sass": "^4.5.2",
+    "prettier": "^1.5.3",
     "redux": "^3.6.0",
     "redux-thunk": "^2.2.0",
     "typescript": "~2.4.2"
@@ -85,7 +92,7 @@
     "gitDir": "../",
     "linters": {
       "wherehows-web/{app,tests}/**/*.{ts,js}": [
-        "prettier --print-width 120 --single-quote --write",
+        "./node_modules/.bin/prettier --print-width 120 --single-quote --write",
         "git add"
       ]
     }

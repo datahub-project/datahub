@@ -2,7 +2,10 @@ module.exports = {
   globals: {
     server: true,
   },
-  "extends": "eslint:recommended",
+  "extends": [
+    "airbnb-base",
+    "prettier"
+  ],
   "parserOptions": {
     "ecmaVersion": 8,
     "sourceType": "module",
@@ -19,6 +22,10 @@ module.exports = {
   "rules": {
     "no-implicit-globals": [
       1
-    ]
-  }
+    ],
+    "prettier/prettier": ["error", { "singleQuote": true, "printWidth": 120 }]
+  },
+  "plugins": [
+    "prettier"
+  ]
 };
