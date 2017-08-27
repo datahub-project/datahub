@@ -3,7 +3,7 @@ module.exports = {
     server: true,
   },
   "extends": [
-    "airbnb-base",
+    "eslint:recommended",
     "prettier"
   ],
   "parserOptions": {
