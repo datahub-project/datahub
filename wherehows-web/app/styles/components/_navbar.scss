@@ -11,6 +11,7 @@ $item-spacing: 10px;
    * Explicitly sets the .navbar min-height to a shared value
    */
   min-height: $nav-min-height;
+
   &-inverse {
     /**
      * Overrides the styling for navbar
@@ -18,6 +19,7 @@ $item-spacing: 10px;
     background-color: $brand-color;
     border-color: $brand-color;
   }
+
   .navbar-nav {
     > .active {
       /**

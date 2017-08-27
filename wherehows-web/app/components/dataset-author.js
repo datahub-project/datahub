@@ -60,7 +60,7 @@ export default Component.extend({
   removeFromSourceMessage,
 
   init() {
-    this._super(...arguments);
+    this._super(...Array.from(arguments));
 
     // Sets a reference to the userNamesResolver function on instantiation.
     //  Typeahead component uses this function to resolve matches for user
@@ -147,14 +147,16 @@ export default Component.extend({
    *
    * @param {Object} currentProps the current props on the currentProps
    *   to be updated
-   * @param {String|Object} props the property to update on the currentProps in
+   * @param {...string|object|*} args
+   * @prop {String|Object} args[0] the property to update on the currentProps in
    *   the list of owners. Props can be also be an Object containing the
    *   properties mapped to updated values.
-   * @param {*} [value] optional value to set on the currentProps in
+   * @prop {*} [args[1]] value to set on the currentProps in
    *   the source list, required is props is map of key -> value pairs
    * @private
    */
-  _updateOwner(currentProps, ...[props, value]) {
+  _updateOwner(currentProps, ...args) {
+    const [props, value] = args;
     const sourceOwners = get(this, 'owners');
     // Create a copy so in-flight mutations are not propagates to the ui
     const updatingOwners = [...sourceOwners];
