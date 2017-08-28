@@ -99,6 +99,7 @@
       {{#each (sort-by table.sortBy table.data) as |field|}}
         {{#body.row
           field=field
+          isNewComplianceInfo=isNewComplianceInfo
           class=(if (and hasRecentSuggestions field.suggestion) "dataset-compliance-fields__has-suggestions")
           hasRecentSuggestions=hasRecentSuggestions
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
