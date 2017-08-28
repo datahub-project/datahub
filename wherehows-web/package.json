@@ -54,7 +54,6 @@
     "ember-resolver": "^2.1.1",
     "ember-symbol-observable": "^0.1.2",
     "eslint": "^4.5.0",
-    "eslint-config-airbnb-base": "^11.3.2",
     "eslint-config-prettier": "^2.3.0",
     "eslint-plugin-import": "^2.7.0",
     "eslint-plugin-prettier": "^2.2.0",

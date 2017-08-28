@@ -1,0 +1,30 @@
+{{#modal-dialog
+  overlayClass="notification-confirm-modal-overlay"
+  containerClassNames=containerClassNames
+  onConfirm=(action "onConfirm")
+  onClose=(action "onClose")
+}}
+  <header class="notification-confirm-modal__header">
+    <h2 class="notification-confirm-modal__heading-text">
+      {{header}}
+    </h2>
+  </header>
+
+  <section class="notification-confirm-modal__content">
+    {{#if hasBlock}}
+      {{yield}}
+    {{else}}
+      {{content}}
+    {{/if}}
+  </section>
+
+  <footer class="notification-confirm-modal__footer">
+    <button class="nacho-button--large nacho-button--secondary" {{action "onClose"}}>
+      {{dismissButtonText}}
+    </button>
+
+    <button class="nacho-button nacho-button--large-inverse" {{action "onConfirm"}}>
+      {{confirmButtonText}}
+    </button>
+  </footer>
+{{/modal-dialog}}

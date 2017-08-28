@@ -1,10 +1,6 @@
 import Ember from 'ember';
 
-const {
-  get,
-  Controller,
-  inject: { service }
-} = Ember;
+const { get, Controller, inject: { service } } = Ember;
 
 export default Controller.extend({
   /**
@@ -23,6 +19,8 @@ export default Controller.extend({
    * @type {Ember.Service}
    */
   ldapUsers: service('user-lookup'),
+
+  notifications: service(),
 
   init() {
     this._super(...arguments);
