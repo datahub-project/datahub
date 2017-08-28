@@ -46,7 +46,7 @@ const fieldIdentifierTypeValues = Object.keys(fieldIdentifierTypes)
  * @returns Array<Object>
  */
 const getFieldSuggestions = predictions =>
-  predictions.reduce((suggested, { value, confidence = 0 }) => {
+  predictions.filter(prediction => prediction).reduce((suggested, { value, confidence = 0 }) => {
     if (value) {
       if (fieldIdentifierTypeValues.includes(value)) {
         suggested = { ...suggested, identifierType: value };
