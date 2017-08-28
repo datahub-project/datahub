@@ -113,7 +113,7 @@
                     aria-label="Compliance fields have suggested values"></span>
             {{/if}}
 
-            {{#if (and isNewComplianceInfo (not row.suggestion))}}
+            {{#if (and row.isNewField (not row.suggestion))}}
               <span class="notification-dot notification-dot--is-unsaved"
                     aria-label="Compliance has not been saved"></span>
             {{/if}}
