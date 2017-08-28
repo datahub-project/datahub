@@ -99,6 +99,7 @@
       {{#each (sort-by table.sortBy table.data) as |field|}}
         {{#body.row
           field=field
+          isNewComplianceInfo=isNewComplianceInfo
           class=(if (and hasRecentSuggestions field.suggestion) "dataset-compliance-fields__has-suggestions")
           hasRecentSuggestions=hasRecentSuggestions
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
@@ -112,7 +113,7 @@
                     aria-label="Compliance fields have suggested values"></span>
             {{/if}}
 
-            {{#if isNewComplianceInfo}}
+            {{#if row.isNewField}}
               <span class="notification-dot notification-dot--is-unsaved"
                     aria-label="Compliance has not been saved"></span>
             {{/if}}

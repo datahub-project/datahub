@@ -7,7 +7,7 @@ import {
   logicalTypesForGeneric
 } from 'wherehows-web/components/dataset-compliance';
 
-const { computed, get, getProperties } = Ember;
+const { computed, get, getProperties, set } = Ember;
 /**
  * String indicating that the user affirms a suggestion
  * @type {string}
@@ -104,6 +104,16 @@ export default DatasetTableRow.extend({
    * @type {Ember.computed}
    */
   suggestionAuthority: computed.alias('field.suggestionAuthority'),
+
+  /**
+   * Checks that the field does not have a recently input value
+   * @type {Ember.computed}
+   * @return {boolean}
+   */
+  isNewField: computed('isNewComplianceInfo', 'isModified', function() {
+    const { isNewComplianceInfo, isModified } = getProperties(this, ['isNewComplianceInfo', 'isModified']);
+    return isNewComplianceInfo && !isModified;
+  }),
 
   /**
    * Maps the suggestion response to a string resolution
@@ -225,6 +235,7 @@ export default DatasetTableRow.extend({
       const { onFieldIdentifierTypeChange } = this.attrs;
       if (typeof onFieldIdentifierTypeChange === 'function') {
         onFieldIdentifierTypeChange(get(this, 'field'), { value });
+        set(this, 'isModified', true);
       }
     },
 
@@ -237,6 +248,7 @@ export default DatasetTableRow.extend({
       const { onFieldLogicalTypeChange } = this.attrs;
       if (typeof onFieldLogicalTypeChange === 'function') {
         onFieldLogicalTypeChange(get(this, 'field'), { value });
+        set(this, 'isModified', true);
       }
     },
 
@@ -248,6 +260,7 @@ export default DatasetTableRow.extend({
       const { onFieldClassificationChange } = this.attrs;
       if (typeof onFieldClassificationChange === 'function') {
         onFieldClassificationChange(get(this, 'field'), { value });
+        set(this, 'isModified', true);
       }
     },
 
