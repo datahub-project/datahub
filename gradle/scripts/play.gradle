@@ -4,15 +4,6 @@ tasks.withType(PlayRun) {
     httpPort = project.ext.httpPort
 }
 
-// Manually define a sourceSet for license checking
-sourceSets {
-  license {
-    java {
-        srcDirs = ['app', 'test']
-    }
-  }
-}
-
 model {
     components {
         play {

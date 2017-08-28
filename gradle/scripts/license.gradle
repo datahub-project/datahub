@@ -14,4 +14,15 @@ subprojects {
     excludes(["**/*.json", "**/*.avsc", "**/*.avro", "**/*.conf", "**/*.yaml", "**/*.xml"])
     excludes(["**/*.txt", "**/*.csv", "**/*.md"])
   }
+
+  plugins.withType(PlayPlugin) {
+    // Manually define a dummy sourceSet for license checking
+    sourceSets {
+      license {
+        java {
+          srcDirs = ['app', 'test']
+        }
+      }
+    }
+  }
 }
