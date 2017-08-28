@@ -13,15 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
-import sys, os
-import json
-from os.path import expanduser
-
-from java.util import Hashtable
-from java.io import InputStreamReader
-from java.util import Properties
-from java.util import Date
-
 from org.apache.commons.io import IOUtils
 from org.apache.hadoop.conf import Configuration
 from org.apache.hadoop.fs import FileSystem as Hdfs
@@ -40,7 +31,6 @@ class SchemaUrlHelper:
     * hdfs://hadoop-name-node:port/data/external/Customer/Profile/daily/2016/01/01/_schema.avsc
     * /data/databases/ADS/CAMPAIGNS/snapshot/v2.3/_schema.avsc
   """
-
   def __init__(self, hdfs_uri, kerberos=False, kerberos_principal=None, keytab_file=None):
     """
     :param hdfs_uri: hdfs://hadoop-name-node:port
@@ -48,7 +38,6 @@ class SchemaUrlHelper:
     :param kerberos_principal: optional, user@DOMAIN.COM
     :param keytab_file: optional, absolute path to keytab file
     """
-
     self.logger = LoggerFactory.getLogger(self.__class__.__name__)
 
     self.logger.info("keytab_file: " + keytab_file)
@@ -71,22 +60,27 @@ class SchemaUrlHelper:
     self.fs = Hdfs.get(hdfs_conf)
 
     requests.packages.urllib3.disable_warnings()
+    self.logger.info("Initiated SchemaUrlHelper")
+
 
   def get_from_hdfs(self, file_loc):
     """
     Try to get the text content from HDFS based on file_loc
     Return schema literal string
     """
-
     fp = HdfsPath(file_loc)
     try:
       if self.fs.exists(fp):
         in_stream = self.fs.open(fp)
+        self.logger.info('GET schema literal from {}'.format(file_loc))
         return IOUtils.toString(in_stream, 'UTF-8')
       else:
+        self.logger.info('Schema not exists: {}'.format(file_loc))
         return None
-    except:
+    except Exception as e:
+      self.logger.error(str(e))
       return None
+
 
   def get_from_http(self, file_loc):
     """
@@ -98,37 +92,10 @@ class SchemaUrlHelper:
       self.logger.error(str(e))
       return None
 
-    if resp.status_code == 200:
-      if 'content-length' in resp.headers:
-        self.logger.debug('GET {} bytes from {}'.format(resp.headers['content-length'], file_loc))
+    if resp.status_code == 200 and 'content-length' in resp.headers:
+      self.logger.info('GET {} bytes from {}'.format(resp.headers['content-length'], file_loc))
       return resp.text
     else:
       # This means something went wrong.
-      raise Exception('Request Error', 'GET {} {}'.format(file_loc, resp.status_code))
+      self.logger.error('Request Error for {}: {}\n Header: {}'.format(file_loc, resp.status_code, resp.headers))
       return None
-
-
-
-
-if __name__ == "__main__":
-  HTTP_TEST_URI = ['http://ltx1-schema-registry-vip-1.prod.linkedin.com:12250/schemaRegistry/schemas/latest_with_type=NativeRealUserMonitoringEvent',
-                   'http://lva1-schema-registry-vip-2.corp.linkedin.com:12250/schemaRegistry/schemas/latest_with_type=MessageDeliveryEvent',
-                   'https://ipinfo.io/', 'https://api.github.com/users/linkedin']
-  HDFS_TEST_URI = ['hdfs://ltx1-unonn01.grid.linkedin.com:9000/data/dbchanges/Identity/Profile/daily/2016/09/29/_schema.avsc',
-                   '/data/dbchanges/Identity/Profile/daily/2016/10/01/_schema.avsc']
-
-  schema_url_helper = SchemaUrlHelper("hdfs://ltx1-unonn01.grid.linkedin.com:9000", kerberos=True, \
-                                      kerberos_principal="wherehow@GRID.LINKEDIN.COM", \
-                                      keytab_file="wherehow.headless.keytab")
-
-  for f in HDFS_TEST_URI:
-    print "Test HDFS:"
-    if f.startswith('hdfs://') or f.startswith('webhdfs://') or f.startswith('/'):
-      print "    Schema URL = %s" % f
-      print "Schema Literal = %s" % schema_url_helper.get_from_hdfs(f)
-
-  for f in HTTP_TEST_URI:
-    print "Test HTTP:"
-    if f.startswith('https://') or f.startswith('http://'):
-      print "    Schema URL = %s" % f
-      print "Schema Literal = %s" % schema_url_helper.get_from_http(f)

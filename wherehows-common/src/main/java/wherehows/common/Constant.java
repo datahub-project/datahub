@@ -208,6 +208,7 @@ public class Constant {
   public static final String HIVE_METASTORE_JDBC_URL = "hive.metastore.jdbc.url";
   public static final String HIVE_METASTORE_USERNAME = "hive.metastore.username";
   public static final String HIVE_METASTORE_PASSWORD = "hive.metastore.password";
+  public static final String HIVE_METASTORE_RECONNECT_TIME = "hive.metastore.reconnect.time";
 
   public static final String HIVE_DATABASE_WHITELIST_KEY = "hive.database_white_list";
   public static final String HIVE_DATABASE_BLACKLIST_KEY = "hive.database_black_list";

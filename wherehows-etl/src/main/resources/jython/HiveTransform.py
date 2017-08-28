@@ -14,36 +14,43 @@
 
 import json
 import sys
-import time
 from com.ziclix.python.sql import zxJDBC
-from org.slf4j import LoggerFactory
-from wherehows.common.writers import FileWriter
-from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord, HiveDependencyInstanceRecord, DatasetInstanceRecord
-from wherehows.common import Constant
-from HiveExtract import TableInfo
-from org.apache.hadoop.hive.ql.tools import LineageInfo
 from metadata.etl.dataset.hive import HiveViewDependency
+from org.slf4j import LoggerFactory
+from wherehows.common import Constant
+from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord, HiveDependencyInstanceRecord, \
+    DatasetInstanceRecord
+from wherehows.common.writers import FileWriter
 
-from HiveColumnParser import HiveColumnParser
 from AvroColumnParser import AvroColumnParser
+from HiveColumnParser import HiveColumnParser
+from HiveExtract import TableInfo
+
 
 class HiveTransform:
-  dataset_dict = {}
+
   def __init__(self):
     self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
+
+    # connection
     username = args[Constant.HIVE_METASTORE_USERNAME]
     password = args[Constant.HIVE_METASTORE_PASSWORD]
     jdbc_driver = args[Constant.HIVE_METASTORE_JDBC_DRIVER]
     jdbc_url = args[Constant.HIVE_METASTORE_JDBC_URL]
     self.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
     self.curs = self.conn_hms.cursor()
-    dependency_instance_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
-    self.instance_writer = FileWriter(dependency_instance_file)
+
+    self.instance_writer = FileWriter(args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY])
+
+    # variable
+    self.dataset_dict = {}
+
 
   def transform(self, input, hive_instance, hive_metadata, hive_field_metadata):
     """
     convert from json to csv
     :param input: input json file
+    :param hive_instance: output data file for hive instance
     :param hive_metadata: output data file for hive table metadata
     :param hive_field_metadata: output data file for hive field metadata
     :return:
@@ -59,7 +66,6 @@ class HiveTransform:
     schema_file_writer = FileWriter(hive_metadata)
     field_file_writer = FileWriter(hive_field_metadata)
 
-    lineageInfo = LineageInfo()
     depends_sql = """
       SELECT d.NAME DB_NAME, case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
           then concat(substring(t.TBL_NAME, 1, length(t.TBL_NAME) - length(substring_index(t.TBL_NAME, '_', -3)) - 1),'_{version}')
@@ -214,8 +220,6 @@ class HiveTransform:
             field_record = DatasetFieldRecord(fields)
             field_file_writer.append(field_record)
 
-
-
       instance_file_writer.flush()
       schema_file_writer.flush()
       field_file_writer.flush()
@@ -238,6 +242,3 @@ if __name__ == "__main__":
     t.curs.close()
     t.conn_hms.close()
     t.instance_writer.close()
-
-
-
