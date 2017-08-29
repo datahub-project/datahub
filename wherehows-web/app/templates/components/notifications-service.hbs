@@ -1,0 +1,28 @@
+{{#if service.isShowingModal}}
+  {{#confirm-dialog
+    header=service.modal.props.header
+    dismissButtonText=service.modal.props.dismissButtonText
+    confirmButtonText=service.modal.props.confirmButtonText
+    onConfirm=(action 'confirmModal' target=service)
+    onClose=(action 'dismissModal' target=service)}}
+    {{service.modal.props.content}}
+  {{/confirm-dialog}}
+{{/if}}
+
+
+{{#if service.isShowingToast}}
+  <div id="notification-toast" class="notification-toast">
+    <i class="notification-toast__icon"></i>
+
+    <div class="notification-toast__content notification-toast__content--{{service.toast.props.type}}">
+      <p>{{service.toast.props.message}}</p>
+    </div>
+
+    {{#if service.toast.props.isDismissible}}
+      <button class="notification-toast__dismiss">
+        <span class="sr-only">{{service.toast.props.dismissButtonText}}</span>
+      </button>
+    {{/if}}
+  </div>
+{{/if}}
+{{yield}}

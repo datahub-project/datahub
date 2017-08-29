@@ -1,4 +1,3 @@
-/*jshint node:true*/
 /* global require, module */
 const EmberApp = require('ember-cli/lib/broccoli/ember-app');
 const Funnel = require('broccoli-funnel');
@@ -6,6 +5,10 @@ const MergeTrees = require('broccoli-merge-trees');
 
 module.exports = function(defaults) {
   const app = new EmberApp(defaults, {
+    babel: {
+      plugins: ['transform-object-rest-spread']
+    },
+
     'ember-cli-babel': {
       includePolyfill: true
     },

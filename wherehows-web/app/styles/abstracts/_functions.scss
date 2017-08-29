@@ -81,3 +81,42 @@
 @function set-color($color, $hue) {
   @return map-get(map-get($color-scheme, $color), $hue);
 }
+
+/// Gets the item spacing length value from the map $item-spacings
+/// @param {Number} @spacing-unit - the type of spacing to retrieve
+@function item-spacing($spacing-unit) {
+  /// item-spacing maps, defines the spaces between elements in application layout
+  /// @type Map
+  /// @prop {String} key - number representing a spacing type
+  /// @prop {Length} value - pixel length
+  $item-spacings: (
+    1: 4px,
+    2: 8px,
+    3: 12px,
+    4: 16px,
+    5: 24px,
+    6: 32px,
+    7: 48px,
+    8: 64px,
+    9: 96px
+  );
+
+
+  // If item-spacing is passed a list, for example:
+  // padding: item-spacing(1 2 3 4)
+  // map item-spacing onto each element in the list and return it.
+  @if type-of($spacing-unit) == list {
+    $result: ();
+    @each $i in $spacing-unit {
+      $result: append($result, item-spacing($i));
+    }
+    @return $result;
+  }
+
+  // negative types
+  @if ($spacing-unit < 0) {
+    @return -1 * map-get($item-spacings, -1 * $spacing-unit);
+  }
+
+  @return map-get($item-spacings, $spacing-unit);
+}

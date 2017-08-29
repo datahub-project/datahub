@@ -21,7 +21,8 @@ const {
   setProperties,
   getProperties,
   getWithDefault,
-  String: { htmlSafe }
+  String: { htmlSafe },
+  inject: { service }
 } = Ember;
 
 const { complianceDataException, missingTypes, successUpdating, failedUpdating, helpText } = compliancePolicyStrings;
@@ -147,6 +148,12 @@ export default Component.extend({
    * @type {String}
    */
   isSaving: false,
+
+  /**
+   * Reference to the application notifications Service
+   * @type {Ember.Service}
+   */
+  notifications: service(),
 
   didReceiveAttrs() {
     this._super(...arguments);
@@ -558,7 +565,7 @@ export default Component.extend({
    * Requires that the user confirm that any non-id fields are ok to be saved without a field format specified
    * @return {Boolean}
    */
-  confirmUnformattedFields() {
+  async confirmUnformattedFields() {
     // Current list of compliance entities on policy
     const complianceEntities = get(this, policyComplianceEntitiesKey);
     // All candidate fields that can be on policy, excluding tracking type fields
@@ -585,6 +592,8 @@ export default Component.extend({
       },
       { formatted: [], unformatted: [] }
     );
+
+    const actions = {};
     let isConfirmed = true;
     let unformattedComplianceEntities = [];
 
@@ -597,15 +606,30 @@ export default Component.extend({
         securityClassification: null
       }));
 
-      isConfirmed = confirm(
-        `There are ${unformatted.length} non-ID fields that have no field format specified. ` +
+      const confirmHandler = (function() {
+        return new Promise((resolve, reject) => {
+          actions['didConfirm'] = () => resolve();
+          actions['didDismiss'] = () => reject();
+        });
+      })();
+
+      // Create confirmation dialog
+      get(this, 'notifications').notify('confirm', {
+        header: 'Some field formats are unspecified',
+        content:
+          `There are ${unformatted.length} non-ID fields that have no field format specified. ` +
           `Are you sure they don't contain any of the following PII?\n\n` +
-          `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`
-      );
+          `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`,
+        dialogActions: actions
+      });
+
+      try {
+        await confirmHandler;
+        complianceEntities.setObjects([...formatted, ...unformattedComplianceEntities]);
+      } catch (e) {
+        isConfirmed = false;
+      }
     }
-    // If the user confirms that this is ok, apply the unformatted fields on the current compliance list
-    //   to be saved
-    isConfirmed && complianceEntities.setObjects([...formatted, ...unformattedComplianceEntities]);
 
     return isConfirmed;
   },
@@ -824,7 +848,7 @@ export default Component.extend({
     async saveCompliance() {
       const setSaveFlag = (flag = false) => set(this, 'isSaving', flag);
       // If fields are confirmed as unique we can proceed with saving compliance entities
-      const saveConfirmed = this.confirmUnformattedFields();
+      const saveConfirmed = await this.confirmUnformattedFields();
 
       // If user provides confirmation for unformatted fields or there are none,
       // then validate fields against expectations
