@@ -39,7 +39,7 @@
         value="{{table.searchTerm}}"
         oninput={{action table.filterDidChange value="target.value"}}>
 
-      {{#if hasRecentSuggestions}}
+      {{#if (and hasRecentSuggestions (not isNewComplianceInfo))}}
         <span class="dataset-compliance-fields__has-suggestions">
             {{complianceSuggestion.complianceSuggestions.length}} fields to be reviewed
           </span>
@@ -79,7 +79,7 @@
           </sup>
         </a>
       {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
+      {{#head.column class="nacho-table-cell-wrapped dataset-compliance-fields__classification-column"}}
         Security Classification
         <sup>
           <span
