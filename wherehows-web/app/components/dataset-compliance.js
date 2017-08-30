@@ -565,30 +565,31 @@ export default Component.extend({
   },
 
   /**
-   * TODO: DSS-6672 Extract to notifications service
    * Helper method to update user when an async server update to the
    * security specification is handled.
    * @param {Promise|*} request the server request
-   * @param {String} [successMessage] optional _message for successful response
+   * @param {String} [successMessage] optional message for successful response
    * @param { Boolean} [isSaving = false] optional flag indicating when the user intends to persist / save
    */
   whenRequestCompletes(request, { successMessage, isSaving = false } = {}) {
+    const notify = get(this, 'notifications.notify');
+
     return Promise.resolve(request)
       .then(({ status = 'error' }) => {
         return status === 'ok'
-          ? get(this, 'notifications').notify('success', { content: successMessage || successUpdating })
+          ? notify('success', { content: successMessage || successUpdating })
           : Promise.reject(new Error(`Reason code for this is ${status}`));
       })
       .catch(err => {
-        let _message = `${failedUpdating} \n ${err}`;
+        let message = `${failedUpdating} \n ${err}`;
 
         if (get(this, 'isNewComplianceInfo') && !isSaving) {
-          get(this, 'notifications').notify('info', {
+          return notify('info', {
             content: 'This dataset does not have any previously saved fields with a identifying information.'
           });
         }
 
-        get(this, 'notifications').notify('error', { content: _message });
+        notify('error', { content: message });
       });
   },
 
