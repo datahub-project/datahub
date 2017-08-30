@@ -14,30 +14,45 @@
   {{else}}
     <section class="action-bar">
       {{#if isEditing}}
+
+        {{#if _message}}
+          <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
+            {{_message}}
+          </div>
+        {{/if}}
+
         <div class="container action-bar__content">
-          <button
-            class="nacho-button nacho-button--large-inverse action-bar__item"
-            title={{unless isDatasetFullyClassified
-                           "Ensure you have provided a yes/no value for all dataset tags"
-                           "Save"}}
-              disabled={{isSavingDisabled}}
-            {{action "saveCompliance"}}>
-            Save
-          </button>
+          {{#if isShowingComplianceEditMode}}
+            <button
+              class="nacho-button nacho-button--large-inverse action-bar__item"
+              title="Next"
+              {{action "onEditDatasetClassification"}}>
+              Next
+            </button>
+          {{/if}}
 
-          <button class="nacho-button nacho-button--large action-bar__item"
-            {{action "resetCompliance"}}>
-            <i class="fa fa-times" title="Cancel">
-            </i>
-            Cancel
-          </button>
+          {{#if isShowingDatasetClassificationEditMode}}
 
-          {{#if _message}}
-            <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
-              {{_message}}
-            </div>
+            <button
+              class="nacho-button nacho-button--large-inverse action-bar__item"
+              title={{unless isDatasetFullyClassified
+                             "Ensure you have provided a yes/no value for all dataset tags"
+                             "Save"}}
+                disabled={{isSavingDisabled}}
+              {{action "saveCompliance"}}>
+              Save
+            </button>
+
+            <button
+              class="nacho-button--large nacho-button--secondary action-bar__item"
+              title="Back"
+              {{action "onEditCompliancePolicy"}}>
+              Back
+            </button>
+
           {{/if}}
         </div>
+
       {{/if}}
     </section>
   {{/if}}
@@ -52,8 +67,9 @@
     </div>
 
     {{#unless isEditing}}
+
       <button
-        {{action "onEdit"}}
+        {{action "onEditCompliancePolicy"}}
         class="nacho-button--large nacho-button--secondary secondary-actions__action">
         Edit
       </button>
@@ -65,16 +81,27 @@
           Download compliance metadata
         </button>
       {{/unless}}
+
     {{/unless}}
   </div>
 
-  {{#if (and isEditing (not _hasBadData))}}
+  {{#if isEditing}}
+    <div class="dataset-compliance-step-container">
+      {{partial "datasets/dataset-compliance/-dataset-compliance-step-indicator"}}
+    </div>
+  {{/if}}
+
+  {{#if (and isShowingComplianceEditMode (not _hasBadData))}}
     {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
   {{/if}}
 
-  {{partial "datasets/dataset-compliance/dataset-classification"}}
+  {{#if (or isReadOnly isShowingDatasetClassificationEditMode)}}
+    {{partial "datasets/dataset-compliance/dataset-classification"}}
+  {{/if}}
 
-  {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+  {{#if (or isReadOnly isShowingComplianceEditMode)}}
+    {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+  {{/if}}
 </div>
 
 {{yield}}

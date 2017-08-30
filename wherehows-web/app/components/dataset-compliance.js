@@ -142,12 +142,62 @@ export default Component.extend({
    * Flag indicating that the component is in edit mode
    * @type {String}
    */
-  isEditing: false,
+  isEditing: computed('isNewComplianceInfo', 'isEditingDatasetClassification', 'isEditingCompliancePolicy', function() {
+    const { isNewComplianceInfo, isEditingDatasetClassification, isEditingCompliancePolicy } = getProperties(
+      this,
+      'isNewComplianceInfo',
+      'isEditingDatasetClassification',
+      'isEditingCompliancePolicy'
+    );
+    return isNewComplianceInfo || isEditingDatasetClassification || isEditingCompliancePolicy;
+  }),
+
+  /**
+   * Convenience flag indicating the policy is not currently being edited
+   * @type {Ember.computed}
+   * @return {boolean}
+   */
+  isReadOnly: computed.not('isEditing'),
   /**
    * Flag indicating that the component is currently saving / attempting to save the privacy policy
    * @type {String}
    */
   isSaving: false,
+
+  /**
+   * Determines if the the compliance policy update form should be shown
+   * @type {Ember.computed}
+   * @return {boolean}
+   */
+  isShowingComplianceEditMode: computed('isNewComplianceInfo', 'isEditingCompliancePolicy', function() {
+    const { isNewComplianceInfo, isEditingCompliancePolicy, isEditingDatasetClassification } = getProperties(
+      this,
+      'isNewComplianceInfo',
+      'isEditingCompliancePolicy',
+      'isEditingDatasetClassification'
+    );
+
+    return (isNewComplianceInfo || isEditingCompliancePolicy) && !isEditingDatasetClassification;
+  }),
+
+  /**
+   * Proxy to the check if the dataset classification form is being edited and should be shown
+   * @type {Ember.computed}
+   * @return {boolean}
+   */
+  isShowingDatasetClassificationEditMode: computed.bool('isEditingDatasetClassification'),
+
+  datasetComplianceSteps: computed('isEditingCompliancePolicy', 'isEditingDatasetClassification', function() {
+    const { isEditingCompliancePolicy, isEditingDatasetClassification } = getProperties(
+      this,
+      'isEditingCompliancePolicy',
+      'isEditingDatasetClassification'
+    );
+
+    return [isEditingCompliancePolicy, isEditingDatasetClassification].map((_step, index) => ({
+      done: !index ? !!isEditingDatasetClassification : false
+    }));
+  }),
 
   /**
    * Reference to the application notifications Service
@@ -156,9 +206,7 @@ export default Component.extend({
   notifications: service(),
 
   didReceiveAttrs() {
-    this._super(...arguments);
-    // If a compliance policy does not exist for this dataset, place it in edit mode by default
-    set(this, 'isEditing', get(this, 'isNewComplianceInfo'));
+    this._super(...Array.from(arguments));
     // Perform validation step on the received component attributes
     this.validateAttrs();
   },
@@ -593,7 +641,7 @@ export default Component.extend({
       { formatted: [], unformatted: [] }
     );
 
-    const actions = {};
+    const dialogActions = {};
     let isConfirmed = true;
     let unformattedComplianceEntities = [];
 
@@ -608,8 +656,8 @@ export default Component.extend({
 
       const confirmHandler = (function() {
         return new Promise((resolve, reject) => {
-          actions['didConfirm'] = () => resolve();
-          actions['didDismiss'] = () => reject();
+          dialogActions['didConfirm'] = () => resolve();
+          dialogActions['didDismiss'] = () => reject();
         });
       })();
 
@@ -620,7 +668,7 @@ export default Component.extend({
           `There are ${unformatted.length} non-ID fields that have no field format specified. ` +
           `Are you sure they don't contain any of the following PII?\n\n` +
           `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`,
-        dialogActions: actions
+        dialogActions: dialogActions
       });
 
       try {
@@ -683,10 +731,24 @@ export default Component.extend({
     /**
      * Sets each datasetClassification value as false
      */
-    markDatasetAsNotContainingMemberData() {
-      const willMarkAllAsNo = confirm(
-        'Are you sure that any this dataset does not contain any of the listed types of member data'
-      );
+    async markDatasetAsNotContainingMemberData() {
+      const dialogActions = {};
+      const confirmMarkAllHandler = new Promise((resolve, reject) => {
+        dialogActions.didDismiss = () => reject();
+        dialogActions.didConfirm = () => resolve();
+      });
+      let willMarkAllAsNo = true;
+
+      get(this, 'notifications').notify('confirm', {
+        content: 'Are you sure that any this dataset does not contain any of the listed types of member data',
+        dialogActions
+      });
+
+      try {
+        await confirmMarkAllHandler;
+      } catch (e) {
+        willMarkAllAsNo = false;
+      }
 
       return (
         willMarkAllAsNo &&
@@ -708,10 +770,24 @@ export default Component.extend({
     },
 
     /**
-     * Handle the user intent to place this compliance component in edit mode
+     * Handler for setting the compliance policy into edit mode and rendering
      */
-    onEdit() {
-      set(this, 'isEditing', true);
+    onEditCompliancePolicy() {
+      setProperties(this, { isEditingCompliancePolicy: true, isEditingDatasetClassification: false });
+    },
+
+    /**
+     * Handler for setting the dataset classification into edit mode and rendering into DOM
+     */
+    async onEditDatasetClassification() {
+      const isConfirmed = await this.confirmUnformattedFields();
+
+      // If user provides confirmation for unformatted fields or there are none,
+      // then validate fields against expectations
+      // otherwise inform user of validation exception
+      if (isConfirmed) {
+        setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: true });
+      }
     },
 
     /**
@@ -847,29 +923,22 @@ export default Component.extend({
      */
     async saveCompliance() {
       const setSaveFlag = (flag = false) => set(this, 'isSaving', flag);
-      // If fields are confirmed as unique we can proceed with saving compliance entities
-      const saveConfirmed = await this.confirmUnformattedFields();
 
-      // If user provides confirmation for unformatted fields or there are none,
-      // then validate fields against expectations
-      // otherwise inform user of validation exception
-      if (saveConfirmed) {
-        try {
-          const isSaving = true;
-          const onSave = get(this, 'onSave');
-          setSaveFlag(isSaving);
-          await this.validateFields();
+      try {
+        const isSaving = true;
+        const onSave = get(this, 'onSave');
+        setSaveFlag(isSaving);
+        await this.validateFields();
 
-          return await this.whenRequestCompletes(onSave(), { isSaving });
-        } catch (e) {
-          // Flag this dataset's data as problematic
-          if (e instanceof Error && e.message === complianceDataException) {
-            set(this, '_hasBadData', true);
-            window.scrollTo(0, 0);
-          }
-        } finally {
-          setSaveFlag();
+        return await this.whenRequestCompletes(onSave(), { isSaving });
+      } catch (e) {
+        // Flag this dataset's data as problematic
+        if (e instanceof Error && e.message === complianceDataException) {
+          set(this, '_hasBadData', true);
+          window.scrollTo(0, 0);
         }
+      } finally {
+        setSaveFlag();
       }
     },
 

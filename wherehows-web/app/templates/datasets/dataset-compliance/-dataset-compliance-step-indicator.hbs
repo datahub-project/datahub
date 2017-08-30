@@ -1,0 +1,5 @@
+{{#each datasetComplianceSteps as |step index|}}
+  <span class="dataset-compliance-step dataset-compliance-step--{{if step.done "complete" "incomplete"}}">
+    {{inc index}}
+  </span>
+{{/each}}

@@ -15,7 +15,7 @@
   &__header,
   &__content,
   &__footer {
-    padding: item-spacing(2 4);
+    padding: item-spacing(4 4);
   }
 
   &__header {
@@ -24,6 +24,9 @@
 
   &__heading-text {
     margin-top: 0;
+    font-weight:fw(normal, 4);
+    font-size: 24px;
+    color: set-color(grey, dark);
   }
 
   &__footer {
