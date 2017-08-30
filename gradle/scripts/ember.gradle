@@ -4,8 +4,8 @@ node {
   // Version of node to use.
   version = '7.10.1'
 
-  // Version of yarn to use.
-  yarnVersion = '0.27.5'
+  // Version of npm to use.
+  npmVersion = '5.3.0'
 
   // Base URL for fetching node distributions (change if you have a mirror).
   distBaseUrl = 'https://nodejs.org/dist'
@@ -18,13 +18,13 @@ node {
   workDir = file("${project.buildDir}/nodejs")
 
   // Set the work directory for NPM
-  yarnWorkDir = file("${project.buildDir}/yarn")
+  npmWorkDir = file("${project.buildDir}/npm")
 
   // Set the work directory where node_modules should be located
   nodeModulesDir = file("${project.projectDir}")
 }
 
-task bowerInstall(type: NodeTask, dependsOn: yarn) {
+task bowerInstall(type: NodeTask, dependsOn: npmInstall) {
   script = file('node_modules/bower/lib/bin/bower.js')
   args = ['install']
 }
