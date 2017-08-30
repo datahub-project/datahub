@@ -1,4 +1,5 @@
 import Ember from 'ember';
+import { delay } from 'wherehows-web/utils/promise-delay';
 
 const { Service, set, get, setProperties } = Ember;
 /**
@@ -8,17 +9,13 @@ const { Service, set, get, setProperties } = Ember;
 let isBuffering = false;
 
 /**
- * String enum of available notifications
+ * String literal of available notifications
  */
-export enum Notifications {
-  success = 'success',
-  error = 'error',
-  info = 'info',
-  confirm = 'confirm'
-}
+type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
 
-type NotificationEvent = keyof Notifications;
-
+/**
+ * String literal for notification types
+ */
 type NotificationType = 'modal' | 'toast';
 
 /**
@@ -40,8 +37,10 @@ interface IConfirmOptions {
  */
 interface IToast {
   content: string;
+  duration?: number;
   dismissButtonText?: string;
-  isDismissible?: boolean;
+  isSticky?: boolean;
+  type?: NotificationEvent;
 }
 
 /**
@@ -65,8 +64,11 @@ interface INotificationResolver {
   onComplete?: () => void;
 }
 
+/**
+ * Describes the shape for a notification handler function
+ */
 interface INotificationHandler {
-  [prop: string]: (...args: Array<any>) => any;
+  [prop: string]: (...args: Array<any>) => INotification;
 }
 
 /**
@@ -81,8 +83,31 @@ const notificationsQueue: Array<INotification> = [];
  * @param {INotificationResolver} resolver a reference to the Promise resolve executor
  * @return {Promise<void>}
  */
-const createDialogAwaiter = (resolver: INotificationResolver): Promise<void> =>
+const createNotificationAwaiter = (resolver: INotificationResolver): Promise<void> =>
   new Promise(resolve => (resolver['onComplete'] = resolve));
+
+/**
+ * Takes a set of property attributes and constructs an object that matches the INotification shape
+ * @param {IToast} props
+ * @return {INotification}
+ */
+const makeToast = (props: IToast): INotification => {
+  let notificationResolution: INotificationResolver = {
+    /**
+     * Builds a promise reference for this INotification instance
+     * @return {Promise<void>}
+     */
+    get queueAwaiter() {
+      return createNotificationAwaiter(this);
+    }
+  };
+
+  return {
+    props,
+    type: 'toast',
+    notificationResolution
+  };
+};
 
 const notificationHandlers: INotificationHandler = {
   /**
@@ -93,7 +118,7 @@ const notificationHandlers: INotificationHandler = {
   confirm(props: IConfirmOptions): INotification {
     let notificationResolution: INotificationResolver = {
       get queueAwaiter() {
-        return createDialogAwaiter(this);
+        return createNotificationAwaiter(this);
       }
     };
 
@@ -106,10 +131,31 @@ const notificationHandlers: INotificationHandler = {
       notificationResolution
     };
   },
-  // TODO: META-91 implement toast handlers
-  error(/*{ message, sticky = false }: { message: string; sticky: boolean }*/) {},
-  success(/*{ message, sticky = false }: { message: string; sticky: boolean }*/) {},
-  info(/*{ message, sticky = false }: { message: string; sticky: boolean }*/) {}
+
+  /**
+   *
+   * @param {IToast} props
+   * @return {INotification}
+   */
+  error(props: IToast): INotification {
+    return makeToast({ content: 'An error occurred!', ...props, type: 'error', isSticky: true });
+  },
+  /**
+   *
+   * @param {IToast} props
+   * @return {INotification}
+   */
+  success(props: IToast): INotification {
+    return makeToast({ content: 'Success!', ...props, type: 'success' });
+  },
+  /**
+   *
+   * @param {IToast} props
+   * @return {INotification}
+   */
+  info(props: IToast): INotification {
+    return makeToast({ content: 'Something noteworthy happened.', ...props, type: 'info' });
+  }
 };
 
 /**
@@ -199,6 +245,15 @@ const NotificationService = Service.extend({
 
   actions: {
     /**
+     * Removes the current toast from view and invokes the notification resolution resolver
+     */
+    dismissToast() {
+      const { notificationResolution: { onComplete } }: INotification = get(this, 'toast');
+      set(this, 'isShowingToast', false);
+      onComplete && onComplete();
+    },
+
+    /**
      * Ignores the modal, invokes the user supplied didDismiss callback
      */
     dismissModal() {
@@ -208,7 +263,7 @@ const NotificationService = Service.extend({
         const { didDismiss } = (<IConfirmOptions>props).dialogActions;
         set(this, 'isShowingModal', false);
         didDismiss();
-        typeof onComplete === 'function' && onComplete();
+        onComplete && onComplete();
       }
     },
 
@@ -221,7 +276,7 @@ const NotificationService = Service.extend({
         const { didConfirm } = (<IConfirmOptions>props).dialogActions;
         set(this, 'isShowingModal', false);
         didConfirm();
-        typeof onComplete === 'function' && onComplete();
+        onComplete && onComplete();
       }
     }
   }
@@ -248,11 +303,20 @@ Ember.Object.reopen.call(NotificationService, {
      * a Notification and set it as the current notification based on it's type
      * @param {INotification} notification
      */
-    setCurrentNotification = (notification: INotification) => {
+    setCurrentNotification = async (notification: INotification) => {
       if (notification.type === 'modal') {
         setProperties(this, { modal: notification, isShowingModal: true });
       } else {
+        const { props } = notification;
+        const toastDelay = delay((<IToast>props).duration);
+
         setProperties(this, { toast: notification, isShowingToast: true });
+
+        if (!(<IToast>props).isSticky) {
+          await toastDelay;
+          // Burn toast
+          this.actions.dismissToast.call(this);
+        }
       }
     };
   }
