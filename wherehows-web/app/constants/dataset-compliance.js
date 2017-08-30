@@ -5,12 +5,14 @@
 const compliancePolicyStrings = {
   complianceDataException: 'Unexpected discrepancy in compliance data',
   missingTypes: 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?',
-  successUpdating: 'Your changes have been successfully saved!',
+  successUpdating: 'Congrats! Your changes have been successfully saved!',
   failedUpdating: 'Oops! We are having trouble updating this dataset at the moment.',
+  successUploading: 'Metadata successfully updated! Please "Save" when ready.',
+  invalidPolicyData: 'Received policy in an unexpected format! Please check the provided attributes and try again.',
   helpText: {
     classification:
       'The default value is taken from go/dht and should be good enough in most cases. ' +
-        'You can optionally override it if required by house security.'
+      'You can optionally override it if required by house security.'
   }
 };
 

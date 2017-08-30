@@ -25,7 +25,15 @@ const {
   inject: { service }
 } = Ember;
 
-const { complianceDataException, missingTypes, successUpdating, failedUpdating, helpText } = compliancePolicyStrings;
+const {
+  complianceDataException,
+  missingTypes,
+  successUpdating,
+  failedUpdating,
+  helpText,
+  successUploading,
+  invalidPolicyData
+} = compliancePolicyStrings;
 
 const hiddenTrackingFieldsMsg = htmlSafe(
   '<p>Some fields in this dataset have been hidden from the table(s) below. ' +
@@ -568,25 +576,19 @@ export default Component.extend({
     return Promise.resolve(request)
       .then(({ status = 'error' }) => {
         return status === 'ok'
-          ? setProperties(this, {
-              _message: successMessage || successUpdating,
-              _alertType: 'success'
-            })
+          ? get(this, 'notifications').notify('success', { content: successMessage || successUpdating })
           : Promise.reject(new Error(`Reason code for this is ${status}`));
       })
       .catch(err => {
         let _message = `${failedUpdating} \n ${err}`;
-        let _alertType = 'danger';
 
         if (get(this, 'isNewComplianceInfo') && !isSaving) {
-          _message = 'This dataset does not have any previously saved fields with a identifying information.';
-          _alertType = 'info';
+          get(this, 'notifications').notify('info', {
+            content: 'This dataset does not have any previously saved fields with a identifying information.'
+          });
         }
 
-        setProperties(this, {
-          _message,
-          _alertType
-        });
+        get(this, 'notifications').notify('error', { content: _message });
       });
   },
 
@@ -698,18 +700,13 @@ export default Component.extend({
     const fieldIdentifiersAreUnique = listIsUnique(complianceEntities.mapBy('identifierField'));
     const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
 
-    //
     if (!fieldIdentifiersAreUnique || !schemaFieldLengthGreaterThanComplianceEntities) {
+      get(this, 'notifications').notify('error', { content: complianceDataException });
       return Promise.reject(new Error(complianceDataException));
     }
 
     if (!idFieldsHaveValidLogicalType) {
-      return Promise.reject(
-        setProperties(this, {
-          _message: missingTypes,
-          _alertType: 'danger'
-        })
-      );
+      return Promise.reject(get(this, 'notifications').notify('error', { content: missingTypes }));
     }
   },
 
@@ -740,7 +737,8 @@ export default Component.extend({
       let willMarkAllAsNo = true;
 
       get(this, 'notifications').notify('confirm', {
-        content: 'Are you sure that any this dataset does not contain any of the listed types of member data',
+        content: 'Are you sure that any this dataset does not contain any of the listed types of member data?',
+        header: 'Dataset contains no member data',
         dialogActions
       });
 
@@ -802,18 +800,32 @@ export default Component.extend({
 
     /**
      * Receives the json representation for compliance and applies each key to the policy
-     * @param {String} textString string representation for the JSON file
+     * @param {string} textString string representation for the JSON file
      */
     onComplianceJsonUpload(textString) {
-      const policy = JSON.parse(textString);
-      if (isPolicyExpectedShape(policy)) {
-        set(this, 'complianceInfo', policy);
-
-        // If all is good, then we can saveCompliance so user does not have to manually click
-        return this.actions.saveCompliance();
+      let policy;
+      try {
+        policy = JSON.parse(textString);
+      } catch (e) {
+        get(this, 'notifications').notify('error', {
+          content: invalidPolicyData
+        });
       }
 
-      alert('Received policy in an unexpected format! Please check the provided attributes and try again.');
+      if (isPolicyExpectedShape(policy)) {
+        setProperties(this, {
+          'complianceInfo.complianceEntities': policy.complianceEntities,
+          'complianceInfo.datasetClassification': policy.datasetClassification
+        });
+
+        get(this, 'notifications').notify('info', {
+          content: successUploading
+        });
+      }
+
+      get(this, 'notifications').notify('error', {
+        content: invalidPolicyData
+      });
     },
 
     /**

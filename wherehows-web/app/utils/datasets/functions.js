@@ -1,7 +1,7 @@
 import Ember from 'ember';
 import { datasetClassifiers } from 'wherehows-web/constants/dataset-classification';
 
-const { assert } = Ember;
+const { assert, Logger: { warn } } = Ember;
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
@@ -32,7 +32,7 @@ const policyShape = {
       keys: [
         'identifierField:string',
         'identifierType:string',
-        'securityClassification:string',
+        'securityClassification:string|object',
         'logicalType:string|object|undefined'
       ]
     }
@@ -43,7 +43,7 @@ const policyShape = {
 /**
  * Checks that a policy is valid
  * @param candidatePolicy
- * @return {Boolean}
+ * @return {boolean}
  */
 const isPolicyExpectedShape = (candidatePolicy = {}) => {
   const candidateMatchesShape = policyKey => {
@@ -74,11 +74,18 @@ const isPolicyExpectedShape = (candidatePolicy = {}) => {
     if (expectedType === 'array') {
       return policyKeyValue.every(value => {
         if (!value && typeof value !== policyProps.of.type) {
+          warn(`Typedefs for ${policyKey} with value ${policyKeyValue} does not equal ${policyProps.of.type}`);
           return false;
         }
+
         return typeDeclarations.every(typeString => {
           const [key, type] = typeString.split(':');
-          return type.includes(typeof value[key]);
+          const result = type.includes(typeof value[key]);
+          if (!result) {
+            warn(`Typedefs for ${policyKey} don't include '${typeof value[key]}' for ${key}`);
+          }
+
+          return result;
         });
       });
     }
@@ -86,7 +93,12 @@ const isPolicyExpectedShape = (candidatePolicy = {}) => {
     if (expectedType === typeof {}) {
       return typeDeclarations.every(typeString => {
         const [key, type] = typeString.split(':');
-        return type.includes(typeof policyKeyValue[key]);
+        const result = type.includes(typeof policyKeyValue[key]);
+        if (!result) {
+          warn(`Typedefs for ${policyKey} don't include ${typeof policyKeyValue[key]} for ${key}`);
+        }
+
+        return result;
       });
     }
   };

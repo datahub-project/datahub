@@ -11,18 +11,19 @@
 
 
 {{#if service.isShowingToast}}
-  <div id="notification-toast" class="notification-toast">
+  <div class="notification-toast">
     <i class="notification-toast__icon"></i>
 
     <div class="notification-toast__content notification-toast__content--{{service.toast.props.type}}">
-      <p>{{service.toast.props.message}}</p>
+      <p>{{service.toast.props.content}}</p>
     </div>
 
-    {{#if service.toast.props.isDismissible}}
-      <button class="notification-toast__dismiss">
-        <span class="sr-only">{{service.toast.props.dismissButtonText}}</span>
-      </button>
-    {{/if}}
+    <button class="notification-toast__dismiss" onclick={{action "dismissToast" target=service}}>
+      <span class="sr-only">{{service.toast.props.dismissButtonText}}</span>
+      &times;
+    </button>
+
   </div>
 {{/if}}
+
 {{yield}}
