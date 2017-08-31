@@ -120,25 +120,25 @@ public class Dataset extends Controller {
   }
 
   public static Result getDatasetColumnByID(int datasetId, int columnId) {
-    List<DatasetColumn> datasetColumnList = DATASETS_DAO.getDatasetColumnByID(JDBC_TEMPLATE, datasetId, columnId);
+    List<DatasetColumn> columns = READONLY_DAO.getDatasetColumnByID(datasetId, columnId);
 
     ObjectNode result = Json.newObject();
 
-    if (datasetColumnList != null && datasetColumnList.size() > 0) {
+    if (columns != null && columns.size() > 0) {
       result.put("status", "ok");
-      result.set("columns", Json.toJson(datasetColumnList));
+      result.set("columns", Json.toJson(columns));
     } else {
       result.put("status", "error");
       result.put("message", "record not found");
     }
-
     return ok(result);
   }
 
   public static Result getDatasetColumnsByID(int id) {
+    List<DatasetColumn> columns = READONLY_DAO.getDatasetColumnsByID(id);
+
     ObjectNode result = Json.newObject();
 
-    List<DatasetColumn> columns = DATASETS_DAO.getDatasetColumnsByID(JDBC_TEMPLATE, id);
     if (columns != null && columns.size() > 0) {
       result.put("status", "ok");
       result.set("columns", Json.toJson(columns));
