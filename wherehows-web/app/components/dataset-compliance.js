@@ -676,11 +676,12 @@ export default Component.extend({
 
       try {
         await confirmHandler;
-        complianceEntities.setObjects([...formatted, ...unformattedComplianceEntities]);
       } catch (e) {
         isConfirmed = false;
       }
     }
+
+    isConfirmed && complianceEntities.setObjects([...formatted, ...unformattedComplianceEntities]);
 
     return isConfirmed;
   },
