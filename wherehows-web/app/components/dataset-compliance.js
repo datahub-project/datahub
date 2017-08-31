@@ -694,6 +694,7 @@ export default Component.extend({
    * @return {any | Promise<any>}
    */
   validateFields() {
+    const notify = get(this, 'notifications.notify');
     const complianceEntities = get(this, policyComplianceEntitiesKey);
     const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
       complianceEntities.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType)),
@@ -703,12 +704,12 @@ export default Component.extend({
     const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
 
     if (!fieldIdentifiersAreUnique || !schemaFieldLengthGreaterThanComplianceEntities) {
-      get(this, 'notifications').notify('error', { content: complianceDataException });
+      notify('error', { content: complianceDataException });
       return Promise.reject(new Error(complianceDataException));
     }
 
     if (!idFieldsHaveValidLogicalType) {
-      return Promise.reject(get(this, 'notifications').notify('error', { content: missingTypes }));
+      return Promise.reject(notify('error', { content: missingTypes }));
     }
   },
 
@@ -781,6 +782,20 @@ export default Component.extend({
      */
     async onEditDatasetClassification() {
       const isConfirmed = await this.confirmUnformattedFields();
+
+      // Ensure that the fields on the policy meet the validation criteria before proceeding
+      // Otherwise exit early
+      try {
+        await this.validateFields();
+      } catch (e) {
+        // Flag this dataset's data as problematic
+        if (e instanceof Error && e.message === complianceDataException) {
+          set(this, '_hasBadData', true);
+          window.scrollTo(0, 0);
+        }
+
+        return;
+      }
 
       // If user provides confirmation for unformatted fields or there are none,
       // then validate fields against expectations
@@ -942,15 +957,8 @@ export default Component.extend({
         const isSaving = true;
         const onSave = get(this, 'onSave');
         setSaveFlag(isSaving);
-        await this.validateFields();
 
         return await this.whenRequestCompletes(onSave(), { isSaving });
-      } catch (e) {
-        // Flag this dataset's data as problematic
-        if (e instanceof Error && e.message === complianceDataException) {
-          set(this, '_hasBadData', true);
-          window.scrollTo(0, 0);
-        }
       } finally {
         setSaveFlag();
       }
