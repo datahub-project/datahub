@@ -34,15 +34,15 @@ import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.dao.DatasetClassificationDao;
-import wherehows.dao.DatasetsDao;
-import wherehows.dao.MetadataReadOnlyDao;
-import wherehows.models.DatasetClassification;
-import wherehows.models.DatasetColumn;
-import wherehows.models.DatasetCompliance;
-import wherehows.models.DatasetDependency;
-import wherehows.models.DatasetOwner;
-import wherehows.models.ImpactDataset;
+import wherehows.dao.table.DatasetClassificationDao;
+import wherehows.dao.table.DatasetsDao;
+import wherehows.dao.view.MetadataReadOnlyDao;
+import wherehows.models.table.DatasetClassification;
+import wherehows.models.view.DatasetColumn;
+import wherehows.models.table.DatasetCompliance;
+import wherehows.models.table.DatasetDependency;
+import wherehows.models.view.DatasetOwner;
+import wherehows.models.table.ImpactDataset;
 
 
 public class Dataset extends Controller {
@@ -104,7 +104,7 @@ public class Dataset extends Controller {
 
   public static Result getDatasetByID(int id) {
     String username = session("user");
-    wherehows.models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
+    wherehows.models.table.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
 
     ObjectNode result = Json.newObject();
 

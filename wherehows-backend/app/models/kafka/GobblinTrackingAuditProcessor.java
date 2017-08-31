@@ -31,8 +31,8 @@ import wherehows.common.schemas.Record;
 import wherehows.common.utils.StringUtil;
 import play.libs.Json;
 import play.Logger;
-import wherehows.dao.DatasetClassificationDao;
-import wherehows.models.DatasetClassification;
+import wherehows.dao.table.DatasetClassificationDao;
+import wherehows.models.table.DatasetClassification;
 
 
 public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {

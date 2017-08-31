@@ -14,7 +14,7 @@
 package security;
 
 import dao.UserDAO;
-import wherehows.models.User;
+import wherehows.models.table.User;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.Play;

@@ -40,20 +40,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.Play;
 import play.libs.Json;
-import wherehows.models.DashboardDataset;
-import wherehows.models.Dataset;
-import wherehows.models.DatasetAccessItem;
-import wherehows.models.DatasetAccessibility;
-import wherehows.models.DatasetColumnComment;
-import wherehows.models.DatasetComment;
-import wherehows.models.DatasetDependency;
-import wherehows.models.DatasetInstance;
-import wherehows.models.DatasetListViewNode;
-import wherehows.models.DatasetPartition;
-import wherehows.models.ImpactDataset;
-import wherehows.models.SimilarColumns;
-import wherehows.models.SimilarComments;
-import wherehows.models.User;
+import wherehows.models.table.DashboardDataset;
+import wherehows.models.table.Dataset;
+import wherehows.models.table.DatasetAccessItem;
+import wherehows.models.table.DatasetAccessibility;
+import wherehows.models.table.DatasetColumnComment;
+import wherehows.models.table.DatasetComment;
+import wherehows.models.table.DatasetDependency;
+import wherehows.models.table.DatasetInstance;
+import wherehows.models.table.DatasetListViewNode;
+import wherehows.models.table.DatasetPartition;
+import wherehows.models.table.ImpactDataset;
+import wherehows.models.table.SimilarColumns;
+import wherehows.models.table.SimilarComments;
+import wherehows.models.table.User;
 
 
 public class DatasetsDAO extends AbstractMySQLOpenSourceDAO

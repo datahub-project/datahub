@@ -24,13 +24,13 @@ import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.common.utils.StringUtil;
-import wherehows.dao.DatasetSchemaInfoDao;
-import wherehows.dao.DictDatasetDao;
-import wherehows.dao.FieldDetailDao;
-import wherehows.models.DatasetFieldSchema;
-import wherehows.models.DatasetSchemaInfo;
-import wherehows.models.DictDataset;
-import wherehows.models.DictFieldDetail;
+import wherehows.dao.table.DatasetSchemaInfoDao;
+import wherehows.dao.table.DictDatasetDao;
+import wherehows.dao.table.FieldDetailDao;
+import wherehows.models.table.DatasetFieldSchema;
+import wherehows.models.table.DatasetSchemaInfo;
+import wherehows.models.table.DictDataset;
+import wherehows.models.table.DictFieldDetail;
 import wherehows.util.Urn;
 
 

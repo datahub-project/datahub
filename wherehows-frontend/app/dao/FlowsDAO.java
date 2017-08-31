@@ -27,10 +27,10 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
-import wherehows.models.Flow;
-import wherehows.models.FlowListViewNode;
-import wherehows.models.Job;
-import wherehows.models.TreeNode;
+import wherehows.models.table.Flow;
+import wherehows.models.table.FlowListViewNode;
+import wherehows.models.table.Job;
+import wherehows.models.table.TreeNode;
 
 
 public class FlowsDAO extends AbstractMySQLOpenSourceDAO {

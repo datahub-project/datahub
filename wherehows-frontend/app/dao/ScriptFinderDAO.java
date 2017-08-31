@@ -29,9 +29,9 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
-import wherehows.models.ScriptInfo;
-import wherehows.models.ScriptLineage;
-import wherehows.models.ScriptRuntime;
+import wherehows.models.table.ScriptInfo;
+import wherehows.models.table.ScriptLineage;
+import wherehows.models.table.ScriptRuntime;
 
 public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 
@@ -63,7 +63,7 @@ public class ScriptFinderDAO extends AbstractMySQLOpenSourceDAO{
 
 	private final static String GET_SCRIPT_LINEAGE = "SELECT * FROM " +
 			"job_execution_data_lineage WHERE app_id = ? AND job_exec_id = ? ORDER BY source_target_type DESC";
-	
+
 	public static List<String> getAllScriptTypes()
 	{
 		return getJdbcTemplate().queryForList(GET_SCRIPT_TYPE, String.class);

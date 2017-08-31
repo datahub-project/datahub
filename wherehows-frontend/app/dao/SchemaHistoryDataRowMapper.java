@@ -14,7 +14,7 @@
 package dao;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import wherehows.models.SchemaHistoryData;
+import wherehows.models.table.SchemaHistoryData;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import play.Logger;

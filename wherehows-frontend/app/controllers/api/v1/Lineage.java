@@ -22,6 +22,7 @@ import play.Play;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import wherehows.models.table.Dataset;
 
 
 public class Lineage extends Controller {
@@ -36,7 +37,7 @@ public class Lineage extends Controller {
       return ok(result);
     }
 
-    wherehows.models.Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
+    Dataset dataset = DatasetsDAO.getDatasetByID(id, username);
     if (dataset == null || StringUtils.isBlank(dataset.urn)) {
       result.put("status", "error");
       result.put("message", "wrong dataset id");

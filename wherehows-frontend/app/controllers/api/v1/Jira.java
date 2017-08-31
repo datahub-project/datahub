@@ -20,7 +20,7 @@ import java.util.List;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.models.JiraTicket;
+import wherehows.models.table.JiraTicket;
 
 
 public class Jira extends Controller {
