@@ -18,8 +18,6 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
-import javax.persistence.Table;
-import javax.persistence.Transient;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -28,7 +26,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Entity
 @IdClass(DatasetOwner.DatasetOwnerKey.class)
-@Table(name = "dataset_owner")
 public class DatasetOwner {
 
   @Id
@@ -42,10 +39,10 @@ public class DatasetOwner {
   @Column(name = "namespace")
   private String namespace;
 
-  @Transient
+  @Column(name = "display_name")
   private String name;
 
-  @Transient
+  @Column(name = "email")
   private String email;
 
   @Column(name = "is_group")

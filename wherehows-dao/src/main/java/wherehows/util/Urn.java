@@ -98,9 +98,9 @@ public class Urn {
   public static boolean validateUrn(String urnString) {
 
     String[] splitResult = urnString.split(":///");
-    if ((datasetTypes.contains(splitResult[0]) || splitResult[0].matches("\\w+")) &&
-        splitResult.length > 1)
+    if ((datasetTypes.contains(splitResult[0]) || splitResult[0].matches("\\w+")) && splitResult.length > 1) {
       return true;
+    }
     return false;
   }
 }

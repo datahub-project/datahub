@@ -36,6 +36,7 @@ import play.mvc.Controller;
 import play.mvc.Result;
 import wherehows.dao.DatasetClassificationDao;
 import wherehows.dao.DatasetsDao;
+import wherehows.dao.MetadataReadOnlyDao;
 import wherehows.models.DatasetClassification;
 import wherehows.models.DatasetColumn;
 import wherehows.models.DatasetCompliance;
@@ -54,6 +55,8 @@ public class Dataset extends Controller {
 
   private static final DatasetClassificationDao CLASSIFICATION_DAO =
       Application.DAO_FACTORY.getDatasetClassificationDao();
+
+  private static final MetadataReadOnlyDao READONLY_DAO = Application.DAO_FACTORY.getMetadataReadOnlyDao();
 
   public static Result getDatasetOwnerTypes() {
     ObjectNode result = Json.newObject();
@@ -198,7 +201,7 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     try {
-      result.set("owners", Json.toJson(DATASETS_DAO.getDatasetOwnersByID(JDBC_TEMPLATE, NAMED_JDBC_TEMPLATE, id)));
+      result.set("owners", Json.toJson(READONLY_DAO.getDatasetOwnersByID(id)));
       result.put("status", "ok");
     } catch (Exception e) {
       Logger.warn("Failed to get owners: " + e.toString());
