@@ -20,6 +20,9 @@ hive.metastore.username=your_metastore_username
 # hive metastore password
 hive.metastore.password=your_metastore_password
 
+# hive metastore DB reconnect interval
+hive.metastore.reconnect.time=your_reconnect_interval_seconds
+
 hive.database_black_list=your_databsae_black_list
 
 hive.database_white_list=your_database_white_list
