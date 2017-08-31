@@ -13,7 +13,6 @@
  */
 package wherehows.main;
 
-import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import com.typesafe.config.Config;
@@ -23,8 +22,6 @@ import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import wherehows.actors.KafkaConsumerMaster;
-import wherehows.utils.ClusterUtil;
-import wherehows.dao.ClusterInfoDao;
 import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
@@ -66,8 +63,6 @@ public class ApplicationStart {
   }
 
   public static void main(String[] args) {
-    ClusterInfoDao clusterInfoDao = DAO_FACTORY.getClusterInfoDao();
-    ClusterUtil.updateClusterInfo(clusterInfoDao.findAll());
 
     log.info("start WhereHows KAFKA Consumer Service");
     ActorSystem actorSystem = ActorSystem.create("WhereHowsKAFKAConsumerService");
