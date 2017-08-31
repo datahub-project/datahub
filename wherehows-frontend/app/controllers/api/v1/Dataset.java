@@ -36,7 +36,8 @@ import play.mvc.Controller;
 import play.mvc.Result;
 import wherehows.dao.table.DatasetClassificationDao;
 import wherehows.dao.table.DatasetsDao;
-import wherehows.dao.view.MetadataReadOnlyDao;
+import wherehows.dao.view.DatasetViewDao;
+import wherehows.dao.view.OwnerViewDao;
 import wherehows.models.table.DatasetClassification;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.table.DatasetCompliance;
@@ -56,7 +57,9 @@ public class Dataset extends Controller {
   private static final DatasetClassificationDao CLASSIFICATION_DAO =
       Application.DAO_FACTORY.getDatasetClassificationDao();
 
-  private static final MetadataReadOnlyDao READONLY_DAO = Application.DAO_FACTORY.getMetadataReadOnlyDao();
+  private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
+
+  private static final OwnerViewDao OWNER_VIEW_DAO = Application.DAO_FACTORY.getOwnerViewDao();
 
   public static Result getDatasetOwnerTypes() {
     ObjectNode result = Json.newObject();
@@ -120,7 +123,7 @@ public class Dataset extends Controller {
   }
 
   public static Result getDatasetColumnByID(int datasetId, int columnId) {
-    List<DatasetColumn> columns = READONLY_DAO.getDatasetColumnByID(datasetId, columnId);
+    List<DatasetColumn> columns = DATASET_VIEW_DAO.getDatasetColumnByID(datasetId, columnId);
 
     ObjectNode result = Json.newObject();
 
@@ -135,7 +138,9 @@ public class Dataset extends Controller {
   }
 
   public static Result getDatasetColumnsByID(int id) {
-    List<DatasetColumn> columns = READONLY_DAO.getDatasetColumnsByID(id);
+    String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+
+    List<DatasetColumn> columns = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
 
     ObjectNode result = Json.newObject();
 
@@ -201,7 +206,9 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     try {
-      result.set("owners", Json.toJson(READONLY_DAO.getDatasetOwnersByID(id)));
+      String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+
+      result.set("owners", Json.toJson(OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn)));
       result.put("status", "ok");
     } catch (Exception e) {
       Logger.warn("Failed to get owners: " + e.toString());
