@@ -13,18 +13,77 @@
  */
 package wherehows.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Transient;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@NoArgsConstructor
+@Entity
 public class DatasetColumn {
-  public Long id;
-  public int sortID;
-  public int parentSortID;
-  public String fieldName;
-  public String fullFieldPath;
-  public String dataType;
-  public String comment;
-  public boolean partitioned;
-  public boolean nullable;
-  public boolean distributed;
-  public boolean indexed;
-  public Long commentCount;
-  public String treeGridClass;
+
+  @Id
+  @Column(name = "field_id")
+  private Long id;
+
+  @Column(name = "sort_id")
+  private int sortID;
+
+  @Column(name = "parent_sort_id")
+  private int parentSortID;
+
+  @Column(name = "field_name")
+  private String fieldName;
+
+  @JsonIgnore
+  @Column(name = "parent_path")
+  private String parentPath;
+
+  @Transient
+  private String fullFieldPath;
+
+  @Column(name = "data_type")
+  private String dataType;
+
+  @Column(name = "comment")
+  private String comment;
+
+  @Column(name = "comment_count")
+  private Long commentCount;
+
+  @JsonIgnore
+  @Column(name = "partitioned")
+  private String partitionedStr;
+
+  @Transient
+  private boolean partitioned;
+
+  @JsonIgnore
+  @Column(name = "nullable")
+  private String nullableStr;
+
+  @Transient
+  private boolean nullable;
+
+  @JsonIgnore
+  @Column(name = "indexed")
+  private String indexedStr;
+
+  @Transient
+  private boolean indexed;
+
+  @JsonIgnore
+  @Column(name = "distributed")
+  private String distributedStr;
+
+  @Transient
+  private boolean distributed;
+
+  @Transient
+  private String treeGridClass;
 }

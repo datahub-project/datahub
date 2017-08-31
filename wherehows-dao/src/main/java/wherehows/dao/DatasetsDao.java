@@ -29,8 +29,6 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import wherehows.mapper.DatasetColumnRowMapper;
-import wherehows.models.DatasetColumn;
 import wherehows.models.DatasetCompliance;
 import wherehows.models.DatasetFieldEntity;
 import wherehows.models.DatasetOwner;
@@ -43,25 +41,6 @@ public class DatasetsDao {
   private static final Logger logger = LoggerFactory.getLogger(DatasetsDao.class);
 
   private static final String GET_DATASET_URN_BY_ID = "SELECT urn FROM dict_dataset WHERE id=?";
-
-  private static final String GET_DATASET_COLUMNS_BY_DATASET_ID =
-      "select dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
-          + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
-          + "dfd.is_distributed as distributed, c.comment, " + "( SELECT count(*) FROM dict_dataset_field_comment ddfc "
-          + "WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count "
-          + "FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON "
-          + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN field_comments c ON "
-          + "c.id = ddfc.comment_id WHERE dfd.dataset_id = ? ORDER BY dfd.sort_id";
-
-  private static final String GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID =
-      "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
-          + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
-          + "dfd.is_distributed as distributed, c.text as comment, "
-          + "( SELECT count(*) FROM dict_dataset_field_comment ddfc "
-          + "WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count "
-          + "FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON "
-          + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON "
-          + "c.id = ddfc.comment_id WHERE dfd.dataset_id = ? AND dfd.field_id = ? ORDER BY dfd.sort_id";
 
   private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
       "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
@@ -105,15 +84,6 @@ public class DatasetsDao {
       logger.error("Can not find URN for dataset id: " + dataset_id + " : " + e.getMessage());
     }
     return null;
-  }
-
-  public List<DatasetColumn> getDatasetColumnsByID(JdbcTemplate jdbcTemplate, int datasetId) {
-    return jdbcTemplate.query(GET_DATASET_COLUMNS_BY_DATASET_ID, new DatasetColumnRowMapper(), datasetId);
-  }
-
-  public List<DatasetColumn> getDatasetColumnByID(JdbcTemplate jdbcTemplate, int datasetId, int columnId) {
-    return jdbcTemplate.query(GET_DATASET_COLUMNS_BY_DATASETID_AND_COLUMNID, new DatasetColumnRowMapper(), datasetId,
-        columnId);
   }
 
   public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, List<DatasetOwner> owners)
