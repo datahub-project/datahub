@@ -17,17 +17,22 @@ import akka.actor.ActorSystem;
 import akka.actor.Props;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import wherehows.actors.KafkaConsumerMaster;
-import wherehows.dao.table.ConnectionPoolProperties;
+import wherehows.common.utils.ProcessUtil;
 import wherehows.dao.DaoFactory;
+import wherehows.dao.table.ConnectionPoolProperties;
 
 
 @Slf4j
 public class ApplicationStart {
+
+  private static final String PID_FILE_PATH_KEY = "pidfile.path";
 
   private static final Config config = ConfigFactory.load();
   private static final String DB_WHEREHOWS_URL = config.getString("db.wherehows.url");
@@ -36,8 +41,7 @@ public class ApplicationStart {
   private static final String DB_WHEREHOWS_PASSWORD = config.getString("db.wherehows.password");
   private static final String DB_WHEREHOWS_DIALECT = config.getString("hikaricp.dialect");
   private static final String DAO_FACTORY_CLASS =
-      config.hasPath("dao.factory.class")? config.getString("dao.factory.class")
-          : DaoFactory.class.getCanonicalName();
+      config.hasPath("dao.factory.class") ? config.getString("dao.factory.class") : DaoFactory.class.getCanonicalName();
 
   private static final EntityManagerFactory ENTITY_MANAGER_FACTORY = ConnectionPoolProperties.builder()
       .providerClass(HikariCPConnectionProvider.class.getName())
@@ -62,10 +66,31 @@ public class ApplicationStart {
     }
   }
 
-  public static void main(String[] args) {
+  private static void writeProcessId() {
+    String pidFile = System.getProperty(PID_FILE_PATH_KEY);
+    if (pidFile == null) {
+      return;
+    }
+    log.info("Writing PID to " + pidFile);
 
-    log.info("start WhereHows KAFKA Consumer Service");
+    try (PrintWriter out = new PrintWriter(pidFile)) {
+      out.println(ProcessUtil.getCurrentProcessId());
+    } catch (FileNotFoundException e) {
+      log.error("Unable to write to " + pidFile);
+    }
+  }
+
+  public static void main(String[] args) {
+    log.info("Starting WhereHows KAFKA Consumer Service");
+
+    writeProcessId();
+
     ActorSystem actorSystem = ActorSystem.create("WhereHowsKAFKAConsumerService");
-    actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
+
+    try {
+      actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
+    } finally {
+      actorSystem.shutdown();
+    }
   }
 }
