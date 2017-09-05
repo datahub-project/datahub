@@ -13,6 +13,7 @@
 #
 
 import json
+import os
 import sys
 from com.ziclix.python.sql import zxJDBC
 from metadata.etl.dataset.hive import HiveViewDependency
@@ -22,6 +23,7 @@ from wherehows.common.schemas import DatasetSchemaRecord, DatasetFieldRecord, Hi
     DatasetInstanceRecord
 from wherehows.common.writers import FileWriter
 
+import FileUtil
 from AvroColumnParser import AvroColumnParser
 from HiveColumnParser import HiveColumnParser
 from HiveExtract import TableInfo
@@ -40,13 +42,11 @@ class HiveTransform:
     self.conn_hms = zxJDBC.connect(jdbc_url, username, password, jdbc_driver)
     self.curs = self.conn_hms.cursor()
 
-    self.instance_writer = FileWriter(args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY])
-
     # variable
     self.dataset_dict = {}
 
 
-  def transform(self, input, hive_instance, hive_metadata, hive_field_metadata):
+  def transform(self, input, hive_instance, hive_metadata, hive_field_metadata, view_dependency):
     """
     convert from json to csv
     :param input: input json file
@@ -65,6 +65,7 @@ class HiveTransform:
     instance_file_writer = FileWriter(hive_instance)
     schema_file_writer = FileWriter(hive_metadata)
     field_file_writer = FileWriter(hive_field_metadata)
+    dependency_file_writer = FileWriter(view_dependency)
 
     depends_sql = """
       SELECT d.NAME DB_NAME, case when t.TBL_NAME regexp '_[0-9]+_[0-9]+_[0-9]+$'
@@ -143,9 +144,9 @@ class HiveTransform:
                                           row_value[4],
                                           row_value[2],
                                           row_value[5] + ':///' + row_value[0] + '/' + row_value[1], '')
-                    self.instance_writer.append(dependent_record)
+                    dependency_file_writer.append(dependent_record)
           prop_json['view_depends_on'] = l
-          self.instance_writer.flush()
+          dependency_file_writer.flush()
 
         # process either schema
         flds = {}
@@ -228,17 +229,22 @@ class HiveTransform:
     instance_file_writer.close()
     schema_file_writer.close()
     field_file_writer.close()
+    dependency_file_writer.close()
 
 
 if __name__ == "__main__":
   args = sys.argv[1]
   t = HiveTransform()
+
+  temp_dir = FileUtil.etl_temp_dir(args, "HIVE")
+  schema_json_file = os.path.join(temp_dir, args[Constant.HIVE_SCHEMA_JSON_FILE_KEY])
+  instance_csv_file = os.path.join(temp_dir, args[Constant.HIVE_INSTANCE_CSV_FILE_KEY])
+  schema_csv_file = os.path.join(temp_dir, args[Constant.HIVE_SCHEMA_CSV_FILE_KEY])
+  field_csv_file = os.path.join(temp_dir, args[Constant.HIVE_FIELD_METADATA_KEY])
+  dependency_csv_file = os.path.join(temp_dir, args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY])
+
   try:
-    t.transform(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY],
-                args[Constant.HIVE_INSTANCE_CSV_FILE_KEY],
-                args[Constant.HIVE_SCHEMA_CSV_FILE_KEY],
-                args[Constant.HIVE_FIELD_METADATA_KEY])
+    t.transform(schema_json_file, instance_csv_file, schema_csv_file, field_csv_file, dependency_csv_file)
   finally:
     t.curs.close()
     t.conn_hms.close()
-    t.instance_writer.close()

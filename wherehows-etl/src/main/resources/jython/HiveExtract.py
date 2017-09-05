@@ -533,11 +533,13 @@ if __name__ == "__main__":
 
   e = HiveExtract(args)
 
+  temp_dir = FileUtil.etl_temp_dir(args, "HIVE")
+  schema_json_file = os.path.join(temp_dir, args[Constant.HIVE_SCHEMA_JSON_FILE_KEY])
+  hdfs_map_csv_file = os.path.join(temp_dir, args[Constant.HIVE_HDFS_MAP_CSV_FILE_KEY])
+
   try:
     e.databases = e.get_all_databases(e.db_whitelist, e.db_blacklist)
-    e.run(args[Constant.HIVE_SCHEMA_JSON_FILE_KEY],
-          None,
-          args[Constant.HIVE_HDFS_MAP_CSV_FILE_KEY])
+    e.run(schema_json_file, None, hdfs_map_csv_file)
   finally:
     if e.conn_hms:
       e.conn_hms.close()
