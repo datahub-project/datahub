@@ -22,7 +22,7 @@ import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import wherehows.actors.KafkaConsumerMaster;
-import wherehows.dao.ConnectionPoolProperties;
+import wherehows.dao.table.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
 

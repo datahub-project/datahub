@@ -13,7 +13,7 @@
  */
 package dao;
 
-import wherehows.models.ScriptLineage;
+import wherehows.models.table.ScriptLineage;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.*;

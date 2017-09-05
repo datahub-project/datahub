@@ -14,6 +14,13 @@
 package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
+import wherehows.dao.table.ClusterInfoDao;
+import wherehows.dao.table.DatasetClassificationDao;
+import wherehows.dao.table.DatasetSchemaInfoDao;
+import wherehows.dao.table.DatasetsDao;
+import wherehows.dao.table.DictDatasetDao;
+import wherehows.dao.table.FieldDetailDao;
+import wherehows.dao.view.MetadataReadOnlyDao;
 
 
 public class DaoFactory {

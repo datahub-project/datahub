@@ -13,7 +13,7 @@
  */
 package dao;
 
-import wherehows.models.LdapInfo;
+import wherehows.models.table.LdapInfo;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

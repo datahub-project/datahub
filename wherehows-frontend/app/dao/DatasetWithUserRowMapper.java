@@ -13,8 +13,8 @@
  */
 package dao;
 
-import wherehows.models.Dataset;
-import wherehows.models.User;
+import wherehows.models.table.Dataset;
+import wherehows.models.table.User;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import play.Play;

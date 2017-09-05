@@ -15,7 +15,7 @@ package wherehows.utils;
 
 import java.util.ArrayList;
 import java.util.List;
-import wherehows.models.ClusterInfo;
+import wherehows.models.table.ClusterInfo;
 
 
 public class ClusterUtil {

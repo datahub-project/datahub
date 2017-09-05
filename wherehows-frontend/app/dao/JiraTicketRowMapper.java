@@ -13,7 +13,7 @@
  */
 package dao;
 
-import wherehows.models.JiraTicket;
+import wherehows.models.table.JiraTicket;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;

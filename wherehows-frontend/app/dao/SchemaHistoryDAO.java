@@ -24,8 +24,8 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
-import wherehows.models.SchemaDataset;
-import wherehows.models.SchemaHistoryData;
+import wherehows.models.table.SchemaDataset;
+import wherehows.models.table.SchemaHistoryData;
 
 public class SchemaHistoryDAO extends AbstractMySQLOpenSourceDAO{
 

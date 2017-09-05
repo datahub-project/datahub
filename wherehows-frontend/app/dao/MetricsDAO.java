@@ -21,8 +21,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.primitives.Ints;
-import wherehows.models.MetricListViewNode;
-import wherehows.models.TreeNode;
+import wherehows.models.table.MetricListViewNode;
+import wherehows.models.table.TreeNode;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,7 +32,7 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
-import wherehows.models.Metric;
+import wherehows.models.table.Metric;
 
 public class MetricsDAO extends AbstractMySQLOpenSourceDAO
 {

@@ -15,7 +15,7 @@ package utils;
 
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
-import wherehows.models.LineagePathInfo;
+import wherehows.models.table.LineagePathInfo;
 
 
 public class Lineage {

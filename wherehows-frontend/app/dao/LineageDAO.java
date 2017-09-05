@@ -27,7 +27,11 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import play.Logger;
 import play.libs.Json;
 import utils.Lineage;
-import wherehows.models.*;
+import wherehows.models.table.ImpactDataset;
+import wherehows.models.table.LineageEdge;
+import wherehows.models.table.LineageNode;
+import wherehows.models.table.LineagePathInfo;
+import wherehows.models.table.ScriptInfo;
 
 
 public class LineageDAO extends AbstractMySQLOpenSourceDAO

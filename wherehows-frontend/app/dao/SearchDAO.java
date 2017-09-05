@@ -31,9 +31,9 @@ import play.Play;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.libs.ws.*;
-import wherehows.models.Dataset;
-import wherehows.models.FlowJob;
-import wherehows.models.Metric;
+import wherehows.models.table.Dataset;
+import wherehows.models.table.FlowJob;
+import wherehows.models.table.Metric;
 
 
 public class SearchDAO extends AbstractMySQLOpenSourceDAO

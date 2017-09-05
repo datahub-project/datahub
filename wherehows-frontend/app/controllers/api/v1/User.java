@@ -22,9 +22,9 @@ import play.cache.Cache;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.models.CompanyUser;
-import wherehows.models.Group;
-import wherehows.models.UserEntity;
+import wherehows.models.table.CompanyUser;
+import wherehows.models.table.Group;
+import wherehows.models.table.UserEntity;
 
 
 public class User extends Controller {
@@ -42,7 +42,7 @@ public class User extends Controller {
       return ok(result);
     }
 
-    wherehows.models.User user = UserDAO.getCurrentUser(username);
+    wherehows.models.table.User user = UserDAO.getCurrentUser(username);
     if (StringUtils.isBlank(user.getUserName())) {
       result.put("status", "failed");
       result.put("message", "can't find user info");

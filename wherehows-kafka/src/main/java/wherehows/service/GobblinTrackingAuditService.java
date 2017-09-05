@@ -25,10 +25,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericData;
 import org.apache.commons.lang3.StringUtils;
-import wherehows.dao.DatasetClassificationDao;
-import wherehows.dao.DictDatasetDao;
-import wherehows.models.DatasetClassification;
-import wherehows.models.DictDataset;
+import wherehows.dao.table.DatasetClassificationDao;
+import wherehows.dao.table.DictDatasetDao;
+import wherehows.models.table.DatasetClassification;
+import wherehows.models.table.DictDataset;
 import wherehows.utils.StringUtil;
 
 

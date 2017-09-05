@@ -15,8 +15,8 @@ package dao;
 
 import java.util.*;
 
-import wherehows.models.JiraTicket;
-import wherehows.models.LdapInfo;
+import wherehows.models.table.JiraTicket;
+import wherehows.models.table.LdapInfo;
 
 public class JiraDAO extends AbstractMySQLOpenSourceDAO
 {

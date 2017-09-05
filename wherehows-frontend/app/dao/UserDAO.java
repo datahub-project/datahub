@@ -18,10 +18,10 @@ import java.util.*;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import play.Logger;
-import wherehows.models.CompanyUser;
-import wherehows.models.Group;
-import wherehows.models.User;
-import wherehows.models.UserEntity;
+import wherehows.models.table.CompanyUser;
+import wherehows.models.table.Group;
+import wherehows.models.table.User;
+import wherehows.models.table.UserEntity;
 
 public class UserDAO extends AbstractMySQLOpenSourceDAO
 {
