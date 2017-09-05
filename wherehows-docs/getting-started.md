@@ -98,9 +98,9 @@ Run the following command to create `flow_job` nested object mappings.
               "is_first": { "type": "string"  },
               "is_last": { "type": "string"  },
               "job_type_id": { "type": "short"   },
-          "app_id": { "type": "short"   },
-          "flow_id": { "type": "long"   },
-          "job_id": { "type": "long"   }
+              "app_id": { "type": "short"   },
+              "flow_id": { "type": "long"   },
+              "job_id": { "type": "long"   }
             }
           }
         }
