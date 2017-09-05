@@ -77,13 +77,34 @@ public class DatasetsDao {
           + "field_classification = :field_classification, record_owner_type = :ownerType, retention_policy = :policy, "
           + "geographic_affinity = :geo, modified_by = :modified_by, modified_time = :modified_time";
 
-  public String getDatasetUrnById(JdbcTemplate jdbcTemplate, int dataset_id) {
+  /**
+   * get WhereHows dataset URN by dataset ID
+   * @param jdbcTemplate JdbcTemplate
+   * @param datasetId int
+   * @return URN String, if not found, return null
+   */
+  public String getDatasetUrnById(JdbcTemplate jdbcTemplate, int datasetId) {
     try {
-      return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, dataset_id);
+      return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, datasetId);
     } catch (EmptyResultDataAccessException e) {
-      logger.error("Can not find URN for dataset id: " + dataset_id + " : " + e.getMessage());
+      logger.error("Can not find URN for dataset id: " + datasetId + " : " + e.getMessage());
     }
     return null;
+  }
+
+  /**
+   * get dataset URN by dataset ID and do simple validation
+   * @param jdbcTemplate JdbcTemplate
+   * @param datasetId int
+   * @return valid Wherehows URN
+   * @throws IllegalArgumentException when dataset URN not found or invalid
+   */
+  public String validateUrn(JdbcTemplate jdbcTemplate, int datasetId) {
+    String urn = getDatasetUrnById(jdbcTemplate, datasetId);
+    if (urn == null || urn.length() < 6 || urn.split(":///").length != 2) {
+      throw new IllegalArgumentException("Dataset id not found: " + datasetId);
+    }
+    return urn;
   }
 
   public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, List<DatasetOwner> owners)

@@ -20,7 +20,8 @@ import wherehows.dao.table.DatasetSchemaInfoDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
-import wherehows.dao.view.MetadataReadOnlyDao;
+import wherehows.dao.view.DatasetViewDao;
+import wherehows.dao.view.OwnerViewDao;
 
 
 public class DaoFactory {
@@ -28,8 +29,6 @@ public class DaoFactory {
   protected final EntityManagerFactory entityManagerFactory;
 
   private static DatasetsDao datasetsDao;
-
-  private static MetadataReadOnlyDao metadataReadOnlyDao;
 
   public DaoFactory(EntityManagerFactory entityManagerFactory) {
     this.entityManagerFactory = entityManagerFactory;
@@ -42,11 +41,12 @@ public class DaoFactory {
     return datasetsDao;
   }
 
-  public MetadataReadOnlyDao getMetadataReadOnlyDao() {
-    if (metadataReadOnlyDao == null) {
-      metadataReadOnlyDao = new MetadataReadOnlyDao(entityManagerFactory);
-    }
-    return metadataReadOnlyDao;
+  public DatasetViewDao getDatasetViewDao() {
+    return new DatasetViewDao(entityManagerFactory);
+  }
+
+  public OwnerViewDao getOwnerViewDao() {
+    return new OwnerViewDao(entityManagerFactory);
   }
 
   public DatasetClassificationDao getDatasetClassificationDao() {
