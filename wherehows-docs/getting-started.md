@@ -125,6 +125,8 @@ Run the following command to launch an instance of frontend service locally for 
     cd wherehows-frontend
     ../gradlew runPlayBinary
 
+Note that it may appear that gradle is stuck when running the `runPlayBinary`, but the app is actually running as soon as `Running at http://localhost:<port>/` is printed in the console. See [running a play application](https://docs.gradle.org/4.1/userguide/play_plugin.html#play_continuous_build) for more details.
+
 
 ### Deployment
 Run the following command to generate a distribution.
