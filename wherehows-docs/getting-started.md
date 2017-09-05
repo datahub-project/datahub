@@ -89,7 +89,7 @@ Run the following command to create `flow_job` nested object mappings.
           "jobs": {
             "type": "nested",
             "properties": {
-              "job_name":    { "type": "string"  },
+              "job_name": { "type": "string"  },
               "job_path": { "type": "string"  },
               "job_type": { "type": "string"  },
               "pre_jobs": { "type": "string"  },
