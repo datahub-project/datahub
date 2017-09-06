@@ -12,15 +12,40 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #
 
+import os
 import sys
-from org.slf4j import LoggerFactory
 from com.ziclix.python.sql import zxJDBC
+from org.slf4j import LoggerFactory
 from wherehows.common import Constant
+
+import FileUtil
 
 
 class HiveLoad:
   def __init__(self, wh_etl_exec_id='0'):
     self.logger = LoggerFactory.getLogger("%s[%s]" % (self.__class__.__name__, wh_etl_exec_id))
+
+    # set up connection
+    username = args[Constant.WH_DB_USERNAME_KEY]
+    password = args[Constant.WH_DB_PASSWORD_KEY]
+    JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
+    JDBC_URL = args[Constant.WH_DB_URL_KEY]
+    self.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
+    self.conn_cursor = self.conn_mysql.cursor()
+
+    if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
+      lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
+      self.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
+
+    temp_dir = FileUtil.etl_temp_dir(args, "HIVE")
+    self.input_schema_file = os.path.join(temp_dir, args[Constant.HIVE_SCHEMA_CSV_FILE_KEY])
+    self.input_field_file = os.path.join(temp_dir, args[Constant.HIVE_FIELD_METADATA_KEY])
+    self.input_instance_file = os.path.join(temp_dir, args[Constant.HIVE_INSTANCE_CSV_FILE_KEY])
+    self.input_dependency_file = os.path.join(temp_dir, args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY])
+
+    self.db_id = args[Constant.JOB_REF_ID_KEY]
+    self.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
+
 
   def load_metadata(self):
     load_cmd = """
@@ -418,25 +443,6 @@ if __name__ == "__main__":
   args = sys.argv[1]
 
   l = HiveLoad(args[Constant.WH_EXEC_ID_KEY])
-
-  # set up connection
-  username = args[Constant.WH_DB_USERNAME_KEY]
-  password = args[Constant.WH_DB_PASSWORD_KEY]
-  JDBC_DRIVER = args[Constant.WH_DB_DRIVER_KEY]
-  JDBC_URL = args[Constant.WH_DB_URL_KEY]
-
-  l.input_schema_file = args[Constant.HIVE_SCHEMA_CSV_FILE_KEY]
-  l.input_field_file = args[Constant.HIVE_FIELD_METADATA_KEY]
-  l.input_instance_file = args[Constant.HIVE_INSTANCE_CSV_FILE_KEY]
-  l.input_dependency_file = args[Constant.HIVE_DEPENDENCY_CSV_FILE_KEY]
-  l.db_id = args[Constant.JOB_REF_ID_KEY]
-  l.wh_etl_exec_id = args[Constant.WH_EXEC_ID_KEY]
-  l.conn_mysql = zxJDBC.connect(JDBC_URL, username, password, JDBC_DRIVER)
-  l.conn_cursor = l.conn_mysql.cursor()
-
-  if Constant.INNODB_LOCK_WAIT_TIMEOUT in args:
-    lock_wait_time = args[Constant.INNODB_LOCK_WAIT_TIMEOUT]
-    l.conn_cursor.execute("SET innodb_lock_wait_timeout = %s;" % lock_wait_time)
 
   try:
     l.load_metadata()
