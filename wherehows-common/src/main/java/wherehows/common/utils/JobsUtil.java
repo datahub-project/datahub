@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package utils;
+package wherehows.common.utils;
 
 import com.google.common.collect.ImmutableList;
 import java.io.BufferedReader;
@@ -32,9 +32,9 @@ public class JobsUtil {
 
   // Patterns for environmental variables resolution in jobs file.
   private static final List<Pattern> ENV_VAR_PATTERNS = ImmutableList.<Pattern>builder()
-        .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
-        .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
-        .build();
+      .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
+      .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
+      .build();
 
   /**
    * Reads {@link Properties} from the given file and resolves all environmental variables denoted by ${ENV_VAR_NAME}.
@@ -96,7 +96,7 @@ public class JobsUtil {
   }
 
   /**
-   * Returns a map of job name to job properties for kafka jobs.
+   * Returns a map of job name to job properties which are enabled and of certain type.
    */
   public static Map<String, Properties> getEnabledJobsByType(String dir, String type) {
     Map<String, Properties> jobs = new HashMap<>();

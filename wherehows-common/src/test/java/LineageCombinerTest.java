@@ -35,7 +35,7 @@ import wherehows.common.schemas.LineageRecord;
 /**
  * Created by zsun on 9/13/15.
  */
-@Test(groups = {"needConfig"})
+@Test(enabled = false, groups = {"needConfig"})
 public class LineageCombinerTest {
   final static String TEST_PROP_FILE_NAME = "wherehows-common-test.properties";
   LineageCombiner lineageCombiner;
@@ -60,7 +60,7 @@ public class LineageCombinerTest {
     PathAnalyzer.initialize(conn);
   }
 
-  @Test(groups = {"needConfig"})
+  @Test(enabled = false, groups = {"needConfig"})
   public void lineageCombinerTest() {
     int appId = Integer.valueOf(testProp.getProperty("lineageRecord.appId"));
     long flowExecId = Long.valueOf(testProp.getProperty("lineageRecord.flowExecId"));
@@ -117,7 +117,7 @@ public class LineageCombinerTest {
   /**
    * Need the file path pattern info in dataset_partition_layout_pattern table.
    */
-  @Test(groups = {"needConfig"})
+  @Test(enabled = false, groups = {"needConfig"})
   public void analyzeTest() {
     String fullPath = testProp.getProperty("analyzeTest.fullPath");
     DatasetPath datasetPath = PathAnalyzer.analyze(fullPath);

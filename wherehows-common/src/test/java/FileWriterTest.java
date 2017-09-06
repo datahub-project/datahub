@@ -11,19 +11,21 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-import java.sql.SQLException;
-import org.testng.Assert;
-import wherehows.common.schemas.Record;
-import wherehows.common.schemas.SampleDataRecord;
-import wherehows.common.writers.FileWriter;
-import wherehows.common.writers.Writer;
-import org.testng.annotations.Test;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import org.testng.Assert;
+import org.testng.annotations.Test;
+import wherehows.common.schemas.Record;
+import wherehows.common.schemas.SampleDataRecord;
+import wherehows.common.writers.FileWriter;
+import wherehows.common.writers.Writer;
 
 
 /**
@@ -33,11 +35,10 @@ import java.util.List;
 public class FileWriterTest {
 
   @Test
-  public void writeTest()
-    throws IOException, SQLException {
+  public void writeTest() throws IOException, SQLException {
     String filePath = "testFile.txt";
     Writer w = new FileWriter(filePath);
-    List<Object> sample = new ArrayList<Object>();
+    List<Object> sample = new ArrayList<>();
     sample.add("aaa");
     sample.add("bbb");
     sample.add("ccc");
@@ -55,5 +56,6 @@ public class FileWriterTest {
     Assert.assertEquals(record.toCsvString().trim(), line2);
 
     bufferedReader.close();
+    Files.deleteIfExists(Paths.get(filePath));
   }
 }

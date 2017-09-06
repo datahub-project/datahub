@@ -24,7 +24,7 @@ import msgs.EtlJobMessage;
 import play.Logger;
 import play.Play;
 import shared.Global;
-import utils.JobsUtil;
+import wherehows.common.utils.JobsUtil;
 
 
 /**
