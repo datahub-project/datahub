@@ -86,11 +86,6 @@ public class ApplicationStart {
     writeProcessId();
 
     ActorSystem actorSystem = ActorSystem.create("WhereHowsKAFKAConsumerService");
-
-    try {
-      actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
-    } finally {
-      actorSystem.shutdown();
-    }
+    actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
   }
 }
