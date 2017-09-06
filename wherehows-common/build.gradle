@@ -13,6 +13,12 @@ dependencies {
   compile externalDependency.confluent_common_cfg
   compile externalDependency.jackson_core
   compile externalDependency.jackson_databind
+  compile externalDependency.guava
 
   testCompile externalDependency.testng
+}
+
+test {
+  // enable TestNG support (default is JUnit)
+  useTestNG()
 }

@@ -31,11 +31,11 @@ import msgs.KafkaCommMsg;
 import play.Logger;
 import play.Play;
 import play.db.DB;
-import utils.JobsUtil;
 import wherehows.common.PathAnalyzer;
 import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
 import wherehows.common.utils.ClusterUtil;
+import wherehows.common.utils.JobsUtil;
 
 
 /**

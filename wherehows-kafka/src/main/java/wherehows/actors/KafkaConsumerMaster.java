@@ -27,12 +27,12 @@ import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
 import lombok.extern.slf4j.Slf4j;
+import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
+import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
+import wherehows.common.utils.JobsUtil;
 import wherehows.msgs.KafkaCommMsg;
 import wherehows.processors.KafkaConfig;
 import wherehows.processors.KafkaConfig.Topic;
-import wherehows.common.kafka.schemaregistry.client.CachedSchemaRegistryClient;
-import wherehows.common.kafka.schemaregistry.client.SchemaRegistryClient;
-import wherehows.utils.JobsUtil;
 
 import static wherehows.main.ApplicationStart.*;
 

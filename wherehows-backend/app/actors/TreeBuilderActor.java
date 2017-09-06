@@ -25,8 +25,8 @@ import org.python.core.PySystemState;
 import org.python.util.PythonInterpreter;
 import play.Logger;
 import play.Play;
-import utils.JobsUtil;
 import wherehows.common.Constant;
+import wherehows.common.utils.JobsUtil;
 
 
 /**
