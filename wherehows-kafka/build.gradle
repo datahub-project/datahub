@@ -13,9 +13,23 @@ dependencies {
     compile externalDependency.mysql
     compile externalDependency.guava
     compile externalDependency.slf4j_simple
+
+    compile externalDependency.kafka_clients
+    compile externalDependency.confluent_avro_serde
+
+    testCompile externalDependency.testng
 }
 
-configurations {
-    all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    all*.exclude group: 'log4j'
+configurations.all {
+    exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    exclude group: 'log4j'
+
+    resolutionStrategy {
+        force 'org.apache.avro:avro:1.4.1'
+    }
+}
+
+test {
+    // enable TestNG support (default is JUnit)
+    useTestNG()
 }

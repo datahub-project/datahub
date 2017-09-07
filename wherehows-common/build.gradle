@@ -10,7 +10,7 @@ dependencies {
   compile externalDependency.avro
   compile externalDependency.kafka
   compile externalDependency.kafka_clients
-  compile externalDependency.confluent_common_cfg
+  compile externalDependency.confluent_avro_serde
   compile externalDependency.jackson_core
   compile externalDependency.jackson_databind
   compile externalDependency.guava
