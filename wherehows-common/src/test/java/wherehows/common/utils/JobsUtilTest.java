@@ -55,8 +55,7 @@ public class JobsUtilTest {
     Path path2 = createPropertiesFile(propertyStr2);
     Path path3 = createPropertiesFile(propertyStr3);
 
-    String filename1 = path1.getFileName().toString();
-    filename1 = filename1.substring(0, filename1.lastIndexOf('.'));
+    String filename1 = jobNameFromPath(path1);
 
     String dir = path1.getParent().toString();
 
@@ -72,6 +71,30 @@ public class JobsUtilTest {
   }
 
   @Test
+  public void testGetEnabledJobs() throws IOException {
+    String propertyStr1 = "job.class=test\n" + "job.cron.expr=0 0 1 * * ? *\n" + "#job.disabled=1\n" + "job.type=TEST1";
+    String propertyStr2 = "job.class=test\n" + "#job.disabled=1\n";
+
+    Path path1 = createPropertiesFile(propertyStr1);
+    Path path2 = createPropertiesFile(propertyStr2);
+
+    String filename1 = jobNameFromPath(path1);
+    String filename2 = jobNameFromPath(path2);
+
+    String dir = path1.getParent().toString();
+
+    Map<String, Properties> jobs = getEnabledJobs(dir);
+
+    Assert.assertEquals(jobs.size(), 2);
+    Assert.assertEquals(jobs.get(filename1).getProperty("job.class"), "test");
+    Assert.assertEquals(jobs.get(filename1).getProperty("job.disabled", ""), "");
+    Assert.assertEquals(jobs.get(filename2).getProperty("job.class"), "test");
+
+    Files.deleteIfExists(path1);
+    Files.deleteIfExists(path2);
+  }
+
+  @Test
   public void testGetEnabledJobsByType() throws IOException {
     String propertyStr1 = "job.class=test\n" + "job.cron.expr=0 0 1 * * ? *\n" + "#job.disabled=1\n" + "job.type=TEST1";
     String propertyStr2 = "job.class=test\n" + "job.cron.expr=0 0 1 * * ? *\n" + "#job.disabled=1\n" + "job.type=TEST2";
@@ -79,8 +102,7 @@ public class JobsUtilTest {
     Path path1 = createPropertiesFile(propertyStr1);
     Path path2 = createPropertiesFile(propertyStr2);
 
-    String filename1 = path1.getFileName().toString();
-    filename1 = filename1.substring(0, filename1.lastIndexOf('.'));
+    String filename1 = jobNameFromPath(path1);
 
     String dir = path1.getParent().toString();
 

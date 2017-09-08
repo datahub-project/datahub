@@ -13,6 +13,7 @@
  */
 package wherehows.main;
 
+import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import com.typesafe.config.Config;
@@ -23,7 +24,7 @@ import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
-import wherehows.actors.KafkaConsumerMaster;
+import wherehows.actors.KafkaClientMaster;
 import wherehows.common.utils.ProcessUtil;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.ConnectionPoolProperties;
@@ -85,7 +86,9 @@ public class ApplicationStart {
 
     writeProcessId();
 
-    ActorSystem actorSystem = ActorSystem.create("WhereHowsKAFKAConsumerService");
-    actorSystem.actorOf(Props.create(KafkaConsumerMaster.class), "KafkaMaster");
+    final ActorSystem actorSystem = ActorSystem.create("KAFKA");
+
+    String kafkaJobDir = config.getString("kafka.jobs.dir");
+    final ActorRef master = actorSystem.actorOf(Props.create(KafkaClientMaster.class, kafkaJobDir), "KafkaMaster");
   }
 }

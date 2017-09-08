@@ -39,9 +39,9 @@ ext.externalDependency = [
     "akka"                : "com.typesafe.akka:akka-actor_2.10:2.3.15",
     "spring_jdbc"         : "org.springframework:spring-jdbc:4.1.6.RELEASE",
 
-    "kafka"               : "org.apache.kafka:kafka_2.10:0.10.0.1",
-    "kafka_clients"       : "org.apache.kafka:kafka-clients:0.10.0.1",
-    "confluent_common_cfg": "io.confluent:common-config:3.0.1",
+    "kafka"               : "org.apache.kafka:kafka_2.10:0.10.2.1",
+    "kafka_clients"       : "org.apache.kafka:kafka-clients:0.10.2.1",
+    "confluent_avro_serde": "io.confluent:kafka-avro-serializer:3.3.0",
 
     "parquet_avro"        : "org.apache.parquet:parquet-avro:1.8.1",
 

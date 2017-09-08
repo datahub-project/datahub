@@ -73,8 +73,30 @@ public class JobsUtil {
     return value;
   }
 
-  private static String jobNameFromFile(File file) {
-    String filename = file.getName();
+  /**
+   * Get job name without file extension
+   * @param file File
+   * @return String
+   */
+  public static String jobNameFromFile(File file) {
+    return jobNameFromFileName(file.getName());
+  }
+
+  /**
+   * Get job name without file extension
+   * @param path Path
+   * @return String
+   */
+  public static String jobNameFromPath(Path path) {
+    return jobNameFromFileName(path.getFileName().toString());
+  }
+
+  /**
+   * Get job name without file extension
+   * @param filename String
+   * @return String
+   */
+  public static String jobNameFromFileName(String filename) {
     return filename.substring(0, filename.lastIndexOf('.'));
   }
 
@@ -87,6 +109,23 @@ public class JobsUtil {
       if (file.getAbsolutePath().endsWith(".job")) {
         Properties prop = getResolvedProperties(file.toPath());
         if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.containsKey(Constant.JOB_CRON_EXPR_KEY)) {
+          // job name = file name without the extension.
+          jobs.put(jobNameFromFile(file), prop);
+        }
+      }
+    }
+    return jobs;
+  }
+
+  /**
+   * Returns a map of job name to job properties which are enabled.
+   */
+  public static Map<String, Properties> getEnabledJobs(String dir) {
+    Map<String, Properties> jobs = new HashMap<>();
+    for (File file : new File(dir).listFiles()) {
+      if (file.getAbsolutePath().endsWith(".job")) {
+        Properties prop = getResolvedProperties(file.toPath());
+        if (!prop.containsKey(Constant.JOB_DISABLED_KEY)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
         }
