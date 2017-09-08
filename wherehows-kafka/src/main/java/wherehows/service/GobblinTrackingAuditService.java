@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.persistence.NoResultException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericData;
@@ -75,8 +76,13 @@ public class GobblinTrackingAuditService {
       return;
     }
 
-    DictDataset dataset = new DictDataset();
     String urn = DATASET_URN_PREFIX + datasetName;
+    DictDataset dataset;
+    try {
+      dataset = dictDatasetDao.findByUrn(urn);
+    } catch (NoResultException e) {
+      dataset = new DictDataset();
+    }
     dataset.setName(getShortName(datasetName));
     dataset.setUrn(urn);
     dataset.setSchema(metadata.get("schema"));
