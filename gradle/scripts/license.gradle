@@ -12,7 +12,8 @@ subprojects {
     exclude "**/jython/requests/**"
     exclude "**/pyparsing.py"
     excludes(["**/*.json", "**/*.avsc", "**/*.avro", "**/*.conf", "**/*.yaml", "**/*.xml"])
-    excludes(["**/*.txt", "**/*.csv", "**/*.md"])
+    excludes(["**/*.txt", "**/*.csv", "**/*.md", "**/*.job", "**/*.properties", "**/*.template"])
+    excludes(["**/com/linkedin/events/**", "**/gobblin/metrics/**"])
   }
 
   plugins.withType(PlayPlugin) {

@@ -31,10 +31,10 @@ public class DummyProcessor extends KafkaMessageProcessor {
 
   /**
    * Simply print the message content
-   * @param record IndexedRecord
+   * @param indexedRecord IndexedRecord
    */
-  public void process(IndexedRecord record) {
-    log.info(record.toString());
+  public void process(IndexedRecord indexedRecord) {
+    log.info(indexedRecord.toString());
     //System.out.println(record.toString());
   }
 }

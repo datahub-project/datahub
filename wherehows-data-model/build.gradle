@@ -1,8 +1,17 @@
-sourceSets {
-  main {
-    resources {
-      srcDir 'DDL'
-      srcDir 'ELASTICSEARCH'
-    }
+plugins {
+  id "com.commercehub.gradle.plugin.avro" version "0.8.0" apply false
+}
+
+if (gradle.appBuildEnvironment == "opensource") {
+  apply plugin: "com.commercehub.gradle.plugin.avro"
+
+  avro {
+    fieldVisibility = "PUBLIC"
   }
+}
+
+apply plugin: 'java'
+
+dependencies {
+  compile externalDependency.avro
 }
