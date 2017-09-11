@@ -21,15 +21,6 @@ dependencies {
     testCompile externalDependency.testng
 }
 
-configurations.all {
-    exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-    exclude group: 'log4j'
-
-    resolutionStrategy {
-        force 'org.apache.avro:avro:1.4.1'
-    }
-}
-
 test {
     // enable TestNG support (default is JUnit)
     useTestNG()
