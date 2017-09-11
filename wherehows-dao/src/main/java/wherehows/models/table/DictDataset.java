@@ -16,6 +16,8 @@ package wherehows.models.table;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
 import javax.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -100,4 +102,14 @@ public class DictDataset {
 
   @Column(name = "wh_etl_exec_id")
   Integer etlExecId;
+
+  @PreUpdate
+  @PrePersist
+  void prePersist() {
+    Integer timestamp = Integer.valueOf((int)(System.currentTimeMillis() / 1000));
+    this.modifiedTime = timestamp;
+    if (this.createdTime == null) {
+      this.createdTime = timestamp;
+    }
+  }
 }
