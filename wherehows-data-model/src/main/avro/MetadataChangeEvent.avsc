@@ -1397,7 +1397,67 @@
           ]
         }
       ],
-      "doc": "Describe the purgeable entity fields"
+      "doc": "Human-entered compliance metadata"
+    },
+    {
+      "name": "suggestedCompliancePolicy",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "SuggestedCompliancePolicy",
+          "fields": [
+            {
+              "name": "suggestedFieldClassifications",
+              "type": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "SuggestedFieldClassification",
+                  "fields": [
+                    {
+                      "name": "suggestion",
+                      "type": "ComplianceEntity",
+                      "doc": "Suggestion for the field level compliance metadata."
+                    },
+                    {
+                      "name": "confidenceLevel",
+                      "type": "float",
+                      "doc": "The confidence level for the suggestion."
+                    }
+                  ]
+                }
+              },
+              "doc": "A list of suggested field-level compliance metadata."
+            },
+            {
+              "name": "suggestedDatasetClassification",
+              "type": {
+                "type": "map",
+                "values": {
+                  "type": "record",
+                  "name": "SuggestedDatasetClassification",
+                  "fields": [
+                    {
+                      "name": "isContaining",
+                      "type": "boolean",
+                      "doc": "Whether the dataset contains the specific kind of data."
+                    },
+                    {
+                      "name": "confidenceLevel",
+                      "type": "float",
+                      "doc": "The confidence level for the suggestion."
+                    }
+                  ]
+                }
+              },
+              "doc": "A map of suggested dataset-level compliance metadata, where the key is the field name of DatasetClassification, and the value is the corresponding suggestion for that field."
+            }
+          ]
+        }
+      ],
+      "doc": "Machine-suggested compliance metadata",
+      "default": null
     }
   ]
 }
