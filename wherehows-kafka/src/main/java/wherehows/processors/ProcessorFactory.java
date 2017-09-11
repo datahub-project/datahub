@@ -25,12 +25,6 @@ import wherehows.service.MetadataInventoryService;
 public class ProcessorFactory {
   private final DaoFactory daoFactory;
 
-  public GobblinTrackingAuditProcessor getGobblinTrackingAuditProcessor() {
-    GobblinTrackingAuditService service =
-        new GobblinTrackingAuditService(daoFactory.getDatasetClassificationDao(), daoFactory.getDictDatasetDao());
-    return new GobblinTrackingAuditProcessor(service);
-  }
-
   public JobExecutionLineageProcessor getJobExecutionLineageProcessor() {
     return new JobExecutionLineageProcessor(new JobExecutionLineageService());
   }

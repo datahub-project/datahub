@@ -34,9 +34,9 @@ public abstract class KafkaMessageProcessor {
 
   /**
    * Abstract method 'process' to be implemented by specific processor
-   * @param record IndexedRecord
+   * @param indexedRecord IndexedRecord
    * @throws Exception
    */
-  public abstract void process(IndexedRecord record) throws Exception;
+  public abstract void process(IndexedRecord indexedRecord) throws Exception;
 
 }

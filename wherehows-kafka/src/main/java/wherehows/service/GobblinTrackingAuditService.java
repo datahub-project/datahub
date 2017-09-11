@@ -16,6 +16,7 @@ package wherehows.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
+import gobblin.metrics.GobblinTrackingEvent_audit;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -24,13 +25,12 @@ import java.util.regex.Pattern;
 import javax.persistence.NoResultException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericData;
 import org.apache.commons.lang3.StringUtils;
+import wherehows.common.utils.StringUtil;
 import wherehows.dao.table.DatasetClassificationDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.models.table.DatasetClassification;
 import wherehows.models.table.DictDataset;
-import wherehows.utils.StringUtil;
 
 
 @Slf4j
@@ -66,9 +66,9 @@ public class GobblinTrackingAuditService {
           .add(Pattern.compile("/output/"))
           .build();
 
-  public void updateHdfsDatasetSchema(GenericData.Record record) throws Exception {
-    Long timestamp = (Long) record.get("timestamp");
-    Map<String, String> metadata = StringUtil.convertObjectMapToStringMap(record.get("metadata"));
+  public void updateHdfsDatasetSchema(GobblinTrackingEvent_audit record) throws Exception {
+    Long timestamp = record.timestamp;
+    Map<String, String> metadata = StringUtil.toStringMap(record.metadata);
 
     String datasetName = metadata.get("dataset");
     if (StringUtils.isEmpty(datasetName) || isDatasetNameBlacklisted(datasetName)) {
@@ -155,7 +155,7 @@ public class GobblinTrackingAuditService {
     return "";
   }
 
-  //TODO the retuen time should be timeStamp
+  //TODO the return time should be timeStamp
   private int getsourceModifiedTime(String hdfsModifiedTime) {
     long result = Long.parseLong(hdfsModifiedTime) / 1000;
     if (hdfsModifiedTime == null || result > Integer.MAX_VALUE) {

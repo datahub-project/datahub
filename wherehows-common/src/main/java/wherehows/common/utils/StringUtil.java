@@ -129,4 +129,18 @@ public class StringUtil {
     String string = String.valueOf(obj);
     return string == null || string.equals("null") ? replacement : string;
   }
+
+  /**
+   * Convert a map from object to object to a map from string to string
+   * Calling String.valueOf on both key and value
+   * @param map
+   * @return
+   */
+  public static <T, K> Map<String, String> toStringMap(Map<T, K> map) {
+    final Map<String, String> newMap = new HashMap<>();
+    for (Map.Entry<T, K> entry : map.entrySet()) {
+      newMap.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+    }
+    return newMap;
+  }
 }

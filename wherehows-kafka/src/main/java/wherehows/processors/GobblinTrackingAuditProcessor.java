@@ -13,15 +13,16 @@
  */
 package wherehows.processors;
 
-import lombok.RequiredArgsConstructor;
+import gobblin.metrics.GobblinTrackingEvent_audit;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import wherehows.dao.DaoFactory;
 import wherehows.service.GobblinTrackingAuditService;
 
 
 @Slf4j
-@RequiredArgsConstructor
-public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
+public class GobblinTrackingAuditProcessor extends KafkaMessageProcessor {
 
   private static final String DALI_LIMITED_RETENTION_AUDITOR = "DaliLimitedRetentionAuditor";
   private static final String DALI_AUTOPURGED_AUDITOR = "DaliAutoPurgeAuditor";
@@ -30,26 +31,35 @@ public class GobblinTrackingAuditProcessor extends KafkaConsumerProcessor {
 
   private final GobblinTrackingAuditService gobblinTrackingAuditService;
 
+  public GobblinTrackingAuditProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
+    super(daoFactory, producer);
+    gobblinTrackingAuditService =
+        new GobblinTrackingAuditService(DAO_FACTORY.getDatasetClassificationDao(), DAO_FACTORY.getDictDatasetDao());
+  }
+
   /**
    * Process a Gobblin tracking event audit record
-   * @param record
-   * @param topic
-   * @return null
+   * @param indexedRecord
    * @throws Exception
    */
-  public void process(GenericData.Record record, String topic) throws Exception {
+  public void process(IndexedRecord indexedRecord) throws Exception {
 
-    if (record == null || record.get("name") == null) {
+    if (indexedRecord == null || indexedRecord.getClass() != GobblinTrackingEvent_audit.class) {
+      log.debug("Event record type error");
       return;
     }
 
-    final String name = record.get("name").toString();
+    GobblinTrackingEvent_audit record = (GobblinTrackingEvent_audit) indexedRecord;
+
+    String name = String.valueOf(record.name);
     // only handle "DaliLimitedRetentionAuditor","DaliAutoPurgeAuditor" and "DsIgnoreIDPCAuditor"
     if (name.equals(DALI_LIMITED_RETENTION_AUDITOR) || name.equals(DALI_AUTOPURGED_AUDITOR) || name.equals(
         DS_IGNORE_IDPC_AUDITOR)) {
       // TODO: Re-enable this once it's fixed.
     } else if (name.equals(METADATA_FILE_CLASSIFIER)) {
       gobblinTrackingAuditService.updateHdfsDatasetSchema(record);
+    } else {
+      log.info("Gobblin audit message skipped.");
     }
   }
 }

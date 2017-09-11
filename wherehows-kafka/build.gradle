@@ -3,8 +3,9 @@ apply plugin: 'application'
 mainClassName = "wherehows.main.ApplicationStart"
 
 dependencies {
-    compile project(':wherehows-dao')
     compile project(':wherehows-common')
+    compile project(':wherehows-dao')
+    compile project(':wherehows-data-model')
     compile externalDependency.jackson_databind
     compile externalDependency.jackson_core
     compile externalDependency.jackson_annotations
