@@ -1,7 +1,22 @@
 import Ember from 'ember';
-import { datasetComplianceUrlById } from 'wherehows-web/utils/api';
+import {
+  datasetComplianceUrlById,
+  addDatasetCommentFor,
+  datasetCommentsFor,
+  deleteDatasetComment,
+  modifyDatasetComment
+} from 'wherehows-web/utils/api';
 
-const { get, debug, getWithDefault, setProperties, $: { post, getJSON } } = Ember;
+const {
+  set,
+  get,
+  getProperties,
+  debug,
+  getWithDefault,
+  setProperties,
+  inject: { service },
+  $: { post, getJSON }
+} = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
@@ -9,6 +24,12 @@ const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 
 export default Ember.Controller.extend({
+  /**
+   * Reference to the application notifications Service
+   * @type {Ember.Service}
+   */
+  notifications: service(),
+
   hasProperty: false,
   hasImpacts: false,
   hasSchemas: false,
@@ -184,7 +205,62 @@ export default Ember.Controller.extend({
     throw error;
   },
 
+  async handleDatasetComment(strategy, ...args) {
+    const { datasetId: id, 'notifications.notify': notify } = getProperties(this, [
+      'datasetId',
+      'notifications.notify'
+    ]);
+
+    const action = {
+      create: addDatasetCommentFor.bind(null, id),
+      destroy: deleteDatasetComment.bind(null, id),
+      modify: modifyDatasetComment.bind(null, id)
+    }[strategy];
+
+    try {
+      await action(...args);
+      notify('success', { content: 'Success!' });
+      // refresh the list of comments if successful with updated response
+      set(this, 'datasetComments', await datasetCommentsFor(id));
+
+      return true;
+    } catch (e) {
+      notify('error', { content: e.message });
+    }
+
+    return false;
+  },
+
   actions: {
+    /**
+     * Action handler creates a dataset comment with the type and text pas
+     * @param {CommentTypeUnion} type the comment type
+     * @param {string} text the text of the comment
+     * @return {Promise.<boolean>} true if successful in creating the comment, false otherwise
+     */
+    async createDatasetComment({ type, text }) {
+      return this.handleDatasetComment.call(this, 'create', { type, text });
+    },
+
+    /**
+     * Deletes a comment from the current dataset
+     * @param {number} commentId the id for the comment to be deleted
+     * @return {Promise.<boolean>}
+     */
+    async destroyDatasetComment(commentId) {
+      return this.handleDatasetComment.call(this, 'destroy', commentId);
+    },
+
+    /**
+     * Updates a comment on the current dataset
+     * @param commentId
+     * @param updatedComment
+     * @return {Promise.<boolean>}
+     */
+    async updateDatasetComment(commentId, updatedComment) {
+      return this.handleDatasetComment.call(this, 'modify', commentId, updatedComment);
+    },
+
     /**
      * Takes the list up updated owner and posts to the server
      * @param {Ember.Array} updatedOwners the list of owner to send

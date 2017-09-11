@@ -1,7 +1,10 @@
 import Ember from 'ember';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
+import { feedback, avatar } from 'wherehows-web/constants';
 
 const { Route, run, get, inject: { service }, testing } = Ember;
+const { mail, subject, title } = feedback;
+const { url: avatarUrl } = avatar;
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
@@ -36,19 +39,21 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   async model() {
     const isInternal = await get(this, 'configurator.getConfig')('isInternal');
+    const { userName } = get(this, 'sessionUser.currentUser') || {};
 
     /**
      * properties for the navigation link to allow a user to provide feedback
      * @type {{href: string, target: string, title: string}}
      */
     const feedbackMail = {
-      href: 'mailto:wherehows-dev@linkedin.com?subject=WhereHows Feedback',
-      target: '_blank',
-      title: 'Provide Feedback'
+      title,
+      href: `mailto:${mail}?subject=${subject}`,
+      target: '_blank'
     };
 
     const brand = {
-      logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : ''
+      logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : '',
+      avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
 
     return { feedbackMail, brand };
@@ -94,7 +99,9 @@ export default Route.extend(ApplicationRouteMixin, {
    * @private
    */
   _loadCurrentUser() {
-    return get(this, 'sessionUser').load().catch(() => get(this, 'sessionUser').invalidateSession());
+    return get(this, 'sessionUser')
+      .load()
+      .catch(() => get(this, 'sessionUser').invalidateSession());
   },
 
   /**

@@ -182,10 +182,15 @@
         {{/dataset-property}}
       </div>
     {{/unless}}
+
     <div id="commentstab" class="tab-pane">
-      {{#dataset-comments dataset=this}}
-      {{/dataset-comments}}
+      {{dataset-comments
+        comments=datasetComments
+        updateDatasetComment=(action "updateDatasetComment")
+        deleteDatasetComment=(action "destroyDatasetComment")
+        addDatasetComment=(action "createDatasetComment")}}
     </div>
+
     <div id="schematab" class="tab-pane">
       {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
       {{/dataset-schema}}

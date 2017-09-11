@@ -10,5 +10,7 @@ export const ApiRoot = '/api/v1';
  */
 export enum ApiStatus {
   OK = 'ok',
+  // Adds support for success response used in api's like /comments, will refactored to use ok
+  SUCCESS = 'success',
   FAILED = 'failed'
 }

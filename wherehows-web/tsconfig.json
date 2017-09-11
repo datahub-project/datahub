@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2015",
+    "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
+    "listEmittedFiles": true,
     "moduleResolution": "node",
     "allowJs": true,
     "noEmitOnError": true,
@@ -8,6 +10,8 @@
     "sourceMap": true,
     "noEmit": true,
     "strict": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
     "pretty": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,

@@ -1,5 +1,4 @@
 import Ember from 'ember';
-/// <reference path='wherehows-web/typings/untyped-js-module' />
 import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';

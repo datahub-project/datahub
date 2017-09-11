@@ -1,6 +1,6 @@
 /**
  * Defines a map of values for the compliance policy on a dataset
- * @type {Object}
+ * @type {object}
  */
 const compliancePolicyStrings = {
   complianceDataException: 'Unexpected discrepancy in compliance data',

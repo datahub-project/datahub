@@ -1,6 +1,7 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
+import { datasetCommentsFor } from 'wherehows-web/utils/api/datasets/comments';
 import {
   getDatasetOwners,
   getUserEntities,
@@ -12,7 +13,6 @@ const { Route, get, set, setProperties, isPresent, inject: { service }, $: { get
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const ownerTypeUrlRoot = '/api/v1/owner/types';
-const userSettingsUrlRoot = '/api/v1/user/me';
 const getDatasetColumnUrl = id => `${datasetUrl(id)}/columns`;
 const getDatasetPropertiesUrl = id => `${datasetUrl(id)}/properties`;
 const getDatasetSampleUrl = id => `${datasetUrl(id)}/sample`;
@@ -172,17 +172,20 @@ export default Route.extend({
        * @return {Promise.<void>}
        */
       (async id => {
-        const [columns, compliance, complianceSuggestion] = await Promise.all([
+        const [columns, compliance, complianceSuggestion, datasetComments] = await Promise.all([
           getDatasetColumn(id),
           datasetComplianceFor(id),
-          datasetComplianceSuggestionsFor(id)
+          datasetComplianceSuggestionsFor(id),
+          datasetCommentsFor(id)
         ]);
         const { complianceInfo, isNewComplianceInfo } = compliance;
+
         setProperties(controller, {
           complianceInfo,
           isNewComplianceInfo,
           complianceSuggestion,
-          schemaFieldNamesMappedToDataTypes: columns
+          schemaFieldNamesMappedToDataTypes: columns,
+          datasetComments
         });
       })(id);
     }
@@ -229,10 +232,6 @@ export default Route.extend({
         });
       });
 
-    if (datasetCommentsComponent) {
-      datasetCommentsComponent.getComments();
-    }
-
     // If urn exists, create a breadcrumb list
     // TODO: DSS-7068 Refactoring in progress , move this to a computed prop on a container component
     // FIXME: DSS-7068 browse.entity?urn route does not exist for last item in breadcrumb i.e. the dataset
@@ -250,14 +249,6 @@ export default Route.extend({
         .sort((a, b) => a.localeCompare(b));
 
       status === 'ok' && set(controller, 'ownerTypes', ownerTypes);
-    });
-
-    Promise.resolve(getJSON(userSettingsUrlRoot)).then(({ status, user }) => {
-      if (status === 'ok') {
-        // TODO: DSS-6633 Remove `data.user.userSetting.detailDefaultView` from
-        //   '/api/v1/user/me'  endpoint
-        controller.set('currentUser', user);
-      }
     });
 
     if (source.toLowerCase() !== 'pinot') {

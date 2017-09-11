@@ -89,18 +89,7 @@
   /// @type Map
   /// @prop {String} key - number representing a spacing type
   /// @prop {Length} value - pixel length
-  $item-spacings: (
-    1: 4px,
-    2: 8px,
-    3: 12px,
-    4: 16px,
-    5: 24px,
-    6: 32px,
-    7: 48px,
-    8: 64px,
-    9: 96px
-  );
-
+  $item-spacings: (0: 0px, 1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px, 9: 96px);
 
   // If item-spacing is passed a list, for example:
   // padding: item-spacing(1 2 3 4)

@@ -1,7 +1,8 @@
 import Ember from 'ember';
+import { currentUser } from 'wherehows-web/utils/api/authentication';
+import { IUser } from 'wherehows-web/typings/api/authentication/user';
 
-const { get, set, isBlank, $: { getJSON }, inject: { service }, Service } = Ember;
-const currentUserUrl = '/api/v1/user/me';
+const { get, set, inject: { service }, Service } = Ember;
 /**
  * Indicates that the current user has already been tracked in the current session
  * @type {boolean}
@@ -19,25 +20,13 @@ export default Service.extend({
    *   to service.
    * @returns {Promise}
    */
-  load() {
-    const userName = get(this, 'session.data.authenticated.username');
-
-    if (!isBlank(userName)) {
-      set(this, 'userName', userName);
-    }
-
+  async load(): Promise<void> {
     // If we have a valid session, get the currently logged in user, and set the currentUser attribute,
     // otherwise raise an exception
     if (get(this, 'session.isAuthenticated')) {
-      return Promise.resolve(getJSON(currentUserUrl)).then(
-        ({ status = 'failed', user = {} }) =>
-          status === 'ok'
-            ? Promise.resolve(set(this, 'currentUser', user))
-            : Promise.reject(new Error(`Load current user failed with status: ${status}`))
-      );
+      const user: IUser = await currentUser();
+      set(this, 'currentUser', user);
     }
-
-    return Promise.resolve();
   },
 
   /**
@@ -58,8 +47,8 @@ export default Service.extend({
    * injecting as a function is the better approach.
    * @param {Function} userIdTracker a function that takes the userId and tracks it
    */
-  trackCurrentUser(userIdTracker = () => ({})) {
-    const userId = get(this, 'userName') || get(this, 'currentUser.userName');
+  trackCurrentUser(userIdTracker: (...args: Array<any>) => void = () => void 0) {
+    const userId: string = get(this, 'currentUser.userName');
 
     // If we have a non-empty userId, the user hasn't already been tracked and the userIdTracker is a valid argument
     // then track the user and toggle the flag affirmative

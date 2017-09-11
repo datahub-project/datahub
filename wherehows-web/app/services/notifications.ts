@@ -19,6 +19,13 @@ type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
 type NotificationType = 'modal' | 'toast';
 
 /**
+ * Describes the proxy handler for INotifications
+ */
+interface INotificationHandlerTrap<T, K extends keyof T> {
+  get(this: Ember.Service, target: T, handler: K): T[K];
+}
+
+/**
  * Describes the interface for a confirmation modal object
  */
 interface IConfirmOptions {
@@ -290,10 +297,8 @@ Ember.Object.reopen.call(NotificationService, {
     this._super(...Array.from(arguments));
 
     // Traps for the Proxy handler
-    const invokeInService = {
-      get: (target: INotificationHandler, handlerName: keyof INotificationHandler) => {
-        return handlerName in target ? target[handlerName].bind(this) : void 0;
-      }
+    const invokeInService: INotificationHandlerTrap<INotificationHandler, keyof INotificationHandler> = {
+      get: (target, handlerName) => target[handlerName].bind(this)
     };
 
     proxiedNotifications = new Proxy(notificationHandlers, invokeInService);

@@ -1,6 +1,6 @@
 import Ember from 'ember';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
-import fetch from 'ember-network/fetch';
+import { logout } from 'wherehows-web/utils/api/authentication';
 
 const { get, Route, inject: { service } } = Ember;
 
@@ -15,7 +15,7 @@ export default Route.extend(AuthenticatedRouteMixin, {
      * Post transition, call endpoint then invalidate current session on client on success
      */
     didTransition() {
-      fetch('/logout').then(() => get(this, 'session').invalidate());
+      logout().then(() => get(this, 'session').invalidate());
     }
   }
 });
