@@ -7,10 +7,6 @@ dependencies {
   compile externalDependency.jgit
   compile externalDependency.jsoup
   compile externalDependency.commons_io
-  compile externalDependency.avro
-  compile externalDependency.kafka
-  compile externalDependency.kafka_clients
-  compile externalDependency.confluent_avro_serde
   compile externalDependency.jackson_core
   compile externalDependency.jackson_databind
   compile externalDependency.guava
