@@ -18,7 +18,7 @@ import java.util.Map;
 
 
 /**
- * Generic communication message between KafkaConsumerMaster and KafkaConsumerWorker
+ * Generic communication message between Kafka Client Master and Worker
  */
 public class KafkaCommMsg {
 
