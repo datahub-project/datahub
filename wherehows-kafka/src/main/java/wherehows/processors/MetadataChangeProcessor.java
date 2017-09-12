@@ -12,63 +12,60 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
 package wherehows.processors;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import com.linkedin.events.KafkaAuditHeader;
+import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DatasetProperty;
+import com.linkedin.events.metadata.MetadataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import wherehows.dao.DaoFactory;
 import wherehows.service.MetadataChangeService;
 
 
 @Slf4j
-@RequiredArgsConstructor
-public class MetadataChangeProcessor extends KafkaConsumerProcessor {
+public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final MetadataChangeService metadataChangeService;
+
+  public MetadataChangeProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
+    super(daoFactory, producer);
+    metadataChangeService =
+        new MetadataChangeService(DAO_FACTORY.getDictDatasetDao(), DAO_FACTORY.getDictFieldDetailDao(),
+            DAO_FACTORY.getDatasetSchemaInfoDao());
+  }
+
   private final String[] CHANGE_ITEMS =
       {"schema", "owners", "datasetProperties", "references", "partitionSpec", "deploymentInfo", "tags", "constraints", "indices", "capacity", "privacyCompliancePolicy", "securitySpecification"};
 
   /**
    * Process a MetadataChangeEvent record
-   * @param record GenericData.Record
-   * @param topic String
+   * @param indexedRecord IndexedRecord
    * @throws Exception
-   * @return null
    */
-  public void process(GenericData.Record record, String topic) throws Exception {
-    if (record != null) {
+  public void process(IndexedRecord indexedRecord) throws Exception {
+
+    if (indexedRecord != null && indexedRecord.getClass() == MetadataChangeEvent.class) {
       log.debug("Processing Metadata Change Event record. ");
 
-      final GenericData.Record auditHeader = (GenericData.Record) record.get("auditHeader");
-      if (auditHeader == null || auditHeader.get("time") == null) {
+      MetadataChangeEvent record = (MetadataChangeEvent) indexedRecord;
+
+      final KafkaAuditHeader auditHeader = record.auditHeader;
+      if (auditHeader == null) {
         log.info("MetadataChangeEvent without auditHeader, abort process. " + record.toString());
         return;
       }
 
-      final GenericData.Record datasetIdentifier = (GenericData.Record) record.get("datasetIdentifier");
-      final GenericData.Record datasetProperties = (GenericData.Record) record.get("datasetProperties");
-      final String urn = String.valueOf(record.get("urn"));
-
-      if (urn == null && (datasetProperties == null || datasetProperties.get("uri") == null)
-          && datasetIdentifier == null) {
-        log.info("Can't identify dataset from uri/urn/datasetIdentifier, abort process. " + record.toString());
-        return;
-      } else if (urn != null) {
-        log.debug("URN: " + urn);
-      } else if (datasetProperties != null && datasetProperties.get("uri") != null) {
-        log.debug("URI: " + datasetProperties.get("uri"));
-      } else {
-        log.debug(
-            "Dataset Identifier: " + datasetIdentifier.get("dataPlatformUrn") + datasetIdentifier.get("nativeName"));
-      }
+      final DatasetIdentifier datasetIdentifier = record.datasetIdentifier;
+      final DatasetProperty datasetProperties = record.datasetProperty;
+      //final String urn = String.valueOf(record.get("urn"));
 
       final JsonNode rootNode = new ObjectMapper().readTree(record.toString());
 
       for (String itemName : CHANGE_ITEMS) {
-        // check if the corresponding change field has content
-        if (record.get(itemName) == null) {
-          continue;
-        }
 
         switch (itemName) {
           case "schema":

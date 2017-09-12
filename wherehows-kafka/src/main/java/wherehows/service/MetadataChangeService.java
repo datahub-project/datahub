@@ -40,12 +40,13 @@ public class MetadataChangeService {
 
   private final DictDatasetDao datasetDao;
   private final FieldDetailDao _fieldDetailDao;
-  private final DatasetSchemaInfoDao datasetSchemaInfoDao;
+  private final DatasetSchemaInfoDao _datasetSchemaInfoDao;
+
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private static final String UrnRegex = "urn:li:dataset:\\(urn:li:dataPlatform:(\\w*),\\s?([^\\s]*),\\s?(\\w*)\\)";
 
-  private static Pattern UrnPattern = Pattern.compile(UrnRegex);
+  private static final Pattern UrnPattern = Pattern.compile(UrnRegex);
 
   private String urnToUri(String urn) {
     // from urn:li:dataset:(urn:li:dataPlatform:p, nativeName, dataOrigin) to p:///nativeName
@@ -197,7 +198,7 @@ public class MetadataChangeService {
         _fieldDetailDao.update(field);
       }
     }
-    datasetSchemaInfoDao.update(schemaInfo);
+    _datasetSchemaInfoDao.update(schemaInfo);
   }
 
   //TODO Complete the rest when we need to use

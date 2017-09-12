@@ -20,6 +20,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -74,9 +75,9 @@ public class ApplicationStart {
     }
     log.info("Writing PID to " + pidFile);
 
-    try (PrintWriter out = new PrintWriter(pidFile)) {
+    try (PrintWriter out = new PrintWriter(pidFile, "UTF-8")) {
       out.println(ProcessUtil.getCurrentProcessId());
-    } catch (FileNotFoundException e) {
+    } catch (FileNotFoundException|UnsupportedEncodingException e) {
       log.error("Unable to write to " + pidFile);
     }
   }
