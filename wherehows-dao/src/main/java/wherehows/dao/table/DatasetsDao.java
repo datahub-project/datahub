@@ -194,22 +194,13 @@ public class DatasetsDao {
     return record;
   }
 
-  public void updateDatasetComplianceInfo(JdbcTemplate jdbcTemplate,
-      NamedParameterJdbcTemplate namedParameterJdbcTemplate, int datasetId, DatasetCompliance record, String user)
-      throws Exception {
+  public void updateDatasetComplianceInfo(NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+      DatasetCompliance record, String user) throws Exception {
     ObjectMapper om = new ObjectMapper();
 
-    if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
-      throw new IllegalArgumentException("Dataset id doesn't match.");
-    }
-    record.setDatasetId(datasetId);
-
-    String urn = record.getDatasetUrn() != null ? record.getDatasetUrn() : getDatasetUrnById(jdbcTemplate, datasetId);
-    record.setDatasetUrn(urn);
-
     Map<String, Object> parameters = new HashMap<>();
-    parameters.put("id", datasetId);
-    parameters.put("urn", urn);
+    parameters.put("id", record.getDatasetId());
+    parameters.put("urn", record.getDatasetUrn());
     parameters.put("compliance_type", record.getComplianceType());
     parameters.put("compliance_entities", om.writeValueAsString(record.getComplianceEntities()));
     parameters.put("confidentiality", record.getConfidentiality());

@@ -792,7 +792,16 @@ public class Dataset extends Controller {
     try {
       DatasetCompliance record = Json.mapper().convertValue(request().body().asJson(), DatasetCompliance.class);
 
-      DATASETS_DAO.updateDatasetComplianceInfo(JDBC_TEMPLATE, NAMED_JDBC_TEMPLATE, datasetId, record, username);
+      if (record.getDatasetId() != null && datasetId != record.getDatasetId()) {
+        throw new IllegalArgumentException("Dataset id doesn't match.");
+      }
+      record.setDatasetId(datasetId);
+
+      if (record.getDatasetUrn() == null) {
+        record.setDatasetUrn(DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId));
+      }
+
+      DATASETS_DAO.updateDatasetComplianceInfo(NAMED_JDBC_TEMPLATE, record, username);
     } catch (Exception e) {
       JsonNode result = Json.newObject()
           .put("status", "failed")
