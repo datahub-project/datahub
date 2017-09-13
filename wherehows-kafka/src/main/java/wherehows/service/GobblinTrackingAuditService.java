@@ -115,7 +115,7 @@ public class GobblinTrackingAuditService {
     if (classificationResult != null && !classificationResult.equals("null")) {
       updateDatasetClassificationResult(urn, classificationResult);
     } else {
-      log.warn("skip insertion since classification result is empty");
+      log.info("skip insertion since classification result is empty");
     }
   }
 
