@@ -107,14 +107,13 @@ public class DatasetsDao {
     return urn;
   }
 
-  public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, List<DatasetOwner> owners)
-      throws Exception {
+  public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, String datasetUrn,
+      List<DatasetOwner> owners) throws Exception {
     // first mark existing owners as deleted, new owners will be updated later
     jdbcTemplate.update(MARK_DATASET_OWNERS_AS_DELETED, datasetId);
 
     if (owners.size() > 0) {
-      String urn = getDatasetUrnById(jdbcTemplate, datasetId);
-      updateDatasetOwnerDatabase(jdbcTemplate, datasetId, urn, owners);
+      updateDatasetOwnerDatabase(jdbcTemplate, datasetId, datasetUrn, owners);
     }
   }
 

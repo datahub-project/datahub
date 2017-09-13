@@ -230,6 +230,8 @@ public class Dataset extends Controller {
       return ok(result);
     }
 
+    String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+
     Map<String, String[]> params = request().body().asFormUrlEncoded();
     // params should contain mapping 'owners': ['ownerInfoJsonString']
     if (params == null || !params.containsKey("owners") || params.get("owners") == null
@@ -289,7 +291,7 @@ public class Dataset extends Controller {
     }
 
     try {
-      DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, username, id, owners);
+      DATASETS_DAO.updateDatasetOwners(JDBC_TEMPLATE, username, id, urn, owners);
       result.put("status", "success");
     } catch (Exception e) {
       Logger.error("Owner updating error: ", e);
