@@ -18,6 +18,7 @@ dependencies {
   compile externalDependency.json_path
   compile externalDependency.akka
   compile externalDependency.slf4j_api
+  compile externalDependency.logback
   compile externalDependency.hive_exec
   compile externalDependency.hadoop_hdfs
   compile externalDependency.jython
