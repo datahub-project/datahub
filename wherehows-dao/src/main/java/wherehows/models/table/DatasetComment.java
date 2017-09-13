@@ -21,8 +21,8 @@ public class DatasetComment {
     public String authorName;
     public String authorUserName;
     public String authorEmail;
-    public String created;
-    public String modified;
+    public long created;
+    public long modified;
     public String type;
     public Boolean isAuthor;
 }

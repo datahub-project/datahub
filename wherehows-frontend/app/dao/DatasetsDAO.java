@@ -221,6 +221,9 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 	private final static String CREATE_DATASET_COMMENT = "INSERT INTO comments " +
 			"(text, user_id, dataset_id, created, modified, comment_type) VALUES(?, ?, ?, NOW(), NOW(), ?)";
 
+	private final static String UPDATE_DATASET_COMMENT = "UPDATE comments " +
+			"SET text = ?, comment_type = ?, modified = NOW() WHERE id = ?";
+
 	private final static String GET_WATCHED_URN_ID = "SELECT id FROM watch " +
 			"WHERE user_id = ? and item_type = 'urn' and urn = ?";
 
@@ -244,9 +247,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 
 	private final static String CREATE_COLUMN_COMMENT = "INSERT INTO field_comments " +
 			"(comment, user_id, created, modified, comment_crc32_checksum) VALUES(?, ?, NOW(), NOW(), CRC32(?))";
-
-	private final static String UPDATE_DATASET_COMMENT = "UPDATE comments " +
-			"SET text = ?, comment_type = ?, modified = NOW() WHERE id = ?";
 
 	private final static String UPDATE_COLUMN_COMMENT = "UPDATE field_comments " +
 			"SET comment = ?, modified = NOW() WHERE id = ?";
