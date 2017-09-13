@@ -13,7 +13,6 @@
  */
 package dao;
 
-import java.sql.Timestamp;
 import wherehows.models.table.DatasetComment;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
@@ -40,11 +39,10 @@ public class DatasetCommentRowMapper implements RowMapper<DatasetComment>
         int id = rs.getInt(ID_COLUMN);
         int datasetId = rs.getInt(DATASET_ID_COLUMN);
         String text = rs.getString(TEXT_COLUMN);
-        Timestamp created = rs.getTimestamp(CREATED_TIME_COLUMN);
-        Timestamp modified = rs.getTimestamp(MODIFIED_TIME_COLUMN);
+        long created = rs.getTimestamp(CREATED_TIME_COLUMN).getTime();
+        long modified = rs.getTimestamp(MODIFIED_TIME_COLUMN).getTime();
         String type = rs.getString(COMMENT_TYPE_COLUMN);
-        if (StringUtils.isBlank(type))
-        {
+        if (StringUtils.isBlank(type)) {
             type = DEFAULT_COMMENT_TYPE;
         }
         String authorName = rs.getString(USER_FULL_NAME_COLUMN);
@@ -54,8 +52,8 @@ public class DatasetCommentRowMapper implements RowMapper<DatasetComment>
         datasetComment.id = id;
         datasetComment.datasetId = datasetId;
         datasetComment.text = text;
-        datasetComment.created = created.getTime();
-        datasetComment.modified = modified.getTime();
+        datasetComment.created = created;
+        datasetComment.modified = modified;
         datasetComment.type = type;
         datasetComment.authorName = authorName;
         datasetComment.authorEmail = authorEmail;
