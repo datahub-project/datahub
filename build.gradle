@@ -13,18 +13,6 @@ buildscript {
   }
 }
 
-configurations.all {
-  exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-  exclude group: 'log4j'
-
-  resolutionStrategy {
-      dependencySubstitution {
-          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
-          //prefer 'log4j-over-slf4j' over 'log4j'
-      }
-  }
-}
-
 subprojects {
   task excludegroup(type: Test) {
     useTestNG() {
@@ -39,6 +27,7 @@ subprojects {
 
 apply from: 'gradle/scripts/coverage.gradle'
 apply from: 'gradle/scripts/dependency.gradle'
+apply from: 'gradle/scripts/logging.gradle'
 apply from: 'gradle/scripts/ide.gradle'
 apply from: 'gradle/scripts/license.gradle'
 
