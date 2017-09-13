@@ -1,3 +1,10 @@
+type ClassificationUnion = 'confidential' | 'limitedDistribution' | 'highlyConfidential';
+interface INonIdLogicalTypes {
+  [prop: string]: {
+    classification: ClassificationUnion;
+    displayAs: string;
+  };
+}
 /**
  * A list of id logical types
  * @type {Array.<String>}
@@ -12,7 +19,7 @@ const customIdLogicalTypes = ['CUSTOM_ID'];
 
 // Default mapping of field data types to security classification
 // https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
-const nonIdFieldLogicalTypes = {
+const nonIdFieldLogicalTypes: INonIdLogicalTypes = {
   NAME: {
     classification: 'confidential',
     displayAs: 'Name'

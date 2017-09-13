@@ -1,0 +1,19 @@
+/// Styles the new comment component
+.comment-new {
+  list-style-type: none;
+  margin-top: item-spacing(4);
+
+  &__content {
+    min-height: item-spacing(6) * 4;
+    outline: none;
+  }
+
+  &__actions {
+    margin: item-spacing(4) 0 0;
+
+    button {
+      margin: item-spacing(0 1 0 0);
+      outline: none;
+    }
+  }
+}

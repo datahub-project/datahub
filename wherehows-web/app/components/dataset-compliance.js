@@ -783,24 +783,24 @@ export default Component.extend({
     async onEditDatasetClassification() {
       const isConfirmed = await this.confirmUnformattedFields();
 
-      // Ensure that the fields on the policy meet the validation criteria before proceeding
-      // Otherwise exit early
-      try {
-        await this.validateFields();
-      } catch (e) {
-        // Flag this dataset's data as problematic
-        if (e instanceof Error && e.message === complianceDataException) {
-          set(this, '_hasBadData', true);
-          window.scrollTo(0, 0);
+      if (isConfirmed) {
+        // Ensure that the fields on the policy meet the validation criteria before proceeding
+        // Otherwise exit early
+        try {
+          await this.validateFields();
+        } catch (e) {
+          // Flag this dataset's data as problematic
+          if (e instanceof Error && e.message === complianceDataException) {
+            set(this, '_hasBadData', true);
+            window.scrollTo(0, 0);
+          }
+
+          return;
         }
 
-        return;
-      }
-
-      // If user provides confirmation for unformatted fields or there are none,
-      // then validate fields against expectations
-      // otherwise inform user of validation exception
-      if (isConfirmed) {
+        // If user provides confirmation for unformatted fields or there are none,
+        // then validate fields against expectations
+        // otherwise inform user of validation exception
         setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: true });
       }
     },

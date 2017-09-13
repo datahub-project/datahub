@@ -68,16 +68,6 @@ export default Component.extend({
     set(this, 'userNamesResolver', get(this, 'ldapUsers.userNamesResolver'));
   },
 
-  /**
-   * Helper function get the userName for the currently logged in user
-   * @return {String|*} the userName is found
-   */
-  loggedInUserName() {
-    // Current user service provides the userName on one of two api
-    //   TODO: DSS-6718 Refactor. merge this into one
-    return get(this, 'sessionUser.userName') || get(this, 'sessionUser.currentUser.userName');
-  },
-
   // Combination macro to check that the entered username is valid
   //  i.e. not _defaultOwnerUserName and the requiredMinConfirmed
   ownershipIsInvalid: computed.or('userNameInvalid', 'requiredMinNotConfirmed'),
@@ -312,8 +302,9 @@ export default Component.extend({
      * @param {Boolean = false} checked flag for the current ui checked state
      */
     confirmOwner(owner, { target: { checked = false } = {} }) {
-      // Attempt to get the userName from the currentUser service
-      const userName = get(this, 'loggedInUserName').call(this);
+      // get the userName from the currentUser service
+      // the currentUser object should exist if a session is active
+      const userName = get(this, 'sessionUser.currentUser.userName');
       // If checked, assign userName otherwise, null
       const isConfirmedBy = checked ? userName : null;
 
