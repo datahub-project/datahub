@@ -115,7 +115,7 @@ public class GobblinTrackingAuditService {
     if (classificationResult != null && !classificationResult.equals("null")) {
       updateDatasetClassificationResult(urn, classificationResult);
     } else {
-      log.warn("skip insertion since classification result is empty");
+      log.info("skip insertion since classification result is empty");
     }
   }
 
@@ -124,7 +124,7 @@ public class GobblinTrackingAuditService {
       DatasetClassification record = new DatasetClassification(urn, classificationResult, new Date());
       datasetClassificationDao.update(record);
     } catch (Exception e) {
-      log.info("unable to update classification result due to {}", e.getMessage());
+      log.warn("unable to update classification result due to {}", e.getMessage());
     }
   }
 
