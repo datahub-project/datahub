@@ -59,7 +59,7 @@ public class GobblinTrackingAuditProcessor extends KafkaMessageProcessor {
     } else if (name.equals(METADATA_FILE_CLASSIFIER)) {
       gobblinTrackingAuditService.updateHdfsDatasetSchema(record);
     } else {
-      log.info("Gobblin audit message skipped.");
+      log.debug("Gobblin audit message skipped.");
     }
   }
 }
