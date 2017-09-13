@@ -60,6 +60,7 @@ public class KafkaWorker extends UntypedActor {
               _processor.process(record.value());
             } catch (Exception e) {
               log.error("Processor Error: ", e);
+              log.error("Message content: " + record.toString());
             }
 
             if (_receivedRecordCount % 1000 == 0) {

@@ -13,6 +13,7 @@
  */
 package wherehows.dao.table;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.EntityManager;
@@ -20,13 +21,14 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import lombok.SneakyThrows;
 
 
 public class BaseDao {
 
-  final EntityManagerFactory entityManagerFactory;
+  protected final EntityManagerFactory entityManagerFactory;
 
   public BaseDao(EntityManagerFactory factory) {
     this.entityManagerFactory = factory;
@@ -41,7 +43,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> T find(Class entityClass, Object primaryKey) {
+  public <T> T find(Class<T> entityClass, Object primaryKey) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     try {
       return (T) entityManager.find(entityClass, primaryKey);
@@ -60,7 +62,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> T findBy(Class entityClass, String criteriaKey, Object criteriaValue) {
+  public <T> T findBy(Class<T> entityClass, String criteriaKey, Object criteriaValue) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     CriteriaBuilder cb = entityManager.getCriteriaBuilder();
     CriteriaQuery<T> criteria = cb.createQuery(entityClass);
@@ -84,7 +86,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> List<T> findListBy(Class entityClass, String criteriaKey, Object criteriaValue) {
+  public <T> List<T> findListBy(Class<T> entityClass, String criteriaKey, Object criteriaValue) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     CriteriaBuilder cb = entityManager.getCriteriaBuilder();
     CriteriaQuery<T> criteria = cb.createQuery(entityClass);
@@ -99,15 +101,101 @@ public class BaseDao {
   }
 
   /**
-   * Update/merge an entity record.
-   * @param record an entity object
+   * Find a list of entities by a parameter map
+   * @param entityClass T.class the entity class type
+   * @param params Map<String, Object>
+   * @param <T> Entity type to find
+   * @return List of entities
    */
   @SneakyThrows
-  public void update(Object record) {
+  @SuppressWarnings("unchecked")
+  public <T> List<T> findListBy(Class<T> entityClass, Map<String, ? extends Object> params) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+    CriteriaQuery<T> criteria = cb.createQuery(entityClass);
+    Root<T> entityRoot = criteria.from(entityClass);
+
+    //Constructing list of parameters
+    List<Predicate> predicates = new ArrayList<Predicate>();
+    for (Map.Entry<String, ? extends Object> entry : params.entrySet()) {
+      predicates.add(cb.equal(entityRoot.get(entry.getKey()), entry.getValue()));
+    }
+
+    criteria.select(entityRoot);
+    criteria.where(predicates.toArray(new Predicate[]{}));
+    try {
+      return entityManager.createQuery(criteria).getResultList();
+    } finally {
+      entityManager.close();
+    }
+  }
+
+  /**
+   * Merge (update or create) an entity record.
+   * @param record an entity object
+   * @return the persisted / managed record
+   */
+  @SneakyThrows
+  public Object update(Object record) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     entityManager.getTransaction().begin();
     try {
-      entityManager.merge(record);
+      record = entityManager.merge(record);
+      entityManager.getTransaction().commit();
+      return record;
+    } finally {
+      entityManager.close();
+    }
+  }
+
+  /**
+   * Update/merge a list of entity records.
+   * @param records a list of entity objects
+   */
+  @SneakyThrows
+  public void updateList(List<? extends Object> records) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    entityManager.getTransaction().begin();
+    try {
+      for (Object record : records) {
+        entityManager.merge(record);
+        entityManager.flush();
+      }
+      entityManager.getTransaction().commit();
+    } finally {
+      entityManager.close();
+    }
+  }
+
+  /**
+   * Remove an entity record. If it's detached, try to attach it first.
+   * @param record an entity object
+   */
+  @SneakyThrows
+  public void remove(Object record) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    entityManager.getTransaction().begin();
+    try {
+      entityManager.remove(entityManager.contains(record) ? record : entityManager.merge(record));
+      entityManager.getTransaction().commit();
+    } finally {
+      entityManager.close();
+    }
+  }
+
+  /**
+   * Remove a list of entity record.
+   * @param records a list of entity object
+   */
+  @SneakyThrows
+  public void removeList(List<? extends Object> records) {
+    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    entityManager.getTransaction().begin();
+    try {
+      for (Object record : records) {
+        entityManager.remove(entityManager.contains(record) ? record : entityManager.merge(record));
+        entityManager.flush();
+      }
       entityManager.getTransaction().commit();
     } finally {
       entityManager.close();

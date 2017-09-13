@@ -15,8 +15,10 @@ package wherehows.common.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import wherehows.common.schemas.Record;
 
@@ -121,13 +123,12 @@ public class StringUtil {
   }
 
   /**
-   * Object to string, replace null/"null" with replacement string
+   * Object to string, replace null with replacement string
    * @param obj Object
    * @return String
    */
   public static String toStringReplaceNull(Object obj, String replacement) {
-    String string = String.valueOf(obj);
-    return string == null || string.equals("null") ? replacement : string;
+    return obj == null ? replacement : obj.toString();
   }
 
   /**
@@ -142,5 +143,22 @@ public class StringUtil {
       newMap.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
     }
     return newMap;
+  }
+
+  /**
+   * Convert list of objects to list of strings by type casting of each item
+   * @param list of objects
+   * @return List of strings, or null
+   */
+  public static <T> List<String> toStringList(List<T> list) {
+    if (list == null) {
+      return null;
+    }
+
+    final List<String> stringList = new ArrayList<>();
+    for (T item : list) {
+      stringList.add((String) item);
+    }
+    return stringList;
   }
 }

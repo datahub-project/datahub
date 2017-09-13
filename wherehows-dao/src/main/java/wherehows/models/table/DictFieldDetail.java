@@ -16,99 +16,108 @@ package wherehows.models.table;
 import java.util.Date;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.PrePersist;
+import javax.persistence.PreUpdate;
 import javax.persistence.Table;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 
 @Data
 @Entity
-@Table(name = "dataset_classification")
+@Table(name = "dict_field_detail")
 @NoArgsConstructor
-@AllArgsConstructor
 public class DictFieldDetail {
 
   @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "field_id", nullable = false)
-  int fieldId;
+  private int fieldId;
 
   @Column(name = "dataset_id", nullable = false)
-  int datasetId;
+  private int datasetId;
 
   @Column(name = "fields_layout_id", nullable = false)
-  int fieldsLayoutId;
+  private int fieldsLayoutId;
 
   @Column(name = "sort_id", nullable = false)
-  int sortId;
+  private int sortId;
 
   @Column(name = "parent_sort_id", nullable = false)
-  int parentSortId;
+  private int parentSortId;
 
   @Column(name = "parent_path")
-  String parentPath;
+  private String parentPath;
 
   @Column(name = "field_name", nullable = false)
-  String fieldName;
+  private String fieldName;
 
   @Column(name = "field_label")
-  String fieldLabel;
+  private String fieldLabel;
 
   @Column(name = "data_type", nullable = false)
-  String dataType;
+  private String dataType;
 
   @Column(name = "data_size")
-  int dataSize;
+  private Integer dataSize; // max size 50
 
   @Column(name = "data_precision")
-  int dataPrecision;
+  private Integer dataPrecision;
 
   @Column(name = "data_fraction")
-  int dataFraction;
+  private Integer dataFraction;
 
   @Column(name = "default_comment_id")
-  int defaultCommentId;
+  private Integer defaultCommentId;
 
   @Column(name = "comment_ids")
-  String commentIds;
+  private String commentIds;
 
   @Column(name = "is_nullable")
-  String isNullable;
+  private String isNullable;
 
   @Column(name = "is_indexed")
-  String isIndexed;
+  private String isIndexed;
 
   @Column(name = "is_partitioned")
-  String isPartitioned;
+  private String isPartitioned;
 
   @Column(name = "is_distributed")
-  int isDistributed;
+  private Integer isDistributed;
 
   @Column(name = "default_value")
-  String defaultValue;
+  private String defaultValue;
 
   @Column(name = "namespace")
-  String nameSpace;
+  private String nameSpace;
 
   @Column(name = "java_data_type")
-  String javaDataType;
+  private String javaDataType;
 
   @Column(name = "jdbc_data_type")
-  String jdbcDataType;
+  private String jdbcDataType;
 
   @Column(name = "pig_data_type")
-  String pigDataType;
+  private String pigDataType;
 
   @Column(name = "hcatalog_data_type")
-  String hcatalogDataType;
+  private String hcatalogDataType;
 
   @Column(name = "modified")
-  Date modified;
+  private Date modified;
 
   @Column(name = "confidential_flags")
-  int confidentialFlags;
+  private String confidentialFlags;
 
   @Column(name = "is_recursive")
-  int isRecursive;
+  private String isRecursive;
+
+  @PreUpdate
+  @PrePersist
+  void prePersist() {
+    this.modified = new Date();
+  }
 }

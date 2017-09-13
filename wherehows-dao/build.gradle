@@ -1,6 +1,7 @@
 apply plugin: 'java'
 
 dependencies {
+    compile project(':wherehows-data-model')
     compile externalDependency.commons_lang3
     compile externalDependency.slf4j_api
     compile externalDependency.spring_jdbc
@@ -10,4 +11,11 @@ dependencies {
     compile externalDependency.lombok
     compile externalDependency.hibernate_core
     compile externalDependency.hibernate_hikaricp
+
+    testCompile externalDependency.testng
+}
+
+test {
+    // enable TestNG support (default is JUnit)
+    useTestNG()
 }

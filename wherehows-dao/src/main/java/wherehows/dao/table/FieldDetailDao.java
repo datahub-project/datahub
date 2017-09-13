@@ -13,10 +13,19 @@
  */
 package wherehows.dao.table;
 
+import com.linkedin.events.metadata.ChangeAuditStamp;
+import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DatasetSchema;
+import com.linkedin.events.metadata.FieldSchema;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import javax.persistence.EntityManagerFactory;
 import wherehows.models.table.DictFieldDetail;
+
+import static wherehows.util.UrnUtil.*;
 
 
 public class FieldDetailDao extends BaseDao {
@@ -33,5 +42,93 @@ public class FieldDetailDao extends BaseDao {
 
   public void deleteByDatasetId(int datasetId) {
     executeUpdate(DELETE_BY_DATASET_ID, Collections.singletonMap("datasetId", datasetId));
+  }
+
+  /**
+   * Insert or update dict field details given information from MetadataChangeEvent
+   * @param identifier DatasetIdentifier
+   * @param datasetId int
+   * @param auditStamp ChangeAuditStamp
+   * @param schema DatasetSchema
+   * @throws Exception
+   */
+  public void insertUpdateDatasetFields(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
+      DatasetSchema schema) throws Exception {
+
+    List<DictFieldDetail> fields = findListBy(DictFieldDetail.class, "datasetId", datasetId);
+
+    List<List<DictFieldDetail>> updatedFields = diffFieldList(fields, datasetId, schema);
+
+    if (updatedFields.get(1).size() > 0) {
+      removeList(updatedFields.get(1));
+    }
+
+    if (updatedFields.get(0).size() > 0) {
+      updateList(updatedFields.get(0));
+    }
+
+    // update field comments?
+  }
+
+  /**
+   * Fill in DictFieldDetail information from FieldSchema
+   * @param fs FieldSchema
+   * @param field DictFieldDetail
+   */
+  public void fillFieldDetailByFieldSchema(FieldSchema fs, DictFieldDetail field) {
+    field.setFieldName(fs.fieldPath.toString());
+    field.setSortId(fs.position);
+    field.setParentSortId(fs.parentFieldPosition);
+    field.setParentPath("");
+    field.setFieldsLayoutId(0);
+    field.setDataType(trimToLength(toStringOrNull(fs.type), 50)); // truncate to max length 50
+    field.setFieldLabel(toStringOrNull(fs.label));
+    field.setDataSize(fs.maxByteLength != null ? fs.maxByteLength : fs.maxCharLength);
+    field.setDataPrecision(fs.precision);
+    field.setDefaultValue(toStringOrNull(fs.defaultValue));
+    field.setIsNullable(fs.nullable ? "Y" : "N");
+    field.setIsRecursive(fs.isRecursive ? "Y" : "N");
+  }
+
+  /**
+   * Find the updated list of fields, and the list of fields that don't exist anymore.
+   * @param originalFields List<DictFieldDetail>
+   * @param datasetId int
+   * @param schema DatasetSchema
+   * @return [ updated list , removed list of fields]
+   */
+  public List<List<DictFieldDetail>> diffFieldList(List<DictFieldDetail> originalFields, int datasetId,
+      DatasetSchema schema) {
+    List<DictFieldDetail> updatedFields = new ArrayList<>(); // updated fields
+
+    int fieldCount = 0;
+    for (FieldSchema fs : schema.fieldSchema) {
+      fieldCount++;
+
+      String fieldPath = fs.fieldPath.toString();
+      // find and update existing field
+      for (DictFieldDetail field : originalFields) {
+        if (fieldPath.equalsIgnoreCase(field.getFieldName())) {
+          fillFieldDetailByFieldSchema(fs, field);
+
+          updatedFields.add(field);
+          break;
+        }
+      }
+
+      // if field not exist, add a new field
+      if (updatedFields.size() < fieldCount) {
+        DictFieldDetail field = new DictFieldDetail();
+        field.setDatasetId(datasetId);
+        fillFieldDetailByFieldSchema(fs, field);
+
+        updatedFields.add(field);
+      }
+    }
+
+    List<DictFieldDetail> removedFields = new ArrayList<>(originalFields);
+    removedFields.removeAll(updatedFields);
+
+    return Arrays.asList(updatedFields, removedFields);
   }
 }

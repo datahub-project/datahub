@@ -47,7 +47,7 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected <T> List<T> getEntityListBy(String sqlQuery, Class classType, Map<String, Object> params) {
+  protected <T> List<T> getEntityListBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
     EntityManager entityManager = _emFactory.createEntityManager();
     Query query = entityManager.createNativeQuery(sqlQuery, classType);
     for (Map.Entry<String, Object> param : params.entrySet()) {
@@ -71,7 +71,7 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected <T> T getEntityBy(String sqlQuery, Class classType, Map<String, Object> params) {
+  protected <T> T getEntityBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
     EntityManager entityManager = _emFactory.createEntityManager();
     Query query = entityManager.createNativeQuery(sqlQuery, classType);
     for (Map.Entry<String, Object> param : params.entrySet()) {

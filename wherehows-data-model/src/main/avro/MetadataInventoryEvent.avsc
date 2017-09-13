@@ -136,6 +136,38 @@
                       "doc": "The native type about how the dataset is stored in the platform"
                     },
                     {
+                      "name": "storageType",
+                      "type": [
+                        "null",
+                        {
+                          "type": "enum",
+                          "name": "DatasetStorageType",
+                          "symbols": [
+                            "TABLE",
+                            "EXTERNAL_TABLE",
+                            "VIEW",
+                            "MATERIALIZED_VIEW",
+                            "AVRO",
+                            "ORC",
+                            "PARQUET",
+                            "RC",
+                            "JSON",
+                            "BINARY_JSON",
+                            "SEQUENCE",
+                            "FLAT_FILE",
+                            "XML",
+                            "INDEX",
+                            "PROTOCOL_BUFFER",
+                            "THRIFT",
+                            "BINARY",
+                            "OTHER"
+                          ]
+                        }
+                      ],
+                      "doc": "The type or format that the dataset is stored with in the platform",
+                      "default": null
+                    },
+                    {
                       "name": "uri",
                       "type": [
                         "null",
@@ -172,6 +204,18 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "name": "extras",
+                      "type": [
+                        "null",
+                        {
+                          "type": "map",
+                          "values": "string"
+                        }
+                      ],
+                      "doc": "Extra dataset property information",
+                      "default": null
                     }
                   ]
                 }
