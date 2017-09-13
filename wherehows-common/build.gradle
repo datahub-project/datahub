@@ -2,7 +2,6 @@ apply plugin: 'java'
 
 dependencies {
   compile externalDependency.slf4j_api
-  compile externalDependency.slf4j_log4j
   compile externalDependency.spring_jdbc
   compile externalDependency.jgit
   compile externalDependency.jsoup

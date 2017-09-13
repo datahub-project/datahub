@@ -13,7 +13,8 @@ dependencies {
     compile externalDependency.akka
     compile externalDependency.mysql
     compile externalDependency.guava
-    compile externalDependency.slf4j_simple
+    compile externalDependency.slf4j_api
+    compile externalDependency.logback
 
     compile externalDependency.kafka_clients
     compile externalDependency.confluent_avro_serde

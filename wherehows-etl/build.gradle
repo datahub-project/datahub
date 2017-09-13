@@ -4,17 +4,6 @@ configurations {
   //Libraries needed at compilation time but not to be
   //exported as part of the distribution
   provided
-
-  all*.exclude group: 'org.slf4j', module: 'slf4j-log4j12'
-  all*.exclude group: 'log4j'
-
-  all*.resolutionStrategy {
-      dependencySubstitution {
-          substitute module('org.slf4j:slf4j-log4j12') with module('ch.qos.logback:logback-classic:1.1.7')
-          //prefer 'log4j-over-slf4j' over 'log4j'
-          substitute module('log4j:log4j') with module('org.slf4j:log4j-over-slf4j:1.7.21')
-      }
-  }
 }
 
 dependencies {
@@ -29,7 +18,6 @@ dependencies {
   compile externalDependency.json_path
   compile externalDependency.akka
   compile externalDependency.slf4j_api
-  compile externalDependency.slf4j_log4j
   compile externalDependency.hive_exec
   compile externalDependency.hadoop_hdfs
   compile externalDependency.jython
