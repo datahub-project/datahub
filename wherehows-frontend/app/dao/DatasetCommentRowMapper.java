@@ -13,6 +13,7 @@
  */
 package dao;
 
+import java.sql.Timestamp;
 import wherehows.models.table.DatasetComment;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
@@ -34,13 +35,13 @@ public class DatasetCommentRowMapper implements RowMapper<DatasetComment>
     public static String USER_NAME_COLUMN = "username";
 
     @Override
-    public DatasetComment mapRow(ResultSet rs, int rowNum) throws SQLException    {
+    public DatasetComment mapRow(ResultSet rs, int rowNum) throws SQLException {
 
         int id = rs.getInt(ID_COLUMN);
         int datasetId = rs.getInt(DATASET_ID_COLUMN);
         String text = rs.getString(TEXT_COLUMN);
-        String created = rs.getString(CREATED_TIME_COLUMN);
-        String modified = rs.getString(MODIFIED_TIME_COLUMN);
+        Timestamp created = rs.getTimestamp(CREATED_TIME_COLUMN);
+        Timestamp modified = rs.getTimestamp(MODIFIED_TIME_COLUMN);
         String type = rs.getString(COMMENT_TYPE_COLUMN);
         if (StringUtils.isBlank(type))
         {
@@ -53,8 +54,8 @@ public class DatasetCommentRowMapper implements RowMapper<DatasetComment>
         datasetComment.id = id;
         datasetComment.datasetId = datasetId;
         datasetComment.text = text;
-        datasetComment.created = created;
-        datasetComment.modified = modified;
+        datasetComment.created = created.getTime();
+        datasetComment.modified = modified.getTime();
         datasetComment.type = type;
         datasetComment.authorName = authorName;
         datasetComment.authorEmail = authorEmail;

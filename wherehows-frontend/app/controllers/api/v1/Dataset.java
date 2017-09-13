@@ -451,6 +451,10 @@ public class Dataset extends Controller {
     Map<String, String[]> params = request().body().asFormUrlEncoded();
 
     if (StringUtils.isNotBlank(username)) {
+      if (!params.containsKey("id")) {
+        params.put("id", new String[]{String.valueOf(commentId)});
+      }
+
       if (DatasetsDAO.postComment(id, params, username)) {
         result.put("status", "success");
         return ok(result);
