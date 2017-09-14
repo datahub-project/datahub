@@ -13,12 +13,7 @@
  */
 package wherehows.dao.table;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
-import lombok.SneakyThrows;
 import wherehows.models.table.DatasetSchemaInfo;
 
 
@@ -28,18 +23,7 @@ public class DatasetSchemaInfoDao extends BaseDao {
     super(factory);
   }
 
-  @SneakyThrows
   public DatasetSchemaInfo findById(int datasetId) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<DatasetSchemaInfo> criteria = cb.createQuery(DatasetSchemaInfo.class);
-    Root<DatasetSchemaInfo> entityRoot = criteria.from(DatasetSchemaInfo.class);
-    criteria.select(entityRoot).where(cb.equal(entityRoot.get("dataset_id"), datasetId));
-
-    try {
-      return entityManager.createQuery(criteria).getSingleResult();
-    } finally {
-      entityManager.close();
-    }
+    return findBy(DatasetSchemaInfo.class, "dataset_id", datasetId);
   }
 }

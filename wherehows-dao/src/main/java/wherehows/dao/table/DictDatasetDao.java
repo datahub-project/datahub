@@ -13,12 +13,7 @@
  */
 package wherehows.dao.table;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
-import lombok.SneakyThrows;
 import wherehows.models.table.DictDataset;
 
 
@@ -28,33 +23,11 @@ public class DictDatasetDao extends BaseDao {
     super(factory);
   }
 
-  @SneakyThrows
   public DictDataset findByUrn(String urn) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<DictDataset> criteria = cb.createQuery(DictDataset.class);
-    Root<DictDataset> entityRoot = criteria.from(DictDataset.class);
-    criteria.select(entityRoot);
-    criteria.where(cb.equal(entityRoot.get("urn"), urn));
-    try {
-      return entityManager.createQuery(criteria).getSingleResult();
-    } finally {
-      entityManager.close();
-    }
+    return findBy(DictDataset.class, "urn", urn);
   }
 
-  @SneakyThrows
   public DictDataset findById(int datasetId) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<DictDataset> criteria = cb.createQuery(DictDataset.class);
-    Root<DictDataset> entityRoot = criteria.from(DictDataset.class);
-    criteria.select(entityRoot);
-    criteria.where(cb.equal(entityRoot.get("dataset_id"), datasetId));
-    try {
-      return entityManager.createQuery(criteria).getSingleResult();
-    } finally {
-      entityManager.close();
-    }
+    return findBy(DictDataset.class, "id", datasetId);
   }
 }

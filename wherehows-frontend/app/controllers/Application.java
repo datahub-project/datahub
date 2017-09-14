@@ -37,7 +37,7 @@ import play.mvc.Result;
 import play.mvc.Security;
 import security.AuthenticationManager;
 import utils.Tree;
-import wherehows.dao.table.ConnectionPoolProperties;
+import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
 import static play.data.Form.*;

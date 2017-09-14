@@ -34,10 +34,10 @@ public class DictDataset {
   @Id
   int id;
 
-  @Column(name = "`name`", nullable = false)
+  @Column(name = "name", nullable = false)
   String name;
 
-  @Column(name = "`schema`")
+  @Column(name = "schema")
   String schema;
 
   @Column(name = "schema_type")

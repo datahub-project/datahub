@@ -28,7 +28,7 @@ import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import wherehows.actors.KafkaClientMaster;
 import wherehows.common.utils.ProcessUtil;
 import wherehows.dao.DaoFactory;
-import wherehows.dao.table.ConnectionPoolProperties;
+import wherehows.dao.ConnectionPoolProperties;
 
 
 @Slf4j

@@ -25,7 +25,7 @@ import play.Logger;
 import play.Play;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.dao.table.ConnectionPoolProperties;
+import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
 
