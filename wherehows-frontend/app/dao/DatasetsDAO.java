@@ -982,77 +982,38 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		return result;
 	}
 
-	public static boolean postComment(int datasetId, Map<String, String[]> commentMap, String user)
-	{
-		boolean result = false;
-		if ((commentMap == null) || commentMap.size() == 0)
-		{
+	public static boolean postComment(int datasetId, Map<String, String[]> commentMap, String user) {
+		return postComment(datasetId, 0, commentMap, user);
+	}
+
+	public static boolean postComment(int datasetId, int commentId, Map<String, String[]> commentMap, String user) {
+		if (commentMap == null || commentMap.size() == 0) {
 			return false;
 		}
 
-		String text = "";
-		if (commentMap.containsKey("text")) {
-			String[] textArray = commentMap.get("text");
-			if (textArray != null && textArray.length > 0)
-			{
-				text = textArray[0];
-			}
+		if (!commentMap.containsKey("text") || commentMap.get("text") == null || commentMap.get("text").length == 0) {
+			return false;
 		}
-		if (StringUtils.isBlank(text))
-		{
-      return false;
-		}
+		String text = commentMap.get("text")[0];
 
 		String type = "Comment";
 		if (commentMap.containsKey("type")) {
 			String[] typeArray = commentMap.get("type");
-			if (typeArray != null && typeArray.length > 0)
-			{
+			if (typeArray != null && typeArray.length > 0) {
 				type = typeArray[0];
 			}
 		}
 
-		Integer commentId = 0;
-		if (commentMap.containsKey("id")) {
-			String[] idArray = commentMap.get("id");
-			if (idArray != null && idArray.length > 0)
-			{
-				String idStr = idArray[0];
-				try
-				{
-					commentId = Integer.parseInt(idStr);
-				}
-				catch(NumberFormatException e)
-				{
-					Logger.error("DatasetDAO postComment wrong id parameter. Error message: " +
-							e.getMessage());
-					commentId = 0;
-				}
-			}
-		}
-
 		Integer userId = UserDAO.getUserIDByUserName(user);
-
-		if (userId != null && userId !=0)
-		{
-			if (commentId != null && commentId != 0)
-			{
-				int row = getJdbcTemplate().update(UPDATE_DATASET_COMMENT, text, type, commentId);
-				if (row > 0)
-				{
-					result = true;
-				}
-			}
-			else
-			{
-				int row = getJdbcTemplate().update(CREATE_DATASET_COMMENT, text, userId, datasetId, type);
-				if (row > 0)
-				{
-					result = true;
-				}
-			}
+		if (userId == null || userId == 0) {
+			return false;
 		}
-		return result;
+
+		if (commentId > 0) {
+			return getJdbcTemplate().update(UPDATE_DATASET_COMMENT, text, type, commentId) > 0;
+		} else {
+			return getJdbcTemplate().update(CREATE_DATASET_COMMENT, text, userId, datasetId, type) > 0;
+		}
 	}
 
 	public static boolean deleteComment(int id)
