@@ -14,7 +14,6 @@
 package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
-import wherehows.dao.table.ClusterInfoDao;
 import wherehows.dao.table.DatasetClassificationDao;
 import wherehows.dao.table.DatasetSchemaInfoDao;
 import wherehows.dao.table.DatasetsDao;
@@ -63,9 +62,5 @@ public class DaoFactory {
 
   public DatasetSchemaInfoDao getDatasetSchemaInfoDao() {
     return new DatasetSchemaInfoDao(entityManagerFactory);
-  }
-
-  public ClusterInfoDao getClusterInfoDao() {
-    return new ClusterInfoDao(entityManagerFactory);
   }
 }

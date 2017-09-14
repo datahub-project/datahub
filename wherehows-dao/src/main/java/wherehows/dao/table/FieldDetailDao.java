@@ -13,13 +13,9 @@
  */
 package wherehows.dao.table;
 
+import java.util.Collections;
 import java.util.List;
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
-import lombok.SneakyThrows;
 import wherehows.models.table.DictFieldDetail;
 
 
@@ -31,28 +27,11 @@ public class FieldDetailDao extends BaseDao {
     super(factory);
   }
 
-  @SneakyThrows
   public List<DictFieldDetail> findById(int datasetId) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<DictFieldDetail> criteria = cb.createQuery(DictFieldDetail.class);
-    Root<DictFieldDetail> entityRoot = criteria.from(DictFieldDetail.class);
-    criteria.select(entityRoot);
-    criteria.where(cb.equal(entityRoot.get("dataset_Id"), datasetId));
-    try {
-      return entityManager.createQuery(criteria).getResultList();
-    } finally {
-      entityManager.close();
-    }
+    return findListBy(DictFieldDetail.class, "dataset_id", datasetId);
   }
 
-  @SneakyThrows
   public void deleteByDatasetId(int datasetId) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    try {
-      entityManager.createQuery(DELETE_BY_DATASET_ID).executeUpdate();
-    } finally {
-      entityManager.close();
-    }
+    executeUpdate(DELETE_BY_DATASET_ID, Collections.singletonMap("datasetId", datasetId));
   }
 }

@@ -13,7 +13,6 @@
  */
 package wherehows.dao.table;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import wherehows.models.table.DatasetClassification;
 
@@ -25,9 +24,6 @@ public class DatasetClassificationDao extends BaseDao {
   }
 
   public DatasetClassification getDatasetClassification(String urn) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    DatasetClassification result = entityManager.find(DatasetClassification.class, urn);
-    entityManager.close();
-    return result;
+    return find(DatasetClassification.class, urn);
   }
 }

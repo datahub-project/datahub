@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.dao.table;
+package wherehows.dao;
 
 import java.util.HashMap;
 import java.util.Map;
