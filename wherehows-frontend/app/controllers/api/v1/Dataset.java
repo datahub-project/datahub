@@ -420,7 +420,6 @@ public class Dataset extends Controller {
   }
 
   public static Result postDatasetComment(int id) {
-    String body = request().body().asText();
     ObjectNode result = Json.newObject();
     String username = session("user");
     Map<String, String[]> params = request().body().asFormUrlEncoded();
@@ -428,6 +427,7 @@ public class Dataset extends Controller {
     if (StringUtils.isNotBlank(username)) {
       if (DatasetsDAO.postComment(id, params, username)) {
         result.put("status", "success");
+        return ok(result);
       } else {
         result.put("status", "failed");
         result.put("error", "true");
@@ -440,22 +440,15 @@ public class Dataset extends Controller {
       result.put("msg", "Unauthorized User.");
       return badRequest(result);
     }
-
-    return ok(result);
   }
 
   public static Result putDatasetComment(int id, int commentId) {
-    String body = request().body().asText();
     ObjectNode result = Json.newObject();
     String username = session("user");
     Map<String, String[]> params = request().body().asFormUrlEncoded();
 
     if (StringUtils.isNotBlank(username)) {
-      if (!params.containsKey("id")) {
-        params.put("id", new String[]{String.valueOf(commentId)});
-      }
-
-      if (DatasetsDAO.postComment(id, params, username)) {
+      if (DatasetsDAO.postComment(id, commentId, params, username)) {
         result.put("status", "success");
         return ok(result);
       } else {
