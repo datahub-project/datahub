@@ -14,7 +14,9 @@
 package metadata.etl;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
+import java.util.Enumeration;
 import java.util.Properties;
 import org.python.core.PyDictionary;
 import org.python.core.PyString;
@@ -50,14 +52,25 @@ public abstract class EtlJob extends BaseJob {
   }
 
   private void addJythonToPath(PySystemState pySystemState) {
-    URL url = classLoader.getResource("jython");
-    if (url != null) {
-      File file = new File(url.getFile());
-      String path = file.getPath();
-      if (path.startsWith("file:")) {
-        path = path.substring(5);
+    Enumeration<URL> urls;
+    try {
+      urls = classLoader.getResources("jython/");
+    } catch (IOException e) {
+      logger.info("Failed to get resource: {}", e.getMessage());
+      return;
+    }
+
+    while (urls.hasMoreElements()) {
+      URL url = urls.nextElement();
+      logger.debug("jython url: {}", url.getPath());
+      if (url != null) {
+        File file = new File(url.getFile());
+        String path = file.getPath();
+        if (path.startsWith("file:")) {
+          path = path.substring(5);
+        }
+        pySystemState.path.append(new PyString(path.replace("!", "")));
       }
-      pySystemState.path.append(new PyString(path.replace("!", "")));
     }
   }
 
