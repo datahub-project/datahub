@@ -609,6 +609,11 @@ export default Component.extend({
       identifierType === fieldIdentifierTypes.custom.value
         ? defaultFieldDataTypeClassification['CUSTOM_ID']
         : defaultTypeClassification;
+
+    defaultTypeClassification =
+      identifierType === fieldIdentifierTypes.enterpriseAccount.value
+        ? defaultFieldDataTypeClassification['ID']
+        : defaultTypeClassification;
     this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
   },
 

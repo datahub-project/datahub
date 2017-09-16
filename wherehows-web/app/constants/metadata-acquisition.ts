@@ -175,6 +175,31 @@ const fieldIdentifierTypes = {
     // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
     // ids, a logicalType / (field format) is not required to update this fields properties
     displayAs: 'Custom ID'
+  },
+  enterpriseProfile: {
+    value: 'ENTERPRISE_PROFILE_ID',
+    isId: true,
+    displayAs: 'Enterprise Profile ID'
+  },
+  enterpriseAccount: {
+    value: 'ENTERPRISE_ACCOUNT_ID',
+    isId: true,
+    displayAs: 'Enterprise Account ID'
+  },
+  seat: {
+    value: 'SEAT_ID',
+    isId: true,
+    displayAs: 'Seat ID'
+  },
+  advertiser: {
+    value: 'ADVERTISER_ID',
+    isId: true,
+    displayAs: 'Advertiser ID'
+  },
+  contract: {
+    value: 'CONTRACT_ID',
+    isId: true,
+    displayAs: 'Contract ID'
   }
 };
 

@@ -32,6 +32,24 @@ const isMixedId = identifierType => identifierType === fieldIdentifierTypes.gene
 const isCustomId = identifierType => identifierType === fieldIdentifierTypes.custom.value;
 
 /**
+ * Checks if the identifier format is only allowed numeric (ID) or URN values
+ * @param {string} identifierType
+ */
+const isNumericOrUrnOnly = identifierType =>
+  [
+    fieldIdentifierTypes.enterpriseProfile.value,
+    fieldIdentifierTypes.contract.value,
+    fieldIdentifierTypes.seat.value,
+    fieldIdentifierTypes.advertiser.value
+  ].includes(identifierType);
+
+/**
+ * Checks is the identifierType is only allowed Id fields
+ * @param identifierType
+ */
+const isIdOnly = identifierType => identifierType === fieldIdentifierTypes.enterpriseAccount.value;
+
+/**
  * Caches a list of fieldIdentifierTypes values
  * @type {any[]}
  */
@@ -132,7 +150,7 @@ export default DatasetTableRow.extend({
    */
   isFieldFormatDisabled: computed('field.identifierType', function() {
     const identifierType = get(this, 'field.identifierType');
-    return isMixedId(identifierType) || isCustomId(identifierType);
+    return isMixedId(identifierType) || isCustomId(identifierType) || isIdOnly(identifierType);
   }).readOnly(),
 
   /**
@@ -156,9 +174,13 @@ export default DatasetTableRow.extend({
   fieldFormats: computed('field.identifierType', function() {
     const identifierType = get(this, 'field.identifierType');
     const logicalTypesForIds = get(this, 'logicalTypesForIds');
+    const numericAndUrnFieldFormats = logicalTypesForIds.filter(({ value }) => ['ID', 'URN'].includes(value));
+    const numericFieldFormat = numericAndUrnFieldFormats.findBy('value', 'ID');
 
     const mixed = isMixedId(identifierType);
     const custom = isCustomId(identifierType);
+    const isNumericOrUrnFormat = isNumericOrUrnOnly(identifierType);
+    const isIdOnlyFormat = isIdOnly(identifierType);
 
     let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
       ? logicalTypesForIds
@@ -166,6 +188,8 @@ export default DatasetTableRow.extend({
     const urnFieldFormat = logicalTypesForIds.findBy('value', 'URN');
     fieldFormats = mixed ? urnFieldFormat : fieldFormats;
     fieldFormats = custom ? void 0 : fieldFormats;
+    fieldFormats = isNumericOrUrnFormat ? numericAndUrnFieldFormats : fieldFormats;
+    fieldFormats = isIdOnlyFormat ? numericFieldFormat : fieldFormats;
 
     return fieldFormats;
   }),
@@ -175,7 +199,7 @@ export default DatasetTableRow.extend({
    * If a prediction exists for this field, the predicted value is shown instead
    * @type {Ember.computed<Object>}
    */
-  logicalType: computed('field.logicalType', 'prediction', function() {
+  logicalType: computed('field.logicalType', 'prediction', 'fieldFormats', function() {
     const logicalTypePath = 'field.logicalType';
     let {
       fieldFormats,
