@@ -8,10 +8,17 @@ const { Service, set, get, setProperties } = Ember;
  */
 let isBuffering = false;
 
+// type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
+
 /**
  * String literal of available notifications
  */
-type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
+export enum NotificationEvent {
+  success = 'success',
+  error = 'error',
+  info = 'info',
+  confirm = 'confirm'
+}
 
 /**
  * String literal for notification types
@@ -145,7 +152,7 @@ const notificationHandlers: INotificationHandler = {
    * @return {INotification}
    */
   error(props: IToast): INotification {
-    return makeToast({ content: 'An error occurred!', ...props, type: 'error', isSticky: true });
+    return makeToast({ content: 'An error occurred!', ...props, type: NotificationEvent.error, isSticky: true });
   },
   /**
    *
@@ -153,7 +160,7 @@ const notificationHandlers: INotificationHandler = {
    * @return {INotification}
    */
   success(props: IToast): INotification {
-    return makeToast({ content: 'Success!', ...props, type: 'success' });
+    return makeToast({ content: 'Success!', ...props, type: NotificationEvent.success });
   },
   /**
    *
@@ -161,7 +168,7 @@ const notificationHandlers: INotificationHandler = {
    * @return {INotification}
    */
   info(props: IToast): INotification {
-    return makeToast({ content: 'Something noteworthy happened.', ...props, type: 'info' });
+    return makeToast({ content: 'Something noteworthy happened.', ...props, type: NotificationEvent.info });
   }
 };
 

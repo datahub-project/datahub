@@ -1,4 +1,6 @@
-{{#search/filter-rail as |rail|}}
+{{#search/filter-rail header=header as |rail|}}
   {{rail.links
     links=nodes}}
 {{/search/filter-rail}}
+
+{{yield}}
