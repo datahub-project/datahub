@@ -75,6 +75,7 @@ const getNodes = (entity, state = {}) => query =>
  * @return {{nodes: (*|Array)}}
  */
 const stateToComputed = state => {
+  const header = 'Refine by';
   // Extracts the current entity active in the browse view
   const { browseEntity: { currentEntity = '' } = {} } = state;
   // Retrieves properties for the current entity from the state tree
@@ -126,6 +127,6 @@ const stateToComputed = state => {
     });
   });
 
-  return { nodes };
+  return { nodes, header };
 };
 export default connect(stateToComputed)(Component.extend({}));

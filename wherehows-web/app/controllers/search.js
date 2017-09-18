@@ -1,59 +1,39 @@
 import Ember from 'ember';
 
-const {
-  Controller,
-  computed,
-  get,
-  set,
-  String: {capitalize}
-} = Ember;
+const { Controller, computed, get, set, String: { capitalize } } = Ember;
 
-const sources = [
-  'all',
-  'dali',
-  'espresso',
-  'hive',
-  'hdfs',
-  'kafka',
-  'oracle',
-  'teradata',
-  'voldemort'
-];
+const sources = ['all', 'dali', 'espresso', 'hive', 'hdfs', 'kafka', 'oracle', 'teradata', 'voldemort'];
 
 export default Controller.extend({
-  queryParams: [
-    'keyword',
-    'category',
-    'source',
-    'page'
-  ],
+  queryParams: ['keyword', 'category', 'source', 'page'],
   keyword: '',
   category: 'datasets',
   source: 'all',
   page: 1,
+  header: 'Refine By',
 
-  sources: computed('source', function () {
+  sources: computed('source', function() {
     return sources.map(source => ({
       name: 'source',
       value: source,
       label: capitalize(source),
       group: String(get(this, 'source')).toLowerCase()
-    }))
+    }));
   }),
 
   isMetric: false,
 
-  datasetTitle: function () {
-    var model = this.get("model");
+  datasetTitle: function() {
+    var model = this.get('model');
     if (model && model.source) {
       if (model.source.toLocaleLowerCase() != 'all') {
         return model.source;
       }
     }
-    return "Datasets";
+    return 'Datasets';
   }.property('model.source'),
-  isDatasets: function () {
-    var model = this.get("model");
+  isDatasets: function() {
+    var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'datasets') {
         return true;
@@ -61,8 +41,8 @@ export default Controller.extend({
     }
     return false;
   }.property('model.category'),
-  isComments: function () {
-    var model = this.get("model");
+  isComments: function() {
+    var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'comments') {
         return true;
@@ -70,8 +50,8 @@ export default Controller.extend({
     }
     return false;
   }.property('model.category'),
-  isMetrics: function () {
-    var model = this.get("model");
+  isMetrics: function() {
+    var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'metrics') {
         return true;
@@ -79,8 +59,8 @@ export default Controller.extend({
     }
     return false;
   }.property('model.category'),
-  isFlows: function () {
-    var model = this.get("model");
+  isFlows: function() {
+    var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'flows') {
         return true;
@@ -88,8 +68,8 @@ export default Controller.extend({
     }
     return false;
   }.property('model.category'),
-  isJobs: function () {
-    var model = this.get("model");
+  isJobs: function() {
+    var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'jobs') {
         return true;
@@ -97,60 +77,55 @@ export default Controller.extend({
     }
     return false;
   }.property('model.category'),
-  previousPage: function () {
-    var model = this.get("model");
+  previousPage: function() {
+    var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
       if (currentPage <= 1) {
         return currentPage;
-      }
-      else {
+      } else {
         return currentPage - 1;
       }
     } else {
       return 1;
     }
-
   }.property('model.page'),
-  nextPage: function () {
-    var model = this.get("model");
+  nextPage: function() {
+    var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
       var totalPages = model.totalPages;
       if (currentPage >= totalPages) {
         return totalPages;
-      }
-      else {
+      } else {
         return currentPage + 1;
       }
     } else {
       return 1;
     }
   }.property('model.page'),
-  first: function () {
-    var model = this.get("model");
+  first: function() {
+    var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
       if (currentPage <= 1) {
         return true;
-      }
-      else {
-        return false
+      } else {
+        return false;
       }
     } else {
       return false;
     }
   }.property('model.page'),
-  last: function () {
-    var model = this.get("model");
+  last: function() {
+    var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
       var totalPages = model.totalPages;
       if (currentPage >= totalPages) {
         return true;
-      }
-      else {
-        return false
+      } else {
+        return false;
       }
     } else {
       return false;

@@ -11,6 +11,7 @@
     "noEmit": true,
     "strict": true,
     "noImplicitThis": true,
+    "noImplicitAny": true,
     "strictNullChecks": true,
     "pretty": true,
     "noUnusedLocals": true,
