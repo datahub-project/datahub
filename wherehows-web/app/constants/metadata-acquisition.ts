@@ -207,6 +207,11 @@ const fieldIdentifierTypes = {
     isId: true,
     displayAs: 'Enterprise Account ID'
   },
+  contract: {
+    value: 'CONTRACT_ID',
+    isId: true,
+    displayAs: 'Contract ID'
+  },
   seat: {
     value: 'SEAT_ID',
     isId: true,
@@ -216,11 +221,6 @@ const fieldIdentifierTypes = {
     value: 'ADVERTISER_ID',
     isId: true,
     displayAs: 'Advertiser ID'
-  },
-  contract: {
-    value: 'CONTRACT_ID',
-    isId: true,
-    displayAs: 'Contract ID'
   }
 };
 
