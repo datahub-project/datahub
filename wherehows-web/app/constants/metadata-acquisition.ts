@@ -1,7 +1,20 @@
-type ClassificationUnion = 'confidential' | 'limitedDistribution' | 'highlyConfidential';
+import Ember from 'ember';
+
+/**
+ * Defines the string values that are allowed for a classification
+ */
+enum Classification {
+  Confidential = 'confidential',
+  LimitedDistribution = 'limitedDistribution',
+  HighlyConfidential = 'highlyConfidential'
+}
+
+/**
+ * Describes the index signature for the nonIdFieldLogicalTypes object
+ */
 interface INonIdLogicalTypes {
   [prop: string]: {
-    classification: ClassificationUnion;
+    classification: Classification;
     displayAs: string;
   };
 }
@@ -21,95 +34,103 @@ const customIdLogicalTypes = ['CUSTOM_ID'];
 // https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
 const nonIdFieldLogicalTypes: INonIdLogicalTypes = {
   NAME: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Name'
   },
   EMAIL: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'E-mail'
   },
   PHONE: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Phone Number'
   },
   ADDRESS: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Address'
   },
   LATITUDE_LONGITUDE: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Latitude and Longitude'
   },
   CITY_STATE_REGION: {
-    classification: 'limitedDistribution',
+    classification: Classification.LimitedDistribution,
     displayAs: 'City, State, Region, etcetera'
   },
   IP_ADDRESS: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'IP Address'
   },
   FINANCIAL_NUMBER: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Financial Number'
   },
   PAYMENT_INFO: {
-    classification: 'highlyConfidential',
+    classification: Classification.HighlyConfidential,
     displayAs: 'Payment Info'
   },
   PASSWORD_CREDENTIAL: {
-    classification: 'highlyConfidential',
+    classification: Classification.HighlyConfidential,
     displayAs: 'Password and Credentials'
   },
   AUTHENTICATION_TOKEN: {
-    classification: 'highlyConfidential',
+    classification: Classification.HighlyConfidential,
     displayAs: 'Authentication Token'
   },
   MESSAGE: {
-    classification: 'highlyConfidential',
+    classification: Classification.HighlyConfidential,
     displayAs: 'Message'
   },
   NATIONAL_ID: {
-    classification: 'highlyConfidential',
+    classification: Classification.HighlyConfidential,
     displayAs: 'National Id'
   },
   SOCIAL_NETWORK_ID: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Social Network Id'
   },
   EVENT_TIME: {
-    classification: 'limitedDistribution',
+    classification: Classification.LimitedDistribution,
     displayAs: 'Event Time'
   },
   TRANSACTION_TIME: {
-    classification: 'limitedDistribution',
+    classification: Classification.LimitedDistribution,
     displayAs: 'Transaction Time'
   },
   COOKIE_BEACON_BROWSER_ID: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Cookies and Beacons and Browser Id'
   },
   DEVICE_ID_ADVERTISING_ID: {
-    classification: 'confidential',
+    classification: Classification.Confidential,
     displayAs: 'Device Id and Advertising Id'
   }
 };
 
 /**
+ * List of non Id field data type classifications
+ * @type {Array}
+ */
+const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
+
+/**
  * A map of id logical types including custom ids to the default field classification for Ids
  * @type {Object}
  */
-const idFieldDataTypeClassification = [
+const idFieldDataTypeClassification: { [K: string]: Classification.LimitedDistribution } = [
   ...customIdLogicalTypes,
   ...idLogicalTypes
-].reduce((classification, idLogicalType) => {
-  return Object.assign(classification, { [idLogicalType]: 'limitedDistribution' });
-}, {});
+].reduce(
+  (classification, idLogicalType) =>
+    Object.assign(classification, { [idLogicalType]: Classification.LimitedDistribution }),
+  {}
+);
 
 /**
  * Creates a mapping of nonIdFieldLogicalTypes to default classification for that field
  * @type {Object}
  */
-const nonIdFieldDataTypeClassification = Object.keys(nonIdFieldLogicalTypes).reduce(
+const nonIdFieldDataTypeClassification: { [K: string]: Classification } = Object.keys(nonIdFieldLogicalTypes).reduce(
   (classification, logicalType) =>
     Object.assign(classification, {
       [logicalType]: nonIdFieldLogicalTypes[logicalType].classification
@@ -203,11 +224,94 @@ const fieldIdentifierTypes = {
   }
 };
 
+/**
+ * Checks if the identifierType is a mixed Id
+ * @param {string} identifierType
+ */
+const isMixedId = (identifierType: string) => identifierType === fieldIdentifierTypes.generic.value;
+/**
+ * Checks if the identifierType is a custom Id
+ * @param {string} identifierType
+ */
+const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
+
+/**
+ * Checks if the identifier format is only allowed numeric (ID) or URN values
+ * @param {string} identifierType
+ */
+const isNumericOrUrnOnly = (identifierType: string) =>
+  [
+    fieldIdentifierTypes.enterpriseProfile.value,
+    fieldIdentifierTypes.contract.value,
+    fieldIdentifierTypes.seat.value,
+    fieldIdentifierTypes.advertiser.value
+  ].includes(identifierType);
+
+/**
+ * Checks is the identifierType is only allowed Id fields
+ * @param identifierType
+ */
+const isIdOnly = (identifierType: string) => identifierType === fieldIdentifierTypes.enterpriseAccount.value;
+
+/**
+ * Checks if an identifierType has a predefined/immutable value for the field format, i.e. should not be changed by
+ * the end user
+ * @param {string} identifierType the identifierType to check against
+ * @return {boolean}
+ */
+const hasPredefinedFieldFormat = (identifierType: string) => {
+  return isMixedId(identifierType) || isCustomId(identifierType) || isIdOnly(identifierType);
+};
+
+/**
+ * Gets the default logical type for an identifier type
+ * @param {string} identifierType
+ * @return {string | void}
+ */
+const getDefaultLogicalType = (identifierType: string): string | void => {
+  if (isMixedId(identifierType)) {
+    return 'URN';
+  }
+
+  if (isIdOnly(identifierType)) {
+    return 'ID';
+  }
+};
+
+/**
+ * Returns a list of logicalType mappings for displaying its value and a label by logicalType
+ * @param {String} logicalType
+ */
+const logicalTypeValueLabel = (logicalType: string) =>
+  (<{ [K: string]: Array<string> }>{
+    id: idLogicalTypes,
+    generic: genericLogicalTypes
+  })[logicalType].map(value => ({
+    value,
+    label: nonIdFieldLogicalTypes[value]
+      ? nonIdFieldLogicalTypes[value].displayAs
+      : value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, value => Ember.String.capitalize(value.toLowerCase()))
+  }));
+
+// Map logicalTypes to options consumable by DOM
+const logicalTypesForIds = logicalTypeValueLabel('id');
+
+// Map generic logical type to options consumable in DOM
+const logicalTypesForGeneric = logicalTypeValueLabel('generic');
+
 export {
   defaultFieldDataTypeClassification,
   classifiers,
   fieldIdentifierTypes,
   idLogicalTypes,
   customIdLogicalTypes,
-  nonIdFieldLogicalTypes
+  nonIdFieldLogicalTypes,
+  isMixedId,
+  isCustomId,
+  isNumericOrUrnOnly,
+  isIdOnly,
+  hasPredefinedFieldFormat,
+  logicalTypesForIds,
+  logicalTypesForGeneric,
+  getDefaultLogicalType
 };

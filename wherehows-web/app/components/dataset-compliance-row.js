@@ -1,11 +1,17 @@
 import Ember from 'ember';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
-import { fieldIdentifierTypes, defaultFieldDataTypeClassification } from 'wherehows-web/constants';
 import {
-  fieldIdentifierTypeIds,
+  fieldIdentifierTypes,
+  defaultFieldDataTypeClassification,
+  isMixedId,
+  isCustomId,
+  isNumericOrUrnOnly,
+  isIdOnly,
+  hasPredefinedFieldFormat,
   logicalTypesForIds,
   logicalTypesForGeneric
-} from 'wherehows-web/components/dataset-compliance';
+} from 'wherehows-web/constants';
+import { fieldIdentifierTypeIds } from 'wherehows-web/components/dataset-compliance';
 
 const { computed, get, getProperties, set } = Ember;
 /**
@@ -21,37 +27,8 @@ const acceptIntent = 'accept';
 const ignoreIntent = 'ignore';
 
 /**
- * Checks if the identifierType is a mixed Id
- * @param {string} identifierType
- */
-const isMixedId = identifierType => identifierType === fieldIdentifierTypes.generic.value;
-/**
- * Checks if the identifierType is a custom Id
- * @param {string} identifierType
- */
-const isCustomId = identifierType => identifierType === fieldIdentifierTypes.custom.value;
-
-/**
- * Checks if the identifier format is only allowed numeric (ID) or URN values
- * @param {string} identifierType
- */
-const isNumericOrUrnOnly = identifierType =>
-  [
-    fieldIdentifierTypes.enterpriseProfile.value,
-    fieldIdentifierTypes.contract.value,
-    fieldIdentifierTypes.seat.value,
-    fieldIdentifierTypes.advertiser.value
-  ].includes(identifierType);
-
-/**
- * Checks is the identifierType is only allowed Id fields
- * @param identifierType
- */
-const isIdOnly = identifierType => identifierType === fieldIdentifierTypes.enterpriseAccount.value;
-
-/**
  * Caches a list of fieldIdentifierTypes values
- * @type {any[]}
+ * @type {Array<string>}
  */
 const fieldIdentifierTypeValues = Object.keys(fieldIdentifierTypes)
   .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
@@ -83,28 +60,6 @@ const getFieldSuggestions = predictions =>
   }, {});
 
 export default DatasetTableRow.extend({
-  /**
-   * @type {Array} logical id types mapped to options for <select>
-   */
-  logicalTypesForIds,
-
-  /**
-   * @type {Array} logical generic types mapped to options for <select>
-   */
-  logicalTypesForGeneric,
-
-  /**
-   * flag indicating that the identifier type is a generic value
-   * @type {Ember.computed<boolean>}
-   */
-  isMixed: computed.equal('field.identifierType', fieldIdentifierTypes.generic.value),
-
-  /**
-   * flag indicating that the identifier type is a custom value
-   * @type {Ember.computed<boolean>}
-   */
-  isCustom: computed.equal('field.identifierType', fieldIdentifierTypes.custom.value),
-
   /**
    * aliases the identifierField on the field
    * @type {Ember.computed<string>}
@@ -149,8 +104,7 @@ export default DatasetTableRow.extend({
    * @type {Ember.computed}
    */
   isFieldFormatDisabled: computed('field.identifierType', function() {
-    const identifierType = get(this, 'field.identifierType');
-    return isMixedId(identifierType) || isCustomId(identifierType) || isIdOnly(identifierType);
+    return hasPredefinedFieldFormat(get(this, 'field.identifierType'));
   }).readOnly(),
 
   /**
@@ -173,19 +127,16 @@ export default DatasetTableRow.extend({
    */
   fieldFormats: computed('field.identifierType', function() {
     const identifierType = get(this, 'field.identifierType');
-    const logicalTypesForIds = get(this, 'logicalTypesForIds');
     const numericAndUrnFieldFormats = logicalTypesForIds.filter(({ value }) => ['ID', 'URN'].includes(value));
     const numericFieldFormat = numericAndUrnFieldFormats.findBy('value', 'ID');
+    const urnFieldFormat = numericAndUrnFieldFormats.findBy('value', 'URN');
 
     const mixed = isMixedId(identifierType);
     const custom = isCustomId(identifierType);
     const isNumericOrUrnFormat = isNumericOrUrnOnly(identifierType);
     const isIdOnlyFormat = isIdOnly(identifierType);
+    let fieldFormats = fieldIdentifierTypeIds.includes(identifierType) ? logicalTypesForIds : logicalTypesForGeneric;
 
-    let fieldFormats = fieldIdentifierTypeIds.includes(identifierType)
-      ? logicalTypesForIds
-      : get(this, 'logicalTypesForGeneric');
-    const urnFieldFormat = logicalTypesForIds.findBy('value', 'URN');
     fieldFormats = mixed ? urnFieldFormat : fieldFormats;
     fieldFormats = custom ? void 0 : fieldFormats;
     fieldFormats = isNumericOrUrnFormat ? numericAndUrnFieldFormats : fieldFormats;
@@ -221,7 +172,7 @@ export default DatasetTableRow.extend({
     const identifierType = get(this, 'field.identifierType');
     const mixed = isMixedId(identifierType);
     // Filtered list of id logical types that end with urn, or have no value
-    const urnFieldFormat = get(this, 'logicalTypesForIds').findBy('value', 'URN');
+    const urnFieldFormat = logicalTypesForIds.findBy('value', 'URN');
 
     return get(this, 'field.classification') || (mixed && defaultFieldDataTypeClassification[urnFieldFormat.value]);
   }),

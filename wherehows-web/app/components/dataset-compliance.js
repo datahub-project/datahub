@@ -7,7 +7,11 @@ import {
   idLogicalTypes,
   nonIdFieldLogicalTypes,
   defaultFieldDataTypeClassification,
-  compliancePolicyStrings
+  compliancePolicyStrings,
+  logicalTypesForIds,
+  logicalTypesForGeneric,
+  hasPredefinedFieldFormat,
+  getDefaultLogicalType
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/functions';
 import scrollMonitor from 'scrollmonitor';
@@ -55,11 +59,6 @@ const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, m
  */
 const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
 
-/**
- * Merged object of logicalTypes
- * @type {Object}
- */
-const logicalTypes = Object.assign({}, nonIdFieldLogicalTypes);
 /**
  * String constant referencing the datasetClassification on the privacy policy
  * @type {String}
@@ -112,29 +111,6 @@ export const fieldIdentifierTypeIds = Object.keys(fieldIdentifierTypes)
   .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
   .filter(({ isId }) => isId)
   .mapBy('value');
-
-/**
- * Caches a list of logicalType mappings for displaying its value and a label by logicalType
- * @param {String} logicalType
- */
-const cachedLogicalTypes = logicalType =>
-  computed(function() {
-    return {
-      id: idLogicalTypes,
-      generic: genericLogicalTypes
-    }[logicalType].map(value => ({
-      value,
-      label: logicalTypes[value]
-        ? logicalTypes[value].displayAs
-        : value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, f => f.toLowerCase().capitalize())
-    }));
-  });
-
-// Map logicalTypes to options consumable by DOM
-export const logicalTypesForIds = cachedLogicalTypes('id');
-
-// Map generic logical type to options consumable in DOM
-export const logicalTypesForGeneric = cachedLogicalTypes('generic');
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',
@@ -887,12 +863,16 @@ export default Component.extend({
      */
     onFieldIdentifierTypeChange({ identifierField }, { value: identifierType }) {
       const currentComplianceEntities = get(this, 'mergedComplianceEntitiesAndColumnFields');
+      let logicalType;
       // A reference to the current field in the compliance list, it should exist even for empty complianceEntities
       // since this is a reference created in the working copy: mergedComplianceEntitiesAndColumnFields
       const currentFieldInComplianceList = currentComplianceEntities.findBy('identifierField', identifierField);
+      if (hasPredefinedFieldFormat(identifierType)) {
+        logicalType = getDefaultLogicalType(identifierType);
+      }
       setProperties(currentFieldInComplianceList, {
         identifierType,
-        logicalType: void 0
+        logicalType
       });
       // Set the defaultClassification for the identifierField,
       // although the classification is based on the logicalType,
