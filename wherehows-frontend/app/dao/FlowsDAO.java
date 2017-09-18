@@ -27,7 +27,7 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 import play.Logger;
 import play.libs.Json;
-import wherehows.models.table.Flow;
+import wherehows.models.view.Flow;
 import wherehows.models.table.FlowListViewNode;
 import wherehows.models.table.Job;
 import wherehows.models.table.TreeNode;
@@ -520,58 +520,5 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
     result.put("totalPages", 0);
     result.set("jobs", Json.toJson(""));
     return result;
-  }
-
-  public static List<FlowListViewNode> getFlowListViewClusters() {
-    List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
-    List<Map<String, Object>> rows = null;
-
-    rows = getJdbcTemplate().queryForList(GET_FLOW_LIST_VIEW_CLUSTER_NODES);
-    for (Map row : rows) {
-
-      FlowListViewNode node = new FlowListViewNode();
-      node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
-      node.nodeName = node.application;
-      node.nodeUrl = "#/flows/name/" + node.nodeName + "/page/1?urn=" + node.nodeName;
-      nodes.add(node);
-    }
-    return nodes;
-  }
-
-  public static List<FlowListViewNode> getFlowListViewProjects(String application) {
-    List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
-    List<Map<String, Object>> rows = null;
-
-    rows = getJdbcTemplate().queryForList(GET_FLOW_LIST_VIEW_PROJECT_NODES, application);
-    for (Map row : rows) {
-
-      FlowListViewNode node = new FlowListViewNode();
-      node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
-      node.project = (String) row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
-      node.nodeName = node.project;
-      node.nodeUrl = "#/flows/name/" + node.project + "/page/1?urn=" + node.application + "/" + node.project;
-      nodes.add(node);
-    }
-    return nodes;
-  }
-
-  public static List<FlowListViewNode> getFlowListViewFlows(String application, String project) {
-    List<FlowListViewNode> nodes = new ArrayList<FlowListViewNode>();
-    List<Map<String, Object>> rows = null;
-
-    rows = getJdbcTemplate().queryForList(GET_FLOW_LIST_VIEW_FLOW_NODES, application, project);
-    for (Map row : rows) {
-
-      FlowListViewNode node = new FlowListViewNode();
-      node.application = (String) row.get(FlowRowMapper.APP_CODE_COLUMN);
-      node.project = (String) row.get(FlowRowMapper.FLOW_GROUP_COLUMN);
-      node.flow = (String) row.get(FlowRowMapper.FLOW_NAME_COLUMN);
-      node.nodeName = node.flow;
-      node.flowId = (Long) row.get(FlowRowMapper.FLOW_ID_COLUMN);
-      node.nodeUrl =
-          "#/flows/name/" + node.application + "/" + Long.toString(node.flowId) + "/page/1?urn=" + node.project;
-      nodes.add(node);
-    }
-    return nodes;
   }
 }
