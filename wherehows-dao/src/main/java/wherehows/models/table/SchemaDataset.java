@@ -13,12 +13,37 @@
  */
 package wherehows.models.table;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
+import javax.persistence.Transient;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@Entity
+@NoArgsConstructor
+@Table(name = "dict_dataset_schema_history")
 public class SchemaDataset {
 
-    public int id;
-    public String name;
-    public String urn;
-    public String lastModified;
-    public String datasetLink;
+  @Id
+  @Column(name = "id")
+  private int id;
 
+  @Column(name = "dataset_id")
+  private int dataset_id;
+
+  @Transient
+  private String name;
+
+  @Column(name = "urn")
+  private String urn;
+
+  @Column(name = "modified_date")
+  private String lastModified;
+
+  @Transient
+  private String datasetLink;
 }

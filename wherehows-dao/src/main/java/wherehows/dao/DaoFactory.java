@@ -21,6 +21,7 @@ import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
+import wherehows.dao.view.FlowsViewDao;
 
 
 public class DaoFactory {
@@ -50,6 +51,10 @@ public class DaoFactory {
 
   public DatasetClassificationDao getDatasetClassificationDao() {
     return new DatasetClassificationDao(entityManagerFactory);
+  }
+
+  public FlowsViewDao getFlowViewDao() {
+    return new FlowsViewDao(entityManagerFactory);
   }
 
   public DictDatasetDao getDictDatasetDao() {

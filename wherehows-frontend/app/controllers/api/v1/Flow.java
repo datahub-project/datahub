@@ -14,15 +14,20 @@
 package controllers.api.v1;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import controllers.Application;
 import dao.FlowsDAO;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import wherehows.dao.view.FlowsViewDao;
 
 
 public class Flow extends Controller {
+
+  private static final FlowsViewDao FLOW_VIEW_DAO = Application.DAO_FACTORY.getFlowViewDao();
+
   public static Result getPagedRootProjects() {
     ObjectNode result = Json.newObject();
     int page = 1;
@@ -159,7 +164,7 @@ public class Flow extends Controller {
     ObjectNode result = Json.newObject();
 
     result.put("status", "ok");
-    result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewClusters()));
+    result.set("nodes", Json.toJson(FLOW_VIEW_DAO.getFlowListViewClusters()));
     return ok(result);
   }
 
@@ -167,7 +172,7 @@ public class Flow extends Controller {
     ObjectNode result = Json.newObject();
 
     result.put("status", "ok");
-    result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewProjects(application)));
+    result.set("nodes", Json.toJson(FLOW_VIEW_DAO.getFlowListViewProjects(application)));
     return ok(result);
   }
 
@@ -175,7 +180,7 @@ public class Flow extends Controller {
     ObjectNode result = Json.newObject();
 
     result.put("status", "ok");
-    result.set("nodes", Json.toJson(FlowsDAO.getFlowListViewFlows(application, project)));
+    result.set("nodes", Json.toJson(FLOW_VIEW_DAO.getFlowListViewFlows(application, project)));
     return ok(result);
   }
 }
