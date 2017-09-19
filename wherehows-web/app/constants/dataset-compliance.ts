@@ -4,7 +4,7 @@
  */
 const compliancePolicyStrings = {
   complianceDataException: 'Unexpected discrepancy in compliance data',
-  missingTypes: 'Looks like some fields may contain privacy data but do not have a specified `Field Format`?',
+  missingTypes: 'Looks like you may have forgotten to specify a `Field Format` for all ID fields?',
   successUpdating: 'Congrats! Your changes have been successfully saved!',
   failedUpdating: 'Oops! We are having trouble updating this dataset at the moment.',
   successUploading: 'Metadata successfully updated! Please "Save" when ready.',
