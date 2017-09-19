@@ -56,10 +56,6 @@ AppRouter.map(function() {
     path: '/*wildcard'
   });
   this.route('datasets', function() {
-    this.route('page', {
-      path: '/page/:page'
-    });
-
     this.route('dataset', {
       path: '/:dataset_id'
     });
