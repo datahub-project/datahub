@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import fetch from 'ember-network/fetch';
+import fetch from 'fetch';
 import buildUrl from 'wherehows-web/utils/build-url';
 const { isBlank } = Ember;
 
@@ -34,16 +34,18 @@ const fetchPagedUrnEntities = entity => getState => {
     return url;
   }, baseURL);
 
-  return fetch(pagedUrnURL).then(response => response.json()).then((payload = {}) => {
-    // retain the urn that was initiated with this request on the result data object
-    if (payload.status === 'ok') {
-      payload.data = Object.assign({}, payload.data, {
-        parentUrn: query.urn || null
-      });
-    }
+  return fetch(pagedUrnURL)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      // retain the urn that was initiated with this request on the result data object
+      if (payload.status === 'ok') {
+        payload.data = Object.assign({}, payload.data, {
+          parentUrn: query.urn || null
+        });
+      }
 
-    return payload;
-  });
+      return payload;
+    });
 };
 
 /**
@@ -70,15 +72,17 @@ const fetchNamedPagedEntities = entity => getState => {
     return url;
   }, baseNameUrl);
 
-  return fetch(namedPageURL).then(response => response.json()).then((payload = {}) => {
-    if (payload.status === 'ok') {
-      payload.data = Object.assign({}, payload.data, {
-        parentName: name || null
-      });
-    }
+  return fetch(namedPageURL)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      if (payload.status === 'ok') {
+        payload.data = Object.assign({}, payload.data, {
+          parentName: name || null
+        });
+      }
 
-    return payload;
-  });
+      return payload;
+    });
 };
 
 /**
@@ -108,15 +112,17 @@ const fetchUrnPathEntities = entity => getState => {
     return url;
   }, baseUrnUrl);
 
-  return fetch(urnPathUrl).then(response => response.json()).then((payload = {}) => {
-    if (payload.status === 'ok') {
-      payload.data = Object.assign({}, payload.data, {
-        parentUrn: urn || null
-      });
-    }
+  return fetch(urnPathUrl)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      if (payload.status === 'ok') {
+        payload.data = Object.assign({}, payload.data, {
+          parentUrn: urn || null
+        });
+      }
 
-    return payload;
-  });
+      return payload;
+    });
 };
 
 /**
@@ -148,11 +154,13 @@ const fetchNodes = entity => getState => {
   }, `${listURL}/${entity}`);
 
   // TODO: DSS-7019 remove any parsing from response objects. in createLazyRequest and update all call sites
-  return fetch(nodeURL).then(response => response.json()).then((payload = {}) => {
-    return Object.assign({}, payload, {
-      parentUrn: query.urn || null
+  return fetch(nodeURL)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      return Object.assign({}, payload, {
+        parentUrn: query.urn || null
+      });
     });
-  });
 };
 
 /**
@@ -166,12 +174,14 @@ const fetchNamedEntityNodes = entity => getState => {
   const namePath = name ? `/${name}` : '';
   const nodeURL = `${listURL}/${entity}${namePath}`;
 
-  return fetch(nodeURL).then(response => response.json()).then((payload = {}) => {
-    return Object.assign({}, payload, {
-      //TODO: Should this be namedEntityNodes vs urnPathEntityNodes
-      parentName: name || null
+  return fetch(nodeURL)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      return Object.assign({}, payload, {
+        //TODO: Should this be namedEntityNodes vs urnPathEntityNodes
+        parentName: name || null
+      });
     });
-  });
 };
 
 /**
@@ -184,12 +194,14 @@ const fetchUrnPathEntityNodes = entity => getState => {
   const urnPath = urn ? `/${urn}` : '';
   const urnListUrl = `${listURL}/${entity}${urnPath}`;
 
-  return fetch(urnListUrl).then(response => response.json()).then((payload = {}) => {
-    return Object.assign({}, payload, {
-      //TODO: Should this be namedEntityNodes vs urnPathEntityNodes
-      parentUrn: urn || null
+  return fetch(urnListUrl)
+    .then(response => response.json())
+    .then((payload = {}) => {
+      return Object.assign({}, payload, {
+        //TODO: Should this be namedEntityNodes vs urnPathEntityNodes
+        parentUrn: urn || null
+      });
     });
-  });
 };
 
 export {

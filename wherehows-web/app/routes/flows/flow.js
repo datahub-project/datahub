@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import fetch from 'ember-network/fetch';
+import fetch from 'fetch';
 
 const { Route, setProperties } = Ember;
 
@@ -25,7 +25,6 @@ export default Route.extend({
       model,
       breadcrumbs: makeFlowsBreadcrumbs(model.data)
     });
-
   },
 
   model: async (params = {}) => {
