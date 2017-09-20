@@ -221,6 +221,11 @@ const fieldIdentifierTypes = {
     value: 'ADVERTISER_ID',
     isId: true,
     displayAs: 'Advertiser ID'
+  },
+  slideshare: {
+    value: 'SLIDESHARE_USER_ID',
+    isId: true,
+    displayAs: 'SlideShare User ID'
   }
 };
 
@@ -239,12 +244,13 @@ const isCustomId = (identifierType: string) => identifierType === fieldIdentifie
  * Checks if the identifier format is only allowed numeric (ID) or URN values
  * @param {string} identifierType
  */
-const isNumericOrUrnOnly = (identifierType: string) =>
+const isNumericOrUrnOnly = (identifierType: string): boolean =>
   [
     fieldIdentifierTypes.enterpriseProfile.value,
     fieldIdentifierTypes.contract.value,
     fieldIdentifierTypes.seat.value,
-    fieldIdentifierTypes.advertiser.value
+    fieldIdentifierTypes.advertiser.value,
+    fieldIdentifierTypes.slideshare.value
   ].includes(identifierType);
 
 /**
