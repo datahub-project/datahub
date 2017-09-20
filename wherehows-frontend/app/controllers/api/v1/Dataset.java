@@ -131,14 +131,14 @@ public class Dataset extends Controller {
 
     Integer datasetId = (Integer) Cache.get(cacheKey);
     if (datasetId != null && datasetId > 0) {
-      response().setHeader("DatasetId", datasetId.toString());
+      response().setHeader("datasetid", datasetId.toString());
       return ok();
     }
 
     datasetId = DATASETS_DAO.getDatasetIdByUrn(JDBC_TEMPLATE, urn);
     if (datasetId > 0) {
       Cache.set(cacheKey, datasetId, URN_CACHE_PERIOD);
-      response().setHeader("DatasetId", datasetId.toString());
+      response().setHeader("datasetid", datasetId.toString());
       return ok();
     } else {
       return notFound();
