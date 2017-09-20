@@ -59,18 +59,6 @@ AppRouter.map(function() {
     this.route('dataset', {
       path: '/:dataset_id'
     });
-
-    this.route(
-      'name',
-      {
-        path: '/name/:name'
-      },
-      function() {
-        this.route('subpage', {
-          path: '/page/:page'
-        });
-      }
-    );
   });
   this.route('search');
   this.route('metrics', function() {
