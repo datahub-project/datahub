@@ -10,7 +10,7 @@ export interface IUser {
   id: number;
   name: string;
   userName: string;
-  userSetting: {
+  userSetting: null | {
     defaultWatch: string;
     detailDefaultView: string;
   };

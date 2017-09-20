@@ -10,3 +10,11 @@ declare module 'wherehows-web/utils/datasets/functions';
 declare module 'fetch' {
   export default function fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 }
+
+/**
+ * Merges global type defs for global modules on the window namespace.
+ * These should be refactored into imported modules if available or shimmed as such
+ */
+interface Window {
+  marked(param: string): { htmlSafe: () => string };
+}

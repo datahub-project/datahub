@@ -3,17 +3,25 @@ import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
 import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
 import {
+  readDatasetColumns,
+  columnDataTypesAndFieldNames,
+  columnsWithHtmlComments
+} from 'wherehows-web/utils/api/datasets/columns';
+
+import {
   getDatasetOwners,
   getUserEntities,
   isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/utils/api/datasets/owners';
+import { readDataset, datasetUrnToId } from 'wherehows-web/utils/api/datasets/dataset';
+import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
-const { Route, get, set, setProperties, isPresent, inject: { service }, $: { getJSON } } = Ember;
-// TODO: DSS-6581 Create URL retrieval module
+const { Route, get, set, setProperties, inject: { service }, $: { getJSON }, run } = Ember;
+const { schedule } = run;
+// TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const ownerTypeUrlRoot = '/api/v1/owner/types';
-const getDatasetColumnUrl = id => `${datasetUrl(id)}/columns`;
 const getDatasetPropertiesUrl = id => `${datasetUrl(id)}/properties`;
 const getDatasetSampleUrl = id => `${datasetUrl(id)}/sample`;
 const getDatasetImpactAnalysisUrl = id => `${datasetUrl(id)}/impacts`;
@@ -22,8 +30,6 @@ const getDatasetPartitionsUrl = id => `${datasetUrl(id)}/access`;
 const getDatasetReferencesUrl = id => `${datasetUrl(id)}/references`;
 const getDatasetInstanceUrl = id => `${datasetUrl(id)}/instances`;
 const getDatasetVersionUrl = (id, dbId) => `${datasetUrl(id)}/versions/db/${dbId}`;
-
-let getDatasetColumn;
 
 export default Route.extend({
   /**
@@ -125,68 +131,48 @@ export default Route.extend({
         .forEach(func => func());
 
       /**
-       * Fetch the datasetColumn
-       * @param {number} id the id of the dataset
-       */
-      getDatasetColumn = id =>
-        Promise.resolve(getJSON(getDatasetColumnUrl(id)))
-          .then(({ status, columns = [] }) => {
-            if (status === 'ok') {
-              if (columns && columns.length) {
-                const columnsWithHTMLComments = columns.map(column => {
-                  const { comment } = column;
-
-                  if (comment) {
-                    // TODO: DSS-6122 Refactor global function reference
-                    column.commentHtml = window.marked(comment).htmlSafe();
-                  }
-
-                  return column;
-                });
-
-                controller.set('hasSchemas', true);
-                controller.set('schemas', columnsWithHTMLComments);
-
-                // TODO: DSS-6122 Refactor direct method invocation on controller
-                controller.buildJsonView();
-                // TODO: DSS-6122 Refactor setTimeout,
-                //   global function reference
-                setTimeout(window.initializeColumnTreeGrid, 500);
-              }
-
-              return columns;
-            }
-
-            return Promise.reject(new Error('Dataset columns request failed.'));
-          })
-          .then(columns => columns.map(({ dataType, fullFieldPath }) => ({ dataType, fieldName: fullFieldPath })))
-          .catch(() => {
-            setProperties(controller, { hasSchemas: false, schemas: null });
-            return [];
-          });
-
-      /**
+       * ****************************
+       * Note: Refactor in progress *
+       * ****************************
        * async IIFE sets the the complianceInfo and schemaFieldNamesMappedToDataTypes
        * at once so observers will be buffered
        * @param {number} id the dataset id
        * @return {Promise.<void>}
        */
       (async id => {
-        const [columns, compliance, complianceSuggestion, datasetComments] = await Promise.all([
-          getDatasetColumn(id),
-          datasetComplianceFor(id),
-          datasetComplianceSuggestionsFor(id),
-          readDatasetComments(id)
-        ]);
-        const { complianceInfo, isNewComplianceInfo } = compliance;
+        try {
+          const [columns, compliance, complianceSuggestion, datasetComments] = await Promise.all([
+            readDatasetColumns(id),
+            datasetComplianceFor(id),
+            datasetComplianceSuggestionsFor(id),
+            readDatasetComments(id)
+          ]);
+          const { complianceInfo, isNewComplianceInfo } = compliance;
+          const schemas = columnsWithHtmlComments(columns);
 
-        setProperties(controller, {
-          complianceInfo,
-          isNewComplianceInfo,
-          complianceSuggestion,
-          schemaFieldNamesMappedToDataTypes: columns,
-          datasetComments
-        });
+          setProperties(controller, {
+            complianceInfo,
+            isNewComplianceInfo,
+            complianceSuggestion,
+            datasetComments,
+            schemas,
+            hasSchemas: !!schemas.length,
+            schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns)
+          });
+
+          if (schemas.length) {
+            run(() => {
+              schedule('afterRender', null, () => {
+                // TODO: DSS-6122 Refactor direct legacy method invocation on controller
+                controller.buildJsonView();
+                // TODO: DSS-6122 Refactor legacy global function reference
+                window.initializeColumnTreeGrid();
+              });
+            });
+          }
+        } catch (e) {
+          throw e;
+        }
       })(id);
     }
 
@@ -398,31 +384,22 @@ export default Route.extend({
     })(id);
   },
 
-  model: ({ dataset_id }) => {
-    const datasetUrl = `${datasetsUrlRoot}/${dataset_id}`;
+  /**
+   * Reads the dataset given a identifier from the dataset endpoint
+   * @param datasetIdentifier a identifier / id for the dataset to be fetched
+   * @return {Promise<IDataset>} resolves with the Dataset object
+   */
+  async model({ datasetIdentifier }) {
+    let datasetId = datasetIdentifier;
 
-    return Promise.resolve(getJSON(datasetUrl)).then(({ status, dataset, message = '' }) => {
-      return status === 'ok' && isPresent(dataset)
-        ? dataset
-        : Promise.reject(
-            new Error(
-              `Request for ${datasetUrl} failed with status: ${status}.
-              ${message}`
-            )
-          );
-    });
+    if (isDatasetUrn(datasetIdentifier)) {
+      datasetId = await datasetUrnToId(datasetIdentifier);
+    }
+
+    return await readDataset(datasetId);
   },
 
   actions: {
-    getSchema: function() {
-      const controller = get(this, 'controller');
-      const id = get(controller, 'model.id');
-
-      set(controller, 'isTable', true);
-      set(controller, 'isJSON', false);
-      typeof getDatasetColumn === 'function' && getDatasetColumn(id);
-    },
-
     getDataset() {
       Promise.resolve(getJSON(datasetUrl(this.get('controller.model.id')))).then(
         ({ status, dataset }) => status === 'ok' && set(this, 'controller.model', dataset)

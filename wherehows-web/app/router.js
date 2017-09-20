@@ -57,7 +57,7 @@ AppRouter.map(function() {
   });
   this.route('datasets', function() {
     this.route('dataset', {
-      path: '/:dataset_id'
+      path: '/:datasetIdentifier'
     });
   });
   this.route('search');

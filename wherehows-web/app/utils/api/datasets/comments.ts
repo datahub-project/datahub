@@ -4,6 +4,8 @@ import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 
 const { $: { getJSON, post, ajax } } = Ember;
+
+// TODO:  DSS-6122 Create and move to Error module
 /**
  * default message for comment api exception
  * @type {string}
@@ -39,7 +41,6 @@ const datasetCommentUrlById = (datasetId: number, commentId: number): string =>
  */
 const readDatasetComments = async (id: number): Promise<Array<IDatasetComment>> => {
   const response: IDatasetCommentsGetResponse = await Promise.resolve(getJSON(datasetCommentsUrlById(id)));
-
   const { status, data: { comments } } = response;
 
   if (status === ApiStatus.OK) {
