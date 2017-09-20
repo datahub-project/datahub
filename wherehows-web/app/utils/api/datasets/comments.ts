@@ -37,7 +37,7 @@ const datasetCommentUrlById = (datasetId: number, commentId: number): string =>
  * @param {number} id the id of the dataset
  * @return {Promise<Array<IDatasetComment>>}
  */
-const datasetCommentsFor = async (id: number): Promise<Array<IDatasetComment>> => {
+const readDatasetComments = async (id: number): Promise<Array<IDatasetComment>> => {
   const response: IDatasetCommentsGetResponse = await Promise.resolve(getJSON(datasetCommentsUrlById(id)));
 
   const { status, data: { comments } } = response;
@@ -56,7 +56,10 @@ const datasetCommentsFor = async (id: number): Promise<Array<IDatasetComment>> =
  * @param {string} text the comment
  * @return {Promise<void>}
  */
-const addDatasetCommentFor = async (id: number, { type, text }: Partial<IDatasetComment>): Promise<void> => {
+const createDatasetComment = async (
+  id: number,
+  { type, text }: Pick<IDatasetComment, 'type' | 'text'>
+): Promise<void> => {
   const response: { status: ApiStatus } = await Promise.resolve(
     post({
       url: datasetCommentsUrlById(id),
@@ -111,7 +114,7 @@ const deleteDatasetComment = async (datasetId: number, commentId: number): Promi
  * @param {string} text the updated comment text
  * @return {Promise<void>}
  */
-const modifyDatasetComment = async (
+const updateDatasetComment = async (
   datasetId: number,
   commentId: number,
   { type, text }: IDatasetComment
@@ -134,4 +137,4 @@ const modifyDatasetComment = async (
   }
 };
 
-export { datasetCommentsFor, addDatasetCommentFor, deleteDatasetComment, modifyDatasetComment };
+export { readDatasetComments, createDatasetComment, deleteDatasetComment, updateDatasetComment };

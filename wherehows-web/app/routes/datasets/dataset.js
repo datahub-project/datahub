@@ -1,7 +1,7 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
-import { datasetCommentsFor } from 'wherehows-web/utils/api/datasets/comments';
+import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
 import {
   getDatasetOwners,
   getUserEntities,
@@ -176,7 +176,7 @@ export default Route.extend({
           getDatasetColumn(id),
           datasetComplianceFor(id),
           datasetComplianceSuggestionsFor(id),
-          datasetCommentsFor(id)
+          readDatasetComments(id)
         ]);
         const { complianceInfo, isNewComplianceInfo } = compliance;
 

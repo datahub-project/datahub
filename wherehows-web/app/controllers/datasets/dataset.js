@@ -1,10 +1,10 @@
 import Ember from 'ember';
 import {
   datasetComplianceUrlById,
-  addDatasetCommentFor,
-  datasetCommentsFor,
+  createDatasetComment,
+  readDatasetComments,
   deleteDatasetComment,
-  modifyDatasetComment
+  updateDatasetComment
 } from 'wherehows-web/utils/api';
 
 const {
@@ -212,16 +212,16 @@ export default Ember.Controller.extend({
     ]);
 
     const action = {
-      create: addDatasetCommentFor.bind(null, id),
+      create: createDatasetComment.bind(null, id),
       destroy: deleteDatasetComment.bind(null, id),
-      modify: modifyDatasetComment.bind(null, id)
+      modify: updateDatasetComment.bind(null, id)
     }[strategy];
 
     try {
       await action(...args);
       notify('success', { content: 'Success!' });
       // refresh the list of comments if successful with updated response
-      set(this, 'datasetComments', await datasetCommentsFor(id));
+      set(this, 'datasetComments', await readDatasetComments(id));
 
       return true;
     } catch (e) {
