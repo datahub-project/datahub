@@ -7,17 +7,18 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 const { Logger: { warn } } = Ember;
 // TODO:  DSS-6122 Create and move to Error module
 const datasetApiException = 'An error occurred with the dataset api';
-const datasetIdException = 'Could not find a dataset with a matching id / urn';
+const datasetIdException = 'Could not find a valid id for the dataset requested';
 
 /**
  * Reads the dataset object from the get endpoint for the given dataset id
  * @param {number} id the id of the dataset
  * @return {Promise<IDataset>}
  */
-const readDataset = async (id: number = 0): Promise<IDataset> => {
+const readDataset = async (id: number | string): Promise<IDataset> => {
+  id = parseInt(id + '', 10);
   // if id is less than or equal 0, throw illegal dataset error
-  if (id <= 0) {
-    throw new Error(datasetIdException);
+  if (id <= 0 || !Number.isInteger(id)) {
+    throw new TypeError(datasetIdException);
   }
 
   const { status, dataset } = await getJSON<IDatasetGetResponse>({ url: datasetUrlById(id) });
@@ -50,10 +51,9 @@ const datasetUrnToId = async (urn: string): Promise<number> => {
   let datasetId = 0;
 
   try {
-    // The headers object is an iterable iterator,
-    // convert to a map and return the DatasetId header
+    // The headers object is a Header
     const headers = await getHeaders({ url: datasetIdTranslationUrlByUrn(urn) });
-    const stringId = new Map(...headers).get('DatasetId');
+    const stringId = headers.get('datasetid');
 
     // If stringId is not falsey, parse as int and return, otherwise use default
     if (stringId) {

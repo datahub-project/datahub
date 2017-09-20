@@ -38,6 +38,36 @@ export default Route.extend({
    */
   configurator: service(),
 
+  queryParams: {
+    urn: {
+      refreshModel: true
+    }
+  },
+
+  /**
+   * Reads the dataset given a identifier from the dataset endpoint
+   * @param {string} datasetIdentifier a identifier / id for the dataset to be fetched
+   * @param {string} [urn] optional urn identifier for dataset
+   * @return {Promise<IDataset>}
+   */
+  async model({ datasetIdentifier, urn }) {
+    let datasetId = datasetIdentifier;
+
+    if (datasetId === 'urn' && isDatasetUrn(urn)) {
+      datasetId = await datasetUrnToId(urn);
+    }
+
+    return await readDataset(datasetId);
+  },
+
+  /**
+   * resetting the urn query param when the hook is invoked
+   * @param {Controller} controller
+   */
+  resetController(controller) {
+    set(controller, 'urn', void 0);
+  },
+
   //TODO: DSS-6632 Correct server-side if status:error and record not found but response is 200OK
   setupController(controller, model) {
     let source = '';
@@ -382,21 +412,6 @@ export default Route.extend({
         userEntitiesSource
       });
     })(id);
-  },
-
-  /**
-   * Reads the dataset given a identifier from the dataset endpoint
-   * @param datasetIdentifier a identifier / id for the dataset to be fetched
-   * @return {Promise<IDataset>} resolves with the Dataset object
-   */
-  async model({ datasetIdentifier }) {
-    let datasetId = datasetIdentifier;
-
-    if (isDatasetUrn(datasetIdentifier)) {
-      datasetId = await datasetUrnToId(datasetIdentifier);
-    }
-
-    return await readDataset(datasetId);
   },
 
   actions: {

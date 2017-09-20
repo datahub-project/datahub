@@ -27,9 +27,9 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Requests the headers from a resource endpoint
  * @param {FetchConfig} config
- * @return {Promise<IterableIterator<[string , string]>>}
+ * @return {Promise<Headers>>}
  */
-const getHeaders = async (config: FetchConfig): Promise<IterableIterator<[string, string]>> => {
+const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   const fetchConfig = {
     method: 'HEAD',
     ...(config.headers || {})
@@ -37,7 +37,7 @@ const getHeaders = async (config: FetchConfig): Promise<IterableIterator<[string
   const { ok, headers, statusText } = await fetch(config.url, fetchConfig);
 
   if (ok) {
-    return headers.entries();
+    return headers;
   }
 
   throw new Error(statusText);

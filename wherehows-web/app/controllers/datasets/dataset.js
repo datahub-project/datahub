@@ -15,7 +15,8 @@ const {
   getWithDefault,
   setProperties,
   inject: { service },
-  $: { post, getJSON }
+  $: { post, getJSON },
+  Controller
 } = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
@@ -23,7 +24,8 @@ const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 
-export default Ember.Controller.extend({
+export default Controller.extend({
+  queryParams: ['urn'],
   /**
    * Reference to the application notifications Service
    * @type {Ember.Service}
