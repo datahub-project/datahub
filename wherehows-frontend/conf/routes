@@ -84,6 +84,8 @@ GET           /api/v1/list/flows/:application/:project                          
 
 GET           /api/v1/datasets                                                  controllers.api.v1.Dataset.getPagedDatasets()
 
+HEAD          /api/v1/datasets/urntoid/:urn                                     controllers.api.v1.Dataset.getDatasetIdByUrn(urn:String)
+
 GET           /api/v1/datasets/:id                                              controllers.api.v1.Dataset.getDatasetByID(id:Int)
 
 GET           /api/v1/datasets/:id/owners                                       controllers.api.v1.Dataset.getDatasetOwnersByID(id:Int)

@@ -30,6 +30,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import play.Logger;
+import play.cache.Cache;
 import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
@@ -60,6 +61,9 @@ public class Dataset extends Controller {
   private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
 
   private static final OwnerViewDao OWNER_VIEW_DAO = Application.DAO_FACTORY.getOwnerViewDao();
+
+  private static final String URN_CACHE_KEY = "wh.urn.cache.";
+  private static final int URN_CACHE_PERIOD = 24 * 3600; // cache for 24 hours
 
   public static Result getDatasetOwnerTypes() {
     ObjectNode result = Json.newObject();
@@ -120,6 +124,25 @@ public class Dataset extends Controller {
     }
 
     return ok(result);
+  }
+
+  public static Result getDatasetIdByUrn(String urn) {
+    String cacheKey = URN_CACHE_KEY + urn;
+
+    Integer datasetId = (Integer) Cache.get(cacheKey);
+    if (datasetId != null && datasetId > 0) {
+      response().setHeader("DatasetId", datasetId.toString());
+      return ok();
+    }
+
+    datasetId = DATASETS_DAO.getDatasetIdByUrn(JDBC_TEMPLATE, urn);
+    if (datasetId > 0) {
+      Cache.set(cacheKey, datasetId, URN_CACHE_PERIOD);
+      response().setHeader("DatasetId", datasetId.toString());
+      return ok();
+    } else {
+      return notFound();
+    }
   }
 
   public static Result getDatasetColumnByID(int datasetId, int columnId) {

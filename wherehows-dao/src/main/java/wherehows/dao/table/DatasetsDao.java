@@ -42,6 +42,8 @@ public class DatasetsDao {
 
   private static final String GET_DATASET_URN_BY_ID = "SELECT urn FROM dict_dataset WHERE id=?";
 
+  private static final String GET_DATASET_ID_BY_URN = "SELECT id FROM dict_dataset WHERE urn=?";
+
   private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
       "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
           + "is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, "
@@ -105,6 +107,21 @@ public class DatasetsDao {
       throw new IllegalArgumentException("Dataset id not found: " + datasetId);
     }
     return urn;
+  }
+
+  /**
+   * get WhereHows dataset id by dataset URN
+   * @param jdbcTemplate JdbcTemplate
+   * @param urn String
+   * @return dataset ID, if not found, return -1
+   */
+  public int getDatasetIdByUrn(JdbcTemplate jdbcTemplate, String urn) {
+    try {
+      return jdbcTemplate.queryForObject(GET_DATASET_ID_BY_URN, Integer.class, urn);
+    } catch (EmptyResultDataAccessException e) {
+      logger.debug("Can not find dataset id for urn: " + urn + " : " + e.toString());
+    }
+    return -1;
   }
 
   public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, String datasetUrn,
