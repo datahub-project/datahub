@@ -7,7 +7,7 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 const { Logger: { warn } } = Ember;
 // TODO:  DSS-6122 Create and move to Error module
 const datasetApiException = 'An error occurred with the dataset api';
-const datasetIdException = 'Could not find a valid id for the dataset requested';
+const datasetIdException = 'Dataset reference in unexpected format. Expected a urn or dataset id.';
 
 /**
  * Reads the dataset object from the get endpoint for the given dataset id
