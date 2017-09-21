@@ -241,19 +241,6 @@ const isMixedId = (identifierType: string) => identifierType === fieldIdentifier
 const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
 
 /**
- * Checks if the identifier format is only allowed numeric (ID) or URN values
- * @param {string} identifierType
- */
-const isNumericOrUrnOnly = (identifierType: string): boolean =>
-  [
-    fieldIdentifierTypes.enterpriseProfile.value,
-    fieldIdentifierTypes.contract.value,
-    fieldIdentifierTypes.seat.value,
-    fieldIdentifierTypes.advertiser.value,
-    fieldIdentifierTypes.slideshare.value
-  ].includes(identifierType);
-
-/**
  * Checks is the identifierType is only allowed Id fields
  * @param identifierType
  */
@@ -314,7 +301,6 @@ export {
   nonIdFieldLogicalTypes,
   isMixedId,
   isCustomId,
-  isNumericOrUrnOnly,
   isIdOnly,
   hasPredefinedFieldFormat,
   logicalTypesForIds,
