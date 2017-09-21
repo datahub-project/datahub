@@ -1,10 +1,10 @@
 import Ember from 'ember';
 import {
   datasetComplianceUrlById,
-  addDatasetCommentFor,
-  datasetCommentsFor,
+  createDatasetComment,
+  readDatasetComments,
   deleteDatasetComment,
-  modifyDatasetComment
+  updateDatasetComment
 } from 'wherehows-web/utils/api';
 
 const {
@@ -15,7 +15,8 @@ const {
   getWithDefault,
   setProperties,
   inject: { service },
-  $: { post, getJSON }
+  $: { post, getJSON },
+  Controller
 } = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
@@ -23,7 +24,8 @@ const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 
-export default Ember.Controller.extend({
+export default Controller.extend({
+  queryParams: ['urn'],
   /**
    * Reference to the application notifications Service
    * @type {Ember.Service}
@@ -212,16 +214,16 @@ export default Ember.Controller.extend({
     ]);
 
     const action = {
-      create: addDatasetCommentFor.bind(null, id),
+      create: createDatasetComment.bind(null, id),
       destroy: deleteDatasetComment.bind(null, id),
-      modify: modifyDatasetComment.bind(null, id)
+      modify: updateDatasetComment.bind(null, id)
     }[strategy];
 
     try {
       await action(...args);
       notify('success', { content: 'Success!' });
       // refresh the list of comments if successful with updated response
-      set(this, 'datasetComments', await datasetCommentsFor(id));
+      set(this, 'datasetComments', await readDatasetComments(id));
 
       return true;
     } catch (e) {

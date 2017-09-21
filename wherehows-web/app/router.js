@@ -56,25 +56,9 @@ AppRouter.map(function() {
     path: '/*wildcard'
   });
   this.route('datasets', function() {
-    this.route('page', {
-      path: '/page/:page'
-    });
-
     this.route('dataset', {
-      path: '/:dataset_id'
+      path: '/:datasetIdentifier'
     });
-
-    this.route(
-      'name',
-      {
-        path: '/name/:name'
-      },
-      function() {
-        this.route('subpage', {
-          path: '/page/:page'
-        });
-      }
-    );
   });
   this.route('search');
   this.route('metrics', function() {

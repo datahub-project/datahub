@@ -1,6 +1,7 @@
 module.exports = {
   globals: {
     server: true,
+    define: true,
   },
   "extends": [
     "eslint:recommended",
