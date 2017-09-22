@@ -241,19 +241,13 @@ const isMixedId = (identifierType: string) => identifierType === fieldIdentifier
 const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
 
 /**
- * Checks is the identifierType is only allowed Id fields
- * @param identifierType
- */
-const isIdOnly = (identifierType: string) => identifierType === fieldIdentifierTypes.enterpriseAccount.value;
-
-/**
  * Checks if an identifierType has a predefined/immutable value for the field format, i.e. should not be changed by
  * the end user
  * @param {string} identifierType the identifierType to check against
  * @return {boolean}
  */
 const hasPredefinedFieldFormat = (identifierType: string) => {
-  return isMixedId(identifierType) || isCustomId(identifierType) || isIdOnly(identifierType);
+  return isMixedId(identifierType) || isCustomId(identifierType);
 };
 
 /**
@@ -264,10 +258,6 @@ const hasPredefinedFieldFormat = (identifierType: string) => {
 const getDefaultLogicalType = (identifierType: string): string | void => {
   if (isMixedId(identifierType)) {
     return 'URN';
-  }
-
-  if (isIdOnly(identifierType)) {
-    return 'ID';
   }
 };
 
@@ -301,7 +291,6 @@ export {
   nonIdFieldLogicalTypes,
   isMixedId,
   isCustomId,
-  isIdOnly,
   hasPredefinedFieldFormat,
   logicalTypesForIds,
   logicalTypesForGeneric,

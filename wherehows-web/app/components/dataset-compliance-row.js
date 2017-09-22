@@ -5,7 +5,6 @@ import {
   defaultFieldDataTypeClassification,
   isMixedId,
   isCustomId,
-  isIdOnly,
   hasPredefinedFieldFormat,
   logicalTypesForIds,
   logicalTypesForGeneric
@@ -132,12 +131,10 @@ export default DatasetTableRow.extend({
 
     const mixed = isMixedId(identifierType);
     const custom = isCustomId(identifierType);
-    const isIdOnlyFormat = isIdOnly(identifierType);
     let fieldFormats = fieldIdentifierTypeIds.includes(identifierType) ? logicalTypesForIds : logicalTypesForGeneric;
 
     fieldFormats = mixed ? urnFieldFormat : fieldFormats;
     fieldFormats = custom ? void 0 : fieldFormats;
-    fieldFormats = isIdOnlyFormat ? numericFieldFormat : fieldFormats;
 
     return fieldFormats;
   }),
