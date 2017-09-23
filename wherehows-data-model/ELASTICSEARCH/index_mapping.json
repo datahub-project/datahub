@@ -1,4 +1,17 @@
 {
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "keyword_analyzer": {
+          "type": "custom",
+          "tokenizer": "keyword",
+          "filter": [
+            "lowercase"
+          ]
+        }
+      }
+    }
+  },
   "mappings": {
     "metric": {
       "properties": {
@@ -81,7 +94,7 @@
         "tags": {
           "type": "string"
         },
-        "urn": {
+        "metric_urn": {
           "type": "string"
         },
         "wiki_url": {
@@ -120,7 +133,8 @@
           "type": "string"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "analyzer": "keyword_analyzer"
         },
         "name_suggest": {
           "type": "completion",
@@ -145,7 +159,8 @@
           "type": "long"
         },
         "urn": {
-          "type": "string"
+          "type": "string",
+          "analyzer": "keyword_analyzer"
         }
       }
     },
