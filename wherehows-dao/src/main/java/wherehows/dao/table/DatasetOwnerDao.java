@@ -57,9 +57,8 @@ public class DatasetOwnerDao extends BaseDao {
    * @param auditStamp ChangeAuditStamp
    * @param owners List<OwnerInfo>
    */
-  @SneakyThrows
   public void insertUpdateOwnership(int datasetId, String datasetUrn, ChangeAuditStamp auditStamp,
-      List<OwnerInfo> owners) {
+      List<OwnerInfo> owners) throws Exception {
 
     if (owners.size() == 0) {
       throw new IllegalArgumentException("OwnerInfo array is empty!");

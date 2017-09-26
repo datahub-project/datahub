@@ -15,12 +15,12 @@ package wherehows.dao.table;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DatasetProperty;
 import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FieldSchema;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import javax.persistence.EntityManagerFactory;
 import wherehows.models.table.DictFieldDetail;
@@ -52,8 +52,8 @@ public class FieldDetailDao extends BaseDao {
    * @param schema DatasetSchema
    * @throws Exception
    */
-  public void insertUpdateDatasetFields(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
-      DatasetSchema schema) throws Exception {
+  public void insertUpdateDatasetFields(DatasetIdentifier identifier, int datasetId, DatasetProperty property,
+      ChangeAuditStamp auditStamp, DatasetSchema schema) throws Exception {
 
     List<DictFieldDetail> fields = findListBy(DictFieldDetail.class, "datasetId", datasetId);
 
