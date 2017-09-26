@@ -1,11 +1,10 @@
 <section class="metadata-prompt">
   <header class="metadata-prompt__header">
     <p>
-      {{if isEditing "Do fields in the schema contain the ID of a member (e.g. id, urn,
-        etcetera) and what are the formats of the fields in the schema?" "Field formats in the schema"}}
+      {{if isEditing "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?" "IDs and PII in the schema"}}
       <a
         target="_blank"
-        href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-Field-levelDataTypelists">
+        href="http://go/gdpr-pii">
         <sup>
           More Info
 
@@ -54,7 +53,7 @@
         System Suggestion Confidence
       {{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}
-        Member, Organization, or Group, ID's
+        ID Type
         <a
           target="_blank"
           href="http://go/metadata_acquisition#ProjectOverview-compliance">
@@ -67,7 +66,7 @@
         </a>
       {{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}
-        Field Format?
+        Field Format
         <a
           target="_blank"
           href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
