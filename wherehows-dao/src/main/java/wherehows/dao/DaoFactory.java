@@ -15,7 +15,8 @@ package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
 import wherehows.dao.table.DatasetClassificationDao;
-import wherehows.dao.table.DatasetSchemaInfoDao;
+import wherehows.dao.table.DatasetComplianceDao;
+import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
@@ -60,7 +61,11 @@ public class DaoFactory {
     return new FieldDetailDao(entityManagerFactory);
   }
 
-  public DatasetSchemaInfoDao getDatasetSchemaInfoDao() {
-    return new DatasetSchemaInfoDao(entityManagerFactory);
+  public DatasetOwnerDao getDatasteOwnerDao() {
+    return new DatasetOwnerDao(entityManagerFactory);
+  }
+
+  public DatasetComplianceDao getDatasetComplianceDao() {
+    return new DatasetComplianceDao(entityManagerFactory);
   }
 }

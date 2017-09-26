@@ -13,33 +13,38 @@
  */
 package wherehows.processors;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.events.KafkaAuditHeader;
+import com.linkedin.events.metadata.ChangeAuditStamp;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
-import com.linkedin.events.metadata.DatasetProperty;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import wherehows.dao.DaoFactory;
-import wherehows.service.MetadataChangeService;
+import wherehows.dao.table.DatasetComplianceDao;
+import wherehows.dao.table.DatasetOwnerDao;
+import wherehows.dao.table.DictDatasetDao;
+import wherehows.dao.table.FieldDetailDao;
+import wherehows.models.table.DictDataset;
+
+import static wherehows.common.utils.StringUtil.*;
 
 
 @Slf4j
 public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
-  private final MetadataChangeService metadataChangeService;
+  private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
+
+  private final FieldDetailDao _fieldDetailDao = DAO_FACTORY.getDictFieldDetailDao();
+
+  private final DatasetOwnerDao _ownerDao = DAO_FACTORY.getDatasteOwnerDao();
+
+  private final DatasetComplianceDao _complianceDao = DAO_FACTORY.getDatasetComplianceDao();
 
   public MetadataChangeProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producer);
-    metadataChangeService =
-        new MetadataChangeService(DAO_FACTORY.getDictDatasetDao(), DAO_FACTORY.getDictFieldDetailDao(),
-            DAO_FACTORY.getDatasetSchemaInfoDao());
   }
-
-  private final String[] CHANGE_ITEMS =
-      {"schema", "owners", "datasetProperties", "references", "partitionSpec", "deploymentInfo", "tags", "constraints", "indices", "capacity", "privacyCompliancePolicy", "securitySpecification"};
 
   /**
    * Process a MetadataChangeEvent record
@@ -48,114 +53,53 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
    */
   public void process(IndexedRecord indexedRecord) throws Exception {
 
-    if (indexedRecord != null && indexedRecord.getClass() == MetadataChangeEvent.class) {
-      log.debug("Processing Metadata Change Event record. ");
+    if (indexedRecord == null || indexedRecord.getClass() != MetadataChangeEvent.class) {
+      throw new IllegalArgumentException("Invalid record");
+    }
 
-      MetadataChangeEvent record = (MetadataChangeEvent) indexedRecord;
+    log.debug("Processing Metadata Change Event record. ");
 
-      final KafkaAuditHeader auditHeader = record.auditHeader;
-      if (auditHeader == null) {
-        log.info("MetadataChangeEvent without auditHeader, abort process. " + record.toString());
-        return;
-      }
+    MetadataChangeEvent record = (MetadataChangeEvent) indexedRecord;
 
-      final DatasetIdentifier datasetIdentifier = record.datasetIdentifier;
-      final DatasetProperty datasetProperties = record.datasetProperty;
-      //final String urn = String.valueOf(record.get("urn"));
+    final KafkaAuditHeader auditHeader = record.auditHeader;
+    if (auditHeader == null) {
+      log.warn("MetadataChangeEvent without auditHeader, abort process. " + record.toString());
+      return;
+    }
 
-      final JsonNode rootNode = new ObjectMapper().readTree(record.toString());
+    final DatasetIdentifier identifier = record.datasetIdentifier;
+    final ChangeAuditStamp changeAuditStamp = record.changeAuditStamp;
+    final ChangeType changeType = changeAuditStamp.type;
 
-      for (String itemName : CHANGE_ITEMS) {
+    if (changeType == ChangeType.DELETE) {
+      // TODO: delete dataset
+      log.debug("Dataset Deleted: " + identifier);
+      return;
+    }
 
-        switch (itemName) {
-          case "schema":
-            try {
-              metadataChangeService.updateDatasetSchema(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: schema ", ex);
-            }
-            break;
-          case "owners":
-            try {
-              metadataChangeService.updateDatasetOwner(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: owner ", ex);
-            }
-            break;
-          case "datasetProperties":
-            try {
-              metadataChangeService.updateDatasetCaseSensitivity(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: case sensitivity ", ex);
-            }
-            break;
-          case "references":
-            try {
-              metadataChangeService.updateDatasetReference(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: reference ", ex);
-            }
-            break;
-          case "partitionSpec":
-            try {
-              metadataChangeService.updateDatasetPartition(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: partition ", ex);
-            }
-            break;
-          case "deploymentInfo":
-            try {
-              metadataChangeService.updateDatasetDeployment(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: deployment ", ex);
-            }
-            break;
-          case "tags":
-            try {
-              metadataChangeService.updateDatasetTags(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: tag ", ex);
-            }
-            break;
-          case "constraints":
-            try {
-              metadataChangeService.updateDatasetConstraint(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: constraint ", ex);
-            }
-            break;
-          case "indices":
-            try {
-              metadataChangeService.updateDatasetIndex(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: index ", ex);
-            }
-            break;
-          case "capacity":
-            try {
-              metadataChangeService.updateDatasetCapacity(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: capacity ", ex);
-            }
-            break;
-          case "privacyCompliancePolicy":
-            try {
-              metadataChangeService.updateDatasetCompliance(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: compliance ", ex);
-            }
-            break;
-          case "securitySpecification":
-            try {
-              metadataChangeService.updateDatasetSecurity(rootNode);
-            } catch (Exception ex) {
-              log.debug("Metadata change exception: security ", ex);
-            }
-            break;
-          default:
-            break;
-        }
-      }
+    // create or update dataset
+    DictDataset ds =
+        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, record.datasetProperty, record.schema,
+            record.deploymentInfo, toStringList(record.tags), record.capacity, record.partitionSpec);
+
+    // if schema is not null, insert or update schema
+    if (record.schema != null) {
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), changeAuditStamp, record.schema);
+    }
+
+    // if owners are not null, insert or update owner
+    if (record.owners != null) {
+      _ownerDao.insertUpdateOwnership(ds.getId(), ds.getUrn(), changeAuditStamp, record.owners);
+    }
+
+    // if compliance is not null, insert or update compliance
+    if (record.compliancePolicy != null) {
+      // write compliance info to DB
+    }
+
+    // if suggested compliance is not null, insert or update suggested compliance
+    if (record.suggestedCompliancePolicy != null) {
+      // write suggested compliance info to DB
     }
   }
 }
