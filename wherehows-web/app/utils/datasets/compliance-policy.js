@@ -110,4 +110,64 @@ const isPolicyExpectedShape = (candidatePolicy = {}) => {
   return false;
 };
 
-export { createInitialComplianceInfo, isPolicyExpectedShape };
+/**
+ * Checks if a compliance policy changeSet field requires user attention: if a suggestion
+ * is available  but the user has not indicated intent or a policy for the field does not currently exist remotely
+ * and the related field changeSet has not been modified on the client
+ * @param {boolean} isDirty flag indicating the field changeSet has been modified on the client
+ * @param {object|void} suggestion the field suggestion properties
+ * @param {boolean} privacyPolicyExists flag indicating that the field has a current policy upstream
+ * @param {string} suggestionAuthority possibly empty string indicating the user intent for the suggestion
+ * @return {boolean}
+ */
+const fieldChangeSetRequiresReview = ({ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }) => {
+  if (suggestion) {
+    return !suggestionAuthority;
+  }
+
+  return !privacyPolicyExists && !isDirty;
+};
+
+/**
+ * Merges the column fields with the suggestion for the field if available
+ * @param {object} mappedColumnFields a map of column fields to compliance entity properties
+ * @param {object} fieldSuggestionMap a map of field suggestion properties keyed by field name
+ * @return {Array<object>} mapped column field augmented with suggestion if available
+ */
+const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSuggestionMap = {}) =>
+  Object.keys(mappedColumnFields).map(fieldName => {
+    const {
+      identifierField,
+      dataType,
+      identifierType,
+      logicalType,
+      securityClassification,
+      privacyPolicyExists,
+      isDirty
+    } = mappedColumnFields[fieldName];
+    const suggestion = fieldSuggestionMap[identifierField];
+
+    const field = {
+      identifierField,
+      dataType,
+      identifierType,
+      logicalType,
+      privacyPolicyExists,
+      isDirty,
+      classification: securityClassification
+    };
+
+    // If a suggestion exists for this field add the suggestion attribute to the field properties
+    if (suggestion) {
+      return { ...field, suggestion };
+    }
+
+    return field;
+  });
+
+export {
+  createInitialComplianceInfo,
+  isPolicyExpectedShape,
+  fieldChangeSetRequiresReview,
+  mergeMappedColumnFieldsWithSuggestions
+};
