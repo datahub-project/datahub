@@ -1,4 +1,4 @@
-@import "../variables";
+@import '../variables';
 
 /// Styles a dot that indicates that user attention is required
 .notification-dot {
@@ -15,7 +15,7 @@
     border-color: $compliance-suggestion-hint;
   }
 
-  &--is-unsaved {
+  &--needs-review {
     border-color: set-color(blue, blue5);
   }
 

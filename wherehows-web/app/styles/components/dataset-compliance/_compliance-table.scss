@@ -1,12 +1,13 @@
-@import "../variables";
+@import '../variables';
 
 .dataset-compliance-fields {
   &__has-suggestions {
     color: $compliance-suggestion-hint;
+    margin-left: item-spacing(2);
   }
 
   &__notification-column {
-    width: 5%
+    width: 5%;
   }
 
   &__classification-column {

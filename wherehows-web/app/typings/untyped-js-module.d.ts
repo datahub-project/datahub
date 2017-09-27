@@ -2,7 +2,7 @@ declare module 'ember-modal-dialog/components/modal-dialog';
 
 declare module 'ember-simple-auth/mixins/authenticated-route-mixin';
 
-declare module 'wherehows-web/utils/datasets/functions';
+declare module 'wherehows-web/utils/datasets/compliance-policy';
 
 // https://github.com/ember-cli/ember-fetch/issues/72
 // TS assumes the mapping btw ES modules and CJS modules is 1:1

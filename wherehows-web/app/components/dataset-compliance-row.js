@@ -1,36 +1,19 @@
 import Ember from 'ember';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import {
-  fieldIdentifierTypes,
+  fieldIdentifierTypeValues,
+  fieldIdentifierTypeIds,
   defaultFieldDataTypeClassification,
   isMixedId,
   isCustomId,
   hasPredefinedFieldFormat,
   logicalTypesForIds,
-  logicalTypesForGeneric
+  logicalTypesForGeneric,
+  SuggestionIntent
 } from 'wherehows-web/constants';
-import { fieldIdentifierTypeIds } from 'wherehows-web/components/dataset-compliance';
+import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
 
-const { computed, get, getProperties, set } = Ember;
-/**
- * String indicating that the user affirms a suggestion
- * @type {string}
- */
-const acceptIntent = 'accept';
-
-/**
- * String indicating that the user ignored a suggestion
- * @type {string}
- */
-const ignoreIntent = 'ignore';
-
-/**
- * Caches a list of fieldIdentifierTypes values
- * @type {Array<string>}
- */
-const fieldIdentifierTypeValues = Object.keys(fieldIdentifierTypes)
-  .map(fieldIdentifierType => fieldIdentifierTypes[fieldIdentifierType])
-  .mapBy('value');
+const { computed, get, getProperties } = Ember;
 
 /**
  * Extracts the suggestions for identifierType, logicalType suggestions, and confidence from a list of predictions
@@ -77,23 +60,23 @@ export default DatasetTableRow.extend({
   suggestionAuthority: computed.alias('field.suggestionAuthority'),
 
   /**
-   * Checks that the field does not have a recently input value
+   * Checks that the field does not have a current policy value
    * @type {Ember.computed}
    * @return {boolean}
    */
-  isNewField: computed('isNewComplianceInfo', 'isModified', function() {
-    const { isNewComplianceInfo, isModified } = getProperties(this, ['isNewComplianceInfo', 'isModified']);
-    return isNewComplianceInfo && !isModified;
+  isReviewRequested: computed('field.{isDirty,suggestion,privacyPolicyExists,suggestionAuthority}', function() {
+    return fieldChangeSetRequiresReview(get(this, 'field'));
   }),
 
   /**
    * Maps the suggestion response to a string resolution
    * @type {Ember.computed}
+   * @return {string|void}
    */
   suggestionResolution: computed('field.suggestionAuthority', function() {
     return {
-      [acceptIntent]: 'Accepted',
-      [ignoreIntent]: 'Discarded'
+      [SuggestionIntent.accept]: 'Accepted',
+      [SuggestionIntent.ignore]: 'Discarded'
     }[get(this, 'field.suggestionAuthority')];
   }),
 
@@ -204,7 +187,6 @@ export default DatasetTableRow.extend({
       const { onFieldIdentifierTypeChange } = this.attrs;
       if (typeof onFieldIdentifierTypeChange === 'function') {
         onFieldIdentifierTypeChange(get(this, 'field'), { value });
-        set(this, 'isModified', true);
       }
     },
 
@@ -217,7 +199,6 @@ export default DatasetTableRow.extend({
       const { onFieldLogicalTypeChange } = this.attrs;
       if (typeof onFieldLogicalTypeChange === 'function') {
         onFieldLogicalTypeChange(get(this, 'field'), { value });
-        set(this, 'isModified', true);
       }
     },
 
@@ -229,7 +210,6 @@ export default DatasetTableRow.extend({
       const { onFieldClassificationChange } = this.attrs;
       if (typeof onFieldClassificationChange === 'function') {
         onFieldClassificationChange(get(this, 'field'), { value });
-        set(this, 'isModified', true);
       }
     },
 
@@ -242,7 +222,7 @@ export default DatasetTableRow.extend({
       const { onSuggestionIntent } = this.attrs;
 
       // Accept the suggestion for either identifierType and/or logicalType
-      if (intent === acceptIntent) {
+      if (intent === SuggestionIntent.accept) {
         const { identifierType, logicalType } = get(this, 'prediction');
         if (identifierType) {
           this.actions.onFieldIdentifierTypeChange.call(this, { value: identifierType });

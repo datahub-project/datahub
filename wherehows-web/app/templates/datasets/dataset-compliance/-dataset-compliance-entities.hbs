@@ -20,30 +20,31 @@
   {{/if}}
 </section>
 
-{{#if mergedComplianceEntitiesAndColumnFields.length}}
+{{#if compliancePolicyChangeSet.length}}
+
+  <section class="compliance-entities-meta">
+    {{ember-selector
+      values=fieldReviewOptions
+      selected=(readonly fieldReviewOption)
+      selectionDidChange=(action "onFieldReviewChange")
+    }}
+
+    {{#if changeSetReviewCount}}
+      <span class="dataset-compliance-fields__has-suggestions">
+          {{changeSetReviewCount}} fields to be reviewed
+        </span>
+    {{/if}}
+  </section>
+
   {{#dataset-table
     class="nacho-table--stripped dataset-compliance-fields"
-    fields=mergedComplianceEntitiesAndColumnFields
+    fields=filteredChangeSet
     sortColumnWithName=sortColumnWithName
     filterBy=filterBy
     sortDirection=sortDirection
     tableRowComponent='dataset-compliance-row'
-    searchTerm=searchTerm as |table|}}
-
-    <caption>
-      <input
-        type="text"
-        title="Search fields"
-        placeholder="Search fields"
-        value="{{table.searchTerm}}"
-        oninput={{action table.filterDidChange value="target.value"}}>
-
-      {{#if (and hasRecentSuggestions (not isNewComplianceInfo))}}
-        <span class="dataset-compliance-fields__has-suggestions">
-            {{complianceSuggestion.complianceSuggestions.length}} fields to be reviewed
-          </span>
-      {{/if}}
-    </caption>
+    searchTerm=searchTerm as |table|
+  }}
 
     {{#table.head as |head|}}
       {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
@@ -94,6 +95,18 @@
       {{/head.column}}
     {{/table.head}}
 
+    <tr>
+      <th></th>
+      <th colspan="6">
+        {{disable-bubble-input
+          title="Search field names"
+          placeholder="Search field names"
+          value=table.searchTerm
+          on-input=(action table.filterDidChange value="target.value")
+        }}
+      </th>
+    </tr>
+
     {{#table.body as |body|}}
       {{#each (sort-by table.sortBy table.data) as |field|}}
         {{#body.row
@@ -104,17 +117,22 @@
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
           onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
-          onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange')as |row|}}
+          onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange') as |row|
+        }}
 
           {{#row.cell}}
-            {{#if row.suggestion}}
+            {{#if (and row.suggestion (not row.suggestionResolution))}}
+
               <span class="notification-dot notification-dot--has-prediction"
                     aria-label="Compliance fields have suggested values"></span>
-            {{/if}}
 
-            {{#if (and row.isNewField (not row.suggestion))}}
-              <span class="notification-dot notification-dot--is-unsaved"
-                    aria-label="Compliance has not been saved"></span>
+            {{else}}
+
+              {{#if row.isReviewRequested}}
+                <span class="notification-dot notification-dot--needs-review"
+                      aria-label="Compliance policy for field does not exist"></span>
+              {{/if}}
+
             {{/if}}
           {{/row.cell}}
 
@@ -134,8 +152,8 @@
                 {{auto-suggest-action action=(action row.onSuggestionAction)}}
               {{/if}}
             {{else}}
-              {{#if row.suggestionAuthority}}
-                {{capitalize row.suggestionResolution}}
+              {{#if row.suggestionResolution}}
+                {{row.suggestionResolution}}
               {{else}}
                 &mdash;
               {{/if}}

@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/functions';
+import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { IComplianceSuggestion, IComplianceSuggestionResponse } from 'wherehows-web/typings/api/datasets/compliance';
