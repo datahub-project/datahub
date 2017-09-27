@@ -6,7 +6,7 @@ import {
 } from 'wherehows-web/typings/api/datasets/columns';
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
 import { ApiStatus } from 'wherehows-web/utils/api';
-import { arrayMap } from 'wherehows-web/utils/array-map';
+import { arrayMap } from 'wherehows-web/utils/array';
 
 // TODO:  DSS-6122 Create and move to Error module
 

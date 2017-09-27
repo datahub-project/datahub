@@ -1,5 +1,5 @@
-@import "../../abstracts/variables";
-@import "../../abstracts/mixins";
+@import '../../abstracts/variables';
+@import '../../abstracts/mixins';
 
 /**
  * <select> primary color, borders, icons, etcetera...
@@ -8,7 +8,7 @@ $color: set-color(grey, light);
 $default-border: (1px solid shade($color, 20%));
 
 .nacho-select {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   height: 34px;
   width: 100%;

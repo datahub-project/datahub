@@ -42,7 +42,6 @@
     "ember-cli-typescript": "^1.0.3",
     "ember-cli-uglify": "^1.2.0",
     "ember-composable-helpers": "^2.0.0",
-    "ember-data": "^2.11.1",
     "ember-export-application-global": "^1.1.1",
     "ember-fetch": "^3.4.0",
     "ember-lodash-shim": "^2.0.2",
