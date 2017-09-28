@@ -84,7 +84,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     // if schema is not null, insert or update schema
     if (record.schema != null) {
-      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), changeAuditStamp, record.schema);
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), record.datasetProperty, changeAuditStamp,
+          record.schema);
     }
 
     // if owners are not null, insert or update owner
