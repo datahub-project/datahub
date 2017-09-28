@@ -108,9 +108,7 @@ export default DatasetTableRow.extend({
    */
   fieldFormats: computed('field.identifierType', function() {
     const identifierType = get(this, 'field.identifierType');
-    const numericAndUrnFieldFormats = logicalTypesForIds.filter(({ value }) => ['ID', 'URN'].includes(value));
-    const numericFieldFormat = numericAndUrnFieldFormats.findBy('value', 'ID');
-    const urnFieldFormat = numericAndUrnFieldFormats.findBy('value', 'URN');
+    const urnFieldFormat = logicalTypesForIds.findBy('value', 'URN');
 
     const mixed = isMixedId(identifierType);
     const custom = isCustomId(identifierType);

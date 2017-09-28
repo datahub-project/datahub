@@ -319,17 +319,15 @@ const fieldIdentifierTypesList: Array<IFieldIdProps> = arrayMap(
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
  * @type {Array<Pick<IFieldIdProps, 'value'>>}
  */
-const fieldIdentifierTypeIds: Array<Pick<IFieldIdProps, 'value'>> = fieldIdentifierTypesList
+const fieldIdentifierTypeIds: Array<string> = fieldIdentifierTypesList
   .filter(({ isId }) => isId)
-  .map(({ value }) => ({ value }));
+  .map(({ value }) => value);
 
 /**
  * Caches a list of fieldIdentifierTypes values
  * @type {Array<Pick<IFieldIdProps, 'value'>>}
  */
-const fieldIdentifierTypeValues: Array<Pick<IFieldIdProps, 'value'>> = fieldIdentifierTypesList.map(({ value }) => ({
-  value
-}));
+const fieldIdentifierTypeValues: Array<string> = fieldIdentifierTypesList.map(({ value }) => value);
 
 export {
   defaultFieldDataTypeClassification,
