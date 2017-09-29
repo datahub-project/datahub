@@ -20,22 +20,21 @@
   {{/if}}
 </section>
 
-{{#if compliancePolicyChangeSet.length}}
+<section class="compliance-entities-meta">
+  {{ember-selector
+    values=fieldReviewOptions
+    selected=(readonly fieldReviewOption)
+    selectionDidChange=(action "onFieldReviewChange")
+  }}
 
-  <section class="compliance-entities-meta">
-    {{ember-selector
-      values=fieldReviewOptions
-      selected=(readonly fieldReviewOption)
-      selectionDidChange=(action "onFieldReviewChange")
-    }}
-
-    {{#if changeSetReviewCount}}
-      <span class="dataset-compliance-fields__has-suggestions">
+  {{#if changeSetReviewCount}}
+    <span class="dataset-compliance-fields__has-suggestions">
           {{changeSetReviewCount}} fields to be reviewed
         </span>
-    {{/if}}
-  </section>
+  {{/if}}
+</section>
 
+{{#if filteredChangeSet.length}}
   {{#dataset-table
     class="nacho-table--stripped dataset-compliance-fields"
     fields=filteredChangeSet
@@ -197,4 +196,12 @@
     {{/table.body}}
 
   {{/dataset-table}}
+
+{{else}}
+
+  {{empty-state
+    heading="No fields found"
+    subHead="If you have a filter applied, setting this to the least restrictive option may yield more results."
+  }}
+
 {{/if}}

@@ -66,14 +66,16 @@ const columnDataTypesAndFieldNames = arrayMap(columnDataTypeAndFieldName);
  * @return {Promise<Array<IDatasetColumn>>}
  */
 const readDatasetColumns = async (id: number): Promise<Array<IDatasetColumn>> => {
-  const { status, columns } = await getJSON<IDatasetColumnsGetResponse>({ url: datasetColumnUrlById(id) });
+  const { status, columns, message = datasetColumnsException } = await getJSON<IDatasetColumnsGetResponse>({
+    url: datasetColumnUrlById(id)
+  });
 
   // Returns an empty list if the status is ok but the columns is falsey
   if (status === ApiStatus.OK) {
     return columns || [];
   }
 
-  throw new Error(datasetColumnsException);
+  throw new Error(message);
 };
 
 export { readDatasetColumns, columnDataTypesAndFieldNames, columnsWithHtmlComments };
