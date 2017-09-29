@@ -197,9 +197,13 @@ export default Component.extend({
   }),
 
   /**
+   * Toggles the field review option based on if the dataset
+   * already has a compliance policy created for fields
    * @type {string}
    */
-  fieldReviewOption: 'showAll',
+  fieldReviewOption: computed('isNewComplianceInfo', function() {
+    return get(this, 'isNewComplianceInfo') ? 'showAll' : 'showReview';
+  }),
 
   /**
    * Reference to the application notifications Service
