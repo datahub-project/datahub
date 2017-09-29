@@ -16,5 +16,3 @@ modules.each { module ->
   }
   include "${module}"
 }
-
-gradle.ext.appBuildEnvironment = "opensource"
