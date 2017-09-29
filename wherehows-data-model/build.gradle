@@ -1,13 +1,5 @@
 plugins {
-  id "com.commercehub.gradle.plugin.avro" version "0.8.0" apply false
-}
-
-if (gradle.appBuildEnvironment == "opensource") {
-  apply plugin: "com.commercehub.gradle.plugin.avro"
-
-  avro {
-    fieldVisibility = "PUBLIC"
-  }
+  id "com.commercehub.gradle.plugin.avro" version "0.8.0"
 }
 
 apply plugin: 'java'
