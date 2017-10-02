@@ -13,4 +13,15 @@
   &__classification-column {
     width: 17%;
   }
+
+  &__tall-cell#{&}__tall-cell {
+    vertical-align: top;
+  }
+
+  &__current-value {
+    display: inline-block;
+    height: 0;
+    padding: item-spacing(1);
+    color: set-color(grey, mid);
+  }
 }
