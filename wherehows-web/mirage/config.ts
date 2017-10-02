@@ -1,8 +1,9 @@
 import { IFunctionRouteHandler, IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
+import { getConfig } from "./helpers/config";
 
 export default function(this: IMirageServer) {
-  this.passthrough('/config', '/authenticate');
+  this.get('/config', getConfig);
 
   this.namespace = '/api/v1';
 
@@ -21,4 +22,8 @@ export default function(this: IMirageServer) {
   });
 
   this.passthrough();
+}
+
+export function testConfig(this: IMirageServer) {
+  this.get('/config', getConfig);
 }
