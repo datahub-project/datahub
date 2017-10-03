@@ -159,16 +159,20 @@
             {{/if}}
           {{/row.cell}}
 
-          {{#row.cell}}
+          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
             {{ember-selector
               disabled=(not isEditing)
               values=fieldIdentifierOptions
               selected=(readonly row.identifierType)
               selectionDidChange=(action row.onFieldIdentifierTypeChange)
             }}
+
+            {{#if row.identifierTypeBeforeSuggestion}}
+              <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
+            {{/if}}
           {{/row.cell}}
 
-          {{#row.cell}}
+          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
             {{#power-select
               options=row.fieldFormats
               selected=row.logicalType
@@ -180,6 +184,10 @@
               onchange=(action row.onFieldLogicalTypeChange) as |fieldFormat|}}
               {{fieldFormat.label}}
             {{/power-select}}
+
+            {{#if row.logicalTypeBeforeSuggestion}}
+              <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
+            {{/if}}
           {{/row.cell}}
 
           {{#row.cell}}

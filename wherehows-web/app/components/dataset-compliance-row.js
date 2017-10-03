@@ -89,18 +89,58 @@ export default DatasetTableRow.extend({
   }).readOnly(),
 
   /**
+   * Takes a field property and extracts the value on the current policy if a suggestion currently exists for the field
+   * @param {string} fieldProp the field property, either logicalType or identifierType to pick from the field
+   * @return {string | void} the current value if a suggestion & current value exists or undefined
+   */
+  getCurrentValueBeforeSuggestion(fieldProp) {
+    const prediction = get(this, 'prediction') || {};
+    const suggested = prediction[fieldProp];
+    const { label: current } = get(this, fieldProp) || {};
+
+    if (suggested !== 'undefined' && current) {
+      return current;
+    }
+  },
+
+  /**
    * Returns a computed value for the field identifierType
    * @type {Ember.computed<string>}
    */
   identifierType: computed('field.identifierType', 'prediction', function() {
     const identifierTypePath = 'field.identifierType';
-    const {
-      [identifierTypePath]: identifierType,
-      prediction: { identifierType: suggestedIdentifierType } = {}
-    } = getProperties(this, [identifierTypePath, 'prediction']);
+    /**
+     * Inner function takes the field.identifierType and prediction values, and
+     * returns the identifierType to be rendered in the ui
+     * @param params
+     * @return {*}
+     */
+    const getIdentifierType = params => {
+      const {
+        [identifierTypePath]: identifierType,
+        prediction: { identifierType: suggestedIdentifierType } = {}
+      } = params;
+      return suggestedIdentifierType || identifierType;
+    };
 
-    return suggestedIdentifierType || identifierType;
+    return getIdentifierType(getProperties(this, [identifierTypePath, 'prediction']));
   }).readOnly(),
+
+  /**
+   * Gets the identifierType on the compliance policy before the suggested value
+   * @type {string | void}
+   */
+  identifierTypeBeforeSuggestion: computed('identifierType', function() {
+    return this.getCurrentValueBeforeSuggestion('identifierType');
+  }),
+
+  /**
+   * Gets the logicalType on the compliance policy before the suggested value
+   * @type {string | void}
+   */
+  logicalTypeBeforeSuggestion: computed('logicalType', function() {
+    return this.getCurrentValueBeforeSuggestion('logicalType');
+  }),
 
   /**
    * A list of field formats that are determined based on the field identifierType
