@@ -49,5 +49,5 @@ ext.externalDependency = [
 
     "lombok"              : "org.projectlombok:lombok:1.16.18",
 
-    "guava"               : "com.google.guava:guava:23.0",
+    "guava"               : "com.google.guava:guava:15.0",
 ]
