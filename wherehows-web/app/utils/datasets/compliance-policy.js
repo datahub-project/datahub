@@ -120,12 +120,13 @@ const isPolicyExpectedShape = (candidatePolicy = {}) => {
  * @param {string} suggestionAuthority possibly empty string indicating the user intent for the suggestion
  * @return {boolean}
  */
-const fieldChangeSetRequiresReview = ({ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }) => {
+const fieldChangeSetRequiresReview = ({ isDirty, suggestion, privacyPolicyExists, suggestionAuthority } = {}) => {
   if (suggestion) {
     return !suggestionAuthority;
   }
 
-  return !privacyPolicyExists && !isDirty;
+  // If either the privacy policy exists, or user has made changes, then no review is required
+  return !(privacyPolicyExists || isDirty);
 };
 
 /**
