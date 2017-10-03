@@ -28,6 +28,8 @@ import play.Play;
 import wherehows.common.Constant;
 import wherehows.common.utils.JobsUtil;
 
+import static wherehows.common.Constant.*;
+
 
 /**
  * Created by zechen on 11/8/15.
@@ -39,7 +41,7 @@ public class TreeBuilderActor extends UntypedActor {
   private static final String WH_DB_PASSWORD = Play.application().configuration().getString("db.wherehows.password");
   private static final String WH_DB_DRIVER = Play.application().configuration().getString("db.wherehows.driver");
 
-  public static final String ETL_JOBS_DIR = Play.application().configuration().getString("etl.jobs.dir");
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString(WH_ETL_JOBS_DIR);
 
   private static final String TREE_JOB_TYPE = "tree";
 

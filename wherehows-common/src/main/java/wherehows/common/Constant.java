@@ -33,7 +33,9 @@ public class Constant {
   public static final String JOB_JYTHON_TRANSFORM_KEY = "job.jython.transform";
   public static final String JOB_JYTHON_LOAD_KEY = "job.jython.load";
 
-  public static final String KAFKA_CONSUMER_JOB_TYPE = "kafka-consumer";
+  // ETL property keys
+  public static final String WH_ETL_JOBS_DIR = "etl.jobs.dir";
+  public static final String WH_ETL_TEMP_DIR = "etl.temp.dir";
 
   // Rebuild properties
   public static final String REBUILD_TREE_DATASET = "rebuild.tree.dataset";
