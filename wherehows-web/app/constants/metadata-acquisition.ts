@@ -45,6 +45,12 @@ interface IFieldIdTypes {
 }
 
 /**
+ * Percentage value for a compliance policy suggestion with a low confidence score
+ * @type {number}
+ */
+const lowQualitySuggestionConfidenceThreshold = 0.5;
+
+/**
  * A list of id logical types
  * @type {Array.<String>}
  */
@@ -344,5 +350,6 @@ export {
   logicalTypesForIds,
   logicalTypesForGeneric,
   getDefaultLogicalType,
-  SuggestionIntent
+  SuggestionIntent,
+  lowQualitySuggestionConfidenceThreshold
 };

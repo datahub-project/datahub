@@ -11,6 +11,19 @@ interface IPrediction {
 }
 
 /**
+ * Describes the interface for a field suggestion
+ * values for the keys are extracted from the JSON response
+ * from the compliance/suggestion endpoint and do not necessarily match up
+ * with the key [`identifierTypePrediction` | `logicalTypePrediction`] predicted values
+ * @link extractTypesSuggestion gives further detail
+ */
+interface IFieldSuggestion {
+  identifierType?: string;
+  logicalType?: string;
+  confidence: number;
+}
+
+/**
  * Describes shape of a compliance auto suggestion
  */
 export interface IComplianceSuggestion {
