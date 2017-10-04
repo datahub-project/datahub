@@ -116,10 +116,10 @@ public class DictDatasetDao extends BaseDao {
 
     // put extra information into properties
     Map<String, Object> propertiesMap;
-    if (ds.getProperties() != null) {
+    try {
       propertiesMap = mapper.readValue(ds.getProperties(), new TypeReference<Map<String, Object>>() {
       });
-    } else {
+    } catch (Exception ex) {
       propertiesMap = new HashMap<>();
     }
 
