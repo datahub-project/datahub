@@ -26,13 +26,15 @@ import play.Play;
 import shared.Global;
 import wherehows.common.utils.JobsUtil;
 
+import static wherehows.common.Constant.*;
+
 
 /**
  * Created by zechen on 9/3/15.
  */
 public class SchedulerActor extends UntypedActor {
 
-  public static final String ETL_JOBS_DIR = Play.application().configuration().getString("etl.jobs.dir");
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString(WH_ETL_JOBS_DIR);
 
   /**
    * Search for etl jobs that are ready to run and update the time for next run

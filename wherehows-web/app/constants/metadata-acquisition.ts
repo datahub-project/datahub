@@ -53,6 +53,13 @@ interface IFieldIdTypes {
 const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
 
 /**
+ * Percentage value for a compliance policy suggestion with a low confidence score
+ * @type {number}
+ */
+const lowQualitySuggestionConfidenceThreshold = 0.5;
+
+
+/**
  * A list of id logical types
  * @type {Array.<String>}
  */
@@ -354,4 +361,5 @@ export {
   getDefaultLogicalType,
   lastSeenSuggestionInterval,
   SuggestionIntent
+  lowQualitySuggestionConfidenceThreshold
 };

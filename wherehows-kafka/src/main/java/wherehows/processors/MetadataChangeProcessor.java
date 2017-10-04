@@ -90,7 +90,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     // if owners are not null, insert or update owner
     if (record.owners != null) {
-      _ownerDao.insertUpdateOwnership(ds.getId(), ds.getUrn(), changeAuditStamp, record.owners);
+      _ownerDao.insertUpdateOwnership(identifier, ds.getId(), changeAuditStamp, record.owners);
     }
 
     // if compliance is not null, insert or update compliance

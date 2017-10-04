@@ -37,7 +37,9 @@ public class EtlJobActor extends UntypedActor {
 
   private Process process;
 
-  private static final String ETL_TEMP_DIR = Play.application().configuration().getString("etl.temp.dir");
+  public static final String ETL_JOBS_DIR = Play.application().configuration().getString(Constant.WH_ETL_JOBS_DIR);
+
+  private static final String ETL_TEMP_DIR = Play.application().configuration().getString(Constant.WH_ETL_TEMP_DIR);
 
   private static final String WH_DB_URL = Play.application().configuration().getString("db.wherehows.url");
   private static final String WH_DB_USERNAME = Play.application().configuration().getString("db.wherehows.username");
@@ -61,6 +63,7 @@ public class EtlJobActor extends UntypedActor {
         props.setProperty(Constant.WH_DB_DRIVER_KEY, WH_DB_DRIVER);
         props.setProperty(Constant.WH_APP_FOLDER_KEY, ETL_TEMP_DIR);
         props.setProperty(Launcher.WH_ETL_EXEC_ID_KEY, String.valueOf(msg.getWhEtlExecId()));
+        props.setProperty(Constant.WH_ETL_JOBS_DIR, ETL_JOBS_DIR);
 
         EtlJobDao.startRun(msg.getWhEtlExecId(), "Job started!");
 

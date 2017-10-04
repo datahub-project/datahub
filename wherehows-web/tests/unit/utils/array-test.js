@@ -1,5 +1,5 @@
 import { module, test } from 'qunit';
-import { arrayMap, arrayFilter, isListUnique } from 'wherehows-web/utils/array';
+import { arrayMap, arrayFilter, arrayReduce, isListUnique } from 'wherehows-web/utils/array';
 import { xRandomNumbers, numToString, isAString } from 'wherehows-web/tests/helpers/arrays/functions';
 
 module('Unit | Utility | array');
@@ -44,4 +44,18 @@ test('isListUnique correctly tests uniqueness of a list', function(assert) {
 
   assert.notOk(isListUnique(listWithDuplicateNumbers), `${listWithDuplicateNumbers} has duplicates`);
   assert.ok(isListUnique(listWithoutDuplicateNumbers), `${listWithoutDuplicateNumbers} has no duplicates`);
+});
+
+test('arrayReduce is a function', function(assert) {
+  assert.ok(typeof arrayReduce === 'function', 'module exports an array reducer function');
+});
+
+test('arrayReduce should work as a reduction iteratee', function(assert) {
+  const array = [{ a: 1 }, { b: 2 }, { c: 3 }],
+    expected = { a: 1, b: 2, c: 3 };
+  const reducer = arrayReduce(function(acc, el) {
+    return { ...acc, ...el };
+  }, {});
+
+  assert.deepEqual(reducer(array), expected);
 });

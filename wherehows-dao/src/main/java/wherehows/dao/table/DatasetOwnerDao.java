@@ -14,6 +14,7 @@
 package wherehows.dao.table;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
+import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.OwnerInfo;
 import com.linkedin.events.metadata.OwnerType;
 import java.util.ArrayList;
@@ -22,9 +23,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.persistence.EntityManagerFactory;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsOwner;
+
+import static wherehows.util.UrnUtil.*;
 
 
 @Slf4j
@@ -52,13 +54,15 @@ public class DatasetOwnerDao extends BaseDao {
 
   /**
    * Insert or update dataset owners given information from MetadataChangeEvent
+   * @param identifier DatasetIdentifier
    * @param datasetId int
-   * @param datasetUrn String
    * @param auditStamp ChangeAuditStamp
    * @param owners List<OwnerInfo>
    */
-  public void insertUpdateOwnership(int datasetId, String datasetUrn, ChangeAuditStamp auditStamp,
+  public void insertUpdateOwnership(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
       List<OwnerInfo> owners) throws Exception {
+
+    String datasetUrn = toWhDatasetUrn(identifier);
 
     if (owners.size() == 0) {
       throw new IllegalArgumentException("OwnerInfo array is empty!");
