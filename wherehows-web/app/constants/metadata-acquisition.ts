@@ -45,10 +45,19 @@ interface IFieldIdTypes {
 }
 
 /**
+ * Length of time between suggestion modification time and last modified time for the compliance policy
+ * If a policy has been updated within the range of this window then it is considered as stale / or
+ * has been seen previously
+ * @type {number}
+ */
+const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * Percentage value for a compliance policy suggestion with a low confidence score
  * @type {number}
  */
 const lowQualitySuggestionConfidenceThreshold = 0.5;
+
 
 /**
  * A list of id logical types
@@ -350,6 +359,7 @@ export {
   logicalTypesForIds,
   logicalTypesForGeneric,
   getDefaultLogicalType,
-  SuggestionIntent,
+  lastSeenSuggestionInterval,
+  SuggestionIntent
   lowQualitySuggestionConfidenceThreshold
 };
