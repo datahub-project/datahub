@@ -58,7 +58,6 @@ const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
  */
 const lowQualitySuggestionConfidenceThreshold = 0.5;
 
-
 /**
  * A list of id logical types
  * @type {Array.<String>}
@@ -360,6 +359,6 @@ export {
   logicalTypesForGeneric,
   getDefaultLogicalType,
   lastSeenSuggestionInterval,
-  SuggestionIntent
+  SuggestionIntent,
   lowQualitySuggestionConfidenceThreshold
 };
