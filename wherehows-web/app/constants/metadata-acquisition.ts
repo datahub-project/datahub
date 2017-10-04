@@ -45,6 +45,14 @@ interface IFieldIdTypes {
 }
 
 /**
+ * Length of time between suggestion modification time and last modified time for the compliance policy
+ * If a policy has been updated within the range of this window then it is considered as stale / or
+ * has been seen previously
+ * @type {number}
+ */
+const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
+
+/**
  * A list of id logical types
  * @type {Array.<String>}
  */
@@ -344,5 +352,6 @@ export {
   logicalTypesForIds,
   logicalTypesForGeneric,
   getDefaultLogicalType,
+  lastSeenSuggestionInterval,
   SuggestionIntent
 };

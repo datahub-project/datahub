@@ -12,7 +12,8 @@ import {
   logicalTypesForIds,
   logicalTypesForGeneric,
   hasPredefinedFieldFormat,
-  getDefaultLogicalType
+  getDefaultLogicalType,
+  lastSeenSuggestionInterval
 } from 'wherehows-web/constants';
 import {
   isPolicyExpectedShape,
@@ -332,10 +333,11 @@ export default Component.extend({
     ]);
     const { lastModified: suggestionsLastModified, complianceSuggestions = [] } = complianceSuggestion;
 
-    // If modification dates exist, check that the suggestions are newer than the last time the policy was saved
+    // If modification dates exist, check that the suggestions are considered 'unseen' since the last time the policy was saved
     // and we have at least 1 suggestion, otherwise check that the count of suggestions is at least 1
     if (policyModificationTimeInEpoch && suggestionsLastModified) {
-      return complianceSuggestions.length && suggestionsLastModified > policyModificationTimeInEpoch;
+      const suggestionIsUnseen = suggestionsLastModified - policyModificationTimeInEpoch >= lastSeenSuggestionInterval;
+      return complianceSuggestions.length && suggestionIsUnseen;
     }
 
     return !!complianceSuggestions.length;
