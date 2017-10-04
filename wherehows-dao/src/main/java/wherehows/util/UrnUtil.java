@@ -28,7 +28,7 @@ public class UrnUtil {
    * @return entity String
    */
   public static String getUrnEntity(String urn) {
-    return urn.substring(urn.lastIndexOf(':') + 1);
+    return urn == null ? null : urn.substring(urn.lastIndexOf(':') + 1);
   }
 
   /**

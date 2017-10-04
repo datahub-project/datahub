@@ -95,12 +95,13 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     // if compliance is not null, insert or update compliance
     if (record.compliancePolicy != null) {
-      // write compliance info to DB
+      _complianceDao.insertUpdateCompliance(identifier, ds.getId(), changeAuditStamp, record.compliancePolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance
     if (record.suggestedCompliancePolicy != null) {
-      // write suggested compliance info to DB
+      _complianceDao.insertUpdateSuggestedCompliance(identifier, ds.getId(), changeAuditStamp,
+          record.suggestedCompliancePolicy);
     }
   }
 }
