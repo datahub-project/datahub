@@ -1,7 +1,6 @@
 import Ember from 'ember';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import {
-  fieldIdentifierTypeValues,
   fieldIdentifierTypeIds,
   defaultFieldDataTypeClassification,
   isMixedId,
@@ -12,6 +11,11 @@ import {
   SuggestionIntent
 } from 'wherehows-web/constants';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
+import { compact } from 'wherehows-web/utils/array';
+import {
+  highConfidenceSuggestions,
+  accumulateFieldSuggestions
+} from 'wherehows-web/utils/datasets/compliance-suggestions';
 
 const { computed, get, getProperties } = Ember;
 
@@ -21,24 +25,7 @@ const { computed, get, getProperties } = Ember;
  * @param {Array<Object>} predictions
  * @returns Array<Object>
  */
-const getFieldSuggestions = predictions =>
-  predictions.filter(prediction => prediction).reduce((suggested, { value, confidence = 0 }) => {
-    if (value) {
-      if (fieldIdentifierTypeValues.includes(value)) {
-        suggested = { ...suggested, identifierType: value };
-      } else {
-        suggested = { ...suggested, logicalType: value };
-      }
-
-      return {
-        ...suggested,
-        // value is Percent. identifierType value should be the last element in the list
-        confidence: (confidence * 100).toFixed(2)
-      };
-    }
-
-    return suggested;
-  }, {});
+const getFieldSuggestions = predictions => accumulateFieldSuggestions(highConfidenceSuggestions(compact(predictions)));
 
 export default DatasetTableRow.extend({
   /**
