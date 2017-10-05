@@ -20,6 +20,7 @@ import com.linkedin.events.metadata.SuggestedCompliancePolicy;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsCompliance;
+import wherehows.models.view.DsComplianceSuggestion;
 
 import static wherehows.util.UrnUtil.*;
 
@@ -91,6 +92,10 @@ public class DatasetComplianceDao extends BaseDao {
     }
 
     dsCompliance.setModifiedBy(actor);
+  }
+
+  public DsComplianceSuggestion findComplianceSuggestionByUrn(String datasetUrn) {
+    return null;
   }
 
   /**
