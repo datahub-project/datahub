@@ -36,6 +36,7 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
 import wherehows.dao.table.DatasetClassificationDao;
+import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
@@ -45,6 +46,7 @@ import wherehows.models.table.DatasetCompliance;
 import wherehows.models.table.DatasetDependency;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.table.ImpactDataset;
+import wherehows.models.view.DsComplianceSuggestion;
 
 
 public class Dataset extends Controller {
@@ -61,6 +63,8 @@ public class Dataset extends Controller {
   private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
 
   private static final OwnerViewDao OWNER_VIEW_DAO = Application.DAO_FACTORY.getOwnerViewDao();
+
+  private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
 
   private static final String URN_CACHE_KEY = "wh.urn.cache.";
   private static final int URN_CACHE_PERIOD = 24 * 3600; // cache for 24 hours
@@ -838,15 +842,14 @@ public class Dataset extends Controller {
     return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
   }
 
-  public static Promise<Result> getDatasetAutoClassification(int datasetId) {
-    DatasetClassification record = null;
+  public static Promise<Result> getDatasetSuggestedCompliance(int datasetId) {
     try {
       String urn = DATASETS_DAO.getDatasetUrnById(JDBC_TEMPLATE, datasetId);
       if (urn == null) {
         throw new IllegalArgumentException("Dataset not found, ID: " + datasetId);
       }
 
-      record = trimDatasetClassification(CLASSIFICATION_DAO.getDatasetClassification(urn));
+      return getDatasetSuggestedCompliance(urn);
     } catch (Exception e) {
       JsonNode result = Json.newObject()
           .put("status", "failed")
@@ -855,43 +858,24 @@ public class Dataset extends Controller {
 
       return Promise.promise(() -> ok(result));
     }
-
-    JsonNode result = Json.newObject().put("status", "ok").set("autoClassification", Json.toJson(record));
-
-    return Promise.promise(() -> ok(result));
   }
 
-  /**
-   * Trim not required information from DatasetClassification for UI, return a new record.
-   * @param record DatasetClassification
-   * @return DatasetClassification
-   * @throws IOException
-   */
-  private static DatasetClassification trimDatasetClassification(DatasetClassification record) throws IOException {
-    ObjectMapper mapper = Json.mapper();
-    DatasetClassification newRecord = new DatasetClassification(record.getUrn(), null, record.getLastModified());
+  public static Promise<Result> getDatasetSuggestedCompliance(String datasetUrn) {
+    DsComplianceSuggestion record = null;
+    try {
+      record = COMPLIANCE_DAO.findComplianceSuggestionByUrn(datasetUrn);
+    } catch (Exception e) {
+      Logger.warn("Failed to get compliance suggestion: " + e.toString());
+      JsonNode result = Json.newObject()
+          .put("status", "failed")
+          .put("error", "true")
+          .put("msg", "Fetch data Error: " + e.getMessage());
 
-    List<Map<String, Object>> entities =
-        mapper.readValue(record.getClassificationResult(), new TypeReference<List<Map<String, Object>>>() {
-        });
-
-    for (Map<String, Object> entity : entities) {
-      entity.remove("dataType");
-      Map<String, Object> identifierTypePrediction = (Map<String, Object>) entity.get("identifierTypePrediction");
-      if (identifierTypePrediction != null) {
-        identifierTypePrediction.remove("priority");
-        identifierTypePrediction.remove("type");
-        identifierTypePrediction.remove("exclusive");
-      }
-      Map<String, Object> logicalTypePrediction = (Map<String, Object>) entity.get("logicalTypePrediction");
-      if (logicalTypePrediction != null) {
-        logicalTypePrediction.remove("priority");
-        logicalTypePrediction.remove("type");
-        logicalTypePrediction.remove("exclusive");
-      }
+      return Promise.promise(() -> ok(result));
     }
 
-    newRecord.setClassificationResult(mapper.writeValueAsString(entities));
-    return newRecord;
+    JsonNode result = Json.newObject().put("status", "ok").set("complianceSuggestion", Json.toJson(record));
+
+    return Promise.promise(() -> ok(result));
   }
 }
