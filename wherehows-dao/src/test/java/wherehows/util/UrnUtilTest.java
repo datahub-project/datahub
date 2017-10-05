@@ -25,6 +25,8 @@ public class UrnUtilTest {
 
   @Test
   public void testGetUrnEntity() {
+    assertEquals(getUrnEntity(null), null);
+
     String urn = "urn:li:user:test";
     String entity = getUrnEntity(urn);
 
