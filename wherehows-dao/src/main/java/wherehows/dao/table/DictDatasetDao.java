@@ -108,7 +108,7 @@ public class DictDatasetDao extends BaseDao {
       ds.setUrn(urn);
     }
 
-    String[] urnParts = splitWhDatasetUrn(urn);
+    String[] urnParts = parseWhDatasetUrn(urn);
     ds.setDatasetType(urnParts[0]);
     ds.setLocationPrefix(urnParts[1]);
     ds.setParentName(urnParts[2]);
