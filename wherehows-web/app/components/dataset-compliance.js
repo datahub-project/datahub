@@ -323,27 +323,6 @@ export default Component.extend({
   }),
 
   /**
-   * Checks that suggested values postdate the last save date or that suggestions exist
-   * @type {boolean}
-   */
-  hasRecentSuggestions: computed('policyModificationTimeInEpoch', 'complianceSuggestion', function() {
-    const { policyModificationTimeInEpoch, complianceSuggestion = {} } = getProperties(this, [
-      'policyModificationTimeInEpoch',
-      'complianceSuggestion'
-    ]);
-    const { lastModified: suggestionsLastModified, complianceSuggestions = [] } = complianceSuggestion;
-
-    // If modification dates exist, check that the suggestions are considered 'unseen' since the last time the policy was saved
-    // and we have at least 1 suggestion, otherwise check that the count of suggestions is at least 1
-    if (policyModificationTimeInEpoch && suggestionsLastModified) {
-      const suggestionIsUnseen = suggestionsLastModified - policyModificationTimeInEpoch >= lastSeenSuggestionInterval;
-      return complianceSuggestions.length && suggestionIsUnseen;
-    }
-
-    return !!complianceSuggestions.length;
-  }),
-
-  /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.
@@ -428,9 +407,10 @@ export default Component.extend({
    *
    * @param {Array<object>} columnFieldProps
    * @param {Array<object>} complianceEntities
+   * @param {policyModificationTime}
    * @return {object}
    */
-  mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities) {
+  mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, { policyModificationTime }) {
     const getKeysOnField = (keys = [], fieldName, source = []) => {
       const sourceField = source.find(({ identifierField }) => identifierField === fieldName) || {};
       let ret = {};
@@ -456,6 +436,7 @@ export default Component.extend({
           identifierField,
           dataType,
           ...currentPrivacyAttrs,
+          policyModificationTime,
           privacyPolicyExists: hasEnumerableKeys(currentPrivacyAttrs),
           isDirty: false
         }
@@ -479,7 +460,9 @@ export default Component.extend({
       // Dataset fields that currently have a compliance policy
       const currentComplianceEntities = get(this, policyComplianceEntitiesKey) || [];
 
-      return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, currentComplianceEntities);
+      return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, currentComplianceEntities, {
+        policyModificationTime: getWithDefault(this, 'complianceInfo.modifiedTime', 0)
+      });
     }
   ),
 
@@ -526,7 +509,9 @@ export default Component.extend({
    */
   identifierFieldToSuggestion: computed('complianceSuggestion', function() {
     const identifierFieldToSuggestion = {};
-    const complianceSuggestions = getWithDefault(this, 'complianceSuggestion.complianceSuggestions', []);
+    const complianceSuggestion = get(this, 'complianceSuggestion') || {};
+    const { lastModified: suggestionsModificationTime, complianceSuggestions = [] } = complianceSuggestion;
+
     // If the compliance suggestions array contains suggestions the create reduced map,
     // otherwise, ignore
     if (complianceSuggestions.length) {
@@ -535,7 +520,8 @@ export default Component.extend({
           ...identifierFieldToSuggestion,
           [fieldName]: {
             identifierTypePrediction,
-            logicalTypePrediction
+            logicalTypePrediction,
+            suggestionsModificationTime
           }
         }),
         identifierFieldToSuggestion

@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import { datasetClassifiers } from 'wherehows-web/constants/dataset-classification';
+import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 
 const { assert, Logger: { warn } } = Ember;
 
@@ -111,6 +112,16 @@ const isPolicyExpectedShape = (candidatePolicy = {}) => {
 };
 
 /**
+ * Checks if the compliance suggestion has a date that is equal or exceeds the policy mod time by at least the
+ * ms time in lastSeenSuggestionInterval
+ * @param {number} [policyModificationTime = 0] timestamp for the policy modification date
+ * @param {number} suggestionModificationTime timestamp for the suggestion modification date
+ * @return {boolean}
+ */
+const isRecentSuggestion = (policyModificationTime = 0, suggestionModificationTime) =>
+  !!suggestionModificationTime && suggestionModificationTime - policyModificationTime >= lastSeenSuggestionInterval;
+
+/**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
  * is available  but the user has not indicated intent or a policy for the field does not currently exist remotely
  * and the related field changeSet has not been modified on the client
@@ -143,6 +154,7 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       identifierType,
       logicalType,
       securityClassification,
+      policyModificationTime,
       privacyPolicyExists,
       isDirty
     } = mappedColumnFields[fieldName];
@@ -158,8 +170,9 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       classification: securityClassification
     };
 
-    // If a suggestion exists for this field add the suggestion attribute to the field properties
-    if (suggestion) {
+    // If a suggestion exists for this field add the suggestion attribute to the field properties / changeSet
+    // Check if suggestion isRecent before augmenting, otherwise, suggestion will not be considered on changeSet
+    if (suggestion && isRecentSuggestion(policyModificationTime, suggestion.suggestionsModificationTime)) {
       return { ...field, suggestion };
     }
 
@@ -170,5 +183,6 @@ export {
   createInitialComplianceInfo,
   isPolicyExpectedShape,
   fieldChangeSetRequiresReview,
-  mergeMappedColumnFieldsWithSuggestions
+  mergeMappedColumnFieldsWithSuggestions,
+  isRecentSuggestion
 };
