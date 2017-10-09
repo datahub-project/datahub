@@ -12,6 +12,21 @@ const authenticationUrl = '/login';
  * Expected error message for invalid credentials
  * @type {string}
  */
-const invalidCredentials = 'Bad Credentials';
+const invalidCredentials = 'Missing or invalid [credentials]';
+/**
+ * Test Username
+ * @type {string}
+ */
+const testUser = 'testUser';
+/**
+ * Test User dummy password
+ * @type {string}
+ */
+const testPassword = 'validPassword';
+/**
+ * Invalid password to trigger error message
+ * @type {string}
+ */
+const testPasswordInvalid = 'invalidPassword';
 
-export { loginContainer, authenticationUrl, invalidCredentials };
+export { loginContainer, authenticationUrl, invalidCredentials, testUser, testPassword, testPasswordInvalid };
