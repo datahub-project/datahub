@@ -111,8 +111,7 @@
         {{#body.row
           field=field
           isNewComplianceInfo=isNewComplianceInfo
-          class=(if (and hasRecentSuggestions field.suggestion) "dataset-compliance-fields__has-suggestions")
-          hasRecentSuggestions=hasRecentSuggestions
+          class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
           onSuggestionIntent=(action 'onFieldSuggestionIntentChange')

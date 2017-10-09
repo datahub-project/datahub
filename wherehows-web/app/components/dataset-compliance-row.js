@@ -2,6 +2,7 @@ import Ember from 'ember';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import {
   fieldIdentifierTypeIds,
+  fieldIdentifierOptions,
   defaultFieldDataTypeClassification,
   isMixedId,
   isCustomId,
@@ -16,8 +17,9 @@ import {
   highConfidenceSuggestions,
   accumulateFieldSuggestions
 } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
-const { computed, get, getProperties } = Ember;
+const { computed, get, getProperties, getWithDefault } = Ember;
 
 /**
  * Extracts the suggestions for identifierType, logicalType suggestions, and confidence from a list of predictions
@@ -81,12 +83,24 @@ export default DatasetTableRow.extend({
    * @return {string | void} the current value if a suggestion & current value exists or undefined
    */
   getCurrentValueBeforeSuggestion(fieldProp) {
-    const prediction = get(this, 'prediction') || {};
-    const suggested = prediction[fieldProp];
-    const { label: current } = get(this, fieldProp) || {};
+    if (hasEnumerableKeys(get(this, 'prediction'))) {
+      /**
+       * Current value on policy prior to the suggested value
+       * @type {string}
+       */
+      const value = get(this, `field.${fieldProp}`);
 
-    if (suggested !== 'undefined' && current) {
-      return current;
+      /**
+       * Convenience function to get `label` attribute on the display properties object
+       * @param {Array<{value: string, label: string}>} valueObjects
+       */
+      const getLabel = (valueObjects = []) =>
+        Array.isArray(valueObjects) && (valueObjects.findBy('value', value) || {}).label;
+
+      return {
+        identifierType: getLabel(fieldIdentifierOptions),
+        logicalType: getLabel(get(this, 'fieldFormats'))
+      }[fieldProp];
     }
   },
 
@@ -181,16 +195,17 @@ export default DatasetTableRow.extend({
 
   /**
    * Extracts the field suggestions into a cached computed property, if a suggestion exists
-   * @type {Ember.computed}
+   * @type {Ember.ComputedProperty}
+   * @return {void | {identifierType: string, logicalType: string, confidence: number}}
    */
-  prediction: computed('field.suggestion', 'field.suggestionAuthority', 'hasRecentSuggestions', function() {
-    const { field = {}, hasRecentSuggestions } = getProperties(this, 'field', 'hasRecentSuggestions');
+  prediction: computed('field.suggestion', 'field.suggestionAuthority', function() {
+    const field = getWithDefault(this, 'field', {});
     // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
     // the suggestion for this field. It's value should not be take into account on re-renders
     // this line takes that into account and substitutes an empty suggestion
     const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? {} : field;
 
-    if (suggestion && hasRecentSuggestions) {
+    if (suggestion) {
       const { identifierTypePrediction, logicalTypePrediction } = suggestion;
       // The order of the array supplied to getFieldSuggestions is importance to it's order of operations
       // the last element in the array takes highest precedence: think Object.assign
