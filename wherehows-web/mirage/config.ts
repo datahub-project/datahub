@@ -29,7 +29,7 @@ export default function(this: IMirageServer) {
   }
   this.get('/datasets/:id/compliance/suggestions', function(
     this: IFunctionRouteHandler,
-    { complianceSuggestions }: IComplianceSuggestionsObject//{ complianceSuggestions: any }
+    { complianceSuggestions }: IComplianceSuggestionsObject
   ) {
     return {
       status: ApiStatus.OK,
