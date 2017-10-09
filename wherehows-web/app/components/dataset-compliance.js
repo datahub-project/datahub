@@ -4,6 +4,7 @@ import {
   classifiers,
   datasetClassifiers,
   fieldIdentifierTypes,
+  fieldIdentifierOptions,
   fieldIdentifierTypeIds,
   idLogicalTypes,
   nonIdFieldLogicalTypes,
@@ -12,8 +13,7 @@ import {
   logicalTypesForIds,
   logicalTypesForGeneric,
   hasPredefinedFieldFormat,
-  getDefaultLogicalType,
-  lastSeenSuggestionInterval
+  getDefaultLogicalType
 } from 'wherehows-web/constants';
 import {
   isPolicyExpectedShape,
@@ -85,31 +85,12 @@ const datasetClassifiersKeys = Object.keys(datasetClassifiers);
 const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
 
 assert('`fieldIdentifierTypes` contains an object with a key `none`', typeof fieldIdentifierTypes.none === 'object');
-const fieldIdentifierTypeKeysBarNone = Object.keys(fieldIdentifierTypes).filter(k => k !== 'none');
-const fieldDisplayKeys = ['none', '_', ...fieldIdentifierTypeKeysBarNone];
 
 /**
  * Returns a list of changeSet fields that requires user attention
  * @type {function({}): Array<{ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }>}
  */
 const changeSetFieldsRequiringReview = arrayFilter(fieldChangeSetRequiresReview);
-
-/**
- * A list of field identifier types mapped to label, value options for select display
- * @type {any[]|Array.<{value: String, label: String}>}
- */
-const fieldIdentifierOptions = fieldDisplayKeys.map(fieldIdentifierType => {
-  const divider = '──────────';
-  const { value = fieldIdentifierType, displayAs: label = divider } = fieldIdentifierTypes[fieldIdentifierType] || {};
-
-  // Adds a divider for a value of _
-  // Visually this separates ID from none fieldIdentifierTypes
-  return {
-    value,
-    label,
-    isDisabled: fieldIdentifierType === '_'
-  };
-});
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',

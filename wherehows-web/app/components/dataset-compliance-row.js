@@ -2,6 +2,7 @@ import Ember from 'ember';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import {
   fieldIdentifierTypeIds,
+  fieldIdentifierOptions,
   defaultFieldDataTypeClassification,
   isMixedId,
   isCustomId,
@@ -83,8 +84,23 @@ export default DatasetTableRow.extend({
    */
   getCurrentValueBeforeSuggestion(fieldProp) {
     if (hasEnumerableKeys(get(this, 'prediction'))) {
-      // TODO: translate to label: logicalType or displayAs: identifierType
-      return get(this, `field.${fieldProp}`);
+      /**
+       * Current value on policy prior to the suggested value
+       * @type {string}
+       */
+      const value = get(this, `field.${fieldProp}`);
+
+      /**
+       * Convenience function to get `label` attribute on the display properties object
+       * @param {Array<{value: string, label: string}>} valueObjects
+       */
+      const getLabel = (valueObjects = []) =>
+        Array.isArray(valueObjects) && (valueObjects.findBy('value', value) || {}).label;
+
+      return {
+        identifierType: getLabel(fieldIdentifierOptions),
+        logicalType: getLabel(get(this, 'fieldFormats'))
+      }[fieldProp];
     }
   },
 
