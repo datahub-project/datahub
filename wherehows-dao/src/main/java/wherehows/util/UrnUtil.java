@@ -33,7 +33,7 @@ public class UrnUtil {
 
   /**
    * Construct WhereHows dataset URN from DatasetIdentifier
-   * Replace '.' with '/' for dataset name in Espresso, Oracle, Dalids, Hive and Teradata
+   * Replace '.' with '/' in dataset name
    * It is the reverse of splitWhUrn
    * @param datasetIdentifier DatasetIdentifier
    * @return String WH URN
@@ -42,27 +42,49 @@ public class UrnUtil {
     String platform = getUrnEntity(datasetIdentifier.dataPlatformUrn.toString());
     String name = datasetIdentifier.nativeName.toString();
 
-    if ("espresso".equalsIgnoreCase(platform) || "oracle".equalsIgnoreCase(platform) || "dalids".equalsIgnoreCase(platform)
-        || "hive".equalsIgnoreCase(platform) || "teradata".equalsIgnoreCase(platform)) {
+    if ("hdfs".equalsIgnoreCase(platform)) {
+      if (name.startsWith("/")) {
+        name = name.substring(1);
+      }
+    } else {
       name = name.replace(".", "/");
-    }
-
-    if ("hdfs".equalsIgnoreCase(platform) && name.startsWith("/")) {
-      name = name.substring(1);
     }
 
     return platform + ":///" + name;
   }
 
   /**
-   * Split WH dataset urn into platform, prefix, parent name, dataset name
+   * Split WhereHows dataset URN into two parts: platform + dataset name
+   * Also replace '/' with '.' in dataset name other than hdfs datasets
+   * E.g. oracle:///abc/def > [oracle, abc.def]
+   * @param urn String WhereHows dataset URN
+   * @return String[] platform + dataset name
+   */
+  public static String[] splitWhUrn(String urn) {
+    if (urn == null) {
+      throw new IllegalArgumentException("URN is null");
+    }
+
+    final String[] parts = urn.split(":///"); // [platform, dataset name]
+
+    if ("hdfs".equalsIgnoreCase(parts[0])) {
+      parts[1] = "/" + parts[1];
+    } else {
+      parts[1] = parts[1].replace("/", ".");
+    }
+
+    return parts;
+  }
+
+  /**
+   * Parse WH dataset urn into platform, prefix, parent name, dataset name
    * For platform:///abc ->  prefix '', parent '', dataset 'abc'
    * For hdfs:///a/b/c/d  ->  prefix '/a/b', parent '/a/b/c', dataset 'd'
    * For platform:///a/b  ->  prefix '/a', parent 'a', dataset 'b'
    * @param urn String
    * @return String[platform, prefix, parentName, datasetName]
    */
-  public static String[] splitWhDatasetUrn(String urn) {
+  public static String[] parseWhDatasetUrn(String urn) {
     String platform = urn.split(":///")[0];
     String fullname = urn.split(":///")[1];
 

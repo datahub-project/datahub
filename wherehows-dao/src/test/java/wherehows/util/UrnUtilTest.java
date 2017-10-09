@@ -62,9 +62,62 @@ public class UrnUtilTest {
   }
 
   @Test
+  public void testSplitWhUrn() {
+
+    String urn = "teradata:///DM/ABC";
+    String[] parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "teradata");
+    assertEquals(parts[1], "DM.ABC");
+
+    urn = "hdfs:///data/derived/abc";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "hdfs");
+    assertEquals(parts[1], "/data/derived/abc");
+
+    urn = "hive:///abook/abc";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "hive");
+    assertEquals(parts[1], "abook.abc");
+
+    urn = "mysql:///abook/abc";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "mysql");
+    assertEquals(parts[1], "abook.abc");
+
+    urn = "espresso:///identity/profile";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "espresso");
+    assertEquals(parts[1], "identity.profile");
+
+    urn = "oracle:///ABOOK/ABC";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "oracle");
+    assertEquals(parts[1], "ABOOK.ABC");
+
+    urn = "kafka:///PageViewEvent";
+    parts = splitWhUrn(urn);
+
+    assertEquals(parts.length, 2);
+    assertEquals(parts[0], "kafka");
+    assertEquals(parts[1], "PageViewEvent");
+  }
+
+  @Test
   public void testSplitWhDatasetUrn() {
     String urn = "oracle:///orc/test";
-    String[] parts = splitWhDatasetUrn(urn);
+    String[] parts = parseWhDatasetUrn(urn);
 
     assertEquals(parts.length, 4);
     assertEquals(parts[0], "oracle");
@@ -73,7 +126,7 @@ public class UrnUtilTest {
     assertEquals(parts[3], "test");
 
     urn = "hdfs:///data/abc/def/test";
-    parts = splitWhDatasetUrn(urn);
+    parts = parseWhDatasetUrn(urn);
 
     assertEquals(parts.length, 4);
     assertEquals(parts[0], "hdfs");
@@ -82,7 +135,7 @@ public class UrnUtilTest {
     assertEquals(parts[3], "test");
 
     urn = "kafka:///test";
-    parts = splitWhDatasetUrn(urn);
+    parts = parseWhDatasetUrn(urn);
 
     assertEquals(parts.length, 4);
     assertEquals(parts[0], "kafka");
