@@ -14,8 +14,10 @@
 package metadata.etl.lineage;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -30,13 +32,6 @@ import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import wherehows.common.Constant;
 
 
@@ -44,15 +39,15 @@ import wherehows.common.Constant;
  * Handle all communication with Azkaban service
  * Created by zsun on 9/8/15.
  */
+@Slf4j
 public class AzServiceCommunicator {
   ObjectMapper jsonReader;
   private String AZKABAN_URL = "";
   private String sessionId = "";
   private String azkabanUserName = "";
   private String azkabanPassword = "";
-  private static final Logger logger = LoggerFactory.getLogger(AzServiceCommunicator.class);
-  public AzServiceCommunicator(Properties prop)
-    throws Exception {
+
+  public AzServiceCommunicator(Properties prop) throws Exception {
     jsonReader = new ObjectMapper();
     AZKABAN_URL = prop.getProperty(Constant.AZ_SERVICE_URL_KEY);
     azkabanUserName = prop.getProperty(Constant.AZ_SERVICE_USERNAME_KEY);
@@ -72,8 +67,7 @@ public class AzServiceCommunicator {
    * @throws java.security.NoSuchAlgorithmException
    * @throws java.security.KeyManagementException
    */
-  private String sendRequest(String url, Map<String, String> params, String type)
-    throws Exception {
+  private String sendRequest(String url, Map<String, String> params, String type) throws Exception {
 
     HttpRequestBase request;
     if (type.equals("get")) {
@@ -111,11 +105,10 @@ public class AzServiceCommunicator {
     return stringResponse;
   }
 
-  private boolean isSessionExpired(String response)
-    throws IOException {
+  private boolean isSessionExpired(String response) throws IOException {
     JsonNode json = jsonReader.readTree(response);
     if (json.has("error") && json.get("error").asText().equals("session")) {
-      logger.error("session expired");
+      log.error("session expired");
       return true;
     }
     return false;
@@ -128,8 +121,7 @@ public class AzServiceCommunicator {
    * @return a session id string
    * @throws java.io.IOException
    */
-  public String getAzkabanSessionId(String username, String password)
-    throws Exception {
+  public String getAzkabanSessionId(String username, String password) throws Exception {
 
     Map<String, String> params = new HashMap<>();
     params.put("action", "login");
@@ -142,7 +134,7 @@ public class AzServiceCommunicator {
     if (obj.has("status") && obj.get("status").asText().equals("success")) {
       sessionId = obj.get("session.id").asText();
     } else {
-      logger.error("log in failed, user name : {}", username);
+      log.error("log in failed, user name : {}", username);
       // throw exception
       throw new Exception("username/password wrong. user : " + username);
     }
@@ -151,13 +143,11 @@ public class AzServiceCommunicator {
     return sessionId;
   }
 
-  public String getExecLog(int execId, String jobName)
-    throws Exception {
+  public String getExecLog(int execId, String jobName) throws Exception {
     return getExecLog(execId, jobName, "0", "1000000");
   }
 
-  public String getExecLog(int execId, String jobName, String offset, String length)
-    throws Exception {
+  public String getExecLog(int execId, String jobName, String offset, String length) throws Exception {
 
     Map<String, String> paramsMap = new HashMap<>();
     // TODO try with session id, if it expired, re-login

@@ -16,8 +16,7 @@ package wherehows.common.writers;
 import java.sql.SQLException;
 import java.util.Arrays;
 import javax.sql.DataSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -29,10 +28,11 @@ import wherehows.common.utils.PreparedStatementUtil;
 /**
  * Created by zsun on 8/20/15.
  */
+@Slf4j
 public class DatabaseWriter extends Writer {
   JdbcTemplate jdbcTemplate;
   String tableName;
-  private static final Logger logger = LoggerFactory.getLogger(DatabaseWriter.class);
+
 
   public DatabaseWriter(JdbcTemplate jdbcTemplate, String tableName) {
     this.jdbcTemplate = jdbcTemplate;
@@ -58,7 +58,7 @@ public class DatabaseWriter extends Writer {
     try {
       this.jdbcTemplate.execute(sb.toString());
     } catch (DataAccessException e) {
-      logger.error("UPDATE statement have error : " + sb.toString() + e);
+      log.error("UPDATE statement have error : " + sb.toString() + e);
     }
   }
 
@@ -77,12 +77,12 @@ public class DatabaseWriter extends Writer {
     }
     sb.deleteCharAt(sb.length() - 1);
 
-    logger.debug("In databaseWriter : " + sb.toString());
+    log.debug("In databaseWriter : " + sb.toString());
 
     try {
       this.jdbcTemplate.execute(sb.toString());
     } catch (DataAccessException e) {
-      logger.error("This statement have error : " + sb.toString());
+      log.error("This statement have error : " + sb.toString());
       this.records.clear(); // need to recover the records.
     }
     this.records.clear();
@@ -104,7 +104,7 @@ public class DatabaseWriter extends Writer {
   public boolean insert()
       throws SQLException {
     if (records.size() == 0 || !(records.get(0) instanceof AbstractRecord)) {
-      logger.debug("DatabaseWriter no record to insert or unknown record Class.");
+      log.debug("DatabaseWriter no record to insert or unknown record Class.");
       return false;
     }
 
@@ -127,7 +127,7 @@ public class DatabaseWriter extends Writer {
           }
         }); */
       } catch (IllegalAccessException | DataAccessException ae) {
-        logger.error("DatabaseWriter insert error: " + ae);
+        log.error("DatabaseWriter insert error: " + ae);
       }
     }
     records.clear();
@@ -144,7 +144,7 @@ public class DatabaseWriter extends Writer {
   public void update(String[] columns, Object[] columnValues, String[] conditions, Object[] conditionValues)
       throws DataAccessException {
     if (columns.length != columnValues.length || conditions.length != conditionValues.length) {
-      logger.error("DatabaseWriter update columns and values mismatch");
+      log.error("DatabaseWriter update columns and values mismatch");
       return;
     }
     Object[] values = Arrays.copyOf(columnValues, columnValues.length + conditionValues.length);

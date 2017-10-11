@@ -24,12 +24,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import scala.concurrent.Await;
 import scala.concurrent.Future;
 import scala.concurrent.duration.Duration;
@@ -42,12 +40,12 @@ import wherehows.common.writers.DatabaseWriter;
 /**
  * Created by zsun on 8/29/15.
  */
+@Slf4j
 public class AzLineageExtractorMaster {
 
   Properties prop;
-  private static final Logger logger =  LoggerFactory.getLogger(AzLineageExtractorMaster.class);
-  public AzLineageExtractorMaster(Properties prop)
-    throws Exception {
+
+  public AzLineageExtractorMaster(Properties prop) throws Exception {
     this.prop = prop;
   }
 
@@ -55,13 +53,11 @@ public class AzLineageExtractorMaster {
    * Default 10 minutes
    * @throws Exception
    */
-  public void run()
-    throws Exception {
+  public void run() throws Exception {
     run(10);
   }
 
-  public void run(int timeFrame)
-    throws Exception {
+  public void run(int timeFrame) throws Exception {
     run(timeFrame, System.currentTimeMillis());
   }
 
@@ -72,18 +68,17 @@ public class AzLineageExtractorMaster {
    * @param endTimeStamp in millisecond
    * @throws Exception
    */
-  public void run(int timeFrame, long endTimeStamp)
-    throws Exception {
+  public void run(int timeFrame, long endTimeStamp) throws Exception {
     // get recent finished job
     AzJobChecker azJobChecker = new AzJobChecker(prop);
     List<AzkabanJobExecRecord> jobExecList = azJobChecker.getRecentFinishedJobFromFlow(timeFrame, endTimeStamp);
     azJobChecker.close();
-    logger.info("Total number of azkaban jobs : {}", jobExecList.size());
+    log.info("Total number of azkaban jobs : {}", jobExecList.size());
 
     ActorSystem actorSystem = ActorSystem.create("LineageExtractor");
     int numOfActor = Integer.valueOf(prop.getProperty(Constant.LINEAGE_ACTOR_NUM, "50"));
-    ActorRef lineageExtractorActor = actorSystem
-        .actorOf(new SmallestMailboxPool(numOfActor).props(Props.create(AzLineageExtractorActor.class)),
+    ActorRef lineageExtractorActor =
+        actorSystem.actorOf(new SmallestMailboxPool(numOfActor).props(Props.create(AzLineageExtractorActor.class)),
             "lineageExtractorActor");
 
     // initialize
@@ -95,13 +90,15 @@ public class AzLineageExtractorMaster {
     String wherehowsUserName = prop.getProperty(Constant.WH_DB_USERNAME_KEY);
     String wherehowsPassWord = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
     Connection conn = DriverManager.getConnection(wherehowsUrl, wherehowsUserName, wherehowsPassWord);
-    DatabaseWriter databaseWriter = new DatabaseWriter(wherehowsUrl, wherehowsUserName, wherehowsPassWord, "stg_job_execution_data_lineage");
+    DatabaseWriter databaseWriter =
+        new DatabaseWriter(wherehowsUrl, wherehowsUserName, wherehowsPassWord, "stg_job_execution_data_lineage");
 
     AzLogParser.initialize(conn);
     PathAnalyzer.initialize(conn);
     int timeout = 30; // default 30 minutes for one job
-    if (prop.containsKey(Constant.LINEAGE_ACTOR_TIMEOUT_KEY))
+    if (prop.containsKey(Constant.LINEAGE_ACTOR_TIMEOUT_KEY)) {
       timeout = Integer.valueOf(prop.getProperty(Constant.LINEAGE_ACTOR_TIMEOUT_KEY));
+    }
     List<Future<Object>> result = new ArrayList<>();
     for (AzkabanJobExecRecord aje : jobExecList) {
       AzExecMessage message = new AzExecMessage(aje, prop);
@@ -126,6 +123,6 @@ public class AzLineageExtractorMaster {
     adc.close();
     hnne.close();
     databaseWriter.close();
-    logger.info("All job finished lineage collecting!");
+    log.info("All job finished lineage collecting!");
   }
 }

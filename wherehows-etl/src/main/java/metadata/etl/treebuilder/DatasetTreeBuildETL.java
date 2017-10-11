@@ -15,9 +15,10 @@ package metadata.etl.treebuilder;
 
 import java.io.InputStream;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
 
-
+@Slf4j
 public class DatasetTreeBuildETL extends EtlJob {
 
   public DatasetTreeBuildETL(long whExecId, Properties properties) {
@@ -27,22 +28,22 @@ public class DatasetTreeBuildETL extends EtlJob {
   @Override
   public void extract()
     throws Exception {
-    logger.info("In DatasetTreeBuildETL java launch extract jython scripts");
+    log.info("In DatasetTreeBuildETL java launch extract jython scripts");
   }
 
   @Override
   public void transform()
     throws Exception {
-    logger.info("In DatasetTreeBuildETL java launch transform jython scripts");
+    log.info("In DatasetTreeBuildETL java launch transform jython scripts");
   }
 
   @Override
   public void load()
     throws Exception {
-    logger.info("In DatasetTreeBuildETL java launch load jython scripts");
+    log.info("In DatasetTreeBuildETL java launch load jython scripts");
     InputStream inputStream = classLoader.getResourceAsStream("jython/DatasetTreeBuilder.py");
     interpreter.execfile(inputStream);
     inputStream.close();
-    logger.info("In DatasetTreeBuildETL java load jython scripts finished");
+    log.info("In DatasetTreeBuildETL java load jython scripts finished");
   }
 }

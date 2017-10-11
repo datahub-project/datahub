@@ -14,17 +14,20 @@
 package metadata.etl.lineage;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Blob;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.zip.GZIPInputStream;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
 import wherehows.common.schemas.AzkabanJobExecRecord;
 import wherehows.common.utils.AzkabanJobExecUtil;
@@ -33,12 +36,13 @@ import wherehows.common.utils.AzkabanJobExecUtil;
 /**
  * Created by zsun on 9/8/15.
  */
+@Slf4j
 public class AzJobChecker {
 
   final int DEFAULT_LOOK_BACK_TIME_MINUTES = 10;
   int appId;
   Connection conn = null;
-  private static final Logger logger = LoggerFactory.getLogger(AzJobChecker.class);
+
 
   public AzJobChecker(Properties prop)
     throws SQLException {
@@ -99,13 +103,13 @@ public class AzJobChecker {
   public List<AzkabanJobExecRecord> getRecentFinishedJobFromFlow(long startTimeStamp, long endTimeStamp)
     throws SQLException, IOException {
 
-    logger.info("Get the jobs from time : {} to time : {}", startTimeStamp, endTimeStamp);
+    log.info("Get the jobs from time : {} to time : {}", startTimeStamp, endTimeStamp);
     List<AzkabanJobExecRecord> results = new ArrayList<>();
     Statement stmt = conn.createStatement();
     final String cmd =
       "select exec_id, flow_id, status, submit_user, flow_data from execution_flows where end_time > " + startTimeStamp
         + " and end_time < " + endTimeStamp ;
-    logger.info("Get recent flow sql : " + cmd);
+    log.info("Get recent flow sql : " + cmd);
     final ResultSet rs = stmt.executeQuery(cmd); // this sql take 3 second to execute
 
     while (rs.next()) {

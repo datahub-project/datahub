@@ -13,33 +13,29 @@
  */
 package metadata.etl.dataset.druid;
 
-import wherehows.common.Constant;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.FileWriter;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Properties;
-import java.nio.file.Path;
-import java.nio.file.Files;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-
+import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import wherehows.common.Constant;
 
 
+@Slf4j
 public class DruidMetadataExtractor {
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
+
   private String druid_host;
   private String druid_ds_metadata_csv_file;
   private String druid_col_metadata_csv_file;
@@ -72,7 +68,7 @@ public class DruidMetadataExtractor {
   }
 
   public void run() throws Exception {
-    logger.info("Remove existing metadata files:" + druid_ds_metadata_csv_file + "," + druid_col_metadata_csv_file);
+    log.info("Remove existing metadata files:" + druid_ds_metadata_csv_file + "," + druid_col_metadata_csv_file);
     Files.deleteIfExists(FileSystems.getDefault().getPath(druid_ds_metadata_csv_file));
     Files.deleteIfExists(FileSystems.getDefault().getPath(druid_col_metadata_csv_file));
     getDatasources();
@@ -104,9 +100,9 @@ public class DruidMetadataExtractor {
       String response_str = response.toString().replace("[", "").replace("]", "").replace("\"", "");
       if (response_str.length() > 0) {
         datasources = response_str.split(",");
-        logger.info(response_str.length() + " datasources found");
+        log.info(response_str.length() + " datasources found");
       } else {
-        logger.warn("Cannot find data source on Druid: " + druid_host);
+        log.warn("Cannot find data source on Druid: " + druid_host);
       }
       br.close();
       con.disconnect();
@@ -145,13 +141,13 @@ public class DruidMetadataExtractor {
         maxTime = json.getString("maxTime");
         minTime = json.getString("minTime");
       } else {
-        logger.warn("No meta data for data source: )" + datasource);
+        log.warn("No meta data for data source: )" + datasource);
       }
     }
   }
 
   public JSONArray getSegmentMetadata(String datasource, String maxTime, String minTime) throws Exception {
-    logger.info("Extract metadata of segment from " + maxTime + " to " + minTime);
+    log.info("Extract metadata of segment from " + maxTime + " to " + minTime);
     DateTime max_datetime = DATETIME_FORMAT.parseDateTime(maxTime);
     String interval = DATETIME_FORMAT.print(max_datetime.minusHours(1)) + "/" + maxTime;
     String query = SEGMENT_QUERY.replace("$DATASOURCE", datasource).replace("$INTERVAL", interval);
@@ -180,7 +176,7 @@ public class DruidMetadataExtractor {
       if (seg_metadata.length() > 0) {
         return seg_metadata;
       } else {
-        logger.info("No Segment Metadata for Data Source: " + datasource);
+        log.info("No Segment Metadata for Data Source: " + datasource);
         return null;
       }
     } else {

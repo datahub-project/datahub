@@ -15,9 +15,10 @@ package metadata.etl;
 
 import java.io.InputStream;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import wherehows.common.Constant;
 
-
+@Slf4j
 public class JythonEtlJob extends EtlJob {
 
   public JythonEtlJob(long whExecId, Properties prop) {
@@ -28,7 +29,7 @@ public class JythonEtlJob extends EtlJob {
   public void extract() throws Exception {
     String script = prop.getProperty(Constant.JOB_JYTHON_EXTRACT_KEY);
     if (script == null) {
-      logger.info("Skipped extract as no script is defined in {}", Constant.JOB_JYTHON_EXTRACT_KEY);
+      log.info("Skipped extract as no script is defined in {}", Constant.JOB_JYTHON_EXTRACT_KEY);
       return;
     }
 
@@ -39,7 +40,7 @@ public class JythonEtlJob extends EtlJob {
   public void transform() throws Exception {
     String script = prop.getProperty(Constant.JOB_JYTHON_TRANSFORM_KEY);
     if (script == null) {
-      logger.info("Skipped transform as no script is defined in {}", Constant.JOB_JYTHON_TRANSFORM_KEY);
+      log.info("Skipped transform as no script is defined in {}", Constant.JOB_JYTHON_TRANSFORM_KEY);
       return;
     }
 
@@ -50,7 +51,7 @@ public class JythonEtlJob extends EtlJob {
   public void load() throws Exception {
     String script = prop.getProperty(Constant.JOB_JYTHON_LOAD_KEY);
     if (script == null) {
-      logger.info("Skipped load as no script is defined in {}", Constant.JOB_JYTHON_LOAD_KEY);
+      log.info("Skipped load as no script is defined in {}", Constant.JOB_JYTHON_LOAD_KEY);
       return;
     }
 
@@ -58,7 +59,7 @@ public class JythonEtlJob extends EtlJob {
   }
 
   private void runScript(String scriptFile) throws Exception {
-    logger.info("Launching jython script {}", scriptFile);
+    log.info("Launching jython script {}", scriptFile);
 
     try (InputStream inputStream = classLoader.getResourceAsStream(scriptFile)) {
       interpreter.execfile(inputStream);

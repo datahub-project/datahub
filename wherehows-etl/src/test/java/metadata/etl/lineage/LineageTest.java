@@ -14,15 +14,14 @@
 package metadata.etl.lineage;
 
 import java.util.Properties;
-
+import lombok.extern.slf4j.Slf4j;
 import org.testng.annotations.Test;
-import parquet.org.slf4j.Logger;
-import parquet.org.slf4j.LoggerFactory;
 
 
 /**
  * Created by zsun on 8/28/15.
  */
+@Slf4j
 public class LineageTest {
   public Properties properties;
   AzLineageMetadataEtl lm;
@@ -40,7 +39,6 @@ public class LineageTest {
 
   @Test(groups = {"needConfig"})
   public void logTest() {
-    Logger logger = LoggerFactory.getLogger(LineageTest.class);
-    logger.debug("asfsd");
+    log.debug("asfsd");
   }
 }

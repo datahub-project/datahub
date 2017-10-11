@@ -14,14 +14,10 @@
 package wherehows.common.jobs;
 
 import java.util.Properties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
 
 
 public abstract class BaseJob {
-
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
 
   public final Properties prop;
 

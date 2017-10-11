@@ -16,16 +16,14 @@ package metadata.etl.lineage;
 import akka.actor.UntypedActor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Created by zsun on 9/16/15.
  */
+@Slf4j
 public class AzLineageExtractorActor extends UntypedActor {
 
-  private static final Logger logger = LoggerFactory.getLogger(AzLineageExtractorActor.class);;
   public AzLineageExtractorActor() {
     super();
   }
@@ -34,20 +32,20 @@ public class AzLineageExtractorActor extends UntypedActor {
   public void onReceive(Object message) {
     try {
       if (message instanceof AzExecMessage) {
-        logger.debug("Recieved a message : " + message.toString());
+        log.debug("Recieved a message : " + message.toString());
         AzLineageExtractor.extract((AzExecMessage) message);
       } else {
-        logger.error("Not an AzExecMessage message");
+        log.error("Not an AzExecMessage message");
       }
     } catch (Exception e) {
-      logger.error("Actor failed!");
+      log.error("Actor failed!");
       StringWriter sw = new StringWriter();
       PrintWriter pw = new PrintWriter(sw);
       e.printStackTrace(pw);
-      logger.error(sw.toString());
+      log.error(sw.toString());
       e.printStackTrace();
     } finally {
-      logger.debug("Actor finished for message : " + message.toString());
+      log.debug("Actor finished for message : " + message.toString());
       getSender().tell("finished", null);
     }
   }
