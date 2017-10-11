@@ -13,18 +13,15 @@
  */
 package metadata.etl.dataset.druid;
 
+import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.util.Properties;
-import java.sql.Connection;
-
-import org.hsqldb.persist.ScriptRunner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import lombok.extern.slf4j.Slf4j;
 import wherehows.common.Constant;
 
 
+@Slf4j
 public class DruidMetadataLoader {
 
   private String JDBC_URL;
@@ -35,7 +32,6 @@ public class DruidMetadataLoader {
   private String WH_ETL_EXEC_ID;
   private String druid_ds_metadata_csv_file;
   private String druid_col_metadata_csv_file;
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
 
   private String DROP_DS_METADATA = "DROP TABLE IF EXISTS wherehows.druid_ds_metadata_tbl; \n";
   private String CREATE_DS_METADAT =
@@ -136,14 +132,14 @@ public class DruidMetadataLoader {
     JDBC_PASSWORD = prop.getProperty(Constant.WH_DB_PASSWORD_KEY);
     DB_ID = prop.getProperty(Constant.JOB_REF_ID_KEY);
     WH_ETL_EXEC_ID = prop.getProperty(Constant.WH_EXEC_ID_KEY);
-    logger.debug("druid_ds_metadata_csv_file=" + druid_ds_metadata_csv_file);
-    logger.debug("druid_col_metadata_csv_file=" + druid_col_metadata_csv_file);
-    logger.debug("JDBC_URL=" + JDBC_URL);
-    logger.debug("JDBC_DRIVER=" + JDBC_DRIVER);
-    logger.debug("JDBC_USERNAME=" + JDBC_USERNAME);
-    logger.debug("JDBC_PASSWORD=" + JDBC_PASSWORD);
-    logger.debug("DB_ID=" + DB_ID);
-    logger.debug("WH_ETL_EXEC_ID=" + WH_ETL_EXEC_ID);
+    log.debug("druid_ds_metadata_csv_file=" + druid_ds_metadata_csv_file);
+    log.debug("druid_col_metadata_csv_file=" + druid_col_metadata_csv_file);
+    log.debug("JDBC_URL=" + JDBC_URL);
+    log.debug("JDBC_DRIVER=" + JDBC_DRIVER);
+    log.debug("JDBC_USERNAME=" + JDBC_USERNAME);
+    log.debug("JDBC_PASSWORD=" + JDBC_PASSWORD);
+    log.debug("DB_ID=" + DB_ID);
+    log.debug("WH_ETL_EXEC_ID=" + WH_ETL_EXEC_ID);
   }
 
   public DruidMetadataLoader(String ds_csv_file, String col_csv_file, String db_id, String exec_id, String url,
@@ -183,43 +179,42 @@ public class DruidMetadataLoader {
     Connection conn = DriverManager.getConnection(JDBC_URL, JDBC_USERNAME, JDBC_PASSWORD);
     Statement stmt = conn.createStatement();
 
-    logger.info("Load file " + druid_ds_metadata_csv_file + " to table 'dict_dataset'");
-    logger.debug("Running query:" + DROP_DS_METADATA);
+    log.info("Load file " + druid_ds_metadata_csv_file + " to table 'dict_dataset'");
+    log.debug("Running query:" + DROP_DS_METADATA);
     stmt.executeUpdate(DROP_DS_METADATA);
-    logger.debug("Running query:" + CREATE_DS_METADAT);
+    log.debug("Running query:" + CREATE_DS_METADAT);
     stmt.executeUpdate(CREATE_DS_METADAT);
-    logger.debug(
-        "Running query:" + LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
+    log.debug("Running query:" + LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
     stmt.executeUpdate(LOAD_DS_METADATA.replace("$DRUID_DS_METADATA_CSV_FILE", druid_ds_metadata_csv_file));
-    logger.debug("Running query:" + DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(DELETE_STG_DATASET_META.replace("$DB_ID", DB_ID));
-    logger.debug(
+    log.debug(
         "Running query:" + LOAD_STG_DATASET_META.replace("$DB_ID", DB_ID).replace("$WH_ETL_EXEC_ID", WH_ETL_EXEC_ID));
     stmt.executeUpdate(LOAD_STG_DATASET_META.replace("$DB_ID", DB_ID).replace("$WH_ETL_EXEC_ID", WH_ETL_EXEC_ID));
-    logger.debug("Running query:" + DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
 
-    logger.info("Load file " + druid_col_metadata_csv_file + " to table 'dict_field'");
-    logger.debug("Running query:" + DROP_COL_METADATA);
+    log.info("Load file " + druid_col_metadata_csv_file + " to table 'dict_field'");
+    log.debug("Running query:" + DROP_COL_METADATA);
     stmt.executeUpdate(DROP_COL_METADATA);
-    logger.debug("Running query:" + CREATE_COL_METADAT);
+    log.debug("Running query:" + CREATE_COL_METADAT);
     stmt.executeUpdate(CREATE_COL_METADAT);
-    logger.debug(
+    log.debug(
         "Running query:" + LOAD_COL_METADATA.replace("$DRUID_COL_METADATA_CSV_FILE", druid_col_metadata_csv_file));
     stmt.executeUpdate(LOAD_COL_METADATA.replace("$DRUID_COL_METADATA_CSV_FILE", druid_col_metadata_csv_file));
-    logger.debug("Running query:" + DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(DELETE_STG_FIELD_META.replace("$DB_ID", DB_ID));
-    logger.debug("Running query:" + LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(LOAD_STG_FIELD_META.replace("$DB_ID", DB_ID));
-    logger.debug("Running query:" + UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(UPDATE_STG_FIELD_META.replace("$DB_ID", DB_ID));
-    logger.debug("Running query:" + DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + DUMP_DS_METADATA.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(DUMP_NON_EXIST_FIELD.replace("$DB_ID", DB_ID));
-    logger.debug("Running query:" + DELETE_NON_EXIST_FIELD);
+    log.debug("Running query:" + DELETE_NON_EXIST_FIELD);
     stmt.executeUpdate(DELETE_NON_EXIST_FIELD);
-    logger.debug("Running query:" + UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(UPDATE_FIELD_METADATA.replace("$DB_ID", DB_ID));
-    logger.debug("Running query:" + INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
+    log.debug("Running query:" + INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
     stmt.executeUpdate(INSERT_NEW_FIELD_METADATA.replace("$DB_ID", DB_ID));
 
     stmt.close();

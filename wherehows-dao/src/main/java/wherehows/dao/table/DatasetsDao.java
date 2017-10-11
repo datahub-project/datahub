@@ -32,13 +32,12 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.models.table.DatasetCompliance;
 import wherehows.models.table.DatasetFieldEntity;
 import wherehows.models.view.DatasetOwner;
+import lombok.extern.slf4j.Slf4j;
 
 import static wherehows.util.JsonUtil.*;
 
-
+@Slf4j
 public class DatasetsDao {
-
-  private static final Logger logger = LoggerFactory.getLogger(DatasetsDao.class);
 
   private static final String GET_DATASET_URN_BY_ID = "SELECT urn FROM dict_dataset WHERE id=?";
 
@@ -89,7 +88,7 @@ public class DatasetsDao {
     try {
       return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, datasetId);
     } catch (EmptyResultDataAccessException e) {
-      logger.error("Can not find URN for dataset id: " + datasetId + " : " + e.getMessage());
+      log.error("Can not find URN for dataset id: " + datasetId + " : " + e.getMessage());
     }
     return null;
   }
@@ -119,7 +118,7 @@ public class DatasetsDao {
     try {
       return jdbcTemplate.queryForObject(GET_DATASET_ID_BY_URN, Integer.class, urn);
     } catch (EmptyResultDataAccessException e) {
-      logger.debug("Can not find dataset id for urn: " + urn + " : " + e.toString());
+      log.debug("Can not find dataset id for urn: " + urn + " : " + e.toString());
     }
     return -1;
   }

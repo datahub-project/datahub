@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Enumeration;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import org.python.core.PyDictionary;
 import org.python.core.PyString;
 import org.python.core.PySystemState;
@@ -32,6 +33,7 @@ import wherehows.common.jobs.BaseJob;
  * Each ETL process that implement this interface will have their own extract, transform, load function.
  * Created by zsun on 7/29/15.
  */
+@Slf4j
 public abstract class EtlJob extends BaseJob {
 
   public final ClassLoader classLoader = getClass().getClassLoader();
@@ -56,13 +58,13 @@ public abstract class EtlJob extends BaseJob {
     try {
       urls = classLoader.getResources("jython/");
     } catch (IOException e) {
-      logger.info("Failed to get resource: {}", e.getMessage());
+      log.info("Failed to get resource: {}", e.getMessage());
       return;
     }
 
     while (urls.hasMoreElements()) {
       URL url = urls.nextElement();
-      logger.debug("jython url: {}", url.getPath());
+      log.debug("jython url: {}", url.getPath());
       if (url != null) {
         File file = new File(url.getFile());
         String path = file.getPath();
@@ -106,7 +108,7 @@ public abstract class EtlJob extends BaseJob {
 
   public void run() throws Exception {
     setup();
-    logger.info("PySystem path: " + interpreter.getSystemState().path.toString());
+    log.info("PySystem path: " + interpreter.getSystemState().path.toString());
     extract();
     transform();
     load();

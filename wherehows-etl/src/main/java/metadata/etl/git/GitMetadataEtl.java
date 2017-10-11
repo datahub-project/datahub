@@ -18,9 +18,8 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
 import wherehows.common.schemas.GitCommitRecord;
 import wherehows.common.utils.GitUtil;
@@ -30,10 +29,10 @@ import wherehows.common.writers.FileWriter;
 /**
  * Created by zechen on 12/7/15.
  */
+@Slf4j
 public class GitMetadataEtl extends EtlJob {
 
   public ClassLoader classLoader = getClass().getClassLoader();
-  protected final Logger logger = LoggerFactory.getLogger(getClass());
   public static final String COMMIT_OUTPUT_FILE = "commit.csv";
 
   public GitMetadataEtl(long whExecId, Properties prop) {
@@ -41,7 +40,7 @@ public class GitMetadataEtl extends EtlJob {
   }
 
   public void extract() throws Exception {
-    logger.info("git extract");
+    log.info("git extract");
     String gitHost = this.prop.getProperty(Constant.GIT_HOST_KEY);
     String[] projects = (this.prop.getProperty(Constant.GIT_PROJECT_WHITELIST_KEY)).trim().split("\\s*,\\s*");
     String localDir = this.prop.getProperty(Constant.WH_APP_FOLDER_KEY) + "/" + this.prop.getProperty(Constant.JOB_REF_ID_KEY);
@@ -70,7 +69,7 @@ public class GitMetadataEtl extends EtlJob {
   @Override
   public void transform()
       throws Exception {
-    logger.info("git transform");
+    log.info("git transform");
     InputStream inputStream = classLoader.getResourceAsStream("jython/GitTransform.py");
     interpreter.execfile(inputStream);
     inputStream.close();
@@ -79,7 +78,7 @@ public class GitMetadataEtl extends EtlJob {
   @Override
   public void load()
       throws Exception {
-    logger.info("git load");
+    log.info("git load");
     InputStream inputStream = classLoader.getResourceAsStream("jython/GitLoad.py");
     interpreter.execfile(inputStream);
     inputStream.close();

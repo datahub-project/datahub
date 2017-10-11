@@ -18,10 +18,11 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
 import wherehows.common.Constant;
 
-
+@Slf4j
 public class AppworxLineageEtl extends EtlJob {
 
     Connection conn;
@@ -46,7 +47,7 @@ public class AppworxLineageEtl extends EtlJob {
     @Override
     public void extract()
             throws Exception {
-        logger.info("In AppworxLineageEtl java launch extract jython scripts");
+        log.info("In AppworxLineageEtl java launch extract jython scripts");
         InputStream inputStream = classLoader.getResourceAsStream("jython/AppworxLineageExtract.py");
         interpreter.execfile(inputStream);
         inputStream.close();
@@ -56,13 +57,13 @@ public class AppworxLineageEtl extends EtlJob {
     public void transform()
             throws Exception {
         // Nothing
-        logger.info("Appworx lineage metadata transform");
+        log.info("Appworx lineage metadata transform");
     }
 
     @Override
     public void load()
             throws Exception {
-        logger.info("AppworxLineageEtl metadata load");
+        log.info("AppworxLineageEtl metadata load");
 
         String insertIntoSql = "INSERT IGNORE INTO job_execution_data_lineage(" +
                 "app_id, flow_exec_id, job_exec_id, job_exec_uuid, flow_path, job_name, " +
@@ -78,14 +79,14 @@ public class AppworxLineageEtl extends EtlJob {
                 " FROM stg_job_execution_data_lineage WHERE app_id = " +
                 this.prop.getProperty(Constant.JOB_REF_ID_KEY)  + " )";
 
-        logger.info("Appworx Lineage load cmd :\n" + insertIntoSql);
+        log.info("Appworx Lineage load cmd :\n" + insertIntoSql);
         conn.createStatement().execute(insertIntoSql);
-        logger.info("Appworx lineage metadata ETL completed");
-        logger.info("Appworx lineage update script information");
+        log.info("Appworx lineage metadata ETL completed");
+        log.info("Appworx lineage update script information");
         InputStream inputStream = classLoader.getResourceAsStream("jython/ScriptCollect.py");
         interpreter.execfile(inputStream);
         inputStream.close();
-        logger.info("Appworx lineage update script information completed");
+        log.info("Appworx lineage update script information completed");
 
     }
 }

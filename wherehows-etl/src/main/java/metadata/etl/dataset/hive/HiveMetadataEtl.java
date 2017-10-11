@@ -15,6 +15,7 @@ package metadata.etl.dataset.hive;
 
 import java.io.InputStream;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
 import wherehows.common.Constant;
 
@@ -22,6 +23,7 @@ import wherehows.common.Constant;
 /**
  * Created by zsun on 11/16/15.
  */
+@Slf4j
 public class HiveMetadataEtl extends EtlJob {
 
   public HiveMetadataEtl(long whExecId, Properties prop) {
@@ -31,7 +33,7 @@ public class HiveMetadataEtl extends EtlJob {
   @Override
   public void extract()
     throws Exception {
-    logger.info("In Hive metadata ETL, launch extract jython scripts");
+    log.info("In Hive metadata ETL, launch extract jython scripts");
 
     System.setProperty("java.security.krb5.realm", prop.getProperty(Constant.KRB5_REALM));
     System.setProperty("java.security.krb5.kdc", prop.getProperty(Constant.KRB5_KDC));
@@ -45,7 +47,7 @@ public class HiveMetadataEtl extends EtlJob {
   @Override
   public void transform()
     throws Exception {
-    logger.info("In Hive metadata ETL, launch transform jython scripts");
+    log.info("In Hive metadata ETL, launch transform jython scripts");
     InputStream inputStream = classLoader.getResourceAsStream("jython/HiveTransform.py");
     interpreter.execfile(inputStream);
     inputStream.close();
@@ -54,7 +56,7 @@ public class HiveMetadataEtl extends EtlJob {
   @Override
   public void load()
     throws Exception {
-      logger.info("In Hive metadata ETL, launch load jython scripts");
+      log.info("In Hive metadata ETL, launch load jython scripts");
       InputStream inputStream = classLoader.getResourceAsStream("jython/HiveLoad.py");
       interpreter.execfile(inputStream);
       inputStream.close();

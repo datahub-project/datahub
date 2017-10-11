@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.Properties;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthSchemeProvider;
@@ -37,19 +38,18 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.common.Constant;
 
 
 /**
  * Created by zsun on 9/3/15.
  */
+@Slf4j
 public class HadoopJobHistoryNodeExtractor {
 
   private String serverURL = "";
   private CloseableHttpClient httpClient;
-  private static final Logger logger = LoggerFactory.getLogger(HadoopJobHistoryNodeExtractor.class);
+
 
   /**
    * Use HTTPClient to connect to Hadoop job history server.
@@ -73,10 +73,10 @@ public class HadoopJobHistoryNodeExtractor {
 
     if (System.getProperty("java.security.auth.login.config") == null
       || System.getProperty("java.security.krb5.conf") == null) {
-      logger.warn("Can't find Java security config [krb5.conf, gss-jass.conf] for Kerberos! Trying other authentication methods...");
+      log.warn("Can't find Java security config [krb5.conf, gss-jass.conf] for Kerberos! Trying other authentication methods...");
     }
 
-    if (logger.isTraceEnabled()) {
+    if (log.isTraceEnabled()) {
       System.setProperty("sun.security.krb5.debug", "true");
     } else {
       System.setProperty("sun.security.krb5.debug", "false");
@@ -113,7 +113,7 @@ public class HadoopJobHistoryNodeExtractor {
   public String getConfFromHadoop(String hadoopJobId)
     throws Exception {
     String url = this.serverURL + "/" + hadoopJobId + "/conf";
-    logger.debug("get job conf from : {}", url);
+    log.debug("get job conf from : {}", url);
     HttpUriRequest request = new HttpGet(url);
     HttpResponse response = httpClient.execute(request);
     HttpEntity entity = response.getEntity();
@@ -133,10 +133,10 @@ public class HadoopJobHistoryNodeExtractor {
       File file = new File(path, filename);
       if (file.exists()) {
         String absolutePath = file.getAbsolutePath();
-        logger.debug("Found {} file at: {}", filename, absolutePath);
+        log.debug("Found {} file at: {}", filename, absolutePath);
         return absolutePath;
       } else {
-        logger.debug("{} doesn't exist.", file.getAbsolutePath());
+        log.debug("{} doesn't exist.", file.getAbsolutePath());
       }
     }
     return null;

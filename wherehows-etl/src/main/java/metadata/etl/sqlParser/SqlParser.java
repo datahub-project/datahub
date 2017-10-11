@@ -22,87 +22,78 @@ import gudusoft.gsqlparser.stmt.TInsertSqlStatement;
 import gudusoft.gsqlparser.stmt.TMergeSqlStatement;
 import gudusoft.gsqlparser.stmt.TSelectSqlStatement;
 import gudusoft.gsqlparser.stmt.TUpdateSqlStatement;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 
+
+@Slf4j
 public class SqlParser {
 
-    protected final static Logger logger = LoggerFactory.getLogger("SqlParser");
-
-    public static Stmt parseSelString(String text) throws NoSqlTypeException{
-        TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvteradata);
-        sqlparser.sqltext = text;
-        int ret = sqlparser.parse();
-        if(ret == 0){
-            return analyzeStmt(sqlparser.sqlstatements.get(0));
-
-        }else{
-            throw new NoSqlTypeException();
-        }
+  public static Stmt parseSelString(String text) throws NoSqlTypeException {
+    TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvteradata);
+    sqlparser.sqltext = text;
+    int ret = sqlparser.parse();
+    if (ret == 0) {
+      return analyzeStmt(sqlparser.sqlstatements.get(0));
+    } else {
+      throw new NoSqlTypeException();
     }
+  }
 
-    public static String parse(String text) throws IOException {
+  public static String parse(String text) throws IOException {
 
-        TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvteradata);
-        sqlparser.sqltext = text;
-        int ret = sqlparser.parse();
+    TGSqlParser sqlparser = new TGSqlParser(EDbVendor.dbvteradata);
+    sqlparser.sqltext = text;
+    int ret = sqlparser.parse();
 
-        Stmt st = null;
-        try
-        {
-            if (ret == 0) {
-                for (int i = 0; i < sqlparser.sqlstatements.size(); i++) {
-                    try {
-                        st = analyzeStmt(sqlparser.sqlstatements.get(i));
-                    } catch (NoSqlTypeException e) {
-                        logger.error(sqlparser.sqlstatements.get(i).toString());
-                        logger.error(e.getMessage());
-                    }
-                }
-            } else {
-                logger.error("GSP parse failed.");
-                logger.error(sqlparser.getErrormessage());
-                return null;
-            }
+    Stmt st = null;
+    try {
+      if (ret == 0) {
+        for (int i = 0; i < sqlparser.sqlstatements.size(); i++) {
+          try {
+            st = analyzeStmt(sqlparser.sqlstatements.get(i));
+          } catch (NoSqlTypeException e) {
+            log.error(sqlparser.sqlstatements.get(i).toString());
+            log.error(e.getMessage());
+          }
         }
-        catch (Exception e)
-        {
-            logger.error("General Exception");
-            logger.error(sqlparser.sqltext);
-            logger.error(e.getMessage());
-            return null;
-        }
-
-        return WriteJson.write(st);
-    }
-
-    public static Stmt analyzeStmt(TCustomSqlStatement stmt) throws NoSqlTypeException {
-        switch (stmt.sqlstatementtype) {
-            case sstselect:
-                return new SelectStmt((TSelectSqlStatement) stmt);
-            case sstinsert:
-                return new InsertStmt((TInsertSqlStatement) stmt);
-            case sstcreatetable:
-                TCreateTableSqlStatement createStmt = (TCreateTableSqlStatement) stmt;
-                return new CreateStmt(createStmt);
-            case sstupdate:
-                return new UpdateStmt((TUpdateSqlStatement) stmt);
-            case sstdelete:
-                return new DeleteStmt((TDeleteSqlStatement) stmt);
-            case sstmerge:
-                return new MergeStmt((TMergeSqlStatement) stmt);
-            case sstaltertable:
-                break;
-            case sstcreateview:
-                break;
-            default:
-                throw new NoSqlTypeException();
-        }
+      } else {
+        log.error("GSP parse failed.");
+        log.error(sqlparser.getErrormessage());
         return null;
+      }
+    } catch (Exception e) {
+      log.error("General Exception");
+      log.error(sqlparser.sqltext);
+      log.error(e.getMessage());
+      return null;
     }
 
+    return WriteJson.write(st);
+  }
+
+  public static Stmt analyzeStmt(TCustomSqlStatement stmt) throws NoSqlTypeException {
+    switch (stmt.sqlstatementtype) {
+      case sstselect:
+        return new SelectStmt((TSelectSqlStatement) stmt);
+      case sstinsert:
+        return new InsertStmt((TInsertSqlStatement) stmt);
+      case sstcreatetable:
+        TCreateTableSqlStatement createStmt = (TCreateTableSqlStatement) stmt;
+        return new CreateStmt(createStmt);
+      case sstupdate:
+        return new UpdateStmt((TUpdateSqlStatement) stmt);
+      case sstdelete:
+        return new DeleteStmt((TDeleteSqlStatement) stmt);
+      case sstmerge:
+        return new MergeStmt((TMergeSqlStatement) stmt);
+      case sstaltertable:
+        break;
+      case sstcreateview:
+        break;
+      default:
+        throw new NoSqlTypeException();
+    }
+    return null;
+  }
 }

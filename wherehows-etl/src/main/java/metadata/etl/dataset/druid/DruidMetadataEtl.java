@@ -15,9 +15,10 @@ package metadata.etl.dataset.druid;
 
 import java.io.InputStream;
 import java.util.Properties;
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
 
-
+@Slf4j
 public class DruidMetadataEtl extends EtlJob {
 
   public DruidMetadataEtl(long whExecId, Properties prop) {
@@ -26,19 +27,19 @@ public class DruidMetadataEtl extends EtlJob {
 
   @Override
   public void extract() throws Exception {
-    logger.info("Running Druid metadata Extractor");
+    log.info("Running Druid metadata Extractor");
     DruidMetadataExtractor extractor = new DruidMetadataExtractor(prop);
     extractor.run();
   }
 
   @Override
   public void transform() throws Exception {
-    logger.info("Running Druid Trasform!");
+    log.info("Running Druid Trasform!");
   }
 
   @Override
   public void load() throws Exception {
-    logger.info("Running Druid Load");
+    log.info("Running Druid Load");
     DruidMetadataLoader loader = new DruidMetadataLoader(prop);
     loader.run();
   }
