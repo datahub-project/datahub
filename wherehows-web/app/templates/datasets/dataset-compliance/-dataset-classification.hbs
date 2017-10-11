@@ -42,7 +42,7 @@
   {{/table.head}}
 
   {{#table.body as |body|}}
-    {{#each (if isShowingAllMemberData table.data (filter-by "value" true table.data)) as |classification|}}
+    {{#each (if shouldShowAllMemberData table.data (filter-by "value" true table.data)) as |classification|}}
       {{#body.row as |row|}}
         {{#row.cell class="dataset-field-content__prompt"}}
           <span class="dataset-tag-container">
@@ -108,22 +108,26 @@
     {{/each}}
   {{/table.body}}
 
-  {{#table.foot}}
-    <td colspan="2" class="text-center">
-      <button
-        {{action "onShowAllDatasetMemberData"}}
-        class="nacho-button--large nacho-button--tertiary">
-        {{#if isShowingAllMemberData}}
+  {{#if (and excludesSomeMemberData (not isEditing))}}
 
-          See Less <span class="fa fa-caret-up" aria-label="See Less Dataset Member Data"></span>
+    {{#table.foot}}
+      <td colspan="2" class="text-center">
+        <button
+          {{action "onShowAllDatasetMemberData"}}
+          class="nacho-button--large nacho-button--tertiary">
+          {{#if shouldShowAllMemberData}}
 
-        {{else}}
+            See Less <span class="fa fa-caret-up" aria-label="See Less Dataset Member Data"></span>
 
-          See More <span class="fa fa-caret-down" aria-label="See More Dataset Member Data"></span>
+          {{else}}
 
-        {{/if}}
-      </button>
-    </td>
-  {{/table.foot}}
+            See More <span class="fa fa-caret-down" aria-label="See More Dataset Member Data"></span>
+
+          {{/if}}
+        </button>
+      </td>
+    {{/table.foot}}
+
+  {{/if}}
 
 {{/dataset-table}}
