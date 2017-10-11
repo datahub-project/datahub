@@ -94,6 +94,17 @@
             {{/radio-button-composer}}
           </span>{{/row.cell}}
       {{/body.row}}
+    {{else}}
+
+      <tr class="dataset-field-content__empty dataset-field-content__empty dataset-field-content__empty">
+        <td class="text-center" colspan="2">
+          {{empty-state
+            heading="Dataset has not been marked as containing Member data"
+            subHead="Click 'See More' below to view all available types of dataset member data"
+          }}
+        </td>
+      </tr>
+
     {{/each}}
   {{/table.body}}
 
