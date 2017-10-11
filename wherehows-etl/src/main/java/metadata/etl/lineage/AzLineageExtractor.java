@@ -16,8 +16,7 @@ package metadata.etl.lineage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import wherehows.common.Constant;
 import wherehows.common.LineageCombiner;
 import wherehows.common.schemas.LineageRecord;
@@ -26,9 +25,9 @@ import wherehows.common.schemas.LineageRecord;
 /**
  * Created by zsun on 9/23/15.
  */
+@Slf4j
 public class AzLineageExtractor {
 
-  private static final Logger logger = LoggerFactory.getLogger(AzLineageExtractor.class);
   /**
    * Get one azkaban job's lineage.
    * Process :
@@ -39,8 +38,7 @@ public class AzLineageExtractor {
    *
    * @return one azkaban job's lineage
    */
-  public static List<LineageRecord> extractLineage(AzExecMessage message)
-    throws Exception {
+  public static List<LineageRecord> extractLineage(AzExecMessage message) throws Exception {
 
     List<LineageRecord> oneAzkabanJobLineage = new ArrayList<>();
 
@@ -51,16 +49,16 @@ public class AzLineageExtractor {
       jobPrefix += flowSequence[i] + ":";
     }
     //String log = asc.getExecLog(azJobExec.execId, azJobExec.jobName);
-    String log =
-      message.adc.getExecLog(message.azkabanJobExecution.getFlowExecId(), jobPrefix + message.azkabanJobExecution.getJobName());
-    Set<String> hadoopJobIds = AzLogParser.getHadoopJobIdFromLog(log);
+    String execLogs = message.adc.getExecLog(message.azkabanJobExecution.getFlowExecId(),
+        jobPrefix + message.azkabanJobExecution.getJobName());
+    Set<String> hadoopJobIds = AzLogParser.getHadoopJobIdFromLog(execLogs);
 
     for (String hadoopJobId : hadoopJobIds) {
-      logger.debug("Get Hadoop job config: {} from Azkaban job: {}" + hadoopJobId, message.azkabanJobExecution.toString());
+      log.debug("Get Hadoop job config: {} from Azkaban job: {}" + hadoopJobId, message.azkabanJobExecution.toString());
       // TODO persist this mapping?
       String confJson = message.hnne.getConfFromHadoop(hadoopJobId);
       AzJsonAnalyzer ja = new AzJsonAnalyzer(confJson, message.azkabanJobExecution,
-        Integer.valueOf(message.prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY)));
+          Integer.valueOf(message.prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY)));
       List<LineageRecord> oneHadoopJobLineage = ja.extractFromJson();
       oneAzkabanJobLineage.addAll(oneHadoopJobLineage);
     }
@@ -69,7 +67,8 @@ public class AzLineageExtractor {
     LineageCombiner lineageCombiner = new LineageCombiner(message.connection);
     lineageCombiner.addAll(oneAzkabanJobLineage);
     Integer defaultDatabaseId = Integer.valueOf(message.prop.getProperty(Constant.AZ_DEFAULT_HADOOP_DATABASE_ID_KEY));
-    List<LineageRecord> lineageFromLog = AzLogParser.getLineageFromLog(log, message.azkabanJobExecution, defaultDatabaseId);
+    List<LineageRecord> lineageFromLog =
+        AzLogParser.getLineageFromLog(execLogs, message.azkabanJobExecution, defaultDatabaseId);
     lineageCombiner.addAll(lineageFromLog);
 
     return lineageCombiner.getCombinedLineage();
@@ -80,17 +79,16 @@ public class AzLineageExtractor {
    * @param message
    * @throws Exception
    */
-  public static void extract(AzExecMessage message)
-    throws Exception {
-    try{
+  public static void extract(AzExecMessage message) throws Exception {
+    try {
       List<LineageRecord> result = extractLineage(message);
       for (LineageRecord lr : result) {
         message.databaseWriter.append(lr);
       }
-      logger.info(String.format("%03d lineage records extracted from [%s]", result.size(), message.toString()));
+      log.info(String.format("%03d lineage records extracted from [%s]", result.size(), message.toString()));
       message.databaseWriter.flush();
     } catch (Exception e) {
-      logger.error(String.format("Failed to extract lineage info from [%s].\n%s", message.toString(), e.getMessage()));
+      log.error(String.format("Failed to extract lineage info from [%s].\n%s", message.toString(), e.getMessage()));
     }
   }
 }

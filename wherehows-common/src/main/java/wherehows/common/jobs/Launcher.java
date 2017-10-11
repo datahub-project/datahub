@@ -19,8 +19,7 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Properties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import wherehows.common.Constant;
 
 
@@ -28,6 +27,7 @@ import wherehows.common.Constant;
  * For a standalone lineage ETL entrance
  * java -jar wherehows-etl.jar dev
  */
+@Slf4j
 public class Launcher {
 
   /** job property parameter keys */
@@ -37,7 +37,7 @@ public class Launcher {
   /** command line config file location parameter key */
   private static final String CONFIG_FILE_LOCATION_KEY = "config";
 
-  protected static final Logger logger = LoggerFactory.getLogger("Job Launcher");
+
 
   /**
    * Read config file location from command line. Read all configuration from command line, execute the job.
@@ -65,7 +65,7 @@ public class Launcher {
     }
 
     if (jobClassName == null) {
-      logger.error("Must specify {} in properties file", Constant.JOB_CLASS_KEY);
+      log.error("Must specify {} in properties file", Constant.JOB_CLASS_KEY);
       System.exit(1);
     }
 
@@ -74,7 +74,7 @@ public class Launcher {
     try {
       job = JobFactory.getJob(jobClassName, whEtlExecId, props);
     } catch (Exception e) {
-      logger.error("Failed to create ETL job {}: {}", jobClassName, e.getMessage());
+      log.error("Failed to create ETL job {}: {}", jobClassName, e.getMessage());
       System.exit(1);
     }
 
@@ -84,14 +84,14 @@ public class Launcher {
       StringWriter sw = new StringWriter();
       e.printStackTrace(new PrintWriter(sw));
       String errorString = sw.toString();
-      logger.error(errorString);
+      log.error(errorString);
       if (errorString.contains("IndexError") || errorString.contains("ImportError")) {
         System.exit(2);
       }
       System.exit(1);
     }
 
-    logger.info("whEtlExecId=" + whEtlExecId + " finished.");
+    log.info("whEtlExecId=" + whEtlExecId + " finished.");
     System.exit(0);
   }
 }

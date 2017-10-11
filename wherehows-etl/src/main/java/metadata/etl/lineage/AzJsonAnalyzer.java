@@ -14,30 +14,28 @@
 package metadata.etl.lineage;
 
 import com.jayway.jsonpath.Configuration;
-import com.jayway.jsonpath.JsonPath;
-import org.codehaus.jettison.json.JSONException;
 import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.codehaus.jettison.json.JSONException;
 import wherehows.common.DatasetPath;
 import wherehows.common.schemas.AzkabanJobExecRecord;
 import wherehows.common.schemas.LineageRecord;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.util.ArrayList;
-import java.util.List;
 
 
 /**
  * Created by zsun on 9/8/15.
  */
+@Slf4j
 public class AzJsonAnalyzer {
-  private static final Logger logger = LoggerFactory.getLogger(AzJsonAnalyzer.class);
 
   private static final String[] INPUT_KEYS =
-    {"mapreduce.input.fileinputformat.inputdir", "pig.input.dirs", "mapred.input.dir"};
+      {"mapreduce.input.fileinputformat.inputdir", "pig.input.dirs", "mapred.input.dir"};
   private static final String[] OUTPUT_KEYS =
-    {"mapreduce.output.fileoutputformat.outputdir", "pig.output.dirs", "mapred.output.dir"};
+      {"mapreduce.output.fileoutputformat.outputdir", "pig.output.dirs", "mapred.output.dir"};
 
   String jobConfJson;
   Object document;
@@ -57,8 +55,7 @@ public class AzJsonAnalyzer {
    * Extract all related info from json
    * @return
    */
-  public List<LineageRecord> extractFromJson()
-    throws JSONException {
+  public List<LineageRecord> extractFromJson() throws JSONException {
 
     List<LineageRecord> results = new ArrayList<>();
     List<String> inputs = parseInputs();
@@ -68,19 +65,19 @@ public class AzJsonAnalyzer {
     }
     List<String> outputs = parseOutputs();
     for (String s : outputs) {
-      results.add(construct(s, "target", "write",null, null, null, null));
+      results.add(construct(s, "target", "write", null, null, null, null));
     }
     return results;
   }
 
   private LineageRecord construct(String fullPath, String sourceTargetType, String operation, Long recordCount,
-    Long insertCount, Long deleteCount, Long updateCount) {
+      Long insertCount, Long deleteCount, Long updateCount) {
     LineageRecord lineageRecord =
-      new LineageRecord(this.appId, this.aje.getFlowExecId(), this.aje.getJobName(), this.aje.getJobExecId());
+        new LineageRecord(this.appId, this.aje.getFlowExecId(), this.aje.getJobName(), this.aje.getJobExecId());
 
     lineageRecord.setDatasetInfo(this.defaultDatabaseId, fullPath, "HDFS");
     lineageRecord.setOperationInfo(sourceTargetType, operation, recordCount, insertCount, deleteCount, updateCount,
-      this.aje.getStartTime(), this.aje.getEndTime(), this.aje.getFlowPath());
+        this.aje.getStartTime(), this.aje.getEndTime(), this.aje.getFlowPath());
 
     return lineageRecord;
   }
@@ -88,7 +85,9 @@ public class AzJsonAnalyzer {
   // The string could be a comma separated file path.
   public List<String> sepCommaString(List<String> originalStrings) {
     List<String> result = new ArrayList<>();
-    if (null == originalStrings) return result;
+    if (null == originalStrings) {
+      return result;
+    }
     for (String concatedString : originalStrings) {
       result.addAll(DatasetPath.separatedDataset(concatedString));
     }
@@ -117,19 +116,15 @@ public class AzJsonAnalyzer {
       document = Configuration.defaultConfiguration().jsonProvider().parse(jobConfJson);
       List<String> result = JsonPath.read(document, "$.conf.property[?(" + query + ")].value");
       return result;
-    } catch (PathNotFoundException e){
-      logger.error(String.format(
-          "Malformat JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s",
-          appId, aje.getJobExecId(), jobConfJson.substring(1,100)
-          ));
+    } catch (PathNotFoundException e) {
+      log.error(String.format("Malformat JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s", appId,
+          aje.getJobExecId(), jobConfJson.substring(1, 100)));
       return null;
     } catch (InvalidPathException e) {
-      logger.error(String.format(
-          "Invalid Path Exception of JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s",
-          appId, aje.getJobExecId(), query
-      ));
+      log.error(
+          String.format("Invalid Path Exception of JSON from Hadoop JobHistory: appId=%d jobExecId=%d json=%s", appId,
+              aje.getJobExecId(), query));
       return null;
     }
   }
-
 }

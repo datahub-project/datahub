@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -50,17 +51,16 @@ import wherehows.common.writers.FileWriter;
  * This program could be scheduled through the internal AKKA scheduler, also could run as a independent program.
  *
  */
+@Slf4j
 public class SchemaFetch {
   private static FileWriter schemaFileWriter;
   private static FileWriter sampleFileWriter;
   private static FileAnalyzerFactory fileAnalyzerFactory;
-  static Logger logger;
   private static Configuration conf;
   private static FileSystem fs;
 
   public SchemaFetch(Configuration conf)
     throws IOException, InterruptedException {
-    logger = LoggerFactory.getLogger(getClass());
     this.conf = conf;
 
     schemaFileWriter = new FileWriter(this.conf.get(Constant.HDFS_SCHEMA_REMOTE_PATH_KEY));
@@ -171,7 +171,7 @@ public class SchemaFetch {
     if (path.getName().matches("^(\\.|_|tmp|temp|test|trash|backup|archive|ARCHIVE|storkinternal).*"))
         return;
 
-    logger.info("  -- scanPath(" + curPath + ")\n");
+    log.info("  -- scanPath(" + curPath + ")\n");
     int x = isTable(path, scanFs);
     if (x > 0) {
       // System.err.println("  traceTable(" + path.toString() + ")");
@@ -192,10 +192,10 @@ public class SchemaFetch {
           } else if (scanFs.listStatus(n).length > 0 || scanFs.getContentSummary(n).getLength() > 0) {
             scanPath(n, scanFs);
           } else {
-            logger.info("* scanPath() size = 0: " + curPath);
+            log.info("* scanPath() size = 0: " + curPath);
           }
         } catch (AccessControlException e) {
-          logger.error("* scanPath(e) Permission denied. Cannot access: " + curPath +
+          log.error("* scanPath(e) Permission denied. Cannot access: " + curPath +
               " owner:" + fstat.getOwner() + " group: " + fstat.getGroup() + "with current user " +
               UserGroupInformation.getCurrentUser());
           // System.err.println(e);
@@ -220,7 +220,7 @@ public class SchemaFetch {
     FileSystem scanFs = fs;
     System.out.println("Now reading data as:" + UserGroupInformation.getCurrentUser());
     if (!scanFs.exists(path)) {
-      logger.info("path : " + path.getName() + " doesn't exist!");
+      log.info("path : " + path.getName() + " doesn't exist!");
     }
     scanPathHelper(path, scanFs);
   }
@@ -233,7 +233,7 @@ public class SchemaFetch {
    */
   private static void traceTableInfo(Path path, FileSystem tranceFs)
     throws IOException, SQLException {
-    logger.info("trace table : " + path.toUri().getPath());
+    log.info("trace table : " + path.toUri().getPath());
     // analyze the pattern of the name
     String tbl_name = path.getName();
     if (tbl_name.matches("(_|\\.|tmp|temp|stg|test|\\*).*")) // skip _temporary _schema.avsc
@@ -256,7 +256,7 @@ public class SchemaFetch {
 
         fstat_lst = tranceFs.listStatus(fstat.getPath()); // list all children
         if (fstat_lst.length == 0) { // empty directory
-          logger.info(fstat.getPath().toUri().getPath() + " is empty.");
+          log.info(fstat.getPath().toUri().getPath() + " is empty.");
           return;
         }
 
@@ -304,7 +304,7 @@ public class SchemaFetch {
         }
       }
     } catch (AccessControlException e) {
-      logger.error("* TblInfo() Cannot access " + fstat.getPath().toUri().getPath());
+      log.error("* TblInfo() Cannot access " + fstat.getPath().toUri().getPath());
       return;
     }
 
@@ -313,7 +313,7 @@ public class SchemaFetch {
     if (datasetSchemaRecord != null) {
       schemaFileWriter.append(datasetSchemaRecord);
     } else {
-      logger.error("* Cannot resolve the schema of " + fullPath);
+      log.error("* Cannot resolve the schema of " + fullPath);
     }
 
     SampleDataRecord sampleDataRecord = fileAnalyzerFactory.getSampleData(fstat.getPath(), path.toUri().getPath());
@@ -362,10 +362,10 @@ public class SchemaFetch {
       final FileSystem finalFs = fs;
       Thread thread = new Thread() {
         public void run() {
-          logger.info("Thread " + finalI + " Running, size of record : " + size);
+          log.info("Thread " + finalI + " Running, size of record : " + size);
           for (int j = finalI * (granularity); j < (finalI + 1) * (granularity) && j < size; j++) {
             Path p = folders.get(j);
-            logger.info("begin processing " + p.toUri().getPath());
+            log.info("begin processing " + p.toUri().getPath());
             try {
               scanPath(p, finalFs);
             } catch (Exception e) {

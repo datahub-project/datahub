@@ -20,34 +20,31 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.BufferedInputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Properties;
-import java.lang.reflect.*;
-import java.lang.ProcessBuilder;
-
-import org.apache.commons.io.FileUtils;
-
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
+import org.apache.commons.io.FileUtils;
 import wherehows.common.Constant;
 
 
 /**
  * Created by zsun on 7/29/15.
  */
+@Slf4j
 public class HdfsMetadataEtl extends EtlJob {
 
   /**
    * Copy the jar to remote gateway, run the collecting job on remote, copy back the result.
-   * @param dbId the database need to collect
+   *
    * @param whExecId
    * @param prop all the properties that needed in ETL
    */
@@ -56,29 +53,26 @@ public class HdfsMetadataEtl extends EtlJob {
   }
 
   @Override
-  public void extract()
-    throws Exception {
-    logger.info("Begin hdfs metadata extract! - " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
+  public void extract() throws Exception {
+    log.info("Begin hdfs metadata extract! - " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     boolean isRemote = Boolean.valueOf(prop.getProperty(Constant.HDFS_REMOTE, "false"));
     if (isRemote) {
       extractRemote();
     } else {
       extractLocal();
     }
-
   }
 
-  private void extractLocal()
-      throws Exception {
+  private void extractLocal() throws Exception {
 
     URL localJarUrl = classLoader.getResource("jar/schemaFetch.jar");
     String homeDir = System.getProperty("user.home");
     String remoteJarFile = homeDir + "/.wherehows/schemaFetch.jar";
     File dest = new File(remoteJarFile);
     try {
-        FileUtils.copyURLToFile(localJarUrl, dest);
-    } catch(Exception e) {
-        logger.error(e.toString());
+      FileUtils.copyURLToFile(localJarUrl, dest);
+    } catch (Exception e) {
+      log.error(e.toString());
     }
 
     String outputSchemaFile = prop.getProperty(Constant.HDFS_SCHEMA_LOCAL_PATH_KEY);
@@ -91,14 +85,13 @@ public class HdfsMetadataEtl extends EtlJob {
     String hdfsExtractLogFile = outputSchemaFile + ".log";
 
     String[] hadoopCmd = {"hadoop", "jar", remoteJarFile,
-            "-D" + Constant.HDFS_SCHEMA_REMOTE_PATH_KEY + "=" + outputSchemaFile,
-            "-D" + Constant.HDFS_SAMPLE_REMOTE_PATH_KEY + "=" + outputSampleDataFile,
-            "-D" + Constant.HDFS_CLUSTER_KEY + "=" + cluster,
-            "-D" + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList,
-            "-D" + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread,
-            "-D" + Constant.HDFS_REMOTE_USER_KEY + "=" + hdfsUser,
-            "-D" + Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY + "=" + hdfsKeyTab,
-            "-Dlog.file.name=hdfs_schema_fetch" };
+        "-D" + Constant.HDFS_SCHEMA_REMOTE_PATH_KEY + "=" + outputSchemaFile,
+        "-D" + Constant.HDFS_SAMPLE_REMOTE_PATH_KEY + "=" + outputSampleDataFile,
+        "-D" + Constant.HDFS_CLUSTER_KEY + "=" + cluster,
+        "-D" + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList,
+        "-D" + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread,
+        "-D" + Constant.HDFS_REMOTE_USER_KEY + "=" + hdfsUser,
+        "-D" + Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY + "=" + hdfsKeyTab, "-Dlog.file.name=hdfs_schema_fetch"};
 
     ProcessBuilder pb = new ProcessBuilder(hadoopCmd);
     File logFile = new File(hdfsExtractLogFile);
@@ -106,16 +99,16 @@ public class HdfsMetadataEtl extends EtlJob {
     pb.redirectOutput(ProcessBuilder.Redirect.appendTo(logFile));
     Process process = pb.start();
     int pid = -1;
-    if(process.getClass().getName().equals("java.lang.UNIXProcess")) {
+    if (process.getClass().getName().equals("java.lang.UNIXProcess")) {
         /* get the PID on unix/linux systems */
-        try {
-          Field f = process.getClass().getDeclaredField("pid");
-          f.setAccessible(true);
-          pid = f.getInt(process);
-        } catch (Throwable e) {
-        }
+      try {
+        Field f = process.getClass().getDeclaredField("pid");
+        f.setAccessible(true);
+        pid = f.getInt(process);
+      } catch (Throwable e) {
+      }
     }
-    logger.info("executue command [PID=" + pid + "]: " + hadoopCmd);
+    log.info("executue command [PID=" + pid + "]: " + hadoopCmd);
 
     // wait until this process finished.
     int execResult = process.waitFor();
@@ -125,31 +118,27 @@ public class HdfsMetadataEtl extends EtlJob {
       BufferedReader br = new BufferedReader(new InputStreamReader(process.getErrorStream()));
       String errString = "HDFS Metadata Extract Error:\n";
       String line = "";
-      while((line = br.readLine()) != null)
+      while ((line = br.readLine()) != null) {
         errString = errString.concat(line).concat("\n");
-      logger.error("*** Process  failed, status: " + execResult);
-      logger.error(errString);
+      }
+      log.error("*** Process  failed, status: " + execResult);
+      log.error(errString);
       throw new Exception("Process + " + pid + " failed");
     }
-
-
   }
 
-  private void extractRemote()
-      throws JSchException, SftpException, IOException {
-    logger.info("Remote mode!");
+  private void extractRemote() throws JSchException, SftpException, IOException {
+    log.info("Remote mode!");
     JSch jsch = new JSch();
     //jsch.setLogger(logger);
     final Log4JOutputStream log4JOutputStream = new Log4JOutputStream();
     Session session = null;
     try {
       // set up session
-      session =
-        jsch.getSession(this.prop.getProperty(Constant.HDFS_REMOTE_USER_KEY), this.prop.getProperty(Constant.HDFS_REMOTE_MACHINE_KEY));
+      session = jsch.getSession(this.prop.getProperty(Constant.HDFS_REMOTE_USER_KEY),
+          this.prop.getProperty(Constant.HDFS_REMOTE_MACHINE_KEY));
       // use private key instead of username/password
-      session.setConfig(
-        "PreferredAuthentications",
-        "publickey,gssapi-with-mic,keyboard-interactive,password");
+      session.setConfig("PreferredAuthentications", "publickey,gssapi-with-mic,keyboard-interactive,password");
       jsch.addIdentity(this.prop.getProperty(Constant.HDFS_PRIVATE_KEY_LOCATION_KEY));
       java.util.Properties config = new java.util.Properties();
       config.put("StrictHostKeyChecking", "no");
@@ -183,18 +172,16 @@ public class HdfsMetadataEtl extends EtlJob {
       String remoteUser = this.prop.getProperty(Constant.HDFS_REMOTE_USER_KEY);
       String remoteKeyTab = prop.getProperty(Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY, null);
       String execCmd =
-        "cd " + wherehowsExecFolder + ";"
-          + "export HADOOP_CLIENT_OPTS=\"-Xmx2048m $HADOOP_CLIENT_OPTS\";"
-          + "hadoop jar schemaFetch.jar"
-          + " -D " + Constant.HDFS_SCHEMA_REMOTE_PATH_KEY + "=" + hdfsSchemaFile
-          + " -D " + Constant.HDFS_SAMPLE_REMOTE_PATH_KEY + "=" + sampleDataFile
-          + " -D " + Constant.HDFS_CLUSTER_KEY + "=" + cluster
-          + " -D " + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList
-          + " -D " + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread
-          + " -D " + Constant.HDFS_REMOTE_USER_KEY + "=" + remoteUser;
-      if (remoteKeyTab != null)
+          "cd " + wherehowsExecFolder + ";" + "export HADOOP_CLIENT_OPTS=\"-Xmx2048m $HADOOP_CLIENT_OPTS\";"
+              + "hadoop jar schemaFetch.jar" + " -D " + Constant.HDFS_SCHEMA_REMOTE_PATH_KEY + "=" + hdfsSchemaFile
+              + " -D " + Constant.HDFS_SAMPLE_REMOTE_PATH_KEY + "=" + sampleDataFile + " -D "
+              + Constant.HDFS_CLUSTER_KEY + "=" + cluster + " -D " + Constant.HDFS_WHITE_LIST_KEY + "=" + whiteList
+              + " -D " + Constant.HDFS_NUM_OF_THREAD_KEY + "=" + numOfThread + " -D " + Constant.HDFS_REMOTE_USER_KEY
+              + "=" + remoteUser;
+      if (remoteKeyTab != null) {
         execCmd += " -D " + Constant.HDFS_REMOTE_KEYTAB_LOCATION_KEY + "=" + remoteKeyTab;
-      logger.info("executue remote command : " + execCmd);
+      }
+      log.info("executue remote command : " + execCmd);
       Channel execChannel = session.openChannel("exec");
       ((ChannelExec) execChannel).setCommand(execCmd);
 
@@ -207,11 +194,15 @@ public class HdfsMetadataEtl extends EtlJob {
 
       execChannel.connect();
 
-      while (execChannel.getExitStatus() == -1){
-        try{Thread.sleep(1000);}catch(Exception e){logger.error(String.valueOf(e));}
+      while (execChannel.getExitStatus() == -1) {
+        try {
+          Thread.sleep(1000);
+        } catch (Exception e) {
+          log.error(String.valueOf(e));
+        }
       }
 
-      logger.info("ExecChannel exit-status: " + execChannel.getExitStatus());
+      log.info("ExecChannel exit-status: " + execChannel.getExitStatus());
 
       execChannel.disconnect();
 
@@ -219,14 +210,14 @@ public class HdfsMetadataEtl extends EtlJob {
       channelSftp.get(remoteSchemaFile, localSchemaFile);
       channelSftp.get(remoteSampleDataFile, localSampleDataFile);
 
-      logger.info("extract finished");
+      log.info("extract finished");
       channelSftp.exit();
     } catch (Exception e) {
-      logger.error("hdfs metadata collection error!");
+      log.error("hdfs metadata collection error!");
       StringWriter sw = new StringWriter();
       PrintWriter pw = new PrintWriter(sw);
       e.printStackTrace(pw);
-      logger.error(sw.toString());
+      log.error(sw.toString());
       throw e;
     } finally {
       session.disconnect();
@@ -234,9 +225,8 @@ public class HdfsMetadataEtl extends EtlJob {
   }
 
   @Override
-  public void transform()
-    throws Exception {
-    logger.info("Begin hdfs metadata transform : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
+  public void transform() throws Exception {
+    log.info("Begin hdfs metadata transform : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     // call a python script to do the transformation
     InputStream inputStream = classLoader.getResourceAsStream("jython/HdfsTransform.py");
     interpreter.execfile(inputStream);
@@ -244,13 +234,12 @@ public class HdfsMetadataEtl extends EtlJob {
   }
 
   @Override
-  public void load()
-    throws Exception {
-    logger.info("Begin hdfs metadata load : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
+  public void load() throws Exception {
+    log.info("Begin hdfs metadata load : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
     // load into mysql
     InputStream inputStream = classLoader.getResourceAsStream("jython/HdfsLoad.py");
     interpreter.execfile(inputStream);
     inputStream.close();
-    logger.info("hdfs metadata load finished : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
+    log.info("hdfs metadata load finished : " + prop.getProperty(Constant.WH_EXEC_ID_KEY));
   }
 }

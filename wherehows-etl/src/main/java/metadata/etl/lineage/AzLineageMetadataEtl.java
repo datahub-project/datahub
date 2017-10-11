@@ -13,6 +13,7 @@
  */
 package metadata.etl.lineage;
 
+import lombok.extern.slf4j.Slf4j;
 import metadata.etl.EtlJob;
 import wherehows.common.Constant;
 
@@ -25,6 +26,7 @@ import java.util.Properties;
  *
  * Created by zsun on 7/29/15.
  */
+@Slf4j
 public class AzLineageMetadataEtl extends EtlJob {
 
   public Integer timeFrame = null;
@@ -33,7 +35,7 @@ public class AzLineageMetadataEtl extends EtlJob {
 
   /**
    * Used by backend server
-   * @param appId The application id for the target azkaban server
+   *
    * @param whExecId
    * @param properties All the properties for this azkaban instance lineage collecting.
    */
@@ -60,7 +62,7 @@ public class AzLineageMetadataEtl extends EtlJob {
   @Override
   public void extract()
     throws Exception {
-    logger.info("Azkaban lineage metadata extract for {} begin", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
+    log.info("Azkaban lineage metadata extract for {} begin", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
     String emptyStaggingTable =
       "DELETE FROM stg_job_execution_data_lineage WHERE app_id = " + this.prop.getProperty(Constant.JOB_REF_ID_KEY);
     conn.createStatement().execute(emptyStaggingTable);
@@ -75,20 +77,20 @@ public class AzLineageMetadataEtl extends EtlJob {
     } else {
       azLineageExtractorMaster.run(10);
     }
-    logger.info("Azkaban lineage metadata extract for {} end", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
+    log.info("Azkaban lineage metadata extract for {} end", this.prop.getProperty(Constant.JOB_REF_ID_KEY));
   }
 
   @Override
   public void transform()
     throws Exception {
     // Nothing
-    logger.info("Azkaban lineage metadata transform");
+    log.info("Azkaban lineage metadata transform");
   }
 
   @Override
   public void load()
     throws Exception {
-    logger.info("Azkaban lineage metadata load");
+    log.info("Azkaban lineage metadata load");
     // insert into the final table
     // TODO: need to be insert on duplicate update, so the running flows can be updated
     String insertIntoFinalTable = "INSERT IGNORE INTO job_execution_data_lineage\n"
@@ -102,10 +104,10 @@ public class AzLineageMetadataEtl extends EtlJob {
       + "record_count, insert_count, delete_count, update_count, flow_path, UNIX_TIMESTAMP(NOW()), " + this.prop
       .getProperty(Constant.WH_EXEC_ID_KEY) + " FROM stg_job_execution_data_lineage where app_id = " + this.prop
       .getProperty(Constant.JOB_REF_ID_KEY);
-    logger.info("Azkaban Lineage load cmd :\n" + insertIntoFinalTable);
+    log.info("Azkaban Lineage load cmd :\n" + insertIntoFinalTable);
     conn.createStatement().execute(insertIntoFinalTable);
 
-    logger.info("Azkaban lineage metadata ETL completed");
+    log.info("Azkaban lineage metadata ETL completed");
   }
 
   @Override
