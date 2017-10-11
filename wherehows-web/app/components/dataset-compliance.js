@@ -739,10 +739,10 @@ export default Component.extend({
     },
 
     /**
-     * Sets the flag to show all member potential member data fields that may be contained in this dataset
+     * Toggles the flag to show all member potential member data fields that may be contained in this dataset
      */
     onShowAllDatasetMemberData() {
-      return set(this, 'showAllDatasetMemberData', true);
+      return this.toggleProperty('showAllDatasetMemberData');
     },
 
     /**

@@ -108,16 +108,22 @@
     {{/each}}
   {{/table.body}}
 
-  {{#unless isShowingAllMemberData}}
-    {{#table.foot}}
-      <td colspan="2" class="text-center">
-        <button
-          {{action "onShowAllDatasetMemberData"}}
-          class="nacho-button--large nacho-button--tertiary">
-          See More <span class="caret" aria-label="See More Dataset Member Data"></span>
-        </button>
-      </td>
-    {{/table.foot}}
-  {{/unless}}
+  {{#table.foot}}
+    <td colspan="2" class="text-center">
+      <button
+        {{action "onShowAllDatasetMemberData"}}
+        class="nacho-button--large nacho-button--tertiary">
+        {{#if isShowingAllMemberData}}
+
+          See Less <span class="fa fa-caret-up" aria-label="See Less Dataset Member Data"></span>
+
+        {{else}}
+
+          See More <span class="fa fa-caret-down" aria-label="See More Dataset Member Data"></span>
+
+        {{/if}}
+      </button>
+    </td>
+  {{/table.foot}}
 
 {{/dataset-table}}
