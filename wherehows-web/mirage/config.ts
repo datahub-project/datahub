@@ -3,6 +3,7 @@ import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { getConfig } from "./helpers/config";
 
 export default function(this: IMirageServer) {
+  this.passthrough('/write-coverage');
   this.get('/config', getConfig);
 
   this.namespace = '/api/v1';
