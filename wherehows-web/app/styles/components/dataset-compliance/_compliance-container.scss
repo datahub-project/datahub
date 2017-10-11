@@ -22,6 +22,14 @@
     align-items: center;
     justify-content: flex-end;
   }
+
+  &__empty#{&}__empty#{&}__empty {
+    background-color: transparent;
+
+    td {
+      border: 0;
+    }
+  }
 }
 
 /// Default visual state for dataset-field-value selector

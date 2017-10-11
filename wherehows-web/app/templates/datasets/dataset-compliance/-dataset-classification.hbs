@@ -42,7 +42,7 @@
   {{/table.head}}
 
   {{#table.body as |body|}}
-    {{#each (if isShowingAllMemberData table.data (filter-by "value" true table.data)) as |classification|}}
+    {{#each (if shouldShowAllMemberData table.data (filter-by "value" true table.data)) as |classification|}}
       {{#body.row as |row|}}
         {{#row.cell class="dataset-field-content__prompt"}}
           <span class="dataset-tag-container">
@@ -94,19 +94,40 @@
             {{/radio-button-composer}}
           </span>{{/row.cell}}
       {{/body.row}}
+    {{else}}
+
+      <tr class="dataset-field-content__empty dataset-field-content__empty dataset-field-content__empty">
+        <td class="text-center" colspan="2">
+          {{empty-state
+            heading="Dataset has not been marked as containing Member data"
+            subHead="Click 'See More' below to view all available types of dataset member data"
+          }}
+        </td>
+      </tr>
+
     {{/each}}
   {{/table.body}}
 
-  {{#unless isShowingAllMemberData}}
+  {{#if (and excludesSomeMemberData (not isEditing))}}
+
     {{#table.foot}}
       <td colspan="2" class="text-center">
         <button
           {{action "onShowAllDatasetMemberData"}}
           class="nacho-button--large nacho-button--tertiary">
-          See More <span class="caret" aria-label="See More Dataset Member Data"></span>
+          {{#if shouldShowAllMemberData}}
+
+            See Less <span class="fa fa-caret-up" aria-label="See Less Dataset Member Data"></span>
+
+          {{else}}
+
+            See More <span class="fa fa-caret-down" aria-label="See More Dataset Member Data"></span>
+
+          {{/if}}
         </button>
       </td>
     {{/table.foot}}
-  {{/unless}}
+
+  {{/if}}
 
 {{/dataset-table}}

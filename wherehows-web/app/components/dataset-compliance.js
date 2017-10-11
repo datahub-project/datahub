@@ -100,6 +100,8 @@ export default Component.extend({
   helpText,
   fieldIdentifierOptions,
   hiddenTrackingFields: hiddenTrackingFieldsMsg,
+  isEditingDatasetClassification: false,
+  isEditingCompliancePolicy: false,
   classNames: ['compliance-container'],
   classNameBindings: ['isEditing:compliance-container--edit-mode'],
   /**
@@ -195,6 +197,7 @@ export default Component.extend({
 
   didReceiveAttrs() {
     this._super(...Array.from(arguments));
+    this.resetEdit();
     // Perform validation step on the received component attributes
     this.validateAttrs();
   },
@@ -269,6 +272,14 @@ export default Component.extend({
   },
 
   /**
+   * Resets the editable state of the component, defaults to state returned in isEditing,
+   * currently driven by `isNewComplianceInfo` flag
+   */
+  resetEdit() {
+    return setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: false });
+  },
+
+  /**
    * Ensure that props received from on this component
    * are valid, otherwise flag
    */
@@ -337,10 +348,21 @@ export default Component.extend({
   }),
 
   /**
+   * Checks if any of the attributes on the dataset classification is false
+   * @type {Ember.ComputedProperty}
+   * @return {boolean}
+   */
+  excludesSomeMemberData: computed(datasetClassificationKey, function() {
+    const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
+
+    return Object.values(sourceDatasetClassification).some(hasMemberData => !hasMemberData);
+  }),
+
+  /**
    * Determines if all member data fields should be shown in the member data table i.e. show only fields contained in
    * this dataset or otherwise
    */
-  isShowingAllMemberData: computed.or('showAllDatasetMemberData', 'isEditing'),
+  shouldShowAllMemberData: computed.or('showAllDatasetMemberData', 'isEditing'),
 
   /**
    * Determines if the save feature is allowed for the current dataset, otherwise e.g. interface should be disabled
@@ -430,8 +452,7 @@ export default Component.extend({
    * @type {Ember.computed}
    */
   columnIdFieldsToCurrentPrivacyPolicy: computed(
-    'truncatedColumnFields',
-    `${policyComplianceEntitiesKey}.[]`,
+    `{truncatedColumnFields,${policyComplianceEntitiesKey}.[]}`,
     function() {
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
       const columnFieldProps = get(this, 'truncatedColumnFields').map(({ fieldName, dataType }) => ({
@@ -739,10 +760,10 @@ export default Component.extend({
     },
 
     /**
-     * Sets the flag to show all member potential member data fields that may be contained in this dataset
+     * Toggles the flag to show all member potential member data fields that may be contained in this dataset
      */
     onShowAllDatasetMemberData() {
-      return set(this, 'showAllDatasetMemberData', true);
+      return this.toggleProperty('showAllDatasetMemberData');
     },
 
     /**

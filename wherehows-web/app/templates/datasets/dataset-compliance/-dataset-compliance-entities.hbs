@@ -189,9 +189,9 @@
             {{/if}}
           {{/row.cell}}
 
-          {{#row.cell}}
+          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
             {{ember-selector
-              class="nacho-select--hidden-state"
+              class="nacho-select--hidden-state nacho-select--pre-wrap"
               values=classifiers
               selected=row.classification
               disabled=(or (not isEditing) (not row.logicalType))
