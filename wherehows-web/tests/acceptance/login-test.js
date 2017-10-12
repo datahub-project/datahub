@@ -1,5 +1,5 @@
 import { test } from 'qunit';
-import { pause } from 'wherehows-web/tests/helpers/acceptance-test-helper';
+import { delay } from 'wherehows-web/utils/promise-delay';
 import moduleForAcceptance from 'wherehows-web/tests/helpers/module-for-acceptance';
 import {
   loginContainer,
@@ -38,73 +38,42 @@ test('should render login form', function(assert) {
   });
 });
 
-// test('should display error message with empty credentials', async function(assert) {
-//   assert.expect(2);
-//   await fillIn(loginUserInput, testUser);
-//   await click('button[type=submit]');
-//
-//   assert.ok(find('#login-error').text().length, 'error message element is rendered');
-//
-//   assert.equal(
-//     find('#login-error')
-//       .text()
-//       .trim(),
-//     invalidCredentials
-//   );
-// });
+test('should display error message with empty credentials', async function(assert) {
+  assert.expect(2);
+  await fillIn(loginUserInput, testUser);
+  await click('button[type=submit]');
 
-test('Login with an valid password', function(assert) {
-  visit('/#/login');
-  fillIn(loginUserInput, testUser);
-  fillIn(loginPasswordInput, testPassword);
-  click(loginSubmitButton);
+  assert.ok(find('#login-error').text().length, 'error message element is rendered');
 
-  andThen(function() {
-    visit('/#/');
-  });
-  andThen(function() {
-    assert.equal(
-      find(`${'.feature-card__title'}:eq(0)`)
-        .text()
-        .trim(),
-      'Browse'
-    );
-  });
+  assert.equal(
+    find('#login-error')
+      .text()
+      .trim(),
+    invalidCredentials
+  );
 });
 
-test('Login with an empty password', function(assert) {
-  visit('/#/login');
-  fillIn(loginUserInput, testUser);
-  click(loginSubmitButton);
-  andThen(function() {
-    //Waiting for login error text to appear
-    pause(1000);
-  });
-  andThen(function() {
-    assert.equal(
-      find('#login-error')
-        .text()
-        .trim(),
-      invalidCredentials
-    );
-  });
+test('Login with an empty password', async function(assert) {
+  await fillIn(loginUserInput, testUser);
+  await click(loginSubmitButton);
+
+  assert.equal(
+    find('#login-error')
+      .text()
+      .trim(),
+    invalidCredentials
+  );
 });
 
-test('Login with an invalid password', function(assert) {
-  visit('/#/login');
-  fillIn(loginUserInput, testUser);
-  fillIn(loginPasswordInput, testPasswordInvalid);
-  click(loginSubmitButton);
-  andThen(function() {
-    //Waiting for login error text to appear
-    pause(1000);
-  });
-  andThen(function() {
-    assert.equal(
-      find('#login-error')
-        .text()
-        .trim(),
-      'Invalid Password'
-    );
-  });
+test('Login with an invalid password', async function(assert) {
+  await fillIn(loginUserInput, testUser);
+  await fillIn(loginPasswordInput, testPasswordInvalid);
+  await click(loginSubmitButton);
+
+  assert.equal(
+    find('#login-error')
+      .text()
+      .trim(),
+    'Invalid Password'
+  );
 });

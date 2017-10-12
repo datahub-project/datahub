@@ -4,7 +4,7 @@ import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { getConfig } from "./helpers/config";
 
 export default function(this: IMirageServer) {
-  this.passthrough();
+
   this.get('/config', getConfig);
 
   this.post('/authenticate', function({}, request: any) {
@@ -17,7 +17,7 @@ export default function(this: IMirageServer) {
       return 'Invalid Password';
     }
     return {
-      status: 'ok',
+      status: ApiStatus.OK,
       data: {username: username, uuid: faker.random.uuid()}
     };
   });
@@ -53,7 +53,7 @@ export default function(this: IMirageServer) {
     const itemsPerPage = 10;
 
     return {
-      status: 'ok',
+      status: ApiStatus.OK,
       data: {
         count: count,
         flows: flowsArr,
@@ -93,7 +93,7 @@ export default function(this: IMirageServer) {
     const count = faker.random.number({ min: 20000, max: 40000 });
     const itemsPerPage = 10;
     return {
-      status: 'ok',
+      status: ApiStatus.OK,
       data: {
         count: count,
         page: page,
@@ -111,7 +111,7 @@ export default function(this: IMirageServer) {
     const itemsPerPage = 10;
 
     return {
-      status: 'ok',
+      status: ApiStatus.OK,
       data: {
         count: count,
         page: page,
@@ -126,7 +126,7 @@ export default function(this: IMirageServer) {
     const { userEntities } = server.db;
 
     return {
-      status: 'ok',
+      status: ApiStatus.OK,
       userEntities: userEntities
     };
   });
@@ -145,10 +145,10 @@ export default function(this: IMirageServer) {
           "defaultWatch":null
         }
       },
-      status: 'ok'
+      status: ApiStatus.OK
     };
   });
-
+  this.passthrough();
 }
 
 export function testConfig(this: IMirageServer) {

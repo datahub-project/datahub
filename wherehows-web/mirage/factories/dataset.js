@@ -1,16 +1,16 @@
-import { Factory, faker, trait } from 'ember-cli-mirage';
+import { Factory, faker } from 'ember-cli-mirage';
 
 export default Factory.extend({
-  created() { return null; },
-  formatedModified() { return "2017-09-04 10:34:44.0"; },
-  hasSchemaHistory() { return false; },
-  hdfsBrowserLink() { return null; },
-  isFavorite() { return false; },
-  isOwned() { return false; },
-  isWatched() { return false; },
-  modified() { return faker.date.past(); },
-  name() { return faker.commerce.productName(); },
-  properties() { return {
+  created: null,
+  formatedModified: '2017-09-04 10:34:44.0',
+  hasSchemaHistory: false,
+  hdfsBrowserLink: null,
+  isFavorite: false,
+  isOwned: false,
+  isWatched: false,
+  modified: faker.date.past(),
+  name: faker.commerce.productName(),
+  properties: {
     DB_ID: faker.random.number({ min: 10000, max: 20000 }),
     TBL_ID: faker.random.number({ min: 10000, max: 20000 }),
     view_depends_on:[
@@ -26,10 +26,10 @@ export default Factory.extend({
     serialization_format: 'Sequence',
     tbl_type: 'VIRTUAL_VIEW',
     view_expanded_text: faker.lorem.sentence()
-  }; },
-  schema() { return "abcd"; },
-  source() { return 'Hive'; },
-  urn() { return faker.internet.url(); },
-  watchId() { return 0; },
-  owners() { return []; },
+  },
+  schema: 'abcd',
+  source: 'Hive',
+  urn: faker.internet.url(),
+  watchId: 0,
+  owners: [],
 });
