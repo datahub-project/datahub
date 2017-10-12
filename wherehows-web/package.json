@@ -92,7 +92,7 @@
   "lint-staged": {
     "gitDir": "../",
     "linters": {
-      "wherehows-web/{app,tests}/**/*.{ts,js,scss,css}": [
+      "wherehows-web/{app,tests,mirage}/**/*.{ts,js,scss,css}": [
         "./node_modules/.bin/prettier --print-width 120 --single-quote --write",
         "git add"
       ]
