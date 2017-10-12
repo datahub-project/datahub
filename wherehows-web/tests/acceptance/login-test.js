@@ -1,5 +1,4 @@
 import { test } from 'qunit';
-import { delay } from 'wherehows-web/utils/promise-delay';
 import moduleForAcceptance from 'wherehows-web/tests/helpers/module-for-acceptance';
 import {
   loginContainer,
