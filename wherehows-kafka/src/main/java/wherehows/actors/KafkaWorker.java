@@ -64,7 +64,7 @@ public class KafkaWorker extends UntypedActor {
             }
 
             if (_receivedRecordCount % 1000 == 0) {
-              log.debug(_topic + " received " + _receivedRecordCount);
+              log.info(_topic + " received " + _receivedRecordCount);
             }
           }
 
