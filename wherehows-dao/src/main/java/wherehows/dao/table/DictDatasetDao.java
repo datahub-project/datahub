@@ -71,7 +71,7 @@ public class DictDatasetDao extends BaseDao {
     try {
       dataset = findBy(DictDataset.class, "urn", urn);
     } catch (Exception e) {
-      log.info("Can't find dataset " + urn, e.toString());
+      log.debug("Can't find dataset " + urn, e.toString());
     }
     // if not found, create new entity
     if (dataset == null) {
