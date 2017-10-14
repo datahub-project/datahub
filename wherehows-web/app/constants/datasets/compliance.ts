@@ -16,7 +16,7 @@ enum Classification {
 }
 
 /**
- * Defines the string values for an id logical tyoe
+ * Defines the string values for an id logical type
  * @enum {string}
  */
 enum IdLogicalType {
@@ -74,6 +74,7 @@ interface INonIdLogicalTypesSignature {
 
 /**
  * Describes the properties on a field identifier object for ui rendering
+ * @interface IFieldIdProps
  */
 interface IFieldIdProps {
   value: string;
@@ -83,6 +84,7 @@ interface IFieldIdProps {
 
 /**
  * Describes the index signature for fieldIdentifierTypes
+ * @interface IFieldIdTypes
  */
 interface IFieldIdTypes {
   [prop: string]: IFieldIdProps;
@@ -90,19 +92,19 @@ interface IFieldIdTypes {
 
 /**
  * A list of id logical types
- * @type {Array.<String>}
+ * @type {Array<IdLogicalType>}
  */
 const idLogicalTypes = Object.values(IdLogicalType).sort() as Array<IdLogicalType>;
 
 /**
  * A list of custom logical types that may be treated ids but have a different behaviour from regular ids
- * @type {Array.<String>}
+ * @type {Array<CustomIdLogicalType>}
  */
 const customIdLogicalTypes = Object.values(CustomIdLogicalType) as Array<CustomIdLogicalType>;
 
 /**
  * List of non Id field data type classifications
- * @type {Array}
+ * @type {Array<NonIdLogicalType>}
  */
 const genericLogicalTypes = Object.values(NonIdLogicalType).sort() as Array<NonIdLogicalType>;
 
