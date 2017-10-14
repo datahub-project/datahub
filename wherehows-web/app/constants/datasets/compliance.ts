@@ -61,13 +61,16 @@ enum NonIdLogicalType {
 
 /**
  * Describes the index signature for the nonIdFieldLogicalTypes object
+ * TODO: on release of TS 2.16, convert to type in previous commit i.e. revert this commit
+ * and restrict keys to value in enum
+ * @interface INonIdLogicalTypesSignature
  */
-type NonIdLogicalTypesSignature = {
-  [K in NonIdLogicalType]: {
+interface INonIdLogicalTypesSignature {
+  [prop: string]: {
     classification: Classification;
     displayAs: string;
-  }
-};
+  };
+}
 
 /**
  * Describes the properties on a field identifier object for ui rendering
@@ -105,7 +108,7 @@ const genericLogicalTypes = Object.values(NonIdLogicalType).sort() as Array<NonI
 
 // Default mapping of field data types to security classification
 // https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
-const nonIdFieldLogicalTypes: NonIdLogicalTypesSignature = {
+const nonIdFieldLogicalTypes: INonIdLogicalTypesSignature = {
   NAME: {
     classification: Classification.Confidential,
     displayAs: 'Name'
