@@ -92,6 +92,7 @@ public class FieldDetailDao extends BaseDao {
 
   /**
    * Find the updated list of fields, and the list of fields that don't exist anymore.
+   * If new fields are empty, all existing fields will be removed.
    * @param originalFields List<DictFieldDetail>
    * @param datasetId int
    * @param schema DatasetSchema
@@ -100,6 +101,11 @@ public class FieldDetailDao extends BaseDao {
   public List<List<DictFieldDetail>> diffFieldList(List<DictFieldDetail> originalFields, int datasetId,
       DatasetSchema schema) {
     List<DictFieldDetail> updatedFields = new ArrayList<>(); // updated fields
+    List<DictFieldDetail> removedFields = new ArrayList<>(originalFields);  // removed fields
+
+    if (schema.fieldSchema == null || schema.fieldSchema.size() == 0) {
+      return Arrays.asList(updatedFields, removedFields);
+    }
 
     int fieldCount = 0;
     for (FieldSchema fs : schema.fieldSchema) {
@@ -126,7 +132,6 @@ public class FieldDetailDao extends BaseDao {
       }
     }
 
-    List<DictFieldDetail> removedFields = new ArrayList<>(originalFields);
     removedFields.removeAll(updatedFields);
 
     return Arrays.asList(updatedFields, removedFields);
