@@ -165,12 +165,8 @@ const fieldIdentifierTypeValues: Array<string> = fieldIdentifierTypesList.map(({
 export {
   defaultFieldDataTypeClassification,
   classifiers,
-  fieldIdentifierTypes,
   fieldIdentifierTypeIds,
   fieldIdentifierTypeValues,
-  idLogicalTypes,
-  customIdLogicalTypes,
-  nonIdFieldLogicalTypes,
   isMixedId,
   isCustomId,
   hasPredefinedFieldFormat,

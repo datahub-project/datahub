@@ -1,4 +1,4 @@
-import { fieldIdentifierTypes } from 'wherehows-web/constants/metadata-acquisition';
+import { fieldIdentifierTypes } from 'wherehows-web/constants/datasets/compliance';
 /**
  * Defines a map of values for the compliance policy on a dataset
  * @type {object}

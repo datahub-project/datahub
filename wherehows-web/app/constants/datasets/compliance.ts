@@ -60,6 +60,26 @@ enum NonIdLogicalType {
 }
 
 /**
+ * String values for field Identifier type
+ * @enum {string}
+ */
+enum FieldIdValues {
+  None = 'NONE',
+  MemberId = 'MEMBER_ID',
+  SubjectMemberId = 'SUBJECT_MEMBER_ID',
+  GroupId = 'GROUP_ID',
+  CompanyId = 'COMPANY_ID',
+  MixedId = 'MIXED_ID',
+  CustomId = 'CUSTOM_ID',
+  EnterpriseProfileId = 'ENTERPRISE_PROFILE_ID',
+  EnterpriseAccountId = 'ENTERPRISE_ACCOUNT_ID',
+  ContractId = 'CONTRACT_ID',
+  SeatId = 'SEAT_ID',
+  AdvertiserId = 'ADVERTISER_ID',
+  SlideshareUserId = 'SLIDESHARE_USER_ID'
+}
+
+/**
  * Describes the index signature for the nonIdFieldLogicalTypes object
  * TODO: on release of TS 2.16, convert to type in previous commit i.e. revert this commit
  * and restrict keys to value in enum
@@ -77,7 +97,7 @@ interface INonIdLogicalTypesSignature {
  * @interface IFieldIdProps
  */
 interface IFieldIdProps {
-  value: string;
+  value: FieldIdValues;
   isId: boolean;
   displayAs: string;
 }
@@ -187,73 +207,73 @@ const nonIdFieldLogicalTypes: INonIdLogicalTypesSignature = {
 
 /**
  * A map of identifier types for fields on a dataset
- * @type {{none: {value: string, isId: boolean, displayAs: string}, member: {value: string, isId: boolean, displayAs: string}, subjectMember: {value: string, isId: boolean, displayAs: string}, group: {value: string, isId: boolean, displayAs: string}, organization: {value: string, isId: boolean, displayAs: string}, generic: {value: string, isId: boolean, displayAs: string}}}
+ * @type {IFieldIdTypes}
  */
 const fieldIdentifierTypes: IFieldIdTypes = {
   none: {
-    value: 'NONE',
+    value: FieldIdValues.None,
     isId: false,
     displayAs: 'Not an ID'
   },
   member: {
-    value: 'MEMBER_ID',
+    value: FieldIdValues.MemberId,
     isId: true,
     displayAs: 'Member ID'
   },
   subjectMember: {
-    value: 'SUBJECT_MEMBER_ID',
+    value: FieldIdValues.SubjectMemberId,
     isId: true,
     displayAs: 'Member ID (Subject Owner)'
   },
   group: {
-    value: 'GROUP_ID',
+    value: FieldIdValues.GroupId,
     isId: true,
     displayAs: 'Group ID'
   },
   organization: {
-    value: 'COMPANY_ID',
+    value: FieldIdValues.CompanyId,
     isId: true,
     displayAs: 'Organization ID'
   },
   generic: {
-    value: 'MIXED_ID',
+    value: FieldIdValues.MixedId,
     isId: false,
     displayAs: 'Mixed'
   },
   custom: {
-    value: 'CUSTOM_ID',
+    value: FieldIdValues.CustomId,
     isId: false,
     // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
     // ids, a logicalType / (field format) is not required to update this fields properties
     displayAs: 'Custom ID'
   },
   enterpriseProfile: {
-    value: 'ENTERPRISE_PROFILE_ID',
+    value: FieldIdValues.EnterpriseProfileId,
     isId: true,
     displayAs: 'Enterprise Profile ID'
   },
   enterpriseAccount: {
-    value: 'ENTERPRISE_ACCOUNT_ID',
+    value: FieldIdValues.EnterpriseAccountId,
     isId: true,
     displayAs: 'Enterprise Account ID'
   },
   contract: {
-    value: 'CONTRACT_ID',
+    value: FieldIdValues.ContractId,
     isId: true,
     displayAs: 'Contract ID'
   },
   seat: {
-    value: 'SEAT_ID',
+    value: FieldIdValues.SeatId,
     isId: true,
     displayAs: 'Seat ID'
   },
   advertiser: {
-    value: 'ADVERTISER_ID',
+    value: FieldIdValues.AdvertiserId,
     isId: true,
     displayAs: 'Advertiser ID'
   },
   slideshare: {
-    value: 'SLIDESHARE_USER_ID',
+    value: FieldIdValues.SlideshareUserId,
     isId: true,
     displayAs: 'SlideShare User ID'
   }
@@ -261,13 +281,15 @@ const fieldIdentifierTypes: IFieldIdTypes = {
 
 export {
   Classification,
-  NonIdLogicalType,
-  nonIdFieldLogicalTypes,
+  FieldIdValues,
   IFieldIdProps,
   IdLogicalType,
   idLogicalTypes,
+  CustomIdLogicalType,
   customIdLogicalTypes,
+  NonIdLogicalType,
   genericLogicalTypes,
+  nonIdFieldLogicalTypes,
   fieldIdentifierTypes,
   SuggestionIntent
 };
