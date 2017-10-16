@@ -50,4 +50,5 @@ ext.externalDependency = [
     "lombok"              : "org.projectlombok:lombok:1.16.18",
 
     "guava"               : "com.google.guava:guava:15.0",
+    "jsr305"              : "com.google.code.findbugs:jsr305:3.0.2"
 ]

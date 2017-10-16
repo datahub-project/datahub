@@ -16,6 +16,7 @@ package wherehows.dao.table;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
@@ -30,7 +31,7 @@ public class BaseDao {
 
   protected final EntityManagerFactory entityManagerFactory;
 
-  public BaseDao(EntityManagerFactory factory) {
+  public BaseDao(@Nonnull EntityManagerFactory factory) {
     this.entityManagerFactory = factory;
   }
 
@@ -43,7 +44,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> T find(Class<T> entityClass, Object primaryKey) {
+  public <T> T find(@Nonnull Class<T> entityClass, @Nonnull Object primaryKey) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     try {
       return (T) entityManager.find(entityClass, primaryKey);
@@ -62,7 +63,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> T findBy(Class<T> entityClass, String criteriaKey, Object criteriaValue) {
+  public <T> T findBy(@Nonnull Class<T> entityClass, @Nonnull String criteriaKey, @Nonnull Object criteriaValue) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     CriteriaBuilder cb = entityManager.getCriteriaBuilder();
     CriteriaQuery<T> criteria = cb.createQuery(entityClass);
@@ -86,7 +87,8 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> List<T> findListBy(Class<T> entityClass, String criteriaKey, Object criteriaValue) {
+  public <T> List<T> findListBy(@Nonnull Class<T> entityClass, @Nonnull String criteriaKey,
+      @Nonnull Object criteriaValue) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     CriteriaBuilder cb = entityManager.getCriteriaBuilder();
     CriteriaQuery<T> criteria = cb.createQuery(entityClass);
@@ -109,7 +111,7 @@ public class BaseDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  public <T> List<T> findListBy(Class<T> entityClass, Map<String, ? extends Object> params) {
+  public <T> List<T> findListBy(@Nonnull Class<T> entityClass, @Nonnull Map<String, ? extends Object> params) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     CriteriaBuilder cb = entityManager.getCriteriaBuilder();
     CriteriaQuery<T> criteria = cb.createQuery(entityClass);
@@ -136,7 +138,7 @@ public class BaseDao {
    * @return the persisted / managed record
    */
   @SneakyThrows
-  public Object update(Object record) {
+  public Object update(@Nonnull Object record) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     entityManager.getTransaction().begin();
     try {
@@ -153,7 +155,7 @@ public class BaseDao {
    * @param records a list of entity objects
    */
   @SneakyThrows
-  public void updateList(List<? extends Object> records) {
+  public void updateList(@Nonnull List<? extends Object> records) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     entityManager.getTransaction().begin();
     try {
@@ -172,7 +174,7 @@ public class BaseDao {
    * @param record an entity object
    */
   @SneakyThrows
-  public void remove(Object record) {
+  public void remove(@Nonnull Object record) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     entityManager.getTransaction().begin();
     try {
@@ -188,7 +190,7 @@ public class BaseDao {
    * @param records a list of entity object
    */
   @SneakyThrows
-  public void removeList(List<? extends Object> records) {
+  public void removeList(@Nonnull List<? extends Object> records) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     entityManager.getTransaction().begin();
     try {
@@ -208,7 +210,7 @@ public class BaseDao {
    * @param params Parameters
    */
   @SneakyThrows
-  public void executeUpdate(String queryStr, Map<String, Object> params) {
+  public void executeUpdate(@Nonnull String queryStr, @Nonnull Map<String, Object> params) {
     EntityManager entityManager = entityManagerFactory.createEntityManager();
     try {
       Query query = entityManager.createQuery(queryStr);

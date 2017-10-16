@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsOwner;
@@ -32,11 +33,11 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class DatasetOwnerDao extends BaseDao {
 
-  public DatasetOwnerDao(EntityManagerFactory factory) {
+  public DatasetOwnerDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
   }
 
-  public List<DsOwner> findByUrn(String datasetUrn) {
+  public List<DsOwner> findByUrn(@Nonnull String datasetUrn) {
     return findListBy(DsOwner.class, "datasetUrn", datasetUrn);
   }
 
@@ -44,7 +45,7 @@ public class DatasetOwnerDao extends BaseDao {
     return findListBy(DsOwner.class, "datasetId", datasetId);
   }
 
-  public List<DsOwner> findByIdAndSource(int datasetId, String source) {
+  public List<DsOwner> findByIdAndSource(int datasetId, @Nonnull String source) {
     Map<String, Object> params = new HashMap<>();
     params.put("datasetId", datasetId);
     params.put("ownerSource", source);
@@ -59,8 +60,8 @@ public class DatasetOwnerDao extends BaseDao {
    * @param auditStamp ChangeAuditStamp
    * @param owners List<OwnerInfo>
    */
-  public void insertUpdateOwnership(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
-      List<OwnerInfo> owners) throws Exception {
+  public void insertUpdateOwnership(DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
+      @Nonnull List<OwnerInfo> owners) throws Exception {
 
     String datasetUrn = toWhDatasetUrn(identifier);
 
@@ -89,11 +90,11 @@ public class DatasetOwnerDao extends BaseDao {
    * @param dsOwner DsOwner
    * @param sourceTime int
    */
-  public void fillDsOwnerByOwnerInfo(OwnerInfo owner, DsOwner dsOwner, int sourceTime) {
+  public void fillDsOwnerByOwnerInfo(@Nonnull OwnerInfo owner, @Nonnull DsOwner dsOwner, int sourceTime) {
     dsOwner.setOwnerId(owner.owner.toString());
     dsOwner.setOwnerIdType(owner.ownerType.name());
     dsOwner.setOwnerType(owner.ownerCategory.name());
-    dsOwner.setOwnerSource(owner.ownershipProvider.name());
+    dsOwner.setOwnerSource(owner.ownershipProvider == null ? "" : owner.ownershipProvider.name());
 
     if (owner.ownerType == OwnerType.USER) {
       dsOwner.setAppId(300);
@@ -123,8 +124,8 @@ public class DatasetOwnerDao extends BaseDao {
    * @param sourceTime int epoch second
    * @return [ updated list , removed list of owners]
    */
-  public List<List<DsOwner>> diffOwnerList(List<DsOwner> originalList, List<OwnerInfo> owners, int datasetId,
-      String datasetUrn, int sourceTime) {
+  public List<List<DsOwner>> diffOwnerList(@Nonnull List<DsOwner> originalList, @Nonnull List<OwnerInfo> owners,
+      int datasetId, String datasetUrn, int sourceTime) {
 
     List<DsOwner> updatedOwners = new ArrayList<>();
 

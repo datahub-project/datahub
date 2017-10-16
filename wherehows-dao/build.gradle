@@ -1,21 +1,34 @@
 apply plugin: 'java'
+apply plugin: 'findbugs'
 
 dependencies {
-    compile project(':wherehows-data-model')
-    compile externalDependency.commons_lang3
-    compile externalDependency.slf4j_api
-    compile externalDependency.spring_jdbc
-    compile externalDependency.jackson_databind
-    compile externalDependency.jackson_core
-    compile externalDependency.jackson_annotations
-    compile externalDependency.lombok
-    compile externalDependency.hibernate_core
-    compile externalDependency.hibernate_hikaricp
+  compile project(':wherehows-data-model')
+  compile externalDependency.commons_lang3
+  compile externalDependency.slf4j_api
+  compile externalDependency.spring_jdbc
+  compile externalDependency.jackson_databind
+  compile externalDependency.jackson_core
+  compile externalDependency.jackson_annotations
+  compile externalDependency.lombok
+  compile externalDependency.jsr305
+  compile externalDependency.hibernate_core
+  compile externalDependency.hibernate_hikaricp
 
-    testCompile externalDependency.testng
+  testCompile externalDependency.testng
+}
+
+findbugs {
+  ignoreFailures = true
+}
+
+tasks.withType(FindBugs) {
+  reports {
+    xml.enabled false
+    html.enabled true
+  }
 }
 
 test {
-    // enable TestNG support (default is JUnit)
-    useTestNG()
+  // enable TestNG support (default is JUnit)
+  useTestNG()
 }
