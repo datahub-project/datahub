@@ -276,4 +276,9 @@ public class Constant {
   public static final String KAFKA_CONSUMER_TOPIC_KEY = "kafka.consumer.topic";
   public static final String KAFKA_PRODUCER_TOPIC_KEY = "kafka.producer.topic";
   public static final String KAFKA_PROCESSOR_KEY = "kafka.processor";
+
+  // add more configuration settings for elastic search ETL
+  public static final String ELASTICSEARCH_BULK_INSERT_SIZE = "elasticsearch.bulk.insert.size";
+  public static final String ELASTICSEARCH_URL_REQUEST_TIMEOUT = "elasticsearch.url.request.timeout";
+  public static final String WH_DB_MAX_RETRY_TIMES = "wh.db.max.retry.times";
 }
