@@ -16,6 +16,8 @@ package wherehows.util;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
 
@@ -30,7 +32,7 @@ public class JsonUtil {
    * @return type object
    * @throws IOException
    */
-  public static <T> T jsonToTypedObject(String jsonString, TypeReference type) throws IOException {
+  public static <T> T jsonToTypedObject(@Nullable String jsonString, @Nonnull TypeReference type) throws IOException {
     return StringUtils.isBlank(jsonString) ? null : new ObjectMapper().readValue(jsonString, type);
   }
 }

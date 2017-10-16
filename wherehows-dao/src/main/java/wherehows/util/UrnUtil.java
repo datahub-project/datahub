@@ -14,6 +14,8 @@
 package wherehows.util;
 
 import com.linkedin.events.metadata.DatasetIdentifier;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
 
@@ -24,10 +26,11 @@ public class UrnUtil {
 
   /**
    * Get the entity (last part) of an URN, e.g. urn:li:user:abc -> abc
+   * If input null, return null
    * @param urn colon separated URN String
    * @return entity String
    */
-  public static String getUrnEntity(String urn) {
+  public static String getUrnEntity(@Nullable String urn) {
     return urn == null ? null : urn.substring(urn.lastIndexOf(':') + 1);
   }
 
@@ -38,7 +41,7 @@ public class UrnUtil {
    * @param datasetIdentifier DatasetIdentifier
    * @return String WH URN
    */
-  public static String toWhDatasetUrn(DatasetIdentifier datasetIdentifier) {
+  public static String toWhDatasetUrn(@Nonnull DatasetIdentifier datasetIdentifier) {
     String platform = getUrnEntity(datasetIdentifier.dataPlatformUrn.toString());
     String name = datasetIdentifier.nativeName.toString();
 
@@ -60,7 +63,7 @@ public class UrnUtil {
    * @param urn String WhereHows dataset URN
    * @return String[] platform + dataset name
    */
-  public static String[] splitWhUrn(String urn) {
+  public static String[] splitWhUrn(@Nonnull String urn) {
     if (urn == null) {
       throw new IllegalArgumentException("URN is null");
     }
@@ -84,7 +87,7 @@ public class UrnUtil {
    * @param urn String
    * @return String[platform, prefix, parentName, datasetName]
    */
-  public static String[] parseWhDatasetUrn(String urn) {
+  public static String[] parseWhDatasetUrn(@Nonnull String urn) {
     String platform = urn.split(":///")[0];
     String fullname = urn.split(":///")[1];
 
@@ -128,17 +131,18 @@ public class UrnUtil {
    * @param obj Object
    * @return String or null
    */
-  public static String toStringOrNull(Object obj) {
+  public static String toStringOrNull(@Nullable Object obj) {
     return obj == null ? null : obj.toString();
   }
 
   /**
    * Trim string to be at most 'maxLength' characters, if less, return the original string.
+   * If input null, return null.
    * @param s String
    * @param maxLength int
    * @return trimmed String
    */
-  public static String trimToLength(String s, int maxLength) {
+  public static String trimToLength(@Nullable String s, int maxLength) {
     if (s == null) {
       return null;
     }

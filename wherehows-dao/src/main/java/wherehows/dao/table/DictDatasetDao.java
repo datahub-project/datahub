@@ -26,6 +26,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DictDataset;
@@ -36,11 +38,11 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class DictDatasetDao extends BaseDao {
 
-  public DictDatasetDao(EntityManagerFactory factory) {
+  public DictDatasetDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DictDataset findByUrn(String urn) {
+  public DictDataset findByUrn(@Nonnull String urn) {
     return findBy(DictDataset.class, "urn", urn);
   }
 
@@ -60,9 +62,10 @@ public class DictDatasetDao extends BaseDao {
    * @return dataset id
    * @throws Exception
    */
-  public DictDataset insertUpdateDataset(DatasetIdentifier identifier, ChangeAuditStamp auditStamp,
-      DatasetProperty property, DatasetSchema schema, List<DeploymentDetail> deployments, List<String> tags,
-      List<Capacity> capacities, PartitionSpecification partitions) throws Exception {
+  public DictDataset insertUpdateDataset(@Nonnull DatasetIdentifier identifier, @Nonnull ChangeAuditStamp auditStamp,
+      @Nullable DatasetProperty property, @Nullable DatasetSchema schema, @Nullable List<DeploymentDetail> deployments,
+      @Nullable List<String> tags, @Nullable List<Capacity> capacities, @Nullable PartitionSpecification partitions)
+      throws Exception {
 
     String urn = toWhDatasetUrn(identifier);
 
@@ -98,9 +101,10 @@ public class DictDatasetDao extends BaseDao {
    * @param partitions PartitionSpecification
    * @throws IOException
    */
-  public void fillDictDataset(DictDataset ds, String urn, ChangeAuditStamp auditStamp, DatasetProperty property,
-      DatasetSchema schema, List<DeploymentDetail> deployments, List<String> tags, List<Capacity> capacities,
-      PartitionSpecification partitions) throws IOException {
+  public void fillDictDataset(@Nonnull DictDataset ds, @Nonnull String urn, @Nonnull ChangeAuditStamp auditStamp,
+      @Nullable DatasetProperty property, @Nullable DatasetSchema schema, @Nullable List<DeploymentDetail> deployments,
+      @Nullable List<String> tags, List<Capacity> capacities, @Nullable PartitionSpecification partitions)
+      throws IOException {
 
     ObjectMapper mapper = new ObjectMapper();
 

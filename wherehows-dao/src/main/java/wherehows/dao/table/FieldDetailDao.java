@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
 import wherehows.models.table.DictFieldDetail;
 
@@ -32,7 +33,7 @@ public class FieldDetailDao extends BaseDao {
 
   private static final String DELETE_BY_DATASET_ID = "DELETE FROM dict_field_detail WHERE dataset_id = :datasetId";
 
-  public FieldDetailDao(EntityManagerFactory factory) {
+  public FieldDetailDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
   }
 
@@ -52,8 +53,9 @@ public class FieldDetailDao extends BaseDao {
    * @param schema DatasetSchema
    * @throws Exception
    */
-  public void insertUpdateDatasetFields(DatasetIdentifier identifier, int datasetId, DatasetProperty property,
-      ChangeAuditStamp auditStamp, DatasetSchema schema) throws Exception {
+  public void insertUpdateDatasetFields(@Nonnull DatasetIdentifier identifier, int datasetId,
+      @Nonnull DatasetProperty property, @Nonnull ChangeAuditStamp auditStamp, @Nonnull DatasetSchema schema)
+      throws Exception {
 
     List<DictFieldDetail> fields = findListBy(DictFieldDetail.class, "datasetId", datasetId);
 
@@ -75,7 +77,7 @@ public class FieldDetailDao extends BaseDao {
    * @param fs FieldSchema
    * @param field DictFieldDetail
    */
-  public void fillFieldDetailByFieldSchema(FieldSchema fs, DictFieldDetail field) {
+  public void fillFieldDetailByFieldSchema(@Nonnull FieldSchema fs, @Nonnull DictFieldDetail field) {
     field.setFieldName(fs.fieldPath.toString());
     field.setSortId(fs.position);
     field.setParentSortId(fs.parentFieldPosition);
@@ -98,8 +100,8 @@ public class FieldDetailDao extends BaseDao {
    * @param schema DatasetSchema
    * @return [ updated list , removed list of fields]
    */
-  public List<List<DictFieldDetail>> diffFieldList(List<DictFieldDetail> originalFields, int datasetId,
-      DatasetSchema schema) {
+  public List<List<DictFieldDetail>> diffFieldList(@Nonnull List<DictFieldDetail> originalFields, int datasetId,
+      @Nonnull DatasetSchema schema) {
     List<DictFieldDetail> updatedFields = new ArrayList<>(); // updated fields
     List<DictFieldDetail> removedFields = new ArrayList<>(originalFields);  // removed fields
 

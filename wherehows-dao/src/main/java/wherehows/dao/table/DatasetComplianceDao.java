@@ -17,6 +17,7 @@ import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.CompliancePolicy;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.SuggestedCompliancePolicy;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsCompliance;
@@ -28,11 +29,11 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class DatasetComplianceDao extends BaseDao {
 
-  public DatasetComplianceDao(EntityManagerFactory factory) {
+  public DatasetComplianceDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DsCompliance findComplianceByUrn(String datasetUrn) {
+  public DsCompliance findComplianceByUrn(@Nonnull String datasetUrn) {
     return findBy(DsCompliance.class, "datasetUrn", datasetUrn);
   }
 
@@ -48,8 +49,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @param compliance MCE CompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateCompliance(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
-      CompliancePolicy compliance) throws Exception {
+  public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
+      @Nonnull CompliancePolicy compliance) throws Exception {
 
     String datasetUrn = toWhDatasetUrn(identifier);
 
@@ -80,8 +81,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @param datasetUrn String
    * @param actor String
    */
-  public void fillDsComplianceByCompliancePolicy(DsCompliance dsCompliance, CompliancePolicy compliance,
-      String datasetUrn, String actor) {
+  public void fillDsComplianceByCompliancePolicy(@Nonnull DsCompliance dsCompliance, @Nonnull CompliancePolicy compliance,
+      @Nonnull String datasetUrn, @Nonnull String actor) {
 
     dsCompliance.setDatasetUrn(datasetUrn);
     dsCompliance.setCompliancePurgeType(compliance.compliancePurgeType.name());
@@ -94,7 +95,7 @@ public class DatasetComplianceDao extends BaseDao {
     dsCompliance.setModifiedBy(actor);
   }
 
-  public DsComplianceSuggestion findComplianceSuggestionByUrn(String datasetUrn) {
+  public DsComplianceSuggestion findComplianceSuggestionByUrn(@Nonnull String datasetUrn) {
     return null;
   }
 
@@ -106,8 +107,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @param suggestion MCE SuggestedCompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateSuggestedCompliance(DatasetIdentifier identifier, int datasetId, ChangeAuditStamp auditStamp,
-      SuggestedCompliancePolicy suggestion) throws Exception {
+  public void insertUpdateSuggestedCompliance(@Nonnull DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
+      @Nonnull SuggestedCompliancePolicy suggestion) throws Exception {
     // TODO: write suggested compliance information to DB
   }
 }

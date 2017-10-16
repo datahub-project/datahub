@@ -22,9 +22,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,7 +31,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import wherehows.models.table.DatasetCompliance;
 import wherehows.models.table.DatasetFieldEntity;
 import wherehows.models.view.DatasetOwner;
-import lombok.extern.slf4j.Slf4j;
 
 import static wherehows.util.JsonUtil.*;
 
