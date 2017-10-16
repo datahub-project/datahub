@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import { fieldIdentifierTypes } from 'wherehows-web/constants/metadata-acquisition';
+import { fieldIdentifierTypes } from 'wherehows-web/constants/datasets/compliance';
 
 const { String: { htmlSafe } } = Ember;
 
