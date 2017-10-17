@@ -7,9 +7,9 @@ import {
   customIdLogicalTypes,
   genericLogicalTypes,
   fieldIdentifierTypes,
-  IdLogicalType
+  IdLogicalType,
+  FieldIdValues
 } from 'wherehows-web/constants/datasets/compliance';
-import { FieldIdValues } from 'wherehows-web/constants';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
