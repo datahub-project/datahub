@@ -93,21 +93,15 @@ interface INonIdLogicalTypesSignature {
 }
 
 /**
- * Describes the properties on a field identifier object for ui rendering
- * @interface IFieldIdProps
- */
-interface IFieldIdProps {
-  value: FieldIdValues;
-  isId: boolean;
-  displayAs: string;
-}
-
-/**
  * Describes the index signature for fieldIdentifierTypes
  * @interface IFieldIdTypes
  */
 interface IFieldIdTypes {
-  [prop: string]: IFieldIdProps;
+  [prop: string]: {
+    value: FieldIdValues;
+    isId: boolean;
+    displayAs: string;
+  };
 }
 
 /**
@@ -282,7 +276,6 @@ const fieldIdentifierTypes: IFieldIdTypes = {
 export {
   Classification,
   FieldIdValues,
-  IFieldIdProps,
   IdLogicalType,
   idLogicalTypes,
   CustomIdLogicalType,
