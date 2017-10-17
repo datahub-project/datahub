@@ -37,7 +37,7 @@ import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
-import wherehows.models.table.DatasetCompliance;
+import wherehows.models.view.DatasetCompliance;
 import wherehows.models.table.DatasetDependency;
 import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
@@ -64,6 +64,9 @@ public class Dataset extends Controller {
 
   private static final String URN_CACHE_KEY = "wh.urn.cache.";
   private static final int URN_CACHE_PERIOD = 24 * 3600; // cache for 24 hours
+
+  private static final String DATASET_ID_CACHE_KEY = "wh.dsid.cache.";
+  private static final int DATASET_ID_CACHE_PERIOD = 24 * 3600; // cache for 24 hours
 
   public static Result getDatasetOwnerTypes() {
     ObjectNode result = Json.newObject();
@@ -126,23 +129,45 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
-  public static Result getDatasetIdByUrn(String urn) {
+  private static Integer getDatasetIdByUrnOrCache(String urn) {
     String cacheKey = URN_CACHE_KEY + urn;
 
     Integer datasetId = (Integer) Cache.get(cacheKey);
     if (datasetId != null && datasetId > 0) {
-      response().setHeader("datasetid", datasetId.toString());
-      return ok();
+      return datasetId;
     }
 
     datasetId = DATASETS_DAO.getDatasetIdByUrn(JDBC_TEMPLATE, urn);
     if (datasetId > 0) {
       Cache.set(cacheKey, datasetId, URN_CACHE_PERIOD);
+    }
+    return datasetId;
+  }
+
+  public static Result getDatasetIdByUrn(String urn) {
+    Integer datasetId = getDatasetIdByUrnOrCache(urn);
+
+    if (datasetId > 0) {
       response().setHeader("datasetid", datasetId.toString());
       return ok();
     } else {
       return notFound();
     }
+  }
+
+  private static String getDatasetUrnByIdOrCache(int datasetId) {
+    String cacheKey = DATASET_ID_CACHE_KEY + datasetId;
+
+    String urn = (String) Cache.get(cacheKey);
+    if (urn != null && urn.length() > 0) {
+      return urn;
+    }
+
+    urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId);
+    if (urn != null) {
+      Cache.set(cacheKey, urn);
+    }
+    return urn;
   }
 
   public static Result getDatasetColumnByID(int datasetId, int columnId) {
@@ -161,7 +186,7 @@ public class Dataset extends Controller {
   }
 
   public static Result getDatasetColumnsByID(int id) {
-    String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+    String urn = getDatasetUrnByIdOrCache(id);
 
     List<DatasetColumn> columns = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
 
@@ -229,7 +254,7 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     try {
-      String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+      String urn = getDatasetUrnByIdOrCache(id);
 
       result.set("owners", Json.toJson(OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn)));
       result.put("status", "ok");
@@ -253,7 +278,7 @@ public class Dataset extends Controller {
       return ok(result);
     }
 
-    String urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, id);
+    String urn = getDatasetUrnByIdOrCache(id);
 
     Map<String, String[]> params = request().body().asFormUrlEncoded();
     // params should contain mapping 'owners': ['ownerInfoJsonString']
@@ -787,7 +812,9 @@ public class Dataset extends Controller {
   public static Promise<Result> getDatasetCompliance(int datasetId) {
     DatasetCompliance record = null;
     try {
-      record = DATASETS_DAO.getDatasetComplianceInfoByDatasetId(JDBC_TEMPLATE, datasetId);
+      String urn = getDatasetUrnByIdOrCache(datasetId);
+
+      record = COMPLIANCE_DAO.getDatasetComplianceByDatasetId(datasetId, urn);
     } catch (Exception e) {
       Logger.warn("Failed to get compliance: " + e.toString());
       JsonNode result = Json.newObject()
@@ -820,10 +847,10 @@ public class Dataset extends Controller {
       record.setDatasetId(datasetId);
 
       if (record.getDatasetUrn() == null) {
-        record.setDatasetUrn(DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId));
+        record.setDatasetUrn(getDatasetUrnByIdOrCache(datasetId));
       }
 
-      DATASETS_DAO.updateDatasetComplianceInfo(NAMED_JDBC_TEMPLATE, record, username);
+      COMPLIANCE_DAO.updateDatasetCompliance(record, username);
     } catch (Exception e) {
       JsonNode result = Json.newObject()
           .put("status", "failed")
@@ -840,10 +867,7 @@ public class Dataset extends Controller {
 
   public static Promise<Result> getDatasetSuggestedCompliance(int datasetId) {
     try {
-      String urn = DATASETS_DAO.getDatasetUrnById(JDBC_TEMPLATE, datasetId);
-      if (urn == null) {
-        throw new IllegalArgumentException("Dataset not found, ID: " + datasetId);
-      }
+      String urn = getDatasetUrnByIdOrCache(datasetId);
 
       return getDatasetSuggestedCompliance(urn);
     } catch (Exception e) {

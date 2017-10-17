@@ -13,16 +13,25 @@
  */
 package wherehows.dao.table;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.CompliancePolicy;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.SuggestedCompliancePolicy;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsCompliance;
+import wherehows.models.view.DatasetCompliance;
+import wherehows.models.view.DatasetFieldEntity;
 import wherehows.models.view.DsComplianceSuggestion;
 
+import static wherehows.util.JsonUtil.*;
 import static wherehows.util.UrnUtil.*;
 
 
@@ -41,6 +50,18 @@ public class DatasetComplianceDao extends BaseDao {
     return findBy(DsCompliance.class, "datasetId", datasetId);
   }
 
+  public DatasetCompliance getDatasetComplianceByDatasetId(int datasetId, String datasetUrn) throws IOException {
+    return dsComplianceToDatasetCompliance(findComplianceById(datasetId));
+  }
+
+  public void updateDatasetCompliance(@Nonnull DatasetCompliance record, @Nonnull String user) throws Exception {
+    DsCompliance compliance = datasetComplianceToDsCompliance(record);
+    compliance.setModifiedBy(user);
+    compliance.setModifiedTime((int) (System.currentTimeMillis() / 1000));
+
+    update(compliance);
+  }
+
   /**
    * Insert / update dataset compliance table given information from MetadataChangeEvent
    * @param identifier DatasetIdentifier
@@ -49,8 +70,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @param compliance MCE CompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
-      @Nonnull CompliancePolicy compliance) throws Exception {
+  public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, int datasetId,
+      @Nonnull ChangeAuditStamp auditStamp, @Nonnull CompliancePolicy compliance) throws Exception {
 
     String datasetUrn = toWhDatasetUrn(identifier);
 
@@ -81,8 +102,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @param datasetUrn String
    * @param actor String
    */
-  public void fillDsComplianceByCompliancePolicy(@Nonnull DsCompliance dsCompliance, @Nonnull CompliancePolicy compliance,
-      @Nonnull String datasetUrn, @Nonnull String actor) {
+  public void fillDsComplianceByCompliancePolicy(@Nonnull DsCompliance dsCompliance,
+      @Nonnull CompliancePolicy compliance, @Nonnull String datasetUrn, @Nonnull String actor) {
 
     dsCompliance.setDatasetUrn(datasetUrn);
     dsCompliance.setCompliancePurgeType(compliance.compliancePurgeType.name());
@@ -107,9 +128,55 @@ public class DatasetComplianceDao extends BaseDao {
    * @param suggestion MCE SuggestedCompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateSuggestedCompliance(@Nonnull DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
-      @Nonnull SuggestedCompliancePolicy suggestion) throws Exception {
+  public void insertUpdateSuggestedCompliance(@Nonnull DatasetIdentifier identifier, int datasetId,
+      @Nonnull ChangeAuditStamp auditStamp, @Nonnull SuggestedCompliancePolicy suggestion) throws Exception {
     // TODO: write suggested compliance information to DB
     throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
+  }
+
+  /**
+   * Convert DatasetCompliance view to DsCompliance entity. Serialize certain fields using json.
+   * @param compliance DatasetCompliance
+   * @return DsCompliance
+   * @throws JsonProcessingException
+   */
+  public DsCompliance datasetComplianceToDsCompliance(DatasetCompliance compliance) throws JsonProcessingException {
+    ObjectMapper om = new ObjectMapper();
+
+    DsCompliance dsCompliance = new DsCompliance();
+    dsCompliance.setDatasetId(compliance.getDatasetId());
+    dsCompliance.setDatasetUrn(compliance.getDatasetUrn());
+    dsCompliance.setCompliancePurgeType(compliance.getComplianceType());
+    dsCompliance.setCompliancePurgeNote(compliance.getCompliancePurgeNote());
+    dsCompliance.setComplianceEntities(om.writeValueAsString(compliance.getComplianceEntities()));
+    dsCompliance.setConfidentiality(compliance.getConfidentiality());
+    dsCompliance.setDatasetClassification(om.writeValueAsString(compliance.getDatasetClassification()));
+    dsCompliance.setModifiedBy(compliance.getModifiedBy());
+    dsCompliance.setModifiedTime((int) (compliance.getModifiedTime() / 1000));
+    return dsCompliance;
+  }
+
+  /**
+   * Convert DsCompliance entity to DatasetCompliance view. De-serialize certain fields using json.
+   * @param dsCompliance DsCompliance
+   * @return DatasetCompliance
+   * @throws IOException
+   */
+  public DatasetCompliance dsComplianceToDatasetCompliance(DsCompliance dsCompliance) throws IOException {
+    DatasetCompliance compliance = new DatasetCompliance();
+    compliance.setDatasetId(dsCompliance.getDatasetId());
+    compliance.setDatasetUrn(dsCompliance.getDatasetUrn());
+    compliance.setComplianceType(dsCompliance.getCompliancePurgeType());
+    compliance.setCompliancePurgeNote(dsCompliance.getCompliancePurgeNote());
+    compliance.setComplianceEntities(
+        jsonToTypedObject(dsCompliance.getComplianceEntities(), new TypeReference<List<DatasetFieldEntity>>() {
+        }));
+    compliance.setConfidentiality(dsCompliance.getConfidentiality());
+    compliance.setDatasetClassification(
+        jsonToTypedObject(dsCompliance.getDatasetClassification(), new TypeReference<Map<String, Object>>() {
+        }));
+    compliance.setModifiedBy(dsCompliance.getModifiedBy());
+    compliance.setModifiedTime(1000L * dsCompliance.getModifiedTime());
+    return compliance;
   }
 }

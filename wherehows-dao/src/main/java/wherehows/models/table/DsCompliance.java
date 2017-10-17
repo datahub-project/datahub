@@ -39,6 +39,9 @@ public class DsCompliance {
   @Column(name = "compliance_purge_type")
   private String compliancePurgeType;
 
+  @Column(name = "compliance_purge_note")
+  private String compliancePurgeNote;
+
   @Column(name = "compliance_entities")
   private String complianceEntities;
 
@@ -47,18 +50,6 @@ public class DsCompliance {
 
   @Column(name = "dataset_classification")
   private String datasetClassification;
-
-  @Column(name = "field_classification")
-  private String fieldClassification;
-
-  @Column(name = "record_owner_type")
-  private String recordOwnerType;
-
-  @Column(name = "retention_policy")
-  private String retentionPolicy;
-
-  @Column(name = "geographic_affinity")
-  private String geographicAffinity;
 
   @Column(name = "modified_by")
   private String modifiedBy;
