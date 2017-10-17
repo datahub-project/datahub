@@ -1,5 +1,4 @@
 import Ember from 'ember';
-import { arrayMap } from 'wherehows-web/utils/array';
 import {
   Classification,
   nonIdFieldLogicalTypes,
@@ -8,9 +7,9 @@ import {
   customIdLogicalTypes,
   genericLogicalTypes,
   fieldIdentifierTypes,
-  IFieldIdProps,
   IdLogicalType
 } from 'wherehows-web/constants/datasets/compliance';
+import { FieldIdValues } from 'wherehows-web/constants';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -53,7 +52,7 @@ const nonIdFieldDataTypeClassification: { [K: string]: Classification } = generi
 
 /**
  * A merge of id and non id field type security classifications
- * @type {[x: string] : Classification}
+ * @type {[K: string] : Classification}
  */
 const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
 
@@ -141,26 +140,18 @@ const logicalTypesForIds = logicalTypeValueLabel('id');
 const logicalTypesForGeneric = logicalTypeValueLabel('generic');
 
 /**
- * Caches a list of field identifiers
- * @type {Array<IFieldIdProps>}
- */
-const fieldIdentifierTypesList: Array<IFieldIdProps> = arrayMap(
-  (fieldIdentifierType: string) => fieldIdentifierTypes[fieldIdentifierType]
-)(Object.keys(fieldIdentifierTypes));
-
-/**
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
- * @type {Array<Pick<IFieldIdProps, 'value'>>}
+ * @type {Array<FieldIdValues>}
  */
-const fieldIdentifierTypeIds: Array<string> = fieldIdentifierTypesList
+const fieldIdentifierTypeIds: Array<FieldIdValues> = Object.values(fieldIdentifierTypes)
   .filter(({ isId }) => isId)
   .map(({ value }) => value);
 
 /**
  * Caches a list of fieldIdentifierTypes values
- * @type {Array<Pick<IFieldIdProps, 'value'>>}
+ * @type {Array<FieldIdValues>}
  */
-const fieldIdentifierTypeValues: Array<string> = fieldIdentifierTypesList.map(({ value }) => value);
+const fieldIdentifierTypeValues: Array<FieldIdValues> = Object.values(FieldIdValues);
 
 export {
   defaultFieldDataTypeClassification,
@@ -174,5 +165,6 @@ export {
   logicalTypesForGeneric,
   getDefaultLogicalType,
   lastSeenSuggestionInterval,
-  lowQualitySuggestionConfidenceThreshold
+  lowQualitySuggestionConfidenceThreshold,
+  logicalTypeValueLabel
 };
