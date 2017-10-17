@@ -27,7 +27,7 @@ CREATE TABLE `stg_dict_dataset` (
   `source`                      VARCHAR(50) NULL,
   `location_prefix`             VARCHAR(200) NULL,
   `parent_name`                 VARCHAR(200) NULL COMMENT 'Schema Name for RDBMS, Group Name for Jobs/Projects/Tracking Datasets on HDFS',
-  `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
+  `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'BINARY_JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_name`            VARCHAR(200) NULL,
   `ref_dataset_id`              INT(11) UNSIGNED NULL COMMENT 'Refer to Master/Main dataset for Views/ExternalTables',
   `is_active`                   BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
@@ -67,7 +67,7 @@ CREATE TABLE `dict_dataset` (
   `location_prefix`             VARCHAR(200)                                                                                NULL,
   `parent_name`                 VARCHAR(200)                                                                                NULL
   COMMENT 'Schema Name for RDBMS, Group Name for Jobs/Projects/Tracking Datasets on HDFS ',
-  `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
+  `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'BINARY_JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_id`              INT(11) UNSIGNED                                                                            NULL
   COMMENT 'Refer to Master/Main dataset for Views/ExternalTables',
   `is_active`                   BOOLEAN NULL COMMENT 'is the dataset active / exist ?',
