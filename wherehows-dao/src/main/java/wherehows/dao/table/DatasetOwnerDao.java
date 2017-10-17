@@ -70,7 +70,7 @@ public class DatasetOwnerDao extends BaseDao {
     }
 
     // find dataset owners of same source if exist
-    List<DsOwner> dsOwners = findByIdAndSource(datasetId, owners.get(0).ownershipProvider.name());
+    List<DsOwner> dsOwners = findByIdAndSource(datasetId, enumNameOrDefault(owners.get(0).ownershipProvider, ""));
 
     List<List<DsOwner>> updatedList =
         diffOwnerList(dsOwners, owners, datasetId, datasetUrn, (int) (auditStamp.time / 1000));
@@ -94,7 +94,7 @@ public class DatasetOwnerDao extends BaseDao {
     dsOwner.setOwnerId(owner.owner.toString());
     dsOwner.setOwnerIdType(owner.ownerType.name());
     dsOwner.setOwnerType(owner.ownerCategory.name());
-    dsOwner.setOwnerSource(owner.ownershipProvider == null ? "" : owner.ownershipProvider.name());
+    dsOwner.setOwnerSource(enumNameOrDefault(owner.ownershipProvider, ""));
 
     if (owner.ownerType == OwnerType.USER) {
       dsOwner.setAppId(300);
