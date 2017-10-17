@@ -13,15 +13,12 @@
  */
 package controllers.api.v1;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import controllers.Application;
 import dao.AbstractMySQLOpenSourceDAO;
 import dao.DatasetsDAO;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +37,11 @@ import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
-import wherehows.models.table.DatasetClassification;
-import wherehows.models.view.DatasetColumn;
 import wherehows.models.table.DatasetCompliance;
 import wherehows.models.table.DatasetDependency;
-import wherehows.models.view.DatasetOwner;
 import wherehows.models.table.ImpactDataset;
+import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DsComplianceSuggestion;
 
 
@@ -874,8 +870,12 @@ public class Dataset extends Controller {
       return Promise.promise(() -> ok(result));
     }
 
-    JsonNode result = Json.newObject().put("status", "ok").set("complianceSuggestion", Json.toJson(record));
+    if (record == null) {
+      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      return Promise.promise(() -> ok(result));
+    }
 
+    JsonNode result = Json.newObject().put("status", "ok").set("complianceSuggestion", Json.toJson(record));
     return Promise.promise(() -> ok(result));
   }
 }
