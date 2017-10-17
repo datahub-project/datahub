@@ -149,4 +149,14 @@ public class UrnUtil {
 
     return s.substring(0, Math.min(s.length(), maxLength));
   }
+
+  /**
+   * Get the enum name or return default value if enum is null
+   * @param e Enum
+   * @param defaultValue String
+   * @return String
+   */
+  public static String enumNameOrDefault(@Nullable Enum e, @Nullable String defaultValue) {
+    return e == null ? defaultValue : e.name();
+  }
 }

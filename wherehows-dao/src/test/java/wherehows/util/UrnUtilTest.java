@@ -15,6 +15,7 @@ package wherehows.util;
 
 import com.linkedin.events.metadata.DataOrigin;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.OwnershipProvider;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
@@ -171,5 +172,14 @@ public class UrnUtilTest {
 
     assertEquals(trimToLength(s, 3), "foo");
     assertEquals(trimToLength(s, 6), "foobar");
+  }
+
+  @Test
+  public void testEnumNameOrDefault() {
+    assertEquals(enumNameOrDefault(null, "default"), "default");
+
+    OwnershipProvider o = OwnershipProvider.DB;
+
+    assertEquals(enumNameOrDefault(o, "default"), "DB");
   }
 }
