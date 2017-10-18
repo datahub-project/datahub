@@ -23,10 +23,10 @@ CREATE TABLE `stg_dict_dataset` (
   `properties`                  TEXT CHARACTER SET utf8,
   `fields`                      MEDIUMTEXT CHARACTER SET utf8,
   `db_id`                       SMALLINT UNSIGNED,
-  `urn`                         VARCHAR(200) NOT NULL,
+  `urn`                         VARCHAR(500) NOT NULL,
   `source`                      VARCHAR(50) NULL,
   `location_prefix`             VARCHAR(200) NULL,
-  `parent_name`                 VARCHAR(200) NULL COMMENT 'Schema Name for RDBMS, Group Name for Jobs/Projects/Tracking Datasets on HDFS',
+  `parent_name`                 VARCHAR(500) NULL COMMENT 'Schema Name for RDBMS, Group Name for Jobs/Projects/Tracking Datasets on HDFS',
   `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'BINARY_JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_name`            VARCHAR(200) NULL,
   `ref_dataset_id`              INT(11) UNSIGNED NULL COMMENT 'Refer to Master/Main dataset for Views/ExternalTables',
@@ -61,11 +61,11 @@ CREATE TABLE `dict_dataset` (
   COMMENT 'JSON, Hive, DDL, XML, CSV',
   `properties`                  TEXT CHARACTER SET utf8,
   `fields`                      MEDIUMTEXT CHARACTER SET utf8,
-  `urn`                         VARCHAR(200) CHARACTER SET utf8                                                             NOT NULL,
+  `urn`                         VARCHAR(500) CHARACTER SET utf8                                                             NOT NULL,
   `source`                      VARCHAR(50)                                                                                 NULL
   COMMENT 'The original data source type (for dataset in data warehouse). Oracle, Kafka ...',
   `location_prefix`             VARCHAR(200)                                                                                NULL,
-  `parent_name`                 VARCHAR(200)                                                                                NULL
+  `parent_name`                 VARCHAR(500)                                                                                NULL
   COMMENT 'Schema Name for RDBMS, Group Name for Jobs/Projects/Tracking Datasets on HDFS ',
   `storage_type`                ENUM('Table', 'View', 'Avro', 'ORC', 'RC', 'Sequence', 'Flat File', 'JSON', 'BINARY_JSON', 'XML', 'Thrift', 'Parquet', 'Protobuff') NULL,
   `ref_dataset_id`              INT(11) UNSIGNED                                                                            NULL

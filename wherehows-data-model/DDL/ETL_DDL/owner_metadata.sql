@@ -15,7 +15,7 @@
 
 CREATE TABLE dataset_owner (
   `dataset_id`    INT UNSIGNED NOT NULL,
-  `dataset_urn`   VARCHAR(200) NOT NULL,
+  `dataset_urn`   VARCHAR(500) NOT NULL,
   `owner_id`      VARCHAR(127) NOT NULL,
   `app_id`        SMALLINT NOT NULL COMMENT 'application id of the namespace',
   `namespace`     VARCHAR(127) COMMENT 'the namespace of the user',
@@ -36,11 +36,13 @@ CREATE TABLE dataset_owner (
   wh_etl_exec_id  BIGINT COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`dataset_id`, `owner_id`, `app_id`, `owner_source`),
   UNIQUE KEY `with_urn` (`dataset_urn`, `owner_id`, `app_id`, `owner_source`)
-);
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = latin1;
 
 CREATE TABLE stg_dataset_owner (
   `dataset_id` INT COMMENT 'dataset_id',
-  `dataset_urn` VARCHAR(200) NOT NULL,
+  `dataset_urn` VARCHAR(500) NOT NULL,
   `owner_id` VARCHAR(127) NOT NULL,
   `sort_id` SMALLINT COMMENT '0 = primary owner, order by priority/importance',
   `app_id` INT COMMENT 'application id of the namesapce',
@@ -58,7 +60,9 @@ CREATE TABLE stg_dataset_owner (
   KEY (dataset_urn, owner_id, namespace, db_name),
   KEY dataset_index (dataset_urn),
   KEY db_name_index (db_name)
-);
+)
+  ENGINE = InnoDB
+  DEFAULT CHARSET = latin1;
 
 CREATE TABLE stg_dataset_owner_unmatched (
   `dataset_urn` VARCHAR(200) NOT NULL,
