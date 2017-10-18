@@ -19,8 +19,6 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 import lombok.SneakyThrows;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -28,8 +26,6 @@ import org.slf4j.LoggerFactory;
  * Use native SQL and then map to entity
  */
 public class BaseViewDao {
-
-  private static final Logger log = LoggerFactory.getLogger(BaseViewDao.class);
 
   private final EntityManagerFactory _emFactory;
 
@@ -48,16 +44,20 @@ public class BaseViewDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   protected <T> List<T> getEntityListBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
-    EntityManager entityManager = _emFactory.createEntityManager();
-    Query query = entityManager.createNativeQuery(sqlQuery, classType);
-    for (Map.Entry<String, Object> param : params.entrySet()) {
-      query.setParameter(param.getKey(), param.getValue());
-    }
-
+    EntityManager entityManager = null;
     try {
+      entityManager = _emFactory.createEntityManager();
+
+      Query query = entityManager.createNativeQuery(sqlQuery, classType);
+      for (Map.Entry<String, Object> param : params.entrySet()) {
+        query.setParameter(param.getKey(), param.getValue());
+      }
+
       return (List<T>) query.getResultList();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -72,16 +72,20 @@ public class BaseViewDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   protected <T> T getEntityBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
-    EntityManager entityManager = _emFactory.createEntityManager();
-    Query query = entityManager.createNativeQuery(sqlQuery, classType);
-    for (Map.Entry<String, Object> param : params.entrySet()) {
-      query.setParameter(param.getKey(), param.getValue());
-    }
-
+    EntityManager entityManager = null;
     try {
+      entityManager = _emFactory.createEntityManager();
+
+      Query query = entityManager.createNativeQuery(sqlQuery, classType);
+      for (Map.Entry<String, Object> param : params.entrySet()) {
+        query.setParameter(param.getKey(), param.getValue());
+      }
+
       return (T) query.getSingleResult();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -94,16 +98,20 @@ public class BaseViewDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   protected List<Object[]> getObjectArrayListBy(String sqlQuery, Map<String, Object> params) {
-    EntityManager entityManager = _emFactory.createEntityManager();
-    Query query = entityManager.createNativeQuery(sqlQuery);
-    for (Map.Entry<String, Object> param : params.entrySet()) {
-      query.setParameter(param.getKey(), param.getValue());
-    }
-
+    EntityManager entityManager = null;
     try {
-      return query.getResultList();
+      entityManager = _emFactory.createEntityManager();
+
+      Query query = entityManager.createNativeQuery(sqlQuery);
+      for (Map.Entry<String, Object> param : params.entrySet()) {
+        query.setParameter(param.getKey(), param.getValue());
+      }
+
+      return (List<Object[]>) query.getResultList();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -116,16 +124,20 @@ public class BaseViewDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   protected List<Object> getObjectListBy(String sqlQuery, Map<String, Object> params) {
-    EntityManager entityManager = _emFactory.createEntityManager();
-    Query query = entityManager.createNativeQuery(sqlQuery);
-    for (Map.Entry<String, Object> param : params.entrySet()) {
-      query.setParameter(param.getKey(), param.getValue());
-    }
-
+    EntityManager entityManager = null;
     try {
-      return query.getResultList();
+      entityManager = _emFactory.createEntityManager();
+
+      Query query = entityManager.createNativeQuery(sqlQuery);
+      for (Map.Entry<String, Object> param : params.entrySet()) {
+        query.setParameter(param.getKey(), param.getValue());
+      }
+
+      return (List<Object>) query.getResultList();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 }
