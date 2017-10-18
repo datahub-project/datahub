@@ -107,7 +107,7 @@ CREATE TABLE dataset_partition (
 
 CREATE TABLE `dataset_compliance` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
-  `dataset_urn`               VARCHAR(200)     NOT NULL,
+  `dataset_urn`               VARCHAR(500)     NOT NULL,
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
   COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
   `compliance_entities`       MEDIUMTEXT       DEFAULT NULL
@@ -132,7 +132,7 @@ CREATE TABLE `dataset_compliance` (
   UNIQUE KEY `dataset_urn` (`dataset_urn`)
 )
   ENGINE = InnoDB
-  DEFAULT CHARSET = utf8;
+  DEFAULT CHARSET = latin1;
 
 CREATE TABLE dataset_constraint (
   `dataset_id`            INT UNSIGNED NOT NULL,
