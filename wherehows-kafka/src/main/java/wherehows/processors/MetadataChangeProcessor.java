@@ -42,6 +42,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final DatasetComplianceDao _complianceDao = DAO_FACTORY.getDatasetComplianceDao();
 
+  private final int _maxDatasetNameLength = 500;
+
   public MetadataChangeProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producer);
   }
@@ -75,6 +77,12 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     if (changeType == ChangeType.DELETE) {
       // TODO: delete dataset
       log.debug("Dataset Deleted: " + identifier);
+      return;
+    }
+
+    // check dataset name length to be within limit. Otherwise, save to DB will fail.
+    if (identifier.nativeName.length() > _maxDatasetNameLength) {
+      log.error("Dataset name too long: " + identifier.nativeName.length(), identifier);
       return;
     }
 

@@ -45,11 +45,15 @@ public class BaseDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   public <T> T find(@Nonnull Class<T> entityClass, @Nonnull Object primaryKey) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    EntityManager entityManager = null;
     try {
-      return (T) entityManager.find(entityClass, primaryKey);
+      entityManager = entityManagerFactory.createEntityManager();
+
+      return entityManager.find(entityClass, primaryKey);
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -64,16 +68,21 @@ public class BaseDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   public <T> T findBy(@Nonnull Class<T> entityClass, @Nonnull String criteriaKey, @Nonnull Object criteriaValue) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<T> criteria = cb.createQuery(entityClass);
-    Root<T> entityRoot = criteria.from(entityClass);
-    criteria.select(entityRoot);
-    criteria.where(cb.equal(entityRoot.get(criteriaKey), criteriaValue));
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+
+      CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+      CriteriaQuery<T> criteria = cb.createQuery(entityClass);
+      Root<T> entityRoot = criteria.from(entityClass);
+      criteria.select(entityRoot);
+      criteria.where(cb.equal(entityRoot.get(criteriaKey), criteriaValue));
+
       return entityManager.createQuery(criteria).getSingleResult();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -89,16 +98,21 @@ public class BaseDao {
   @SuppressWarnings("unchecked")
   public <T> List<T> findListBy(@Nonnull Class<T> entityClass, @Nonnull String criteriaKey,
       @Nonnull Object criteriaValue) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<T> criteria = cb.createQuery(entityClass);
-    Root<T> entityRoot = criteria.from(entityClass);
-    criteria.select(entityRoot);
-    criteria.where(cb.equal(entityRoot.get(criteriaKey), criteriaValue));
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+
+      CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+      CriteriaQuery<T> criteria = cb.createQuery(entityClass);
+      Root<T> entityRoot = criteria.from(entityClass);
+      criteria.select(entityRoot);
+      criteria.where(cb.equal(entityRoot.get(criteriaKey), criteriaValue));
+
       return entityManager.createQuery(criteria).getResultList();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -112,23 +126,27 @@ public class BaseDao {
   @SneakyThrows
   @SuppressWarnings("unchecked")
   public <T> List<T> findListBy(@Nonnull Class<T> entityClass, @Nonnull Map<String, ? extends Object> params) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-    CriteriaQuery<T> criteria = cb.createQuery(entityClass);
-    Root<T> entityRoot = criteria.from(entityClass);
-
-    //Constructing list of parameters
-    List<Predicate> predicates = new ArrayList<Predicate>();
-    for (Map.Entry<String, ? extends Object> entry : params.entrySet()) {
-      predicates.add(cb.equal(entityRoot.get(entry.getKey()), entry.getValue()));
-    }
-
-    criteria.select(entityRoot);
-    criteria.where(predicates.toArray(new Predicate[]{}));
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+
+      CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+      CriteriaQuery<T> criteria = cb.createQuery(entityClass);
+      Root<T> entityRoot = criteria.from(entityClass);
+
+      //Constructing list of parameters
+      List<Predicate> predicates = new ArrayList<Predicate>();
+      for (Map.Entry<String, ? extends Object> entry : params.entrySet()) {
+        predicates.add(cb.equal(entityRoot.get(entry.getKey()), entry.getValue()));
+      }
+
+      criteria.select(entityRoot).where(predicates.toArray(new Predicate[]{}));
+
       return entityManager.createQuery(criteria).getResultList();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -139,14 +157,18 @@ public class BaseDao {
    */
   @SneakyThrows
   public Object update(@Nonnull Object record) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    entityManager.getTransaction().begin();
+    EntityManager entityManager = null;
     try {
-      record = entityManager.merge(record);
+      entityManager = entityManagerFactory.createEntityManager();
+
+      entityManager.getTransaction().begin();
+      Object managedRecord = entityManager.merge(record);
       entityManager.getTransaction().commit();
-      return record;
+      return managedRecord;
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -156,16 +178,20 @@ public class BaseDao {
    */
   @SneakyThrows
   public void updateList(@Nonnull List<? extends Object> records) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    entityManager.getTransaction().begin();
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+      entityManager.getTransaction().begin();
+
       for (Object record : records) {
         entityManager.merge(record);
         entityManager.flush();
       }
       entityManager.getTransaction().commit();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -175,13 +201,17 @@ public class BaseDao {
    */
   @SneakyThrows
   public void remove(@Nonnull Object record) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    entityManager.getTransaction().begin();
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+
+      entityManager.getTransaction().begin();
       entityManager.remove(entityManager.contains(record) ? record : entityManager.merge(record));
       entityManager.getTransaction().commit();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -191,16 +221,20 @@ public class BaseDao {
    */
   @SneakyThrows
   public void removeList(@Nonnull List<? extends Object> records) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
-    entityManager.getTransaction().begin();
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+      entityManager.getTransaction().begin();
+
       for (Object record : records) {
         entityManager.remove(entityManager.contains(record) ? record : entityManager.merge(record));
         entityManager.flush();
       }
       entityManager.getTransaction().commit();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 
@@ -211,8 +245,10 @@ public class BaseDao {
    */
   @SneakyThrows
   public void executeUpdate(@Nonnull String queryStr, @Nonnull Map<String, Object> params) {
-    EntityManager entityManager = entityManagerFactory.createEntityManager();
+    EntityManager entityManager = null;
     try {
+      entityManager = entityManagerFactory.createEntityManager();
+
       Query query = entityManager.createQuery(queryStr);
       for (Map.Entry<String, Object> param : params.entrySet()) {
         query.setParameter(param.getKey(), param.getValue());
@@ -220,7 +256,9 @@ public class BaseDao {
 
       query.executeUpdate();
     } finally {
-      entityManager.close();
+      if (entityManager != null) {
+        entityManager.close();
+      }
     }
   }
 }
