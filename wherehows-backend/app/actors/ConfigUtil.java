@@ -63,7 +63,8 @@ class ConfigUtil {
       Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
     String outDir = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
-    String configFile = outDir + "/exec/" + whEtlExecId + ".properties";
+    String etlJobFolder = outDir + "/" + etlJobName;
+    String configFile = etlJobFolder + "/" + whEtlExecId + "/" + whEtlExecId + ".properties";
 
     String[] cmdParams = isNotBlank(cmdParam) ? cmdParam.trim().split(" ") : new String[0];
 
@@ -72,13 +73,14 @@ class ConfigUtil {
         .add("-cp")
         .add(classPath)
         .add("-Dconfig=" + configFile)
+        .add("-DexecId=" + whEtlExecId)
         .add("-DCONTEXT=" + etlJobName)
         .add("-Dlogback.configurationFile=etl_logback.xml")
         .add("-DLOG_DIR=" + outDir)
         .add(Launcher.class.getCanonicalName())
         .build());
-    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stdout")));
-    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stderr")));
+    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(etlJobFolder + "/" + whEtlExecId + "/" + etlJobName + ".stdout")));
+    pb.redirectError(ProcessBuilder.Redirect.to(new File(etlJobFolder + "/" + whEtlExecId + "/" + etlJobName + ".stderr")));
     return pb;
   }
 }
