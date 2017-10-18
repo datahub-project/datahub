@@ -51,17 +51,18 @@ public class EtlJobActor extends UntypedActor {
 
   @Override
   public void onReceive(Object message) throws Exception {
-    final String configDir = ETL_TEMP_DIR + "/exec";
     Properties props = null;
     if (message instanceof EtlJobMessage) {
       EtlJobMessage msg = (EtlJobMessage) message;
+      String configDir = "";
       try {
         props = msg.getEtlJobProperties();
+        configDir = configDir + ETL_TEMP_DIR + "/" + msg.getEtlJobName() + "/" + msg.getWhEtlExecId();
         props.setProperty(Constant.WH_DB_URL_KEY, WH_DB_URL);
         props.setProperty(Constant.WH_DB_USERNAME_KEY, WH_DB_USERNAME);
         props.setProperty(Constant.WH_DB_PASSWORD_KEY, WH_DB_PASSWORD);
         props.setProperty(Constant.WH_DB_DRIVER_KEY, WH_DB_DRIVER);
-        props.setProperty(Constant.WH_APP_FOLDER_KEY, ETL_TEMP_DIR);
+        props.setProperty(Constant.WH_APP_FOLDER_KEY, configDir);
         props.setProperty(Launcher.WH_ETL_EXEC_ID_KEY, String.valueOf(msg.getWhEtlExecId()));
         props.setProperty(Constant.WH_ETL_JOBS_DIR, ETL_JOBS_DIR);
 

@@ -46,7 +46,8 @@ class ConfigUtil {
     if (!dir.exists()) {
       dir.mkdirs();
     }
-    File configFile = new File(dir,  whEtlExecId + ".properties");
+
+    File configFile = new File(dir, whEtlExecId + ".properties");
     FileWriter writer = new FileWriter(configFile);
     props.store(writer, "exec id : " + whEtlExecId + " job configurations");
     writer.close();
@@ -63,7 +64,7 @@ class ConfigUtil {
       Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
     String outDir = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);
-    String configFile = outDir + "/exec/" + whEtlExecId + ".properties";
+    String configFile = outDir + "/" + whEtlExecId + ".properties";
 
     String[] cmdParams = isNotBlank(cmdParam) ? cmdParam.trim().split(" ") : new String[0];
 
