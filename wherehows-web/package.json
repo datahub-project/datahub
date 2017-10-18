@@ -20,6 +20,8 @@
     "@types/ember": "^2.7.43",
     "@types/ember-testing-helpers": "^0.0.2",
     "@types/rsvp": "^3.3.0",
+    "babel-eslint": "^8.0.1",
+    "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "bower": "^1.8.2",
     "broccoli-asset-rev": "^2.5.0",
