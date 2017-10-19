@@ -104,19 +104,18 @@ public class DictDatasetDaoTest {
         new ObjectMapper().readValue(ds.getProperties(), new TypeReference<Map<String, Object>>() {
         });
 
-    String propertyStr = "{\"nativeType\": \"TABLE\", \"storageType\": \"TABLE\", \"uri\": \"oracle:///abc/test\", "
-        + "\"caseSensitivity\": {\"datasetName\": false, \"fieldName\": false, \"dataContent\": true}, "
-        + "\"extras\": {\"foo\": \"bar\"}}";
+    String propertyStr = "{nativeType: TABLE, storageType: TABLE, uri: oracle:///abc/test, caseSensitivity: "
+        + "{datasetName: false, fieldName: false, dataContent: true}, extras: {foo: bar}}";
 
-    assertEquals(properties.get("property"), propertyStr);
+    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
+        + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "
+        + "fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
+
+    assertEquals(properties.get("property").toString().replaceAll("\"", ""), propertyStr);
     assertEquals(properties.get("tag"), Arrays.asList("tag1", "tag2"));
     assertEquals(properties.get("deployment"), "[]");
     assertEquals(properties.get("capacity"), "[]");
-    assertEquals(properties.get("partition"),
-        "{\"totalPartitionLevel\": 1, \"partitionSpecText\": null, \"hasTimePartition\": null, "
-            + "\"hasHashPartition\": true, \"partitionKeys\": [{\"partitionLevel\": 1, \"partitionType\": \"HASH\", "
-            + "\"timeFormat\": null, \"fieldNames\": [\"Partition\"], \"partitionValues\": null, "
-            + "\"numberOfHashBuckets\": null}]}");
+    assertEquals(properties.get("partition").toString().replaceAll("\"", ""), partitionStr);
   }
 
   @Test
@@ -174,17 +173,16 @@ public class DictDatasetDaoTest {
         new ObjectMapper().readValue(ds.getProperties(), new TypeReference<Map<String, Object>>() {
         });
 
-    String propertyStr = "{\"nativeType\": \"TABLE\", \"storageType\": \"TABLE\", \"uri\": null, "
-        + "\"caseSensitivity\": null, \"extras\": null}";
+    String propertyStr = "{nativeType: TABLE, storageType: TABLE, uri: null, caseSensitivity: null, extras: null}";
 
-    assertEquals(properties.get("property"), propertyStr);
+    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
+        + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "
+        + "fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
+
+    assertEquals(properties.get("property").toString().replaceAll("\"", ""), propertyStr);
     assertEquals(properties.get("tag"), Arrays.asList("tag1", "tag3"));
     assertEquals(properties.get("deployment"), "[]");
     assertTrue(!properties.containsKey("capacity"));
-    assertEquals(properties.get("partition"),
-        "{\"totalPartitionLevel\": 1, \"partitionSpecText\": null, \"hasTimePartition\": null, "
-            + "\"hasHashPartition\": true, \"partitionKeys\": [{\"partitionLevel\": 1, \"partitionType\": \"HASH\", "
-            + "\"timeFormat\": null, \"fieldNames\": [\"Partition\"], \"partitionValues\": null, "
-            + "\"numberOfHashBuckets\": null}]}");
+    assertEquals(properties.get("partition").toString().replaceAll("\"", ""), partitionStr);
   }
 }
