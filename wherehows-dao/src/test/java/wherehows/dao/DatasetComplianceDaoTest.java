@@ -47,16 +47,15 @@ public class DatasetComplianceDaoTest {
 
     complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn, actor);
 
-    String dsClassification = "{\"connectionsOrFollowersOrFollowing\": false, "
-        + "\"profile\": false, \"messaging\": false, \"thirdPartyIntegrationsInUse\": false, \"activity\": false, "
-        + "\"settings\": false, \"jobApplicationFlow\": false, \"enterpriseProduct\": false, \"accountStatus\": false, "
-        + "\"addressBookImports\": false, \"microsoftData\": false, \"subsidiaryData\": false, "
-        + "\"otherThirdPartyIntegrations\": false, \"device\": false, \"searchHistory\": false, "
-        + "\"courseViewingHistory\": false, \"whoViewedMyProfile\": false, \"profileViewsByMe\": false, "
-        + "\"advertising\": false, \"usageOrErrorOrConnectivity\": false, \"otherClickstreamOrBrowsingData\": false}";
+    String dsClassification = "{connectionsOrFollowersOrFollowing: false, profile: false, messaging: false, "
+        + "thirdPartyIntegrationsInUse: false, activity: false, settings: false, jobApplicationFlow: false, "
+        + "enterpriseProduct: false, accountStatus: false, addressBookImports: false, microsoftData: false, "
+        + "subsidiaryData: false, otherThirdPartyIntegrations: false, device: false, searchHistory: false, "
+        + "courseViewingHistory: false, whoViewedMyProfile: false, profileViewsByMe: false, advertising: false, "
+        + "usageOrErrorOrConnectivity: false, otherClickstreamOrBrowsingData: false}";
 
     assertEquals(dsCompliance.getCompliancePurgeType(), "AUTO_PURGE");
-    assertEquals(dsCompliance.getDatasetClassification(), dsClassification);
+    assertEquals(dsCompliance.getDatasetClassification().replaceAll("\"", ""), dsClassification);
     assertEquals(dsCompliance.getConfidentiality(), "LIMITED_DISTRIBUTION");
     assertEquals(dsCompliance.getComplianceEntities(), "[]");
 
@@ -74,15 +73,15 @@ public class DatasetComplianceDaoTest {
     policy.complianceEntities = Arrays.asList(entity);
     policy.datasetConfidentiality = SecurityClassification.CONFIDENTIAL;
 
-    String complianceEntityStr = "[{\"fieldPath\": \"field1\", \"complianceDataType\": \"ADDRESS\", "
-        + "\"fieldFormat\": null, \"securityClassification\": \"CONFIDENTIAL\"}]";
+    String complianceEntityStr = "[{fieldPath: field1, complianceDataType: ADDRESS, fieldFormat: null, "
+        + "securityClassification: CONFIDENTIAL}]";
 
     complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn2, actor2);
 
     assertEquals(dsCompliance.getCompliancePurgeType(), "AUTO_PURGE");
-    assertEquals(dsCompliance.getDatasetClassification(), dsClassification);
+    assertEquals(dsCompliance.getDatasetClassification().replaceAll("\"", ""), dsClassification);
     assertEquals(dsCompliance.getConfidentiality(), "CONFIDENTIAL");
-    assertEquals(dsCompliance.getComplianceEntities(), complianceEntityStr);
+    assertEquals(dsCompliance.getComplianceEntities().replaceAll("\"", ""), complianceEntityStr);
 
     assertEquals(dsCompliance.getDatasetUrn(), datasetUrn2);
     assertEquals(dsCompliance.getModifiedBy(), actor2);
