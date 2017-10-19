@@ -23,6 +23,9 @@ import org.apache.commons.lang3.StringUtils;
 
 public class JsonUtil {
 
+  private JsonUtil() {
+  }
+
   /**
    * Cast json string to java type.
    * If string is null, return null. Throws IOException when convert error.

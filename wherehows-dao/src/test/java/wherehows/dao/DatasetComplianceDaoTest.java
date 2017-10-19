@@ -24,6 +24,7 @@ import java.util.Arrays;
 import org.testng.annotations.Test;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.models.table.DsCompliance;
+import wherehows.models.view.DatasetCompliance;
 
 import static org.testng.Assert.*;
 
@@ -86,5 +87,73 @@ public class DatasetComplianceDaoTest {
     assertEquals(dsCompliance.getDatasetUrn(), datasetUrn2);
     assertEquals(dsCompliance.getModifiedBy(), actor2);
     assertEquals(dsCompliance.getModifiedTime(), null);
+  }
+
+  @Test
+  public void testDatasetComplianceToDsCompliance() throws Exception {
+    DatasetComplianceDao complianceDao = new DatasetComplianceDao(null);
+
+    int id = 1;
+    String urn = "foo.bar";
+    String purgeType = "Auto";
+    String purgeNote = "None";
+    String confidentiality = "confidential";
+    String actor = "me";
+    long time = 1000L;
+
+    DatasetCompliance compliance = new DatasetCompliance();
+    compliance.setDatasetId(id);
+    compliance.setDatasetUrn(urn);
+    compliance.setComplianceType(purgeType);
+    compliance.setCompliancePurgeNote(purgeNote);
+    compliance.setComplianceEntities(new ArrayList<>());
+    compliance.setConfidentiality(confidentiality);
+    compliance.setModifiedBy(actor);
+    compliance.setModifiedTime(time);
+
+    DsCompliance dsCompliance = complianceDao.datasetComplianceToDsCompliance(compliance);
+
+    assertEquals(dsCompliance.getDatasetId(), id);
+    assertEquals(dsCompliance.getDatasetUrn(), urn);
+    assertEquals(dsCompliance.getCompliancePurgeType(), purgeType);
+    assertEquals(dsCompliance.getCompliancePurgeNote(), purgeNote);
+    assertEquals(dsCompliance.getComplianceEntities(), "[]");
+    assertEquals(dsCompliance.getConfidentiality(), confidentiality);
+    assertEquals(dsCompliance.getModifiedBy(), actor);
+    assertEquals(dsCompliance.getModifiedTime(), new Integer(1));
+  }
+
+  @Test
+  public void testDsComplianceToDatasetCompliance() throws Exception {
+    DatasetComplianceDao complianceDao = new DatasetComplianceDao(null);
+
+    int id = 1;
+    String urn = "foo.bar";
+    String purgeType = "Auto";
+    String purgeNote = "None";
+    String confidentiality = "confidential";
+    String actor = "me";
+    int time = 1;
+
+    DsCompliance dsCompliance = new DsCompliance();
+    dsCompliance.setDatasetId(id);
+    dsCompliance.setDatasetUrn(urn);
+    dsCompliance.setCompliancePurgeType(purgeType);
+    dsCompliance.setCompliancePurgeNote(purgeNote);
+    dsCompliance.setComplianceEntities("[]");
+    dsCompliance.setConfidentiality(confidentiality);
+    dsCompliance.setModifiedBy(actor);
+    dsCompliance.setModifiedTime(time);
+
+    DatasetCompliance compliance = complianceDao.dsComplianceToDatasetCompliance(dsCompliance);
+
+    assertEquals(compliance.getDatasetId(), new Integer(id));
+    assertEquals(compliance.getDatasetUrn(), urn);
+    assertEquals(compliance.getComplianceType(), purgeType);
+    assertEquals(compliance.getCompliancePurgeNote(), purgeNote);
+    assertEquals(compliance.getComplianceEntities().size(), 0);
+    assertEquals(compliance.getConfidentiality(), confidentiality);
+    assertEquals(compliance.getModifiedBy(), actor);
+    assertEquals(compliance.getModifiedTime(), new Long(time * 1000));
   }
 }

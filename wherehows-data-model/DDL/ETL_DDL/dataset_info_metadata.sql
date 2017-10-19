@@ -109,21 +109,15 @@ CREATE TABLE `dataset_compliance` (
   `dataset_id`                INT(10) UNSIGNED NOT NULL,
   `dataset_urn`               VARCHAR(500)     NOT NULL,
   `compliance_purge_type`     VARCHAR(30)      DEFAULT NULL
-  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE',
+  COMMENT 'AUTO_PURGE,CUSTOM_PURGE,LIMITED_RETENTION,PURGE_NOT_APPLICABLE,PURGE_EXEMPTED',
+  `compliance_purge_note`     MEDIUMTEXT       DEFAULT NULL
+  COMMENT 'The additional information about purging if the purge type is PURGE_EXEMPTED',
   `compliance_entities`       MEDIUMTEXT       DEFAULT NULL
   COMMENT 'JSON: compliance fields',
   `confidentiality`           VARCHAR(50)      DEFAULT NULL
   COMMENT 'dataset level confidential category: confidential, highly confidential, etc',
   `dataset_classification`    VARCHAR(1000)    DEFAULT NULL
   COMMENT 'JSON: dataset level confidential classification',
-  `field_classification`      MEDIUMTEXT       DEFAULT NULL
-  COMMENT 'JSON: field level confidential classification',
-  `record_owner_type`         VARCHAR(50)      DEFAULT NULL
-  COMMENT 'MEMBER,CUSTOMER,INTERNAL,COMPANY,GROUP',
-  `retention_policy`          VARCHAR(200)     DEFAULT NULL
-  COMMENT 'JSON: specification of retention',
-  `geographic_affinity`       VARCHAR(500)     DEFAULT NULL
-  COMMENT 'JSON: must be stored in the geo region',
   `modified_by`               VARCHAR(50)      DEFAULT NULL
   COMMENT 'last modified by',
   `modified_time`             INT UNSIGNED DEFAULT NULL
