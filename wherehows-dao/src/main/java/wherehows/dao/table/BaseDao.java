@@ -239,7 +239,7 @@ public class BaseDao {
   }
 
   /**
-   * Execute an update or delete query String.
+   * Execute an update or delete HQL query String, not native query string.
    * @param queryStr String
    * @param params Parameters
    */
@@ -248,6 +248,7 @@ public class BaseDao {
     EntityManager entityManager = null;
     try {
       entityManager = entityManagerFactory.createEntityManager();
+      entityManager.getTransaction().begin();
 
       Query query = entityManager.createQuery(queryStr);
       for (Map.Entry<String, Object> param : params.entrySet()) {
@@ -255,6 +256,7 @@ public class BaseDao {
       }
 
       query.executeUpdate();
+      entityManager.getTransaction().commit();
     } finally {
       if (entityManager != null) {
         entityManager.close();

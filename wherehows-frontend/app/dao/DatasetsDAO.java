@@ -439,17 +439,17 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 				for (Map row : rows) {
 
 					Dataset ds = new Dataset();
-					Timestamp modified = (Timestamp)row.get(DatasetWithUserRowMapper.DATASET_MODIFIED_TIME_COLUMN);
-					ds.id = (Long)row.get(DatasetWithUserRowMapper.DATASET_ID_COLUMN);
-					ds.name = (String)row.get(DatasetWithUserRowMapper.DATASET_NAME_COLUMN);
-					ds.source = (String)row.get(DatasetWithUserRowMapper.DATASET_SOURCE_COLUMN);
-					ds.urn = (String)row.get(DatasetWithUserRowMapper.DATASET_URN_COLUMN);
-					ds.schema = (String)row.get(DatasetWithUserRowMapper.DATASET_SCHEMA_COLUMN);
-					String strOwner = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_ID_COLUMN);
-					String strOwnerName = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_NAME_COLUMN);
+					Timestamp modified = (Timestamp)row.get(DatasetRowMapper.DATASET_MODIFIED_TIME_COLUMN);
+					ds.id = (Long)row.get(DatasetRowMapper.DATASET_ID_COLUMN);
+					ds.name = (String)row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
+					ds.source = (String)row.get(DatasetRowMapper.DATASET_SOURCE_COLUMN);
+					ds.urn = (String)row.get(DatasetRowMapper.DATASET_URN_COLUMN);
+					ds.schema = (String)row.get(DatasetRowMapper.DATASET_SCHEMA_COLUMN);
+					String strOwner = (String)row.get(DatasetRowMapper.DATASET_OWNER_ID_COLUMN);
+					String strOwnerName = (String)row.get(DatasetRowMapper.DATASET_OWNER_NAME_COLUMN);
 					Long sourceModifiedTime =
-							(Long)row.get(DatasetWithUserRowMapper.DATASET_SOURCE_MODIFIED_TIME_COLUMN);
-					String properties = (String)row.get(DatasetWithUserRowMapper.DATASET_PROPERTIES_COLUMN);
+							(Long)row.get(DatasetRowMapper.DATASET_SOURCE_MODIFIED_TIME_COLUMN);
+					String properties = (String)row.get(DatasetRowMapper.DATASET_PROPERTIES_COLUMN);
 					try
 					{
 						if (StringUtils.isNotBlank(properties))
@@ -509,8 +509,8 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 						}
 					}
 
-					Integer favoriteId = (Integer)row.get(DatasetWithUserRowMapper.FAVORITE_DATASET_ID_COLUMN);
-					Long watchId = (Long)row.get(DatasetWithUserRowMapper.DATASET_WATCH_ID_COLUMN);
+					Integer favoriteId = (Integer)row.get(DatasetRowMapper.FAVORITE_DATASET_ID_COLUMN);
+					Long watchId = (Long)row.get(DatasetRowMapper.DATASET_WATCH_ID_COLUMN);
 
 					Long schemaHistoryRecordCount = 0L;
 					try
@@ -622,7 +622,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		int sortId = 0;
 		for (Map row : rows)
 		{
-			String ownerId = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_ID_COLUMN);
+			String ownerId = (String)row.get(DatasetRowMapper.DATASET_OWNER_ID_COLUMN);
 			String namespace = (String)row.get("namespace");
 			int ret = getJdbcTemplate().update(UPDATE_DATASET_OWNER_SORT_ID, ++sortId, id, ownerId, namespace);
 			if (ret <= 0)
@@ -656,7 +656,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		List<User> owners = new ArrayList<User>();
 		for (Map row : rows)
 		{
-			String ownerId = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_ID_COLUMN);
+			String ownerId = (String)row.get(DatasetRowMapper.DATASET_OWNER_ID_COLUMN);
 			String dislayName = (String)row.get("display_name");
 			if (StringUtils.isBlank(dislayName))
 			{
@@ -694,7 +694,7 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		int sortId = 0;
 		for (Map row : rows)
 		{
-			String ownerId = (String)row.get(DatasetWithUserRowMapper.DATASET_OWNER_ID_COLUMN);
+			String ownerId = (String)row.get(DatasetRowMapper.DATASET_OWNER_ID_COLUMN);
 			String dislayName = (String)row.get("display_name");
 			String namespace = (String)row.get("namespace");
 			if (StringUtils.isBlank(dislayName))
@@ -1792,9 +1792,9 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 		for (Map row : rows) {
 
 			DatasetListViewNode node = new DatasetListViewNode();
-			node.datasetId = (Long) row.get(DatasetWithUserRowMapper.DATASET_ID_COLUMN);
-			node.nodeName = (String) row.get(DatasetWithUserRowMapper.DATASET_NAME_COLUMN);
-			String nodeUrn = (String) row.get(DatasetWithUserRowMapper.DATASET_URN_COLUMN);
+			node.datasetId = (Long) row.get(DatasetRowMapper.DATASET_ID_COLUMN);
+			node.nodeName = (String) row.get(DatasetRowMapper.DATASET_NAME_COLUMN);
+			String nodeUrn = (String) row.get(DatasetRowMapper.DATASET_URN_COLUMN);
 			if (node.datasetId != null && node.datasetId > 0)
 			{
 				node.nodeUrl = "#/datasets/" + node.datasetId;

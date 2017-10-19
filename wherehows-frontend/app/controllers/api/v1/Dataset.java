@@ -32,9 +32,9 @@ import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import wherehows.dao.table.DatasetClassificationDao;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetsDao;
+import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
 import wherehows.models.view.DatasetCompliance;
@@ -42,6 +42,7 @@ import wherehows.models.table.DatasetDependency;
 import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 
 
@@ -53,8 +54,7 @@ public class Dataset extends Controller {
 
   private static final DatasetsDao DATASETS_DAO = Application.DAO_FACTORY.getDatasetsDao();
 
-  private static final DatasetClassificationDao CLASSIFICATION_DAO =
-      Application.DAO_FACTORY.getDatasetClassificationDao();
+  private static final DictDatasetDao DICT_DATASET_DAO = Application.DAO_FACTORY.getDictDatasetDao();
 
   private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
 
@@ -129,6 +129,63 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
+  public static Promise<Result> getDatasetViewById(int datasetId) {
+    DatasetView view = null;
+    try {
+      String urn = getDatasetUrnByIdOrCache(datasetId);
+
+      view = DATASET_VIEW_DAO.getDatasetView(datasetId, urn);
+    } catch (Exception e) {
+      Logger.warn("Failed to get dataset view", e);
+      JsonNode result = Json.newObject()
+          .put("status", "failed")
+          .put("error", "true")
+          .put("msg", "Fetch data Error: " + e.getMessage());
+
+      return Promise.promise(() -> ok(result));
+    }
+
+    if (view == null) {
+      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      return Promise.promise(() -> ok(result));
+    }
+
+    JsonNode result = Json.newObject().put("status", "ok").set("dataset", Json.toJson(view));
+    return Promise.promise(() -> ok(result));
+  }
+
+  public static Promise<Result> updateDatasetDeprecation(int datasetId) {
+    String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      JsonNode result = Json.newObject().put("status", "failed").put("error", "true").put("msg", "Unauthorized User.");
+
+      return Promise.promise(() -> ok(result));
+    }
+
+    try {
+      JsonNode record = request().body().asJson();
+
+      boolean deprecated = record.get("deprecated").asBoolean();
+
+      String deprecationNote = record.get("deprecationNote").asText();
+
+      String urn = getDatasetUrnByIdOrCache(datasetId);
+
+      DICT_DATASET_DAO.setDatasetDeprecation(datasetId, urn, deprecated, deprecationNote, username);
+    } catch (Exception e) {
+      JsonNode result = Json.newObject()
+          .put("status", "failed")
+          .put("error", "true")
+          .put("msg", "Update Compliance Info Error: " + e.getMessage());
+
+      Logger.warn("Update dataset deprecation info fail", e);
+
+      return Promise.promise(() -> ok(result));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().put("status", "ok")));
+  }
+
   private static Integer getDatasetIdByUrnOrCache(String urn) {
     String cacheKey = URN_CACHE_KEY + urn;
 
@@ -165,7 +222,7 @@ public class Dataset extends Controller {
 
     urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId);
     if (urn != null) {
-      Cache.set(cacheKey, urn);
+      Cache.set(cacheKey, urn, DATASET_ID_CACHE_PERIOD);
     }
     return urn;
   }

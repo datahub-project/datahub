@@ -88,6 +88,15 @@ public class DatasetsDao {
     return -1;
   }
 
+  /**
+   * Update dataset owners, set removed owners as deleted, and update existing owner information.
+   * @param jdbcTemplate JdbcTemplate
+   * @param user String
+   * @param datasetId int
+   * @param datasetUrn String
+   * @param owners List<DatasetOwner>
+   * @throws Exception
+   */
   public void updateDatasetOwners(JdbcTemplate jdbcTemplate, String user, int datasetId, String datasetUrn,
       List<DatasetOwner> owners) throws Exception {
     // first mark existing owners as deleted, new owners will be updated later

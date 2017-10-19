@@ -16,20 +16,26 @@ package wherehows.dao.view;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
+import wherehows.dao.table.DictDatasetDao;
+import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetView;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static wherehows.util.UrnUtil.*;
 
 
+@Slf4j
 public class DatasetViewDao extends BaseViewDao {
 
-  private static final Logger log = LoggerFactory.getLogger(DatasetViewDao.class);
+  private final DictDatasetDao _dictDatasetDao;
 
-  public DatasetViewDao(EntityManagerFactory factory) {
+  public DatasetViewDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
+    _dictDatasetDao = new DictDatasetDao(factory);
   }
 
   private static final String GET_DATASET_COLUMNS_BY_DATASET_ID =
@@ -53,12 +59,44 @@ public class DatasetViewDao extends BaseViewDao {
           + "c.id = ddfc.comment_id WHERE dfd.dataset_id = :datasetId AND dfd.field_id = :columnId ORDER BY dfd.sort_id";
 
   /**
+   * Get dataset view from dict dataset.
+   * @param datasetId int
+   * @param datasetUrn String
+   * @return DatasetView
+   */
+  public DatasetView getDatasetView(int datasetId, @Nonnull String datasetUrn) {
+    return fillDatasetViewFromDictDataset(_dictDatasetDao.findById(datasetId));
+  }
+
+  /**
+   * Convert DictDataset to DatasetView
+   * @param ds DictDataset
+   * @return DatasetView
+   */
+  public DatasetView fillDatasetViewFromDictDataset(DictDataset ds) {
+    String[] urnParts = splitWhUrn(ds.getUrn());
+
+    DatasetView view = new DatasetView();
+    view.setPlatform(urnParts[0]);
+    view.setNativeName(urnParts[1]);
+    view.setUri(ds.getUrn());
+    view.setNativeType(ds.getStorageType());
+    view.setProperties(ds.getProperties());
+    view.setRemoved(ds.getIsActive() != null && !ds.getIsActive());
+    view.setDeprecated(ds.getIsDeprecated());
+    view.setCreatedTime(1000L * ds.getCreatedTime());
+    view.setModifiedTime(1000L * ds.getModifiedTime());
+
+    return view;
+  }
+
+  /**
    * Get dataset columns by dataset id
    * @param datasetId int
    * @param datasetUrn String
    * @return List of DatasetColumn
    */
-  public List<DatasetColumn> getDatasetColumnsByID(int datasetId, String datasetUrn) {
+  public List<DatasetColumn> getDatasetColumnsByID(int datasetId, @Nonnull String datasetUrn) {
     Map<String, Object> params = new HashMap<>();
     params.put("datasetId", datasetId);
 
@@ -83,7 +121,7 @@ public class DatasetViewDao extends BaseViewDao {
     return columns;
   }
 
-  private void fillInColumnEntity(List<DatasetColumn> columns) {
+  private void fillInColumnEntity(@Nonnull List<DatasetColumn> columns) {
     for (DatasetColumn column : columns) {
       column.setFullFieldPath(isNotBlank(column.getParentPath()) ? column.getParentPath() + "." + column.getFieldName()
           : column.getFieldName());

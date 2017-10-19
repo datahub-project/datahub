@@ -88,6 +88,10 @@ HEAD          /api/v1/datasets/urntoid/:urn                                     
 
 GET           /api/v1/datasets/:id                                              controllers.api.v1.Dataset.getDatasetByID(id:Int)
 
+GET           /api/v1/datasets/:id/view                                         controllers.api.v1.Dataset.getDatasetViewById(id:Int)
+
+PUT           /api/v1/datasets/:id/deprecate                                    controllers.api.v1.Dataset.updateDatasetDeprecation(id:Int)
+
 GET           /api/v1/datasets/:id/owners                                       controllers.api.v1.Dataset.getDatasetOwnersByID(id:Int)
 
 POST          /api/v1/datasets/:id/owners                                       controllers.api.v1.Dataset.updateDatasetOwners(id:Int)
