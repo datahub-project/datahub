@@ -32,7 +32,7 @@ export default Component.extend({
      * @return {Promise<boolean>}
      */
     async handleStreamComment(strategy: StreamCommentActionsUnion): Promise<boolean> {
-      const [, ...args] = [...Array.from(arguments)];
+      const [, ...args] = arguments;
 
       // assert that handler is in CommentAction needed since we are calling from component template
       // TS currently has no jurisdiction there

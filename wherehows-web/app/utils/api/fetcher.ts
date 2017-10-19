@@ -5,8 +5,33 @@ import fetch from 'fetch';
  */
 interface FetchConfig {
   url: string;
-  headers?: { [key: string]: string };
+  headers?: { [key: string]: string } | Headers;
+  data?: object;
 }
+
+/**
+ * 
+ * 
+ * @param {FetchConfig} config 
+ */
+const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
+  headers: {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...headers
+  }
+});
+
+/**
+ * 
+ * 
+ * @template T 
+ * @param {string} url 
+ * @param {object} fetchConfig 
+ * @returns {Promise<T>} 
+ */
+const json = <T>(url: string, fetchConfig: object): Promise<T> =>
+  fetch(url, fetchConfig).then<T>(response => response.json());
 
 /**
  * Conveniently gets a JSON response using the fetch api
@@ -14,14 +39,46 @@ interface FetchConfig {
  * @return {Promise<T>}
  */
 const getJSON = <T>(config: FetchConfig): Promise<T> => {
-  const fetchConfig = {
-    method: 'GET',
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    ...(config.headers || {})
-  };
+  const fetchConfig = { ...baseFetchHeaders(config.headers), method: 'GET' };
 
-  return fetch(config.url, fetchConfig).then<T>(response => response.json());
+  return json<T>(config.url, fetchConfig);
+};
+
+/**
+ * 
+ * 
+ * @template T 
+ * @param {FetchConfig} config 
+ * @returns {Promise<T>} 
+ */
+const postJSON = <T>(config: FetchConfig): Promise<T> => {
+  const fetchConfig = Object.assign(
+    config.data && { body: JSON.stringify(config.data) },
+    baseFetchHeaders(config.headers),
+    { method: 'POST' }
+  );
+
+  return json<T>(config.url, fetchConfig);
+};
+
+const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
+  const fetchConfig = Object.assign(
+    config.data && { body: JSON.stringify(config.data) },
+    baseFetchHeaders(config.headers),
+    { method: 'DELETE' }
+  );
+
+  return json<T>(config.url, fetchConfig);
+};
+
+const putJSON = <T>(config: FetchConfig): Promise<T> => {
+  const fetchConfig = Object.assign(
+    config.data && { body: JSON.stringify(config.data) },
+    baseFetchHeaders(config.headers),
+    { method: 'PUT' }
+  );
+
+  return json<T>(config.url, fetchConfig);
 };
 
 /**
@@ -31,8 +88,8 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
  */
 const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   const fetchConfig = {
-    method: 'HEAD',
-    ...(config.headers || {})
+    ...baseFetchHeaders(config.headers),
+    method: 'HEAD'
   };
   const { ok, headers, statusText } = await fetch(config.url, fetchConfig);
 
@@ -43,4 +100,4 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   throw new Error(statusText);
 };
 
-export { getJSON, getHeaders };
+export { getJSON, postJSON, deleteJSON, putJSON, getHeaders };
