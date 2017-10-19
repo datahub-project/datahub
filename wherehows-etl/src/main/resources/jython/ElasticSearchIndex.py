@@ -252,7 +252,6 @@ class ElasticSearchIndex():
         url = self.elasticsearch_index_url + ':' + str(
             self.elasticsearch_port) + '/' + self.elasticsearch_index + '/dataset/_bulk'
         params = []
-
         while result:
             row = dict(zip(description, result))
 
@@ -276,12 +275,13 @@ class ElasticSearchIndex():
             params.append('{ "index": { "_id": ' + str(row['id']) + ' }}')
             params.append(json.dumps(dataset_detail))
 
-            if row_count % self.bulk_chunk_size == 0:
+
+            if row_count % self.bulk_chunk_size  == 0:
                 self.bulk_insert(params, url)
                 self.logger.info('dataset ' + str(row_count))
                 self.wh_con.commit()
+                params = []
 
-            params = []
             row_count += 1
             result = self.wh_cursor.fetchone()
         self.logger.info('total dataset row count is: ' + str(row_count))
@@ -344,8 +344,8 @@ class ElasticSearchIndex():
                 self.bulk_insert(params, url)
                 self.logger.info('metric ' + str(row_count))
                 self.wh_con.commit()
+                params = []
 
-            params = []
             row_count += 1
             result = self.wh_cursor.fetchone()
         if len(params) > 0:
