@@ -273,6 +273,7 @@ public class Constant {
   public static final String UMP_METRIC_CSV_FILE_KEY = "ump.metric_csv_file";
 
   // kafka client
+  public static final String KAFKA_WORKER_COUNT = "kafka.worker.count";
   public static final String KAFKA_CONSUMER_TOPIC_KEY = "kafka.consumer.topic";
   public static final String KAFKA_PRODUCER_TOPIC_KEY = "kafka.producer.topic";
   public static final String KAFKA_PROCESSOR_KEY = "kafka.processor";
