@@ -42,7 +42,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final DatasetComplianceDao _complianceDao = DAO_FACTORY.getDatasetComplianceDao();
 
-  private final int _maxDatasetNameLength = 500;
+  private final int _maxDatasetNameLength = 400;
 
   public MetadataChangeProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producer);
@@ -70,7 +70,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     }
 
     final DatasetIdentifier identifier = record.datasetIdentifier;
-    log.info("MCE: " + identifier); // TODO: remove. For debugging only
+    log.info("MCE: " + identifier + " TS: " + auditHeader.time); // TODO: remove. For debugging only
     final ChangeAuditStamp changeAuditStamp = record.changeAuditStamp;
     final ChangeType changeType = changeAuditStamp.type;
 
