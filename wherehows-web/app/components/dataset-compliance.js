@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
+import { getPlatformFromUrn } from 'wherehows-web/utils/validators/urn';
 import {
   classifiers,
   datasetClassifiers,
@@ -187,6 +188,15 @@ export default Component.extend({
    */
   fieldReviewOption: computed('isNewComplianceInfo', function() {
     return get(this, 'isNewComplianceInfo') ? 'showAll' : 'showReview';
+  }),
+
+  /**
+   * Extracts the dataset platform from the dataset urn
+   * @type {Ember.ComputedProperty}
+   * @return {string | void}
+   */
+  datasetPlatform: computed('complianceInfo.datasetUrn', function() {
+    return getPlatformFromUrn(get(this, 'complianceInfo.datasetUrn'));
   }),
 
   /**
@@ -723,6 +733,26 @@ export default Component.extend({
     return sourceDatasetClassification;
   },
 
+  /**
+   * Display a modal dialog requesting that the user check affirm that the purge type is exempt
+   * @return {Promise<void>}
+   */
+  showPurgeExemptionWarning() {
+    const dialogActions = {};
+
+    get(this, 'notifications').notify('confirm', {
+      header: 'Confirm purge exemption',
+      content:
+        'By choosing this option you understand that either Legal or HSEC may contact you to verify the purge exemption',
+      dialogActions
+    });
+
+    return new Promise((resolve, reject) => {
+      dialogActions['didConfirm'] = () => resolve();
+      dialogActions['didDismiss'] = () => reject();
+    });
+  },
+
   actions: {
     /**
      * Sets each datasetClassification value as false
@@ -955,6 +985,15 @@ export default Component.extend({
      */
     onChangeDatasetClassification(classifier, value) {
       return set(this.getDatasetClassificationRef(), classifier, value);
+    },
+
+    /**
+     * Updates the complianceType on the compliance policy
+     * @param {PurgePolicy} purgePolicy
+     */
+    onDatasetPurgePolicyChange(purgePolicy) {
+      // directly set the complianceType to the updated value
+      return set(this, 'complianceInfo.complianceType', purgePolicy);
     },
 
     /**

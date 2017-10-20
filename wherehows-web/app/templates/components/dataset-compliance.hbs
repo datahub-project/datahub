@@ -102,6 +102,15 @@
   {{#if (or isReadOnly isShowingComplianceEditMode)}}
     {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
   {{/if}}
+
+  {{#if isShowingCompliancePurgePolicy}}
+    {{purge-policy
+      platform=datasetPlatform
+      purgeNote=complianceInfo.compliancePurgeNote
+      purgePolicy=(readonly complianceInfo.complianceType)
+      onPolicyChange=(action "onDatasetPurgePolicyChange")
+    }}
+  {{/if}}
 </div>
 
 {{yield}}
