@@ -31,7 +31,7 @@ import static wherehows.util.UrnUtil.*;
 
 public class FieldDetailDao extends BaseDao {
 
-  private static final String DELETE_BY_DATASET_ID = "DELETE FROM dict_field_detail WHERE dataset_id = :datasetId";
+  private static final String DELETE_BY_DATASET_ID = "DELETE FROM DictFieldDetail WHERE datasetId = :datasetId";
 
   public FieldDetailDao(@Nonnull EntityManagerFactory factory) {
     super(factory);

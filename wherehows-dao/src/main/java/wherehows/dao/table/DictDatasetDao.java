@@ -42,6 +42,9 @@ public class DictDatasetDao extends BaseDao {
     super(factory);
   }
 
+  private static final String SET_DATASET_DEPRECATION =
+      "UPDATE DictDataset SET isDeprecated = :deprecated WHERE id = :datasetId";
+
   public DictDataset findByUrn(@Nonnull String urn) {
     return findBy(DictDataset.class, "urn", urn);
   }
@@ -166,5 +169,23 @@ public class DictDatasetDao extends BaseDao {
       }
       ds.setSourceModifiedTime(sourceTime);
     }
+  }
+
+  /**
+   * Set deprecation status of a dataset.
+   * @param datasetId int
+   * @param datasetUrn String
+   * @param isDeprecated boolean
+   * @param deprecationNote String
+   * @param user String
+   * @throws Exception
+   */
+  public void setDatasetDeprecation(int datasetId, @Nonnull String datasetUrn, boolean isDeprecated,
+      @Nullable String deprecationNote, @Nonnull String user) throws Exception {
+    Map<String, Object> params = new HashMap<>();
+    params.put("datasetId", datasetId);
+    params.put("deprecated", isDeprecated);
+
+    executeUpdate(SET_DATASET_DEPRECATION, params);
   }
 }

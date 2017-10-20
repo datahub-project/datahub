@@ -36,5 +36,4 @@ public class Dataset {
     public boolean hasSchemaHistory;
     public JsonNode properties;
     public List<User> owners;
-
 }

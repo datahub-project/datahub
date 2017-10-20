@@ -15,6 +15,7 @@ package wherehows.dao.view;
 
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
@@ -29,7 +30,7 @@ public class BaseViewDao {
 
   private final EntityManagerFactory _emFactory;
 
-  public BaseViewDao(EntityManagerFactory factory) {
+  public BaseViewDao(@Nonnull EntityManagerFactory factory) {
     this._emFactory = factory;
   }
 
@@ -43,7 +44,8 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected <T> List<T> getEntityListBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
+  protected <T> List<T> getEntityListBy(@Nonnull String sqlQuery, @Nonnull Class<T> classType,
+      @Nonnull Map<String, Object> params) {
     EntityManager entityManager = null;
     try {
       entityManager = _emFactory.createEntityManager();
@@ -71,7 +73,8 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected <T> T getEntityBy(String sqlQuery, Class<T> classType, Map<String, Object> params) {
+  protected <T> T getEntityBy(@Nonnull String sqlQuery, @Nonnull Class<T> classType,
+      @Nonnull Map<String, Object> params) {
     EntityManager entityManager = null;
     try {
       entityManager = _emFactory.createEntityManager();
@@ -97,7 +100,7 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected List<Object[]> getObjectArrayListBy(String sqlQuery, Map<String, Object> params) {
+  protected List<Object[]> getObjectArrayListBy(@Nonnull String sqlQuery, @Nonnull Map<String, Object> params) {
     EntityManager entityManager = null;
     try {
       entityManager = _emFactory.createEntityManager();
@@ -123,7 +126,7 @@ public class BaseViewDao {
    */
   @SneakyThrows
   @SuppressWarnings("unchecked")
-  protected List<Object> getObjectListBy(String sqlQuery, Map<String, Object> params) {
+  protected List<Object> getObjectListBy(@Nonnull String sqlQuery, @Nonnull Map<String, Object> params) {
     EntityManager entityManager = null;
     try {
       entityManager = _emFactory.createEntityManager();
