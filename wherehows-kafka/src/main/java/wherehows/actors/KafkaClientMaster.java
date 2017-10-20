@@ -13,14 +13,19 @@
  */
 package wherehows.actors;
 
+import akka.ConfigurationException;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -31,7 +36,7 @@ import wherehows.dao.DaoFactory;
 import wherehows.msgs.KafkaCommMsg;
 import wherehows.processors.KafkaMessageProcessor;
 
-import static wherehows.main.ApplicationStart.DAO_FACTORY;
+import static wherehows.main.ApplicationStart.*;
 import static wherehows.utils.KafkaClientUtil.*;
 
 
@@ -43,8 +48,8 @@ public class KafkaClientMaster extends UntypedActor {
   // Map of kafka job name to properties
   private static Map<String, Properties> _kafkaJobList;
 
-  // Map of kafka job name to worker actor
-  private static Map<String, ActorRef> _kafkaWorkers = new HashMap<>();
+  // List of kafka workers
+  private static List<ActorRef> _kafkaWorkers = new ArrayList<>();
 
   public KafkaClientMaster(String kafkaJobDir) {
     this.KAFKA_JOB_DIR = kafkaJobDir;
@@ -66,44 +71,18 @@ public class KafkaClientMaster extends UntypedActor {
       // handle one kafka topic
       final String kafkaJobName = entry.getKey();
       final Properties props = entry.getValue();
+
+      final int numberOfWorkers = Integer.valueOf(props.getProperty(Constant.KAFKA_WORKER_COUNT, "1"));
+
       log.info("Create Kafka client with config: " + props);
       try {
-        final String consumerTopic = props.getProperty(Constant.KAFKA_CONSUMER_TOPIC_KEY, null);
-        final String processor = props.getProperty(Constant.KAFKA_PROCESSOR_KEY, null);
-        final String producerTopic = props.getProperty(Constant.KAFKA_PRODUCER_TOPIC_KEY, null);
-
-        if (consumerTopic == null || processor == null) {
-          log.error("Missing required configs for: " + kafkaJobName);
-          continue;
-        }
-
-        // create consumer
-        Properties consumerProp = getPropertyTrimPrefix(props, "consumer");
-
-        KafkaConsumer<String, IndexedRecord> consumer = getConsumer(consumerProp);
-        consumer.subscribe(Collections.singletonList(consumerTopic));
-
-        // create producer if configured
-        KafkaProducer<String, IndexedRecord> producer = null;
-        if (producerTopic != null) {
-          Properties producerProp = getPropertyTrimPrefix(props, "producer");
-
-          producer = getProducer(producerProp);
-        }
-
-        // get processor instance
-        Class processorClass = Class.forName(processor);
-        Constructor<?> ctor = processorClass.getConstructor(DaoFactory.class, KafkaProducer.class);
-        KafkaMessageProcessor processorInstance = (KafkaMessageProcessor) ctor.newInstance(DAO_FACTORY, producer);
-
         // create worker
-        ActorRef worker =
-            getContext().actorOf(Props.create(KafkaWorker.class, consumerTopic, consumer, processorInstance));
-
-        _kafkaWorkers.put(consumerTopic, worker);
-        worker.tell("ApplicationStart", getSelf());
-
-        log.info("Started Kafka job: " + kafkaJobName + " listening to topic: " + consumerTopic);
+        for (int i = 0; i < numberOfWorkers; i++) {
+          ActorRef worker = makeKafkaWorker(kafkaJobName, props);
+          _kafkaWorkers.add(worker);
+          worker.tell("ApplicationStart", getSelf());
+          log.info("Started Kafka job: " + kafkaJobName);
+        }
       } catch (Exception e) {
         log.error("Error starting Kafka job: " + kafkaJobName, e);
       }
@@ -124,8 +103,40 @@ public class KafkaClientMaster extends UntypedActor {
   public void postStop() throws Exception {
     log.info("Terminating KafkaClientMaster...");
     KafkaWorker.RUNNING = false;
-    for (ActorRef worker : _kafkaWorkers.values()) {
+    for (ActorRef worker : _kafkaWorkers) {
       getContext().stop(worker);
     }
+  }
+
+  private ActorRef makeKafkaWorker(@Nonnull String kafkaJobName, @Nonnull Properties props) throws Exception {
+    final String consumerTopic = props.getProperty(Constant.KAFKA_CONSUMER_TOPIC_KEY, null);
+    final String processor = props.getProperty(Constant.KAFKA_PROCESSOR_KEY, null);
+    final String producerTopic = props.getProperty(Constant.KAFKA_PRODUCER_TOPIC_KEY, null);
+
+    if (consumerTopic == null || processor == null) {
+      throw new Exception("Missing required configs for: " + kafkaJobName);
+    }
+
+    // create consumer
+    Properties consumerProp = getPropertyTrimPrefix(props, "consumer");
+
+    KafkaConsumer<String, IndexedRecord> consumer = getConsumer(consumerProp);
+    consumer.subscribe(Collections.singletonList(consumerTopic));
+
+    // create producer if configured
+    KafkaProducer<String, IndexedRecord> producer = null;
+    if (producerTopic != null) {
+      Properties producerProp = getPropertyTrimPrefix(props, "producer");
+
+      producer = getProducer(producerProp);
+    }
+
+    // get processor instance
+    Class processorClass = Class.forName(processor);
+    Constructor<?> ctor = processorClass.getConstructor(DaoFactory.class, KafkaProducer.class);
+    KafkaMessageProcessor processorInstance = (KafkaMessageProcessor) ctor.newInstance(DAO_FACTORY, producer);
+
+    // create worker
+    return getContext().actorOf(Props.create(KafkaWorker.class, consumerTopic, consumer, processorInstance));
   }
 }
