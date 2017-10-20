@@ -14,8 +14,12 @@
 
 -->
 <configuration>
+  <property name="WHZ_LOG_DIR" value="${WHZ_LOG_DIR:- /var/tmp/wherehows}"/>
+  <timestamp key="bySecond" datePattern="yyyy-MM-dd'_'HH-mm-ss"/>
+  <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
 
-  <conversionRule conversionWord="coloredLevel" converterClass="play.api.Logger$ColoredLevel" />
+
+  <conversionRule conversionWord="coloredLevel" converterClass="play.api.Logger$ColoredLevel"/>
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
@@ -23,15 +27,31 @@
     </encoder>
   </appender>
 
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>{WHZ_LOG_DIR}/wherehows-backend-${bySecond}.log</file>
+    <append>true</append>
+    <encoder>
+      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+      <maxIndex>10</maxIndex>
+      <FileNamePattern>${WHZ_LOG_DIR}/${byDate}.log.%i</FileNamePattern>
+    </rollingPolicy>
+    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+      <MaxFileSize>20MB</MaxFileSize>
+    </triggeringPolicy>
+  </appender>
+
   <!--
     The logger name is typically the Java/Scala package name.
     This configures the log level to log at for a package and its children packages.
   -->
-  <logger name="play" level="INFO" />
-  <logger name="application" level="DEBUG" />
+  <logger name="play" level="INFO"/>
+  <logger name="application" level="DEBUG"/>
 
   <root level="ERROR">
-    <appender-ref ref="STDOUT" />
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
   </root>
 
 </configuration>
