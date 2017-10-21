@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
+import { getPlatformFromUrn } from 'wherehows-web/utils/validators/urn';
 import {
   classifiers,
   datasetClassifiers,
@@ -13,7 +14,10 @@ import {
   logicalTypesForIds,
   logicalTypesForGeneric,
   hasPredefinedFieldFormat,
-  getDefaultLogicalType
+  getDefaultLogicalType,
+  complianceSteps,
+  hiddenTrackingFields,
+  isExempt
 } from 'wherehows-web/constants';
 import {
   isPolicyExpectedShape,
@@ -23,20 +27,23 @@ import {
 import scrollMonitor from 'scrollmonitor';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
+import noop from 'wherehows-web/utils/noop';
 
 const {
-  assert,
   Component,
   computed,
+  computed: { gt },
   set,
   get,
+  run,
   setProperties,
   getProperties,
   getWithDefault,
-  String: { htmlSafe },
+  String: { classify },
   inject: { service }
 } = Ember;
 
+const { schedule } = run;
 const {
   complianceDataException,
   missingTypes,
@@ -46,13 +53,6 @@ const {
   successUploading,
   invalidPolicyData
 } = compliancePolicyStrings;
-
-const hiddenTrackingFieldsMsg = htmlSafe(
-  '<p>Some fields in this dataset have been hidden from the table(s) below. ' +
-    "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
-    '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
-    'Hopefully, this saves you some scrolling!</p>'
-);
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
@@ -84,13 +84,17 @@ const datasetClassifiersKeys = Object.keys(datasetClassifiers);
  */
 const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
 
-assert('`fieldIdentifierTypes` contains an object with a key `none`', typeof fieldIdentifierTypes.none === 'object');
-
 /**
  * Returns a list of changeSet fields that requires user attention
  * @type {function({}): Array<{ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }>}
  */
 const changeSetFieldsRequiringReview = arrayFilter(fieldChangeSetRequiresReview);
+
+/**
+ * The initial state of the compliance step for a zero based array
+ * @type {number}
+ */
+const initialStepIndex = -1;
 
 export default Component.extend({
   sortColumnWithName: 'identifierField',
@@ -99,24 +103,90 @@ export default Component.extend({
   searchTerm: '',
   helpText,
   fieldIdentifierOptions,
-  hiddenTrackingFields: hiddenTrackingFieldsMsg,
-  isEditingDatasetClassification: false,
-  isEditingCompliancePolicy: false,
+  hiddenTrackingFields,
+
+  /**
+   * Tracks the current index of the
+   * @type {number}
+   */
+  editStepIndex: initialStepIndex,
+  /**
+   * Converts the hash of complianceSteps to a list of steps
+   * @type {Array<{}>}
+   */
+  editSteps: Object.keys(complianceSteps)
+    .sort()
+    .map(key => complianceSteps[key]),
+
+  /**
+   * Handles the transition between steps in the compliance edit wizard
+   * including performing each step's post processing action once a user has
+   * completed a step
+   * @type {Ember.ComputedProperty}
+   * @returns {object} the editStep
+   * TODO: improve ergonomics by enabling async awareness in the templates
+   * visually, step transition happens before the post step action is actually completed,
+   * even though this is reversed if the object is rejected
+   */
+  editStep: computed(
+    'editStepIndex',
+    (function() {
+      // initialize the previous action with a no-op function
+      let previousAction = noop;
+      // initialize the last seen index to the same value as editStepIndex
+      let lastIndex = initialStepIndex;
+
+      return function() {
+        const currentIndex = get(this, 'editStepIndex');
+        // the current step in the edit sequence
+        const editStep = this.editSteps[currentIndex] || {};
+        const { name } = editStep;
+
+        if (name) {
+          // using the steps name, construct a reference to the step process handler
+          const nextAction = this.actions[`did${classify(name)}`];
+          let previousActionResult;
+
+          // if the transition is backward, then the previous action is ignored
+          currentIndex > lastIndex && (previousActionResult = previousAction.call(this));
+          lastIndex = currentIndex;
+
+          Promise.resolve(previousActionResult)
+            .then(() => {
+              // if the previous action is resolved successfully, then replace with the next processor
+              if (typeof nextAction === 'function') {
+                return (previousAction = nextAction);
+              }
+              previousAction = noop;
+            })
+            .catch(() => {
+              // if the previous action settles in a rejected state, replace with no-op before
+              // invoking the previousStep action to go back in the sequence
+              // batch previousStep invocation in a afterRender queue due to editStepIndex update
+              previousAction = noop;
+              run(() => {
+                if (this.isDestroyed || this.isDestroyed) {
+                  return;
+                }
+                schedule('afterRender', this, this.actions.previousStep);
+              });
+            });
+        }
+
+        return editStep;
+      };
+    })()
+  ),
+
   classNames: ['compliance-container'],
   classNameBindings: ['isEditing:compliance-container--edit-mode'],
+
   /**
    * Flag indicating that the component is in edit mode
-   * @type {String}
+   * @type {Ember.ComputedProperty}
+   * @return {boolean}
    */
-  isEditing: computed('isNewComplianceInfo', 'isEditingDatasetClassification', 'isEditingCompliancePolicy', function() {
-    const { isNewComplianceInfo, isEditingDatasetClassification, isEditingCompliancePolicy } = getProperties(
-      this,
-      'isNewComplianceInfo',
-      'isEditingDatasetClassification',
-      'isEditingCompliancePolicy'
-    );
-    return isNewComplianceInfo || isEditingDatasetClassification || isEditingCompliancePolicy;
-  }),
+  isEditing: gt('editStepIndex', initialStepIndex),
 
   /**
    * Convenience flag indicating the policy is not currently being edited
@@ -130,41 +200,6 @@ export default Component.extend({
    * @type {String}
    */
   isSaving: false,
-
-  /**
-   * Determines if the the compliance policy update form should be shown
-   * @type {Ember.computed}
-   * @return {boolean}
-   */
-  isShowingComplianceEditMode: computed('isNewComplianceInfo', 'isEditingCompliancePolicy', function() {
-    const { isNewComplianceInfo, isEditingCompliancePolicy, isEditingDatasetClassification } = getProperties(
-      this,
-      'isNewComplianceInfo',
-      'isEditingCompliancePolicy',
-      'isEditingDatasetClassification'
-    );
-
-    return (isNewComplianceInfo || isEditingCompliancePolicy) && !isEditingDatasetClassification;
-  }),
-
-  /**
-   * Proxy to the check if the dataset classification form is being edited and should be shown
-   * @type {Ember.computed}
-   * @return {boolean}
-   */
-  isShowingDatasetClassificationEditMode: computed.bool('isEditingDatasetClassification'),
-
-  datasetComplianceSteps: computed('isEditingCompliancePolicy', 'isEditingDatasetClassification', function() {
-    const { isEditingCompliancePolicy, isEditingDatasetClassification } = getProperties(
-      this,
-      'isEditingCompliancePolicy',
-      'isEditingDatasetClassification'
-    );
-
-    return [isEditingCompliancePolicy, isEditingDatasetClassification].map((_step, index) => ({
-      done: !index ? !!isEditingDatasetClassification : false
-    }));
-  }),
 
   /**
    * Returns a list of ui values and labels for review filter drop-down
@@ -187,6 +222,15 @@ export default Component.extend({
    */
   fieldReviewOption: computed('isNewComplianceInfo', function() {
     return get(this, 'isNewComplianceInfo') ? 'showAll' : 'showReview';
+  }),
+
+  /**
+   * Extracts the dataset platform from the dataset urn
+   * @type {Ember.ComputedProperty}
+   * @return {string | void}
+   */
+  datasetPlatform: computed('complianceInfo.datasetUrn', function() {
+    return getPlatformFromUrn(get(this, 'complianceInfo.datasetUrn'));
   }),
 
   /**
@@ -272,11 +316,10 @@ export default Component.extend({
   },
 
   /**
-   * Resets the editable state of the component, defaults to state returned in isEditing,
-   * currently driven by `isNewComplianceInfo` flag
+   * Resets the editable state of the component, dependent on `isNewComplianceInfo` flag
    */
   resetEdit() {
-    return setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: false });
+    return get(this, 'isNewComplianceInfo') ? this.updateStep(0) : this.updateStep(initialStepIndex);
   },
 
   /**
@@ -723,6 +766,34 @@ export default Component.extend({
     return sourceDatasetClassification;
   },
 
+  /**
+   * Display a modal dialog requesting that the user check affirm that the purge type is exempt
+   * @return {Promise<void>}
+   */
+  showPurgeExemptionWarning() {
+    const dialogActions = {};
+
+    get(this, 'notifications').notify('confirm', {
+      header: 'Confirm purge exemption',
+      content:
+        'By choosing this option you understand that either Legal or HSEC may contact you to verify the purge exemption',
+      dialogActions
+    });
+
+    return new Promise((resolve, reject) => {
+      dialogActions['didConfirm'] = () => resolve();
+      dialogActions['didDismiss'] = () => reject();
+    });
+  },
+
+  /**
+   * Updates the currently active step in the edit sequence
+   * @param {number} step
+   */
+  updateStep(step) {
+    set(this, 'editStepIndex', step);
+  },
+
   actions: {
     /**
      * Sets each datasetClassification value as false
@@ -775,16 +846,27 @@ export default Component.extend({
     },
 
     /**
-     * Handler for setting the compliance policy into edit mode and rendering
+     * Progresses 1 step backward in the edit sequence
      */
-    onEditCompliancePolicy() {
-      setProperties(this, { isEditingCompliancePolicy: true, isEditingDatasetClassification: false });
+    previousStep() {
+      const editStepIndex = get(this, 'editStepIndex');
+      const nextState = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
+      this.updateStep(nextState);
+    },
+
+    /**
+     * Progresses 1 step forward in the edit sequence
+     */
+    nextStep() {
+      const { editStepIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
+      const nextState = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
+      this.updateStep(nextState);
     },
 
     /**
      * Handler for setting the dataset classification into edit mode and rendering into DOM
      */
-    async onEditDatasetClassification() {
+    async didEditCompliancePolicy() {
       const isConfirmed = await this.confirmUnformattedFields();
 
       if (isConfirmed) {
@@ -799,13 +881,28 @@ export default Component.extend({
             window.scrollTo(0, 0);
           }
 
-          return;
+          // return;
+          throw e;
         }
 
         // If user provides confirmation for unformatted fields or there are none,
         // then validate fields against expectations
         // otherwise inform user of validation exception
-        setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: true });
+        // setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: true });
+      } else {
+        throw new Error('unConfirmedUnformattedFields');
+      }
+
+      return isConfirmed;
+    },
+
+    /**
+     * Handles post processing tasks after the purge policy step has been completed
+     * @return {void|Promise.<void>}
+     */
+    didEditPurgePolicy() {
+      if (isExempt(get(this, 'complianceInfo.complianceType'))) {
+        return this.showPurgeExemptionWarning();
       }
     },
 
@@ -955,6 +1052,15 @@ export default Component.extend({
      */
     onChangeDatasetClassification(classifier, value) {
       return set(this.getDatasetClassificationRef(), classifier, value);
+    },
+
+    /**
+     * Updates the complianceType on the compliance policy
+     * @param {PurgePolicy} purgePolicy
+     */
+    onDatasetPurgePolicyChange(purgePolicy) {
+      // directly set the complianceType to the updated value
+      return set(this, 'complianceInfo.complianceType', purgePolicy);
     },
 
     /**

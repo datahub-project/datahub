@@ -44,11 +44,7 @@
   $breakpoint-query: map-get($breakpoints, $breakpoint);
 
   @if $breakpoint-query {
-    $query: if(
-                    type-of($breakpoint-query) == 'string',
-                    unquote($breakpoint-query),
-                    inspect($breakpoint-query)
-    );
+    $query: if(type-of($breakpoint-query) == 'string', unquote($breakpoint-query), inspect($breakpoint-query));
 
     @media #{$query} {
       @content;
@@ -84,6 +80,34 @@
   overflow-y: auto;
 }
 
+/// Proxy for AD container styles
+@mixin nacho-container {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  background-color: set-color(white, base);
+  background-clip: padding-box;
+  border-radius: 2px;
+  padding: item-spacing(4);
+  transition: box-shadow 83ms;
+}
+
+/// Applies rules to render an element with a pill shape
+/// @param {Color} $bg-color the background color for the pill
+/// @param {Color} $color font/text color
+/// @param {Color} $border-color=$bg-color the color to apply to the pill border
+///@example - Usage
+/// .foo {
+///   @include pill(get-color(gray1), get-color(gray6));
+/// }
+@mixin pill($bg-color, $color, $border-color: $bg-color) {
+  border-radius: 32px;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  color: $color;
+  display: inline-block;
+  line-height: item-spacing(3);
+  padding: 1px 10px;
+}
+
 /// Temp implementation before Auto Prefixer is installed
 /// @link https://github.com/postcss/autoprefixer
 
@@ -99,7 +123,6 @@
   #{$property}: $value;
 }
 
-
 /// Maintains the aspect ratio for a wrapped element
 /// @param {Number} $width number value for the container's width ratio
 /// @param {Number} $height number value for the container's with ratio
@@ -107,7 +130,7 @@
   position: relative;
 
   &::before {
-    content: "";
+    content: '';
     display: block;
     width: 100%;
     padding-top: ($height / $width) * 100%;

@@ -14,8 +14,23 @@ const specialFlowUrnRegex = /(?:\?urn=)([a-z0-9_\-/{}\s]+)/i;
 
 /**
  * Asserts that a provided string matches the urn pattern above
- * @param {String} candidateUrn the string to test on
+ * @param {string} candidateUrn the string to test on
  */
-export default (candidateUrn: string) => urnRegex.test(String(candidateUrn));
+const isUrn = (candidateUrn: string) => urnRegex.test(String(candidateUrn));
 
-export { urnRegex, specialFlowUrnRegex };
+/**
+ * Extracts the platform string from the candidate urn string
+ * @param {string} candidateUrn the urn string with leading platform identifier
+ * @returns {string | void}
+ */
+const getPlatformFromUrn = (candidateUrn: string) => {
+  const matches = urnRegex.exec(candidateUrn);
+  if (matches) {
+    const [, platform] = matches;
+    return platform.toUpperCase();
+  }
+};
+
+export default isUrn;
+
+export { urnRegex, specialFlowUrnRegex, getPlatformFromUrn };
