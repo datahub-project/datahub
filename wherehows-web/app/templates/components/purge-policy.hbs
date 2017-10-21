@@ -1,0 +1,32 @@
+{{#each-in purgePolicyProps as |purgeType prop|}}
+  <li
+    class="purge-policy-list__item {{unless (contains platform prop.platforms) 'purge-policy-list__item--disabled'}}">
+
+    {{#radio-button-composer
+      name="dataset-purge-policy"
+      value=(if (contains platform prop.platforms) purgeType "")
+      disabled=(if (contains platform prop.platforms) false true)
+      groupValue=(readonly purgePolicy)
+      changed=(action "onChange")
+    }}
+      {{prop.displayAs}}
+    {{/radio-button-composer}}
+
+    {{#unless (contains platform prop.platforms)}}
+      <p class="purge-policy-list__availability">
+        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{platform}}</span>
+      </p>
+    {{/unless}}
+
+    <p>{{prop.desc}}</p>
+
+    {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
+
+      {{medium-content-editable
+        value=purgeNote
+        options=editorOptions
+        class="comment-new__content"}}
+
+    {{/if}}
+  </li>
+{{/each-in}}

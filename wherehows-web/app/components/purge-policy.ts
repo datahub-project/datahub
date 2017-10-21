@@ -1,20 +1,14 @@
 import Ember from 'ember';
-import { baseCommentEditorOptions, PurgePolicy, purgePolicyProps } from 'wherehows-web/constants';
+import {
+  baseCommentEditorOptions,
+  exemptPolicy,
+  isExempt,
+  PurgePolicy,
+  purgePolicyProps
+} from 'wherehows-web/constants';
 import noop from 'wherehows-web/utils/noop';
 
 const { Component, get, set } = Ember;
-
-/**
- * A cache for the exempt policy
- * @type {PurgePolicy}
- */
-const exemptPolicy = PurgePolicy.PurgeExempt;
-
-/**
- * Checks that a purge policy is exempt
- * @param {PurgePolicy} policy the policy to check
- */
-const isExempt = (policy: PurgePolicy) => policy === exemptPolicy;
 
 export default Component.extend({
   tagName: 'ul',

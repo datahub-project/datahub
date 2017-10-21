@@ -1,4 +1,8 @@
+import Ember from 'ember';
 import { fieldIdentifierTypes } from 'wherehows-web/constants/metadata-acquisition';
+
+const { String: { htmlSafe } } = Ember;
+
 /**
  * Defines a map of values for the compliance policy on a dataset
  * @type {object}
@@ -51,4 +55,30 @@ const fieldIdentifierOptions: Array<{
   };
 });
 
-export { compliancePolicyStrings, fieldIdentifierOptions };
+/**
+ * Defines the html string for informing the user of hidden tracking fields
+ * @type {Ember.String.htmlSafe}
+ */
+const hiddenTrackingFields = htmlSafe(
+  '<p>Some fields in this dataset have been hidden from the table(s) below. ' +
+    "These are tracking fields for which we've been able to predetermine the compliance classification.</p>" +
+    '<p>For example: <code>header.memberId</code>, <code>requestHeader</code>. ' +
+    'Hopefully, this saves you some scrolling!</p>'
+);
+
+/**
+ * Defines the sequence of edit steps in the compliance policy component
+ */
+const complianceSteps = {
+  0: {
+    name: 'editCompliancePolicy'
+  },
+  1: {
+    name: 'editPurgePolicy'
+  },
+  2: {
+    name: 'editDatasetClassification'
+  }
+};
+
+export { compliancePolicyStrings, fieldIdentifierOptions, complianceSteps, hiddenTrackingFields };

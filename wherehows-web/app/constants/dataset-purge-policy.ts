@@ -59,4 +59,16 @@ const purgePolicyProps: PurgePolicyProperties = {
   }
 };
 
-export { PurgePolicy, purgePolicyProps };
+/**
+ * A cache for the exempt policy
+ * @type {PurgePolicy}
+ */
+const exemptPolicy = PurgePolicy.PurgeExempt;
+
+/**
+ * Checks that a purge policy is exempt
+ * @param {PurgePolicy} policy the policy to check
+ */
+const isExempt = (policy: PurgePolicy) => policy === PurgePolicy.PurgeExempt;
+
+export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy };
