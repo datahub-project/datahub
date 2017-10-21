@@ -11,8 +11,7 @@ const { assert, Logger: { warn } } = Ember;
  */
 const createInitialComplianceInfo = datasetId => ({
   datasetId,
-  // default to first item in compliance types list
-  complianceType: 'AUTO_PURGE',
+  complianceType: '',
   compliancePurgeNote: '',
   complianceEntities: [],
   datasetClassification: {}
