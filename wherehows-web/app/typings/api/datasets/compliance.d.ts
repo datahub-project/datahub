@@ -1,56 +1,62 @@
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
+import {
+  FieldIdValues,
+  Classification,
+  IdLogicalType,
+  CustomIdLogicalType,
+  NonIdLogicalType,
+  DatasetClassifiers
+} from 'wherehows-web/constants';
 
 /**
- * Describes the prediction property in a compliance suggestion
- */
-interface IPrediction {
-  // Percentage confidence level for this prediction
-  confidence: number;
-  // The predicted value
-  value: string;
-}
-
-/**
- * Describes the interface for a field suggestion
- * values for the keys are extracted from the JSON response
- * from the compliance/suggestion endpoint and do not necessarily match up
- * with the key [`identifierTypePrediction` | `logicalTypePrediction`] predicted values
- * @link extractTypesSuggestion gives further detail
- */
-interface IFieldSuggestion {
-  identifierType?: string;
-  logicalType?: string;
-  confidence: number;
-}
-
-/**
- * Describes shape of a compliance auto suggestion
+ * Describes the interface for a dataset's compliance suggestion
+ * @export
+ * @interface IComplianceSuggestion
  */
 export interface IComplianceSuggestion {
-  // The name of the field
-  fieldName: string;
-  // Prediction for the identifierType
-  identifierTypePrediction: IPrediction | null;
-  // Prediction for the logicalType
-  logicalTypePrediction: IPrediction | null;
-}
-
-/**
- * Describes the expected properties for the autoClassification on a compliance suggestions api response
- */
-interface IAutoClassification {
   // The urn for the dataset
   urn: string;
-  // a JSON string: array of suggestions available for  fields on this dataset
-  classificationResult: string;
+  // A list of suggested values for each field
+  suggestedFieldClassification: Array<ISuggestedFieldClassification>;
+  // A key value pair for dataset classification keys to suggested boolean values
+  suggestedDatasetClassification: ISuggestedDatasetClassification;
   // the last modified date for the suggestion
   lastModified: number;
 }
 
 /**
+ * Describes the interface for an object containing suggested compliance metadata field values
+ * @export
+ * @interface ISuggestedFieldClassification
+ */
+export interface ISuggestedFieldClassification {
+  confidenceLevel: number;
+  suggestion: {
+    identifierType: FieldIdValues;
+    identifierField: string;
+    logicalType: IdLogicalType | CustomIdLogicalType | NonIdLogicalType;
+    securityClassification: Classification;
+  };
+}
+
+/**
+ * Describes the interface for an object containing suggested compluabce metadata for a dataset
+ * @export
+ * @interface ISuggestedDatasetClassification
+ */
+export type ISuggestedDatasetClassification = {
+  [K in DatasetClassifiers]: {
+    contain: boolean;
+    confidenceLevel: number;
+  }
+};
+
+/**
  * Describes the expected affirmative API response for a the compliance suggestion
+ * @export
+ * @interface IComplianceSuggestionResponse
  */
 export interface IComplianceSuggestionResponse {
   status: ApiStatus;
-  autoClassification?: IAutoClassification;
+  complianceSuggestion?: IComplianceSuggestion;
 }

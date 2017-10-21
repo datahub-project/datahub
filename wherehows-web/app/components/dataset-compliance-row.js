@@ -12,22 +12,10 @@ import {
   SuggestionIntent
 } from 'wherehows-web/constants';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
-import { compact } from 'wherehows-web/utils/array';
-import {
-  highConfidenceSuggestions,
-  accumulateFieldSuggestions
-} from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
 const { computed, get, getProperties, getWithDefault } = Ember;
-
-/**
- * Extracts the suggestions for identifierType, logicalType suggestions, and confidence from a list of predictions
- * The last item in the list holds the highest precedence
- * @param {Array<Object>} predictions
- * @returns Array<Object>
- */
-const getFieldSuggestions = predictions => accumulateFieldSuggestions(highConfidenceSuggestions(compact(predictions)));
 
 export default DatasetTableRow.extend({
   /**
@@ -205,16 +193,10 @@ export default DatasetTableRow.extend({
     // this line takes that into account and substitutes an empty suggestion
     const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? {} : field;
 
-    if (suggestion) {
-      const { identifierTypePrediction, logicalTypePrediction } = suggestion;
-      // The order of the array supplied to getFieldSuggestions is importance to it's order of operations
-      // the last element in the array takes highest precedence: think Object.assign
-      const { identifierType, logicalType, confidence } = getFieldSuggestions([
-        logicalTypePrediction,
-        identifierTypePrediction
-      ]);
+    if (suggestion && isHighConfidenceSuggestion(suggestion)) {
+      const { identifierType, logicalType, confidenceLevel: confidence } = suggestion;
 
-      return { identifierType, logicalType, confidence };
+      return { identifierType, logicalType, confidence: +(confidence * 100).toFixed(2) };
     }
   }),
 

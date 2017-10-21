@@ -1,6 +1,6 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
-import { datasetComplianceFor, datasetComplianceSuggestionsFor } from 'wherehows-web/utils/api/datasets/compliance';
+import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
 import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
 import {
   readDatasetColumns,
@@ -173,8 +173,8 @@ export default Route.extend({
         try {
           const [columns, compliance, complianceSuggestion, datasetComments] = await Promise.all([
             readDatasetColumns(id),
-            datasetComplianceFor(id),
-            datasetComplianceSuggestionsFor(id),
+            readDatasetCompliance(id),
+            readDatasetComplianceSuggestion(id),
             readDatasetComments(id)
           ]);
           const { complianceInfo, isNewComplianceInfo } = compliance;

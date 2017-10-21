@@ -63,7 +63,7 @@
     "prettier": "^1.5.3",
     "redux": "^3.6.0",
     "redux-thunk": "^2.2.0",
-    "typescript": "^2.4.2"
+    "typescript": "^2.5.3"
   },
   "engines": {
     "node": ">= 0.12.0"
@@ -92,7 +92,7 @@
   "lint-staged": {
     "gitDir": "../",
     "linters": {
-      "wherehows-web/{app,tests}/**/*.{ts,js,scss,css}": [
+      "wherehows-web/{app,tests,mirage}/**/*.{ts,js,scss,css}": [
         "./node_modules/.bin/prettier --print-width 120 --single-quote --write",
         "git add"
       ]

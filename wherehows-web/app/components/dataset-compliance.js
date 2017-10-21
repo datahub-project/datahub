@@ -2,7 +2,7 @@ import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
   classifiers,
-  datasetClassifiers,
+  DatasetClassifiers,
   fieldIdentifierTypes,
   fieldIdentifierOptions,
   fieldIdentifierTypeIds,
@@ -74,9 +74,9 @@ const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
 const datasetClassificationKey = 'complianceInfo.datasetClassification';
 /**
  * A list of available keys for the datasetClassification map on the security specification
- * @type {Array}
+ * @type {Array<keyof typeof DatasetClassifiers>}
  */
-const datasetClassifiersKeys = Object.keys(datasetClassifiers);
+const datasetClassifiersKeys = Object.keys(DatasetClassifiers);
 
 /**
  * A reference to the compliance policy entities on the complianceInfo map
@@ -326,8 +326,9 @@ export default Component.extend({
   }),
 
   /**
-   * @type {Array.<Object>} Filters the mapped compliance data fields without `kafka type`
+   * @type {Ember.ComputedProperty} Filters the mapped compliance data fields without `kafka type`
    *   tracking headers
+   * @return {Array<object>}
    */
   truncatedColumnFields: computed('schemaFieldNamesMappedToDataTypes', function() {
     return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).filter(
@@ -400,7 +401,7 @@ export default Component.extend({
         {
           classifier,
           value: sourceDatasetClassification[classifier],
-          label: datasetClassifiers[classifier]
+          label: DatasetClassifiers[classifier]
         }
       ];
     }, []);
@@ -512,17 +513,22 @@ export default Component.extend({
   identifierFieldToSuggestion: computed('complianceSuggestion', function() {
     const identifierFieldToSuggestion = {};
     const complianceSuggestion = get(this, 'complianceSuggestion') || {};
-    const { lastModified: suggestionsModificationTime, complianceSuggestions = [] } = complianceSuggestion;
+    const { lastModified: suggestionsModificationTime, suggestedFieldClassification = [] } = complianceSuggestion;
 
-    // If the compliance suggestions array contains suggestions the create reduced map,
+    // If the compliance suggestions array contains suggestions the create reduced lookup map,
     // otherwise, ignore
-    if (complianceSuggestions.length) {
-      return complianceSuggestions.reduce(
-        (identifierFieldToSuggestion, { fieldName, identifierTypePrediction, logicalTypePrediction }) => ({
+    if (suggestedFieldClassification.length) {
+      return suggestedFieldClassification.reduce(
+        (
+          identifierFieldToSuggestion,
+          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel }
+        ) => ({
           ...identifierFieldToSuggestion,
-          [fieldName]: {
-            identifierTypePrediction,
-            logicalTypePrediction,
+          [identifierField]: {
+            identifierType,
+            logicalType,
+            securityClassification,
+            confidenceLevel,
             suggestionsModificationTime
           }
         }),

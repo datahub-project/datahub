@@ -25,20 +25,19 @@ const datasetComplianceSuggestionsUrlById = (id: number): string => `${datasetCo
  * @param {number} id the id of the dataset
  * @return {Promise<{isNewComplianceInfo: boolean, complianceInfo: *}>}
  */
-const datasetComplianceFor = async (id: number): Promise<{ isNewComplianceInfo: boolean; complianceInfo: any }> => {
+const readDatasetCompliance = async (id: number): Promise<{ isNewComplianceInfo: boolean; complianceInfo: any }> => {
   assert(`Expected id to be a number but received ${typeof id}`, typeof id === 'number');
-  const failedStatus = 'failed';
   const notFound = 'actual 0';
   // complianceInfo contains the compliance data for the specified dataset
   let {
     msg = '',
     status,
     complianceInfo
-  }: { msg: string; status: string; complianceInfo: any } = await Promise.resolve(
+  }: { msg: string; status: ApiStatus; complianceInfo: any } = await Promise.resolve(
     getJSON(datasetComplianceUrlById(id))
   );
   // If the endpoint responds with a failed status, and the msg contains the indicator that a compliance does not exist
-  const isNewComplianceInfo: boolean = status === failedStatus && String(msg).includes(notFound);
+  const isNewComplianceInfo: boolean = status === ApiStatus.FAILED && String(msg).includes(notFound);
 
   if (isNewComplianceInfo) {
     complianceInfo = createInitialComplianceInfo(id);
@@ -50,30 +49,16 @@ const datasetComplianceFor = async (id: number): Promise<{ isNewComplianceInfo: 
 /**
  * Requests the compliance suggestions for a given dataset Id and returns the suggestion list
  * @param {number} id the id of the dataset
- * @return {Promise<Array<IComplianceSuggestion>>}
+ * @return {Promise<IComplianceSuggestion>}
  */
-const datasetComplianceSuggestionsFor = async (
-  id: number
-): Promise<{ complianceSuggestions: Array<IComplianceSuggestion>; lastModified: number | void }> => {
+const readDatasetComplianceSuggestion = async (id: number): Promise<IComplianceSuggestion> => {
   const response: IComplianceSuggestionResponse = await Promise.resolve(
     getJSON(datasetComplianceSuggestionsUrlById(id))
   );
-  const { status, autoClassification = { classificationResult: '[]', lastModified: 0 } } = response;
-  let complianceSuggestions: Array<IComplianceSuggestion> = [];
-  let lastModifiedDate;
+  const emptySuggestion = {} as IComplianceSuggestion;
+  const { complianceSuggestion = emptySuggestion } = response;
 
-  if (status === ApiStatus.OK) {
-    const { classificationResult, lastModified } = autoClassification;
-
-    try {
-      complianceSuggestions = [...JSON.parse(classificationResult)];
-      lastModifiedDate = lastModified;
-    } catch (e) {
-      throw e;
-    }
-  }
-
-  return { complianceSuggestions, lastModified: lastModifiedDate };
+  return complianceSuggestion;
 };
 
-export { datasetComplianceFor, datasetComplianceSuggestionsFor, datasetComplianceUrlById };
+export { readDatasetCompliance, readDatasetComplianceSuggestion, datasetComplianceUrlById };
