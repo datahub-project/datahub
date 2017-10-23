@@ -5,7 +5,7 @@ import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
 import {
   readDatasetColumns,
   columnDataTypesAndFieldNames,
-  columnsWithHtmlComments
+  augmentObjectsWithHtmlComments
 } from 'wherehows-web/utils/api/datasets/columns';
 
 import {
@@ -178,7 +178,7 @@ export default Route.extend({
             readDatasetComments(id)
           ]);
           const { complianceInfo, isNewComplianceInfo } = compliance;
-          const schemas = columnsWithHtmlComments(columns);
+          const schemas = augmentObjectsWithHtmlComments(columns);
 
           setProperties(controller, {
             complianceInfo,

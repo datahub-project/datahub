@@ -1,6 +1,7 @@
 import Component from '@ember/component';
+import ComputedProperty from '@ember/object/computed';
+import MutableArray from '@ember/array/mutable';
 import { getProperties, get, set } from '@ember/object';
-import EmberArray from '@ember/array';
 import { inject } from '@ember/service';
 import { assert } from '@ember/debug';
 import { task } from 'ember-concurrency';
@@ -13,6 +14,7 @@ import {
 import { augmentObjectsWithHtmlComments } from 'wherehows-web/utils/api/datasets/columns';
 import { IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 enum SchemaCommentActions {
   modify = 'modify',
@@ -23,7 +25,7 @@ enum SchemaCommentActions {
 interface IGetCommentsTaskArgs {
   datasetId: number;
   columnId: number;
-  comments: Array<IDatasetComment>;
+  comments: MutableArray<IDatasetComment>;
 }
 
 export class SchemaComment extends Component {
@@ -37,9 +39,8 @@ export class SchemaComment extends Component {
    * 
    * 
    * @memberof SchemaComment
-   * @type {Notifications}
    */
-  notifications = inject();
+  notifications: ComputedProperty<Notifications> = inject();
 
   SchemaCommentActions = SchemaCommentActions;
 
@@ -48,30 +49,31 @@ export class SchemaComment extends Component {
     const withHtmlComments = augmentObjectsWithHtmlComments(
       schemaComments.map(({ text }) => <IDatasetColumn>{ comment: text })
     );
-    EmberArray.setObjects.call(comments, withHtmlComments);
+    comments.setObjects.call(comments, withHtmlComments);
   }).drop();
 
   actions = {
-    showComments() {
+    showComments(this: SchemaComment) {
       const props = getProperties(this, ['datasetId', 'columnId', 'comments']);
       set(this, 'isShowingFieldComment', true);
 
       return get(this, 'getComments').perform(props);
     },
 
-    hideComments() {
+    hideComments(this: SchemaComment) {
       return set(this, 'isShowingFieldComment', false);
     },
 
-    async handleSchemaComment(strategy: keyof typeof SchemaCommentActions) {
+    async handleSchemaComment(this: SchemaComment, strategy: keyof typeof SchemaCommentActions) {
       const [, { text }] = arguments;
-      const { datasetId, columnId, 'notifications.notify': notify, comments, getComments } = getProperties(this, [
+      const { datasetId, columnId, notifications, comments, getComments } = getProperties(this, [
         'datasetId',
         'columnId',
-        'notifications.notify',
+        'notifications',
         'comments',
         'getComments'
       ]);
+      const { notify } = notifications;
 
       assert(`Expected action to be one of ${Object.keys(SchemaCommentActions)}`, strategy in SchemaCommentActions);
 
@@ -83,10 +85,10 @@ export class SchemaComment extends Component {
 
       try {
         await action();
-        notify('success', { content: 'Success!' });
+        notify(NotificationEvent.success, { content: 'Success!' });
         getComments.perform({ datasetId, columnId, comments });
       } catch (e) {
-        notify('error', { content: e.message });
+        notify(NotificationEvent.error, { content: e.message });
       }
 
       return false;

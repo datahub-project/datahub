@@ -1,7 +1,7 @@
-import Ember from 'ember';
+import Service from '@ember/service';
+import { setProperties, get, set } from '@ember/object';
 import { delay } from 'wherehows-web/utils/promise-delay';
 
-const { Service, set, get, setProperties } = Ember;
 /**
  * Flag indicating the current notification queue is being processed
  * @type {boolean}
@@ -29,7 +29,7 @@ type NotificationType = 'modal' | 'toast';
  * Describes the proxy handler for INotifications
  */
 interface INotificationHandlerTrap<T, K extends keyof T> {
-  get(this: Ember.Service, target: T, handler: K): T[K];
+  get(this: Notifications, target: T, handler: K): T[K];
 }
 
 /**
@@ -240,68 +240,14 @@ let proxiedNotifications: INotificationHandler;
 /**
  * Defines and exports the notification Service implementation and API
  */
-const NotificationService = Service.extend({
-  isShowingModal: false,
+export default class Notifications extends Service {
+  isShowingModal = false;
+  isShowingToast = false;
+  toast: INotification;
+  modal: INotification;
 
-  /**
-   * Takes a type of notification and invokes a handler for that event, then enqueues the notification
-   * to the notifications queue
-   * @param {NotificationEvent} type
-   * @param params optional list of parameters for the notification handler
-   */
-  notify(type: NotificationEvent, ...params: any[]): void {
-    if (!(type in proxiedNotifications)) {
-      return;
-    }
-
-    return enqueue(proxiedNotifications[type](...params), notificationsQueue);
-  },
-
-  actions: {
-    /**
-     * Removes the current toast from view and invokes the notification resolution resolver
-     */
-    dismissToast() {
-      const { notificationResolution: { onComplete } }: INotification = get(this, 'toast');
-      set(this, 'isShowingToast', false);
-      onComplete && onComplete();
-    },
-
-    /**
-     * Ignores the modal, invokes the user supplied didDismiss callback
-     */
-    dismissModal() {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didDismiss } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didDismiss();
-        onComplete && onComplete();
-      }
-    },
-
-    /**
-     * Confirms the dialog and invokes the user supplied didConfirm callback
-     */
-    confirmModal() {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didConfirm } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didConfirm();
-        onComplete && onComplete();
-      }
-    }
-  }
-});
-
-// Current Ember type definitions are faulty and do not permit defining the init method on classes
-// I created an issue to track this here: https://github.com/typed-ember/ember-typings/issues/18
-// Using reopen to work around this in the interim
-Ember.Object.reopen.call(NotificationService, {
-  init() {
-    this._super(...Array.from(arguments));
+  constructor() {
+    super(...arguments);
 
     // Traps for the Proxy handler
     const invokeInService: INotificationHandlerTrap<INotificationHandler, keyof INotificationHandler> = {
@@ -332,6 +278,56 @@ Ember.Object.reopen.call(NotificationService, {
       }
     };
   }
-});
 
-export default NotificationService;
+  /**
+   * Takes a type of notification and invokes a handler for that event, then enqueues the notification
+   * to the notifications queue
+   * @param {NotificationEvent} type
+   * @param params optional list of parameters for the notification handler
+   */
+  notify(type: NotificationEvent, ...params: any[]): void {
+    if (!(type in proxiedNotifications)) {
+      return;
+    }
+
+    return enqueue(proxiedNotifications[type](...params), notificationsQueue);
+  }
+
+  actions = {
+    /**
+     * Removes the current toast from view and invokes the notification resolution resolver
+     */
+    dismissToast(this: Notifications) {
+      const { notificationResolution: { onComplete } }: INotification = get(this, 'toast');
+      set(this, 'isShowingToast', false);
+      onComplete && onComplete();
+    },
+
+    /**
+     * Ignores the modal, invokes the user supplied didDismiss callback
+     */
+    dismissModal(this: Notifications) {
+      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
+
+      if ((<IConfirmOptions>props).dialogActions) {
+        const { didDismiss } = (<IConfirmOptions>props).dialogActions;
+        set(this, 'isShowingModal', false);
+        didDismiss();
+        onComplete && onComplete();
+      }
+    },
+
+    /**
+     * Confirms the dialog and invokes the user supplied didConfirm callback
+     */
+    confirmModal(this: Notifications) {
+      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
+      if ((<IConfirmOptions>props).dialogActions) {
+        const { didConfirm } = (<IConfirmOptions>props).dialogActions;
+        set(this, 'isShowingModal', false);
+        didConfirm();
+        onComplete && onComplete();
+      }
+    }
+  };
+}

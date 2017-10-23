@@ -1,4 +1,5 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { get, set } from '@ember/object';
 import {
   baseCommentEditorOptions,
   exemptPolicy,
@@ -7,8 +8,6 @@ import {
   purgePolicyProps
 } from 'wherehows-web/constants';
 import noop from 'wherehows-web/utils/noop';
-
-const { Component, get, set } = Ember;
 
 export default Component.extend({
   tagName: 'ul',
@@ -27,7 +26,9 @@ export default Component.extend({
   /**
    * The currently save policy for the dataset purge
    */
-  purgePolicy: null,
+  purgePolicy: <PurgePolicy>'',
+
+  requestExemptionReason: false,
 
   /**
    * An options hash for the purge exempt reason text editor

@@ -1,9 +1,9 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { assert } from '@ember/debug';
 import { CommentTypes } from 'wherehows-web/constants';
 import { StringUnionKeyToValue } from 'wherehows-web/typings/generic';
 import { DatasetStreamActionsUnion } from 'wherehows-web/constants';
-
-const { Component, assert } = Ember;
+import noop from 'wherehows-web/utils/noop';
 
 const StreamActions: StringUnionKeyToValue<DatasetStreamActionsUnion> = {
   add: 'add',
@@ -32,6 +32,24 @@ export default Component.extend({
    */
   commentTypes: CommentTypes,
 
+  /**
+   * Default no-op function to add a dataset comment
+   * @type {Function}
+   */
+  addDatasetComment: noop,
+
+  /**
+   * Default no-op function to delete a dataset comment
+   * @type {Function}
+   */
+  deleteDatasetComment: noop,
+
+  /**
+   * Default no-op function to update a dataset comment
+   * @type {Function}
+   */
+  updateDatasetComment: noop,
+
   actions: {
     /**
      * Handles the action for adding | modifying | destroying a dataset comment
@@ -46,9 +64,9 @@ export default Component.extend({
       assert(`Expected action to be one of ${Object.keys(StreamActions)}`, strategy in StreamActions);
 
       return {
-        add: (): Promise<boolean> => this.attrs.addDatasetComment(...args),
-        destroy: (): Promise<boolean> => this.attrs.deleteDatasetComment(...args),
-        modify: (): Promise<boolean> => this.attrs.updateDatasetComment(...args)
+        add: (): Promise<boolean> => this.addDatasetComment(...args),
+        destroy: (): Promise<boolean> => this.deleteDatasetComment(...args),
+        modify: (): Promise<boolean> => this.updateDatasetComment(...args)
       }[strategy]();
     }
   }
