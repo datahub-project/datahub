@@ -15,13 +15,10 @@ test('Utility function createInitialComplianceInfo exists', function(assert) {
   const mockId = 1337;
   const initialComplianceInfo = {
     datasetId: mockId,
-    complianceType: 'AUTO_PURGE',
+    complianceType: '',
+    compliancePurgeNote: '',
     complianceEntities: [],
-    fieldClassification: {},
-    datasetClassification: {},
-    geographicAffinity: { affinity: '' },
-    recordOwnerType: '',
-    retentionPolicy: { retentionType: '' }
+    datasetClassification: {}
   };
 
   assert.ok(typeof createInitialComplianceInfo === 'function', 'createInitialComplianceInfo is a function');
