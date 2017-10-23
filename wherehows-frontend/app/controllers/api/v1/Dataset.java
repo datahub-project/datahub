@@ -167,7 +167,7 @@ public class Dataset extends Controller {
 
       boolean deprecated = record.get("deprecated").asBoolean();
 
-      String deprecationNote = record.get("deprecationNote").asText();
+      String deprecationNote = record.has("deprecationNote") ? record.get("deprecationNote").asText() : null;
 
       String urn = getDatasetUrnByIdOrCache(datasetId);
 
