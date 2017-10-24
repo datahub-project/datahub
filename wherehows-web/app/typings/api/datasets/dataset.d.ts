@@ -17,7 +17,7 @@ interface IDataset {
   name: string;
   owners: Array<IUser>;
   properties: null;
-  schema: string;
+  schema: string; //JSON string
   source: string;
   urn: string;
   watchId: number;

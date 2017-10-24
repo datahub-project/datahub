@@ -1,25 +1,29 @@
-{{#if hasSchemas}}
+{{#if schemas.length}}
   <div class="row" style="margin-top: 5px; margin-bottom: 5px;">
     <div class="col-xs-12">
       <div
-          class="btn-group"
-          role="group"
-          aria-label="Toggle Tabular/JSON Schema View">
+        class="btn-group"
+        role="group"
+        aria-label="Toggle Table / JSON Schema View">
+
         <button
-            type="button"
-            class="btn {{if isTable 'btn-primary'}} {{unless isTable 'btn-default'}}"
-          {{action "setView" "tabular"}}>
-          View As Tabular
+          type="button"
+          class="btn {{if isTable 'btn-primary' 'btn-default'}}"
+          {{action "showView" "table"}}>
+          View as Table
         </button>
+
         <button
-            type="button"
-            class="btn {{if isJSON 'btn-primary'}} {{unless isJSON 'btn-default'}}"
-          {{action "setView" "json"}}>
-          View As JSON
+          type="button"
+          class="btn {{if isTable 'btn-default' 'btn-primary'}}"
+          {{action "showView" "json"}}>
+          View as JSON
         </button>
+
       </div>
     </div>
   </div>
+
   <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
     <thead>
     <tr class="results-header">
@@ -73,7 +77,7 @@
     {{/each}}
     </tbody>
   </table>
-  <div id="json-viewer" style="display:none;"></div>
+  <div id="json-viewer" class="nacho-visually-hidden"></div>
 {{else}}
   <div id="json-viewer"></div>
 {{/if}}

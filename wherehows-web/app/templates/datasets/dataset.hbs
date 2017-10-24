@@ -188,12 +188,16 @@
         comments=datasetComments
         updateDatasetComment=(action "updateDatasetComment")
         deleteDatasetComment=(action "destroyDatasetComment")
-        addDatasetComment=(action "createDatasetComment")}}
+        addDatasetComment=(action "createDatasetComment")
+      }}
     </div>
 
     <div id="schematab" class="tab-pane">
-      {{#dataset-schema hasSchemas=hasSchemas isTable=isTable isJSON=isJSON schemas=schemas dataset=model}}
-      {{/dataset-schema}}
+      {{dataset-schema
+        isTable=isTable
+        json=model.schema
+        schemas=schemas
+      }}
     </div>
     <div id="ownertab" class="tab-pane active">
       {{dataset-author
@@ -202,7 +206,8 @@
         showMsg=showMsg
         alertType=alertType
         ownerMessage=ownerMessage
-        save=(action "saveOwnerChanges")}}
+        save=(action "saveOwnerChanges")
+      }}
     </div>
     {{#unless isSFDC}}
       <div id="sampletab" class="tab-pane">

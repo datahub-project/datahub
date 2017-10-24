@@ -164,9 +164,6 @@ var g;
 var svg;
 var l;
 
-function initializeColumnTreeGrid() {
-  $('#json-table').treegrid();
-}
 function initializeDependsTreeGrid() {
   $('#depends-table').treegrid();
 }

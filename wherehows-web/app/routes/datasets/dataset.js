@@ -186,20 +186,8 @@ export default Route.extend({
             complianceSuggestion,
             datasetComments,
             schemas,
-            hasSchemas: !!schemas.length,
             schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns)
           });
-
-          if (schemas.length) {
-            run(() => {
-              schedule('afterRender', null, () => {
-                // TODO: DSS-6122 Refactor direct legacy method invocation on controller
-                controller.buildJsonView();
-                // TODO: DSS-6122 Refactor legacy global function reference
-                window.initializeColumnTreeGrid();
-              });
-            });
-          }
         } catch (e) {
           throw e;
         }

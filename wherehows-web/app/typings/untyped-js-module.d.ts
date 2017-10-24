@@ -55,3 +55,11 @@ declare module 'fetch' {
 interface Window {
   marked(param: string): { htmlSafe: () => string };
 }
+
+/**
+ * Merges the JSONView plugin into the jquery interface
+ */
+interface JQuery {
+  JSONView(json: object): this;
+  treegrid(): this;
+}
