@@ -38,7 +38,6 @@
             "type": {
               "type": "fixed",
               "name": "UUID",
-              "namespace": "com.linkedin.events",
               "size": 16
             },
             "doc": "A unique identifier for the message"
@@ -1228,9 +1227,21 @@
                   "AUTO_PURGE",
                   "CUSTOM_PURGE",
                   "LIMITED_RETENTION",
-                  "PURGE_NOT_APPLICABLE"
+                  "PURGE_NOT_APPLICABLE",
+                  "MANUAL_PURGE",
+                  "MANUAL_LIMITED_RETENTION",
+                  "PURGE_EXEMPTED"
                 ]
               }
+            },
+            {
+              "name": "compliancePurgeNote",
+              "type": [
+                "null",
+                "string"
+              ],
+              "doc": "The additional information about purging if the purge type is PURGE_EXEMPTED",
+              "default": null
             },
             {
               "name": "complianceEntities",
@@ -1277,7 +1288,13 @@
                             "EVENT_TIME",
                             "TRANSACTION_TIME",
                             "COOKIE_BEACON_BROWSER_ID",
-                            "DEVICE_ID_ADVERTISING_ID"
+                            "DEVICE_ID_ADVERTISING_ID",
+                            "ENTERPRISE_PROFILE_ID",
+                            "ENTERPRISE_ACCOUNT_ID",
+                            "CONTRACT_ID",
+                            "SEAT_ID",
+                            "ADVERTISER_ID",
+                            "SLIDESHARE_USER_ID"
                           ]
                         }
                       },
