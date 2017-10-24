@@ -38,9 +38,12 @@ public class DatasetComplianceDaoTest {
     DsCompliance dsCompliance = new DsCompliance();
     String datasetUrn = "teradata:///abc/test";
     String actor = "tester";
+    CompliancePurgeType purgeType = CompliancePurgeType.PURGE_EXEMPTED;
+    String purgeNote = "Purge not needed.";
 
     CompliancePolicy policy = new CompliancePolicy();
-    policy.compliancePurgeType = CompliancePurgeType.AUTO_PURGE;
+    policy.compliancePurgeType = purgeType;
+    policy.compliancePurgeNote = purgeNote;
     policy.datasetClassification = new DatasetClassification();
     policy.datasetConfidentiality = SecurityClassification.LIMITED_DISTRIBUTION;
     policy.complianceEntities = new ArrayList<>();
@@ -54,7 +57,8 @@ public class DatasetComplianceDaoTest {
         + "courseViewingHistory: false, whoViewedMyProfile: false, profileViewsByMe: false, advertising: false, "
         + "usageOrErrorOrConnectivity: false, otherClickstreamOrBrowsingData: false}";
 
-    assertEquals(dsCompliance.getCompliancePurgeType(), "AUTO_PURGE");
+    assertEquals(dsCompliance.getCompliancePurgeType(), purgeType.toString());
+    assertEquals(dsCompliance.getCompliancePurgeNote(), purgeNote);
     assertEquals(dsCompliance.getDatasetClassification().replaceAll("\"", ""), dsClassification);
     assertEquals(dsCompliance.getConfidentiality(), "LIMITED_DISTRIBUTION");
     assertEquals(dsCompliance.getComplianceEntities(), "[]");
@@ -71,16 +75,16 @@ public class DatasetComplianceDaoTest {
     entity.securityClassification = SecurityClassification.CONFIDENTIAL;
 
     policy.complianceEntities = Arrays.asList(entity);
-    policy.datasetConfidentiality = SecurityClassification.CONFIDENTIAL;
+    policy.datasetConfidentiality = SecurityClassification.HIGHLY_CONFIDENTIAL;
 
     String complianceEntityStr = "[{fieldPath: field1, complianceDataType: ADDRESS, fieldFormat: null, "
         + "securityClassification: CONFIDENTIAL}]";
 
     complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn2, actor2);
 
-    assertEquals(dsCompliance.getCompliancePurgeType(), "AUTO_PURGE");
+    assertEquals(dsCompliance.getCompliancePurgeType(), purgeType.toString());
     assertEquals(dsCompliance.getDatasetClassification().replaceAll("\"", ""), dsClassification);
-    assertEquals(dsCompliance.getConfidentiality(), "CONFIDENTIAL");
+    assertEquals(dsCompliance.getConfidentiality(), "HIGHLY_CONFIDENTIAL");
     assertEquals(dsCompliance.getComplianceEntities().replaceAll("\"", ""), complianceEntityStr);
 
     assertEquals(dsCompliance.getDatasetUrn(), datasetUrn2);

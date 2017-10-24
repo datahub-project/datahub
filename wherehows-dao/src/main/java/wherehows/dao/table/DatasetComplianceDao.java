@@ -107,6 +107,9 @@ public class DatasetComplianceDao extends BaseDao {
 
     dsCompliance.setDatasetUrn(datasetUrn);
     dsCompliance.setCompliancePurgeType(compliance.compliancePurgeType.name());
+    if (compliance.compliancePurgeNote != null) {
+      dsCompliance.setCompliancePurgeNote(compliance.compliancePurgeNote.toString());
+    }
     dsCompliance.setConfidentiality(compliance.datasetConfidentiality.name());
     dsCompliance.setDatasetClassification(compliance.datasetClassification.toString());
     if (compliance.complianceEntities != null) {
