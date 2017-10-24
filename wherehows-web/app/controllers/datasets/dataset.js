@@ -40,7 +40,6 @@ export default Controller.extend({
   currentVersion: '0',
   latestVersion: '0',
   ownerTypes: [],
-  datasetSchemaFieldsAndTypes: [],
   userTypes: [{ name: 'Corporate User', value: 'urn:li:corpuser' }, { name: 'Group User', value: 'urn:li:corpGroup' }],
   isPinot: function() {
     var model = this.get('model');

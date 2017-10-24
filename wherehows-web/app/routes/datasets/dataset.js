@@ -16,8 +16,7 @@ import {
 import { readDataset, datasetUrnToId } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
-const { Route, get, set, setProperties, inject: { service }, $: { getJSON }, run } = Ember;
-const { schedule } = run;
+const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
@@ -74,60 +73,6 @@ export default Route.extend({
     let id = 0;
     let urn = '';
 
-    /**
-     * Series of chain-able functions invoked to set set properties on the controller required for dataset tab sections
-     */
-    const fetchThenSetOnController = {
-      datasetSchemaFieldNamesAndTypes(controller, { id }) {
-        Promise.resolve(getJSON(datasetUrl(id))).then(({ dataset: { schema } = { schema: undefined } } = {}) => {
-          /**
-               * Parses a JSON dataset schema representation and extracts the field names and types into a list of maps
-               * @param {JSON} schema
-               * @returns {Array.<*>}
-               */
-          function getFieldNamesAndTypesFrom(schema = JSON.stringify({})) {
-            /**
-                 * schema argument may contain property with name `fields` or `fields` may be nested in `schema` object
-                 * with same name.
-                 * Unfortunately shape is inconsistent depending of dataset queried.
-                 * Use `fields` property if present and is an array, otherwise use `fields` property on `schema`.
-                 * Will default to empty array.
-                 * @param {Array} [nestedFields]
-                 * @param {Array} [fields]
-                 * @returns {Array.<*>}
-                 */
-            function getFieldTypeMappingArray({ schema: { fields: nestedFields = [] } = { schema: {} }, fields }) {
-              fields = Array.isArray(fields) ? fields : nestedFields;
-
-              // As above, field may contain a label with string property or a name property
-              return fields.map(({ label: { string } = {}, name, type }) => ({
-                name: string || name,
-                type: Array.isArray(type) ? (type[0] === 'null' ? type.slice(1) : type) : [type]
-              }));
-            }
-
-            schema = JSON.parse(schema);
-            return [...getFieldTypeMappingArray(schema)];
-          }
-
-          set(controller, 'datasetSchemaFieldsAndTypes', getFieldNamesAndTypesFrom(schema));
-        });
-
-        return this;
-      },
-
-      /**
-       * Sets the isInternal flag as a property on the controller
-       * @param controller {Ember.Controller} the controller to set the internal flag on
-       * @param configurator {Ember.Service}
-       * @return {Promise.<void>}
-       */
-      async isInternal(controller, { configurator }) {
-        const isInternal = await configurator.getConfig('isInternal');
-        set(controller, 'isInternal', isInternal);
-      }
-    };
-
     set(controller, 'hasProperty', false);
 
     if (model && model.id) {
@@ -150,15 +95,6 @@ export default Route.extend({
     // Don't set default zero Ids on controller
     if (id) {
       controller.set('datasetId', id);
-      // Creates list of partially applied functions from `fetchThenSetController` and invokes each in turn
-      Object.keys(fetchThenSetOnController)
-        .map(funcRef =>
-          fetchThenSetOnController[funcRef]['bind'](fetchThenSetOnController, controller, {
-            id,
-            configurator: get(this, 'configurator')
-          })
-        )
-        .forEach(func => func());
 
       /**
        * ****************************
@@ -171,11 +107,12 @@ export default Route.extend({
        */
       (async id => {
         try {
-          const [columns, compliance, complianceSuggestion, datasetComments] = await Promise.all([
+          const [columns, compliance, complianceSuggestion, datasetComments, isInternal] = await Promise.all([
             readDatasetColumns(id),
             readDatasetCompliance(id),
             readDatasetComplianceSuggestion(id),
-            readDatasetComments(id)
+            readDatasetComments(id),
+            get(this, 'configurator').getConfig('isInternal')
           ]);
           const { complianceInfo, isNewComplianceInfo } = compliance;
           const schemas = augmentObjectsWithHtmlComments(columns);
@@ -186,6 +123,7 @@ export default Route.extend({
             complianceSuggestion,
             datasetComments,
             schemas,
+            isInternal,
             schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns)
           });
         } catch (e) {
