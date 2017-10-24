@@ -12,8 +12,9 @@ export default class DatasetSchema extends Component {
   /**
    * Flag indicating that the schema should be rendered in a tabular format
    * @type {boolean}
+   * @default true
    */
-  isTable = false;
+  isTable = true;
 
   /**
    * Default json schema string

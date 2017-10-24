@@ -35,8 +35,6 @@ export default Controller.extend({
   hasProperty: false,
   hasImpacts: false,
   hasSamples: false,
-  isTable: true,
-  isJSON: false,
   currentVersion: '0',
   latestVersion: '0',
   ownerTypes: [],
