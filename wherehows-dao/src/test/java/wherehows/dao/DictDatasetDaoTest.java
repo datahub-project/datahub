@@ -56,7 +56,7 @@ public class DictDatasetDaoTest {
     dictDatasetDao.fillDictDataset(ds, urn, auditStamp, null, null, null, null, null, null);
 
     assertEquals(ds.getUrn(), urn);
-    assertEquals(ds.getSource(), null);
+    assertEquals(ds.getSource(), "oracle");
     assertTrue(ds.getIsActive());
 
     DatasetSchema schema = new DatasetSchema();
@@ -67,7 +67,6 @@ public class DictDatasetDaoTest {
 
     dictDatasetDao.fillDictDataset(ds, urn, auditStamp, null, schema, null, null, null, null);
 
-    assertEquals(ds.getSource(), "tester");
     assertEquals(ds.getSourceCreatedTime().intValue(), testTime / 1000);
     assertEquals(ds.getSourceModifiedTime().intValue(), testTime / 1000);
     assertEquals(ds.getCreatedTime(), null);
@@ -146,7 +145,6 @@ public class DictDatasetDaoTest {
 
     Long testTime2 = System.currentTimeMillis();
     auditStamp.time = testTime2;
-    auditStamp.actorUrn = "urn:li:user:tester2";
 
     DatasetProperty property2 = new DatasetProperty();
     property2.nativeType = PlatformNativeType.TABLE;
@@ -165,7 +163,6 @@ public class DictDatasetDaoTest {
 
     dictDatasetDao.fillDictDataset(ds, urn, auditStamp, property2, schema, null, tags2, null, partitions);
 
-    assertEquals(ds.getSource(), "tester2");
     assertEquals(ds.getSourceCreatedTime().intValue(), testTime1 / 1000);
     assertEquals(ds.getSourceModifiedTime().intValue(), testTime2 / 1000);
 

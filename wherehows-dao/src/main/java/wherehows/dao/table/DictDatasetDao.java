@@ -117,6 +117,7 @@ public class DictDatasetDao extends BaseDao {
 
     String[] urnParts = parseWhDatasetUrn(urn);
     ds.setDatasetType(urnParts[0]);
+    ds.setSource(urnParts[0]);
     ds.setLocationPrefix(urnParts[1]);
     ds.setParentName(urnParts[2]);
     ds.setName(urnParts[3]);
@@ -161,8 +162,6 @@ public class DictDatasetDao extends BaseDao {
       }
 
       // if schema is not in the MCE, will not update the source section of the dataset
-      String actor = getUrnEntity(toStringOrNull(auditStamp.actorUrn));
-      ds.setSource(actor);
       int sourceTime = (int) (auditStamp.time / 1000);
       if (ds.getSourceCreatedTime() == null) {
         ds.setSourceCreatedTime(sourceTime);
