@@ -30,31 +30,29 @@ type PurgePolicyProperties = {
 const purgePolicyProps: PurgePolicyProperties = {
   AUTO_PURGE: {
     platforms: [DatasetPlatform.Teradata, DatasetPlatform.Espresso, DatasetPlatform.HDFS],
-    desc: 'A centralized system will automatically purge this dataset based on the provided metadata.',
+    desc:
+      'Choose this option only if it’s acceptable to have the centralized system purge this dataset based on the provided metadata (e.g. member ID [Subject Owner]).',
     displayAs: 'Auto Purge'
   },
   MANUAL_PURGE: {
     platforms: [DatasetPlatform.MySql, DatasetPlatform.Espresso, DatasetPlatform.Teradata, DatasetPlatform.HDFS],
-    desc: '',
+    desc: 'Choose this option only if you or your team have implemented a custom mechanism to purge this dataset.',
     displayAs: 'Manual Purge'
   },
   AUTO_LIMITED_RETENTION: {
     platforms: [DatasetPlatform.Kafka, DatasetPlatform.Teradata, DatasetPlatform.HDFS],
     desc:
-      'The data platform enforces limited retention. Only choose this option if your dataset ' +
-      "complies with the platform's limited retention policy.",
+      'Choose this option only if you rely on the data platform’s default limited retention mechanism to purge your data.',
     displayAs: 'Auto Limited Retention'
   },
   MANUAL_LIMITED_RETENTION: {
     platforms: [DatasetPlatform.Espresso, DatasetPlatform.Oracle, DatasetPlatform.MySql],
-    desc: '',
+    desc: 'Choose this option only if you have a well established process to ensure limited data retention.',
     displayAs: 'Manual Limited Retention'
   },
   PURGE_EXEMPT: {
     platforms: Object.keys(DatasetPlatform).map((k: keyof typeof DatasetPlatform) => DatasetPlatform[k]),
-    desc:
-      'The dataset is exempted from purging due to legal or financial requirements.' +
-      " Only choose this option if you've received an explicit exemption from legal.",
+    desc: 'Choose this option only if the dataset is explicitly exempted from purging',
     displayAs: 'Purge Exempt'
   }
 };
