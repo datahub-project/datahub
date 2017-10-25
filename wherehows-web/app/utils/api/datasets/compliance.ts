@@ -27,7 +27,7 @@ const datasetComplianceSuggestionsUrlById = (id: number): string => `${datasetCo
  */
 const readDatasetCompliance = async (id: number): Promise<{ isNewComplianceInfo: boolean; complianceInfo: any }> => {
   assert(`Expected id to be a number but received ${typeof id}`, typeof id === 'number');
-  const notFound = 'actual 0';
+  const notFound = 'No entity found for query';
   // complianceInfo contains the compliance data for the specified dataset
   let {
     msg = '',
@@ -52,12 +52,9 @@ const readDatasetCompliance = async (id: number): Promise<{ isNewComplianceInfo:
  * @return {Promise<IComplianceSuggestion>}
  */
 const readDatasetComplianceSuggestion = async (id: number): Promise<IComplianceSuggestion> => {
-  const response: IComplianceSuggestionResponse = await Promise.resolve(
+  const { complianceSuggestion = <IComplianceSuggestion>{} }: IComplianceSuggestionResponse = await Promise.resolve(
     getJSON(datasetComplianceSuggestionsUrlById(id))
   );
-  const emptySuggestion = {} as IComplianceSuggestion;
-  const { complianceSuggestion = emptySuggestion } = response;
-
   return complianceSuggestion;
 };
 
