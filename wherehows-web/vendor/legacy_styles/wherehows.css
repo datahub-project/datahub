@@ -20,7 +20,7 @@ ul.breadcrumbs a {
 .prop-row {
     border: thin rgba(1, 1, 1, 0.1) solid;
     padding: 10px;
-    margin: 0 20px 10px 0;
+    margin: 0 0 10px 0;
     color: rgba(1, 1, 1, 0.6);
     background: #f9f9f9;
 }

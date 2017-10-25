@@ -6,7 +6,7 @@ import { warn } from '@ember/debug';
  * Cached module reference to the class name for visually hiding toggled off schema view
  * @type {string}
  */
-const hiddenClassName = 'nacho-visually-hidden';
+const hiddenClassName = 'hidden';
 
 export default class DatasetSchema extends Component {
   /**

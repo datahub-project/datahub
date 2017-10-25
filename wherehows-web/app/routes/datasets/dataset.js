@@ -1,6 +1,7 @@
 import Ember from 'ember';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
+import { readNonPinotProperties, readPinotProperties } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
 import {
   readDatasetColumns,
@@ -13,7 +14,7 @@ import {
   getUserEntities,
   isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/utils/api/datasets/owners';
-import { readDataset, datasetUrnToId } from 'wherehows-web/utils/api/datasets/dataset';
+import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
 const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
@@ -21,7 +22,6 @@ const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = 
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
 const ownerTypeUrlRoot = '/api/v1/owner/types';
-const getDatasetPropertiesUrl = id => `${datasetUrl(id)}/properties`;
 const getDatasetSampleUrl = id => `${datasetUrl(id)}/sample`;
 const getDatasetImpactAnalysisUrl = id => `${datasetUrl(id)}/impacts`;
 const getDatasetDependsUrl = id => `${datasetUrl(id)}/depends`;
@@ -73,8 +73,6 @@ export default Route.extend({
     let id = 0;
     let urn = '';
 
-    set(controller, 'hasProperty', false);
-
     if (model && model.id) {
       ({ id, source, urn } = model);
       let { originalSchema = null } = model;
@@ -107,15 +105,31 @@ export default Route.extend({
        */
       (async id => {
         try {
-          const [columns, compliance, complianceSuggestion, datasetComments, isInternal] = await Promise.all([
+          let properties;
+
+          const [
+            columns,
+            compliance,
+            complianceSuggestion,
+            datasetComments,
+            isInternal,
+            datasetView
+          ] = await Promise.all([
             readDatasetColumns(id),
             readDatasetCompliance(id),
             readDatasetComplianceSuggestion(id),
             readDatasetComments(id),
-            get(this, 'configurator').getConfig('isInternal')
+            get(this, 'configurator').getConfig('isInternal'),
+            readDatasetView(id)
           ]);
           const { complianceInfo, isNewComplianceInfo } = compliance;
           const schemas = augmentObjectsWithHtmlComments(columns);
+
+          if (String(source).toLowerCase() === 'pinot') {
+            properties = await readPinotProperties(id);
+          } else {
+            properties = { properties: await readNonPinotProperties(id) };
+          }
 
           setProperties(controller, {
             complianceInfo,
@@ -124,7 +138,9 @@ export default Route.extend({
             datasetComments,
             schemas,
             isInternal,
-            schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns)
+            datasetView,
+            schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns),
+            ...properties
           });
         } catch (e) {
           throw e;
@@ -194,21 +210,6 @@ export default Route.extend({
     });
 
     if (source.toLowerCase() !== 'pinot') {
-      Promise.resolve(getJSON(getDatasetPropertiesUrl(id)))
-        .then(({ status, properties }) => {
-          if (status === 'ok' && properties) {
-            const propertyArray = window.convertPropertiesToArray(properties) || [];
-            if (propertyArray.length) {
-              controller.set('hasProperty', true);
-
-              return controller.set('properties', propertyArray);
-            }
-          }
-
-          return Promise.reject(new Error('Dataset properties request failed.'));
-        })
-        .catch(() => controller.set('hasProperty', false));
-
       Promise.resolve(getJSON(getDatasetSampleUrl(id)))
         .then(({ status, sampleData = {} }) => {
           if (status === 'ok') {
@@ -243,25 +244,6 @@ export default Route.extend({
           return Promise.reject(new Error('Dataset sample request failed.'));
         })
         .catch(() => set(controller, 'hasSamples', false));
-    }
-
-    if (source.toLowerCase() === 'pinot') {
-      Promise.resolve(getJSON(getDatasetPropertiesUrl(id))).then(({ status, properties = {} }) => {
-        if (status === 'ok') {
-          const { elements = [] } = properties;
-          const [{ columnNames = [], results } = {}] = elements;
-
-          if (columnNames.length) {
-            return setProperties(controller, {
-              hasSamples: true,
-              samples: results,
-              columns: columnNames
-            });
-          }
-        }
-
-        return Promise.reject(new Error('Dataset properties request failed.'));
-      });
     }
 
     Promise.resolve(getJSON(getDatasetImpactAnalysisUrl(id)))

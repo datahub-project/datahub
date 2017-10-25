@@ -6,6 +6,8 @@ import {
   deleteDatasetComment,
   updateDatasetComment
 } from 'wherehows-web/utils/api';
+import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
+import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 
 const {
   set,
@@ -32,7 +34,7 @@ export default Controller.extend({
    */
   notifications: service(),
 
-  hasProperty: false,
+  isTable: true,
   hasImpacts: false,
   hasSamples: false,
   currentVersion: '0',
@@ -200,6 +202,19 @@ export default Controller.extend({
   },
 
   actions: {
+    /**
+     * Updates the dataset's deprecation properties
+     * @param {boolean} isDeprecated 
+     * @param {string} deprecationNote 
+     * @return {IDatasetView}
+     */
+    async updateDeprecation(isDeprecated, deprecationNote) {
+      const datasetId = get(this, 'datasetId');
+
+      await updateDatasetDeprecation(datasetId, isDeprecated, deprecationNote);
+      return set(this, 'datasetView', await readDatasetView(datasetId));
+    },
+
     /**
      * Action handler creates a dataset comment with the type and text pas
      * @param {CommentTypeUnion} type the comment type

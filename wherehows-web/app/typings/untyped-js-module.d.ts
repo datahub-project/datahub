@@ -54,6 +54,23 @@ declare module 'fetch' {
  */
 interface Window {
   marked(param: string): { htmlSafe: () => string };
+
+  JsonHuman: {
+    format(
+      data: any,
+      options?: {
+        showArrayIndex: void | boolean;
+        hyperlinks: { enable: boolean; keys: null | Array<string>; target: string };
+        bool: {
+          //https://github.com/prettier/prettier/issues/3102
+          text: object; //{ 'true': string; 'false': string };
+          image: object; //{ 'true': string; 'false': string };
+          showImage: boolean;
+          showText: boolean;
+        };
+      }
+    ): Element;
+  };
 }
 
 /**

@@ -11,6 +11,12 @@
 
     <div class="row">
       <div class="col-xs-5">
+        {{#if datasetView.deprecated}}
+          <span class="deprecated-dataset">
+            DEPRECATED
+          </span>
+        {{/if}}
+
         <h3>{{ model.name }}</h3>
       </div>
       <div class="col-xs-7 text-right">
@@ -178,8 +184,13 @@
   <div class="tab-content">
     {{#unless isPinot}}
       <div id="propertiestab" class="tab-pane">
-        {{#dataset-property hasProperty=hasProperty properties=properties}}
-        {{/dataset-property}}
+        {{dataset-deprecation
+          deprecated=datasetView.deprecated
+          deprecationNote=datasetView.deprecationNote
+          onUpdateDeprecation=(action "updateDeprecation")
+        }}
+
+        {{dataset-property properties=properties}}
       </div>
     {{/unless}}
 

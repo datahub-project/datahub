@@ -1,5 +1,10 @@
 import { warn } from '@ember/debug';
-import { IDataset, IDatasetGetResponse } from 'wherehows-web/typings/api/datasets/dataset';
+import {
+  IDataset,
+  IDatasetGetResponse,
+  IDatasetView,
+  IDatasetViewGetResponse
+} from 'wherehows-web/typings/api/datasets/dataset';
 import { getHeaders, getJSON } from 'wherehows-web/utils/api/fetcher';
 import { datasetsUrlRoot, datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api';
@@ -7,6 +12,12 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 // TODO:  DSS-6122 Create and move to Error module
 const datasetApiException = 'An error occurred with the dataset api';
 const datasetIdException = 'Dataset reference in unexpected format. Expected a urn or dataset id.';
+
+/**
+ * Constructs the dataset view endpoint url from the dataset id
+ * @param {number} id the dataset id
+ */
+const datasetViewUrlById = (id: number) => `${datasetUrlById(id)}/view`;
 
 /**
  * Reads the dataset object from the get endpoint for the given dataset id
@@ -21,6 +32,21 @@ const readDataset = async (id: number | string): Promise<IDataset> => {
   }
 
   const { status, dataset } = await getJSON<IDatasetGetResponse>({ url: datasetUrlById(id) });
+
+  if (status === ApiStatus.OK && dataset) {
+    return dataset;
+  }
+
+  throw new Error(datasetApiException);
+};
+
+/**
+ * Reads the response from the datasetView endpoint for the provided dataset id
+ * @param {number} id 
+ * @returns {Promise<IDatasetView>} 
+ */
+const readDatasetView = async (id: number): Promise<IDatasetView> => {
+  const { status, dataset } = await getJSON<IDatasetViewGetResponse>({ url: datasetViewUrlById(id) });
 
   if (status === ApiStatus.OK && dataset) {
     return dataset;
@@ -65,4 +91,4 @@ const datasetUrnToId = async (urn: string): Promise<number> => {
   return datasetId;
 };
 
-export { readDataset, datasetUrnToId };
+export { readDataset, datasetUrnToId, readDatasetView };
