@@ -282,4 +282,6 @@ public class Constant {
   public static final String ELASTICSEARCH_BULK_INSERT_SIZE = "elasticsearch.bulk.insert.size";
   public static final String ELASTICSEARCH_URL_REQUEST_TIMEOUT = "elasticsearch.url.request.timeout";
   public static final String WH_DB_MAX_RETRY_TIMES = "wh.db.max.retry.times";
+  public static final String WH_ELASTICSEARCH_INDEX_MAPPING_FILE = "wh.elasticsearch.index.mapping.file";
+
 }
