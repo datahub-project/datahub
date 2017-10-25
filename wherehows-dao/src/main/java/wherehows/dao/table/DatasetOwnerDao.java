@@ -13,8 +13,11 @@
  */
 package wherehows.dao.table;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.OwnerCategory;
 import com.linkedin.events.metadata.OwnerInfo;
 import com.linkedin.events.metadata.OwnerType;
 import java.util.ArrayList;
@@ -93,7 +96,7 @@ public class DatasetOwnerDao extends BaseDao {
   public void fillDsOwnerByOwnerInfo(@Nonnull OwnerInfo owner, @Nonnull DsOwner dsOwner, int sourceTime) {
     dsOwner.setOwnerId(owner.owner.toString());
     dsOwner.setOwnerIdType(owner.ownerType.name());
-    dsOwner.setOwnerType(owner.ownerCategory.name());
+    dsOwner.setOwnerType(OWNER_CATEGORY_MAP.get(owner.ownerCategory));
     dsOwner.setOwnerSource(enumNameOrDefault(owner.ownershipProvider, ""));
 
     if (owner.ownerType == OwnerType.USER) {
@@ -162,4 +165,17 @@ public class DatasetOwnerDao extends BaseDao {
 
     return Arrays.asList(updatedOwners, removedOwners);
   }
+
+
+  /**
+   * Mapping between MCE OwnerCategory and WhereHows owner type values
+   */
+  public static final BiMap<OwnerCategory, String> OWNER_CATEGORY_MAP =
+      new ImmutableBiMap.Builder<OwnerCategory, String>()
+          .put(OwnerCategory.DATA_OWNER, "Owner")
+          .put(OwnerCategory.PRODUCER, "Producer")
+          .put(OwnerCategory.DELEGATE, "Delegate")
+          .put(OwnerCategory.STAKEHOLDER, "Stakeholder")
+          .put(OwnerCategory.CONSUMER, "Consumer")
+          .build();
 }
