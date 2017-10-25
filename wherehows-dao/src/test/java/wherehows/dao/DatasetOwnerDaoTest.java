@@ -50,7 +50,7 @@ public class DatasetOwnerDaoTest {
     assertEquals(dsOwner.getNamespace(), "urn:li:corpuser");
     assertEquals(dsOwner.getIsGroup(), "N");
     assertEquals(dsOwner.getIsActive(), "Y");
-    assertEquals(dsOwner.getOwnerType(), "DATA_OWNER");
+    assertEquals(dsOwner.getOwnerType(), "Owner");
     assertEquals(dsOwner.getOwnerSource(), "SCM");
     assertEquals(dsOwner.getSourceTime().intValue(), createdTime);
 
@@ -69,7 +69,7 @@ public class DatasetOwnerDaoTest {
     assertEquals(dsOwner.getNamespace(), "urn:li:corpGroup");
     assertEquals(dsOwner.getIsGroup(), "Y");
     assertEquals(dsOwner.getIsActive(), "Y");
-    assertEquals(dsOwner.getOwnerType(), "PRODUCER");
+    assertEquals(dsOwner.getOwnerType(), "Producer");
     assertEquals(dsOwner.getOwnerSource(), "NUAGE");
     assertEquals(dsOwner.getSourceTime().intValue(), modifiedTime);
     assertEquals(dsOwner.getCreatedTime(), null);
