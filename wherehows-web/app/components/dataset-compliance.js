@@ -1,6 +1,5 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
-import { getPlatformFromUrn } from 'wherehows-web/utils/validators/urn';
 import {
   classifiers,
   DatasetClassifiers,
@@ -222,15 +221,6 @@ export default Component.extend({
    */
   fieldReviewOption: computed('isNewComplianceInfo', function() {
     return get(this, 'isNewComplianceInfo') ? 'showAll' : 'showReview';
-  }),
-
-  /**
-   * Extracts the dataset platform from the dataset urn
-   * @type {Ember.ComputedProperty}
-   * @return {string | void}
-   */
-  datasetPlatform: computed('complianceInfo.datasetUrn', function() {
-    return getPlatformFromUrn(get(this, 'complianceInfo.datasetUrn'));
   }),
 
   /**

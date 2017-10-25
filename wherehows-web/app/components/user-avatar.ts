@@ -13,11 +13,12 @@ export default class UserAvatar extends Component {
    * username for the user, e.g. ldap userName that can be used to construct the url
    * @type {string} 
    */
-  userName = '';
+  userName: string;
 
   /**
    * Ember.ComputedProperty that resolves with the image url for the avatar
-   * @type {string}
+   * @type {ComputedProperty<string>}
+   * @memberof UserAvatar
    */
   imageUrl: ComputedProperty<string> = computed('userName', function(this: UserAvatar) {
     const userName = get(this, 'userName');

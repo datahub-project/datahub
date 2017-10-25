@@ -1,12 +1,20 @@
 import Component from '@ember/component';
 import { getProperties, computed } from '@ember/object';
 import ComputedProperty, { oneWay } from '@ember/object/computed';
+import { inject } from '@ember/service';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 export default class DatasetDeprecation extends Component {
   tagName = 'div';
 
   classNames = ['dataset-deprecation-toggle'];
+
+  /**
+   * References the application notifications service
+   * @memberof DatasetDeprecation
+   */
+  notifications = <ComputedProperty<Notifications>>inject();
 
   /**
    * Flag indicating that the dataset is depprecated or otherwise
@@ -85,15 +93,25 @@ export default class DatasetDeprecation extends Component {
      * deprecated and deprecationNote
      * @param {DatasetDeprecation} this 
      */
-    onSave(this: DatasetDeprecation) {
-      const { deprecatedAlias, deprecationNoteAlias } = getProperties(this, [
+    async onSave(this: DatasetDeprecation) {
+      const { deprecatedAlias, deprecationNoteAlias, notifications: { notify } } = getProperties(this, [
         'deprecatedAlias',
-        'deprecationNoteAlias'
+        'deprecationNoteAlias',
+        'notifications'
       ]);
       const { onUpdateDeprecation } = this;
 
       if (onUpdateDeprecation) {
-        onUpdateDeprecation(deprecatedAlias, deprecationNoteAlias);
+        try {
+          await onUpdateDeprecation(deprecatedAlias, deprecationNoteAlias);
+          notify(NotificationEvent.success, {
+            content: 'Successfully updated deprecation status'
+          });
+        } catch (e) {
+          notify(NotificationEvent.error, {
+            content: `An error occurred: ${e.message}`
+          });
+        }
       }
     }
   };

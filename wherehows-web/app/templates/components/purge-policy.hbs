@@ -4,7 +4,7 @@
 
     {{#radio-button-composer
       name="dataset-purge-policy"
-      value=(if (contains platform prop.platforms) purgeType "")
+      value=(if (contains platform prop.platforms) purgeType null)
       disabled=(if (contains platform prop.platforms) false true)
       groupValue=(readonly purgePolicy)
       changed=(action "onChange")
@@ -14,7 +14,7 @@
 
     {{#unless (contains platform prop.platforms)}}
       <p class="purge-policy-list__availability">
-        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{platform}}</span>
+        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{lowercase platform}}</span>
       </p>
     {{/unless}}
 
