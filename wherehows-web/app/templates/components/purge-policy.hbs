@@ -1,20 +1,20 @@
 {{#each-in purgePolicyProps as |purgeType prop|}}
   <li
-    class="purge-policy-list__item {{unless (contains platform prop.platforms) 'purge-policy-list__item--disabled'}}">
+    class="purge-policy-list__item {{unless (contains (uppercase platform) prop.platforms) 'purge-policy-list__item--disabled'}}">
 
     {{#radio-button-composer
       name="dataset-purge-policy"
-      value=(if (contains platform prop.platforms) purgeType "")
-      disabled=(if (contains platform prop.platforms) false true)
+      value=(if (contains (uppercase platform) prop.platforms) purgeType null)
+      disabled=(if (contains (uppercase platform) prop.platforms) false true)
       groupValue=(readonly purgePolicy)
       changed=(action "onChange")
     }}
       {{prop.displayAs}}
     {{/radio-button-composer}}
 
-    {{#unless (contains platform prop.platforms)}}
+    {{#unless (contains (uppercase platform) prop.platforms)}}
       <p class="purge-policy-list__availability">
-        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{platform}}</span>
+        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{lowercase platform}}</span>
       </p>
     {{/unless}}
 

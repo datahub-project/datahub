@@ -1,5 +1,5 @@
-{{#if hasProperty}}
-  <div>
+{{#if properties.length}}
+
     {{#each properties as |item|}}
       <div class="prop-row group">
         <div class="prop-label">{{item.key}}:</div>
@@ -10,7 +10,12 @@
         {{/if}}
       </div>
     {{/each}}
-  </div>
+
 {{else}}
-  <p>Property is not available</p>
+
+  {{empty-state
+    heading="No properties found"
+    subHead="We could not find properties for this dataset. An error may have occurred or we dont have it yet..."
+  }}
+
 {{/if}}

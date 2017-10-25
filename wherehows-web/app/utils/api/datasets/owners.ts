@@ -39,7 +39,7 @@ export const getDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
   return status === ApiStatus.OK
     ? owners.map(owner => ({
         ...owner,
-        modifiedTime: new Date(owner.modifiedTime || 0)
+        modifiedTime: new Date(owner.modifiedTime)
       }))
     : Promise.reject(status);
 };

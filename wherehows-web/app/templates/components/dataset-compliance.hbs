@@ -104,7 +104,7 @@
 
   {{#if (eq editStepIndex 1)}}
     {{purge-policy
-      platform=datasetPlatform
+      platform=platform
       purgeNote=complianceInfo.compliancePurgeNote
       purgePolicy=(readonly complianceInfo.complianceType)
       onPolicyChange=(action "onDatasetPurgePolicyChange")

@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import { datasetClassifiers } from 'wherehows-web/constants/dataset-classification';
+import { DatasetClassifiers } from 'wherehows-web/constants/dataset-classification';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 
 const { assert, Logger: { warn } } = Ember;
@@ -7,7 +7,7 @@ const { assert, Logger: { warn } } = Ember;
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
  *   for non null properties as per Avro schema
- * @param {Number} datasetId id for the dataset that this privacy object applies to
+ * @param {number} datasetId id for the dataset that this privacy object applies to
  */
 const createInitialComplianceInfo = datasetId => ({
   datasetId,
@@ -34,7 +34,7 @@ const policyShape = {
       ]
     }
   },
-  datasetClassification: { type: 'object', keys: Object.keys(datasetClassifiers).map(key => `${key}:boolean`) }
+  datasetClassification: { type: 'object', keys: Object.keys(DatasetClassifiers).map(key => `${key}:boolean`) }
 };
 
 /**

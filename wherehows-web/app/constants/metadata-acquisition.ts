@@ -1,48 +1,15 @@
 import Ember from 'ember';
-import { arrayMap } from 'wherehows-web/utils/array';
-
-/**
- * Defines the string values that are allowed for a classification
- */
-enum Classification {
-  Confidential = 'confidential',
-  LimitedDistribution = 'limitedDistribution',
-  HighlyConfidential = 'highlyConfidential'
-}
-
-/**
- * String indicating that the user affirms or ignored a field suggestion
- */
-enum SuggestionIntent {
-  accept = 'accept',
-  ignore = 'ignore'
-}
-
-/**
- * Describes the index signature for the nonIdFieldLogicalTypes object
- */
-interface INonIdLogicalTypes {
-  [prop: string]: {
-    classification: Classification;
-    displayAs: string;
-  };
-}
-
-/**
- * Describes the properties on a field identifier object for ui rendering
- */
-interface IFieldIdProps {
-  value: string;
-  isId: boolean;
-  displayAs: string;
-}
-
-/**
- * Describes the index signature for fieldIdentifierTypes
- */
-interface IFieldIdTypes {
-  [prop: string]: IFieldIdProps;
-}
+import {
+  Classification,
+  nonIdFieldLogicalTypes,
+  NonIdLogicalType,
+  idLogicalTypes,
+  customIdLogicalTypes,
+  genericLogicalTypes,
+  fieldIdentifierTypes,
+  IdLogicalType,
+  FieldIdValues
+} from 'wherehows-web/constants/datasets/compliance';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -57,101 +24,6 @@ const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
  * @type {number}
  */
 const lowQualitySuggestionConfidenceThreshold = 0.5;
-
-/**
- * A list of id logical types
- * @type {Array.<String>}
- */
-const idLogicalTypes = ['ID', 'URN', 'REVERSED_URN', 'COMPOSITE_URN'];
-
-/**
- * A list of custom logical types that may be treated ids but have a different behaviour from regular ids
- * @type {Array.<String>}
- */
-const customIdLogicalTypes = ['CUSTOM_ID'];
-
-// Default mapping of field data types to security classification
-// https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
-const nonIdFieldLogicalTypes: INonIdLogicalTypes = {
-  NAME: {
-    classification: Classification.Confidential,
-    displayAs: 'Name'
-  },
-  EMAIL: {
-    classification: Classification.Confidential,
-    displayAs: 'E-mail'
-  },
-  PHONE: {
-    classification: Classification.Confidential,
-    displayAs: 'Phone Number'
-  },
-  ADDRESS: {
-    classification: Classification.Confidential,
-    displayAs: 'Address'
-  },
-  LATITUDE_LONGITUDE: {
-    classification: Classification.Confidential,
-    displayAs: 'Latitude and Longitude'
-  },
-  CITY_STATE_REGION: {
-    classification: Classification.LimitedDistribution,
-    displayAs: 'City, State, Region, etcetera'
-  },
-  IP_ADDRESS: {
-    classification: Classification.Confidential,
-    displayAs: 'IP Address'
-  },
-  FINANCIAL_NUMBER: {
-    classification: Classification.Confidential,
-    displayAs: 'Financial Number'
-  },
-  PAYMENT_INFO: {
-    classification: Classification.HighlyConfidential,
-    displayAs: 'Payment Info'
-  },
-  PASSWORD_CREDENTIAL: {
-    classification: Classification.HighlyConfidential,
-    displayAs: 'Password and Credentials'
-  },
-  AUTHENTICATION_TOKEN: {
-    classification: Classification.HighlyConfidential,
-    displayAs: 'Authentication Token'
-  },
-  MESSAGE: {
-    classification: Classification.HighlyConfidential,
-    displayAs: 'Message'
-  },
-  NATIONAL_ID: {
-    classification: Classification.HighlyConfidential,
-    displayAs: 'National Id'
-  },
-  SOCIAL_NETWORK_ID: {
-    classification: Classification.Confidential,
-    displayAs: 'Social Network Id'
-  },
-  EVENT_TIME: {
-    classification: Classification.LimitedDistribution,
-    displayAs: 'Event Time'
-  },
-  TRANSACTION_TIME: {
-    classification: Classification.LimitedDistribution,
-    displayAs: 'Transaction Time'
-  },
-  COOKIE_BEACON_BROWSER_ID: {
-    classification: Classification.Confidential,
-    displayAs: 'Cookies and Beacons and Browser Id'
-  },
-  DEVICE_ID_ADVERTISING_ID: {
-    classification: Classification.Confidential,
-    displayAs: 'Device Id and Advertising Id'
-  }
-};
-
-/**
- * List of non Id field data type classifications
- * @type {Array}
- */
-const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
 
 /**
  * A map of id logical types including custom ids to the default field classification for Ids
@@ -170,112 +42,38 @@ const idFieldDataTypeClassification: { [K: string]: Classification.LimitedDistri
  * Creates a mapping of nonIdFieldLogicalTypes to default classification for that field
  * @type {Object}
  */
-const nonIdFieldDataTypeClassification: { [K: string]: Classification } = Object.keys(nonIdFieldLogicalTypes).reduce(
+const nonIdFieldDataTypeClassification: { [K: string]: Classification } = genericLogicalTypes.reduce(
   (classification, logicalType) =>
     Object.assign(classification, {
       [logicalType]: nonIdFieldLogicalTypes[logicalType].classification
     }),
   {}
 );
+
 /**
- * A merge of id and non id field type classifications
- * @type {Object}
+ * A merge of id and non id field type security classifications
+ * @type {[K: string] : Classification}
  */
-const defaultFieldDataTypeClassification = Object.assign(
-  {},
-  idFieldDataTypeClassification,
-  nonIdFieldDataTypeClassification
-);
+const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
 
 /**
  * Stores a unique list of classification values
- * @type {Array.<String>} the list of classification values
+ * @type {Set<Classification>} the list of classification values
  */
 const classifiers = Object.values(defaultFieldDataTypeClassification).filter(
   (classifier, index, iter) => iter.indexOf(classifier) === index
 );
-/**
- * A map of identifier types for fields on a dataset
- * @type {{none: {value: string, isId: boolean, displayAs: string}, member: {value: string, isId: boolean, displayAs: string}, subjectMember: {value: string, isId: boolean, displayAs: string}, group: {value: string, isId: boolean, displayAs: string}, organization: {value: string, isId: boolean, displayAs: string}, generic: {value: string, isId: boolean, displayAs: string}}}
- */
-const fieldIdentifierTypes: IFieldIdTypes = {
-  none: {
-    value: 'NONE',
-    isId: false,
-    displayAs: 'Not an ID'
-  },
-  member: {
-    value: 'MEMBER_ID',
-    isId: true,
-    displayAs: 'Member ID'
-  },
-  subjectMember: {
-    value: 'SUBJECT_MEMBER_ID',
-    isId: true,
-    displayAs: 'Member ID (Subject Owner)'
-  },
-  group: {
-    value: 'GROUP_ID',
-    isId: true,
-    displayAs: 'Group ID'
-  },
-  organization: {
-    value: 'COMPANY_ID',
-    isId: true,
-    displayAs: 'Organization ID'
-  },
-  generic: {
-    value: 'MIXED_ID',
-    isId: false,
-    displayAs: 'Mixed'
-  },
-  custom: {
-    value: 'CUSTOM_ID',
-    isId: false,
-    // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
-    // ids, a logicalType / (field format) is not required to update this fields properties
-    displayAs: 'Custom ID'
-  },
-  enterpriseProfile: {
-    value: 'ENTERPRISE_PROFILE_ID',
-    isId: true,
-    displayAs: 'Enterprise Profile ID'
-  },
-  enterpriseAccount: {
-    value: 'ENTERPRISE_ACCOUNT_ID',
-    isId: true,
-    displayAs: 'Enterprise Account ID'
-  },
-  contract: {
-    value: 'CONTRACT_ID',
-    isId: true,
-    displayAs: 'Contract ID'
-  },
-  seat: {
-    value: 'SEAT_ID',
-    isId: true,
-    displayAs: 'Seat ID'
-  },
-  advertiser: {
-    value: 'ADVERTISER_ID',
-    isId: true,
-    displayAs: 'Advertiser ID'
-  },
-  slideshare: {
-    value: 'SLIDESHARE_USER_ID',
-    isId: true,
-    displayAs: 'SlideShare User ID'
-  }
-};
 
 /**
  * Checks if the identifierType is a mixed Id
  * @param {string} identifierType
+ * @return {boolean}
  */
 const isMixedId = (identifierType: string) => identifierType === fieldIdentifierTypes.generic.value;
 /**
  * Checks if the identifierType is a custom Id
  * @param {string} identifierType
+  * @return {boolean}
  */
 const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
 
@@ -302,56 +100,64 @@ const getDefaultLogicalType = (identifierType: string): string | void => {
 
 /**
  * Returns a list of logicalType mappings for displaying its value and a label by logicalType
- * @param {String} logicalType
+ * @param {('id' | 'generic')} logicalType 
+ * @returns {Array<{value: NonIdLogicalType | IdLogicalType; label: string;}>}
  */
-const logicalTypeValueLabel = (logicalType: string) =>
-  (<{ [K: string]: Array<string> }>{
+const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
+  const logicalTypes: Array<NonIdLogicalType | IdLogicalType> = {
     id: idLogicalTypes,
     generic: genericLogicalTypes
-  })[logicalType].map(value => ({
-    value,
-    label: nonIdFieldLogicalTypes[value]
-      ? nonIdFieldLogicalTypes[value].displayAs
-      : value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, value => Ember.String.capitalize(value.toLowerCase()))
-  }));
+  }[logicalType];
 
-// Map logicalTypes to options consumable by DOM
+  return logicalTypes.map((value: NonIdLogicalType | IdLogicalType) => {
+    let label: string;
+
+    // guard checks that if the logical type string is generic, then the value union can be assumed to be
+    // a NonIdLogicalType, otherwise it is an id /custom logicalType
+    if (logicalType === 'generic') {
+      label = nonIdFieldLogicalTypes[<NonIdLogicalType>value].displayAs;
+    } else {
+      label = value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, value => Ember.String.capitalize(value.toLowerCase()));
+    }
+
+    return {
+      value,
+      label
+    };
+  });
+};
+
+/**
+ * Map logicalTypes to options consumable by DOM
+ * @returns {Array<{value: IdLogicalType; label: string;}>}
+ */
 const logicalTypesForIds = logicalTypeValueLabel('id');
 
-// Map generic logical type to options consumable in DOM
+/**
+ * Map generic logical type to options consumable in DOM
+ * @returns {Array<{value: NonIdLogicalType; label: string;}>}
+ */
 const logicalTypesForGeneric = logicalTypeValueLabel('generic');
 
 /**
- * Caches a list of field identifiers
- * @type {Array<IFieldIdProps>}
- */
-const fieldIdentifierTypesList: Array<IFieldIdProps> = arrayMap(
-  (fieldIdentifierType: string) => fieldIdentifierTypes[fieldIdentifierType]
-)(Object.keys(fieldIdentifierTypes));
-
-/**
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
- * @type {Array<Pick<IFieldIdProps, 'value'>>}
+ * @type {Array<FieldIdValues>}
  */
-const fieldIdentifierTypeIds: Array<string> = fieldIdentifierTypesList
+const fieldIdentifierTypeIds: Array<FieldIdValues> = Object.values(fieldIdentifierTypes)
   .filter(({ isId }) => isId)
   .map(({ value }) => value);
 
 /**
  * Caches a list of fieldIdentifierTypes values
- * @type {Array<Pick<IFieldIdProps, 'value'>>}
+ * @type {Array<FieldIdValues>}
  */
-const fieldIdentifierTypeValues: Array<string> = fieldIdentifierTypesList.map(({ value }) => value);
+const fieldIdentifierTypeValues: Array<FieldIdValues> = Object.values(FieldIdValues);
 
 export {
   defaultFieldDataTypeClassification,
   classifiers,
-  fieldIdentifierTypes,
   fieldIdentifierTypeIds,
   fieldIdentifierTypeValues,
-  idLogicalTypes,
-  customIdLogicalTypes,
-  nonIdFieldLogicalTypes,
   isMixedId,
   isCustomId,
   hasPredefinedFieldFormat,
@@ -359,6 +165,6 @@ export {
   logicalTypesForGeneric,
   getDefaultLogicalType,
   lastSeenSuggestionInterval,
-  SuggestionIntent,
-  lowQualitySuggestionConfidenceThreshold
+  lowQualitySuggestionConfidenceThreshold,
+  logicalTypeValueLabel
 };

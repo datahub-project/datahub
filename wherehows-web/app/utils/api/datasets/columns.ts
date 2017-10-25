@@ -24,14 +24,17 @@ const datasetColumnsException = 'An error occurred with the columns api';
 const datasetColumnUrlById = (id: number): string => `${datasetUrlById(id)}/columns`;
 
 /**
- * Maps a IDatasetColumn to an object containing markdown comments, if the dataset has a comment attribute
- * @param {IDatasetColumn} column
- * @return {IDatasetColumnWithHtmlComments | IDatasetColumn}
+ * Maps an object with a column prop to an object containing markdown comments, if the dataset has a comment attribute
+ * @template T 
+ * @param {T} objectWithComment
+ * @return {T & {commentHtml: string} | {} & T}
  */
-const columnWithHtmlComment = (column: IDatasetColumn): IDatasetColumnWithHtmlComments | IDatasetColumn => {
-  const { comment } = column;
+const augmentWithHtmlComment = <T extends { comment: string }>(objectWithComment: T) => {
+  const { comment } = objectWithComment;
   // TODO: DSS-6122 Refactor global function reference to marked
-  return comment ? { ...column, commentHtml: window.marked(comment).htmlSafe() } : column;
+  // not using spread operator here: https://github.com/Microsoft/TypeScript/issues/10727
+  // current ts version: 2.5.3
+  return Object.assign({}, objectWithComment, comment && { commentHtml: window.marked(comment).htmlSafe() });
 };
 
 /**
@@ -49,10 +52,10 @@ const columnDataTypeAndFieldName = ({
 });
 
 /**
- * Takes a list of IDatasetColumn and returns an array of IDatasetColumn or IDatasetColumnWithHtmlComments
- * @type {(array: Array<IDatasetColumn>) => Array<IDatasetColumnWithHtmlComments | IDatasetColumn>}
+ * Takes a list of objects with comments and returns an array of objects with comments or html comments
+ * @type {(array: Array<T extends { comment: string } & Object>) => Array<T | T extends { commentHtml: string }>}
  */
-const columnsWithHtmlComments = arrayMap(columnWithHtmlComment);
+const augmentObjectsWithHtmlComments = arrayMap(augmentWithHtmlComment);
 
 /**
  * Takes a list of IDatasetColumn / IDatasetColumn with html comments and pulls the dataType and and fullFieldPath (as fieldName) attributes
@@ -78,4 +81,4 @@ const readDatasetColumns = async (id: number): Promise<Array<IDatasetColumn>> =>
   throw new Error(message);
 };
 
-export { readDatasetColumns, columnDataTypesAndFieldNames, columnsWithHtmlComments };
+export { readDatasetColumns, columnDataTypesAndFieldNames, augmentObjectsWithHtmlComments, datasetColumnUrlById };

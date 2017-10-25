@@ -6,6 +6,8 @@ import {
   deleteDatasetComment,
   updateDatasetComment
 } from 'wherehows-web/utils/api';
+import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
+import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 
 const {
   set,
@@ -32,16 +34,12 @@ export default Controller.extend({
    */
   notifications: service(),
 
-  hasProperty: false,
-  hasImpacts: false,
-  hasSchemas: false,
-  hasSamples: false,
   isTable: true,
-  isJSON: false,
+  hasImpacts: false,
+  hasSamples: false,
   currentVersion: '0',
   latestVersion: '0',
   ownerTypes: [],
-  datasetSchemaFieldsAndTypes: [],
   userTypes: [{ name: 'Corporate User', value: 'urn:li:corpuser' }, { name: 'Group User', value: 'urn:li:corpGroup' }],
   isPinot: function() {
     var model = this.get('model');
@@ -88,30 +86,7 @@ export default Controller.extend({
     }
     return '';
   }.property('model.id'),
-  adjustPanes: function() {
-    var hasProperty = this.get('hasProperty');
-    var isHDFS = this.get('isHDFS');
-    if (hasProperty && !isHDFS) {
-      $('#sampletab').css('overflow', 'scroll');
-      // Adjust the height
-      // Set global adjuster
-      var height = $(window).height() * 0.99 - 185;
-      $('#sampletab').css('height', height);
-      $(window).resize(function() {
-        var height = $(window).height() * 0.99 - 185;
-        $('#sampletab').height(height);
-      });
-    }
-  }
-    .observes('hasProperty', 'isHDFS')
-    .on('init'),
-  buildJsonView: function() {
-    var model = this.get('model');
-    var schema = JSON.parse(model.schema);
-    setTimeout(function() {
-      $('#json-viewer').JSONView(schema);
-    }, 500);
-  },
+
   refreshVersions: function(dbId) {
     var model = this.get('model');
     if (!model || !model.id) {
@@ -155,7 +130,6 @@ export default Controller.extend({
       if (!model || !model.id) {
         return;
       }
-      _this.set('hasSchemas', false);
       var schemaUrl = '/api/v1/datasets/' + model.id + '/schema/' + version;
       $.get(schemaUrl, function(data) {
         if (data && data.status == 'ok') {
@@ -164,12 +138,6 @@ export default Controller.extend({
           }, 500);
         }
       });
-    } else {
-      if (_this.schemas) {
-        _this.set('hasSchemas', true);
-      } else {
-        _this.buildJsonView();
-      }
     }
 
     _this.set('currentVersion', version);
@@ -235,6 +203,19 @@ export default Controller.extend({
 
   actions: {
     /**
+     * Updates the dataset's deprecation properties
+     * @param {boolean} isDeprecated 
+     * @param {string} deprecationNote 
+     * @return {IDatasetView}
+     */
+    async updateDeprecation(isDeprecated, deprecationNote) {
+      const datasetId = get(this, 'datasetId');
+
+      await updateDatasetDeprecation(datasetId, isDeprecated, deprecationNote);
+      return set(this, 'datasetView', await readDatasetView(datasetId));
+    },
+
+    /**
      * Action handler creates a dataset comment with the type and text pas
      * @param {CommentTypeUnion} type the comment type
      * @param {string} text the text of the comment
@@ -292,28 +273,6 @@ export default Controller.extend({
       );
     },
 
-    setView: function(view) {
-      switch (view) {
-        case 'tabular':
-          this.set('isTable', true);
-          this.set('isJSON', false);
-          $('#json-viewer').hide();
-          $('#json-table').show();
-          break;
-        case 'json':
-          this.set('isTable', false);
-          this.set('isJSON', true);
-          this.buildJsonView();
-          $('#json-table').hide();
-          $('#json-viewer').show();
-          break;
-        default:
-          this.set('isTable', true);
-          this.set('isJSON', false);
-          $('#json-viewer').hide();
-          $('#json-table').show();
-      }
-    },
     updateVersion: function(version) {
       this.changeVersion(version);
     },

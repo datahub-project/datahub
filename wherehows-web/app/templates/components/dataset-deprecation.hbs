@@ -1,0 +1,32 @@
+<form {{action "onSave" on="submit"}}>
+  <label for="dataset-is-deprecated">
+    Dataset is deprecated?
+  </label>
+
+  {{input
+    id="dataset-is-deprecated"
+    type="checkbox"
+    title="Is this dataset deprecated?"
+    checked=(readonly deprecatedAlias)
+    change=(action "toggleDeprecatedStatus")
+  }}
+
+  {{#if deprecatedAlias}}
+
+    {{medium-content-editable
+      value=deprecationNoteAlias
+      options=editorOptions
+      class="comment-new__content"}}
+
+  {{/if}}
+
+  <div class="dataset-deprecation-toggle__actions">
+    {{#if isDirty}}
+      <button
+        type="submit"
+        class="nacho-button--large nacho-button--secondary">
+        Update Deprecation Status
+      </button>
+    {{/if}}
+  </div>
+</form>

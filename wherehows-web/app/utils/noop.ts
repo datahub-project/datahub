@@ -1,4 +1,5 @@
 /**
- * exports a noop that can be used in place of Ember.K which is currently deprecated.
+ * Exports a noop that can be used in place of Ember.K which is currently deprecated.
  */
-export default () => {};
+const noop: (...args: Array<any>) => any = () => {};
+export default noop;

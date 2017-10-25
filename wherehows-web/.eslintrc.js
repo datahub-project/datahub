@@ -7,6 +7,7 @@ module.exports = {
     "eslint:recommended",
     "prettier"
   ],
+  "parser": "babel-eslint",
   "parserOptions": {
     "ecmaVersion": 8,
     "sourceType": "module",
