@@ -123,7 +123,7 @@ public class DatasetComplianceDaoTest {
     assertEquals(dsCompliance.getComplianceEntities(), "[]");
     assertEquals(dsCompliance.getConfidentiality(), confidentiality);
     assertEquals(dsCompliance.getModifiedBy(), actor);
-    assertEquals(dsCompliance.getModifiedTime(), new Integer(1));
+    assertEquals(dsCompliance.getModifiedTime(), null);
   }
 
   @Test
