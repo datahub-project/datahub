@@ -55,13 +55,13 @@ CREATE TABLE `stg_dict_dataset` (
 -- dataset table
 CREATE TABLE `dict_dataset` (
   `id`                          INT(11) UNSIGNED NOT NULL                                                                   AUTO_INCREMENT,
-  `name`                        VARCHAR(200) CHARACTER SET utf8                                                             NOT NULL,
+  `name`                        VARCHAR(200)                                                                                NOT NULL,
   `schema`                      MEDIUMTEXT CHARACTER SET utf8,
   `schema_type`                 VARCHAR(50)                                                                                 DEFAULT 'JSON'
   COMMENT 'JSON, Hive, DDL, XML, CSV',
   `properties`                  TEXT CHARACTER SET utf8,
   `fields`                      MEDIUMTEXT CHARACTER SET utf8,
-  `urn`                         VARCHAR(500) CHARACTER SET utf8                                                             NOT NULL,
+  `urn`                         VARCHAR(500)                                                                                NOT NULL,
   `source`                      VARCHAR(50)                                                                                 NULL
   COMMENT 'The original data source type (for dataset in data warehouse). Oracle, Kafka ...',
   `location_prefix`             VARCHAR(200)                                                                                NULL,
@@ -87,11 +87,9 @@ CREATE TABLE `dict_dataset` (
   `modified_time`               INT UNSIGNED COMMENT 'latest wherehows modified',
   `wh_etl_exec_id`              BIGINT COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_dataset_urn` (`urn`),
-  FULLTEXT KEY `fti_datasets_all` (`name`, `schema`, `properties`, `urn`)
+  UNIQUE KEY `uq_dataset_urn` (`urn`)
 )
   ENGINE = InnoDB
-  AUTO_INCREMENT = 0
   DEFAULT CHARSET = latin1;
 
 -- stagging table for sample data
