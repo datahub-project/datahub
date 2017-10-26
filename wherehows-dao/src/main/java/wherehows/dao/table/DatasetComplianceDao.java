@@ -57,7 +57,6 @@ public class DatasetComplianceDao extends BaseDao {
   public void updateDatasetCompliance(@Nonnull DatasetCompliance record, @Nonnull String user) throws Exception {
     DsCompliance compliance = datasetComplianceToDsCompliance(record);
     compliance.setModifiedBy(user);
-    compliance.setModifiedTime((int) (System.currentTimeMillis() / 1000));
 
     update(compliance);
   }
@@ -155,7 +154,6 @@ public class DatasetComplianceDao extends BaseDao {
     dsCompliance.setConfidentiality(compliance.getConfidentiality());
     dsCompliance.setDatasetClassification(om.writeValueAsString(compliance.getDatasetClassification()));
     dsCompliance.setModifiedBy(compliance.getModifiedBy());
-    dsCompliance.setModifiedTime((int) (compliance.getModifiedTime() / 1000));
     return dsCompliance;
   }
 
