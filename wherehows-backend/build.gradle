@@ -26,6 +26,9 @@ model {
                 from("jobs") {
                     into "jobs"
                 }
+                from("../wherehows-data-model/ELASTICSEARCH") {
+                    into "ELASTICSEARCH"
+                }
             }
         }
     }

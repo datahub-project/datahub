@@ -19,7 +19,6 @@ import sys, json
 import urllib2
 import time
 
-
 class ElasticSearchIndex():
     def __init__(self, args):
         self.logger = LoggerFactory.getLogger('jython script : ' + self.__class__.__name__)
@@ -31,9 +30,18 @@ class ElasticSearchIndex():
         else:
             self.elasticsearch_index = args[Constant.ELASTICSEARCH_INDEX_KEY]
 
+        self.index_mapping_file = args[Constant.WH_ELASTICSEARCH_INDEX_MAPPING_FILE]
+
         self.bulk_chunk_size = int(args[Constant.ELASTICSEARCH_BULK_INSERT_SIZE]) # bulk insert size to elastic search engine
         self.es_url_request_timeout = int(args[Constant.ELASTICSEARCH_URL_REQUEST_TIMEOUT]) # url to post data to elastic search engine request time out
         self.max_retry_times = int(args[Constant.WH_DB_MAX_RETRY_TIMES]) # max times for db re-connection when lost during fetching source data
+
+
+        self.base_url = self.elasticsearch_index_url + ':' + str(self.elasticsearch_port) + '/'
+        self.logger.info(self.base_url)
+
+        self.old_index = []
+        self.new_index = []
 
         self.databaseConnect(args)
 
@@ -447,7 +455,7 @@ class ElasticSearchIndex():
             self.wh_cursor.execute(cmd)
             self.wh_con.commit()
 
-    def run(self):
+    def es_reindex(self):
 
         try:
             start_dataset_time = time.time()
@@ -483,6 +491,106 @@ class ElasticSearchIndex():
         finally:
             self.wh_cursor.close()
             self.wh_con.close()
+
+
+    def es_http_request(self, method, url, payload):
+        try:
+            req = urllib2.Request(url=url)
+            req.add_header('Content-type', 'application/json')
+            req.get_method = lambda: method
+            req.add_data(payload)
+
+            self.logger.info("Request sent to ES is: " + url + ' ' + payload)
+            response = urllib2.urlopen(req, timeout=self.es_url_request_timeout)
+            data = json.load(response)
+            return data
+
+        except urllib2.HTTPError as e:
+            self.logger.error(str(e.code))
+            self.logger.error(e.read())
+        except Exception as e:
+            self.logger.error(str(e))
+
+    def create_index(self):
+        now = int(time.time())
+        url = self.base_url + str(now)
+
+        json_filepath = self.index_mapping_file
+        with open(json_filepath, 'r') as f:
+            req_body = json.load(f)
+
+        data = self.es_http_request("PUT", url, json.dumps(req_body))
+        if str(data['acknowledged']) != 'True':
+            self.logger.error(str(data))
+
+        self.new_index = str(now)
+        self.logger.info('Successfully created index : {}'.format(self.new_index))
+
+    def alias_switch(self):
+        url = self.base_url + '_aliases'
+
+        remove = '{"remove":{"index": "%s","alias":"%s"}}' % (self.old_index, self.elasticsearch_index)
+        add = '{"add":{"index":"%s","alias":"%s"}}' % (self.new_index, self.elasticsearch_index)
+        req_body = '{"actions": [%s, %s]}' % (remove, add)
+
+        data = self.es_http_request("POST", url, req_body)
+
+        if str(data['acknowledged']) != 'True':
+            self.logger.error(str(data))
+
+        self.logger.info('Successfully switched alias from {} to {}'.format(self.old_index, self.new_index))
+
+    def create_alias(self, index):
+        # create a new alias
+        url = self.base_url + '_aliases'
+        req_body = '{"actions":[{"add":{"index":"%s","alias":"%s"}}]}' %(index, self.elasticsearch_index)
+        data = self.es_http_request("POST", url, req_body)
+
+        if str(data['acknowledged']) != 'True':
+            self.logger.error(str(data))
+        self.logger.info('Successfully create alias for: {}'.format(self.new_index))
+
+    def get_old_index(self):
+        # get existing index the current alias points to
+        url = self.base_url + self.elasticsearch_index + "/_alias"
+        try:
+            data = self.es_http_request("GET", url, '')
+            for key in data.keys():
+                self.old_index = key
+                break
+            self.logger.info('Successfully find old index: {}'.format(self.old_index))
+        except:
+            self.logger.info('Need to create alias for the first time')
+
+
+    def remove_old_index(self):
+        url = self.base_url + self.old_index
+        data = self.es_http_request("DELETE", url, '')
+
+        if str(data['acknowledged']) != 'True':
+            self.logger.error(str(data))
+        self.logger.info('Successfully removed index: {}'.format(self.old_index))
+
+
+    def run(self):
+        try:
+            # 1, create a new index with current timestamp, using json body from model
+            self.create_index()
+            # 2, populate data
+            self.es_reindex()
+            # 3, get old index and remember it
+            self.get_old_index()
+
+            if len(self.old_index) > 0:
+                # 4, remove existing alias, and add alias to newly created index
+                self.alias_switch()
+                # 5, remove old timestamp index
+                self.remove_old_index()
+            else:
+                # 6, first time add self.elasticsearch_index alias
+                self.create_alias(self.new_index)
+        except Exception as e:
+            self.logger.error(str(e))
 
 
 if __name__ == "__main__":
