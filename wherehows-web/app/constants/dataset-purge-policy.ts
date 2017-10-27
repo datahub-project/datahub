@@ -7,9 +7,9 @@ import { DatasetPlatform } from 'wherehows-web/constants/dataset-platforms';
 enum PurgePolicy {
   AutoPurge = 'AUTO_PURGE',
   ManualPurge = 'MANUAL_PURGE',
-  AutoLimitedRetention = 'AUTO_LIMITED_RETENTION',
+  AutoLimitedRetention = 'LIMITED_RETENTION',
   ManualLimitedRetention = 'MANUAL_LIMITED_RETENTION',
-  PurgeExempt = 'PURGE_EXEMPT'
+  PurgeExempt = 'PURGE_EXEMPTED'
 }
 
 /**
@@ -39,7 +39,7 @@ const purgePolicyProps: PurgePolicyProperties = {
     desc: 'Choose this option only if you or your team have implemented a custom mechanism to purge this dataset.',
     displayAs: 'Manual Purge'
   },
-  AUTO_LIMITED_RETENTION: {
+  LIMITED_RETENTION: {
     platforms: [DatasetPlatform.Kafka, DatasetPlatform.Teradata, DatasetPlatform.HDFS],
     desc:
       'Choose this option only if you rely on the data platform’s default limited retention mechanism to purge your data.',
@@ -50,7 +50,7 @@ const purgePolicyProps: PurgePolicyProperties = {
     desc: 'Choose this option only if you have a well established process to ensure limited data retention.',
     displayAs: 'Manual Limited Retention'
   },
-  PURGE_EXEMPT: {
+  PURGE_EXEMPTED: {
     platforms: Object.keys(DatasetPlatform).map((k: keyof typeof DatasetPlatform) => DatasetPlatform[k]),
     desc: 'Choose this option only if the dataset is explicitly exempted from purging',
     displayAs: 'Purge Exempt'
