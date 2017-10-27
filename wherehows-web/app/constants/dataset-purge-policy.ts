@@ -31,7 +31,7 @@ const purgePolicyProps: PurgePolicyProperties = {
   AUTO_PURGE: {
     platforms: [DatasetPlatform.Teradata, DatasetPlatform.Espresso, DatasetPlatform.HDFS],
     desc:
-      'Choose this option only if it’s acceptable to have the centralized system purge this dataset based on the provided metadata (e.g. member ID [Subject Owner]).',
+      'Choose this option only if it’s acceptable to have the centralized system purge this dataset based on the provided metadata (e.g. member ID, seat ID etc).',
     displayAs: 'Auto Purge'
   },
   MANUAL_PURGE: {
