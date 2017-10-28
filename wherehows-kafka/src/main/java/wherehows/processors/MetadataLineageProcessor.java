@@ -58,7 +58,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
 
     final agent agentName = record.type;
-    record.getLineage()
+    record.getLineage()Deepti Chheda
 
 
     log.debug("MLE: " + " TS: " + auditHeader.time);
