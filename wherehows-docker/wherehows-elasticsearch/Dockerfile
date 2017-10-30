@@ -4,14 +4,14 @@ RUN apt-get update && \
     apt-get install -y wget curl
 
 # Variables
-ENV ES_PKG_NAME elasticsearch-2.4.1
+ENV ES_PKG_NAME elasticsearch-5.5.1
 ENV ELASTICSEARCH_SERVER_URL "http://localhost:9200"
 ENV PATH /usr/share/elasticsearch/bin:$PATH
 ENV ES_JAVA_OPTS "-Xms1g -Xmx1g"
 
 # Elasticsearch Install
 RUN cd / && \
-    wget https://download.elasticsearch.org/elasticsearch/elasticsearch/$ES_PKG_NAME.tar.gz && \
+    wget https://artifacts.elastic.co/downloads/elasticsearch/$ES_PKG_NAME.tar.gz && \
     tar xvzf $ES_PKG_NAME.tar.gz && \
     rm -f $ES_PKG_NAME.tar.gz && \
     mv /$ES_PKG_NAME /usr/share/elasticsearch && \
