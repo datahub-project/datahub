@@ -84,7 +84,7 @@ class ElasticSearchIndex():
         LEFT JOIN field_comments f ON d.comment_id = f.id WHERE d.field_id = %d
         """
         url = self.elasticsearch_index_url + ':' + str(
-            self.elasticsearch_port) + '/' + self.elasticsearch_index + '/field/_bulk'
+            self.elasticsearch_port) + '/' + self.new_index + '/field/_bulk'
         params = []
         attempts = 0
         while attempts < self.max_retry_times:
@@ -150,7 +150,7 @@ class ElasticSearchIndex():
           """
 
         url = self.elasticsearch_index_url + ':' + str(
-            self.elasticsearch_port) + '/' + self.elasticsearch_index + '/comment/_bulk'
+            self.elasticsearch_port) + '/' + self.new_index + '/comment/_bulk'
         params = []
         self.wh_cursor.execute(sql)
         row_count = 1
@@ -258,7 +258,7 @@ class ElasticSearchIndex():
         result = self.wh_cursor.fetchone()
 
         url = self.elasticsearch_index_url + ':' + str(
-            self.elasticsearch_port) + '/' + self.elasticsearch_index + '/dataset/_bulk'
+            self.elasticsearch_port) + '/' + self.new_index + '/dataset/_bulk'
         params = []
         while result:
             row = dict(zip(description, result))
@@ -304,7 +304,7 @@ class ElasticSearchIndex():
         """
 
         url = self.elasticsearch_index_url + ':' + str(
-            self.elasticsearch_port) + '/' + self.elasticsearch_index + '/metric/_bulk'
+            self.elasticsearch_port) + '/' + self.new_index + '/metric/_bulk'
         params = []
         self.wh_cursor.execute(sql)
         description = [x[0] for x in self.wh_cursor.description]
@@ -376,7 +376,7 @@ class ElasticSearchIndex():
         """
 
         url = self.elasticsearch_index_url + ':' + str(
-            self.elasticsearch_port) + '/' + self.elasticsearch_index + '/flow_jobs/_bulk'
+            self.elasticsearch_port) + '/' + self.new_index + '/flow_jobs/_bulk'
 
         params = []
         self.wh_cursor.execute(flow_sql)
