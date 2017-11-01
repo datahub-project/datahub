@@ -1,5 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
+import { run, next } from '@ember/runloop';
 import {
   baseCommentEditorOptions,
   exemptPolicy,
@@ -37,7 +38,8 @@ export default Component.extend({
   editorOptions: {
     ...baseCommentEditorOptions,
     placeholder: {
-      text: 'Please provide an explanation for why this dataset is marked "Purge Exempt" status'
+      text: 'Please provide an explanation for why this dataset is marked "Purge Exempt" status',
+      hideOnClick: false
     }
   },
 
@@ -60,6 +62,23 @@ export default Component.extend({
   checkExemption(purgePolicy: PurgePolicy) {
     const exemptionReasonRequested = isExempt(purgePolicy);
     set(this, 'requestExemptionReason', exemptionReasonRequested);
+
+    if (exemptionReasonRequested) {
+      // schedule for a future queue, 'likely' post render
+      // this allows us to ensure that editor it visible after the set above has been performed
+      run(() => next(this, 'focusEditor'));
+    }
+  },
+
+  /**
+   * Applies cursor / document focus to the purge note text editor
+   */
+  focusEditor() {
+    const exemptionReasonElement = <HTMLElement>get(this, 'element').querySelector('.comment-new__content');
+
+    if (exemptionReasonElement) {
+      exemptionReasonElement.focus();
+    }
   },
 
   actions: {

@@ -29,11 +29,14 @@ module.exports = function(defaults) {
       js: ['dropdown', 'collapse', 'tab']
     },
 
-    minifyJS: {
+    'ember-cli-uglify': {
       enabled: EmberApp.env() === 'production',
-      options: {
-        exclude: ['**/vendor.js', 'legacy-app/**']
-      }
+      uglify: {
+        compress: {
+          sequences: 20
+        }
+      },
+      exclude: ['**/vendor.js', 'legacy-app/**']
     },
 
     outputPaths: {
