@@ -18,6 +18,8 @@ const {
   setProperties,
   inject: { service },
   $: { post, getJSON },
+  run,
+  run: { scheduleOnce },
   Controller
 } = Ember;
 
@@ -202,6 +204,20 @@ export default Controller.extend({
   },
 
   actions: {
+    /**
+     * Renders the properties tab elements.
+     * temporary workaround to query parameters, the file is a holdover from the legacy WH app
+     */
+    showProperties() {
+      // FIXME: this is a stop gap pending transition to queryParams tabbed nav in datasets.
+      // :facepalm:
+      run(() => {
+        scheduleOnce('afterRender', null, () => {
+          $('.tabbed-navigation-list li.active:not(#properties)').removeClass('active');
+          $('.tabbed-navigation-list #properties').addClass('active');
+        });
+      });
+    },
     /**
      * Updates the dataset's deprecation properties
      * @param {boolean} isDeprecated 
