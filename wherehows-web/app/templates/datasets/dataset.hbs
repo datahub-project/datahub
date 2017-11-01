@@ -12,9 +12,21 @@
     <div class="row">
       <div class="col-xs-5">
         {{#if datasetView.deprecated}}
-          <span class="deprecated-dataset">
-            DEPRECATED
-          </span>
+          <a data-toggle="tab" href="#propertiestab" {{action "showProperties" preventDefault=false}}>
+            <span class="deprecated-dataset">
+              DEPRECATED
+            </span>
+            <sup>
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title={{helpText.classification}}>
+                {{tooltip-on-element
+                  event="hover"
+                  text="Click to view dataset properties"
+                }}
+              </span>
+            </sup>
+          </a>
         {{/if}}
 
         <h3>{{ model.name }}</h3>
@@ -131,7 +143,7 @@
         </a>
       </li>
     {{/unless}}
-    <li id="properties">
+    <li id="comments">
       <a data-toggle="tab" href="#commentstab">
         Comments
       </a>

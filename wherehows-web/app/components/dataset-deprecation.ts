@@ -1,7 +1,7 @@
 import Component from '@ember/component';
+import { inject } from '@ember/service';
 import { getProperties, computed } from '@ember/object';
 import ComputedProperty, { oneWay } from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
@@ -17,7 +17,7 @@ export default class DatasetDeprecation extends Component {
   notifications = <ComputedProperty<Notifications>>inject();
 
   /**
-   * Flag indicating that the dataset is depprecated or otherwise
+   * Flag indicating that the dataset is deprecated or otherwise
    * @type {(null | boolean)}
    * @memberof DatasetDeprecation
    */
@@ -26,11 +26,12 @@ export default class DatasetDeprecation extends Component {
   /**
    * Working reference to the dataset's deprecated flag
    * @memberof DatasetDeprecation
+   * @type {ComputedProperty<typeof DatasetDeprecation.deprecated>}
    */
   deprecatedAlias = oneWay('deprecated');
 
   /**
-   * Note accommpanying the deprecation flag change
+   * Note accompanying the deprecation flag change
    * @type {string}
    * @memberof DatasetDeprecation
    */
@@ -39,6 +40,7 @@ export default class DatasetDeprecation extends Component {
   /**
    * Working reference to the dataset's deprecationNote
    * @memberof DatasetDeprecation
+   * @type {ComputedProperty<typeof DatasetDeprecation.deprecationNote>}
    */
   deprecationNoteAlias = oneWay('deprecationNote');
 
@@ -82,7 +84,6 @@ export default class DatasetDeprecation extends Component {
   actions = {
     /**
      * Toggles the boolean value of deprecatedAlias
-     * @param {DatasetDeprecation} this 
      */
     toggleDeprecatedStatus(this: DatasetDeprecation) {
       this.toggleProperty('deprecatedAlias');
@@ -91,7 +92,6 @@ export default class DatasetDeprecation extends Component {
     /**
      * Invokes the save action with the updated values for 
      * deprecated and deprecationNote
-     * @param {DatasetDeprecation} this 
      */
     async onSave(this: DatasetDeprecation) {
       const { deprecatedAlias, deprecationNoteAlias, notifications: { notify } } = getProperties(this, [
