@@ -36,7 +36,7 @@ public class KafkaWorker extends UntypedActor {
 
   public static final String WORKER_START = "WORKER_START";
 
-  private final int _consumer_poll_interval = 1000;
+  private final int POLL_TIMEOUT_MS = 1000;
 
   private final String _topic;
 
@@ -60,17 +60,10 @@ public class KafkaWorker extends UntypedActor {
     if (message.equals(WORKER_START)) {
       while (RUNNING) {
         try {
-          ConsumerRecords<String, IndexedRecord> records = _consumer.poll(_consumer_poll_interval);
+          ConsumerRecords<String, IndexedRecord> records = _consumer.poll(POLL_TIMEOUT_MS);
           for (ConsumerRecord<String, IndexedRecord> record : records) {
             _receivedRecordCount++;
-
-            try {
-              _processor.process(record.value());
-            } catch (Exception e) {
-              log.error("Processor Error: ", e);
-              log.error("Message content: " + record.toString());
-            }
-
+            _processor.process(record.value());
             if (_receivedRecordCount % 1000 == 0) {
               log.info(_topic + " received " + _receivedRecordCount);
             }

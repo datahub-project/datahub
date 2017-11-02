@@ -25,8 +25,8 @@ import wherehows.dao.DaoFactory;
 @Slf4j
 public class DummyProcessor extends KafkaMessageProcessor {
 
-  public DummyProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producer);
+  public DummyProcessor(DaoFactory daoFactory, String producerTopic, KafkaProducer<String, IndexedRecord> producer) {
+    super(daoFactory, producerTopic, producer);
   }
 
   /**
