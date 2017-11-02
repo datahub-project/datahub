@@ -13,19 +13,16 @@
  */
 package wherehows.actors;
 
-import akka.ConfigurationException;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -80,8 +77,8 @@ public class KafkaClientMaster extends UntypedActor {
         for (int i = 0; i < numberOfWorkers; i++) {
           ActorRef worker = makeKafkaWorker(kafkaJobName, props);
           _kafkaWorkers.add(worker);
-          worker.tell("ApplicationStart", getSelf());
-          log.info("Started Kafka job: " + kafkaJobName);
+          worker.tell(KafkaWorker.WORKER_START, getSelf());
+          log.info("Started Kafka worker #{} for job {}", i, kafkaJobName);
         }
       } catch (Exception e) {
         log.error("Error starting Kafka job: " + kafkaJobName, e);
