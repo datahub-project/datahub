@@ -14,11 +14,15 @@
 package wherehows.actors;
 
 import akka.actor.UntypedActor;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.SerializationException;
 import wherehows.processors.KafkaMessageProcessor;
 
 
@@ -30,28 +34,32 @@ public class KafkaWorker extends UntypedActor {
 
   public static boolean RUNNING = true;
 
+  public static final String WORKER_START = "WORKER_START";
+
+  private final int _consumer_poll_interval = 1000;
+
   private final String _topic;
+
+  private TopicPartition _partition;  // assuming there is only one partition assigned to each worker
 
   private final KafkaConsumer<String, IndexedRecord> _consumer;
 
   private final KafkaMessageProcessor _processor;
 
-  private final int _consumer_poll_interval = 1000;
-
-  private int _receivedRecordCount;
+  private long _receivedRecordCount;  // number of received kafka messages
 
   public KafkaWorker(String topic, KafkaConsumer<String, IndexedRecord> consumer, KafkaMessageProcessor processor) {
     this._topic = topic;
     this._consumer = consumer;
     this._processor = processor;
-    this._receivedRecordCount = 0;  // number of received kafka messages
+    this._receivedRecordCount = 0;
   }
 
   @Override
   public void onReceive(Object message) throws Exception {
-    if (message.equals("ApplicationStart")) {
-      try {
-        while (RUNNING) {
+    if (message.equals(WORKER_START)) {
+      while (RUNNING) {
+        try {
           ConsumerRecords<String, IndexedRecord> records = _consumer.poll(_consumer_poll_interval);
           for (ConsumerRecord<String, IndexedRecord> record : records) {
             _receivedRecordCount++;
@@ -69,20 +77,32 @@ public class KafkaWorker extends UntypedActor {
           }
 
           _consumer.commitSync();
-        }
-      } catch (Exception e) {
-        log.error("Consumer Error ", e);
-      } finally {
-        log.info("Shutting down consumer and worker for topic: " + _topic);
-        try {
-          _consumer.close();
+        } catch (SerializationException e) {
+          log.error("Serialization Error: ", e);
+          moveOffset(1);
         } catch (Exception e) {
-          log.error("Error closing consumer for topic " + _topic + " : " + e.toString());
+          log.error("Consumer Error ", e);
+          moveOffset(1);
         }
       }
     } else {
       unhandled(message);
     }
+  }
+
+  private void moveOffset(int amount) {
+    // Assuming only one partition! Can't get partition info from ConsumerRecords if poll exception.
+    List<PartitionInfo> partitions = _consumer.partitionsFor(_topic);
+    if (partitions.size() != 1) {
+      throw new RuntimeException("Kafka worker partition error: topic " + _topic + ", partitions " + partitions);
+    }
+
+    _partition = new TopicPartition(_topic, partitions.get(0).partition());
+    // add amount to current offset
+    long offset = _consumer.position(_partition) + amount;
+    // seek to new offset
+    _consumer.seek(_partition, offset);
+    log.info("Set topic {} partition {} offset to {}", _topic, _partition, offset);
   }
 
   @Override
