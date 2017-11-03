@@ -124,14 +124,14 @@ public class KafkaClientMaster extends UntypedActor {
     KafkaProducer<String, IndexedRecord> producer = null;
     if (producerTopic != null) {
       Properties producerProp = getPropertyTrimPrefix(props, "producer");
-
       producer = getProducer(producerProp);
     }
 
     // get processor instance
     Class processorClass = Class.forName(processor);
-    Constructor<?> ctor = processorClass.getConstructor(DaoFactory.class, KafkaProducer.class);
-    KafkaMessageProcessor processorInstance = (KafkaMessageProcessor) ctor.newInstance(DAO_FACTORY, producer);
+    Constructor<?> ctor = processorClass.getConstructor(DaoFactory.class, String.class, KafkaProducer.class);
+    KafkaMessageProcessor processorInstance =
+        (KafkaMessageProcessor) ctor.newInstance(DAO_FACTORY, producerTopic, producer);
 
     // create worker
     return getContext().actorOf(Props.create(KafkaWorker.class, consumerTopic, consumer, processorInstance));
