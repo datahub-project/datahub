@@ -1,0 +1,96 @@
+{
+  "bool": {
+    "should": [
+      {
+        "wildcard": {
+          "name": {
+            "value": "*$VALUE*",
+            "boost": 16
+          }
+        }
+      },
+      {
+        "prefix": {
+          "name": {
+            "value": "$VALUE",
+            "boost": 32
+          }
+        }
+      },
+      {
+        "match": {
+          "name": {
+            "query": "$VALUE",
+            "boost": 48
+          }
+        }
+      },
+      {
+        "match": {
+          "name": {
+            "query": "$VALUE",
+            "type": "phrase",
+            "boost": 64
+          }
+        }
+      },
+      {
+        "wildcard": {
+          "urn": {
+            "value": "*$VALUE*",
+            "boost": 16
+          }
+        }
+      },
+      {
+        "prefix": {
+          "urn": {
+            "value": "$VALUE",
+            "boost": 32
+          }
+        }
+      },
+      {
+        "match": {
+          "urn": {
+            "query": "$VALUE",
+            "boost": 48
+          }
+        }
+      },
+      {
+        "match": {
+          "urn": {
+            "query": "$VALUE",
+            "type": "phrase",
+            "boost": 64
+          }
+        }
+      },
+      {
+        "wildcard": {
+          "field": {
+            "value": "*$VALUE*",
+            "boost": 4
+          }
+        }
+      },
+      {
+        "wildcard": {
+          "properties": {
+            "value": "*$VALUE*",
+            "boost": 2
+          }
+        }
+      },
+      {
+        "wildcard": {
+          "schema": {
+            "value": "*$VALUE*",
+            "boost": 1
+          }
+        }
+      }
+    ]
+  }
+}

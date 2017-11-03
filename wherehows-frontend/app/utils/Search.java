@@ -16,9 +16,10 @@ package utils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.ArrayList;
 import java.util.List;
+import java.nio.file.Paths;
+import java.nio.file.Files;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.libs.Json;
@@ -31,13 +32,36 @@ public class Search {
   public final static String FLOW_CATEGORY = "flows";
   public final static String JOB_CATEGORY = "jobs";
 
+  private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_METRIC_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_FLOW_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_FLOW_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_COMMENT_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_SUGGESTER_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE = System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT");
+
+  public static String readJsonQueryFile(String jsonFile) {
+    try {
+      ObjectMapper objectMapper = new ObjectMapper();
+
+      String contents = new String(Files.readAllBytes(Paths.get(jsonFile)));
+      JsonNode json = objectMapper.readTree(contents);
+      return json.toString();
+
+    } catch (Exception e) {
+      Logger.error("ReadJsonQueryFile failed. Error: " + e.getMessage());
+      e.printStackTrace();
+      return null;
+    }
+  }
+
   public static ObjectNode generateElasticSearchCompletionSuggesterQuery(String field, String searchKeyword,
       int limit) {
     if (StringUtils.isBlank(searchKeyword)) {
       return null;
     }
 
-    String queryTemplate = generateCompletionSuggesterUnit();
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE);
     String query = queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
 
     if (StringUtils.isNotBlank(field)) {
@@ -65,7 +89,7 @@ public class Search {
       return null;
     }
 
-    String queryTemplate = generateSuggesterQueryTemplateUnit();
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE);
     String query = queryTemplate.replace("$SEARCHKEYWORD", searchKeyword.toLowerCase());
 
     if (StringUtils.isNotBlank(field)) {
@@ -84,250 +108,6 @@ public class Search {
     return suggestNode;
   }
 
-  public static ObjectNode generateOneNode(ObjectMapper mapper, String valueField, String value, int boost, String field, String func,
-      String type) {
-
-    ObjectNode node = mapper.createObjectNode();
-    ObjectNode valueNode = mapper.createObjectNode();
-    ObjectNode valueChild = mapper.createObjectNode();
-    valueChild.put(valueField, value);
-    if (type.length() > 0) {
-      valueChild.put("type", type);
-    }
-    valueChild.put("boost", boost);
-
-    valueNode.putPOJO(field, valueChild);
-    node.putPOJO(func, valueNode);
-
-    return node;
-  }
-
-  public static String generateDatasetShouldQueryUnit() {
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      ArrayNode shouldArrayNode = mapper.createArrayNode();
-
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 16, "name", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 32, "name", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 48, "name", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 64, "name", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value","*$VALUE*", 16, "urn", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 32, "urn", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 48, "urn", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 64, "urn", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value","*$VALUE*", 4, "field", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","*$VALUE*", 2, "properties", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","*$VALUE*", 1, "schema", "wildcard", ""));
-
-      ObjectNode shouldNode = mapper.createObjectNode();
-      shouldNode.putPOJO("should", shouldArrayNode);
-
-      ObjectNode boolNode = mapper.createObjectNode();
-      boolNode.putPOJO("bool", shouldNode);
-
-      return mapper.writeValueAsString(boolNode);
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateDatasetShouldQueryUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static String generateMetricShouldQueryUnit() {
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      ArrayNode shouldArrayNode = mapper.createArrayNode();
-
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 32, "metric_name", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 36, "metric_name", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 48, "metric_name", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 64, "metric_name", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value","*$VALUE*", 20, "dashboard_name", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 24, "dashboard_name", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 26, "dashboard_name", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 28, "dashboard_name", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 8, "metric_group", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 12, "metric_group", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 14, "metric_group", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 16, "metric_group", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 1, "metric_category", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value","$VALUE", 2, "metric_category", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 3, "metric_category", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query","$VALUE", 4, "metric_category", "match", "phrase"));
-
-      ObjectNode shouldNode = mapper.createObjectNode();
-      shouldNode.putPOJO("should", shouldArrayNode);
-
-      ObjectNode boolNode = mapper.createObjectNode();
-      boolNode.putPOJO("bool", shouldNode);
-
-      return mapper.writeValueAsString(boolNode);
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateMetricShouldQueryUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static String generateFlowShouldQueryUnit() {
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      ArrayNode shouldArrayNode = mapper.createArrayNode();
-
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 1, "app_code", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "$VALUE", 2, "app_code", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 3, "app_code", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 4, "app_code", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 8, "flow_name", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "$VALUE", 16, "flow_name", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 24, "flow_name", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 32, "flow_name", "match", "phrase"));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "*$VALUE*", 8, "jobs.job_name", "wildcard", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "value", "$VALUE", 16, "jobs.job_name", "prefix", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 24, "jobs.job_name", "match", ""));
-      shouldArrayNode.add(generateOneNode(mapper, "query", "$VALUE", 32, "jobs.job_name", "match", "phrase"));
-
-      ObjectNode shouldNode = mapper.createObjectNode();
-      shouldNode.putPOJO("should", shouldArrayNode);
-
-      ObjectNode boolNode = mapper.createObjectNode();
-      boolNode.putPOJO("bool", shouldNode);
-
-      return mapper.writeValueAsString(boolNode);
-
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateFlowShouldQueryUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static ObjectNode generateOneCommentNode(ObjectMapper mapper, String matchField, String value, String type) {
-
-    ObjectNode childNode = mapper.createObjectNode();
-    childNode.put(matchField, value);
-
-    ObjectNode matchNode = mapper.createObjectNode();
-    matchNode.putPOJO("match", childNode);
-
-    ObjectNode hasChildNode = mapper.createObjectNode();
-    hasChildNode.put("type", type);
-    hasChildNode.putPOJO("query", matchNode);
-
-    ObjectNode node = mapper.createObjectNode();
-    node.putPOJO("has_child", hasChildNode);
-
-    return node;
-  }
-
-  public static String generateCommentQueryUnit() {
-    try {
-      ObjectMapper mapper = new ObjectMapper();
-      ArrayNode shouldArrayNode = mapper.createArrayNode();
-
-      shouldArrayNode.add(generateOneCommentNode(mapper, "text", "$VALUE", "comment"));
-      shouldArrayNode.add(generateOneCommentNode(mapper, "comments", "$VALUE", "field"));
-
-      ObjectNode shouldNode = mapper.createObjectNode();
-      shouldNode.putPOJO("should", shouldArrayNode);
-
-      ObjectNode boolNode = mapper.createObjectNode();
-      boolNode.putPOJO("bool", shouldNode);
-
-      return mapper.writeValueAsString(boolNode);
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateCommentQueryUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static String generateCompletionSuggesterUnit() {
-    try {
-
-      ObjectMapper mapper = new ObjectMapper();
-
-      ObjectNode childNode = mapper.createObjectNode();
-      childNode.put("field", "$FIELD");
-      childNode.put("size", "$LIMIT");
-
-      ObjectNode suggestNode = mapper.createObjectNode();
-      suggestNode.put("text", "$SEARCHKEYWORD");
-      suggestNode.putPOJO("completion", childNode);
-
-      ObjectNode node = mapper.createObjectNode();
-      node.putPOJO("wh-suggest", suggestNode);
-
-      return mapper.writeValueAsString(node);
-
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateCompletionSuggesterUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static String generateSuggesterQueryTemplateUnit() {
-    try {
-
-      ObjectMapper mapper = new ObjectMapper();
-
-      ObjectNode childNode = mapper.createObjectNode();
-      childNode.put("field", "$FIELD");
-      childNode.put("suggest_mode", "always");
-      childNode.put("min_word_length", 1);
-
-      ArrayNode directGeneratorArrayNode = mapper.createArrayNode();
-      directGeneratorArrayNode.add(childNode);
-
-      ObjectNode phraseNode = mapper.createObjectNode();
-      phraseNode.put("field", "$FIELD");
-      phraseNode.put("size", 1);
-      phraseNode.putPOJO("direct_generator", directGeneratorArrayNode);
-
-      ObjectNode simplePhraseNode = mapper.createObjectNode();
-      simplePhraseNode.putPOJO("phrase", phraseNode);
-
-      ObjectNode node = mapper.createObjectNode();
-      node.put("text", "$SEARCHKEYWORD");
-      node.putPOJO("simple_phrase", simplePhraseNode);
-
-      return mapper.writeValueAsString(node);
-
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateSuggesterQueryTemplateUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-  public static String generateDatasetFilterQueryUnit() {
-    try {
-
-      ObjectMapper mapper = new ObjectMapper();
-      ObjectNode sourceNode = mapper.createObjectNode();
-      sourceNode.put("source", "$SOURCE");
-
-      ObjectNode node = mapper.createObjectNode();
-      node.putPOJO("match", sourceNode);
-
-      return mapper.writeValueAsString(node);
-
-    } catch (IllegalArgumentException e) {
-      throw e;
-    } catch (Exception e) {
-      Logger.error("generateDatasetFilterQueryUnit Exception = " + e.getMessage());
-      return null;
-    }
-  }
-
-
   public static ObjectNode generateElasticSearchQueryString(String category, String source, String keywords) {
     if (StringUtils.isBlank(keywords)) {
       return null;
@@ -335,17 +115,16 @@ public class Search {
 
     List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
 
-    String queryTemplate = generateDatasetShouldQueryUnit();
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_DATASET_QUERY_FILE);
 
     String[] values = keywords.trim().split(",");
     if (StringUtils.isNotBlank(category)) {
       if (category.equalsIgnoreCase(METRIC_CATEGORY)) {
-        queryTemplate = generateMetricShouldQueryUnit();
+        queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_METRIC_QUERY_FILE);;
       } else if (category.equalsIgnoreCase(COMMENT_CATEGORY)) {
-        queryTemplate = generateCommentQueryUnit();
+        queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE);
       } else if (category.equalsIgnoreCase(FLOW_CATEGORY) || category.equalsIgnoreCase(JOB_CATEGORY)) {
-        queryTemplate = generateFlowShouldQueryUnit();
-
+        queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_FLOW_QUERY_FILE);
       }
     }
 
@@ -360,9 +139,7 @@ public class Search {
     shouldNode.set("should", Json.toJson(shouldValueList));
     ObjectNode queryNode = Json.newObject();
     queryNode.put("bool", shouldNode);
-
-    Logger.info("generateElasticSearchQueryString is: " + queryNode.toString());
-
+    
     return queryNode;
   }
 
@@ -1244,7 +1021,7 @@ public class Search {
 
     List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
 
-    String queryTemplate = generateDatasetFilterQueryUnit();
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_FILTER_UNIT_FILE);
     String[] values = sources.trim().split(",");
 
     for (String value : values) {
@@ -1258,7 +1035,6 @@ public class Search {
     shouldNode.set("should", Json.toJson(shouldValueList));
     ObjectNode queryNode = Json.newObject();
     queryNode.put("bool", shouldNode);
-    Logger.info("datasetFilterQueryUnit queryNode is: ", queryNode.toString());
     return queryNode;
   }
 }
