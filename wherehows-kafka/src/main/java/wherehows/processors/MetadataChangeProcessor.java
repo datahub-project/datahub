@@ -67,7 +67,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     try {
       processEvent(event);
     } catch (Exception exception) {
-      log.error("MCE Processor Error: {}", exception);
+      log.error("MCE Processor Error:", exception);
       log.error("Message content: {}", event.toString());
       this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
     }
