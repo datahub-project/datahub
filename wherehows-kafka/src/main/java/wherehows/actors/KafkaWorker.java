@@ -14,13 +14,14 @@
 package wherehows.actors;
 
 import akka.actor.UntypedActor;
-import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.SerializationException;
 import wherehows.processors.KafkaMessageProcessor;
@@ -36,11 +37,12 @@ public class KafkaWorker extends UntypedActor {
 
   public static final String WORKER_START = "WORKER_START";
 
-  private final int POLL_TIMEOUT_MS = 1000;
+  private static final int POLL_TIMEOUT_MS = 1000;
+
+  private static final Pattern DESERIALIZATION_ERROR_PARTITION_PATTERN =
+      Pattern.compile("Error deserializing key/value for partition .+-(\\d+) at offset \\d+");
 
   private final String _topic;
-
-  private TopicPartition _partition;  // assuming there is only one partition assigned to each worker
 
   private final KafkaConsumer<String, IndexedRecord> _consumer;
 
@@ -48,7 +50,8 @@ public class KafkaWorker extends UntypedActor {
 
   private long _receivedRecordCount;  // number of received kafka messages
 
-  public KafkaWorker(String topic, KafkaConsumer<String, IndexedRecord> consumer, KafkaMessageProcessor processor) {
+  public KafkaWorker(@Nonnull String topic, @Nonnull KafkaConsumer<String, IndexedRecord> consumer,
+      @Nonnull KafkaMessageProcessor processor) {
     this._topic = topic;
     this._consumer = consumer;
     this._processor = processor;
@@ -56,55 +59,70 @@ public class KafkaWorker extends UntypedActor {
   }
 
   @Override
-  public void onReceive(Object message) throws Exception {
-    if (message.equals(WORKER_START)) {
-      while (RUNNING) {
-        try {
-          ConsumerRecords<String, IndexedRecord> records = _consumer.poll(POLL_TIMEOUT_MS);
-          for (ConsumerRecord<String, IndexedRecord> record : records) {
-            _receivedRecordCount++;
-            _processor.process(record.value());
-            if (_receivedRecordCount % 1000 == 0) {
-              log.info(_topic + " received " + _receivedRecordCount);
-            }
-          }
-
-          _consumer.commitSync();
-        } catch (SerializationException e) {
-          log.error("Serialization Error: ", e);
-          moveOffset(1);
-        } catch (Exception e) {
-          log.error("Consumer Error ", e);
-          moveOffset(1);
-        }
-      }
-    } else {
+  public void onReceive(@Nonnull Object message) throws Exception {
+    if (!message.equals(WORKER_START)) {
+      log.warn("Must send WORKER_START message first!");
       unhandled(message);
     }
-  }
 
-  private void moveOffset(int amount) {
-    // Assuming only one partition! Can't get partition info from ConsumerRecords if poll exception.
-    List<PartitionInfo> partitions = _consumer.partitionsFor(_topic);
-    if (partitions.size() != 1) {
-      throw new RuntimeException("Kafka worker partition error: topic " + _topic + ", partitions " + partitions);
+    while (RUNNING) {
+      ConsumerRecords<String, IndexedRecord> records;
+      try {
+        records = _consumer.poll(POLL_TIMEOUT_MS);
+      } catch (SerializationException e) {
+        log.error("Serialization Error: ", e);
+        moveOffset(extractPartition(e), 1);
+        continue;
+      }
+
+      try {
+        process(records);
+      } catch (Exception e) {
+        log.error("Unhandled processing exception: ", e);
+        break;
+      }
     }
 
-    _partition = new TopicPartition(_topic, partitions.get(0).partition());
-    // add amount to current offset
-    long offset = _consumer.position(_partition) + amount;
+    getContext().stop(getSelf());
+  }
+
+  private void process(@Nonnull ConsumerRecords<String, IndexedRecord> records) {
+    for (ConsumerRecord<String, IndexedRecord> record : records) {
+      _receivedRecordCount++;
+      _processor.process(record.value());
+      if (_receivedRecordCount % 1000 == 0) {
+        log.info("{}: received {} messages", _topic, _receivedRecordCount);
+      }
+    }
+    _consumer.commitAsync();
+  }
+
+  @Nonnull
+  private TopicPartition extractPartition(@Nonnull SerializationException exception) {
+    // Manually extract the partition from exception until https://issues.apache.org/jira/browse/KAFKA-4740 is fixed.
+    Matcher matcher = DESERIALIZATION_ERROR_PARTITION_PATTERN.matcher(exception.getMessage());
+    if (!matcher.find()) {
+      throw new RuntimeException("Unable to parse deserialization error message");
+    }
+    int partition = Integer.valueOf(matcher.group(1));
+    return new TopicPartition(_topic, partition);
+  }
+
+  private void moveOffset(@Nonnull TopicPartition partition, int amount) {
+    long offset = _consumer.position(partition) + amount;
     // seek to new offset
-    _consumer.seek(_partition, offset);
-    log.info("Set topic {} partition {} offset to {}", _topic, _partition, offset);
+    _consumer.seek(partition, offset);
+    log.info("Set topic {} partition {} offset to {}", _topic, partition, offset);
+    _consumer.commitAsync();
   }
 
   @Override
   public void postStop() throws Exception {
-    log.info("Stop worker for topic: " + _topic);
+    log.info("Stop worker for topic: {}", _topic);
     try {
       _consumer.close();
     } catch (Exception e) {
-      log.error("Error closing consumer for topic " + _topic + " : " + e.toString());
+      log.error("Error closing consumer for topic {}: ", _topic, e);
     }
   }
 }
