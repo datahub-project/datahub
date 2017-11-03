@@ -25,18 +25,20 @@ public abstract class KafkaMessageProcessor {
 
   protected final DaoFactory DAO_FACTORY;
 
+  protected final String _producerTopic;
+
   protected final KafkaProducer<String, IndexedRecord> PRODUCER;
 
-  public KafkaMessageProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
+  public KafkaMessageProcessor(DaoFactory daoFactory, String producerTopic, KafkaProducer<String, IndexedRecord> producer) {
     this.DAO_FACTORY = daoFactory;
+    this._producerTopic = producerTopic;
     this.PRODUCER = producer;
   }
 
   /**
    * Abstract method 'process' to be implemented by specific processor
    * @param indexedRecord IndexedRecord
-   * @throws Exception
    */
-  public abstract void process(IndexedRecord indexedRecord) throws Exception;
+  public abstract void process(IndexedRecord indexedRecord);
 
 }

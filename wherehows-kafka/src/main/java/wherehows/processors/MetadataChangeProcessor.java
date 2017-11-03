@@ -17,10 +17,13 @@ import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
@@ -42,75 +45,88 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final DatasetComplianceDao _complianceDao = DAO_FACTORY.getDatasetComplianceDao();
 
-  private final int _maxDatasetNameLength = 400;
+  private final int MAX_DATASET_NAME_LENGTH = 400;
 
-  public MetadataChangeProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producer);
+  public MetadataChangeProcessor(DaoFactory daoFactory, String producerTopic,
+      KafkaProducer<String, IndexedRecord> producer) {
+    super(daoFactory, producerTopic, producer);
   }
 
   /**
    * Process a MetadataChangeEvent record
    * @param indexedRecord IndexedRecord
-   * @throws Exception
    */
-  public void process(IndexedRecord indexedRecord) throws Exception {
-
+  public void process(IndexedRecord indexedRecord) {
     if (indexedRecord == null || indexedRecord.getClass() != MetadataChangeEvent.class) {
       throw new IllegalArgumentException("Invalid record");
     }
 
-    log.debug("Processing Metadata Change Event record. ");
+    log.debug("Processing Metadata Change Event record.");
 
-    MetadataChangeEvent record = (MetadataChangeEvent) indexedRecord;
+    MetadataChangeEvent event = (MetadataChangeEvent) indexedRecord;
+    try {
+      processEvent(event);
+    } catch (Exception exception) {
+      log.error("MCE Processor Error: {}", exception);
+      log.error("Message content: {}", event.toString());
+      this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
+    }
+  }
 
-    final KafkaAuditHeader auditHeader = record.auditHeader;
+  private void processEvent(MetadataChangeEvent event) throws Exception {
+    final KafkaAuditHeader auditHeader = event.auditHeader;
     if (auditHeader == null) {
-      log.warn("MetadataChangeEvent without auditHeader, abort process. " + record.toString());
-      return;
+      throw new Exception("Missing Kafka Audit header: " + event.toString());
     }
 
-    final DatasetIdentifier identifier = record.datasetIdentifier;
+    final DatasetIdentifier identifier = event.datasetIdentifier;
     log.info("MCE: " + identifier + " TS: " + auditHeader.time); // TODO: remove. For debugging only
-    final ChangeAuditStamp changeAuditStamp = record.changeAuditStamp;
+    final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     final ChangeType changeType = changeAuditStamp.type;
 
     if (changeType == ChangeType.DELETE) {
       // TODO: delete dataset
-      log.debug("Dataset Deleted: " + identifier);
-      return;
+      throw new Exception("Dataset deletion not yet implemented: " + identifier);
     }
 
     // check dataset name length to be within limit. Otherwise, save to DB will fail.
-    if (identifier.nativeName.length() > _maxDatasetNameLength) {
-      log.error("Dataset name too long: " + identifier.nativeName.length(), identifier);
-      return;
+    if (identifier.nativeName.length() > MAX_DATASET_NAME_LENGTH) {
+      throw new Exception("Dataset name too long: " + identifier);
     }
 
     // create or update dataset
     DictDataset ds =
-        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, record.datasetProperty, record.schema,
-            record.deploymentInfo, toStringList(record.tags), record.capacity, record.partitionSpec);
+        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, event.schema,
+            event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
 
     // if schema is not null, insert or update schema
-    if (record.schema != null) {
-      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), record.datasetProperty, changeAuditStamp,
-          record.schema);
+    if (event.schema != null) {
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), event.datasetProperty, changeAuditStamp,
+          event.schema);
     }
 
     // if owners are not null, insert or update owner
-    if (record.owners != null) {
-      _ownerDao.insertUpdateOwnership(identifier, ds.getId(), changeAuditStamp, record.owners);
+    if (event.owners != null) {
+      _ownerDao.insertUpdateOwnership(identifier, ds.getId(), changeAuditStamp, event.owners);
     }
 
     // if compliance is not null, insert or update compliance
-    if (record.compliancePolicy != null) {
-      _complianceDao.insertUpdateCompliance(identifier, ds.getId(), changeAuditStamp, record.compliancePolicy);
+    if (event.compliancePolicy != null) {
+      _complianceDao.insertUpdateCompliance(identifier, ds.getId(), changeAuditStamp, event.compliancePolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance
-    if (record.suggestedCompliancePolicy != null) {
+    if (event.suggestedCompliancePolicy != null) {
       _complianceDao.insertUpdateSuggestedCompliance(identifier, ds.getId(), changeAuditStamp,
-          record.suggestedCompliancePolicy);
+          event.suggestedCompliancePolicy);
     }
+  }
+
+  private FailedMetadataChangeEvent newFailedEvent(MetadataChangeEvent event, Throwable throwable) {
+    FailedMetadataChangeEvent faileEvent = new FailedMetadataChangeEvent();
+    faileEvent.time = System.currentTimeMillis();
+    faileEvent.error = ExceptionUtils.getStackTrace(throwable);
+    faileEvent.metadataChangeEvent = event;
+    return faileEvent;
   }
 }
