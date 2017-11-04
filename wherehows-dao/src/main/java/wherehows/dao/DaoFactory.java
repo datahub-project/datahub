@@ -30,7 +30,6 @@ public class DaoFactory {
   protected final EntityManagerFactory entityManagerFactory;
 
   private static DatasetsDao datasetsDao;
-
   private static LineageDao lineageDao;
 
   public DaoFactory(EntityManagerFactory entityManagerFactory) {

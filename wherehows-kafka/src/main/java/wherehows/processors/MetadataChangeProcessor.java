@@ -57,6 +57,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
    * @param indexedRecord IndexedRecord
    */
   public void process(IndexedRecord indexedRecord) {
+    log.debug("** Processing Metadata Change Event record. ");
+
     if (indexedRecord == null || indexedRecord.getClass() != MetadataChangeEvent.class) {
       throw new IllegalArgumentException("Invalid record");
     }

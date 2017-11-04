@@ -13,16 +13,15 @@
  */
 package wherehows.processors;
 
-import com.linkedin.dataset.Lineage;
 import com.linkedin.events.KafkaAuditHeader;
+import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.MetadataLineageEvent;
-import com.linkedin.events.metadata.agent;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-
 
 import static wherehows.common.utils.StringUtil.*;
 
@@ -43,29 +42,32 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
    */
   public void process(IndexedRecord indexedRecord) throws Exception {
 
+    log.info("** Processing Metadata Lineage Event record. ");
     if (indexedRecord == null || indexedRecord.getClass() != MetadataLineageEvent.class) {
       throw new IllegalArgumentException("Invalid record");
     }
-
-    log.debug("Processing Metadata Lineage Event record. ");
 
     MetadataLineageEvent record = (MetadataLineageEvent) indexedRecord;
 
     final KafkaAuditHeader auditHeader = record.auditHeader;
     if (auditHeader == null) {
-      log.warn("MetadataLineageEvent without auditHeader, abort process. " + record.toString());
+      log.warn("MLE: MetadataLineageEvent without auditHeader, abort process. " + record.toString());
       return;
     }
+    log.debug("MLE: string : " + record.toString());
+    log.info("MLE: TS: " + auditHeader.time);
+    log.debug("MLE: agentName: " + record.type.name());
+    log.debug("MLE: deploymentDetail: " + record.deploymentDetail.toString());
+    log.debug("MLE: jobExecution: " + record.jobExecution.toString());
+    log.info("MLE: lineage: " + record.lineage.toString());
 
-    final agent agentName = record.type;
-    record.getLineage()Deepti Chheda
+    if (record.lineage == null || record.lineage.size() <= 0) {
+      throw new IllegalArgumentException("Invalid lineage record");
+    }
 
-
-    log.debug("MLE: " + " TS: " + auditHeader.time);
+    List<DatasetLineage> lineages = record.lineage;
 
     // create lineage
-    Lineage ds =
-        _lineageDao.createLineageDatabase(identifier, changeAuditStamp, record.datasetProperty, record.schema,
-            record.deploymentInfo, toStringList(record.tags), record.capacity, record.partitionSpec);
-      }
+    _lineageDao.createLineages(lineages);
+  }
 }
