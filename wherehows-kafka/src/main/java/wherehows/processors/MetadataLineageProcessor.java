@@ -31,8 +31,9 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
 
   private final LineageDao _lineageDao = DAO_FACTORY.getLineageDao();
 
-  public MetadataLineageProcessor(DaoFactory daoFactory, KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producer);
+  public MetadataLineageProcessor(DaoFactory daoFactory, String producerTopic,
+      KafkaProducer<String, IndexedRecord> producer) {
+    super(daoFactory, producerTopic, producer);
   }
 
   /**
@@ -40,12 +41,13 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
    * @param indexedRecord IndexedRecord
    * @throws Exception
    */
-  public void process(IndexedRecord indexedRecord) throws Exception {
+  public void process(IndexedRecord indexedRecord) {
 
-    log.info("** Processing Metadata Lineage Event record. ");
     if (indexedRecord == null || indexedRecord.getClass() != MetadataLineageEvent.class) {
       throw new IllegalArgumentException("Invalid record");
     }
+
+    log.info("Processing Metadata Lineage Event record. ");
 
     MetadataLineageEvent record = (MetadataLineageEvent) indexedRecord;
 
