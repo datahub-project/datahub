@@ -13,84 +13,21 @@
  */
 package wherehows.dao.table;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.time.Instant;
+import com.linkedin.events.metadata.DatasetLineage;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
-import org.springframework.jdbc.core.JdbcTemplate;
-import wherehows.models.view.DatasetOwner;
 
 
 @Slf4j
 public class LineageDao {
 
-  private static final String GET_DATASET_URN_BY_ID = "SELECT urn FROM dict_dataset WHERE id=?";
-
-  private static final String GET_DATASET_ID_BY_URN = "SELECT id FROM dict_dataset WHERE urn=?";
-
-  private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
-      "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
-          + "is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, "
-          + "owner_id_type, owner_source, confirmed_by, confirmed_on) "
-          + "VALUES(?, ?, ?, ?, ?, ?, ?, 'N', ?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), 0, ?, ?, ?, ?, ?, ?) "
-          + "ON DUPLICATE KEY UPDATE owner_type = ?, is_group = ?, is_deleted = 'N', "
-          + "sort_id = ?, modified_time= UNIX_TIMESTAMP(), owner_sub_type=?, confirmed_by=?, confirmed_on=?";
-
-  private final static String MARK_DATASET_OWNERS_AS_DELETED =
-      "UPDATE dataset_owner SET is_deleted = 'Y' WHERE dataset_id = ?";
-
   /**
-   * get WhereHows dataset URN by dataset ID
-   * @param jdbcTemplate JdbcTemplate
-   * @param datasetId int
-   * @return URN String, if not found, return null
+   * Create lineage dataset that requested the lineage via Kafka lineage event.
+   * @param datasetLineages List of lineages
+   * @return return process result as true/false
    */
-  public String getDatasetUrnById(JdbcTemplate jdbcTemplate, int datasetId) {
-    try {
-      return jdbcTemplate.queryForObject(GET_DATASET_URN_BY_ID, String.class, datasetId);
-    } catch (EmptyResultDataAccessException e) {
-      log.error("Can not find URN for dataset id: " + datasetId + " : " + e.getMessage());
-    }
-    return null;
-  }
-
-
-  public void createLineageDatabase(JdbcTemplate jdbcTemplate, int datasetId, String datasetUrn,
-      List<DatasetOwner> owners) {
-    jdbcTemplate.batchUpdate(UPDATE_DATASET_CONFIRMED_OWNERS, new BatchPreparedStatementSetter() {
-      @Override
-      public void setValues(PreparedStatement ps, int i) throws SQLException {
-        DatasetOwner owner = owners.get(i);
-        ps.setInt(1, datasetId);
-        ps.setString(2, owner.getUserName());
-        ps.setInt(3, owner.getIsGroup() ? 301 : 300);
-        ps.setString(4, owner.getNamespace());
-        ps.setString(5, owner.getType());
-        ps.setString(6, owner.getIsGroup() ? "Y" : "N");
-        ps.setString(7, owner.getIsActive() != null && owner.getIsActive() ? "Y" : "N");
-        ps.setInt(8, owner.getSortId());
-        ps.setString(9, datasetUrn);
-        ps.setString(10, owner.getSubType());
-        ps.setString(11, owner.getIdType());
-        ps.setString(12, owner.getSource());
-        ps.setString(13, owner.getConfirmedBy());
-        ps.setLong(14, StringUtils.isBlank(owner.getConfirmedBy()) ? 0L : Instant.now().getEpochSecond());
-        ps.setString(15, owner.getType());
-        ps.setString(16, owner.getIsGroup() ? "Y" : "N");
-        ps.setInt(17, owner.getSortId());
-        ps.setString(18, owner.getSubType());
-        ps.setString(19, owner.getConfirmedBy());
-        ps.setLong(20, StringUtils.isBlank(owner.getConfirmedBy()) ? 0L : Instant.now().getEpochSecond());
-      }
-
-      @Override
-      public int getBatchSize() {
-        return owners.size();
-      }
-    });
+  public Boolean createLineages(List<DatasetLineage> datasetLineages) {
+    // TODO: write lineage Dao to DB
+    throw new UnsupportedOperationException("Lineage not implemented for open source.");
   }
 }
