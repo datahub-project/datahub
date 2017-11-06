@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { inject } from '@ember/service';
-import { getProperties, computed } from '@ember/object';
+import { getProperties, computed, set } from '@ember/object';
 import ComputedProperty, { oneWay } from '@ember/object/computed';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -102,8 +102,12 @@ export default class DatasetDeprecation extends Component {
       const { onUpdateDeprecation } = this;
 
       if (onUpdateDeprecation) {
+        const noteValue = deprecatedAlias ? deprecationNoteAlias : '';
+
         try {
-          await onUpdateDeprecation(deprecatedAlias, deprecationNoteAlias);
+          await onUpdateDeprecation(deprecatedAlias, noteValue);
+          set(this, 'deprecationNoteAlias', noteValue);
+
           notify(NotificationEvent.success, {
             content: 'Successfully updated deprecation status'
           });
