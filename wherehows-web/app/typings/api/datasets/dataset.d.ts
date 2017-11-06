@@ -52,6 +52,7 @@ interface IDatasetView {
  */
 interface IDatasetGetResponse {
   status: ApiStatus;
+  message?: string;
   dataset?: IDataset;
 }
 

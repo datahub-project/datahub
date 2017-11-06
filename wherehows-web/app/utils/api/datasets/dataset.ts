@@ -31,13 +31,14 @@ const readDataset = async (id: number | string): Promise<IDataset> => {
     throw new TypeError(datasetIdException);
   }
 
-  const { status, dataset } = await getJSON<IDatasetGetResponse>({ url: datasetUrlById(id) });
+  const { status, dataset, message } = await getJSON<IDatasetGetResponse>({ url: datasetUrlById(id) });
+  let errorMessage = message || datasetApiException;
 
   if (status === ApiStatus.OK && dataset) {
     return dataset;
   }
 
-  throw new Error(datasetApiException);
+  throw new Error(errorMessage);
 };
 
 /**
