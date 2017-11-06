@@ -50,12 +50,12 @@
     "ember-concurrency": "^0.8.10",
     "ember-export-application-global": "^2.0.0",
     "ember-fetch": "^3.4.3",
+    "ember-load-initializers": "^1.0.0",
     "ember-lodash-shim": "^2.0.5",
     "ember-metrics": "^0.12.1",
     "ember-pikaday": "^2.2.1",
     "ember-redux-shim": "^1.1.1",
     "ember-redux-thunk-shim": "^1.1.2",
-    "ember-load-initializers": "^1.0.0",
     "ember-resolver": "^4.5.0",
     "ember-source": "~2.16.0",
     "ember-symbol-observable": "^0.1.2",
@@ -67,12 +67,12 @@
     "eyeglass-restyle": "^1.1.0",
     "husky": "^0.14.3",
     "lint-staged": "^4.3.0",
+    "loader.js": "^4.6.0",
     "node-sass": "^4.5.3",
     "prettier": "^1.7.4",
     "redux": "^3.6.0",
     "redux-thunk": "^2.2.0",
-    "typescript": "^2.5.3",
-    "loader.js": "^4.6.0"
+    "typescript": "^2.5.3"
   },
   "dependencies": {
     "dynamic-link": "^0.2.3",
