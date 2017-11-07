@@ -20,6 +20,7 @@ import akka.actor.Scheduler;
 import akka.routing.SmallestMailboxPool;
 import play.Play;
 import scala.concurrent.ExecutionContext;
+import wherehows.common.Constant;
 
 
 /**
@@ -27,7 +28,8 @@ import scala.concurrent.ExecutionContext;
  */
 public class ActorRegistry {
 
-  private static final int ETL_POOL_SIZE = Play.application().configuration().getInt("etl.max.concurrent.jobs");
+  private static final int ETL_POOL_SIZE =
+      Play.application().configuration().getInt(Constant.WH_ETL_MAX_CONCURERNT_JOBS);
 
   private static ActorSystem actorSystem = ActorSystem.create("WhereHowsETLService");
 
