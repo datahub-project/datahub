@@ -34,8 +34,10 @@ public class Constant {
   public static final String JOB_JYTHON_LOAD_KEY = "job.jython.load";
 
   // ETL property keys
+  public static final String WH_ETL_JAVA_CMD = "etl.java.cmd";
   public static final String WH_ETL_JOBS_DIR = "etl.jobs.dir";
   public static final String WH_ETL_TEMP_DIR = "etl.temp.dir";
+  public static final String WH_ETL_MAX_CONCURERNT_JOBS = "etl.max.concurrent.jobs";
 
   // Rebuild properties
   public static final String REBUILD_TREE_DATASET = "rebuild.tree.dataset";

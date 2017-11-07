@@ -13,25 +13,19 @@
  */
 package actors;
 
-import com.google.common.io.Files;
-import java.util.List;
+import java.util.Properties;
 import org.junit.Test;
 import wherehows.common.Constant;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.Properties;
-
 import static org.fest.assertions.api.Assertions.*;
+
 
 public class ConfigUtilTest {
 
   @Test
   public void shouldGenerateEtlJobDefaultCommand() {
     // when:
-    ProcessBuilder pb =
-        ConfigUtil.buildProcess("hdfs_metadata_etl", 0L, null, new Properties());
+    ProcessBuilder pb = ConfigUtil.buildProcess("java", "hdfs_metadata_etl", 0L, null, new Properties());
 
     // then:
     assertThat(pb.command()).contains("java", "-cp", System.getProperty("java.class.path"),
@@ -48,7 +42,7 @@ public class ConfigUtilTest {
     etlJobProperties.put(Constant.WH_APP_FOLDER_KEY, applicationDirectory);
 
     // when:
-    ProcessBuilder pb = ConfigUtil.buildProcess("ldap_user_etl", 1L, " -a -b  ", etlJobProperties);
+    ProcessBuilder pb = ConfigUtil.buildProcess("java", "ldap_user_etl", 1L, " -a -b  ", etlJobProperties);
 
     // then:
     assertThat(pb.command()).contains("java", "-a", "-b", "-cp", System.getProperty("java.class.path"),
