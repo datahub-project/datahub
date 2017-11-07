@@ -39,6 +39,7 @@ public class EtlJobActor extends UntypedActor {
 
   public static final String ETL_JOBS_DIR = Play.application().configuration().getString(Constant.WH_ETL_JOBS_DIR);
 
+  private static final String ETL_JAVA_CMD = Play.application().configuration().getString(Constant.WH_ETL_JAVA_CMD);
   private static final String ETL_TEMP_DIR = Play.application().configuration().getString(Constant.WH_ETL_TEMP_DIR);
 
   private static final String WH_DB_URL = Play.application().configuration().getString("db.wherehows.url");
@@ -69,7 +70,7 @@ public class EtlJobActor extends UntypedActor {
 
         // start a new process here
         final ProcessBuilder pb =
-            ConfigUtil.buildProcess(msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
+            ConfigUtil.buildProcess(ETL_JAVA_CMD, msg.getEtlJobName(), msg.getWhEtlExecId(), msg.getCmdParam(), props);
         Logger.debug("run command : " + pb.command() + " ; timeout: " + msg.getTimeout());
 
         ConfigUtil.generateProperties(msg.getWhEtlExecId(), props, configDir);
