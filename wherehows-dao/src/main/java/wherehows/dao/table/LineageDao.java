@@ -28,6 +28,6 @@ public class LineageDao {
    */
   public Boolean createLineages(List<DatasetLineage> datasetLineages) {
     // TODO: write lineage Dao to DB
-    throw new UnsupportedOperationException("Lineage not implemented for open source.");
+    throw new UnsupportedOperationException("Lineage not implemented yet.");
   }
 }

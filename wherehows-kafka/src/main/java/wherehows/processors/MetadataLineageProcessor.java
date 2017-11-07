@@ -37,7 +37,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
   }
 
   /**
-   * Process a MetadataChangeEvent record
+   * Process a MetadataKineageEvent record
    * @param indexedRecord IndexedRecord
    * @throws Exception
    */
@@ -47,7 +47,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
       throw new IllegalArgumentException("Invalid record");
     }
 
-    log.info("Processing Metadata Lineage Event record. ");
+    log.debug("Processing Metadata Lineage Event record. ");
 
     MetadataLineageEvent record = (MetadataLineageEvent) indexedRecord;
 
@@ -58,13 +58,10 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
     log.debug("MLE: string : " + record.toString());
     log.info("MLE: TS: " + auditHeader.time);
-    log.debug("MLE: agentName: " + record.type.name());
-    log.debug("MLE: deploymentDetail: " + record.deploymentDetail.toString());
-    log.debug("MLE: jobExecution: " + record.jobExecution.toString());
     log.info("MLE: lineage: " + record.lineage.toString());
 
-    if (record.lineage == null || record.lineage.size() <= 0) {
-      throw new IllegalArgumentException("Invalid lineage record");
+    if (record.lineage == null || record.lineage.size() == 0) {
+      throw new IllegalArgumentException("No Lineage info in record");
     }
 
     List<DatasetLineage> lineages = record.lineage;
