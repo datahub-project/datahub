@@ -1,0 +1,415 @@
+{
+  "type": "record",
+  "name": "MetadataLineageEvent",
+  "namespace": "com.linkedin.events.metadata",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "type": {
+        "type": "record",
+        "name": "KafkaAuditHeader",
+        "namespace": "com.linkedin.events",
+        "fields": [
+          {
+            "name": "time",
+            "type": "long",
+            "doc": "The time at which the event was emitted into kafka."
+          },
+          {
+            "name": "server",
+            "type": "string",
+            "doc": "The fully qualified name of the host from which the event is being emitted."
+          },
+          {
+            "name": "instance",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The instance on the server from which the event is being emitted. e.g. i001"
+          },
+          {
+            "name": "appName",
+            "type": "string",
+            "doc": "The name of the application from which the event is being emitted. see go/appname"
+          },
+          {
+            "name": "messageId",
+            "type": {
+              "type": "fixed",
+              "name": "UUID",
+              "size": 16
+            },
+            "doc": "A unique identifier for the message"
+          },
+          {
+            "name": "auditVersion",
+            "type": [
+              "null",
+              "int"
+            ],
+            "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+            "default": null
+          },
+          {
+            "name": "fabricUrn",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+            "default": null
+          }
+        ]
+      },
+      "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
+    },
+    {
+      "name": "type",
+      "type": {
+        "type": "enum",
+        "name": "agent",
+        "symbols": [
+          "AZKABAN",
+          "BROOKLIN",
+          "DATABUS",
+          "ESPRESSO",
+          "GALENE",
+          "GOBBLIN",
+          "HIVE",
+          "KAFKA",
+          "LIQUID",
+          "NUAGE",
+          "PINOT",
+          "PRESTO",
+          "TERADATA",
+          "UMP",
+          "VENICE",
+          "VOLDEMORT_BNP"
+        ]
+      },
+      "doc": "The type name of the application, such as Azkaban, Gobblin, etc."
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "The unique name of the application, which may contain appType-deployTier-name-instNum, such as AZKABAN-PROD-UNO, AZKABAN-EI-HOLDEM-01."
+    },
+    {
+      "name": "deploymentDetail",
+      "type": {
+        "type": "record",
+        "name": "DeploymentDetail",
+        "fields": [
+          {
+            "name": "deploymentTier",
+            "type": {
+              "type": "enum",
+              "name": "DeploymentTier",
+              "symbols": [
+                "PROD",
+                "CORP",
+                "GRID",
+                "PREPROD",
+                "CANARY",
+                "DMZ",
+                "STG",
+                "UAT",
+                "UAT1",
+                "UAT2",
+                "UAT3",
+                "QA",
+                "QA1",
+                "QA2",
+                "QA3",
+                "EI",
+                "EI1",
+                "EI2",
+                "EI3",
+                "QEI",
+                "QEI1",
+                "QEI2",
+                "QEI3",
+                "TEST",
+                "LIT",
+                "SIT",
+                "INT",
+                "DEV",
+                "LOCAL",
+                "ARCHIVE",
+                "DROPBOX",
+                "SANDBOX",
+                "POC"
+              ]
+            },
+            "doc": "defined in [dataOrigin], such as DEV,TEST,PROD",
+            "default": "PROD"
+          },
+          {
+            "name": "dataCenter",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "DC1, DC2, LTX3, LVA4, ..."
+          },
+          {
+            "name": "region",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Region name if applicable, such as us-central2, eu-west3"
+          },
+          {
+            "name": "zone",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Zone name or id if applicable, such as asia-east1-b, us-west1-a"
+          },
+          {
+            "name": "cluster",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Cluster name or a comma-delimited list of Servers"
+          },
+          {
+            "name": "container",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Container or tenant name"
+          },
+          {
+            "name": "enabled",
+            "type": "boolean",
+            "doc": "is the dataset instance enabled under this deployment environment"
+          },
+          {
+            "name": "additionalDeploymentInfo",
+            "type": {
+              "type": "map",
+              "values": "string"
+            },
+            "doc": "Additional deployment info, such as Zookeeper, Connection, Graphite URL, native reference ID or KEY"
+          }
+        ]
+      },
+      "doc": "Where the application is deployed."
+    },
+    {
+      "name": "url",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "The application URL if available."
+    },
+    {
+      "name": "lineage",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "DatasetLineage",
+          "fields": [
+            {
+              "name": "sourceDataset",
+              "type": {
+                "type": "array",
+                "items": {
+                  "type": "record",
+                  "name": "DatasetIdentifier",
+                  "fields": [
+                    {
+                      "name": "dataPlatformUrn",
+                      "type": "string",
+                      "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
+                    },
+                    {
+                      "name": "nativeName",
+                      "type": "string",
+                      "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
+                    },
+                    {
+                      "name": "dataOrigin",
+                      "type": {
+                        "type": "enum",
+                        "name": "DataOrigin",
+                        "symbols": [
+                          "PROD",
+                          "CORP",
+                          "EI",
+                          "DEV"
+                        ]
+                      },
+                      "doc": "Origin/Source tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
+                      "default": "PROD"
+                    }
+                  ]
+                }
+              },
+              "doc": "List of Source dataset: data is generated from these datasets. (Mapping MxN for source to destination datasets)"
+            },
+            {
+              "name": "destinationDataset",
+              "type": {
+                "type": "array",
+                "items": "DatasetIdentifier"
+              },
+              "doc": "List of Destination dataset: processed data is written to these datasets. (Mapping MxN for sources to destinations datasets)"
+            },
+            {
+              "name": "type",
+              "type": {
+                "type": "enum",
+                "name": "LineageType",
+                "symbols": [
+                  "DIRECT_COPY",
+                  "TRANSFORMED",
+                  "VIEW"
+                ]
+              },
+              "doc": "The type name for the metadata lineage operation"
+            }
+          ]
+        }
+      },
+      "doc": "List of dataset lineage relations"
+    },
+    {
+      "name": "jobExecution",
+      "type": {
+        "type": "record",
+        "name": "JobExecution",
+        "fields": [
+          {
+            "name": "jobName",
+            "type": "string",
+            "doc": "Job name. If job is in subflow, the parent flow names are included, such as <top-level-flow>/<parent-flow>/<job-name> in Azkaban or agent's job name."
+          },
+          {
+            "name": "node",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The virtual node name used to abstract the physical server. If application doesn't provide such node info, then default to null (Oozie, Appworx)."
+          },
+          {
+            "name": "server",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "The fully-qualified name of the host of this event. It is expected that the agent has this server info. If application doesn't provide such server info, then default to null."
+          },
+          {
+            "name": "jobDefinitionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Job Definition ID. This is available in some orchestration systems. It is expected that the agent will pass the app's job id. If application doesn't provide such job definition id, then default to null."
+          },
+          {
+            "name": "jobExecutionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Job execution ID. It is expected that the agent will pass the app's job exec id. If application doesn't provide such job exec id info, then default to null."
+          },
+          {
+            "name": "jobExecutionGuid",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Job execution GUID. It is expected that the agent will pass the app's job exec guid. If application doesn't provide such job exec guid info, then default to null.",
+            "logicalType": "GUID"
+          },
+          {
+            "name": "flowName",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Top-level flow name. If job is in subflow, then the <top-level-flow-name> is captured here. Only the application has the concept of flows. The agent doesn't have the flow name."
+          },
+          {
+            "name": "flowDefinitionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Flow Definition ID. This is available in some orchestration systems. Only the application has the concept of flows. The agent doesn't have the flow definition id."
+          },
+          {
+            "name": "flowExecutionId",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "Flow execution ID as number. Only the application has the concept of flows. The agent doesn't have the flow exec id."
+          },
+          {
+            "name": "flowExecutionGuid",
+            "type": [
+              "null",
+              "string"
+            ],
+            "doc": "Flow execution GUID. Only the application has the concept of flows. The agent doesn't have the flow exec guid.",
+            "logicalType": "GUID"
+          },
+          {
+            "name": "attempt",
+            "type": "int",
+            "doc": "Retry attempt for a failed job, starting from 0."
+          },
+          {
+            "name": "startTime",
+            "type": "long",
+            "doc": "The start time of the job by agent.",
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "endTime",
+            "type": [
+              "null",
+              "long"
+            ],
+            "doc": "The completion time of the job. If the job is not completed (i.e. status of WAITING_FOR_TIME, WAITING_FOR_DATA, WAITING_FOR_RESOURCE, or RUNNING), then default to null.",
+            "logicalType": "timestamp-millis"
+          },
+          {
+            "name": "status",
+            "type": {
+              "type": "enum",
+              "name": "JobStatus",
+              "symbols": [
+                "DISABLED",
+                "WAIT_FOR_TIME",
+                "WAIT_FOR_DATA",
+                "WAIT_FOR_RESOURCE",
+                "RUNNING",
+                "SUSPENDED",
+                "FAILED",
+                "SUCCEEDED",
+                "DELETED",
+                "SKIPPED"
+              ]
+            },
+            "doc": "Job status for agent (Azkaban, Oozie, Appworx, EasyData, ...)."
+          }
+        ]
+      },
+      "doc": "Job execution information, such as job name, time, state."
+    }
+  ]
+}
