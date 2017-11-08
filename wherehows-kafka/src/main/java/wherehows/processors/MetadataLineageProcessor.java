@@ -37,7 +37,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
   }
 
   /**
-   * Process a MetadataKineageEvent record
+   * Process a MetadataLineageEvent record
    * @param indexedRecord IndexedRecord
    * @throws Exception
    */
