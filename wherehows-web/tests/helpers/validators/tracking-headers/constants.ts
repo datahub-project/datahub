@@ -1,6 +1,14 @@
-const headers = ['header.', 'header[field]', 'header.field', 'header[]'];
-const requestHeaders = ['requestheader[]', 'requestheader.', 'request_header.mockId', 'request_header.s[]'];
+const headers = ['header', 'HEADER', 'header.', 'header[field]', 'header.field', 'header[]'];
+const requestHeaders = [
+  'requestheader[]',
+  'requestheader.',
+  'request_header.mockId',
+  'request_header.s[]',
+  'requestheader'
+];
 const mobileHeaders = [
+  'mobileheader',
+  'MobileHeader',
   'mobileheader.',
   'MobileHeader[]',
   'mobile_header.header',
@@ -19,9 +27,7 @@ const trackingHeaderList = [...headers, ...requestHeaders, ...mobileHeaders];
  * @type {Array<string>}
  */
 const nonTrackingHeaderList = [
-  'header',
   'headers',
-  'Header',
   'headerfortrackingisinvalid',
   'HEADER_PATH',
   'HEADER_REFERER',
