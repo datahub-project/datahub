@@ -3,6 +3,7 @@ import { inject } from '@ember/service';
 import ComputedProperty, { or, lt, filter } from '@ember/object/computed';
 import { set, get, computed, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
+import { isEqual } from 'lodash';
 
 import UserLookup from 'wherehows-web/services/user-lookup';
 import CurrentUser from 'wherehows-web/services/current-user';
@@ -17,7 +18,6 @@ import {
   updateOwner
 } from 'wherehows-web/constants/datasets/owner';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
-import { objectDeepEqual } from 'wherehows-web/utils/object';
 import { ApiStatus } from 'wherehows-web/utils/api';
 
 /**
@@ -223,7 +223,7 @@ export default class DatasetAuthors extends Component {
     confirmSuggestedOwner: (owner: IOwner) => {
       const owners = get(this, 'owners') || [];
       const suggestedOwner = { ...owner, source: OwnerSource.Ui };
-      const hasSuggested = owners.find(owner => objectDeepEqual(owner, suggestedOwner));
+      const hasSuggested = owners.find(owner => isEqual(owner, suggestedOwner));
 
       if (!hasSuggested) {
         return owners.setObjects([...owners, suggestedOwner]);

@@ -113,6 +113,10 @@
   version "3.2.15"
   resolved "https://registry.yarnpkg.com/@types/jquery/-/jquery-3.2.15.tgz#3f620a9f5a0b296866f4bc729825226d0a35fba6"
 
+"@types/lodash@^4.14.83":
+  version "4.14.83"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.83.tgz#2f2154797ce8fd8d6ea91a8d304a4e44ee95920c"
+
 "@types/rsvp@*", "@types/rsvp@^4.0.0":
   version "4.0.0"
   resolved "https://registry.yarnpkg.com/@types/rsvp/-/rsvp-4.0.0.tgz#6c59d84bb5ea8a4fd11ec3d7aa748710e0e5e373"

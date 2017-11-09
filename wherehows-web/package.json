@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/ember": "^2.8.0",
     "@types/ember-testing-helpers": "^0.0.3",
+    "@types/lodash": "^4.14.83",
     "@types/rsvp": "^4.0.0",
     "babel-eslint": "^8.0.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
