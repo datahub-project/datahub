@@ -6,6 +6,7 @@
   /// but reverts if it also has the comment-new (isEditing) class
   &--editable {
     cursor: pointer;
+
     &.comment-new {
       cursor: inherit;
     }

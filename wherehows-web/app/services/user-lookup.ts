@@ -1,8 +1,6 @@
-import Ember from 'ember';
+import Service from '@ember/service';
 import { getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
 import { IPartyEntity, IPartyProps } from 'wherehows-web/typings/api/datasets/party-entities';
-
-const { Service } = Ember;
 
 /**
  * Takes a userNameQuery query and find userNames that match by starting with
@@ -28,8 +26,8 @@ const getPartyEntityWithUserName = (userName: string): Promise<IPartyEntity | nu
     ({ userEntities }: IPartyProps) => userEntities.find(({ label }: { label: string }) => label === userName) || null
   );
 
-export default Service.extend({
-  getPartyEntityWithUserName,
-  userNamesResolver: ldapResolver,
-  fetchUserNames: getUserEntities
-});
+export default class UserLookup extends Service {
+  getPartyEntityWithUserName = getPartyEntityWithUserName;
+  userNamesResolver = ldapResolver;
+  fetchUserNames = getUserEntities;
+}

@@ -12,7 +12,7 @@ import Session from 'ember-simple-auth/services/session';
  */
 let _hasUserBeenTracked = false;
 
-export default Service.extend({
+export default class extends Service.extend({
   /**
    * Reference to the application session service, implemented with Ember Simple Auth
    * @type {ComputedProperty<Session>}
@@ -66,4 +66,4 @@ export default Service.extend({
       _hasUserBeenTracked = true;
     }
   }
-});
+}) {}
