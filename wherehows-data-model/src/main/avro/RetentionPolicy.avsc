@@ -1,0 +1,36 @@
+{
+  "type": "record",
+  "name": "RetentionPolicy",
+  "namespace": "com.linkedin.events.metadata",
+  "doc" : "Retention policy at the dataset level",
+  "fields" : [
+    { "name" : "retentionType",
+      "type" : {
+        "type" : "enum",
+        "name" : "RetentionType",
+        "doc" : "types of different retention policies",
+        "symbols" : [ "LIMITED", "LEGAL_HOLD", "UNLIMITED" ],
+        "symbolDocs" : {
+          "LIMITED" : "Data is stored for limited time only",
+          "LEGAL_HOLD" : "Data is held for legal compliance or investigation",
+          "UNLIMITED" : "Data can be held indefinitely"
+        }
+      },
+      "doc" : "Retention type on dataset"
+    },
+    { "name" : "retentionWindow",
+      "type" : [ "null", "long" ],
+      "doc" : "Time in (unit) how long data is retained for in case of LIMITED retention",
+      "default" : null
+    },
+    { "name" : "retentionWindowUnit",
+      "type" : [ "null", {
+        "type": "enum",
+        "name": "TimePeriodUnit",
+        "doc": "Unit of time period",
+        "symbols": [ "YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND", "MILLISECOND"]
+      }],
+      "default" : null
+    }
+  ]
+}

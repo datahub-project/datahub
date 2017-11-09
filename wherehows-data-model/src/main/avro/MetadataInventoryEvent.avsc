@@ -2,230 +2,36 @@
   "type": "record",
   "name": "MetadataInventoryEvent",
   "namespace": "com.linkedin.events.metadata",
+  "doc": "Kafka event for listing a complete inventory of datasets on a data platform",
   "fields": [
     {
       "name": "auditHeader",
-      "type": {
-        "type": "record",
-        "name": "KafkaAuditHeader",
-        "namespace": "com.linkedin.events",
-        "fields": [
-          {
-            "name": "time",
-            "type": "long",
-            "doc": "The time at which the event was emitted into kafka."
-          },
-          {
-            "name": "server",
-            "type": "string",
-            "doc": "The fully qualified name of the host from which the event is being emitted."
-          },
-          {
-            "name": "instance",
-            "type": [
-              "null",
-              "string"
-            ],
-            "doc": "The instance on the server from which the event is being emitted. e.g. i001"
-          },
-          {
-            "name": "appName",
-            "type": "string",
-            "doc": "The name of the application from which the event is being emitted. see go/appname"
-          },
-          {
-            "name": "messageId",
-            "type": {
-              "type": "fixed",
-              "name": "UUID",
-              "namespace": "com.linkedin.events",
-              "size": 16
-            },
-            "doc": "A unique identifier for the message"
-          },
-          {
-            "name": "auditVersion",
-            "type": [
-              "null",
-              "int"
-            ],
-            "doc": "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
-            "default": null
-          },
-          {
-            "name": "fabricUrn",
-            "type": [
-              "null",
-              "string"
-            ],
-            "doc": "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
-            "default": null
-          }
-        ]
-      },
+      "type": "com.linkedin.events.KafkaAuditHeader",
       "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application. For more information see go/kafkaauditheader"
     },
     {
       "name": "datasetList",
+      "doc": "A complete list inventory of datasets with only name and basic properties",
       "type": {
         "type": "array",
         "items": {
           "type": "record",
           "name": "DatasetInventoryItem",
+          "doc": "inventory item of dataset with only name and basic properties",
           "fields": [
             {
               "name": "datasetIdentifier",
-              "type": {
-                "type": "record",
-                "name": "DatasetIdentifier",
-                "fields": [
-                  {
-                    "name": "dataPlatformUrn",
-                    "type": "string",
-                    "doc": "The platform or type of the metadata object: espresso,kafka,oracle,voldemort,hdfs,hive,dalids,teradata,... for example, urn:li:dataPlatform:espresso, urn:li:dataPlatform:dalids"
-                  },
-                  {
-                    "name": "nativeName",
-                    "type": "string",
-                    "doc": "The native name: <db>.<table>, /dir/subdir/<name>, or <name>"
-                  },
-                  {
-                    "name": "dataOrigin",
-                    "type": {
-                      "type": "enum",
-                      "name": "DataOrigin",
-                      "symbols": [
-                        "PROD",
-                        "CORP",
-                        "EI",
-                        "DEV"
-                      ]
-                    },
-                    "doc": "Origin/Source tier where the record is generated? This can be different from Deployment. For example, PROD data can be copied to a TEST server, then DataOrigin=PROD while the dataset instance belongs to TEST",
-                    "default": "PROD"
-                  }
-                ]
-              },
+              "type": "DatasetIdentifier",
               "doc": "Unique Identifier of a dataset, which contains three parts: dataPlatform, name, origin"
             },
             {
               "name": "datasetProperty",
-              "type": [
-                "null",
-                {
-                  "type": "record",
-                  "name": "DatasetProperty",
-                  "fields": [
-                    {
-                      "name": "nativeType",
-                      "type": {
-                        "type": "enum",
-                        "name": "PlatformNativeType",
-                        "symbols": [
-                          "TABLE",
-                          "VIEW",
-                          "DIRECTORY",
-                          "FILE",
-                          "INDEX",
-                          "STREAM",
-                          "BLOB",
-                          "FUNCTION",
-                          "OTHER"
-                        ]
-                      },
-                      "doc": "The native type about how the dataset is stored in the platform"
-                    },
-                    {
-                      "name": "storageType",
-                      "type": [
-                        "null",
-                        {
-                          "type": "enum",
-                          "name": "DatasetStorageType",
-                          "symbols": [
-                            "TABLE",
-                            "EXTERNAL_TABLE",
-                            "VIEW",
-                            "MATERIALIZED_VIEW",
-                            "AVRO",
-                            "ORC",
-                            "PARQUET",
-                            "RC",
-                            "JSON",
-                            "BINARY_JSON",
-                            "SEQUENCE",
-                            "FLAT_FILE",
-                            "XML",
-                            "INDEX",
-                            "PROTOCOL_BUFFER",
-                            "THRIFT",
-                            "BINARY",
-                            "OTHER"
-                          ]
-                        }
-                      ],
-                      "doc": "The type or format that the dataset is stored with in the platform",
-                      "default": null
-                    },
-                    {
-                      "name": "uri",
-                      "type": [
-                        "null",
-                        "string"
-                      ],
-                      "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
-                    },
-                    {
-                      "name": "caseSensitivity",
-                      "type": [
-                        "null",
-                        {
-                          "type": "record",
-                          "name": "CaseSensitivityInfo",
-                          "fields": [
-                            {
-                              "name": "datasetName",
-                              "type": "boolean",
-                              "doc": "Is native object name CS?",
-                              "default": true
-                            },
-                            {
-                              "name": "fieldName",
-                              "type": "boolean",
-                              "doc": "Is field name CS?",
-                              "default": true
-                            },
-                            {
-                              "name": "dataContent",
-                              "type": "boolean",
-                              "doc": "Is data content CS?",
-                              "default": true
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "name": "extras",
-                      "type": [
-                        "null",
-                        {
-                          "type": "map",
-                          "values": "string"
-                        }
-                      ],
-                      "doc": "Extra dataset property information",
-                      "default": null
-                    }
-                  ]
-                }
-              ],
+              "type": [ "null", "DatasetProperty" ],
               "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, URI"
             }
           ]
         }
-      },
-      "doc": "A complete list inventory of datasets with only name and basic properties"
+      }
     }
   ]
 }
