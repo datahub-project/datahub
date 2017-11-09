@@ -1,0 +1,42 @@
+{
+  "type": "record",
+  "name": "DatasetLineage",
+  "namespace": "com.linkedin.events.metadata",
+  "doc": "Dataset lineage information, corresponding to one edge between a source dataset to a destination dataset.",
+  "fields": [
+    {
+      "name": "sourceDataset",
+      "type": {
+        "type": "array",
+        "items": "DatasetIdentifier"
+      },
+      "doc": "List of Source dataset: data is generated from these datasets. (Mapping MxN for source to destination datasets)"
+    },
+    {
+      "name": "destinationDataset",
+      "type": {
+        "type": "array",
+        "items": "DatasetIdentifier"
+      },
+      "doc": "List of Destination dataset: processed data is written to these datasets. (Mapping MxN for sources to destinations datasets)"
+    },
+    {
+      "name": "type",
+      "type": {
+        "type": "enum",
+        "name": "LineageType",
+        "symbols": [
+          "DIRECT_COPY",
+          "TRANSFORMED",
+          "VIEW"
+        ],
+        "symbolDocs": {
+          "DIRECT_COPY": "Direct copy without modification",
+          "TRANSFORMED": "Transformed data with modification(format or content change)",
+          "VIEW": "Represent lineage data like database view. i.e. HIVE use VIEW type to show HDFS stored datasets"
+        }
+      },
+      "doc": "The type name for the metadata lineage operation"
+    }
+  ]
+}
