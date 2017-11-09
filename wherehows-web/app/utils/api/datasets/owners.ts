@@ -17,6 +17,27 @@ export enum OwnerType {
   Group = 'GROUP'
 }
 
+/**
+ * Accepted string values for the namespace of a user
+ */
+export enum OwnerUrnNamespace {
+  corpUser = 'urn:li:corpuser',
+  groupUser = 'urn:li:corpGroup'
+}
+
+export enum OwnerSource {
+  Scm = 'SCM',
+  Nuage = 'NUAGE',
+  Sos = 'SOS',
+  Db = 'DB',
+  Audit = 'AUDIT',
+  Jira = 'JIRA',
+  RB = 'RB',
+  Ui = 'UI',
+  Fs = 'FS',
+  Other = 'OTHER'
+}
+
 const { $: { getJSON } } = Ember;
 
 /**
@@ -39,7 +60,7 @@ export const getDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
   return status === ApiStatus.OK
     ? owners.map(owner => ({
         ...owner,
-        modifiedTime: new Date(owner.modifiedTime)
+        modifiedTime: new Date(<number>owner.modifiedTime)
       }))
     : Promise.reject(status);
 };

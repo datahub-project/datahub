@@ -128,7 +128,7 @@ export default class DatasetAuthor extends Component {
     /**
      * Updates the type attribute on the owner record
      * @param {HTMLSelectElement} {target}
-     * @return { void }
+     * @return {void}
      */
     updateOwnerType: ({ target }: Event) => {
       const { value } = <HTMLSelectElement>target;
