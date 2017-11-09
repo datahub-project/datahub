@@ -10,6 +10,7 @@ dependencies {
   compile externalDependency.jackson_databind
   compile externalDependency.guava
   compile externalDependency.lombok
+  compile externalDependency.commons_config
 
   testCompile externalDependency.testng
 }
