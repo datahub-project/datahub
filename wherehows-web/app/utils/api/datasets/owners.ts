@@ -5,7 +5,7 @@ import {
   IPartyEntity,
   IPartyEntityResponse,
   IPartyProps,
-  userEntityMap
+  IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 
@@ -72,7 +72,7 @@ export const getDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
   return status === ApiStatus.OK
     ? owners.map(owner => ({
         ...owner,
-        modifiedTime: new Date(<number>owner.modifiedTime)
+        modifiedTime: new Date(owner.modifiedTime!)
       }))
     : Promise.reject(status);
 };
@@ -98,7 +98,7 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
    * Memoized reference to the resolved value of a previous invocation to curried function in getUserEntities
    * @type {{result: IPartyProps | null}}
    */
-  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof userEntityMap> } = {
+  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof IUserEntityMap> } = {
     result: null,
     userEntitiesSource: []
   };
@@ -141,9 +141,9 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
 /**
  * Transforms a list of party entities into a map of entity label to displayName value
  * @param {Array<IPartyEntity>} partyEntities
- * @return {Object<string>}
+ * @return {IUserEntityMap}
  */
-export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEntityMap =>
+export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMap =>
   partyEntities.reduce(
     (map: { [label: string]: string }, { label, displayName }: IPartyEntity) => ((map[label] = displayName), map),
     {}
@@ -155,5 +155,6 @@ export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEnt
  * @return {boolean}
  */
 export const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
-  owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === OwnerIdType.User)
-    .length < minRequiredConfirmed;
+  owners.filter(
+    ({ confirmedBy, type, idType }) => confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User
+  ).length < minRequiredConfirmed;
