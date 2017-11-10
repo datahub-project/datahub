@@ -26,7 +26,7 @@
     values=ownerTypes
     selected=owner.type
     disabled=(not isOwnerMutable)
-    change=(action "updateOwnerType")
+    selectionDidChange=(action "changeOwnerType")
   }}
 </td>
 
@@ -34,7 +34,7 @@
   {{#if isOwnerMutable}}
 
     <button
-      class="nacho-button nacho-button--small"
+      class="nacho-button nacho-button--small remove-dataset-author"
       {{action "removeOwner"}}>
       <i class="fa fa-trash"
          aria-label="Remove Owner"></i>
@@ -52,7 +52,7 @@
     {{else}}
 
       <button
-        class="nacho-button nacho-button--small"
+        class="nacho-button nacho-button--small confirm-suggested-dataset-author"
         {{action "confirmOwner"}}>
         <i class="fa fa-plus" title="Add an Owner"></i>
       </button>

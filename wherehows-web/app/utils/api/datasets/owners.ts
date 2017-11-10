@@ -12,9 +12,21 @@ import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owner
 /**
  * Defines a string enum for valid owner types
  */
-export enum OwnerType {
+export enum OwnerIdType {
   User = 'USER',
   Group = 'GROUP'
+}
+
+/**
+ * Defines the string enum for the OwnerType attribute
+ * @type {string}
+ */
+export enum OwnerType {
+  Owner = 'Owner',
+  Consumer = 'Consumer',
+  Delegate = 'Delegate',
+  Producer = 'Producer',
+  Stakeholder = 'Stakeholder'
 }
 
 /**
@@ -143,5 +155,5 @@ export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEnt
  * @return {boolean}
  */
 export const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
-  owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === OwnerType.User)
+  owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === OwnerIdType.User)
     .length < minRequiredConfirmed;

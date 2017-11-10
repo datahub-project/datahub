@@ -1,5 +1,5 @@
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
-import { OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
 
 /**
  * Describes the interface for an Owner entity
@@ -7,7 +7,7 @@ import { OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/a
 export interface IOwner {
   confirmedBy: null | string;
   email: null | string;
-  idType: OwnerType;
+  idType: OwnerIdType;
   isActive?: boolean;
   isGroup: boolean;
   modifiedTime?: number | Date;
@@ -16,7 +16,7 @@ export interface IOwner {
   sortId: null | number;
   source: OwnerSource;
   subType: null;
-  type: string;
+  type: OwnerType;
   userName: string;
 }
 

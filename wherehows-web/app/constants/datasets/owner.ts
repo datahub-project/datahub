@@ -1,5 +1,5 @@
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
 import { isListUnique } from 'wherehows-web/utils/array';
 
 /**
@@ -112,12 +112,12 @@ const defaultOwnerProps: IOwner = {
   name: '',
   isGroup: false,
   namespace: OwnerUrnNamespace.groupUser,
-  type: 'Owner',
+  type: OwnerType.Owner,
   subType: null,
   sortId: 0,
   source: OwnerSource.Ui,
   confirmedBy: null,
-  idType: OwnerType.User
+  idType: OwnerIdType.User
 };
 
 export {
