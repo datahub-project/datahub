@@ -58,7 +58,7 @@ export default class DatasetAuthor extends Component {
   updateOwnerType: (owner: IOwner, type: OwnerType) => void;
 
   /**
-   * A list of available owner types retreived from the api
+   * A list of available owner types retrieved from the api
    * @type {Array<string>}
    * @memberof DatasetAuthor
    */
@@ -72,7 +72,7 @@ export default class DatasetAuthor extends Component {
   isOwnerMutable: ComputedProperty<boolean> = equal('owner.source', OwnerSource.Ui);
 
   /**
-   * Detemines if the owner record is a system suggested owner and if this record is confirmed by a user
+   * Determines if the owner record is a system suggested owner and if this record is confirmed by a user
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthor
    */
@@ -110,7 +110,7 @@ export default class DatasetAuthor extends Component {
   actions = {
     /**
      * Invokes the external action removeOwner to remove an owner from the confirmed list
-     * @return {false | void | IOwner}
+     * @return {boolean | void | IOwner}
      */
     removeOwner: () => {
       const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
@@ -118,6 +118,7 @@ export default class DatasetAuthor extends Component {
     },
 
     /**
+     * Invokes the external action for  confirming the suggested owner
      * @return {Array<IOwner> | void}
      */
     confirmOwner: () => {
@@ -127,18 +128,17 @@ export default class DatasetAuthor extends Component {
 
     /**
      * Updates the type attribute on the owner record
-     * @param {HTMLSelectElement} {target}
+     * @param {OwnerType} type value to update the type attribute with
      * @return {void}
      */
-    updateOwnerType: ({ target }: Event) => {
-      const { value } = <HTMLSelectElement>target;
+    changeOwnerType: (type: OwnerType) => {
       const { owner, isOwnerMutable, updateOwnerType } = getProperties(this, [
         'owner',
         'isOwnerMutable',
         'updateOwnerType'
       ]);
 
-      return isOwnerMutable && updateOwnerType(owner, <OwnerType>value);
+      return isOwnerMutable && updateOwnerType(owner, type);
     }
   };
 }

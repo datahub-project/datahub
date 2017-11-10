@@ -17,7 +17,7 @@ import {
   confirmOwner,
   updateOwner
 } from 'wherehows-web/constants/datasets/owner';
-import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerSource, OwnerIdType, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import { ApiStatus } from 'wherehows-web/utils/api';
 
 /**
@@ -180,7 +180,7 @@ export default class DatasetAuthors extends Component {
             source: OwnerSource.Ui,
             userName: label,
             name: displayName,
-            idType: isGroup ? OwnerType.Group : OwnerType.User
+            idType: isGroup ? OwnerIdType.Group : OwnerIdType.User
           };
 
           updateOwner(get(this, 'owners'), currentOwner, updatedOwnerProps);
