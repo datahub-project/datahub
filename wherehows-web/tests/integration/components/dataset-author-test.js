@@ -1,7 +1,6 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
-import { run } from '@ember/runloop';
 
 import noop from 'wherehows-web/utils/noop';
 import owners from 'wherehows-web/mirage/fixtures/owners';
