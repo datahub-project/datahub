@@ -52,7 +52,6 @@
     "ember-export-application-global": "^2.0.0",
     "ember-fetch": "^3.4.3",
     "ember-load-initializers": "^1.0.0",
-    "ember-lodash-shim": "^2.0.5",
     "ember-metrics": "^0.12.1",
     "ember-pikaday": "^2.2.1",
     "ember-redux-shim": "^1.1.1",
