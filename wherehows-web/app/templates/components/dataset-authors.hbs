@@ -51,7 +51,6 @@
   </table>
 </section>
 
-
 <section class="dataset-author">
   <header>
     <h2 class="dataset-author__header">
@@ -104,3 +103,16 @@
 
   </table>
 </section>
+
+<section class="action-bar">
+  <div class="container action-bar__content">
+
+    <button
+      class="nacho-button nacho-button--large-inverse action-bar__item dataset-authors-save"
+      {{action "saveOwners"}}>
+      Save
+    </button>
+
+  </div>
+</section>
+{{!--disabled={{ownershipIsInvalid}}--}}
