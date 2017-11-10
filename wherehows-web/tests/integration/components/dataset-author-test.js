@@ -1,5 +1,6 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
+import { triggerEvent } from 'ember-native-dom-helpers';
 import { run } from '@ember/runloop';
 
 import noop from 'wherehows-web/utils/noop';
@@ -45,9 +46,7 @@ test('triggers the removeOwner action when invoked', function(assert) {
 
   assert.equal(removeActionCallCount, 0, 'action is not called on render');
 
-  run(() => {
-    document.querySelector('.remove-dataset-author').click();
-  });
+  triggerEvent('.remove-dataset-author', 'click');
 });
 
 test('triggers the confirmSuggestedOwner action when invoked', function(assert) {
@@ -68,9 +67,7 @@ test('triggers the confirmSuggestedOwner action when invoked', function(assert) 
 
   assert.equal(confirmSuggestedOwnerActionCallCount, 0, 'action is not called on render');
 
-  run(() => {
-    document.querySelector('.confirm-suggested-dataset-author').click();
-  });
+  triggerEvent('.confirm-suggested-dataset-author', 'click');
 });
 
 test('triggers the updateOwnerType action when invoked', function(assert) {
@@ -90,14 +87,5 @@ test('triggers the updateOwnerType action when invoked', function(assert) {
     hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners updateOwnerType=updateOwnerType ownerTypes=ownerTypes}}`
   );
 
-  run(() => {
-    // move to helper
-    document.querySelector('select').dispatchEvent(
-      new MouseEvent('change', {
-        view: window,
-        bubbles: true,
-        cancelable: true
-      })
-    );
-  });
+  triggerEvent('select', 'change');
 });
