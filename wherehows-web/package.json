@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/ember": "^2.8.0",
     "@types/ember-testing-helpers": "^0.0.3",
+    "@types/lodash": "^4.14.83",
     "@types/rsvp": "^4.0.0",
     "babel-eslint": "^8.0.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
@@ -51,8 +52,8 @@
     "ember-export-application-global": "^2.0.0",
     "ember-fetch": "^3.4.3",
     "ember-load-initializers": "^1.0.0",
-    "ember-lodash-shim": "^2.0.5",
     "ember-metrics": "^0.12.1",
+    "ember-native-dom-helpers": "^0.5.4",
     "ember-pikaday": "^2.2.1",
     "ember-redux-shim": "^1.1.1",
     "ember-redux-thunk-shim": "^1.1.2",

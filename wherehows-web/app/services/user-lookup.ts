@@ -10,9 +10,14 @@ import { IPartyEntity, IPartyProps } from 'wherehows-web/typings/api/datasets/pa
  * @param {Function} asyncResults callback
  * @return {Promise<void>}
  */
-const ldapResolver = async (userNameQuery: string, _syncResults: Function, asyncResults: Function): Promise<void> => {
+const ldapResolver = async (
+  userNameQuery: string,
+  _syncResults: Function,
+  asyncResults: (results: Array<string>) => void
+): Promise<void> => {
   const ldapRegex = new RegExp(`^${userNameQuery}.*`, 'i');
   const { userEntitiesSource = [] }: IPartyProps = await getUserEntities();
+
   asyncResults(userEntitiesSource.filter((entity: string) => ldapRegex.test(entity)));
 };
 
