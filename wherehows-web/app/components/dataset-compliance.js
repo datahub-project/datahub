@@ -341,13 +341,6 @@ export default Component.extend({
   })),
 
   /**
-   * Caches the policy's modification time in milliseconds
-   */
-  policyModificationTimeInEpoch: computed('complianceInfo', function() {
-    return getWithDefault(this, 'complianceInfo.modifiedTime', 0);
-  }),
-
-  /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
    *    tracking header.
    *    Used to indicate to viewer that these fields are hidden.

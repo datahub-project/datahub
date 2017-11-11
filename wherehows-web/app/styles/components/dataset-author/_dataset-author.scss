@@ -1,0 +1,23 @@
+.dataset-author {
+  margin-top: item-spacing(7);
+
+  &__header {
+    display: flex;
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+  }
+}
+
+.dataset-author-record {
+  &--disabled {
+    color: set-color(grey, mid);
+    font-weight: fw(italic, 2);
+    pointer-events: none;
+  }
+
+  &#{&} &__action {
+    &--disabled {
+      background-color: set-color(grey, mid);
+    }
+  }
+}

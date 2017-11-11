@@ -1,148 +1,64 @@
-<div class="tab-body">
-  <section class="action-bar">
-    <div class="container action-bar__content">
-      <button class="nacho-button nacho-button--large-inverse action-bar__item"
-              title={{if ownershipIsInvalid
-                         "Need at least two confirmed owners to make changes
-                         and no Invalid users"
-                         "Save"}}
-                disabled={{ownershipIsInvalid}}
-        {{action "updateOwners"}}>
-        Save
+<td>
+  {{user-avatar userName=owner.userName}}
+  {{owner.userName}}
+</td>
+
+<td>
+  {{owner.name}}
+</td>
+
+<td>
+  {{owner.idType}}
+</td>
+
+<td>
+  {{owner.source}}
+</td>
+
+<td>
+  {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+</td>
+
+
+<td>
+  {{ember-selector
+    class=(unless isOwnerMutable "nacho-select--hidden-state")
+    values=ownerTypes
+    selected=owner.type
+    disabled=(not isOwnerMutable)
+    selectionDidChange=(action "changeOwnerType")
+  }}
+</td>
+
+<td>
+  {{#if isOwnerMutable}}
+
+    <button
+      class="nacho-button nacho-button--small remove-dataset-author"
+      {{action "removeOwner"}}>
+      <i class="fa fa-trash"
+         aria-label="Remove Owner"></i>
+    </button>
+
+  {{else}}
+
+    {{#if isConfirmedSuggestedOwner}}
+
+      <button
+        class="nacho-button nacho-button--small dataset-author-record__action--disabled">
+        Added
       </button>
 
-      <button class="nacho-button nacho-button--large action-bar__item"
-        {{action "addOwner" owners}}>
-        <i class="fa fa-plus" title="Add an Owner">
-        </i>
-        Add an Owner
+    {{else}}
+
+      <button
+        class="nacho-button nacho-button--small confirm-suggested-dataset-author"
+        {{action "confirmOwner"}}>
+        <i class="fa fa-plus" title="Add an Owner"></i>
       </button>
-    </div>
-  </section>
 
-  <div class="alert alert-info" role="alert">
-    <p>
-      <strong>
-        Why can't I click save? It's greyed out
-      </strong>
-    </p>
-    <p>
-      Please note that to make any update the list of owners for this dataset,
-      there needs to be:
-    </p>
+    {{/if}}
 
-    <p><strong>At least two (2)</strong> confirmed owners who are both</p>
-
-    <ul>
-      <li>
-        of ID Type <code>USER</code>
-      </li>
-      <li>
-        of Owner Type <code>Owner</code>
-      </li>
-    </ul>
-    <br>
-
-    <p>
-      <strong>
-        Why can't I remove an owner?
-      </strong>
-    </p>
-    <p>
-      Only owners that are not sourced from <code>SCM</code> or <code>NUAGE</code> can be removed
-      from this list. To remove any such owner(s), please make the change at the
-      source.</p>
-  </div>
-
-  {{#if errorMessage}}
-    <div class="alert alert-danger" role="alert">{{errorMessage}}</div>
   {{/if}}
+</td>
 
-  {{#if actionMessage}}
-    <div class="alert alert-success" role="alert">{{actionMessage}}</div>
-  {{/if}}
-
-  <table class="nacho-table nacho-table--bordered nacho-table--stripped">
-    <thead>
-    <tr>
-      <th class="dataset-author-column--wide">LDAP Username</th>
-      <th>Full Name</th>
-      <th  class="dataset-author-column--narrow">ID Type</th>
-      <th>Source</th>
-      <th>Last Modified</th>
-      <th>
-        Owner Type
-
-        <!--TODO: DSS-6716-->
-        <!-- DRY out with wrapper component that takes the link as an attribute-->
-        <a
-          target="_blank"
-          href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
-          <sup>
-        <span class="glyphicon glyphicon-question-sign"
-              title="Link to more information"></span>
-          </sup>
-        </a>
-      </th>
-      <th  class="dataset-author-column--narrow">Confirm?</th>
-      <th>Remove</th>
-    </tr>
-    </thead>
-    <tbody data-attribute="owner-table">
-    {{#each owners as |owner|}}
-      <tr>
-        <td class="dataset-author-cell"
-            onclick={{action "willEditUserName"
-                             owner}}>
-
-          <label class={{unless (contains owner.source restrictedSources) "dataset-author-cell__name-tag"}}>
-            {{owner.userName}}
-          </label>
-          {{aupac-typeahead
-            source=userNamesResolver
-            action=(action "editUserName" owner)
-            autoFocus=true
-            async=true
-            limit=10
-            minLength=2
-            placeholder="Find user by LDAP"
-            title="username"
-            class="form-control dataset-author-cell__user-name"}}
-        </td>
-        <td>{{owner.name}}</td>
-        <td>{{owner.idType}}</td>
-        <td>{{owner.source}}</td>
-        <td class="dataset-author-cell__owner-last-mod">
-          {{!-- e.g Jul 18th 2016, 11:11 am --}}
-          {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
-        </td>
-        <td>
-          {{ember-selector
-            values=ownerTypes
-            selected=owner.type
-            change=(action "updateOwnerType" owner)}}
-        </td>
-        <td>
-          {{input
-            type="checkbox"
-            title=(if owner.confirmedBy owner.confirmedBy "Not confirmed")
-            checked=(readonly owner.confirmedBy)
-            change=(action "confirmOwner" owner)}}
-        </td>
-
-        <td>
-          <button class="nacho-button nacho-button--small"
-                  title={{if (contains owner.source restrictedSources)
-                             removeFromSourceMessage
-                             "Remove"}}
-                    disabled={{contains owner.source restrictedSources}}
-            {{action "removeOwner" owner}}>
-            <i class="fa fa-trash"
-               aria-label="Remove Owner"></i>
-          </button>
-        </td>
-      </tr>
-    {{/each}}
-    </tbody>
-  </table>
-</div>

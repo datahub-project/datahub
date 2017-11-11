@@ -61,7 +61,7 @@
       Last saved:
       <span class="policy-last-saved__saved">
         {{if isNewComplianceInfo 'Never'
-             (moment-from-now policyModificationTimeInEpoch)}}
+             (moment-from-now complianceInfo.modifiedTime)}}
       </span>
     </div>
 
