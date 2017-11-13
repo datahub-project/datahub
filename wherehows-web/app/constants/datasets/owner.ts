@@ -88,12 +88,8 @@ function updateOwner<K extends keyof IOwner>(
  * @param {string} confirmedBy the userName of the confirming user
  * @returns {(Array<IOwner> | void)}
  */
-const confirmOwner = (owner: IOwner, confirmedBy: string): null | string => {
-  const isConfirmedBy = confirmedBy || null;
-  // return updateOwner(owners, owner, 'confirmedBy', isConfirmedBy);
-  return set(owner, 'confirmedBy', isConfirmedBy);
-};
-
+const confirmOwner = (owner: IOwner, confirmedBy: string): null | string =>
+  set(owner, 'confirmedBy', confirmedBy || null);
 /**
  * Defines the default properties for a newly created IOwner instance
  *@type {IOwner}
