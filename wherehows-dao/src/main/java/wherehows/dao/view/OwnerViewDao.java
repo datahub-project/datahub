@@ -16,6 +16,8 @@ package wherehows.dao.view;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,7 +45,8 @@ public class OwnerViewDao extends BaseViewDao {
    * @param datasetUrn String
    * @return List of DatasetOwner
    */
-  public List<DatasetOwner> getDatasetOwnersByUrn(String datasetUrn) {
+  @Nullable
+  public List<DatasetOwner> getDatasetOwnersByUrn(@Nonnull String datasetUrn) throws Exception {
     Map<String, Object> params = new HashMap<>();
     params.put("datasetUrn", datasetUrn);
 
