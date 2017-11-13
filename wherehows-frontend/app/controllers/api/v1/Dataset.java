@@ -37,10 +37,10 @@ import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
-import wherehows.models.view.DatasetCompliance;
 import wherehows.models.table.DatasetDependency;
 import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
@@ -337,22 +337,21 @@ public class Dataset extends Controller {
 
     String urn = getDatasetUrnByIdOrCache(id);
 
-    Map<String, String[]> params = request().body().asFormUrlEncoded();
-    // params should contain mapping 'owners': ['ownerInfoJsonString']
-    if (params == null || !params.containsKey("owners") || params.get("owners") == null
-        || params.get("owners").length == 0) {
+    JsonNode content = request().body().asJson();
+    // content should contain arraynode 'owners': []
+    if (content == null || !content.has("owners") || !content.get("owners").isArray()) {
       result.put("status", "failed");
       result.put("error", "true");
-      result.put("msg", "Could not update dataset owners: missing fields");
+      result.put("msg", "Could not update dataset owners: missing owners field");
       return ok(result);
     }
-    final JsonNode node = Json.parse(params.get("owners")[0]);
+    final JsonNode ownerArray = content.get("owners");
 
     final List<DatasetOwner> owners = new ArrayList<>();
     int confirmedOwnerUserCount = 0;
 
-    for (int i = 0; i < node.size(); i++) {
-      final JsonNode ownerNode = node.get(i);
+    for (int i = 0; i < ownerArray.size(); i++) {
+      final JsonNode ownerNode = ownerArray.get(i);
       if (ownerNode != null) {
         String userName = ownerNode.has("userName") ? ownerNode.get("userName").asText() : "";
         if (StringUtils.isBlank(userName)) {
