@@ -1,11 +1,11 @@
 /// Search bar height
-$height: 40px;
+$app-search-bar-height: 40px;
 
 .nacho-global-search {
   color: $text-color;
 
   &__text-input {
-    height: $height;
+    height: $app-search-bar-height;
   }
 
   /**

@@ -1,0 +1,30 @@
+.user-lookup {
+  margin: item-spacing(4 0);
+  position: relative;
+
+  &::after {
+    content: '\e003';
+    position: absolute;
+    top: item-spacing(3);
+    right: item-spacing(2);
+    z-index: z(default);
+    display: inline-block;
+    font-family: 'Glyphicons Halflings';
+    font-style: normal;
+    font-weight: normal;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  &__input {
+    width: 100%;
+    outline: none;
+    border-radius: 0;
+    border: 1px solid set-color(grey, light);
+    padding: item-spacing(2 5 2 3);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    transition: box-shadow ease-in-out 0.15s;
+    line-height: 1.428;
+    font-size: 14px;
+  }
+}

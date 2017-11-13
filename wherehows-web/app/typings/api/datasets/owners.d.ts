@@ -4,7 +4,7 @@ import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehow
 /**
  * Describes the interface for an Owner entity
  */
-export interface IOwner {
+interface IOwner {
   confirmedBy: null | string;
   email: null | string;
   idType: OwnerIdType;
@@ -23,7 +23,18 @@ export interface IOwner {
 /**
  * Describes the expected shape of the response for dataset owners endpoint
  */
-export interface IOwnerResponse {
+interface IOwnerResponse {
   status: ApiStatus;
   owners?: Array<IOwner>;
+  msg?: string;
 }
+
+/**
+ * Describes the interface on a response to a POST on the owner endpoint
+ */
+interface IOwnerPostResponse {
+  status: ApiStatus;
+  msg?: string;
+}
+
+export { IOwnerPostResponse, IOwnerResponse, IOwner };
