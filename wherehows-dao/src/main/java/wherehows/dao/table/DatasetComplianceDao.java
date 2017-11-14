@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DsCompliance;
@@ -50,7 +51,8 @@ public class DatasetComplianceDao extends BaseDao {
     return findBy(DsCompliance.class, "datasetId", datasetId);
   }
 
-  public DatasetCompliance getDatasetComplianceByDatasetId(int datasetId, String datasetUrn) throws IOException {
+  @Nullable
+  public DatasetCompliance getDatasetComplianceByDatasetId(int datasetId, @Nonnull String datasetUrn) throws Exception {
     return dsComplianceToDatasetCompliance(findComplianceById(datasetId));
   }
 
@@ -118,7 +120,8 @@ public class DatasetComplianceDao extends BaseDao {
     dsCompliance.setModifiedBy(actor);
   }
 
-  public DsComplianceSuggestion findComplianceSuggestionByUrn(@Nonnull String datasetUrn) {
+  @Nullable
+  public DsComplianceSuggestion findComplianceSuggestionByUrn(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
   }
 
@@ -163,7 +166,7 @@ public class DatasetComplianceDao extends BaseDao {
    * @return DatasetCompliance
    * @throws IOException
    */
-  public DatasetCompliance dsComplianceToDatasetCompliance(DsCompliance dsCompliance) throws IOException {
+  public DatasetCompliance dsComplianceToDatasetCompliance(@Nonnull DsCompliance dsCompliance) throws IOException {
     DatasetCompliance compliance = new DatasetCompliance();
     compliance.setDatasetId(dsCompliance.getDatasetId());
     compliance.setDatasetUrn(dsCompliance.getDatasetUrn());

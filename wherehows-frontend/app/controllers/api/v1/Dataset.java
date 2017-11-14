@@ -307,21 +307,31 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
-  public static Result getDatasetOwnersByID(int id) {
-    ObjectNode result = Json.newObject();
-
+  public static Promise<Result> getDatasetOwnersByID(int id) {
+    List<DatasetOwner> owners = null;
     try {
       String urn = getDatasetUrnByIdOrCache(id);
 
-      result.set("owners", Json.toJson(OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn)));
-      result.put("status", "ok");
+      owners = OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn);
     } catch (Exception e) {
-      Logger.warn("Failed to get owners: " + e.toString());
-      result.put("status", "failed");
-      result.put("message", "Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        return Promise.promise(() -> ok(result));
+      }
+
+      Logger.error("Fetch owners Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+      return Promise.promise(() -> ok(result));
     }
 
-    return ok(result);
+    if (owners == null) {
+      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      return Promise.promise(() -> ok(result));
+    }
+
+    JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.toJson(owners));
+    return Promise.promise(() -> ok(result));
   }
 
   public static Result updateDatasetOwners(int id) {
@@ -872,17 +882,23 @@ public class Dataset extends Controller {
 
       record = COMPLIANCE_DAO.getDatasetComplianceByDatasetId(datasetId, urn);
     } catch (Exception e) {
-      Logger.warn("Failed to get compliance: " + e.toString());
-      JsonNode result = Json.newObject()
-          .put("status", "failed")
-          .put("error", "true")
-          .put("msg", "Fetch data Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        return Promise.promise(() -> ok(result));
+      }
 
+      Logger.error("Fetch compliance Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+      return Promise.promise(() -> ok(result));
+    }
+
+    if (record == null) {
+      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
       return Promise.promise(() -> ok(result));
     }
 
     JsonNode result = Json.newObject().put("status", "ok").set("complianceInfo", Json.toJson(record));
-
     return Promise.promise(() -> ok(result));
   }
 
@@ -941,12 +957,14 @@ public class Dataset extends Controller {
     try {
       record = COMPLIANCE_DAO.findComplianceSuggestionByUrn(datasetUrn);
     } catch (Exception e) {
-      Logger.warn("Failed to get compliance suggestion: " + e.toString());
-      JsonNode result = Json.newObject()
-          .put("status", "failed")
-          .put("error", "true")
-          .put("msg", "Fetch data Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        return Promise.promise(() -> ok(result));
+      }
 
+      Logger.error("Fetch compliance suggestion Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
       return Promise.promise(() -> ok(result));
     }
 
