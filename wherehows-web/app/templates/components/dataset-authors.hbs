@@ -146,8 +146,15 @@
     <button
       class="nacho-button nacho-button--large-inverse action-bar__item dataset-authors-save"
       disabled={{requiredMinNotConfirmed}}
-      {{action "saveOwners"}}>
-      Save
+      onclick={{perform saveOwners}}>
+
+      {{#if saveOwners.isIdle}}
+        Save
+      {{else}}
+        Saving...
+        {{fa-icon "circle-o-notch" spin=true}}
+      {{/if}}
+
     </button>
 
   </div>
