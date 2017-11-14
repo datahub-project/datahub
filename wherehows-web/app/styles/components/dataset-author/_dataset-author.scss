@@ -8,6 +8,10 @@ $owner-list-issue-color: set-color(red, maroonflush);
     font-size: 20px;
     font-weight: fw(normal, 4);
   }
+
+  &__required-count {
+    height: item-spacing(4);
+  }
 }
 
 .dataset-author-record {

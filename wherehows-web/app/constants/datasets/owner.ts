@@ -86,9 +86,9 @@ function updateOwner<K extends keyof IOwner>(
  * Sets the `confirmedBy` attribute to the currently logged in user
  * @param {IOwner} owner the owner to be updated
  * @param {string} confirmedBy the userName of the confirming user
- * @returns {(Array<IOwner> | void)}
+ * @returns {IOwner.confirmedBy}
  */
-const confirmOwner = (owner: IOwner, confirmedBy: string): null | string =>
+const confirmOwner = (owner: IOwner, confirmedBy: string): IOwner['confirmedBy'] =>
   set(owner, 'confirmedBy', confirmedBy || null);
 /**
  * Defines the default properties for a newly created IOwner instance
