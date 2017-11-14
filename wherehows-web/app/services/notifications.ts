@@ -285,7 +285,7 @@ export default class Notifications extends Service {
    * @param {NotificationEvent} type
    * @param params optional list of parameters for the notification handler
    */
-  notify(type: NotificationEvent, ...params: any[]): void {
+  notify(type: NotificationEvent, ...params: Array<IConfirmOptions | IToast>): void {
     if (!(type in proxiedNotifications)) {
       return;
     }

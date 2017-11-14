@@ -1,24 +1,15 @@
 import Component from '@ember/component';
 import { inject } from '@ember/service';
-import ComputedProperty, { or, lt, filter } from '@ember/object/computed';
+import ComputedProperty, { filter } from '@ember/object/computed';
 import { set, get, computed, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
-import { isEqual } from 'lodash';
 
 import UserLookup from 'wherehows-web/services/user-lookup';
 import CurrentUser from 'wherehows-web/services/current-user';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import {
-  defaultOwnerProps,
-  defaultOwnerUserName,
-  minRequiredConfirmedOwners,
-  ownerAlreadyExists,
-  userNameEditableClass,
-  confirmOwner,
-  updateOwner
-} from 'wherehows-web/constants/datasets/owner';
-import { OwnerSource, OwnerIdType, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
-import { ApiStatus } from 'wherehows-web/utils/api';
+import { ownerAlreadyExists, confirmOwner, updateOwner } from 'wherehows-web/constants/datasets/owner';
+import { isRequiredMinOwnersNotConfirmed, OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 /**
  * Defines properties for the component that renders a list of owners and provides functionality for
@@ -30,10 +21,10 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 export default class DatasetAuthors extends Component {
   /**
    * Invokes an external save action to persist the list of owners
-   * @return {Promise<{ status: ApiStatus }>}
+   * @return {Promise<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  save: (owners: Array<IOwner>) => Promise<{ status: ApiStatus }>;
+  save: (owners: Array<IOwner>) => Promise<Array<IOwner>>;
 
   /**
    * The list of owners
@@ -50,6 +41,13 @@ export default class DatasetAuthors extends Component {
   currentUser: ComputedProperty<CurrentUser> = inject();
 
   /**
+   * Application notifications service
+   * @type {ComputedProperty<Notifications>}
+   * @memberof DatasetAuthors
+   */
+  notifications: ComputedProperty<Notifications> = inject();
+
+  /**
    * User look up service
    * @type {ComputedProperty<UserLookup>}
    * @memberof DatasetAuthors
@@ -58,7 +56,7 @@ export default class DatasetAuthors extends Component {
 
   /**
    * Reference to the userNamesResolver function to asynchronously match userNames
-   * @type {UserLookup['userNamesResolver']}
+   * @type {UserLookup.userNamesResolver}
    * @memberof DatasetAuthors
    */
   userNamesResolver: UserLookup['userNamesResolver'];
@@ -71,39 +69,22 @@ export default class DatasetAuthors extends Component {
   ownerTypes: Array<string>;
 
   /**
-   * Computed flag indicating that a set of negative flags is true
-   * e.g. if the userName is invalid or the required minimum users are not confirmed
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetAuthors
-   */
-  ownershipIsInvalid: ComputedProperty<boolean> = or('userNameInvalid', 'requiredMinNotConfirmed');
-
-  /**
-   * Checks that the list of owners does not contain a default user name
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetAuthors
-   */
-  userNameInvalid: ComputedProperty<boolean> = computed('owners.[]', function(this: DatasetAuthors) {
-    const owners = get(this, 'owners') || [];
-
-    return owners.filter(({ userName }) => userName === defaultOwnerUserName).length > 0;
-  });
-
-  /**
    * Flag that resolves in the affirmative if the number of confirmed owner is less the minimum required
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthors
    */
-  requiredMinNotConfirmed: ComputedProperty<boolean> = lt('confirmedOwners.length', minRequiredConfirmedOwners);
+  requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.length', function(
+    this: DatasetAuthors
+  ) {
+    return isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+  });
 
   /**
    * Lists the owners that have be confirmed view the client ui
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', function({ source }: IOwner) {
-    return source === OwnerSource.Ui;
-  });
+  confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', ({ source }) => source === OwnerSource.Ui);
 
   /**
    * Intersection of confirmed owners and suggested owners
@@ -111,8 +92,7 @@ export default class DatasetAuthors extends Component {
    * @memberof DatasetAuthors
    */
   commonOwners: ComputedProperty<Array<IOwner>> = computed(
-    'confirmedOwners.@each.userName',
-    'systemGeneratedOwners.@each.userName',
+    '{confirmedOwners,systemGeneratedOwners}.@each.userName',
     function(this: DatasetAuthors) {
       const { confirmedOwners = [], systemGeneratedOwners = [] } = getProperties(this, [
         'confirmedOwners',
@@ -150,59 +130,22 @@ export default class DatasetAuthors extends Component {
 
   actions = {
     /**
-     * Prepares component for updates to the userName attribute
-     * @param {IOwner} _ unused
-     * @param {HTMLElement} { currentTarget }
-     */
-    willEditUserName(_: IOwner, { currentTarget }: Event) {
-      const { classList } = <HTMLElement>(currentTarget || {});
-      if (classList instanceof HTMLElement) {
-        classList.add(userNameEditableClass);
-      }
-    },
-
-    /**
-     * Updates the owner instance userName property
-     * @param {IOwner} currentOwner an instance of an IOwner type to be updates
-     * @param {string} [userName] optional userName to update to
-     */
-    editUserName: async (currentOwner: IOwner, userName?: string) => {
-      if (userName) {
-        const { getPartyEntityWithUserName } = get(this, 'userLookup');
-        const partyEntity = await getPartyEntityWithUserName(userName);
-
-        if (partyEntity) {
-          const { label, displayName, category } = partyEntity;
-          const isGroup = category === 'group';
-          const updatedOwnerProps: IOwner = {
-            ...currentOwner,
-            isGroup,
-            source: OwnerSource.Ui,
-            userName: label,
-            name: displayName,
-            idType: isGroup ? OwnerIdType.Group : OwnerIdType.User
-          };
-
-          updateOwner(get(this, 'owners'), currentOwner, updatedOwnerProps);
-        }
-      }
-    },
-
-    /**
      * Adds the component owner record to the list of owners with default props
      * @returns {Array<IOwner> | void}
      */
-    addOwner: () => {
+    addOwner: (newOwner: IOwner): Array<IOwner> | void => {
       const owners = get(this, 'owners') || [];
-      const newOwner: IOwner = { ...defaultOwnerProps };
+      const { notify } = get(this, 'notifications');
 
-      if (!ownerAlreadyExists(owners, { userName: newOwner.userName })) {
-        const { userName } = get(get(this, 'currentUser'), 'currentUser');
-        let updatedOwners = [newOwner, ...owners];
-        confirmOwner(get(this, 'owners'), newOwner, userName);
-
-        return owners.setObjects(updatedOwners);
+      if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
+        return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });
       }
+
+      const { userName } = get(get(this, 'currentUser'), 'currentUser');
+      const updatedOwners = [newOwner, ...owners];
+      confirmOwner(newOwner, userName);
+
+      return owners.setObjects(updatedOwners);
     },
 
     /**
@@ -210,7 +153,7 @@ export default class DatasetAuthors extends Component {
      * @param {IOwner} owner owner to be updates
      * @param {OwnerType} type new value to be set on the type attribute
      */
-    updateOwnerType: (owner: IOwner, type: OwnerType) => {
+    updateOwnerType: (owner: IOwner, type: OwnerType): Array<IOwner> | void => {
       const owners = get(this, 'owners') || [];
       return updateOwner(owners, owner, 'type', type);
     },
@@ -220,21 +163,16 @@ export default class DatasetAuthors extends Component {
      * @param {IOwner} owner the owner to add to the list of owner with the source set to OwnerSource.Ui
      * @return {Array<IOwner> | void}
      */
-    confirmSuggestedOwner: (owner: IOwner) => {
-      const owners = get(this, 'owners') || [];
+    confirmSuggestedOwner: (owner: IOwner): Array<IOwner> | void => {
       const suggestedOwner = { ...owner, source: OwnerSource.Ui };
-      const hasSuggested = owners.find(owner => isEqual(owner, suggestedOwner));
-
-      if (!hasSuggested) {
-        return owners.setObjects([...owners, suggestedOwner]);
-      }
+      return this.actions.addOwner(suggestedOwner);
     },
 
     /**
      * removes an owner instance from the list of owners
      * @param {IOwner} owner the owner to be removed
      */
-    removeOwner: (owner: IOwner) => {
+    removeOwner: (owner: IOwner): IOwner => {
       const owners = get(this, 'owners') || [];
       return owners.removeObject(owner);
     },
