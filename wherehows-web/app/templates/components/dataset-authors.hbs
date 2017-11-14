@@ -10,14 +10,14 @@
   </div>
 </section>
 
-{{#if requiredMinNotConfirmed}}
+<p class="dataset-author__required-count">
+  {{#if requiredMinNotConfirmed}}
 
-  <p>
-    Add <strong>at least {{sub 2 confirmedOwners.length}}</strong> confirmed owner(s) with ID Type - <code>USER</code>
+    Add <strong>at least {{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
     and Owner Type - <code>Owner</code>
-  </p>
 
-{{/if}}
+  {{/if}}
+</p>
 
 <section class="dataset-author">
   <header>
@@ -92,7 +92,7 @@
       </h2>
 
       <p class="dataset-author__byline">
-        These are dataset ownership records, suggested based information derived from the source metadata.
+        These are dataset ownership records, suggested based on information derived from the source metadata.
       </p>
     </header>
 

@@ -7,8 +7,18 @@ import { assert } from '@ember/debug';
 import UserLookup from 'wherehows-web/services/user-lookup';
 import CurrentUser from 'wherehows-web/services/current-user';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { ownerAlreadyExists, confirmOwner, updateOwner } from 'wherehows-web/constants/datasets/owner';
-import { isRequiredMinOwnersNotConfirmed, OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import {
+  ownerAlreadyExists,
+  confirmOwner,
+  updateOwner,
+  minRequiredConfirmedOwners
+} from 'wherehows-web/constants/datasets/owner';
+import {
+  isRequiredMinOwnersNotConfirmed,
+  OwnerSource,
+  OwnerType,
+  validConfirmedOwners
+} from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 /**
@@ -77,6 +87,15 @@ export default class DatasetAuthors extends Component {
     this: DatasetAuthors
   ) {
     return isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+  });
+
+  /**
+   * Counts the number of valid confirmed owners needed to make changes to the dataset
+   * @type {ComputedProperty<number>}
+   * @memberof DatasetAuthors
+   */
+  ownersRequiredCount: ComputedProperty<number> = computed('confirmedOwners.[]', function(this: DatasetAuthors) {
+    return minRequiredConfirmedOwners - validConfirmedOwners(get(this, 'confirmedOwners')).length;
   });
 
   /**
