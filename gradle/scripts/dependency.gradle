@@ -19,6 +19,7 @@ ext.externalDependency = [
     "jsoup"               : "org.jsoup:jsoup:1.8.3",
     "commons_io"          : "commons-io:commons-io:2.5",
     "commons_lang3"       : "org.apache.commons:commons-lang3:3.6",
+    "commons_config"      : "commons-configuration:commons-configuration:1.10",
 
     "jackson_databind"    : "com.fasterxml.jackson.core:jackson-databind:2.8.9",
     "jackson_core"        : "com.fasterxml.jackson.core:jackson-core:2.8.9",
