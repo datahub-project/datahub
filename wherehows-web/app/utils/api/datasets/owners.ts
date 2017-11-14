@@ -1,4 +1,3 @@
-import Ember from 'ember';
 import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import {
@@ -7,7 +6,8 @@ import {
   IPartyProps,
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 
 /**
  * Defines a string enum for valid owner types
@@ -50,8 +50,6 @@ export enum OwnerSource {
   Other = 'OTHER'
 }
 
-const { $: { getJSON } } = Ember;
-
 /**
  * The minimum required number of owners with a confirmed status
  * @type {number}
@@ -67,23 +65,59 @@ const datasetOwnersUrlById = (id: number): string => `${datasetUrlById(id)}/owne
 
 const partyEntitiesUrl = `${ApiRoot}/party/entities`;
 
-export const getDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
-  const { owners = [], status }: IOwnerResponse = await Promise.resolve(getJSON(datasetOwnersUrlById(id)));
-  return status === ApiStatus.OK
-    ? owners.map(owner => ({
-        ...owner,
-        modifiedTime: new Date(owner.modifiedTime!)
-      }))
-    : Promise.reject(status);
+/**
+ * Requests the list of dataset owners from the GET endpoint, converts the modifiedTime property
+ * to a date object
+ * @param {number} id the dataset Id
+ * @return {Promise<Array<IOwner>>} the current list of dataset owners
+ */
+export const readDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
+  const { owners = [], status, msg } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlById(id) });
+  if (status === ApiStatus.OK) {
+    return owners.map(owner => ({
+      ...owner,
+      modifiedTime: new Date(owner.modifiedTime!)
+    }));
+  }
+
+  throw new Error(msg);
+};
+
+/**
+ * Persists the updated list of dataset owners
+ * @param {number} id the id of the dataset
+ * @param {string} csrfToken
+ * @param {Array<IOwner>} updatedOwners the updated list of owners for this dataset
+ * @return {Promise<IOwnerPostResponse>}
+ */
+export const updateDatasetOwners = async (
+  id: number,
+  csrfToken: string,
+  updatedOwners: Array<IOwner>
+): Promise<IOwnerPostResponse> => {
+  const { status, msg } = await postJSON<IOwnerPostResponse>({
+    url: datasetOwnersUrlById(id),
+    headers: { 'csrf-token': csrfToken },
+    data: {
+      csrfToken,
+      owners: updatedOwners
+    }
+  });
+
+  if ([ApiStatus.OK, ApiStatus.SUCCESS].includes(status)) {
+    return { status: ApiStatus.OK };
+  }
+
+  throw new Error(msg);
 };
 
 /**
  * Requests party entities and if the response status is OK, resolves with an array of entities
  * @return {Promise<Array<IPartyEntity>>}
  */
-export const getPartyEntities = async (): Promise<Array<IPartyEntity>> => {
-  const { status, userEntities = [] }: IPartyEntityResponse = await Promise.resolve(getJSON(partyEntitiesUrl));
-  return status === ApiStatus.OK ? userEntities : Promise.reject(status);
+export const readPartyEntities = async (): Promise<Array<IPartyEntity>> => {
+  const { status, userEntities = [], msg } = await getJSON<IPartyEntityResponse>({ url: partyEntitiesUrl });
+  return status === ApiStatus.OK ? userEntities : Promise.reject(msg);
 };
 
 /**
@@ -116,14 +150,14 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
     // If we don't already have a previous api request for party entities,
     // assign a new one to free variable
     if (!inflightRequest) {
-      inflightRequest = getPartyEntities();
+      inflightRequest = readPartyEntities();
     }
 
     const userEntities: Array<IPartyEntity> = await inflightRequest;
 
     return (cache.result = {
       userEntities,
-      userEntitiesMaps: getPartyEntitiesMap(userEntities),
+      userEntitiesMaps: readPartyEntitiesMap(userEntities),
       // userEntitiesSource is not usually needed immediately
       // hence using a getter for lazy evaluation
       get userEntitiesSource() {
@@ -143,7 +177,7 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
  * @param {Array<IPartyEntity>} partyEntities
  * @return {IUserEntityMap}
  */
-export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMap =>
+export const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMap =>
   partyEntities.reduce(
     (map: { [label: string]: string }, { label, displayName }: IPartyEntity) => ((map[label] = displayName), map),
     {}

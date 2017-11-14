@@ -53,6 +53,7 @@
     "ember-export-application-global": "^2.0.0",
     "ember-fetch": "^3.4.3",
     "ember-load-initializers": "^1.0.0",
+    "ember-math-helpers": "^2.3.0",
     "ember-metrics": "^0.12.1",
     "ember-native-dom-helpers": "^0.5.4",
     "ember-pikaday": "^2.2.1",

@@ -72,4 +72,8 @@ $user-name-width: 170px;
     padding: item-spacing(5 4);
     font-weight: fw(normal, 4);
   }
+
+  &#{&} &--wrap {
+    white-space: normal;
+  }
 }

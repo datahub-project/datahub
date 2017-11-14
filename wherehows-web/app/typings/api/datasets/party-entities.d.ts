@@ -15,6 +15,7 @@ export interface IPartyEntity {
 export interface IPartyEntityResponse {
   status: ApiStatus;
   userEntities?: Array<IPartyEntity>;
+  msg?: string;
 }
 
 /**

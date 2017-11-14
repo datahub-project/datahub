@@ -1,6 +1,7 @@
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
 import { isListUnique } from 'wherehows-web/utils/array';
+import { set } from '@ember/object';
 
 /**
  * Initial user name for candidate owners
@@ -15,22 +16,14 @@ const defaultOwnerUserName = 'New Owner';
 const minRequiredConfirmedOwners = 2;
 
 /**
- * Class to toggle readonly mode vs edit mode
- * @type {string}
- */
-const userNameEditableClass = 'dataset-author-cell--editing';
-
-/**
  * Checks that a userName already exists in the list of IOwner instances
  * @param {Array<IOwner>} owners the list of owners
- * @param {Pick<IOwner, 'userName'>} newOwner userName for the owner
- * @returns {boolean} true if owner username in current list of owners
+ * @param {string} userName userName to check for uniqueness
+ * @param {OwnerSource} source source to include in composite unique key
+ * @return {boolean} true if owner username in current list of owners
  */
-const ownerAlreadyExists = (owners: Array<IOwner>, newOwner: Pick<IOwner, 'userName'>) => {
-  const newUserNameRegEx = new RegExp(`.*${newOwner.userName}.*`, 'i');
-
-  return owners.mapBy('userName').some((userName: string) => newUserNameRegEx.test(userName));
-};
+const ownerAlreadyExists = (owners: Array<IOwner>, { userName, source }: Pick<IOwner, 'userName' | 'source'>) =>
+  owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`);
 
 // overloads
 function updateOwner(owners: Array<IOwner>, owner: IOwner, props: IOwner): void | Array<IOwner>;
@@ -91,17 +84,12 @@ function updateOwner<K extends keyof IOwner>(
 
 /**
  * Sets the `confirmedBy` attribute to the currently logged in user
- * @param {Array<IOwner>} owners the list of owners
  * @param {IOwner} owner the owner to be updated
  * @param {string} confirmedBy the userName of the confirming user
  * @returns {(Array<IOwner> | void)}
  */
-const confirmOwner = (owners: Array<IOwner>, owner: IOwner, confirmedBy: string): Array<IOwner> | void => {
-  const isConfirmedBy = confirmedBy || null;
-  return updateOwner(owners, owner, 'confirmedBy', isConfirmedBy);
-  // return set(owner, 'confirmedBy', isConfirmedBy);
-};
-
+const confirmOwner = (owner: IOwner, confirmedBy: string): null | string =>
+  set(owner, 'confirmedBy', confirmedBy || null);
 /**
  * Defines the default properties for a newly created IOwner instance
  *@type {IOwner}
@@ -124,7 +112,6 @@ export {
   defaultOwnerProps,
   defaultOwnerUserName,
   minRequiredConfirmedOwners,
-  userNameEditableClass,
   ownerAlreadyExists,
   updateOwner,
   confirmOwner

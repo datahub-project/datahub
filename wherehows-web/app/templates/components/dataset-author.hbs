@@ -16,7 +16,16 @@
 </td>
 
 <td>
-  {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+  {{#if owner.modifiedTime}}
+    {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+  {{else}}
+
+    <button
+      class="nacho-button nacho-button--small dataset-author-record__action--disabled">
+      Not Saved
+    </button>
+
+  {{/if}}
 </td>
 
 
