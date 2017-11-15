@@ -104,7 +104,6 @@ public class JobsUtil {
     Map<String, Properties> jobs = new HashMap<>();
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
-        Configuration jobParam = new PropertiesConfiguration(file.getAbsolutePath());
         Properties prop = getJobConfigProperties(file);
         if (!prop.containsKey(Constant.JOB_DISABLED_KEY)) {
           // job name = file name without the extension.

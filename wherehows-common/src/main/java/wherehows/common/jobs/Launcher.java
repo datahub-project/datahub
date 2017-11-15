@@ -55,17 +55,17 @@ public class Launcher {
     try (InputStream propFile = new FileInputStream(propertyFile)) {
       props.load(propFile);
       jobClassName = props.getProperty(Constant.JOB_CLASS_KEY);
-      whEtlExecId = Integer.valueOf(props.getProperty(WH_ETL_EXEC_ID_KEY));
+      if (jobClassName == null) {
+        log.error("Must specify {} in properties file", Constant.JOB_CLASS_KEY);
+        System.exit(1);
+      }
+
+      whEtlExecId = Integer.parseInt(props.getProperty(WH_ETL_EXEC_ID_KEY));
 
       System.setProperty(LOGGER_CONTEXT_NAME_KEY, jobClassName);
     } catch (IOException e) {
       //logger.error("property file '{}' not found" , property_file);
       e.printStackTrace();
-      System.exit(1);
-    }
-
-    if (jobClassName == null) {
-      log.error("Must specify {} in properties file", Constant.JOB_CLASS_KEY);
       System.exit(1);
     }
 

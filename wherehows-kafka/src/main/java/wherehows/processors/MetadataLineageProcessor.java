@@ -56,13 +56,13 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
       log.warn("MLE: MetadataLineageEvent without auditHeader, abort process. " + record.toString());
       return;
     }
-    log.debug("MLE: string : " + record.toString());
-    log.info("MLE: TS: " + auditHeader.time);
-    log.info("MLE: lineage: " + record.lineage.toString());
-
     if (record.lineage == null || record.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
+
+    log.debug("MLE: string : " + record.toString());
+    log.info("MLE: TS: " + auditHeader.time);
+    log.info("MLE: lineage: " + record.lineage.toString());
 
     List<DatasetLineage> lineages = record.lineage;
 
