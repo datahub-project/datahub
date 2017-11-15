@@ -13,8 +13,8 @@ job.cmd.params | Optional extra command line arguments to pass to the job
 job.cmd.disabled | If defined, regardless of it value, the job will not be run
 job.ref.id | A unique reference ID for the job (To be removed in the future)
 
-For ETL specific job configurations, we can define the same key with multiple values in different lines. 
-All the values which are defined in multiple lines will be converted to a comma-separated list before execution. 
+For ETL specific job configurations, we can define the same key with multiple values in different lines.
+These values will be combined into a single comma-sepearated string.
 
 Configruation Key | multiple values
 --- | ---
