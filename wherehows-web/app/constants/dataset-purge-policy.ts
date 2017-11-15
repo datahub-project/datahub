@@ -35,7 +35,7 @@ const purgePolicyProps: PurgePolicyProperties = {
     displayAs: 'Auto Purge'
   },
   MANUAL_PURGE: {
-    platforms: [DatasetPlatform.MySql, DatasetPlatform.Espresso, DatasetPlatform.Teradata, DatasetPlatform.HDFS],
+    platforms: [DatasetPlatform.MySql, DatasetPlatform.Espresso, DatasetPlatform.Teradata, DatasetPlatform.Oracle, DatasetPlatform.HDFS],
     desc: 'Choose this option only if you or your team have implemented a custom mechanism to purge this dataset.',
     displayAs: 'Manual Purge'
   },
