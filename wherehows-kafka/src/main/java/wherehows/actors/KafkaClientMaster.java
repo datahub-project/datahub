@@ -69,7 +69,7 @@ public class KafkaClientMaster extends UntypedActor {
       final String kafkaJobName = entry.getKey();
       final Properties props = entry.getValue();
 
-      final int numberOfWorkers = Integer.valueOf(props.getProperty(Constant.KAFKA_WORKER_COUNT, "1"));
+      final int numberOfWorkers = Integer.parseInt(props.getProperty(Constant.KAFKA_WORKER_COUNT, "1"));
 
       log.info("Create Kafka client with config: " + props);
       try {
