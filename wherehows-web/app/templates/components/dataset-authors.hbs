@@ -136,7 +136,7 @@
       </tbody>
 
     </table>
-</section>
+  </section>
 
 {{/if}}
 
@@ -151,8 +151,7 @@
       {{#if saveOwners.isIdle}}
         Save
       {{else}}
-        Saving...
-        {{fa-icon "circle-o-notch" spin=true}}
+        {{pendulum-ellipsis-animation}}
       {{/if}}
 
     </button>
