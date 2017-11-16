@@ -3,6 +3,7 @@ import { inject } from '@ember/service';
 import ComputedProperty, { filter } from '@ember/object/computed';
 import { set, get, computed, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
+import { task, Task } from 'ember-concurrency';
 
 import UserLookup from 'wherehows-web/services/user-lookup';
 import CurrentUser from 'wherehows-web/services/current-user';
@@ -134,6 +135,17 @@ export default class DatasetAuthors extends Component {
     return source !== OwnerSource.Ui;
   });
 
+  /**
+   * Invokes the external action as a dropping task
+   * @type {Task<Promise<Array<IOwner>>, void>}
+   * @memberof DatasetAuthors
+   */
+  saveOwners: Task<Promise<Array<IOwner>>, void> = task(function*(
+    this: DatasetAuthors
+  ): IterableIterator<Promise<Array<IOwner>>> {
+    yield get(this, 'save')(get(this, 'owners'));
+  }).drop();
+
   constructor() {
     super(...arguments);
     const typeOfSaveAction = typeof this.save;
@@ -194,14 +206,6 @@ export default class DatasetAuthors extends Component {
     removeOwner: (owner: IOwner): IOwner => {
       const owners = get(this, 'owners') || [];
       return owners.removeObject(owner);
-    },
-
-    /**
-     * Persists the owners list by invoking the external action
-     */
-    saveOwners: () => {
-      const { save } = this;
-      save(get(this, 'owners'));
     }
   };
 }
