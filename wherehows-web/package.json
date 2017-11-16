@@ -13,8 +13,9 @@
   "scripts": {
     "build": "ember build",
     "start": "ember server",
-    "test": "ember test",
+    "test": "ember test --launch Chrome",
     "precommit": "lint-staged",
+    "coverage": "COVERAGE=true npm run test",
     "eslint-check-prettier-conflict": "./node_modules/.bin/eslint --print-config .eslintrc.js | ./node_modules/.bin/eslint-config-prettier-check"
   },
   "devDependencies": {
@@ -23,7 +24,10 @@
     "@types/lodash": "^4.14.83",
     "@types/rsvp": "^4.0.0",
     "babel-eslint": "^8.0.1",
+    "babel-plugin-transform-async-to-generator": "^6.24.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
+    "babel-plugin-transform-es2015-destructuring": "^6.23.0",
+    "babel-plugin-transform-es2015-parameters": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
     "bower": "^1.8.2",
     "broccoli-asset-rev": "^2.6.0",
@@ -34,6 +38,7 @@
     "ember-cli-app-version": "^3.1.0",
     "ember-cli-babel": "^6.8.2",
     "ember-cli-bootstrap-sassy": "^0.5.6",
+    "ember-cli-code-coverage": "kategengler/ember-cli-code-coverage",
     "ember-cli-dependency-checker": "^2.0.1",
     "ember-cli-eyeglass": "^3.3.1",
     "ember-cli-htmlbars": "^2.0.3",
