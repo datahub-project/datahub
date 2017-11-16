@@ -29,13 +29,19 @@
         }
       }
     },
+    { "name" : "retentionWindow",
+      "type" : [
+        "null",
+        "long"
+      ],
+      "doc" : "How long data is retained in seconds for the case of MANUAL_LIMITED_RETENTION",
+      "default" : null
+    },
     {
       "name": "compliancePurgeNote",
       "type": [
         "null",
-        {
-          "type": "string"
-        }
+        "string"
       ],
       "doc": "The additional information about purging if the purge type is PURGE_EXEMPTED",
       "default": null

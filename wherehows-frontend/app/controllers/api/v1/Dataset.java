@@ -315,7 +315,7 @@ public class Dataset extends Controller {
       owners = OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.newArray());
         return Promise.promise(() -> ok(result));
       }
 
@@ -326,7 +326,7 @@ public class Dataset extends Controller {
     }
 
     if (owners == null) {
-      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.newArray());
       return Promise.promise(() -> ok(result));
     }
 
