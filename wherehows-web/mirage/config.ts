@@ -9,6 +9,8 @@ export default function(this: IMirageServer) {
 
   this.post('/authenticate', getAuth);
 
+  this.passthrough('/write-coverage');
+
   this.namespace = '/api/v1';
 
   interface IComplianceSuggestionsObject {
