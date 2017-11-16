@@ -90,6 +90,6 @@ public class ApplicationStart {
     final ActorSystem actorSystem = ActorSystem.create("KAFKA");
 
     String kafkaJobDir = config.getString("kafka.jobs.dir");
-    final ActorRef master = actorSystem.actorOf(Props.create(KafkaClientMaster.class, kafkaJobDir), "KafkaMaster");
+    actorSystem.actorOf(Props.create(KafkaClientMaster.class, kafkaJobDir), "KafkaMaster");
   }
 }

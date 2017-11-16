@@ -22,7 +22,7 @@ public class ProcessUtil {
   }
 
   public static long getCurrentProcessId() {
-    return Long.valueOf(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]);
+    return Long.parseLong(ManagementFactory.getRuntimeMXBean().getName().split("@")[0]);
   }
 
 }

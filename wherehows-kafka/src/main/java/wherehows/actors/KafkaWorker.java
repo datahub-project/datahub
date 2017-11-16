@@ -104,7 +104,7 @@ public class KafkaWorker extends UntypedActor {
     if (!matcher.find()) {
       throw new RuntimeException("Unable to parse deserialization error message");
     }
-    int partition = Integer.valueOf(matcher.group(1));
+    int partition = Integer.parseInt(matcher.group(1));
     return new TopicPartition(_topic, partition);
   }
 
