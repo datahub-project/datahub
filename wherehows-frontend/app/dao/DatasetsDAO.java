@@ -312,9 +312,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"LEFT JOIN field_comments fc ON ddfc.comment_id = fc.id " +
 			"WHERE dfd.dataset_id <> ? AND dfd.field_name = ? ORDER BY d.name asc";
 
-	private final static String GET_DATASET_OWNER_TYPES = "SELECT DISTINCT owner_type " +
-			"FROM dataset_owner WHERE owner_type is not null";
-
 	private final static String GET_DATASET_DEPENDS_VIEW = "SELECT object_type, object_sub_type, " +
 			"object_name, map_phrase, is_identical_map, mapped_object_dataset_id, " +
 			"mapped_object_type,  mapped_object_sub_type, mapped_object_name " +
@@ -362,11 +359,6 @@ public class DatasetsDAO extends AbstractMySQLOpenSourceDAO
 			"JOIN cfg_database d on l.db_id = d.db_id WHERE dataset_id = ? and partition_grain = ? " +
 			"ORDER by l.data_time_expr DESC";
 
-
-	public static List<String> getDatasetOwnerTypes()
-	{
-		return getJdbcTemplate().queryForList(GET_DATASET_OWNER_TYPES, String.class);
-	}
 
 	public static ObjectNode getPagedDatasets(String urn, Integer page, Integer size, String user)
 	{
