@@ -883,7 +883,8 @@ public class Dataset extends Controller {
       record = COMPLIANCE_DAO.getDatasetComplianceByDatasetId(datasetId, urn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        JsonNode result =
+            Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
         return Promise.promise(() -> ok(result));
       }
 
@@ -894,7 +895,8 @@ public class Dataset extends Controller {
     }
 
     if (record == null) {
-      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
       return Promise.promise(() -> ok(result));
     }
 
@@ -958,7 +960,8 @@ public class Dataset extends Controller {
       record = COMPLIANCE_DAO.findComplianceSuggestionByUrn(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+        JsonNode result =
+            Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
         return Promise.promise(() -> ok(result));
       }
 
@@ -969,7 +972,8 @@ public class Dataset extends Controller {
     }
 
     if (record == null) {
-      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
       return Promise.promise(() -> ok(result));
     }
 
