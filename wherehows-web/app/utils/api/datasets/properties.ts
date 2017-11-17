@@ -34,11 +34,16 @@ const datasetDeprecationUrlById = (id: number) => `${datasetUrlById(id)}/depreca
  */
 const readDatasetProperties = async <T extends IDatasetPropertiesGetResponse | IDatasetPinotPropertiesGetResponse>(
   id: number
-) => {
-  const { status, properties } = await getJSON<T>({ url: datasetPropertiesUrlById(id) });
+): Promise<IDatasetProperties> => {
+  const { status, properties, message } = await getJSON<T>({ url: datasetPropertiesUrlById(id) });
 
   if (status === ApiStatus.OK && properties) {
     return properties;
+  }
+
+  // treat the error status with a record not found msg as empty set
+  if (status === ApiStatus.ERROR && message === 'record not found') {
+    return {};
   }
 
   throw new Error('Exception occurred reading the dataset properties');

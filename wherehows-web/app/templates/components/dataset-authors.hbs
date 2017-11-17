@@ -14,7 +14,7 @@
   {{#if requiredMinNotConfirmed}}
 
     Add <strong>at least {{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
-    and Owner Type - <code>Owner</code>
+    and Ownership Type - <code>Data Owner</code>
 
   {{/if}}
 </p>
@@ -38,7 +38,6 @@
         <th class="dataset-author-column--wide">LDAP Username</th>
         <th>Full Name</th>
         <th class="dataset-author-column--narrow">ID Type</th>
-        <th>Source</th>
         <th>Last Modified</th>
         <th>
           Ownership Type
@@ -105,7 +104,7 @@
         <th>Source</th>
         <th>Last Modified</th>
         <th>
-          Owner Type
+          Ownership Type
 
           <!--TODO: DSS-6716-->
           <!-- DRY out with wrapper component that takes the link as an attribute-->
@@ -136,7 +135,7 @@
       </tbody>
 
     </table>
-</section>
+  </section>
 
 {{/if}}
 
@@ -151,8 +150,7 @@
       {{#if saveOwners.isIdle}}
         Save
       {{else}}
-        Saving...
-        {{fa-icon "circle-o-notch" spin=true}}
+        {{pendulum-ellipsis-animation}}
       {{/if}}
 
     </button>

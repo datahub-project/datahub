@@ -11,9 +11,14 @@
   {{owner.idType}}
 </td>
 
-<td>
-  {{owner.source}}
-</td>
+{{!-- hides source column for confirmed owners--}}
+{{#unless isOwnerMutable}}
+
+  <td>
+    {{owner.source}}
+  </td>
+
+{{/unless}}
 
 <td>
   {{#if owner.modifiedTime}}
