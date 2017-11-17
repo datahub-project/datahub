@@ -49,9 +49,6 @@ import wherehows.models.view.DsComplianceSuggestion;
 public class Dataset extends Controller {
   private static final JdbcTemplate JDBC_TEMPLATE = AbstractMySQLOpenSourceDAO.getJdbcTemplate();
 
-  private static final NamedParameterJdbcTemplate NAMED_JDBC_TEMPLATE =
-      AbstractMySQLOpenSourceDAO.getNamedParameterJdbcTemplate();
-
   private static final DatasetsDao DATASETS_DAO = Application.DAO_FACTORY.getDatasetsDao();
 
   private static final DictDatasetDao DICT_DATASET_DAO = Application.DAO_FACTORY.getDictDatasetDao();
@@ -72,7 +69,7 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     result.put("status", "ok");
-    result.set("ownerTypes", Json.toJson(DatasetsDAO.getDatasetOwnerTypes()));
+    result.set("ownerTypes", Json.toJson(DATASETS_DAO.getDatasetOwnerTypes(JDBC_TEMPLATE)));
     return ok(result);
   }
 

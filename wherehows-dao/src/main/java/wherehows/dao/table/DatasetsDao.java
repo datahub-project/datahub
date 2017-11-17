@@ -32,6 +32,9 @@ public class DatasetsDao {
 
   private static final String GET_DATASET_ID_BY_URN = "SELECT id FROM dict_dataset WHERE urn=?";
 
+  private final static String GET_DATASET_OWNER_TYPES =
+      "SELECT DISTINCT owner_type FROM dataset_owner WHERE owner_type is not null";
+
   private final static String UPDATE_DATASET_CONFIRMED_OWNERS =
       "INSERT INTO dataset_owner (dataset_id, owner_id, app_id, namespace, owner_type, is_group, is_active, "
           + "is_deleted, sort_id, created_time, modified_time, wh_etl_exec_id, dataset_urn, owner_sub_type, "
@@ -86,6 +89,13 @@ public class DatasetsDao {
       log.debug("Can not find dataset id for urn: " + urn + " : " + e.toString());
     }
     return -1;
+  }
+
+  /**
+   * @return list of dataset owner types
+   */
+  public List<String> getDatasetOwnerTypes(JdbcTemplate jdbcTemplate) {
+    return jdbcTemplate.queryForList(GET_DATASET_OWNER_TYPES, String.class);
   }
 
   /**
