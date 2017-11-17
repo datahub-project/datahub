@@ -16,6 +16,7 @@ import {
 } from 'wherehows-web/constants/datasets/owner';
 import {
   isRequiredMinOwnersNotConfirmed,
+  OwnerIdType,
   OwnerSource,
   OwnerType,
   validConfirmedOwners
@@ -127,12 +128,13 @@ export default class DatasetAuthors extends Component {
   );
 
   /**
-   * Lists owners that have been gleaned from dataset metadata
+   * Lists owners that have been gleaned from dataset metadata,
+   * filters out owners that have a source that is NOT OwnerSource.Ui and idType that IS OwnerIdType.User
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', function({ source }: IOwner) {
-    return source !== OwnerSource.Ui;
+  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', function({ source, idType }: IOwner) {
+    return source !== OwnerSource.Ui && idType === OwnerIdType.User;
   });
 
   /**
