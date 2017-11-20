@@ -68,7 +68,6 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
       throw new Exception("Missing Kafka Audit header: " + event.toString());
     }
 
-
     if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
