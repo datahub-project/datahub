@@ -1,0 +1,52 @@
+$owner-list-issue-color: set-color(red, maroonflush);
+
+.dataset-author {
+  margin-top: item-spacing(7);
+
+  &__header {
+    display: flex;
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+  }
+
+  &__required-count {
+    height: item-spacing(4);
+  }
+}
+
+.dataset-author-record {
+  &--disabled {
+    color: set-color(grey, mid);
+    font-weight: fw(italic, 2);
+    pointer-events: none;
+  }
+
+  &#{&} &__action {
+    &--disabled {
+      background-color: set-color(grey, mid);
+    }
+  }
+}
+
+.dataset-author-user-lookup {
+  border: 1px solid set-color(grey, light);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075);
+  padding: item-spacing(4);
+  margin: item-spacing(3 0);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  border-radius: 2px;
+
+  &__header {
+    display: flex;
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+    margin: 0;
+  }
+
+  &__container {
+    width: 300px;
+    margin-left: item-spacing(4);
+  }
+}

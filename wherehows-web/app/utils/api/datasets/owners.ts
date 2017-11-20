@@ -1,23 +1,54 @@
-import Ember from 'ember';
 import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import {
   IPartyEntity,
   IPartyEntityResponse,
   IPartyProps,
-  userEntityMap
+  IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 
 /**
  * Defines a string enum for valid owner types
  */
-export enum OwnerType {
+enum OwnerIdType {
   User = 'USER',
   Group = 'GROUP'
 }
 
-const { $: { getJSON } } = Ember;
+/**
+ * Defines the string enum for the OwnerType attribute
+ * @type {string}
+ */
+enum OwnerType {
+  Owner = 'Owner',
+  Consumer = 'Consumer',
+  Delegate = 'Delegate',
+  Producer = 'Producer',
+  Stakeholder = 'Stakeholder'
+}
+
+/**
+ * Accepted string values for the namespace of a user
+ */
+enum OwnerUrnNamespace {
+  corpUser = 'urn:li:corpuser',
+  groupUser = 'urn:li:corpGroup'
+}
+
+enum OwnerSource {
+  Scm = 'SCM',
+  Nuage = 'NUAGE',
+  Sos = 'SOS',
+  Db = 'DB',
+  Audit = 'AUDIT',
+  Jira = 'JIRA',
+  RB = 'RB',
+  Ui = 'UI',
+  Fs = 'FS',
+  Other = 'OTHER'
+}
 
 /**
  * The minimum required number of owners with a confirmed status
@@ -34,23 +65,59 @@ const datasetOwnersUrlById = (id: number): string => `${datasetUrlById(id)}/owne
 
 const partyEntitiesUrl = `${ApiRoot}/party/entities`;
 
-export const getDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
-  const { owners = [], status }: IOwnerResponse = await Promise.resolve(getJSON(datasetOwnersUrlById(id)));
-  return status === ApiStatus.OK
-    ? owners.map(owner => ({
-        ...owner,
-        modifiedTime: new Date(owner.modifiedTime)
-      }))
-    : Promise.reject(status);
+/**
+ * Requests the list of dataset owners from the GET endpoint, converts the modifiedTime property
+ * to a date object
+ * @param {number} id the dataset Id
+ * @return {Promise<Array<IOwner>>} the current list of dataset owners
+ */
+const readDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
+  const { owners = [], status, msg } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlById(id) });
+  if (status === ApiStatus.OK) {
+    return owners.map(owner => ({
+      ...owner,
+      modifiedTime: new Date(owner.modifiedTime!)
+    }));
+  }
+
+  throw new Error(msg);
+};
+
+/**
+ * Persists the updated list of dataset owners
+ * @param {number} id the id of the dataset
+ * @param {string} csrfToken
+ * @param {Array<IOwner>} updatedOwners the updated list of owners for this dataset
+ * @return {Promise<IOwnerPostResponse>}
+ */
+const updateDatasetOwners = async (
+  id: number,
+  csrfToken: string,
+  updatedOwners: Array<IOwner>
+): Promise<IOwnerPostResponse> => {
+  const { status, msg } = await postJSON<IOwnerPostResponse>({
+    url: datasetOwnersUrlById(id),
+    headers: { 'csrf-token': csrfToken },
+    data: {
+      csrfToken,
+      owners: updatedOwners
+    }
+  });
+
+  if ([ApiStatus.OK, ApiStatus.SUCCESS].includes(status)) {
+    return { status: ApiStatus.OK };
+  }
+
+  throw new Error(msg);
 };
 
 /**
  * Requests party entities and if the response status is OK, resolves with an array of entities
  * @return {Promise<Array<IPartyEntity>>}
  */
-export const getPartyEntities = async (): Promise<Array<IPartyEntity>> => {
-  const { status, userEntities = [] }: IPartyEntityResponse = await Promise.resolve(getJSON(partyEntitiesUrl));
-  return status === ApiStatus.OK ? userEntities : Promise.reject(status);
+const readPartyEntities = async (): Promise<Array<IPartyEntity>> => {
+  const { status, userEntities = [], msg } = await getJSON<IPartyEntityResponse>({ url: partyEntitiesUrl });
+  return status === ApiStatus.OK ? userEntities : Promise.reject(msg);
 };
 
 /**
@@ -60,12 +127,12 @@ export const getPartyEntities = async (): Promise<Array<IPartyEntity>> => {
  * userEntitiesSource property is also lazy evaluated and cached for app lifetime.
  * @type {() => Promise<IPartyProps>}
  */
-export const getUserEntities: () => Promise<IPartyProps> = (() => {
+const getUserEntities: () => Promise<IPartyProps> = (() => {
   /**
    * Memoized reference to the resolved value of a previous invocation to curried function in getUserEntities
    * @type {{result: IPartyProps | null}}
    */
-  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof userEntityMap> } = {
+  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof IUserEntityMap> } = {
     result: null,
     userEntitiesSource: []
   };
@@ -83,14 +150,14 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
     // If we don't already have a previous api request for party entities,
     // assign a new one to free variable
     if (!inflightRequest) {
-      inflightRequest = getPartyEntities();
+      inflightRequest = readPartyEntities();
     }
 
     const userEntities: Array<IPartyEntity> = await inflightRequest;
 
     return (cache.result = {
       userEntities,
-      userEntitiesMaps: getPartyEntitiesMap(userEntities),
+      userEntitiesMaps: readPartyEntitiesMap(userEntities),
       // userEntitiesSource is not usually needed immediately
       // hence using a getter for lazy evaluation
       get userEntitiesSource() {
@@ -108,12 +175,22 @@ export const getUserEntities: () => Promise<IPartyProps> = (() => {
 /**
  * Transforms a list of party entities into a map of entity label to displayName value
  * @param {Array<IPartyEntity>} partyEntities
- * @return {Object<string>}
+ * @return {IUserEntityMap}
  */
-export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEntityMap =>
+const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMap =>
   partyEntities.reduce(
     (map: { [label: string]: string }, { label, displayName }: IPartyEntity) => ((map[label] = displayName), map),
     {}
+  );
+
+/**
+ * Filters out a list of valid confirmed owners in a list of owners
+ * @param {Array<IOwner>} [owners=[]] the owners to filter
+ * @returns {Array<IOwner>}
+ */
+const validConfirmedOwners = (owners: Array<IOwner> = []): Array<IOwner> =>
+  owners.filter(
+    ({ confirmedBy, type, idType }) => confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User
   );
 
 /**
@@ -121,6 +198,19 @@ export const getPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): userEnt
  * @param {Array<IOwner>} owners the list of owners to check
  * @return {boolean}
  */
-export const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
-  owners.filter(({ confirmedBy, type, idType }) => confirmedBy && type === 'Owner' && idType === OwnerType.User)
-    .length < minRequiredConfirmed;
+const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
+  validConfirmedOwners(owners).length < minRequiredConfirmed;
+
+export {
+  validConfirmedOwners,
+  isRequiredMinOwnersNotConfirmed,
+  readDatasetOwners,
+  readPartyEntities,
+  readPartyEntitiesMap,
+  getUserEntities,
+  updateDatasetOwners,
+  OwnerIdType,
+  OwnerType,
+  OwnerUrnNamespace,
+  OwnerSource
+};

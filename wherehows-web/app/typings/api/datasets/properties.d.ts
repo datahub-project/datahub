@@ -28,6 +28,7 @@ interface IDatasetPinotProperties {
 interface IDatasetPropertiesGetResponse {
   status: ApiStatus;
   properties?: IDatasetProperties;
+  message?: string;
 }
 
 /**
@@ -39,6 +40,7 @@ interface IDatasetPropertiesGetResponse {
 interface IDatasetPinotPropertiesGetResponse {
   status: ApiStatus;
   properties?: IDatasetPinotProperties;
+  message?: string;
 }
 
 export {

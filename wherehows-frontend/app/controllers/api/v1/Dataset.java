@@ -37,10 +37,10 @@ import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
-import wherehows.models.view.DatasetCompliance;
 import wherehows.models.table.DatasetDependency;
 import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
@@ -48,9 +48,6 @@ import wherehows.models.view.DsComplianceSuggestion;
 
 public class Dataset extends Controller {
   private static final JdbcTemplate JDBC_TEMPLATE = AbstractMySQLOpenSourceDAO.getJdbcTemplate();
-
-  private static final NamedParameterJdbcTemplate NAMED_JDBC_TEMPLATE =
-      AbstractMySQLOpenSourceDAO.getNamedParameterJdbcTemplate();
 
   private static final DatasetsDao DATASETS_DAO = Application.DAO_FACTORY.getDatasetsDao();
 
@@ -72,7 +69,7 @@ public class Dataset extends Controller {
     ObjectNode result = Json.newObject();
 
     result.put("status", "ok");
-    result.set("ownerTypes", Json.toJson(DatasetsDAO.getDatasetOwnerTypes()));
+    result.set("ownerTypes", Json.toJson(DATASETS_DAO.getDatasetOwnerTypes(JDBC_TEMPLATE)));
     return ok(result);
   }
 
@@ -307,21 +304,31 @@ public class Dataset extends Controller {
     return ok(result);
   }
 
-  public static Result getDatasetOwnersByID(int id) {
-    ObjectNode result = Json.newObject();
-
+  public static Promise<Result> getDatasetOwnersByID(int id) {
+    List<DatasetOwner> owners = null;
     try {
       String urn = getDatasetUrnByIdOrCache(id);
 
-      result.set("owners", Json.toJson(OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn)));
-      result.put("status", "ok");
+      owners = OWNER_VIEW_DAO.getDatasetOwnersByUrn(urn);
     } catch (Exception e) {
-      Logger.warn("Failed to get owners: " + e.toString());
-      result.put("status", "failed");
-      result.put("message", "Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.newArray());
+        return Promise.promise(() -> ok(result));
+      }
+
+      Logger.error("Fetch owners Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+      return Promise.promise(() -> ok(result));
     }
 
-    return ok(result);
+    if (owners == null) {
+      JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.newArray());
+      return Promise.promise(() -> ok(result));
+    }
+
+    JsonNode result = Json.newObject().put("status", "ok").set("owners", Json.toJson(owners));
+    return Promise.promise(() -> ok(result));
   }
 
   public static Result updateDatasetOwners(int id) {
@@ -337,22 +344,21 @@ public class Dataset extends Controller {
 
     String urn = getDatasetUrnByIdOrCache(id);
 
-    Map<String, String[]> params = request().body().asFormUrlEncoded();
-    // params should contain mapping 'owners': ['ownerInfoJsonString']
-    if (params == null || !params.containsKey("owners") || params.get("owners") == null
-        || params.get("owners").length == 0) {
+    JsonNode content = request().body().asJson();
+    // content should contain arraynode 'owners': []
+    if (content == null || !content.has("owners") || !content.get("owners").isArray()) {
       result.put("status", "failed");
       result.put("error", "true");
-      result.put("msg", "Could not update dataset owners: missing fields");
+      result.put("msg", "Could not update dataset owners: missing owners field");
       return ok(result);
     }
-    final JsonNode node = Json.parse(params.get("owners")[0]);
+    final JsonNode ownerArray = content.get("owners");
 
     final List<DatasetOwner> owners = new ArrayList<>();
     int confirmedOwnerUserCount = 0;
 
-    for (int i = 0; i < node.size(); i++) {
-      final JsonNode ownerNode = node.get(i);
+    for (int i = 0; i < ownerArray.size(); i++) {
+      final JsonNode ownerNode = ownerArray.get(i);
       if (ownerNode != null) {
         String userName = ownerNode.has("userName") ? ownerNode.get("userName").asText() : "";
         if (StringUtils.isBlank(userName)) {
@@ -873,17 +879,25 @@ public class Dataset extends Controller {
 
       record = COMPLIANCE_DAO.getDatasetComplianceByDatasetId(datasetId, urn);
     } catch (Exception e) {
-      Logger.warn("Failed to get compliance: " + e.toString());
-      JsonNode result = Json.newObject()
-          .put("status", "failed")
-          .put("error", "true")
-          .put("msg", "Fetch data Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result =
+            Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
+        return Promise.promise(() -> ok(result));
+      }
 
+      Logger.error("Fetch compliance Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+      return Promise.promise(() -> ok(result));
+    }
+
+    if (record == null) {
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
       return Promise.promise(() -> ok(result));
     }
 
     JsonNode result = Json.newObject().put("status", "ok").set("complianceInfo", Json.toJson(record));
-
     return Promise.promise(() -> ok(result));
   }
 
@@ -942,17 +956,21 @@ public class Dataset extends Controller {
     try {
       record = COMPLIANCE_DAO.findComplianceSuggestionByUrn(datasetUrn);
     } catch (Exception e) {
-      Logger.warn("Failed to get compliance suggestion: " + e.toString());
-      JsonNode result = Json.newObject()
-          .put("status", "failed")
-          .put("error", "true")
-          .put("msg", "Fetch data Error: " + e.getMessage());
+      if (e.toString().contains("Response status 404")) {
+        JsonNode result =
+            Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
+        return Promise.promise(() -> ok(result));
+      }
 
+      Logger.error("Fetch compliance suggestion Error: ", e);
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
       return Promise.promise(() -> ok(result));
     }
 
     if (record == null) {
-      JsonNode result = Json.newObject().put("status", "failed").put("msg", "Not found");
+      JsonNode result =
+          Json.newObject().put("status", "failed").put("error", "true").put("msg", "No entity found for query");
       return Promise.promise(() -> ok(result));
     }
 

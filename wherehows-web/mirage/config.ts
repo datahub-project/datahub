@@ -1,32 +1,22 @@
 import { faker } from 'ember-cli-mirage';
 import { IFunctionRouteHandler, IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
-import { getConfig } from "./helpers/config";
+import { getConfig } from 'wherehows-web/mirage/helpers/config';
+import { getAuth } from 'wherehows-web/mirage/helpers/authenticate';
 
 export default function(this: IMirageServer) {
-
   this.get('/config', getConfig);
 
-  this.post('/authenticate', function({}, request: any) {
-    const username = JSON.parse(request.requestBody).username;
-    const password = JSON.parse(request.requestBody).password;
+  this.post('/authenticate', getAuth);
 
-    if (password === null || password === undefined) {
-      return 'Missing or invalid [credentials]';
-    } else if (password === 'invalidPassword') {
-      return 'Invalid Password';
-    }
-    return {
-      status: ApiStatus.OK,
-      data: {username: username, uuid: faker.random.uuid()}
-    };
-  });
+  this.passthrough('/write-coverage');
 
   this.namespace = '/api/v1';
 
   interface IComplianceSuggestionsObject {
-   complianceSuggestions: any;
+    complianceSuggestions: any;
   }
+
   this.get('/datasets/:id/compliance/suggestions', function(
     this: IFunctionRouteHandler,
     { complianceSuggestions }: IComplianceSuggestionsObject
@@ -44,9 +34,8 @@ export default function(this: IMirageServer) {
   interface IFlowsObject {
     flows: any;
   }
-  this.get('/flows', function(
-    this: IFunctionRouteHandler,
-    { flows }: IFlowsObject, request: any) {
+
+  this.get('/flows', function(this: IFunctionRouteHandler, { flows }: IFlowsObject, request: any) {
     const { page } = request.queryParams;
     const flowsArr = this.serialize(flows.all());
     const count = faker.random.number({ min: 20000, max: 40000 });
@@ -59,7 +48,7 @@ export default function(this: IMirageServer) {
         flows: flowsArr,
         itemsPerPage: itemsPerPage,
         page: page,
-        totalPages:  Math.round(count / itemsPerPage),
+        totalPages: Math.round(count / itemsPerPage)
       }
     };
   });
@@ -81,7 +70,10 @@ export default function(this: IMirageServer) {
   }
   this.get('/datasets', function(
     this: IFunctionRouteHandler,
-    { datasets }: IDatasetsObject, { owners }: IOwnersObject, request: any) {
+    { datasets }: IDatasetsObject,
+    { owners }: IOwnersObject,
+    request: any
+  ) {
     const { page } = request.queryParams;
     const datasetsArr = this.serialize(datasets.all());
     const ownersArr = this.serialize(owners.all());
@@ -99,7 +91,7 @@ export default function(this: IMirageServer) {
         page: page,
         itemsPerPage: itemsPerPage,
         totalPages: Math.round(count / itemsPerPage),
-        datasets: newDatasetsArr,
+        datasets: newDatasetsArr
       }
     };
   });
@@ -141,8 +133,8 @@ export default function(this: IMirageServer) {
         email: testUser + '@linkedin.com',
         name: testUser,
         userSetting: {
-          "detailDefaultView": null,
-          "defaultWatch":null
+          detailDefaultView: null,
+          defaultWatch: null
         }
       },
       status: ApiStatus.OK
@@ -151,6 +143,4 @@ export default function(this: IMirageServer) {
   this.passthrough();
 }
 
-export function testConfig(this: IMirageServer) {
-  this.get('/config', getConfig);
-}
+export function testConfig(this: IMirageServer) {}

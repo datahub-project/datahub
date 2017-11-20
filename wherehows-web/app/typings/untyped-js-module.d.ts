@@ -23,24 +23,6 @@ declare module 'wherehows-web/utils/datasets/compliance-policy';
 
 declare module 'ember-cli-mirage';
 
-declare module 'ember-concurrency' {
-  class TaskInstance {}
-  class TaskProperty {
-    perform(...args: Array<any>): TaskInstance;
-    on(): this;
-    cancelOn(eventNames: string): this;
-    debug(): this;
-    drop(): this;
-    restartable(): this;
-    enqueue(): this;
-    keepLatest(): this;
-    performs(): this;
-    maxConcurrency(n: number): this;
-  }
-  export function task(...args: Array<any>): TaskProperty;
-  export function timeout(delay: number): Promise<void>;
-}
-
 // https://github.com/ember-cli/ember-fetch/issues/72
 // TS assumes the mapping btw ES modules and CJS modules is 1:1
 // However, `ember-fetch` is the module name, but it's imported with `fetch`

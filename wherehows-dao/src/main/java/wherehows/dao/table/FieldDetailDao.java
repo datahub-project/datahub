@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import wherehows.models.table.DictFieldDetail;
 
@@ -54,7 +55,7 @@ public class FieldDetailDao extends BaseDao {
    * @throws Exception
    */
   public void insertUpdateDatasetFields(@Nonnull DatasetIdentifier identifier, int datasetId,
-      @Nonnull DatasetProperty property, @Nonnull ChangeAuditStamp auditStamp, @Nonnull DatasetSchema schema)
+      @Nullable DatasetProperty property, @Nonnull ChangeAuditStamp auditStamp, @Nonnull DatasetSchema schema)
       throws Exception {
 
     List<DictFieldDetail> fields = findListBy(DictFieldDetail.class, "datasetId", datasetId);

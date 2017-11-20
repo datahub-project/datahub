@@ -30,7 +30,6 @@ import static org.apache.commons.lang3.StringUtils.*;
  */
 class ConfigUtil {
 
-  private static final String javaCmd = "java";
   private static final String WH_APPLICATION_DEFAULT_DIRECTORY = "/var/tmp/wherehows";
 
   /**
@@ -60,7 +59,7 @@ class ConfigUtil {
     }
   }
 
-  static ProcessBuilder buildProcess(String etlJobName, long whEtlExecId, String cmdParam,
+  static ProcessBuilder buildProcess(String javaCmd, String etlJobName, long whEtlExecId, String cmdParam,
       Properties etlJobProperties) {
     String classPath = System.getProperty("java.class.path");
     String outDir = etlJobProperties.getProperty(Constant.WH_APP_FOLDER_KEY, WH_APPLICATION_DEFAULT_DIRECTORY);

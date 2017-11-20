@@ -20,7 +20,8 @@
     "downlevelIteration": true,
     "paths": {
       "wherehows-web/*": ["app/*"],
-      "wherehows-web/tests/*": ["tests/*"]
+      "wherehows-web/tests/*": ["tests/*"],
+      "wherehows-web/mirage/*": ["mirage/*"]
     }
   },
   "include": ["app/**/*", "tests/**/*", "mirage/**/*"],

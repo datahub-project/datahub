@@ -10,7 +10,7 @@ import {
 } from 'wherehows-web/utils/api/datasets/columns';
 
 import {
-  getDatasetOwners,
+  readDatasetOwners,
   getUserEntities,
   isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/utils/api/datasets/owners';
@@ -113,14 +113,18 @@ export default Route.extend({
             complianceSuggestion,
             datasetComments,
             isInternal,
-            datasetView
+            datasetView,
+            owners,
+            { userEntitiesSource, userEntitiesMaps }
           ] = await Promise.all([
             readDatasetColumns(id),
             readDatasetCompliance(id),
             readDatasetComplianceSuggestion(id),
             readDatasetComments(id),
             get(this, 'configurator').getConfig('isInternal'),
-            readDatasetView(id)
+            readDatasetView(id),
+            readDatasetOwners(id),
+            getUserEntities()
           ]);
           const { complianceInfo, isNewComplianceInfo } = compliance;
           const schemas = augmentObjectsWithHtmlComments(columns);
@@ -140,7 +144,11 @@ export default Route.extend({
             isInternal,
             datasetView,
             schemaFieldNamesMappedToDataTypes: columnDataTypesAndFieldNames(columns),
-            ...properties
+            ...properties,
+            owners,
+            userEntitiesMaps,
+            userEntitiesSource,
+            requiredMinNotConfirmed: isRequiredMinOwnersNotConfirmed(owners)
           });
         } catch (e) {
           throw e;
@@ -306,20 +314,6 @@ export default Route.extend({
         return Promise.reject(new Error('Dataset references request failed.'));
       })
       .catch(() => set(controller, 'hasReferences', false));
-
-    // Retrieve the current owners of the dataset and store on the controller
-    (async id => {
-      const [owners, { userEntitiesSource, userEntitiesMaps }] = await Promise.all([
-        getDatasetOwners(id),
-        getUserEntities()
-      ]);
-      setProperties(controller, {
-        requiredMinNotConfirmed: isRequiredMinOwnersNotConfirmed(owners),
-        owners,
-        userEntitiesMaps,
-        userEntitiesSource
-      });
-    })(id);
   },
 
   actions: {

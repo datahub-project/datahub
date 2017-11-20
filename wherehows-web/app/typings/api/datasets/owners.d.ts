@@ -1,39 +1,40 @@
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
-import { OwnerType } from 'wherehows-web/utils/api/datasets/owners';
-
-/**
- * Accepted  string values for the Owner type
- */
-type OwnerTypeLiteral = OwnerType.User | OwnerType.Group;
-
-/**
- * Accepted string values for the namespace of a user
- */
-type OwnerUrnLiteral = 'urn:li:corpuser' | 'urn:li:corpGroup';
+import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
 
 /**
  * Describes the interface for an Owner entity
  */
-export interface IOwner {
+interface IOwner {
   confirmedBy: null | string;
-  email: string;
-  idType: OwnerTypeLiteral;
-  isActive: boolean;
+  email: null | string;
+  idType: OwnerIdType;
+  isActive?: boolean;
   isGroup: boolean;
-  modifiedTime: number | Date;
+  modifiedTime?: number | Date;
   name: string;
-  namespace: OwnerUrnLiteral;
+  namespace: OwnerUrnNamespace;
   sortId: null | number;
-  source: string;
+  source: OwnerSource;
   subType: null;
-  type: string;
+  type: OwnerType;
   userName: string;
 }
 
 /**
  * Describes the expected shape of the response for dataset owners endpoint
  */
-export interface IOwnerResponse {
+interface IOwnerResponse {
   status: ApiStatus;
   owners?: Array<IOwner>;
+  msg?: string;
 }
+
+/**
+ * Describes the interface on a response to a POST on the owner endpoint
+ */
+interface IOwnerPostResponse {
+  status: ApiStatus;
+  msg?: string;
+}
+
+export { IOwnerPostResponse, IOwnerResponse, IOwner };

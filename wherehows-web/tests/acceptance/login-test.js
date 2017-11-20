@@ -1,11 +1,11 @@
 import { test } from 'qunit';
 import moduleForAcceptance from 'wherehows-web/tests/helpers/module-for-acceptance';
+import wait from 'ember-test-helpers/wait';
 import {
   loginContainer,
   authenticationUrl,
   invalidCredentials,
   testUser,
-  testPassword,
   testPasswordInvalid
 } from 'wherehows-web/tests/helpers/login/constants';
 import {
@@ -40,7 +40,9 @@ test('should render login form', function(assert) {
 test('should display error message with empty credentials', async function(assert) {
   assert.expect(2);
   await fillIn(loginUserInput, testUser);
-  await click('button[type=submit]');
+  await click(loginSubmitButton);
+
+  await wait();
 
   assert.ok(find('#login-error').text().length, 'error message element is rendered');
 
@@ -48,31 +50,26 @@ test('should display error message with empty credentials', async function(asser
     find('#login-error')
       .text()
       .trim(),
-    invalidCredentials
+    invalidCredentials,
+    'displays missing or invalid credentials message'
   );
 });
 
-test('Login with an empty password', async function(assert) {
-  await fillIn(loginUserInput, testUser);
-  await click(loginSubmitButton);
-
-  assert.equal(
-    find('#login-error')
-      .text()
-      .trim(),
-    invalidCredentials
-  );
-});
-
-test('Login with an invalid password', async function(assert) {
+test('should display invalid password message with invalid password entered', async function(assert) {
+  assert.expect(2);
   await fillIn(loginUserInput, testUser);
   await fillIn(loginPasswordInput, testPasswordInvalid);
   await click(loginSubmitButton);
 
+  await wait();
+
+  assert.ok(find('#login-error').text().length, 'error message element is rendered');
+
   assert.equal(
     find('#login-error')
       .text()
       .trim(),
-    'Invalid Password'
+    'Invalid Password',
+    'displays invalid password message in error message container'
   );
 });

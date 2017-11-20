@@ -8,6 +8,7 @@ import {
 } from 'wherehows-web/utils/api';
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
+import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
 
 const {
   set,
@@ -22,11 +23,6 @@ const {
   run: { scheduleOnce },
   Controller
 } = Ember;
-
-// TODO: DSS-6581 Create URL retrieval module
-const datasetsUrlRoot = '/api/v1/datasets';
-const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
-const getDatasetOwnersUrl = id => `${datasetUrl(id)}/owners`;
 
 export default Controller.extend({
   queryParams: ['urn'],
@@ -261,32 +257,27 @@ export default Controller.extend({
     },
 
     /**
-     * Takes the list up updated owner and posts to the server
-     * @param {Ember.Array} updatedOwners the list of owner to send
-     * @returns {Promise.<T>}
+     * Persists the list of owners, and if successful, updated the owners
+     * on the controller
+     * @param {Array<IOwner>} updatedOwners the list of owner to send
+     * @returns {Promise<Array<IOwner>>}
      */
-    saveOwnerChanges(updatedOwners) {
-      const datasetId = get(this, 'model.id');
+    async saveOwnerChanges(updatedOwners) {
+      const { datasetId: id, 'notifications.notify': notify } = getProperties(this, [
+        'datasetId',
+        'notifications.notify'
+      ]);
       const csrfToken = getWithDefault(this, 'csrfToken', '').replace('/', '');
 
-      return Promise.resolve(
-        post({
-          url: getDatasetOwnersUrl(datasetId),
-          headers: {
-            'Csrf-Token': csrfToken
-          },
-          data: {
-            csrfToken,
-            owners: JSON.stringify(updatedOwners)
-          }
-        }).then(({ status = 'failed', msg = 'An error occurred.' }) => {
-          if (['success', 'ok'].includes(status)) {
-            return { status: 'ok' };
-          }
+      try {
+        await updateDatasetOwners(id, csrfToken, updatedOwners);
+        notify('success', { content: 'Success!' });
 
-          Promise.reject({ status, msg });
-        })
-      );
+        // updates the shared state for list of dataset owners
+        return set(this, 'owners', await readDatasetOwners(id));
+      } catch (e) {
+        notify('error', { content: e.message });
+      }
     },
 
     updateVersion: function(version) {

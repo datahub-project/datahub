@@ -1,8 +1,6 @@
-import Ember from 'ember';
+import Service from '@ember/service';
 import { getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
 import { IPartyEntity, IPartyProps } from 'wherehows-web/typings/api/datasets/party-entities';
-
-const { Service } = Ember;
 
 /**
  * Takes a userNameQuery query and find userNames that match by starting with
@@ -12,9 +10,14 @@ const { Service } = Ember;
  * @param {Function} asyncResults callback
  * @return {Promise<void>}
  */
-const ldapResolver = async (userNameQuery: string, _syncResults: Function, asyncResults: Function): Promise<void> => {
+const ldapResolver = async (
+  userNameQuery: string,
+  _syncResults: Function,
+  asyncResults: (results: Array<string>) => void
+): Promise<void> => {
   const ldapRegex = new RegExp(`^${userNameQuery}.*`, 'i');
   const { userEntitiesSource = [] }: IPartyProps = await getUserEntities();
+
   asyncResults(userEntitiesSource.filter((entity: string) => ldapRegex.test(entity)));
 };
 
@@ -28,8 +31,8 @@ const getPartyEntityWithUserName = (userName: string): Promise<IPartyEntity | nu
     ({ userEntities }: IPartyProps) => userEntities.find(({ label }: { label: string }) => label === userName) || null
   );
 
-export default Service.extend({
-  getPartyEntityWithUserName,
-  userNamesResolver: ldapResolver,
-  fetchUserNames: getUserEntities
-});
+export default class UserLookup extends Service {
+  getPartyEntityWithUserName = getPartyEntityWithUserName;
+  userNamesResolver = ldapResolver;
+  fetchUserNames = getUserEntities;
+}

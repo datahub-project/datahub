@@ -1,0 +1,159 @@
+<section class="dataset-author-user-lookup">
+  <header>
+    <h2 class="dataset-author-user-lookup__header">
+      Add an Owner
+    </h2>
+  </header>
+
+  <div class="dataset-author-user-lookup__container">
+    {{user-lookup didFindUser=(action "addOwner")}}
+  </div>
+</section>
+
+<p class="dataset-author__required-count">
+  {{#if requiredMinNotConfirmed}}
+
+    Add <strong>at least {{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
+    and Ownership Type - <code>Data Owner</code>
+
+  {{/if}}
+</p>
+
+<section class="dataset-author">
+  <header>
+    <h2 class="dataset-author__header">
+      Owners Confirmed
+    </h2>
+
+    <p class="dataset-author__byline">
+      These are dataset ownership records that have been manually entered / confirmed by a human
+    </p>
+  </header>
+
+  {{#if confirmedOwners.length}}
+
+    <table class="nacho-table nacho-table--bordered dataset-owner-table">
+      <thead>
+      <tr>
+        <th class="dataset-author-column--wide">LDAP Username</th>
+        <th>Full Name</th>
+        <th class="dataset-author-column--narrow">ID Type</th>
+        <th>Last Modified</th>
+        <th>
+          Ownership Type
+
+          <!--TODO: DSS-6716-->
+          <!-- DRY out with wrapper component that takes the link as an attribute-->
+          <a
+            target="_blank"
+            href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
+            <sup>
+        <span class="glyphicon glyphicon-question-sign"
+              title="Link to more information"></span>
+            </sup>
+          </a>
+        </th>
+        <th>Remove Owner</th>
+      </tr>
+      </thead>
+
+      {{#each confirmedOwners as |confirmedOwner|}}
+
+        <tbody>
+        {{dataset-author
+          owner=confirmedOwner
+          ownerTypes=ownerTypes
+          removeOwner=(action "removeOwner")
+          confirmSuggestedOwner=(action "confirmSuggestedOwner")
+          updateOwnerType=(action "updateOwnerType")
+        }}
+        </tbody>
+      {{else}}
+      {{/each}}
+    </table>
+
+  {{else}}
+
+    {{empty-state
+      heading="No Confirmed Owners"
+      subHead="Search for users above to add to the list of owners"
+    }}
+
+  {{/if}}
+</section>
+
+{{#if systemGeneratedOwners}}
+
+  <section class="dataset-author">
+    <header>
+      <h2 class="dataset-author__header">
+        System Suggested Owners
+      </h2>
+
+      <p class="dataset-author__byline">
+        These are dataset ownership records, suggested based on information derived from the source metadata.
+      </p>
+    </header>
+
+    <table class="nacho-table nacho-table--bordered dataset-owner-table">
+      <thead>
+      <tr>
+        <th class="dataset-author-column--wide">LDAP Username</th>
+        <th>Full Name</th>
+        <th class="dataset-author-column--narrow">ID Type</th>
+        <th>Source</th>
+        <th>Last Modified</th>
+        <th>
+          Ownership Type
+
+          <!--TODO: DSS-6716-->
+          <!-- DRY out with wrapper component that takes the link as an attribute-->
+          <a
+            target="_blank"
+            href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
+            <sup>
+        <span class="glyphicon glyphicon-question-sign"
+              title="Link to more information"></span>
+            </sup>
+          </a>
+        </th>
+        <th class="dataset-owner-table--wrap">Add Suggested Owner</th>
+      </tr>
+      </thead>
+
+      <tbody>
+      {{#each systemGeneratedOwners as |systemGeneratedOwner|}}
+        {{dataset-author
+          owner=systemGeneratedOwner
+          ownerTypes=ownerTypes
+          commonOwners=commonOwners
+          removeOwner=(action "removeOwner")
+          confirmSuggestedOwner=(action "confirmSuggestedOwner")
+          updateOwnerType=(action "updateOwnerType")
+        }}
+      {{/each}}
+      </tbody>
+
+    </table>
+  </section>
+
+{{/if}}
+
+<section class="action-bar">
+  <div class="container action-bar__content">
+
+    <button
+      class="nacho-button nacho-button--large-inverse action-bar__item dataset-authors-save"
+      disabled={{requiredMinNotConfirmed}}
+      onclick={{perform saveOwners}}>
+
+      {{#if saveOwners.isIdle}}
+        Save
+      {{else}}
+        {{pendulum-ellipsis-animation}}
+      {{/if}}
+
+    </button>
+
+  </div>
+</section>

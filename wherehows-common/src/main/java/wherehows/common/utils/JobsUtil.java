@@ -14,48 +14,28 @@
 package wherehows.common.utils;
 
 import com.google.common.collect.ImmutableList;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.commons.configuration.Configuration;
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.PropertiesConfiguration;
 import wherehows.common.Constant;
 
 
 public class JobsUtil {
 
   // Patterns for environmental variables resolution in jobs file.
-  private static final List<Pattern> ENV_VAR_PATTERNS = ImmutableList.<Pattern>builder()
-      .add(Pattern.compile("\\$(.+)")) // $ENV_VAR
-      .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
-      .build();
-
-  /**
-   * Reads {@link Properties} from the given file and resolves all environmental variables denoted by ${ENV_VAR_NAME}.
-   *
-   * @param jobFile Path to the property file.
-   * @return Resolved {@link Properties} or null if failed to read from file.
-   */
-  public static Properties getResolvedProperties(Path jobFile) {
-    Properties prop = new Properties();
-    try (BufferedReader reader = Files.newBufferedReader(jobFile)) {
-      prop.load(reader);
-    } catch (IOException ex) {
-      return null;
-    }
-
-    for (Map.Entry<Object, Object> entry : prop.entrySet()) {
-      String value = (String) entry.getValue();
-      prop.setProperty((String) entry.getKey(), resolveEnviornmentalVariable(value));
-    }
-    return prop;
-  }
+  private static final List<Pattern> ENV_VAR_PATTERNS =
+      ImmutableList.<Pattern>builder().add(Pattern.compile("\\$(.+)")) // $ENV_VAR
+          .add(Pattern.compile("\\$\\{(.+)\\}")) // ${ENV_VAR}
+          .build();
 
   /**
    * Resolves the value to the corresponding environmental variable if possible, otherwise returns the original value.
@@ -103,11 +83,11 @@ public class JobsUtil {
   /**
    * Returns a map of job name to job properties for all scheduled and enabled jobs.
    */
-  public static Map<String, Properties> getScheduledJobs(String dir) {
+  public static Map<String, Properties> getScheduledJobs(String dir) throws ConfigurationException {
     Map<String, Properties> jobs = new HashMap<>();
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
-        Properties prop = getResolvedProperties(file.toPath());
+        Properties prop = getJobConfigProperties(file);
         if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.containsKey(Constant.JOB_CRON_EXPR_KEY)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
@@ -120,11 +100,11 @@ public class JobsUtil {
   /**
    * Returns a map of job name to job properties which are enabled.
    */
-  public static Map<String, Properties> getEnabledJobs(String dir) {
+  public static Map<String, Properties> getEnabledJobs(String dir) throws ConfigurationException {
     Map<String, Properties> jobs = new HashMap<>();
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
-        Properties prop = getResolvedProperties(file.toPath());
+        Properties prop = getJobConfigProperties(file);
         if (!prop.containsKey(Constant.JOB_DISABLED_KEY)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
@@ -137,17 +117,57 @@ public class JobsUtil {
   /**
    * Returns a map of job name to job properties which are enabled and of certain type.
    */
-  public static Map<String, Properties> getEnabledJobsByType(String dir, String type) {
+  public static Map<String, Properties> getEnabledJobsByType(String dir, String type) throws ConfigurationException {
     Map<String, Properties> jobs = new HashMap<>();
     for (File file : new File(dir).listFiles()) {
       if (file.getAbsolutePath().endsWith(".job")) {
-        Properties prop = getResolvedProperties(file.toPath());
+        Properties prop = getJobConfigProperties(file);
         if (!prop.containsKey(Constant.JOB_DISABLED_KEY) && prop.getProperty(Constant.JOB_TYPE_KEY, "").equals(type)) {
           // job name = file name without the extension.
           jobs.put(jobNameFromFile(file), prop);
         }
       }
     }
+
     return jobs;
+  }
+
+  public static Properties getJobConfigProperties(File jobConfigFile) throws ConfigurationException {
+    Properties prop = new Properties();
+    String propValues = "";
+
+    Configuration jobParam = new PropertiesConfiguration(jobConfigFile.getAbsolutePath());
+
+    if (jobParam != null) {
+      Iterator<String> keyit = jobParam.getKeys();
+      while (keyit.hasNext()) {
+        String key = keyit.next();
+        if (key != null) {
+          Object value = jobParam.getProperty(key);
+          if (value != null && value instanceof String[]) {
+            propValues = String.join(",", (String[]) value);
+            prop.setProperty(key, splitAndResolveEnvironmentalValues(propValues));
+          } else if (value != null && value instanceof List<?>) {
+            propValues = String.join(",", (List<String>) value);
+            prop.setProperty(key, splitAndResolveEnvironmentalValues(propValues));
+          } else if (value != null) {
+            prop.setProperty(key, resolveEnviornmentalVariable(value.toString()));
+          }
+        }
+      }
+    }
+    return prop;
+  }
+
+  public static String splitAndResolveEnvironmentalValues(String propValues) {
+
+    String[] values = propValues.split(",");
+    String commaValues = "";
+    String indexValue = "";
+    for (int i = 0; i < values.length; i++) {
+      indexValue = resolveEnviornmentalVariable(values[i]);
+      values[i] = indexValue;
+    }
+    return String.join(",", (String[]) values);
   }
 }
