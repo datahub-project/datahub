@@ -15,11 +15,15 @@ package wherehows.processors;
 
 import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.DatasetLineage;
+import com.linkedin.events.metadata.DeploymentDetail;
+import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
 
@@ -42,31 +46,46 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
    * @throws Exception
    */
   public void process(IndexedRecord indexedRecord) {
-
     if (indexedRecord == null || indexedRecord.getClass() != MetadataLineageEvent.class) {
       throw new IllegalArgumentException("Invalid record");
     }
 
     log.debug("Processing Metadata Lineage Event record. ");
 
-    MetadataLineageEvent record = (MetadataLineageEvent) indexedRecord;
-
-    final KafkaAuditHeader auditHeader = record.auditHeader;
-    if (auditHeader == null) {
-      log.warn("MLE: MetadataLineageEvent without auditHeader, abort process. " + record.toString());
-      return;
+    MetadataLineageEvent event = (MetadataLineageEvent) indexedRecord;
+    try {
+      processEvent(event);
+    } catch (Exception exception) {
+      log.error("MLE Processor Error:", exception);
+      log.error("Message content: {}", event.toString());
+      this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
     }
-    if (record.lineage == null || record.lineage.size() == 0) {
+  }
+
+  private void processEvent(MetadataLineageEvent event) throws Exception {
+    final KafkaAuditHeader auditHeader = event.auditHeader;
+    if (auditHeader == null) {
+      throw new Exception("Missing Kafka Audit header: " + event.toString());
+    }
+
+    if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
 
-    log.debug("MLE: string : " + record.toString());
-    log.info("MLE: TS: " + auditHeader.time);
-    log.info("MLE: lineage: " + record.lineage.toString());
+    log.info("MLE: " + event.lineage.toString() + " TS: " + auditHeader.time); // TODO: remove. For debugging only
 
-    List<DatasetLineage> lineages = record.lineage;
+    List<DatasetLineage> lineages = event.lineage;
+    DeploymentDetail deployments = event.deploymentDetail;
 
     // create lineage
-    _lineageDao.createLineages(lineages);
+    _lineageDao.createLineages(lineages, deployments);
+  }
+
+  private FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {
+    FailedMetadataLineageEvent faileEvent = new FailedMetadataLineageEvent();
+    faileEvent.time = System.currentTimeMillis();
+    faileEvent.error = ExceptionUtils.getStackTrace(throwable);
+    faileEvent.metadataLineageEvent = event;
+    return faileEvent;
   }
 }
