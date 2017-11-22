@@ -202,7 +202,7 @@ export default Component.extend({
 
   /**
    * Returns a list of ui values and labels for review filter drop-down
-   * @type {Ember.computed}
+   * @type {Ember.ComputedProperty<{value: string, label:string}>}
    */
   fieldReviewOptions: computed(function() {
     return [
@@ -215,13 +215,10 @@ export default Component.extend({
   }),
 
   /**
-   * Toggles the field review option based on if the dataset
-   * already has a compliance policy created for fields
+   * Default to show all fields to review
    * @type {string}
    */
-  fieldReviewOption: computed('isNewComplianceInfo', function() {
-    return get(this, 'isNewComplianceInfo') ? 'showAll' : 'showReview';
-  }),
+  fieldReviewOption: 'showAll',
 
   /**
    * Reference to the application notifications Service
