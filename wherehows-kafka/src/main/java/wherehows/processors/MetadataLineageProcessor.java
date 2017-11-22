@@ -72,7 +72,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
       throw new IllegalArgumentException("No Lineage info in record");
     }
 
-    log.info("MLE: " + event.lineage.toString() + " TS: " + auditHeader.time); // TODO: remove. For debugging only
+    log.debug("MLE: " + event.lineage.toString() + " TS: " + auditHeader.time);
 
     List<DatasetLineage> lineages = event.lineage;
     DeploymentDetail deployments = event.deploymentDetail;
