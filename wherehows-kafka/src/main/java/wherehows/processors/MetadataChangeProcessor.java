@@ -80,7 +80,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     }
 
     final DatasetIdentifier identifier = event.datasetIdentifier;
-    log.info("MCE: " + identifier + " TS: " + auditHeader.time); // TODO: remove. For debugging only
+    log.debug("MCE: " + identifier + " TS: " + auditHeader.time);
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     final ChangeType changeType = changeAuditStamp.type;
 
