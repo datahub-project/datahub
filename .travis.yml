@@ -8,7 +8,7 @@ jdk:
   - oraclejdk8
 
 env:
-  - DOCKER_COMPOSE_VERSION=1.14.0
+  - DOCKER_COMPOSE_VERSION=1.14.0 WHEREHOWS_DIR=wherehows-web
 
 services:
   - docker
@@ -28,6 +28,15 @@ before_install:
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
 
+  # Repo for newer Node.js versions
+  - curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+  # https://yarnpkg.com/en/docs/install-ci#travis-tab
+  # Repo for Yarn
+  - sudo apt-key adv --fetch-keys http://dl.yarnpkg.com/debian/pubkey.gpg
+  - echo "deb http://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq yarn
+
 cache:
   directories:
     - $HOME/.gradle/caches/
@@ -38,3 +47,7 @@ script:
 - ./gradlew jacocoFullReport coveralls
 - (cd wherehows-docker && ./build.sh latest)
 - (cd wherehows-docker && docker-compose config)
+- (cd $WHEREHOWS_DIR && yarn install --non-interactive && node_modules/bower/bin/bower install && npm run-script coverage)
+
+after_script:
+  - rm -rf $WHEREHOWS_DIR/coverage
