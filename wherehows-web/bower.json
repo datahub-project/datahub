@@ -8,7 +8,6 @@
     "jquery-jsonview": "jsonview#^1.2.3",
     "jquery-treegrid": "^0.3.0",
     "jquery-ui": "^1.12.1",
-    "jquery.fancytree": "fancytree#^2.21.0",
     "jquery.scrollTo": "^2.1.2",
     "json-human": "^0.1.1",
     "jsondiffpatch": "^0.2.4",

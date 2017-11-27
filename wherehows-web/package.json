@@ -13,9 +13,9 @@
   "scripts": {
     "build": "ember build",
     "start": "ember server",
-    "test": "ember test --launch Chrome",
+    "test": "./node_modules/.bin/ember test --launch Chrome",
     "precommit": "lint-staged",
-    "coverage": "COVERAGE=true npm run test",
+    "coverage": "COVERAGE=true npm run test && ./node_modules/.bin/codecov -f coverage/coverage-final.json",
     "eslint-check-prettier-conflict": "./node_modules/.bin/eslint --print-config .eslintrc.js | ./node_modules/.bin/eslint-config-prettier-check"
   },
   "devDependencies": {
@@ -33,12 +33,13 @@
     "broccoli-asset-rev": "^2.6.0",
     "broccoli-funnel": "^2.0.1",
     "broccoli-merge-trees": "^2.0.0",
+    "codecov": "^3.0.0",
     "ember-ajax": "^3.0.0",
     "ember-cli": "~2.16.2",
     "ember-cli-app-version": "^3.1.0",
     "ember-cli-babel": "^6.8.2",
     "ember-cli-bootstrap-sassy": "^0.5.6",
-    "ember-cli-code-coverage": "kategengler/ember-cli-code-coverage",
+    "ember-cli-code-coverage": "theseyi/ember-cli-code-coverage",
     "ember-cli-dependency-checker": "^2.0.1",
     "ember-cli-eyeglass": "^3.3.1",
     "ember-cli-htmlbars": "^2.0.3",

@@ -2,10 +2,7 @@ apply plugin: "com.moowork.node"
 
 node {
   // Version of node to use.
-  version = '7.10.1'
-
-  // Version of yarn to use.
-  yarnVersion = '0.27.5'
+  version = '8.9.1'
 
   // Base URL for fetching node distributions (change if you have a mirror).
   distBaseUrl = 'https://nodejs.org/dist'
@@ -40,8 +37,14 @@ task emberBuild(type: NodeTask, dependsOn: bowerInstall) {
 }
 
 task emberTest(type: NodeTask, dependsOn: bowerInstall) {
+  environment = ['COVERAGE': 'true']
   script = file('node_modules/ember-cli/bin/ember')
-  args = ['test']
+  args = ['test', '--launch', 'Chrome']
+}
+
+task emberCoverage(type: NodeTask, dependsOn: emberTest) {
+  script = file('node_modules/codecov/bin/codecov')
+  args = ['-f', 'coverage/coverage-final.json']
 }
 
 clean {
