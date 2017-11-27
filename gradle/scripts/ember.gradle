@@ -43,7 +43,7 @@ task emberTest(type: NodeTask, dependsOn: bowerInstall) {
 }
 
 task emberCoverage(type: NodeTask, dependsOn: emberTest) {
-  script = file('./node_modules/.bin/codecov')
+  script = file('node_modules/codecov/bin/codecov')
   args = ['-f', 'coverage/coverage-final.json']
 }
 
