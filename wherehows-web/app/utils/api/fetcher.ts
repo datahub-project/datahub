@@ -10,9 +10,8 @@ interface FetchConfig {
 }
 
 /**
- * 
- * 
- * @param {FetchConfig} config 
+ * Augments the user supplied headers with the default accept and content-type headers
+ * @param {FetchConfig.headers} headers
  */
 const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
   headers: {
@@ -23,10 +22,9 @@ const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
 });
 
 /**
- * 
- * 
- * @template T 
- * @param {string} url 
+ * Sends a HTTP request and resolves with the JSON response
+ * @template T
+ * @param {string} url the url for the endpoint to request a response from
  * @param {object} fetchConfig 
  * @returns {Promise<T>} 
  */
@@ -35,6 +33,7 @@ const json = <T>(url: string, fetchConfig: object): Promise<T> =>
 
 /**
  * Conveniently gets a JSON response using the fetch api
+ * @template T
  * @param {FetchConfig} config
  * @return {Promise<T>}
  */
@@ -45,9 +44,8 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
 };
 
 /**
- * 
- * 
- * @template T 
+ * Initiates a POST request using the Fetch api
+ * @template T
  * @param {FetchConfig} config 
  * @returns {Promise<T>} 
  */
@@ -61,6 +59,12 @@ const postJSON = <T>(config: FetchConfig): Promise<T> => {
   return json<T>(config.url, fetchConfig);
 };
 
+/**
+ * Initiates a DELETE request using the Fetch api
+ * @template T
+ * @param {FetchConfig} config
+ * @return {Promise<T>}
+ */
 const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
   const fetchConfig = Object.assign(
     config.data && { body: JSON.stringify(config.data) },
@@ -71,6 +75,12 @@ const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
   return json<T>(config.url, fetchConfig);
 };
 
+/**
+ * Initiates a PUT request using the Fetch api
+ * @template T
+ * @param {FetchConfig} config
+ * @return {Promise<T>}
+ */
 const putJSON = <T>(config: FetchConfig): Promise<T> => {
   const fetchConfig = Object.assign(
     config.data && { body: JSON.stringify(config.data) },
@@ -84,7 +94,7 @@ const putJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Requests the headers from a resource endpoint
  * @param {FetchConfig} config
- * @return {Promise<Headers>>}
+ * @return {Promise<Headers>}
  */
 const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   const fetchConfig = {
@@ -100,4 +110,20 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   throw new Error(statusText);
 };
 
-export { getJSON, postJSON, deleteJSON, putJSON, getHeaders };
+/**
+ * Wraps a request Promise, passthrough response if successful, otherwise handle the error and rethrow if not api error
+ * @param {Promise<T>} fetcher the api request to wrap
+ * @param {K} defaultValue
+ * @return {Promise<K | T>}
+ */
+const fetchAndHandleIfApiError = async <T, K>(fetcher: Promise<T>, defaultValue: K): Promise<T | K | null> => {
+  let result: T | K | null = typeof defaultValue === 'undefined' ? null : defaultValue;
+  try {
+    result = await fetcher;
+  } catch (e) {
+    //handle error
+  }
+  return result;
+};
+
+export { getJSON, postJSON, deleteJSON, putJSON, getHeaders, fetchAndHandleIfApiError };
