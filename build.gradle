@@ -9,7 +9,7 @@ buildscript {
     classpath 'gradle.plugin.com.palantir:jacoco-coverage:0.3.0'
     classpath 'gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1'
     classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.8.1'
-    classpath 'com.moowork.gradle:gradle-node-plugin:1.1.1'
+    classpath 'com.moowork.gradle:gradle-node-plugin:1.2.0'
   }
 }
 

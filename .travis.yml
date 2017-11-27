@@ -35,6 +35,9 @@ cache:
 
 script:
 - ./gradlew check assemble
-- ./gradlew jacocoFullReport coveralls
+- ./gradlew jacocoFullReport coveralls && ./gradlew emberCoverage
 - (cd wherehows-docker && ./build.sh latest)
 - (cd wherehows-docker && docker-compose config)
+
+after_script:
+  - rm -rf $WHEREHOWS_DIR/coverage

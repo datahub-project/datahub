@@ -89,14 +89,12 @@ module.exports = function(defaults) {
   // along with the exports of each module as its value.
 
   app.import('bower_components/jquery-ui/themes/base/jquery-ui.css');
-  app.import('bower_components/jquery.fancytree/dist/skin-win8/ui.fancytree.min.css');
   app.import('vendor/fancytree/src/skin-wherehows/ui.wherehows.css');
   app.import('bower_components/font-awesome/css/font-awesome.min.css');
   app.import('bower_components/json-human/css/json.human.css');
   app.import('bower_components/jquery-treegrid/css/jquery.treegrid.css');
   app.import('bower_components/toastr/toastr.min.css');
   app.import('bower_components/jquery-jsonview/dist/jquery.jsonview.css');
-  // app.import('bower_components/bootstrap/dist/css/bootstrap.min.css');
   app.import('bower_components/jsondiffpatch/public/formatters-styles/html.css');
   app.import('bower_components/jsondiffpatch/public/formatters-styles/annotated.css');
   app.import('bower_components/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css');
@@ -122,8 +120,6 @@ module.exports = function(defaults) {
   app.import('vendor/dagre-d3/js/tipsy.js');
   app.import('vendor/dagre-d3/js/jquery.contextMenu.js');
   app.import('vendor/d3pie-0.18/d3pie-customized.js');
-  app.import('bower_components/jquery.fancytree/dist/jquery.fancytree.min.js');
-  app.import('bower_components/jquery.fancytree/dist/src/jquery.fancytree.filter.js');
   app.import('bower_components/jquery.scrollTo/jquery.scrollTo.min.js');
   app.import('bower_components/jquery-treegrid/js/jquery.treegrid.js');
   app.import('bower_components/json-human/src/json.human.js');
