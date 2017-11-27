@@ -77,8 +77,8 @@ class ConfigUtil {
         .add("-DLOG_DIR=" + outDir)
         .add(Launcher.class.getCanonicalName())
         .build());
-    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stdout")));
-    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/" + etlJobName + ".stderr")));
+    pb.redirectOutput(ProcessBuilder.Redirect.to(new File(outDir + "/stdout")));
+    pb.redirectError(ProcessBuilder.Redirect.to(new File(outDir + "/stderr")));
     return pb;
   }
 }
