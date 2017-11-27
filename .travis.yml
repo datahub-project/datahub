@@ -8,7 +8,7 @@ jdk:
   - oraclejdk8
 
 env:
-  - DOCKER_COMPOSE_VERSION=1.14.0 WHEREHOWS_DIR=wherehows-web
+  - DOCKER_COMPOSE_VERSION=1.14.0
 
 services:
   - docker
@@ -44,10 +44,9 @@ cache:
 
 script:
 - ./gradlew check assemble
-- ./gradlew jacocoFullReport coveralls
+- ./gradlew jacocoFullReport coveralls && ./gradlew wherehows-frontend:emberCoverage
 - (cd wherehows-docker && ./build.sh latest)
 - (cd wherehows-docker && docker-compose config)
-- (cd $WHEREHOWS_DIR && yarn install --non-interactive && node_modules/bower/bin/bower install && npm run-script coverage)
 
 after_script:
   - rm -rf $WHEREHOWS_DIR/coverage
