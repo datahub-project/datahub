@@ -29,13 +29,14 @@
         }
       }
     },
-    { "name" : "retentionWindow",
-      "type" : [
+    {
+      "name": "retentionWindow",
+      "type": [
         "null",
         "long"
       ],
-      "doc" : "How long data is retained in seconds for the case of MANUAL_LIMITED_RETENTION",
-      "default" : null
+      "doc": "How long data is retained in seconds for the case of MANUAL_LIMITED_RETENTION",
+      "default": null
     },
     {
       "name": "compliancePurgeNote",
@@ -66,6 +67,15 @@
       "name": "datasetClassification",
       "type": "DatasetClassification",
       "doc": "dataset level classification: dataset contains such category of data or not, e.g. 'PROFILE_DATA':false"
+    },
+    {
+      "name": "containsPersonalData",
+      "type": [
+        "null",
+        "boolean"
+      ],
+      "doc": "Use this field to specify whether the dataset contains any personal data for schemaless systems like Couchbase, Ambry etc",
+      "default": null
     }
   ]
 }

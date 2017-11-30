@@ -17,8 +17,10 @@ import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
+import com.linkedin.events.metadata.Schemaless;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -94,15 +96,18 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
       throw new Exception("Dataset name too long: " + identifier);
     }
 
+    final DatasetSchema dsSchema =
+        (event.schema == null || event.schema instanceof Schemaless) ? null : (DatasetSchema) event.schema;
+    // TODO: handle Schemaless separately
+
     // create or update dataset
-    DictDataset ds =
-        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, event.schema,
-            event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
+    DictDataset ds = _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, dsSchema,
+        event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
 
     // if schema is not null, insert or update schema
-    if (event.schema != null) {
+    if (dsSchema != null) {
       _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), event.datasetProperty, changeAuditStamp,
-          event.schema);
+          dsSchema);
     }
 
     // if owners are not null, insert or update owner
