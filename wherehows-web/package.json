@@ -67,6 +67,8 @@
     "ember-redux-shim": "^1.1.1",
     "ember-redux-thunk-shim": "^1.1.2",
     "ember-resolver": "^4.5.0",
+    "ember-sinon": "^1.0.1",
+    "ember-sinon-qunit": "^2.1.0",
     "ember-source": "~2.16.0",
     "ember-symbol-observable": "^0.1.2",
     "eslint": "^4.9.0",
