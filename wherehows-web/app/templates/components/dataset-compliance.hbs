@@ -98,18 +98,20 @@
     {{partial "datasets/dataset-compliance/dataset-classification"}}
   {{/if}}
 
-  {{#if (or isReadOnly (eq editStepIndex 0))}}
-    {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
-  {{/if}}
-
-  {{#if (eq editStepIndex 1)}}
+  {{#if (or isReadOnly (eq editStepIndex 1))}}
     {{purge-policy
+      isEditable=(not isReadOnly)
       platform=platform
       purgeNote=complianceInfo.compliancePurgeNote
       purgePolicy=(readonly complianceInfo.complianceType)
       onPolicyChange=(action "onDatasetPurgePolicyChange")
     }}
   {{/if}}
+
+  {{#if (or isReadOnly (eq editStepIndex 0))}}
+    {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+  {{/if}}
+
 </div>
 
 {{yield}}

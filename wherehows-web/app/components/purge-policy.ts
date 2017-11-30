@@ -11,10 +11,6 @@ import {
 import noop from 'wherehows-web/utils/noop';
 
 export default Component.extend({
-  tagName: 'ul',
-
-  classNames: ['purge-policy-list'],
-
   exemptPolicy,
 
   purgePolicyProps,
