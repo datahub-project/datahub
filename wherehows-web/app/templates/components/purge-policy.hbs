@@ -1,32 +1,62 @@
-{{#each-in purgePolicyProps as |purgeType prop|}}
-  <li
-    class="purge-policy-list__item {{unless (contains (uppercase platform) prop.platforms) 'purge-policy-list__item--disabled'}}">
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      Compliance Purge Policy
+    </p>
+  </header>
+</section>
 
-    {{#radio-button-composer
-      name="dataset-purge-policy"
-      value=(if (contains (uppercase platform) prop.platforms) purgeType null)
-      disabled=(if (contains (uppercase platform) prop.platforms) false true)
-      groupValue=(readonly purgePolicy)
-      changed=(action "onChange")
-    }}
-      {{prop.displayAs}}
-    {{/radio-button-composer}}
+<ul class="purge-policy-list">
+  {{#if isEditable}}
 
-    {{#unless (contains (uppercase platform) prop.platforms)}}
-      <p class="purge-policy-list__availability">
-        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{lowercase platform}}</span>
-      </p>
-    {{/unless}}
+    {{#each-in purgePolicyProps as |purgeType prop|}}
+      <li
+        class="purge-policy-list__item {{unless (contains (uppercase platform) prop.platforms)
+                                                'purge-policy-list__item--disabled'}}">
 
-    <p>{{prop.desc}}</p>
+        {{#radio-button-composer
+          name="dataset-purge-policy"
+          value=(if (contains (uppercase platform) prop.platforms) purgeType null)
+          disabled=(if (contains (uppercase platform) prop.platforms) false true)
+          groupValue=(readonly purgePolicy)
+          changed=(action "onChange")
+        }}
+          {{prop.displayAs}}
+        {{/radio-button-composer}}
 
-    {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
+        {{#unless (contains (uppercase platform) prop.platforms)}}
+          <p class="purge-policy-list__availability">
+            Purge policy not available for <span class="purge-policy-list__platform--unavailable">
+            {{lowercase platform}}</span>
+          </p>
+        {{/unless}}
 
-      {{medium-content-editable
-        value=purgeNote
-        options=editorOptions
-        class="comment-new__content"}}
+        <p>{{prop.desc}}</p>
+
+        {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
+
+          {{medium-content-editable
+            value=purgeNote
+            options=editorOptions
+            class="comment-new__content"}}
+
+        {{/if}}
+      </li>
+    {{/each-in}}
+
+  {{else}}
+
+    {{#if purgeType}}
+      <li class="purge-policy-list__item">
+        <strong>
+          {{get (get purgePolicyProps purgeType) "displayAs"}}
+        </strong>
+      </li>
+    {{else}}
+
+      <p>This dataset does not have a current compliance purge policy.</p>
+      <sub>To update, click edit and follow the steps</sub>
 
     {{/if}}
-  </li>
-{{/each-in}}
+  {{/if}}
+</ul>
