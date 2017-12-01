@@ -15,6 +15,7 @@ package wherehows.dao.table;
 
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
+import com.linkedin.events.metadata.agent;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,12 +27,12 @@ public class LineageDao {
 
   /**
    * Create lineage dataset that requested the lineage via Kafka lineage event.
+   * @param appType agent that created the lineage info
    * @param datasetLineages List of lineages
    * @param deployment deployment environment i.e. PROD, DEV, EI and etc
    * @return return process result as true/false
    */
-
-  public Boolean createLineages(@Nonnull List<DatasetLineage> datasetLineages,
+  public Boolean createLineages(@Nonnull agent appType, @Nonnull List<DatasetLineage> datasetLineages,
       @Nullable DeploymentDetail deployment) {
     // TODO: write lineage Dao to DB
     throw new UnsupportedOperationException("Lineage not implemented yet.");

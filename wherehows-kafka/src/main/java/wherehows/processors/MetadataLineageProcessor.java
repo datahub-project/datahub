@@ -18,6 +18,7 @@ import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.MetadataLineageEvent;
+import com.linkedin.events.metadata.agent;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
@@ -26,8 +27,6 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-
-import static wherehows.common.utils.StringUtil.*;
 
 
 @Slf4j
@@ -74,11 +73,12 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
 
     log.debug("MLE: " + event.lineage.toString() + " TS: " + auditHeader.time);
 
+    agent appType = event.type;
     List<DatasetLineage> lineages = event.lineage;
     DeploymentDetail deployments = event.deploymentDetail;
 
     // create lineage
-    _lineageDao.createLineages(lineages, deployments);
+    _lineageDao.createLineages(appType, lineages, deployments);
   }
 
   private FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {
