@@ -46,10 +46,10 @@
 
   {{else}}
 
-    {{#if purgeType}}
+    {{#if purgePolicy}}
       <li class="purge-policy-list__item">
         <strong>
-          {{get (get purgePolicyProps purgeType) "displayAs"}}
+          {{get (get purgePolicyProps purgePolicy) "displayAs"}}
         </strong>
       </li>
     {{else}}
