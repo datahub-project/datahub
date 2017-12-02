@@ -35,7 +35,13 @@ const purgePolicyProps: PurgePolicyProperties = {
     displayAs: 'Auto Purge'
   },
   MANUAL_PURGE: {
-    platforms: [DatasetPlatform.MySql, DatasetPlatform.Espresso, DatasetPlatform.Teradata, DatasetPlatform.Oracle, DatasetPlatform.HDFS],
+    platforms: [
+      DatasetPlatform.MySql,
+      DatasetPlatform.Espresso,
+      DatasetPlatform.Teradata,
+      DatasetPlatform.Oracle,
+      DatasetPlatform.HDFS
+    ],
     desc: 'Choose this option only if you or your team have implemented a custom mechanism to purge this dataset.',
     displayAs: 'Manual Purge'
   },
@@ -69,4 +75,10 @@ const exemptPolicy = PurgePolicy.PurgeExempt;
  */
 const isExempt = (policy: PurgePolicy) => policy === PurgePolicy.PurgeExempt;
 
-export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy };
+/**
+ * User informational text for datasets without a purge policy
+ * @type {string}
+ */
+const missingPolicyText = 'This dataset does not have a current compliance purge policy.';
+
+export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy, missingPolicyText };
