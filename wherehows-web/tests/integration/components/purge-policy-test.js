@@ -1,13 +1,14 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
-import { missingPolicyText, purgePolicyProps } from 'wherehows-web/constants';
+import { missingPolicyText, purgePolicyProps, exemptPolicy } from 'wherehows-web/constants';
 
 moduleForComponent('purge-policy', 'Integration | Component | purge policy', {
   integration: true
 });
 
 const policyList = '.purge-policy-list';
+const policyTypes = Object.keys(purgePolicyProps);
 
 test('it renders', function(assert) {
   assert.expect(1);
@@ -19,7 +20,7 @@ test('it renders', function(assert) {
 
 test('it renders each purge policy in edit mode', function(assert) {
   assert.expect(1);
-  const purgePoliciesLength = Object.keys(purgePolicyProps).length;
+  const purgePoliciesLength = policyTypes.length;
 
   this.set('isEditable', true);
   this.render(hbs`{{purge-policy isEditable=isEditable}}`);
@@ -55,5 +56,44 @@ test('it renders a user message if the purge policy is not set and is in readonl
     document.querySelector(`${policyList} p`).textContent,
     missingPolicyText,
     `${missingPolicyText} is rendered`
+  );
+});
+
+test('it indicates the currently selected purge policy', function(assert) {
+  assert.expect(1);
+  const selectedPolicy = policyTypes[1];
+  const platform = purgePolicyProps[selectedPolicy].platforms[0];
+
+  this.set('isEditable', true);
+  this.set('platform', platform);
+  this.set('purgePolicy', selectedPolicy);
+
+  this.render(hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform}}`);
+
+  assert.ok(
+    document.querySelector(`${policyList} [type=radio][value=${selectedPolicy}]`).checked,
+    `${selectedPolicy} radio is checked`
+  );
+});
+
+test('it focuses the comment element for exempt policy', function(assert) {
+  assert.expect(1);
+
+  const focusEditor = () => {
+    assert.equal(++focusMethodCount, 1, 'focusEditor action is invoked');
+  };
+  let selectedPolicy = exemptPolicy;
+  let platform = purgePolicyProps[selectedPolicy].platforms[0];
+  let focusMethodCount = 0;
+
+  this.setProperties({
+    platform,
+    focusEditor,
+    isEditable: true,
+    purgePolicy: selectedPolicy
+  });
+
+  this.render(
+    hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform focusEditor=focusEditor}}`
   );
 });
