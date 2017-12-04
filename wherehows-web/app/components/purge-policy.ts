@@ -5,14 +5,29 @@ import {
   baseCommentEditorOptions,
   exemptPolicy,
   isExempt,
+  missingPolicyText,
   PurgePolicy,
   purgePolicyProps
 } from 'wherehows-web/constants';
 import noop from 'wherehows-web/utils/noop';
 
 export default Component.extend({
+  /**
+   * Reference to the purge exempt policy
+   * @type {string}
+   */
   exemptPolicy,
 
+  /**
+   * Reference to the informational text if the dataset does not have a saved purge policy
+   * @type {string}
+   */
+  missingPolicyText,
+
+  /**
+   * Reference to client options for each purge policy
+   * @type {PurgePolicyProperties}
+   */
   purgePolicyProps,
 
   /**
