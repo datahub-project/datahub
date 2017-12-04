@@ -136,9 +136,9 @@ export default Component.extend({
       let lastIndex = initialStepIndex;
 
       return function() {
-        const currentIndex = get(this, 'editStepIndex');
+        const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
         // the current step in the edit sequence
-        const editStep = this.editSteps[currentIndex] || {};
+        const editStep = editSteps[currentIndex] || {};
         const { name } = editStep;
 
         if (name) {
