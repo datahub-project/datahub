@@ -11,6 +11,23 @@
 
     <div class="row">
       <div class="col-xs-5">
+        {{#if datasetView.removed}}
+          <span class="removed-dataset">
+            REMOVED
+          </span>
+
+          <sup>
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title="This dataset has been removed">
+                {{tooltip-on-element
+                  event="hover"
+                  text="This dataset has been removed"
+                }}
+              </span>
+          </sup>
+        {{/if}}
+
         {{#if datasetView.deprecated}}
           <a data-toggle="tab" href="#propertiestab" {{action "showProperties" preventDefault=false}}>
             <span class="deprecated-dataset">
@@ -19,7 +36,7 @@
             <sup>
               <span
                 class="glyphicon glyphicon-question-sign"
-                title={{helpText.classification}}>
+                title="Click to view dataset properties">
                 {{tooltip-on-element
                   event="hover"
                   text="Click to view dataset properties"
