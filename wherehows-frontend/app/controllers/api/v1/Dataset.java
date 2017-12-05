@@ -42,6 +42,7 @@ import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 
@@ -242,13 +243,14 @@ public class Dataset extends Controller {
   public static Result getDatasetColumnsByID(int id) {
     String urn = getDatasetUrnByIdOrCache(id);
 
-    List<DatasetColumn> columns = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
+    DatasetSchema schema = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
 
     ObjectNode result = Json.newObject();
 
-    if (columns != null && columns.size() > 0) {
+    if (schema != null) {
       result.put("status", "ok");
-      result.set("columns", Json.toJson(columns));
+      result.put("schemaless", schema.getSchemaless());
+      result.set("columns", Json.toJson(schema.getColumns()));
     } else {
       result.put("status", "error");
       result.put("message", "record not found");
