@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
@@ -99,13 +100,18 @@ public class DatasetViewDao extends BaseViewDao {
    * @param datasetUrn String
    * @return List of DatasetColumn
    */
-  public List<DatasetColumn> getDatasetColumnsByID(int datasetId, @Nonnull String datasetUrn) {
+  public DatasetSchema getDatasetColumnsByID(int datasetId, @Nonnull String datasetUrn) {
     Map<String, Object> params = new HashMap<>();
     params.put("datasetId", datasetId);
 
     List<DatasetColumn> columns = getEntityListBy(GET_DATASET_COLUMNS_BY_DATASET_ID, DatasetColumn.class, params);
     fillInColumnEntity(columns);
-    return columns;
+
+    DatasetSchema schema = new DatasetSchema();
+    schema.setSchemaless(false);
+    schema.setColumns(columns);
+
+    return schema;
   }
 
   /**
