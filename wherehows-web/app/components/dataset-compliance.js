@@ -1,7 +1,7 @@
 import Ember from 'ember';
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
-  classifiers,
+  securityClassificationDropdownOptions,
   DatasetClassifiers,
   fieldIdentifierTypes,
   fieldIdentifierOptions,
@@ -14,7 +14,7 @@ import {
   logicalTypesForGeneric,
   hasPredefinedFieldFormat,
   getDefaultLogicalType,
-  complianceSteps,
+  getComplianceSteps,
   hiddenTrackingFields,
   isExempt
 } from 'wherehows-web/constants';
@@ -52,13 +52,6 @@ const {
   successUploading,
   invalidPolicyData
 } = compliancePolicyStrings;
-
-/**
- * Takes a string, returns a formatted string. Niche , single use case
- * for now, so no need to make into a helper
- * @param {String} string
- */
-const formatAsCapitalizedStringWithSpaces = string => string.replace(/[A-Z]/g, match => ` ${match}`).capitalize();
 
 /**
  * List of non Id field data type classifications
@@ -109,13 +102,20 @@ export default Component.extend({
    * @type {number}
    */
   editStepIndex: initialStepIndex,
+
   /**
    * Converts the hash of complianceSteps to a list of steps
-   * @type {Array<{}>}
+   * @type {ComputedProperty<Array<{}>>}
    */
-  editSteps: Object.keys(complianceSteps)
-    .sort()
-    .map(key => complianceSteps[key]),
+  editSteps: computed('schemaless', function() {
+    const hasSchema = !getWithDefault(this, 'schemaless', false);
+    const steps = getComplianceSteps(hasSchema);
+
+    // Ensure correct step ordering
+    return Object.keys(steps)
+      .sort()
+      .map(key => steps[key]);
+  }),
 
   /**
    * Handles the transition between steps in the compliance edit wizard
@@ -156,6 +156,7 @@ export default Component.extend({
               if (typeof nextAction === 'function') {
                 return (previousAction = nextAction);
               }
+              // otherwise clear the previous action
               previousAction = noop;
             })
             .catch(() => {
@@ -228,9 +229,13 @@ export default Component.extend({
 
   didReceiveAttrs() {
     this._super(...Array.from(arguments));
-    this.resetEdit();
     // Perform validation step on the received component attributes
     this.validateAttrs();
+
+    // Set the current step to first edit step if compliance policy is new / doesn't exist
+    if (get(this, 'isNewComplianceInfo')) {
+      this.updateStep(0);
+    }
   },
 
   /**
@@ -303,13 +308,6 @@ export default Component.extend({
   },
 
   /**
-   * Resets the editable state of the component, dependent on `isNewComplianceInfo` flag
-   */
-  resetEdit() {
-    return get(this, 'isNewComplianceInfo') ? this.updateStep(0) : this.updateStep(initialStepIndex);
-  },
-
-  /**
    * Ensure that props received from on this component
    * are valid, otherwise flag
    */
@@ -331,11 +329,8 @@ export default Component.extend({
   // Map generic logical type to options consumable in DOM
   genericLogicalTypes: logicalTypesForGeneric,
 
-  // Map classifiers to options better consumed in DOM
-  classifiers: ['', ...classifiers.sort()].map(value => ({
-    value,
-    label: value ? formatAsCapitalizedStringWithSpaces(value) : '...'
-  })),
+  // Map of classifiers options for drop down
+  classifiers: securityClassificationDropdownOptions,
 
   /**
    * @type {Boolean} cached boolean flag indicating that fields do contain a `kafka type`
@@ -1047,6 +1042,25 @@ export default Component.extend({
     onDatasetPurgePolicyChange(purgePolicy) {
       // directly set the complianceType to the updated value
       return set(this, 'complianceInfo.complianceType', purgePolicy);
+    },
+
+    /**
+     * Updates the policy flag indicating that this dataset contains personal data
+     * @param {boolean} containsPersonalData
+     * @returns boolean
+     */
+    onDatasetLevelPolicyChange(containsPersonalData) {
+      // directly mutate the attribute on the complianceInfo object
+      return set(this, 'complianceInfo.containingPersonalData', containsPersonalData);
+    },
+
+    /**
+     * Updates the confidentiality flag on the dataset compliance
+     * @param {null | Classification} [securityClassification=null] 
+     * @returns null | Classification
+     */
+    onDatasetSecurityClassificationChange(securityClassification = null) {
+      return set(this, 'complianceInfo.confidentiality', securityClassification);
     },
 
     /**
