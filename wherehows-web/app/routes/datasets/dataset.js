@@ -108,7 +108,7 @@ export default Route.extend({
           let properties;
 
           const [
-            columns,
+            { schemaless, columns },
             compliance,
             complianceSuggestion,
             datasetComments,
@@ -140,6 +140,7 @@ export default Route.extend({
             isNewComplianceInfo,
             complianceSuggestion,
             datasetComments,
+            schemaless,
             schemas,
             isInternal,
             datasetView,
