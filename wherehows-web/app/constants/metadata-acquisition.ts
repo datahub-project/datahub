@@ -63,7 +63,7 @@ const nonIdFieldDataTypeClassification: { [K: string]: Classification } = generi
 
 /**
  * A merge of id and non id field type security classifications
- * @type {{string: Classification}}
+ * @type {([k: string]: Classification)}
  */
 const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
 
