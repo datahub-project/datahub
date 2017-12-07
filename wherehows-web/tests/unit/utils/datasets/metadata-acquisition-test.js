@@ -2,7 +2,8 @@ import {
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
   defaultFieldDataTypeClassification,
-  logicalTypeValueLabel
+  logicalTypeValueLabel,
+  formatAsCapitalizedStringWithSpaces
 } from 'wherehows-web/constants/metadata-acquisition';
 import {
   Classification,
@@ -79,5 +80,15 @@ test('logicalTypeValueLabel generates correct labels for generic type', function
     );
 
     assert.ok(idFieldLogicalTypeValues.includes(value), `Value ${value} found in ${idFieldLogicalTypeValues}`);
+  });
+});
+
+test('formatAsCapitalizedStringWithSpaces generates the correct display string', function(assert) {
+  [
+    ['confidential', 'Confidential'],
+    ['limitedDistribution', 'Limited Distribution'],
+    ['highlyConfidential', 'Highly Confidential']
+  ].forEach(([source, target]) => {
+    assert.equal(formatAsCapitalizedStringWithSpaces(source), target, `correctly converts ${source}`);
   });
 });

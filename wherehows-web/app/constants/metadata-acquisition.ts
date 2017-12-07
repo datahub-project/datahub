@@ -1,4 +1,5 @@
 import Ember from 'ember';
+import { capitalize } from '@ember/string';
 import {
   Classification,
   nonIdFieldLogicalTypes,
@@ -10,6 +11,16 @@ import {
   IdLogicalType,
   FieldIdValues
 } from 'wherehows-web/constants/datasets/compliance';
+
+/**
+ * Defines the interface for an each security classification dropdown option
+ * @export
+ * @interface ISecurityClassificationOption
+ */
+export interface ISecurityClassificationOption {
+  value: '' | Classification;
+  label: string;
+}
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -52,7 +63,7 @@ const nonIdFieldDataTypeClassification: { [K: string]: Classification } = generi
 
 /**
  * A merge of id and non id field type security classifications
- * @type {[K: string] : Classification}
+ * @type {([k: string]: Classification)}
  */
 const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
 
@@ -63,6 +74,26 @@ const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, .
 const classifiers = Object.values(defaultFieldDataTypeClassification).filter(
   (classifier, index, iter) => iter.indexOf(classifier) === index
 );
+
+/**
+ * Takes a string, returns a formatted string. Niche , single use case
+ * for now, so no need to make into a helper
+ * @param {string} string
+ */
+const formatAsCapitalizedStringWithSpaces = (string: string) =>
+  capitalize(string.replace(/[A-Z]/g, match => ` ${match}`));
+
+/**
+ * A derived list of security classification options from classifiers list, including an empty string option and value
+ * @type {Array<ISecurityClassificationOption>}
+ */
+const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [
+  '',
+  ...classifiers.sort()
+].map((value: '' | Classification) => ({
+  value,
+  label: value ? formatAsCapitalizedStringWithSpaces(value) : '...'
+}));
 
 /**
  * Checks if the identifierType is a mixed Id
@@ -101,7 +132,7 @@ const getDefaultLogicalType = (identifierType: string): string | void => {
 /**
  * Returns a list of logicalType mappings for displaying its value and a label by logicalType
  * @param {('id' | 'generic')} logicalType 
- * @returns {Array<{value: NonIdLogicalType | IdLogicalType; label: string;}>}
+ * @returns {(Array<{ value: NonIdLogicalType | IdLogicalType; label: string }>)} 
  */
 const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
   const logicalTypes: Array<NonIdLogicalType | IdLogicalType> = {
@@ -129,13 +160,13 @@ const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
 
 /**
  * Map logicalTypes to options consumable by DOM
- * @returns {Array<{value: IdLogicalType; label: string;}>}
+ * @returns {(Array<{value: IdLogicalType; label: string;}>)}
  */
 const logicalTypesForIds = logicalTypeValueLabel('id');
 
 /**
  * Map generic logical type to options consumable in DOM
- * @returns {Array<{value: NonIdLogicalType; label: string;}>}
+ * @returns {(Array<{value: NonIdLogicalType; label: string;}>)}
  */
 const logicalTypesForGeneric = logicalTypeValueLabel('generic');
 
@@ -155,7 +186,8 @@ const fieldIdentifierTypeValues: Array<FieldIdValues> = Object.values(FieldIdVal
 
 export {
   defaultFieldDataTypeClassification,
-  classifiers,
+  securityClassificationDropdownOptions,
+  formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeIds,
   fieldIdentifierTypeValues,
   isMixedId,
