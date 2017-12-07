@@ -90,9 +90,11 @@
     </div>
   {{/if}}
 
-  {{#if (and (eq editStepIndex 0) (not _hasBadData))}}
-    {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
-  {{/if}}
+  {{#unless schemaless}}
+    {{#if (and (eq editStepIndex 0) (not _hasBadData))}}
+      {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+    {{/if}}
+  {{/unless}}
 
   {{#if (or isReadOnly (eq editStepIndex 2))}}
     {{partial "datasets/dataset-compliance/dataset-classification"}}
@@ -108,10 +110,25 @@
     }}
   {{/if}}
 
-  {{#if (or isReadOnly (eq editStepIndex 0))}}
-    {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
-  {{/if}}
+  {{#if schemaless}}
 
+    {{#if (or isReadOnly (eq editStepIndex 0))}}
+      {{datasets/schemaless-tagging
+        isEditable=(not isReadOnly)
+        classification=(readonly complianceInfo.confidentiality)
+        containsPersonalData=(readonly complianceInfo.containingPersonalData)
+        onClassificationChange=(action "onDatasetSecurityClassificationChange")
+        onPersonalDataChange=(action "onDatasetLevelPolicyChange")
+      }}
+    {{/if}}
+
+  {{else}}
+
+    {{#if (or isReadOnly (eq editStepIndex 0))}}
+      {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+    {{/if}}
+
+  {{/if}}
 </div>
 
 {{yield}}

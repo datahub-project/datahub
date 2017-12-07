@@ -31,8 +31,9 @@ interface IDatasetColumnWithHtmlComments extends IDatasetColumn {
  */
 interface IDatasetColumnsGetResponse {
   status: ApiStatus;
-  columns?: Array<IDatasetColumn> | null;
+  columns?: Array<IDatasetColumn>;
   message?: string;
+  schemaless: boolean;
 }
 
 export { IDatasetColumn, IDatasetColumnWithHtmlComments, IDatasetColumnsGetResponse };

@@ -64,18 +64,20 @@ const augmentObjectsWithHtmlComments = arrayMap(augmentWithHtmlComment);
 const columnDataTypesAndFieldNames = arrayMap(columnDataTypeAndFieldName);
 
 /**
- * Gets the dataset columns for a dataset with the id specified
+ * Gets the dataset columns for a dataset with the id specified and the schemaless flag
  * @param {number} id the id of the dataset
- * @return {Promise<Array<IDatasetColumn>>}
+ * @return {(Promise<{schemaless: boolean; columns: Array<IDatasetColumn>}>)}
  */
-const readDatasetColumns = async (id: number): Promise<Array<IDatasetColumn>> => {
-  const { status, columns, message = datasetColumnsException } = await getJSON<IDatasetColumnsGetResponse>({
+const readDatasetColumns = async (id: number): Promise<{ schemaless: boolean; columns: Array<IDatasetColumn> }> => {
+  const { status, columns = [], schemaless, message = datasetColumnsException } = await getJSON<
+    IDatasetColumnsGetResponse
+  >({
     url: datasetColumnUrlById(id)
   });
 
   // Returns an empty list if the status is ok but the columns is falsey
   if (status === ApiStatus.OK) {
-    return columns || [];
+    return { schemaless, columns };
   }
 
   throw new Error(message);

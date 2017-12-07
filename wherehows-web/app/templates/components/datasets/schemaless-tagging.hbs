@@ -1,0 +1,41 @@
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      Dataset <span title="Personally Identifiable Information" class="define-text">PII</span> & Security Classification
+    </p>
+  </header>
+</section>
+
+<div class="schemaless-tagging__tag">
+  <h4 class="schemaless-tagging__prompt">
+    Dataset contains personally identifiable information?
+  </h4>
+
+  <div class="schemaless-tagging__input">
+    {{input
+      id=(concat elementId '-schemaless-checkbox')
+      type="checkbox"
+      class="toggle-switch toggle-switch--light"
+      disabled=(not isEditable)
+      checked=(readonly containsPersonalData)
+      change=(action "onPersonalDataToggle" value="target.checked")
+    }}
+    <label for="{{concat elementId '-schemaless-checkbox'}}" class="toggle-button">
+    </label>
+  </div>
+</div>
+
+<div class="schemaless-tagging__tag">
+  <h4 class="schemaless-tagging__prompt">
+    Dataset security classification
+  </h4>
+
+  <div class="schemaless-tagging__input">
+    {{ember-selector
+      values=classifiers
+      selected=classification
+      disabled=(not isEditable)
+      selectionDidChange=(action "onSecurityClassificationChange")
+    }}
+  </div>
+</div>
