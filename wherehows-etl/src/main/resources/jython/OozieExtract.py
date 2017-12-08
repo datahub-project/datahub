@@ -162,7 +162,7 @@ class OozieExtract:
       schedule_record = OozieFlowScheduleRecord(self.app_id,
                                                 row['app_path'],
                                                 row['time_unit'],
-                                                int(row['frequency']),
+                                                str(row['frequency']),
                                                 None,
                                                 row['start_time'],
                                                 row['end_time'],
