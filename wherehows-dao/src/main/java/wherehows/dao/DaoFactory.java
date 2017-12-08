@@ -14,13 +14,13 @@
 package wherehows.dao;
 
 import javax.persistence.EntityManagerFactory;
-import wherehows.dao.table.DatasetClassificationDao;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
 import wherehows.dao.table.LineageDao;
+import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
 
@@ -58,10 +58,6 @@ public class DaoFactory {
     return new OwnerViewDao(entityManagerFactory);
   }
 
-  public DatasetClassificationDao getDatasetClassificationDao() {
-    return new DatasetClassificationDao(entityManagerFactory);
-  }
-
   public DatasetOwnerDao getDatasteOwnerDao() {
     return new DatasetOwnerDao(entityManagerFactory);
   }
@@ -78,4 +74,7 @@ public class DaoFactory {
     return new FieldDetailDao(entityManagerFactory);
   }
 
+  public DataTypesViewDao getDataTypesViewDao() {
+    return new DataTypesViewDao(entityManagerFactory);
+  }
 }

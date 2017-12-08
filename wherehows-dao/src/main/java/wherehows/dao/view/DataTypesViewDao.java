@@ -11,19 +11,29 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.dao.table;
+package wherehows.dao.view;
 
+import java.util.List;
 import javax.persistence.EntityManagerFactory;
-import wherehows.models.table.DatasetClassification;
 
 
-public class DatasetClassificationDao extends BaseDao {
+public class DataTypesViewDao extends BaseViewDao {
 
-  public DatasetClassificationDao(EntityManagerFactory factory) {
+  public DataTypesViewDao(EntityManagerFactory factory) {
     super(factory);
   }
 
-  public DatasetClassification getDatasetClassification(String urn) {
-    return find(DatasetClassification.class, urn);
+  /**
+   * Get all compliance dataTypes
+   */
+  public List<Object> getAllComplianceDataTypes() throws Exception {
+    throw new UnsupportedOperationException("Operation not implemented");
+  }
+
+  /**
+   * Get all data platforms
+   */
+  public List<Object> getAllPlatforms() throws Exception {
+    throw new UnsupportedOperationException("Operation not implemented");
   }
 }
