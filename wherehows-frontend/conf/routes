@@ -82,6 +82,10 @@ GET           /api/v1/list/flows/:application                                   
 
 GET           /api/v1/list/flows/:application/:project                          controllers.api.v1.Flow.getFlowListViewFlows(application:String, project:String)
 
+GET           /api/v1/list/platforms                                            controllers.api.v1.Dataset.getDataPlatforms()
+
+GET           /api/v1/list/complianceDataTypes                                  controllers.api.v1.Dataset.getComplianceDataTypes()
+
 GET           /api/v1/datasets                                                  controllers.api.v1.Dataset.getPagedDatasets()
 
 HEAD          /api/v1/datasets/urntoid/:urn                                     controllers.api.v1.Dataset.getDatasetIdByUrn(urn:String)
