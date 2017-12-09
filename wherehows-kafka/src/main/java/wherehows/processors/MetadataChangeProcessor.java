@@ -86,14 +86,14 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     final ChangeType changeType = changeAuditStamp.type;
 
-    if (changeType == ChangeType.DELETE) {
-      // TODO: delete dataset
-      throw new Exception("Dataset deletion not yet implemented: " + identifier);
-    }
-
     // check dataset name length to be within limit. Otherwise, save to DB will fail.
     if (identifier.nativeName.length() > MAX_DATASET_NAME_LENGTH) {
       throw new Exception("Dataset name too long: " + identifier);
+    }
+
+    if (changeType == ChangeType.DELETE) {
+      _dictDatasetDao.setDatasetRemoved(identifier, true, changeAuditStamp);
+      return;
     }
 
     final DatasetSchema dsSchema =
