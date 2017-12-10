@@ -65,7 +65,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     log.debug("Processing Metadata Change Event record.");
 
-    MetadataChangeEvent event = (MetadataChangeEvent) indexedRecord;
+    final MetadataChangeEvent event = (MetadataChangeEvent) indexedRecord;
     try {
       processEvent(event);
     } catch (Exception exception) {
@@ -91,23 +91,25 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
       throw new Exception("Dataset name too long: " + identifier);
     }
 
+    // if DELETE, mark dataset as removed and return
     if (changeType == ChangeType.DELETE) {
       _dictDatasetDao.setDatasetRemoved(identifier, true, changeAuditStamp);
       return;
     }
 
-    final DatasetSchema dsSchema =
-        (event.schema == null || event.schema instanceof Schemaless) ? null : (DatasetSchema) event.schema;
-    // TODO: handle Schemaless separately
+    final DatasetSchema dsSchema = event.schema instanceof DatasetSchema ? (DatasetSchema) event.schema : null;
 
     // create or update dataset
-    DictDataset ds = _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, dsSchema,
-        event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
+    final DictDataset ds =
+        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, dsSchema,
+            event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
 
     // if schema is not null, insert or update schema
-    if (dsSchema != null) {
+    if (dsSchema != null) { // if instanceof DatasetSchema
       _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), event.datasetProperty, changeAuditStamp,
           dsSchema);
+    } else if (event.schema instanceof Schemaless) { // if instanceof Schemaless
+      _fieldDetailDao.insertUpdateSchemaless(identifier, ds.getId(), changeAuditStamp);
     }
 
     // if owners are not null, insert or update owner
@@ -128,10 +130,10 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
   }
 
   private FailedMetadataChangeEvent newFailedEvent(MetadataChangeEvent event, Throwable throwable) {
-    FailedMetadataChangeEvent faileEvent = new FailedMetadataChangeEvent();
-    faileEvent.time = System.currentTimeMillis();
-    faileEvent.error = ExceptionUtils.getStackTrace(throwable);
-    faileEvent.metadataChangeEvent = event;
-    return faileEvent;
+    FailedMetadataChangeEvent failedEvent = new FailedMetadataChangeEvent();
+    failedEvent.time = System.currentTimeMillis();
+    failedEvent.error = ExceptionUtils.getStackTrace(throwable);
+    failedEvent.metadataChangeEvent = event;
+    return failedEvent;
   }
 }
