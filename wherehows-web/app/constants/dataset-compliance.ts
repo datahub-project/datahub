@@ -4,6 +4,14 @@ import { fieldIdentifierTypes } from 'wherehows-web/constants/datasets/complianc
 const { String: { htmlSafe } } = Ember;
 
 /**
+ * Defines the interface field identifier drop downs
+ */
+interface IFieldIdentifierOption {
+  value: string;
+  label: string;
+  isDisabled?: boolean;
+}
+/**
  * Defines a map of values for the compliance policy on a dataset
  * @type {object}
  */
@@ -38,11 +46,7 @@ const fieldDisplayKeys: Array<string> = ['none', '_', ...fieldIdentifierTypeKeys
  * A list of field identifier types mapped to label, value options for select display
  * @type {Array<{value: string, label: string, isDisabled: boolean}>}
  */
-const fieldIdentifierOptions: Array<{
-  value: string;
-  label: string;
-  isDisabled: boolean;
-}> = fieldDisplayKeys.map(fieldIdentifierType => {
+const fieldIdentifierOptions: Array<IFieldIdentifierOption> = fieldDisplayKeys.map(fieldIdentifierType => {
   const divider = '──────────';
   const { value = fieldIdentifierType, displayAs: label = divider } = fieldIdentifierTypes[fieldIdentifierType] || {};
 
@@ -99,4 +103,11 @@ const getComplianceSteps = (
   return complianceSteps;
 };
 
-export { compliancePolicyStrings, fieldIdentifierOptions, complianceSteps, hiddenTrackingFields, getComplianceSteps };
+export {
+  compliancePolicyStrings,
+  fieldIdentifierOptions,
+  complianceSteps,
+  hiddenTrackingFields,
+  getComplianceSteps,
+  IFieldIdentifierOption
+};
