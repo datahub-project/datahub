@@ -93,6 +93,26 @@ interface INonIdLogicalTypesSignature {
 }
 
 /**
+ * Describes the interface for a locally assembled compliance field instance
+ * used in rendering a compliance row
+ * @interface IComplianceField
+ */
+interface IComplianceField {
+  identifierType: FieldIdValues;
+  logicalType: string;
+  classification: Classification;
+  privacyPolicyExists: boolean;
+  isDirty: boolean;
+  suggestion?: {
+    identifierType: FieldIdValues;
+    logicalType: string;
+    securityClassification: Classification;
+    confidenceLevel: number;
+    suggestionsModificationTime: number;
+  };
+}
+
+/**
  * Describes the index signature for fieldIdentifierTypes
  * @interface IFieldIdTypes
  */
@@ -108,19 +128,19 @@ interface IFieldIdTypes {
  * A list of id logical types
  * @type {Array<IdLogicalType>}
  */
-const idLogicalTypes = Object.values(IdLogicalType).sort() as Array<IdLogicalType>;
+const idLogicalTypes: Array<IdLogicalType> = Object.values(IdLogicalType).sort();
 
 /**
  * A list of custom logical types that may be treated ids but have a different behaviour from regular ids
  * @type {Array<CustomIdLogicalType>}
  */
-const customIdLogicalTypes = Object.values(CustomIdLogicalType) as Array<CustomIdLogicalType>;
+const customIdLogicalTypes: Array<CustomIdLogicalType> = Object.values(CustomIdLogicalType);
 
 /**
  * List of non Id field data type classifications
  * @type {Array<NonIdLogicalType>}
  */
-const genericLogicalTypes = Object.values(NonIdLogicalType).sort() as Array<NonIdLogicalType>;
+const genericLogicalTypes: Array<NonIdLogicalType> = Object.values(NonIdLogicalType).sort();
 
 // Default mapping of field data types to security classification
 // https://iwww.corp.linkedin.com/wiki/cf/display/DWH/List+of+Metadata+for+Data+Sets
@@ -284,5 +304,6 @@ export {
   genericLogicalTypes,
   nonIdFieldLogicalTypes,
   fieldIdentifierTypes,
-  SuggestionIntent
+  SuggestionIntent,
+  IComplianceField
 };
