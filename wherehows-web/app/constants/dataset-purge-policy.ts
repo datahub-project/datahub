@@ -1,4 +1,4 @@
-import { DatasetPlatform } from 'wherehows-web/constants/dataset-platforms';
+import { DatasetPlatform } from 'wherehows-web/constants/datasets/platform';
 
 /**
  * Available values for the purge policy
