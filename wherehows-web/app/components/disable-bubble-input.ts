@@ -1,10 +1,8 @@
-import Ember from 'ember';
+import TextField from '@ember/component/text-field';
 
-const { TextField } = Ember;
-
-export default TextField.extend({
+export default class extends TextField {
   /**
    * Prevents click event bubbling
    */
-  click: () => false
-});
+  click: () => false;
+}
