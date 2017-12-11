@@ -23,6 +23,17 @@ export interface ISecurityClassificationOption {
 }
 
 /**
+ * Describes the interface for a drop down option for the field format column in the compliance table
+ * 
+ * @export
+ * @interface IFieldFormatDropdownOption
+ */
+export interface IFieldFormatDropdownOption {
+  value: IdLogicalType | NonIdLogicalType;
+  label: string;
+}
+
+/**
  * Length of time between suggestion modification time and last modified time for the compliance policy
  * If a policy has been updated within the range of this window then it is considered as stale / or
  * has been seen previously
@@ -131,16 +142,20 @@ const getDefaultLogicalType = (identifierType: string): string | void => {
 
 /**
  * Returns a list of logicalType mappings for displaying its value and a label by logicalType
- * @param {('id' | 'generic')} logicalType 
- * @returns {(Array<{ value: NonIdLogicalType | IdLogicalType; label: string }>)} 
+ * @template T IdLogicalType | NonIdLogicalType
+ * @template K 'id' | 'generic'
+ * @param {K} logicalType
+ * @returns {Array<{ value: T; label: string }>}
  */
-const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
-  const logicalTypes: Array<NonIdLogicalType | IdLogicalType> = {
+const logicalTypeValueLabel = <T extends IdLogicalType | NonIdLogicalType, K extends 'id' | 'generic'>(
+  logicalType: K
+) => {
+  const logicalTypes: Array<IdLogicalType | NonIdLogicalType> = {
     id: idLogicalTypes,
     generic: genericLogicalTypes
   }[logicalType];
 
-  return logicalTypes.map((value: NonIdLogicalType | IdLogicalType) => {
+  return logicalTypes.map((value: T) => {
     let label: string;
 
     // guard checks that if the logical type string is generic, then the value union can be assumed to be
@@ -160,15 +175,15 @@ const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
 
 /**
  * Map logicalTypes to options consumable by DOM
- * @returns {(Array<{value: IdLogicalType; label: string;}>)}
+ * @returns {Array<IFieldFormatDropdownOption>}
  */
-const logicalTypesForIds = logicalTypeValueLabel('id');
+const logicalTypesForIds: Array<IFieldFormatDropdownOption> = logicalTypeValueLabel('id');
 
 /**
  * Map generic logical type to options consumable in DOM
- * @returns {(Array<{value: NonIdLogicalType; label: string;}>)}
+ * @returns {Array<IFieldFormatDropdownOption>}
  */
-const logicalTypesForGeneric = logicalTypeValueLabel('generic');
+const logicalTypesForGeneric: Array<IFieldFormatDropdownOption> = logicalTypeValueLabel('generic');
 
 /**
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID

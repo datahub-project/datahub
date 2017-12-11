@@ -40,7 +40,7 @@ export interface ISuggestedFieldClassification {
 }
 
 /**
- * Describes the interface for an object containing suggested compluabce metadata for a dataset
+ * Describes the interface for an object containing suggested compliance metadata for a dataset
  * @export
  * @interface ISuggestedDatasetClassification
  */

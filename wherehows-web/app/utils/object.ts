@@ -7,9 +7,9 @@ const isObject = (candidate: any): candidate is object =>
 
 /**
  * Checks that an object has it own enumerable props
- * @param {Object} object the object to the be tested
+ * @param {any} object the object to the be tested
  * @return {boolean} true if enumerable keys are present
  */
-const hasEnumerableKeys = (object: object): boolean => isObject(object) && !!Object.keys(object).length;
+const hasEnumerableKeys = (object: any): boolean => isObject(object) && !!Object.keys(object).length;
 
 export { isObject, hasEnumerableKeys };
