@@ -72,7 +72,7 @@ enum ComplianceFieldIdValue {
 }
 
 /**
- * Defines the string values for a custom id logical tyoe
+ * Defines the string values for a custom id logical type
  * @enum {string}
  */
 enum CustomIdLogicalType {
