@@ -123,29 +123,3 @@ export interface IComplianceSuggestionResponse {
   status: ApiStatus;
   complianceSuggestion?: IComplianceSuggestion;
 }
-
-/**
- * Describes the interface for a complianceDataType
- * @export
- * @interface IComplianceDataType
- */
-export interface IComplianceDataType {
-  pii: boolean;
-  idType: boolean;
-  defaultSecurityClassification: Classification;
-  title: string;
-  $URN: string;
-  supportedFieldFormats: Array<IdLogicalType>;
-  id: ComplianceFieldIdValue;
-}
-
-/**
- * Describes the interface for a request to the complianceDataType endpoint
- * @export
- * @interface IComplianceDataTypeResponse
- */
-export interface IComplianceDataTypeResponse {
-  status: ApiStatus;
-  complianceDataTypes?: Array<IComplianceDataType>;
-  msg?: string;
-}
