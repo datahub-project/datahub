@@ -6,7 +6,7 @@ import {
   defaultFieldDataTypeClassification,
   fieldIdentifierOptions,
   fieldIdentifierTypeIds,
-  FieldIdValues,
+  ComplianceFieldIdValue,
   hasPredefinedFieldFormat,
   IComplianceField,
   IFieldIdentifierOption,
@@ -33,7 +33,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * Describes action interface for `onFieldIdentifierTypeChange`
    * @memberof DatasetComplianceRow
    */
-  onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: FieldIdValues }) => void;
+  onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: ComplianceFieldIdValue }) => void;
 
   /**
    * Describes action interface for `onFieldLogicalTypeChange`
@@ -145,17 +145,19 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Returns a computed value for the field identifierType
-   * @type {ComputedProperty<FieldIdValues>}
+   * @type {ComputedProperty<ComplianceFieldIdValue>}
    * @memberof DatasetComplianceRow
    */
-  identifierType = computed('field.identifierType', 'prediction', function(this: DatasetComplianceRow): FieldIdValues {
+  identifierType = computed('field.identifierType', 'prediction', function(
+    this: DatasetComplianceRow
+  ): ComplianceFieldIdValue {
     /**
      * Describes the interface for the options bag param passed into the getIdentifierType function below
      * @interface IGetIdentParams
      */
     interface IGetIdentParams {
-      identifierType: FieldIdValues;
-      prediction: { identifierType: FieldIdValues } | void;
+      identifierType: ComplianceFieldIdValue;
+      prediction: { identifierType: ComplianceFieldIdValue } | void;
     }
 
     const { field: { identifierType }, prediction } = getProperties(this, ['field', 'prediction']);
@@ -163,9 +165,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Inner function takes the field.identifierType and prediction values, and
      * returns the identifierType to be rendered in the ui
      * @param {IGetIdentParams} params 
-     * @returns {FieldIdValues} 
+     * @returns {ComplianceFieldIdValue}
      */
-    const getIdentifierType = (params: IGetIdentParams): FieldIdValues => {
+    const getIdentifierType = (params: IGetIdentParams): ComplianceFieldIdValue => {
       const {
         identifierType,
         prediction: { identifierType: suggestedIdentifierType } = { identifierType: void 0 }
@@ -202,7 +204,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   fieldFormats = computed('field.identifierType', function(
     this: DatasetComplianceRow
   ): Array<IFieldFormatDropdownOption> | undefined {
-    const identifierType: FieldIdValues = get(get(this, 'field'), 'identifierType');
+    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
     const urnFieldFormat: IFieldFormatDropdownOption | void = logicalTypesForIds.findBy('value', 'URN');
     const fieldFormats: Array<IFieldFormatDropdownOption> = fieldIdentifierTypeIds.includes(identifierType)
       ? logicalTypesForIds
@@ -261,12 +263,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Extracts the field suggestions into a cached computed property, if a suggestion exists
-   * @type {ComputedProperty<{ identifierType: FieldIdValues; logicalType: string; confidence: number } | void>}
+   * @type {(ComputedProperty<{ identifierType: ComplianceFieldIdValue; logicalType: string; confidence: number } | void>)}
    * @memberof DatasetComplianceRow
    */
   prediction = computed('field.suggestion', 'field.suggestionAuthority', function(
     this: DatasetComplianceRow
-  ): { identifierType: FieldIdValues; logicalType: string; confidence: number } | void {
+  ): { identifierType: ComplianceFieldIdValue; logicalType: string; confidence: number } | void {
     const field = getWithDefault(this, 'field', <IComplianceField>{});
     // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
     // the suggestion for this field. It's value should not be taken into account on re-renders
@@ -287,9 +289,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   actions = {
     /**
      * Handles UI changes to the field identifierType
-     * @param {{ value: FieldIdValues }} { value } 
+     * @param {{ value: ComplianceFieldIdValue }} { value }
      */
-    onFieldIdentifierTypeChange(this: DatasetComplianceRow, { value }: { value: FieldIdValues }) {
+    onFieldIdentifierTypeChange(this: DatasetComplianceRow, { value }: { value: ComplianceFieldIdValue }) {
       const onFieldIdentifierTypeChange = get(this, 'onFieldIdentifierTypeChange');
       if (typeof onFieldIdentifierTypeChange === 'function') {
         onFieldIdentifierTypeChange(get(this, 'field'), { value });

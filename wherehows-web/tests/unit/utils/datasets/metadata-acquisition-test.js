@@ -37,7 +37,7 @@ const nonIdFieldLogicalTypeValues = Object.values(NonIdLogicalType);
  * A list of expected IdLogicalType string display values
  * @type {Array<string>}
  */
-const idFieldLogicalTypeDisplayStrings = ['ID', 'Urn', 'Reversed Urn', 'Composite Urn'];
+const idFieldLogicalTypeDisplayStrings = ['Numeric', 'Urn', 'Reversed Urn', 'Composite Urn'];
 
 /**
  * A list of IdLogicalType string values
@@ -65,18 +65,18 @@ test('logicalTypeValueLabel generates correct labels for generic types', functio
   labels.forEach(({ label, value }) => {
     assert.ok(
       nonIdFieldLogicalTypesDisplayStrings.includes(label),
-      `Generated label ${label} found in ${nonIdFieldLogicalTypesDisplayStrings}`
+      `Generated label ${label} found in nonIdFieldLogicalTypesDisplayStrings: ${nonIdFieldLogicalTypesDisplayStrings}`
     );
     assert.ok(nonIdFieldLogicalTypeValues.includes(value), `Value ${value} found in ${nonIdFieldLogicalTypeValues}`);
   });
 });
 
-test('logicalTypeValueLabel generates correct labels for generic type', function(assert) {
+test('logicalTypeValueLabel generates correct labels for id types', function(assert) {
   const labels = logicalTypeValueLabel('id');
   labels.forEach(({ label, value }) => {
     assert.ok(
       idFieldLogicalTypeDisplayStrings.includes(label),
-      `Generated label ${label} found in ${idFieldLogicalTypeDisplayStrings}`
+      `Generated label ${label} found in idFieldLogicalTypeDisplayStrings: ${idFieldLogicalTypeDisplayStrings}`
     );
 
     assert.ok(idFieldLogicalTypeValues.includes(value), `Value ${value} found in ${idFieldLogicalTypeValues}`);
