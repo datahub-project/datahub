@@ -27,14 +27,6 @@ enum IdLogicalType {
 }
 
 /**
- * Defines the string values for a custom id logical tyoe
- * @enum {string}
- */
-enum CustomIdLogicalType {
-  Custom = 'CUSTOM_ID'
-}
-
-/**
  * Enum of values for non id / generic logical types
  * @enum {string}
  */
@@ -77,6 +69,14 @@ enum ComplianceFieldIdValue {
   SeatId = 'SEAT_ID',
   AdvertiserId = 'ADVERTISER_ID',
   SlideshareUserId = 'SLIDESHARE_USER_ID'
+}
+
+/**
+ * Defines the string values for a custom id logical tyoe
+ * @enum {string}
+ */
+enum CustomIdLogicalType {
+  Custom = ComplianceFieldIdValue.CustomId
 }
 
 /**
