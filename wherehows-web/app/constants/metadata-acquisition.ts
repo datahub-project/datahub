@@ -9,7 +9,7 @@ import {
   genericLogicalTypes,
   fieldIdentifierTypes,
   IdLogicalType,
-  FieldIdValues
+  ComplianceFieldIdValue
 } from 'wherehows-web/constants/datasets/compliance';
 
 /**
@@ -187,17 +187,17 @@ const logicalTypesForGeneric: Array<IFieldFormatDropdownOption> = logicalTypeVal
 
 /**
  * A list of field identifier types that are Ids i.e member ID, org ID, group ID
- * @type {Array<FieldIdValues>}
+ * @type {Array<ComplianceFieldIdValue>}
  */
-const fieldIdentifierTypeIds: Array<FieldIdValues> = Object.values(fieldIdentifierTypes)
+const fieldIdentifierTypeIds: Array<ComplianceFieldIdValue> = Object.values(fieldIdentifierTypes)
   .filter(({ isId }) => isId)
   .map(({ value }) => value);
 
 /**
  * Caches a list of fieldIdentifierTypes values
- * @type {Array<FieldIdValues>}
+ * @type {Array<ComplianceFieldIdValue>}
  */
-const fieldIdentifierTypeValues: Array<FieldIdValues> = Object.values(FieldIdValues);
+const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = Object.values(ComplianceFieldIdValue);
 
 export {
   defaultFieldDataTypeClassification,
