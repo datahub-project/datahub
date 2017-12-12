@@ -20,7 +20,7 @@ enum Classification {
  * @enum {string}
  */
 enum IdLogicalType {
-  Id = 'ID',
+  Numeric = 'NUMERIC',
   Urn = 'URN',
   ReversedUrn = 'REVERSED_URN',
   CompositeUrn = 'COMPOSITE_URN'
@@ -63,7 +63,7 @@ enum NonIdLogicalType {
  * String values for field Identifier type
  * @enum {string}
  */
-enum FieldIdValues {
+enum ComplianceFieldIdValue {
   None = 'NONE',
   MemberId = 'MEMBER_ID',
   SubjectMemberId = 'SUBJECT_MEMBER_ID',
@@ -98,13 +98,13 @@ interface INonIdLogicalTypesSignature {
  * @interface IComplianceField
  */
 interface IComplianceField {
-  identifierType: FieldIdValues;
+  identifierType: ComplianceFieldIdValue;
   logicalType: string;
   classification: Classification;
   privacyPolicyExists: boolean;
   isDirty: boolean;
   suggestion?: {
-    identifierType: FieldIdValues;
+    identifierType: ComplianceFieldIdValue;
     logicalType: string;
     securityClassification: Classification;
     confidenceLevel: number;
@@ -118,7 +118,7 @@ interface IComplianceField {
  */
 interface IFieldIdTypes {
   [prop: string]: {
-    value: FieldIdValues;
+    value: ComplianceFieldIdValue;
     isId: boolean;
     displayAs: string;
   };
@@ -225,69 +225,69 @@ const nonIdFieldLogicalTypes: INonIdLogicalTypesSignature = {
  */
 const fieldIdentifierTypes: IFieldIdTypes = {
   none: {
-    value: FieldIdValues.None,
+    value: ComplianceFieldIdValue.None,
     isId: false,
     displayAs: 'Not an ID'
   },
   member: {
-    value: FieldIdValues.MemberId,
+    value: ComplianceFieldIdValue.MemberId,
     isId: true,
     displayAs: 'Member ID'
   },
   subjectMember: {
-    value: FieldIdValues.SubjectMemberId,
+    value: ComplianceFieldIdValue.SubjectMemberId,
     isId: true,
     displayAs: 'Member ID (Subject Owner)'
   },
   group: {
-    value: FieldIdValues.GroupId,
+    value: ComplianceFieldIdValue.GroupId,
     isId: true,
     displayAs: 'Group ID'
   },
   organization: {
-    value: FieldIdValues.CompanyId,
+    value: ComplianceFieldIdValue.CompanyId,
     isId: true,
     displayAs: 'Organization ID'
   },
   generic: {
-    value: FieldIdValues.MixedId,
+    value: ComplianceFieldIdValue.MixedId,
     isId: false,
     displayAs: 'Mixed'
   },
   custom: {
-    value: FieldIdValues.CustomId,
+    value: ComplianceFieldIdValue.CustomId,
     isId: false,
     // Although rendered as though an id, it's custom and from a UI perspective does not share a key similarity to other
     // ids, a logicalType / (field format) is not required to update this fields properties
     displayAs: 'Custom ID'
   },
   enterpriseProfile: {
-    value: FieldIdValues.EnterpriseProfileId,
+    value: ComplianceFieldIdValue.EnterpriseProfileId,
     isId: true,
     displayAs: 'Enterprise Profile ID'
   },
   enterpriseAccount: {
-    value: FieldIdValues.EnterpriseAccountId,
+    value: ComplianceFieldIdValue.EnterpriseAccountId,
     isId: true,
     displayAs: 'Enterprise Account ID'
   },
   contract: {
-    value: FieldIdValues.ContractId,
+    value: ComplianceFieldIdValue.ContractId,
     isId: true,
     displayAs: 'Contract ID'
   },
   seat: {
-    value: FieldIdValues.SeatId,
+    value: ComplianceFieldIdValue.SeatId,
     isId: true,
     displayAs: 'Seat ID'
   },
   advertiser: {
-    value: FieldIdValues.AdvertiserId,
+    value: ComplianceFieldIdValue.AdvertiserId,
     isId: true,
     displayAs: 'Advertiser ID'
   },
   slideshare: {
-    value: FieldIdValues.SlideshareUserId,
+    value: ComplianceFieldIdValue.SlideshareUserId,
     isId: true,
     displayAs: 'SlideShare User ID'
   }
@@ -295,7 +295,7 @@ const fieldIdentifierTypes: IFieldIdTypes = {
 
 export {
   Classification,
-  FieldIdValues,
+  ComplianceFieldIdValue,
   IdLogicalType,
   idLogicalTypes,
   CustomIdLogicalType,

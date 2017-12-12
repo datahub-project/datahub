@@ -1,6 +1,6 @@
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import {
-  FieldIdValues,
+  ComplianceFieldIdValue,
   Classification,
   IdLogicalType,
   CustomIdLogicalType,
@@ -32,7 +32,7 @@ export interface IComplianceSuggestion {
 export interface ISuggestedFieldClassification {
   confidenceLevel: number;
   suggestion: {
-    identifierType: FieldIdValues;
+    identifierType: ComplianceFieldIdValue;
     identifierField: string;
     logicalType: IdLogicalType | CustomIdLogicalType | NonIdLogicalType;
     securityClassification: Classification;
@@ -59,4 +59,30 @@ export type ISuggestedDatasetClassification = {
 export interface IComplianceSuggestionResponse {
   status: ApiStatus;
   complianceSuggestion?: IComplianceSuggestion;
+}
+
+/**
+ * Describes the interface for a complianceDataType
+ * @export
+ * @interface IComplianceDataType
+ */
+export interface IComplianceDataType {
+  pii: boolean;
+  idType: boolean;
+  defaultSecurityClassification: Classification;
+  title: string;
+  $URN: string;
+  supportedFieldFormats: Array<IdLogicalType>;
+  id: ComplianceFieldIdValue;
+}
+
+/**
+ * Describes the interface for a request to the complianceDataType endpoint
+ * @export
+ * @interface IComplianceDataTypeResponse
+ */
+export interface IComplianceDataTypeResponse {
+  status: ApiStatus;
+  complianceDataTypes?: Array<IComplianceDataType>;
+  msg?: string;
 }
