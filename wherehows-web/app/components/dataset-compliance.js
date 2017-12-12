@@ -4,7 +4,7 @@ import {
   securityClassificationDropdownOptions,
   DatasetClassifiers,
   fieldIdentifierTypes,
-  fieldIdentifierOptions,
+  getFieldIdentifierOptions,
   fieldIdentifierTypeIds,
   idLogicalTypes,
   nonIdFieldLogicalTypes,
@@ -94,7 +94,6 @@ export default Component.extend({
   sortDirection: 'asc',
   searchTerm: '',
   helpText,
-  fieldIdentifierOptions,
   hiddenTrackingFields,
 
   /**
@@ -115,6 +114,15 @@ export default Component.extend({
     return Object.keys(steps)
       .sort()
       .map(key => steps[key]);
+  }),
+
+  /**
+   * Reads the complianceDataTypes property and transforms into a list of drop down options for the field
+   * identifier type
+   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption>>}
+   */
+  complianceFieldIdDropdownOptions: computed('complianceDataTypes', function() {
+    return getFieldIdentifierOptions(get(this, 'complianceDataTypes'));
   }),
 
   /**

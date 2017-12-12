@@ -111,6 +111,7 @@
         {{#body.row
           field=field
           isNewComplianceInfo=isNewComplianceInfo
+          complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
           class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
@@ -161,7 +162,7 @@
           {{#row.cell class="dataset-compliance-fields__tall-cell"}}
             {{ember-selector
               disabled=(not isEditing)
-              values=fieldIdentifierOptions
+              values=complianceFieldIdDropdownOptions
               selected=(readonly row.identifierType)
               selectionDidChange=(action row.onFieldIdentifierTypeChange)
             }}

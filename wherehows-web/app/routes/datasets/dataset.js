@@ -3,6 +3,7 @@ import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
 import { readNonPinotProperties, readPinotProperties } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
+import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
 import {
   readDatasetColumns,
   columnDataTypesAndFieldNames,
@@ -110,6 +111,7 @@ export default Route.extend({
           const [
             { schemaless, columns },
             compliance,
+            complianceDataTypes,
             complianceSuggestion,
             datasetComments,
             isInternal,
@@ -119,6 +121,7 @@ export default Route.extend({
           ] = await Promise.all([
             readDatasetColumns(id),
             readDatasetCompliance(id),
+            readComplianceDataTypes(),
             readDatasetComplianceSuggestion(id),
             readDatasetComments(id),
             get(this, 'configurator').getConfig('isInternal'),
@@ -137,6 +140,7 @@ export default Route.extend({
 
           setProperties(controller, {
             complianceInfo,
+            complianceDataTypes,
             isNewComplianceInfo,
             complianceSuggestion,
             datasetComments,
