@@ -4,21 +4,10 @@ import {
   logicalTypeValueLabel,
   formatAsCapitalizedStringWithSpaces
 } from 'wherehows-web/constants/metadata-acquisition';
-import {
-  Classification,
-  nonIdFieldLogicalTypes,
-  NonIdLogicalType,
-  IdLogicalType
-} from 'wherehows-web/constants/datasets/compliance';
+import { nonIdFieldLogicalTypes, NonIdLogicalType, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { module, test } from 'qunit';
 
 module('Unit | Utility | datasets/metadata acquisition');
-
-/**
- * A list of classification strings for a dataset field
- * @type {Array<Classification>}
- */
-const classificationStrings = Object.values(Classification);
 
 /**
  * A list of display string for non-id field logical types
