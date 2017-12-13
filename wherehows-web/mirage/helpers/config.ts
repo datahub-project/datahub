@@ -1,3 +1,4 @@
+import { IFunctionRouteHandler } from 'wherehows-web/typings/ember-cli-mirage';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 
 /**
@@ -5,11 +6,11 @@ import { ApiStatus } from 'wherehows-web/utils/api/shared';
  * @param {object} config the config table / factory object
  * @return {{status: ApiStatus, config: object}}
  */
-const getConfig = ({ config }: { config: object }) => ({
-  status: ApiStatus.OK,
-  config
-});
+const getConfig = function(this: IFunctionRouteHandler, { configs }: { configs: any }) {
+  return {
+    status: ApiStatus.OK,
+    config: this.serialize(configs.first())
+  };
+};
 
-export {
-  getConfig
-}
+export { getConfig };

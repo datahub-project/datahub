@@ -13,6 +13,16 @@ export default function(this: IMirageServer) {
 
   this.namespace = '/api/v1';
 
+  this.get('/list/complianceDataTypes', function(
+    this: IFunctionRouteHandler,
+    { complianceDataTypes }: { complianceDataTypes: any }
+  ) {
+    return {
+      complianceDataTypes: this.serialize(complianceDataTypes.all()),
+      status: ApiStatus.OK
+    };
+  });
+
   interface IComplianceSuggestionsObject {
     complianceSuggestions: any;
   }
@@ -140,6 +150,7 @@ export default function(this: IMirageServer) {
       status: ApiStatus.OK
     };
   });
+
   this.passthrough();
 }
 

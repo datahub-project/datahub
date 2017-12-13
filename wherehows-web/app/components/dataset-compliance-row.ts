@@ -4,7 +4,6 @@ import { computed, get, getProperties, getWithDefault } from '@ember/object';
 import {
   Classification,
   defaultFieldDataTypeClassification,
-  fieldIdentifierOptions,
   fieldIdentifierTypeIds,
   ComplianceFieldIdValue,
   hasPredefinedFieldFormat,
@@ -30,29 +29,29 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   field: IComplianceField;
 
   /**
-   * Describes action interface for `onFieldIdentifierTypeChange`
+   * Describes action interface for `onFieldIdentifierTypeChange` action
    * @memberof DatasetComplianceRow
    */
   onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: ComplianceFieldIdValue }) => void;
 
   /**
-   * Describes action interface for `onFieldLogicalTypeChange`
+   * Describes action interface for `onFieldLogicalTypeChange` action
    * @memberof DatasetComplianceRow
    */
   onFieldLogicalTypeChange: (
     field: IComplianceField,
-    option: { value: void } | Pick<IFieldFormatDropdownOption, 'value'>
+    option: { value: void | IFieldFormatDropdownOption['value'] }
   ) => void;
 
   /**
-   * Describes action interface for `onFieldClassificationChange`
+   * Describes action interface for `onFieldClassificationChange` action
    * 
    * @memberof DatasetComplianceRow
    */
   onFieldClassificationChange: (field: IComplianceField, option: { value: '' | Classification }) => void;
 
   /**
-   * Describes action interface for `onSuggestionIntent`
+   * Describes action interface for `onSuggestionIntent` action
    * @memberof DatasetComplianceRow
    */
   onSuggestionIntent: (field: IComplianceField, intent?: SuggestionIntent) => void;
@@ -72,6 +71,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   dataType: ComputedProperty<string> = alias('field.dataType');
 
   /**
+   * Dropdown options for each compliance field / record
+   * @type {Array<IFieldIdentifierOption>}
+   * @memberof DatasetComplianceRow
+   */
+  complianceFieldIdDropdownOptions: Array<IFieldIdentifierOption>;
+
+  /**
    * Reference to the current value of the field's SuggestionIntent if present
    * indicates that the provided suggestion is either accepted or ignored
    * @type {(ComputedProperty<SuggestionIntent | void>)}
@@ -81,7 +87,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Maps the suggestion response, if present, to a string resolution
-   * @type CpmputedProperty<string | void>
+   * @type ComputedProperty<string | void>
    * @memberof DatasetComplianceRow
    */
   suggestionResolution = computed('suggestionAuthority', function(this: DatasetComplianceRow): string | void {
@@ -128,6 +134,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
        * @type {string}
        */
       const value = get(get(this, 'field'), fieldProp);
+      /**
+       * Field drop down options
+       */
+      const complianceFieldIdDropdownOptions = get(this, 'complianceFieldIdDropdownOptions');
 
       /**
        * Convenience function to get `label` attribute on the display properties object
@@ -137,7 +147,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
         ((Array.isArray(dropDownOptions) && dropDownOptions.findBy('value', value)) || { label: void 0 }).label;
 
       return {
-        identifierType: getLabel(fieldIdentifierOptions),
+        identifierType: getLabel(complianceFieldIdDropdownOptions),
         logicalType: getLabel(get(this, 'fieldFormats'))
       }[fieldProp];
     }
@@ -302,10 +312,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Handles the updates when the field logical type changes on this field
      * @param {IFieldFormatDropdownOption} option contains the selected dropdown value
      */
-    onFieldLogicalTypeChange(this: DatasetComplianceRow, option: IFieldFormatDropdownOption) {
-      const { value } = option;
+    onFieldLogicalTypeChange(this: DatasetComplianceRow, option: IFieldFormatDropdownOption | null) {
+      const { value } = option || { value: void 0 };
       const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
-      if (typeof onFieldLogicalTypeChange === 'function' && value) {
+      if (typeof onFieldLogicalTypeChange === 'function') {
         onFieldLogicalTypeChange(get(this, 'field'), { value });
       }
     },
