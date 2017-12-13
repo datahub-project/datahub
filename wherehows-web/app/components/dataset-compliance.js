@@ -7,7 +7,7 @@ import {
   getFieldIdentifierOptions,
   idLogicalTypes,
   nonIdFieldLogicalTypes,
-  defaultFieldDataTypeClassification,
+  getDefaultSecurityClassification,
   compliancePolicyStrings,
   logicalTypesForIds,
   hasPredefinedFieldFormat,
@@ -109,6 +109,12 @@ export default Component.extend({
   editStepIndex: initialStepIndex,
 
   /**
+   * List of complianceDataType values, defaults to an empty list
+   * @type {Array<IComplianceDataType>}
+   */
+  complianceDataTypes: [],
+
+  /**
    * Converts the hash of complianceSteps to a list of steps
    * @type {ComputedProperty<Array<{}>>}
    */
@@ -193,6 +199,7 @@ export default Component.extend({
   ),
 
   classNames: ['compliance-container'],
+
   classNameBindings: ['isEditing:compliance-container--edit-mode'],
 
   /**
@@ -424,9 +431,9 @@ export default Component.extend({
   datasetClassification: computed(`${datasetClassificationKey}.{${datasetClassifiersKeys.join(',')}}`, function() {
     const sourceDatasetClassification = get(this, datasetClassificationKey) || {};
 
-    return datasetClassifiersKeys.sort().reduce((classifiers, classifier) => {
+    return datasetClassifiersKeys.sort().reduce((datasetClassifiers, classifier) => {
       return [
-        ...classifiers,
+        ...datasetClassifiers,
         {
           classifier,
           value: sourceDatasetClassification[classifier],
@@ -621,26 +628,16 @@ export default Component.extend({
 
   /**
    * Sets the default classification for the given identifier field
-   * Using the provided logicalType, or in some cases the identifierType, determines the fields
-   * default security classification based on a lookup
+   * Using the identifierType, determine the field's default security classification based on a values
+   * supplied by complianceDataTypes endpoint
    * @param {String} identifierField the field for which the default classification should apply
-   * @param {String} [identifierType] the current identifier type for the field
-   * @param {String} [logicalType] the logicalType / (field format) for the identifierField
+   * @param {ComplianceFieldIdValue} identifierType the value of the field's identifier type
    */
-  setDefaultClassification({ identifierField, identifierType }, { value: logicalType = '' } = {}) {
-    let defaultTypeClassification = defaultFieldDataTypeClassification[logicalType] || null;
-    // If the identifierType is of custom, set the default classification to the of a CUSTOM_ID, otherwise use value
-    // based on logicalType
-    defaultTypeClassification =
-      identifierType === fieldIdentifierTypes.custom.value
-        ? defaultFieldDataTypeClassification['CUSTOM_ID']
-        : defaultTypeClassification;
+  setDefaultClassification({ identifierField, identifierType }) {
+    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
 
-    defaultTypeClassification =
-      identifierType === fieldIdentifierTypes.enterpriseAccount.value
-        ? defaultFieldDataTypeClassification['ID']
-        : defaultTypeClassification;
-    this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultTypeClassification });
+    this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultSecurityClassification });
   },
 
   /**
@@ -998,28 +995,16 @@ export default Component.extend({
 
     /**
      * Updates the logical type for the given identifierField
-     * @param {Object} field
+     * @param {IComplianceEntity} field
      * @prop {String} field.identifierField
      * @param {IComplianceField.logicalType} logicalType
      * @return {*|void}
      */
     onFieldLogicalTypeChange(field, logicalType) {
-      const { identifierField } = field;
       // default to undefined for falsey values
       logicalType || (logicalType = void 0);
 
-      // If the identifierField does not current exist, invoke onFieldIdentifierChange to add it on the compliance list
-      if (!field) {
-        this.actions.onFieldIdentifierTypeChange.call(
-          this,
-          { identifierField, logicalType },
-          { value: fieldIdentifierTypes.none.value }
-        );
-      } else {
-        setProperties(field, { logicalType, isDirty: true });
-      }
-
-      return this.setDefaultClassification({ identifierField }, { value: logicalType });
+      setProperties(field, { logicalType, isDirty: true });
     },
 
     /**
