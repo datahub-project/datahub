@@ -5,12 +5,12 @@ import {
   nonIdFieldLogicalTypes,
   NonIdLogicalType,
   idLogicalTypes,
-  customIdLogicalTypes,
   genericLogicalTypes,
   fieldIdentifierTypes,
   IdLogicalType,
   ComplianceFieldIdValue
 } from 'wherehows-web/constants/datasets/compliance';
+import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 
 /**
  * Defines the interface for an each security classification dropdown option
@@ -48,51 +48,17 @@ const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
 const lowQualitySuggestionConfidenceThreshold = 0.5;
 
 /**
- * A map of id logical types including custom ids to the default field classification for Ids
- * @type {Object}
- */
-const idFieldDataTypeClassification: { [K: string]: Classification.LimitedDistribution } = [
-  ...customIdLogicalTypes,
-  ...idLogicalTypes
-].reduce(
-  (classification, idLogicalType) =>
-    Object.assign(classification, { [idLogicalType]: Classification.LimitedDistribution }),
-  {}
-);
-
-/**
- * Creates a mapping of nonIdFieldLogicalTypes to default classification for that field
- * @type {Object}
- */
-const nonIdFieldDataTypeClassification: { [K: string]: Classification } = genericLogicalTypes.reduce(
-  (classification, logicalType) =>
-    Object.assign(classification, {
-      [logicalType]: nonIdFieldLogicalTypes[logicalType].classification
-    }),
-  {}
-);
-
-/**
- * A merge of id and non id field type security classifications
- * @type {([k: string]: Classification)}
- */
-const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
-
-/**
  * Stores a unique list of classification values
- * @type {Set<Classification>} the list of classification values
+ * @type {Array<Classification>} the list of classification values
  */
-const classifiers = Object.values(defaultFieldDataTypeClassification).filter(
-  (classifier, index, iter) => iter.indexOf(classifier) === index
-);
+const classifiers = Object.values(Classification);
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
  * @param {string} string
  */
-const formatAsCapitalizedStringWithSpaces = (string: string) =>
-  capitalize(string.replace(/[A-Z]/g, match => ` ${match}`));
+const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(string.toLowerCase().replace(/[_]/g, ' '));
 
 /**
  * A derived list of security classification options from classifiers list, including an empty string option and value
@@ -145,7 +111,7 @@ const getDefaultLogicalType = (identifierType: string): string | void => {
  * @template T IdLogicalType | NonIdLogicalType
  * @template K 'id' | 'generic'
  * @param {K} logicalType
- * @returns {Array<{ value: T; label: string }>}
+ * @returns {(Array<{ value: T; label: string }>)}
  */
 const logicalTypeValueLabel = <T extends IdLogicalType | NonIdLogicalType, K extends 'id' | 'generic'>(
   logicalType: K
@@ -191,8 +157,22 @@ const logicalTypesForGeneric: Array<IFieldFormatDropdownOption> = logicalTypeVal
  */
 const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = Object.values(ComplianceFieldIdValue);
 
+/**
+ * Retrieves the default security classification for an identifier type, or null if it does not exist
+ * @param {Array<IComplianceDataType>} [complianceDataTypes=[]] the list of compliance data types
+ * @param {ComplianceFieldIdValue} identifierType the compliance data type id string
+ * @returns {(IComplianceDataType['defaultSecurityClassification'] | null)}
+ */
+const getDefaultSecurityClassification = (
+  complianceDataTypes: Array<IComplianceDataType> = [],
+  identifierType: ComplianceFieldIdValue
+): IComplianceDataType['defaultSecurityClassification'] | null => {
+  const complianceDataType = complianceDataTypes.findBy('id', identifierType);
+
+  return complianceDataType ? complianceDataType.defaultSecurityClassification : null;
+};
+
 export {
-  defaultFieldDataTypeClassification,
   securityClassificationDropdownOptions,
   formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeValues,
@@ -204,5 +184,6 @@ export {
   getDefaultLogicalType,
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
-  logicalTypeValueLabel
+  logicalTypeValueLabel,
+  getDefaultSecurityClassification
 };
