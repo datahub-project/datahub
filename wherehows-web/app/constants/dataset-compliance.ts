@@ -1,16 +1,29 @@
 import Ember from 'ember';
-import { fieldIdentifierTypes } from 'wherehows-web/constants/datasets/compliance';
+import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
+import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
+import { arrayMap } from 'wherehows-web/utils/array';
 
 const { String: { htmlSafe } } = Ember;
 
 /**
  * Defines the interface field identifier drop downs
+ * @interface IFieldIdentifierOption
  */
 interface IFieldIdentifierOption {
   value: string;
   label: string;
   isDisabled?: boolean;
 }
+
+/**
+ * Defines the interface for compliance data type field options
+ * @interface IComplianceFieldIdentifierOption
+ * @extends {IFieldIdentifierOption}
+ */
+interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption {
+  value: ComplianceFieldIdValue;
+}
+
 /**
  * Defines a map of values for the compliance policy on a dataset
  * @type {object}
@@ -31,33 +44,20 @@ const compliancePolicyStrings = {
 };
 
 /**
- * List of identifier type keys without the none object value
- * @type {Array<string>}
+ * Takes a compliance data type and transforms it into a compliance field identifier option
+ * @param {IComplianceDataType} complianceDataType 
+ * @returns {IComplianceFieldIdentifierOption}
  */
-const fieldIdentifierTypeKeysBarNone: Array<string> = Object.keys(fieldIdentifierTypes).filter(k => k !== 'none');
+const getFieldIdentifierOption = (complianceDataType: IComplianceDataType): IComplianceFieldIdentifierOption => {
+  const { id, title } = complianceDataType;
+  return { value: id, label: title };
+};
 
 /**
- * Keys for the field display options
- * @type {Array<string>}
+ * Maps over a list of compliance data types objects and transforms to a list of dropdown options
+ * @type {(array: Array<IComplianceDataType>) => Array<IComplianceFieldIdentifierOption>}
  */
-const fieldDisplayKeys: Array<string> = ['none', '_', ...fieldIdentifierTypeKeysBarNone];
-
-/**
- * A list of field identifier types mapped to label, value options for select display
- * @type {Array<{value: string, label: string, isDisabled: boolean}>}
- */
-const fieldIdentifierOptions: Array<IFieldIdentifierOption> = fieldDisplayKeys.map(fieldIdentifierType => {
-  const divider = '──────────';
-  const { value = fieldIdentifierType, displayAs: label = divider } = fieldIdentifierTypes[fieldIdentifierType] || {};
-
-  // Adds a divider for a value of _
-  // Visually this separates ID from none fieldIdentifierTypes
-  return {
-    value,
-    label,
-    isDisabled: fieldIdentifierType === '_'
-  };
-});
+const getFieldIdentifierOptions = arrayMap(getFieldIdentifierOption);
 
 /**
  * Defines the html string for informing the user of hidden tracking fields
@@ -105,9 +105,11 @@ const getComplianceSteps = (
 
 export {
   compliancePolicyStrings,
-  fieldIdentifierOptions,
+  getFieldIdentifierOption,
+  getFieldIdentifierOptions,
   complianceSteps,
   hiddenTrackingFields,
   getComplianceSteps,
-  IFieldIdentifierOption
+  IFieldIdentifierOption,
+  IComplianceFieldIdentifierOption
 };
