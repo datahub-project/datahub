@@ -186,14 +186,6 @@ const logicalTypesForIds: Array<IFieldFormatDropdownOption> = logicalTypeValueLa
 const logicalTypesForGeneric: Array<IFieldFormatDropdownOption> = logicalTypeValueLabel('generic');
 
 /**
- * A list of field identifier types that are Ids i.e member ID, org ID, group ID
- * @type {Array<ComplianceFieldIdValue>}
- */
-const fieldIdentifierTypeIds: Array<ComplianceFieldIdValue> = Object.values(fieldIdentifierTypes)
-  .filter(({ isId }) => isId)
-  .map(({ value }) => value);
-
-/**
  * Caches a list of fieldIdentifierTypes values
  * @type {Array<ComplianceFieldIdValue>}
  */
@@ -203,7 +195,6 @@ export {
   defaultFieldDataTypeClassification,
   securityClassificationDropdownOptions,
   formatAsCapitalizedStringWithSpaces,
-  fieldIdentifierTypeIds,
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,

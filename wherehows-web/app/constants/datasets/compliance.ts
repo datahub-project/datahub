@@ -99,13 +99,13 @@ interface INonIdLogicalTypesSignature {
  */
 interface IComplianceField {
   identifierType: ComplianceFieldIdValue;
-  logicalType: string;
+  logicalType: IdLogicalType | null;
   classification: Classification;
   privacyPolicyExists: boolean;
   isDirty: boolean;
   suggestion?: {
     identifierType: ComplianceFieldIdValue;
-    logicalType: string;
+    logicalType: IComplianceField['logicalType'];
     securityClassification: Classification;
     confidenceLevel: number;
     suggestionsModificationTime: number;

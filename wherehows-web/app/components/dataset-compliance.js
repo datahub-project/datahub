@@ -5,13 +5,11 @@ import {
   DatasetClassifiers,
   fieldIdentifierTypes,
   getFieldIdentifierOptions,
-  fieldIdentifierTypeIds,
   idLogicalTypes,
   nonIdFieldLogicalTypes,
   defaultFieldDataTypeClassification,
   compliancePolicyStrings,
   logicalTypesForIds,
-  logicalTypesForGeneric,
   hasPredefinedFieldFormat,
   getDefaultLogicalType,
   getComplianceSteps,
@@ -52,6 +50,14 @@ const {
   successUploading,
   invalidPolicyData
 } = compliancePolicyStrings;
+
+/**
+ * Takes a list of compliance data types and maps a list of compliance id's with idType set to true
+ * @param {Array<IComplianceDataType>} [complianceDataTypes=[]] the list of compliance data types to transform
+ * @return {Array<ComplianceFieldIdValue>}
+ */
+const getIdTypeDataTypes = (complianceDataTypes = []) =>
+  complianceDataTypes.filter(complianceDataType => complianceDataType.idType).mapBy('id');
 
 /**
  * List of non Id field data type classifications
@@ -333,9 +339,6 @@ export default Component.extend({
 
   // Map logicalTypes to options consumable by DOM
   idLogicalTypes: logicalTypesForIds,
-
-  // Map generic logical type to options consumable in DOM
-  genericLogicalTypes: logicalTypesForGeneric,
 
   // Map of classifiers options for drop down
   classifiers: securityClassificationDropdownOptions,
@@ -725,7 +728,9 @@ export default Component.extend({
     const notify = get(this, 'notifications.notify');
     const complianceEntities = get(this, policyComplianceEntitiesKey);
     const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
-      complianceEntities.filter(({ identifierType }) => fieldIdentifierTypeIds.includes(identifierType)),
+      complianceEntities.filter(({ identifierType }) =>
+        getIdTypeDataTypes(get(this, 'complianceDataTypes')).includes(identifierType)
+      ),
       [...genericLogicalTypes, ...idLogicalTypes]
     );
     const fieldIdentifiersAreUnique = isListUnique(complianceEntities.mapBy('identifierField'));
@@ -995,11 +1000,13 @@ export default Component.extend({
      * Updates the logical type for the given identifierField
      * @param {Object} field
      * @prop {String} field.identifierField
-     * @param {Event} e the DOM change event
-     * @return {*}
+     * @param {IComplianceField.logicalType} logicalType
+     * @return {*|void}
      */
-    onFieldLogicalTypeChange(field, { value: logicalType } = {}) {
+    onFieldLogicalTypeChange(field, logicalType) {
       const { identifierField } = field;
+      // default to undefined for falsey values
+      logicalType || (logicalType = void 0);
 
       // If the identifierField does not current exist, invoke onFieldIdentifierChange to add it on the compliance list
       if (!field) {
