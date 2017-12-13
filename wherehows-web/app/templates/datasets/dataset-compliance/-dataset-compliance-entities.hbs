@@ -1,7 +1,9 @@
 <section class="metadata-prompt">
   <header class="metadata-prompt__header">
     <p>
-      {{if isEditing "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?" "IDs and PII in the schema"}}
+      {{if isEditing
+           "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?"
+           "IDs and PII in the schema"}}
       <a
         target="_blank"
         href="http://go/gdpr-pii">
@@ -53,7 +55,7 @@
         System Suggestion Confidence
       {{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}
-        ID Type
+        Compliance Information
         <a
           target="_blank"
           href="http://go/metadata_acquisition#ProjectOverview-compliance">
@@ -65,25 +67,11 @@
           </sup>
         </a>
       {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped dataset-compliance-fields__classification-column"}}
-        Security Classification
-        <sup>
-          <span
-            class="glyphicon glyphicon-question-sign"
-            title={{helpText.classification}}>
-            {{tooltip-on-component
-              event="click"
-              hideOn="click"
-              text=helpText.classification
-            }}
-          </span>
-        </sup>
-      {{/head.column}}
     {{/table.head}}
 
     <tr>
       <th></th>
-      <th colspan="5">
+      <th colspan="4">
         {{disable-bubble-input
           title="Search field names"
           placeholder="Search field names"
@@ -187,16 +175,31 @@
                 <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
               {{/if}}
             </div>
-          {{/row.cell}}
 
-          {{#row.cell class="dataset-compliance-fields__tall-cell"}}
-            {{ember-selector
-              class="nacho-select--hidden-state nacho-select--pre-wrap"
-              values=classifiers
-              selected=row.classification
-              disabled=(or (not isEditing) (not row.logicalType))
-              selectionDidChange=(action row.onFieldClassificationChange)
-            }}
+            <div>
+              <span>
+                Security Classification
+                <sup>
+                  <span
+                    class="glyphicon glyphicon-question-sign"
+                    title={{helpText.classification}}>
+                    {{tooltip-on-element
+                      event="click"
+                      hideOn="click"
+                      text=helpText.classification
+                    }}
+                  </span>
+                </sup>
+              </span>
+
+              {{ember-selector
+                class="nacho-select--hidden-state"
+                disabled=(not isEditing)
+                values=classifiers
+                selected=row.classification
+                selectionDidChange=(action row.onFieldClassificationChange)
+              }}
+            </div>
           {{/row.cell}}
         {{/body.row}}
       {{/each}}

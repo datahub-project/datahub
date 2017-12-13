@@ -67,17 +67,4 @@ $default-border: (1px solid shade($color, 20%));
       visibility: hidden;
     }
   }
-
-  &--pre-wrap {
-    height: item-spacing(7);
-
-    &::after {
-      margin-bottom: 15px;
-    }
-
-    select {
-      white-space: pre-wrap;
-      margin-bottom: 15px;
-    }
-  }
 }

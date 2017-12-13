@@ -10,9 +10,9 @@ enum SuggestionIntent {
  * Defines the string values that are allowed for a classification
  */
 enum Classification {
-  Confidential = 'confidential',
-  LimitedDistribution = 'limitedDistribution',
-  HighlyConfidential = 'highlyConfidential'
+  Confidential = 'CONFIDENTIAL',
+  LimitedDistribution = 'LIMITED_DISTRIBUTION',
+  HighlyConfidential = 'HIGHLY_CONFIDENTIAL'
 }
 
 /**
@@ -100,7 +100,7 @@ interface INonIdLogicalTypesSignature {
 interface IComplianceField {
   identifierType: ComplianceFieldIdValue;
   logicalType: IdLogicalType | null;
-  classification: Classification;
+  classification: Classification | null;
   privacyPolicyExists: boolean;
   isDirty: boolean;
   suggestion?: {

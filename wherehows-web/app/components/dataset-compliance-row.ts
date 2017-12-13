@@ -3,13 +3,11 @@ import ComputedProperty, { alias } from '@ember/object/computed';
 import { computed, get, getProperties, getWithDefault } from '@ember/object';
 import {
   Classification,
-  defaultFieldDataTypeClassification,
   ComplianceFieldIdValue,
   IComplianceField,
   IFieldIdentifierOption,
-  isMixedId,
-  logicalTypesForIds,
-  SuggestionIntent
+  SuggestionIntent,
+  getDefaultSecurityClassification
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
@@ -243,22 +241,22 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   });
 
   /**
-   * The field security classification
-   * @type {ComputedProperty<Classification>}
+   * The field's security classification
+   * Retrieves the field security classification from the compliance field if it exists, otherwise
+   * defaults to the default security classification for the identifier type
+   * in other words, the field must have a security classification if it has an identifier type
+   * @type {ComputedProperty<Classification | null>}
    * @memberof DatasetComplianceRow
    */
-  classification = computed('field.classification', 'field.identifierType', function(
+  classification = computed('field.classification', 'field.identifierType', 'complianceDataTypes', function(
     this: DatasetComplianceRow
-  ): Classification {
-    const identifierType = get(get(this, 'field'), 'identifierType');
-    const mixed = isMixedId(identifierType);
-    // Filtered list of id logical types that end with urn, or have no value
-    const urnFieldFormat = logicalTypesForIds.findBy('value', 'URN');
+  ): Classification | null {
+    const { field: { identifierType, classification }, complianceDataTypes } = getProperties(this, [
+      'field',
+      'complianceDataTypes'
+    ]);
 
-    return (
-      get(get(this, 'field'), 'classification') ||
-      (mixed && urnFieldFormat && defaultFieldDataTypeClassification[urnFieldFormat.value])
-    );
+    return classification || getDefaultSecurityClassification(complianceDataTypes, identifierType);
   });
 
   /**
