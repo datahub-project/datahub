@@ -65,19 +65,6 @@
           </sup>
         </a>
       {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
-        Field Format
-        <a
-          target="_blank"
-          href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
-          <sup>
-            More Info
-
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on Field Format"></span>
-          </sup>
-        </a>
-      {{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped dataset-compliance-fields__classification-column"}}
         Security Classification
         <sup>
@@ -96,7 +83,7 @@
 
     <tr>
       <th></th>
-      <th colspan="6">
+      <th colspan="5">
         {{disable-bubble-input
           title="Search field names"
           placeholder="Search field names"
@@ -112,6 +99,7 @@
           field=field
           isNewComplianceInfo=isNewComplianceInfo
           complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
+          complianceDataTypes=complianceDataTypes
           class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
@@ -160,37 +148,48 @@
           {{/row.cell}}
 
           {{#row.cell class="dataset-compliance-fields__tall-cell"}}
-            {{ember-selector
-              disabled=(not isEditing)
-              values=complianceFieldIdDropdownOptions
-              selected=(readonly row.identifierType)
-              selectionDidChange=(action row.onFieldIdentifierTypeChange)
-            }}
+            <div>
+              {{ember-selector
+                disabled=(not isEditing)
+                values=complianceFieldIdDropdownOptions
+                selected=(readonly row.identifierType)
+                selectionDidChange=(action row.onFieldIdentifierTypeChange)
+              }}
 
-            {{#if row.identifierTypeBeforeSuggestion}}
-              <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
-            {{/if}}
+              {{#if row.identifierTypeBeforeSuggestion}}
+                <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
+              {{/if}}
+            </div>
+
+            <div>
+              <span>
+                Field Format
+                <a
+                  target="_blank"
+                  href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
+                <sup>
+                More Info
+
+                <span class="glyphicon glyphicon-question-sign"
+                      title="More information on Field Format"></span>
+                </sup>
+                </a>
+              </span>
+
+              {{ember-selector
+                disabled=(not isEditing)
+                values=row.fieldFormats
+                selected=(readonly row.logicalType)
+                selectionDidChange=(action row.onFieldLogicalTypeChange)
+              }}
+
+              {{#if row.logicalTypeBeforeSuggestion}}
+                <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
+              {{/if}}
+            </div>
           {{/row.cell}}
 
           {{#row.cell class="dataset-compliance-fields__tall-cell"}}
-            {{#power-select
-              options=row.fieldFormats
-              selected=row.logicalType
-              disabled=(or row.isFieldFormatDisabled (not isEditing))
-              placeholder="Select Format"
-              allowClear=true
-              searchField="label"
-              triggerClass="ember-power-select-trigger-search"
-              onchange=(action row.onFieldLogicalTypeChange) as |fieldFormat|}}
-              {{fieldFormat.label}}
-            {{/power-select}}
-
-            {{#if row.logicalTypeBeforeSuggestion}}
-              <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
-            {{/if}}
-          {{/row.cell}}
-
-          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
             {{ember-selector
               class="nacho-select--hidden-state nacho-select--pre-wrap"
               values=classifiers

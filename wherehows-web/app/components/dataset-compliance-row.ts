@@ -4,20 +4,17 @@ import { computed, get, getProperties, getWithDefault } from '@ember/object';
 import {
   Classification,
   defaultFieldDataTypeClassification,
-  fieldIdentifierTypeIds,
   ComplianceFieldIdValue,
-  hasPredefinedFieldFormat,
   IComplianceField,
   IFieldIdentifierOption,
-  isCustomId,
   isMixedId,
-  logicalTypesForGeneric,
   logicalTypesForIds,
-  SuggestionIntent,
-  IFieldFormatDropdownOption
+  SuggestionIntent
 } from 'wherehows-web/constants';
+import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
 import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
 export default class DatasetComplianceRow extends DatasetTableRow {
@@ -29,6 +26,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   field: IComplianceField;
 
   /**
+   * Reference to the compliance data types
+   * @type {Array<IComplianceDataType>}
+   */
+  complianceDataTypes: Array<IComplianceDataType>;
+
+  /**
    * Describes action interface for `onFieldIdentifierTypeChange` action
    * @memberof DatasetComplianceRow
    */
@@ -38,10 +41,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * Describes action interface for `onFieldLogicalTypeChange` action
    * @memberof DatasetComplianceRow
    */
-  onFieldLogicalTypeChange: (
-    field: IComplianceField,
-    option: { value: void | IFieldFormatDropdownOption['value'] }
-  ) => void;
+  onFieldLogicalTypeChange: (field: IComplianceField, value: IComplianceField['logicalType']) => void;
 
   /**
    * Describes action interface for `onFieldClassificationChange` action
@@ -114,12 +114,11 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Checks if the field format drop-down should be disabled based on the type of the field
-   * @type {ComputedProperty<boolean>}
+   * *WIP
+   * @type {ComputedProperty<void>}
    * @memberof DatasetComplianceRow
    */
-  isFieldFormatDisabled = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
-    return hasPredefinedFieldFormat(get(get(this, 'field'), 'identifierType'));
-  }).readOnly();
+  isFieldFormatDisabled = computed('field.identifierType', noop).readOnly();
 
   /**
    *  Takes a field property and extracts the value on the current policy if a suggestion currently exists for the field
@@ -128,12 +127,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   getCurrentValueBeforeSuggestion(fieldProp: 'logicalType' | 'identifierType'): string | void {
-    if (hasEnumerableKeys(get(this, 'prediction'))) {
-      /**
-       * Current value on policy prior to the suggested value
-       * @type {string}
-       */
-      const value = get(get(this, 'field'), fieldProp);
+    /**
+     * Current value on policy prior to the suggested value
+     * @type {string}
+     */
+    const value = get(get(this, 'field'), fieldProp);
+
+    if (hasEnumerableKeys(get(this, 'prediction')) && value) {
       /**
        * Field drop down options
        */
@@ -148,7 +148,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
       return {
         identifierType: getLabel(complianceFieldIdDropdownOptions),
-        logicalType: getLabel(get(this, 'fieldFormats'))
+        logicalType: get(this, 'fieldFormats').find(format => format === value)
       }[fieldProp];
     }
   }
@@ -213,22 +213,16 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   fieldFormats = computed('field.identifierType', function(
     this: DatasetComplianceRow
-  ): Array<IFieldFormatDropdownOption> | undefined {
+  ): IComplianceDataType['supportedFieldFormats'] {
     const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
-    const urnFieldFormat: IFieldFormatDropdownOption | void = logicalTypesForIds.findBy('value', 'URN');
-    const fieldFormats: Array<IFieldFormatDropdownOption> = fieldIdentifierTypeIds.includes(identifierType)
-      ? logicalTypesForIds
-      : logicalTypesForGeneric;
+    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const complianceDataType = complianceDataTypes.findBy('id', identifierType);
 
-    if (isMixedId(identifierType)) {
-      return urnFieldFormat ? [urnFieldFormat] : void 0;
+    if (complianceDataType && complianceDataType.idType) {
+      return complianceDataType.supportedFieldFormats;
     }
 
-    if (isCustomId(identifierType)) {
-      return;
-    }
-
-    return fieldFormats;
+    return [];
   });
 
   /**
@@ -237,19 +231,15 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {(ComputedProperty<IFieldFormatDropdownOption | void>)}
    * @memberof DatasetComplianceRow
    */
-  logicalType = computed('field.logicalType', 'prediction', 'fieldFormats', function(
+  logicalType = computed('field.logicalType', 'prediction', function(
     this: DatasetComplianceRow
-  ): IFieldFormatDropdownOption | void {
-    let {
+  ): IComplianceField['logicalType'] {
+    const {
       field: { logicalType },
-      fieldFormats,
-      prediction: { logicalType: suggestedLogicalType } = { logicalType: void 0 }
-    } = getProperties(this, ['field', 'fieldFormats', 'prediction']);
+      prediction: { logicalType: suggestedLogicalType } = { logicalType: null }
+    } = getProperties(this, ['field', 'prediction']);
 
-    suggestedLogicalType && (logicalType = suggestedLogicalType);
-
-    // Same object reference for equality comparision
-    return Array.isArray(fieldFormats) ? fieldFormats.findBy('value', logicalType) : fieldFormats;
+    return suggestedLogicalType || logicalType;
   });
 
   /**
@@ -278,7 +268,11 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   prediction = computed('field.suggestion', 'field.suggestionAuthority', function(
     this: DatasetComplianceRow
-  ): { identifierType: ComplianceFieldIdValue; logicalType: string; confidence: number } | void {
+  ): {
+    identifierType: ComplianceFieldIdValue;
+    logicalType: IComplianceField['logicalType'];
+    confidence: number;
+  } | void {
     const field = getWithDefault(this, 'field', <IComplianceField>{});
     // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
     // the suggestion for this field. It's value should not be taken into account on re-renders
@@ -310,13 +304,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
     /**
      * Handles the updates when the field logical type changes on this field
-     * @param {IFieldFormatDropdownOption} option contains the selected dropdown value
+     * @param {(IComplianceField['logicalType'])} value contains the selected dropdown value
      */
-    onFieldLogicalTypeChange(this: DatasetComplianceRow, option: IFieldFormatDropdownOption | null) {
-      const { value } = option || { value: void 0 };
+    onFieldLogicalTypeChange(this: DatasetComplianceRow, value: IComplianceField['logicalType']) {
       const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
       if (typeof onFieldLogicalTypeChange === 'function') {
-        onFieldLogicalTypeChange(get(this, 'field'), { value });
+        onFieldLogicalTypeChange(get(this, 'field'), value);
       }
     },
 
@@ -352,7 +345,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
         }
 
         if (logicalType) {
-          this.actions.onFieldLogicalTypeChange.call(this, { value: logicalType });
+          this.actions.onFieldLogicalTypeChange.call(this, logicalType);
         }
       }
 
