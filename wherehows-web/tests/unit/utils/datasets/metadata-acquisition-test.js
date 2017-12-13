@@ -1,7 +1,6 @@
 import {
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
-  defaultFieldDataTypeClassification,
   logicalTypeValueLabel,
   formatAsCapitalizedStringWithSpaces
 } from 'wherehows-web/constants/metadata-acquisition';
@@ -54,12 +53,6 @@ test('lowQualitySuggestionConfidenceThreshold is a number', function(assert) {
   assert.ok(typeof lowQualitySuggestionConfidenceThreshold === 'number');
 });
 
-test('defaultFieldDataTypeClassification has classification values in classification enum', function(assert) {
-  Object.values(defaultFieldDataTypeClassification).forEach(classification => {
-    assert.ok(classificationStrings.includes(classification));
-  });
-});
-
 test('logicalTypeValueLabel generates correct labels for generic types', function(assert) {
   const labels = logicalTypeValueLabel('generic');
   labels.forEach(({ label, value }) => {
@@ -85,9 +78,9 @@ test('logicalTypeValueLabel generates correct labels for id types', function(ass
 
 test('formatAsCapitalizedStringWithSpaces generates the correct display string', function(assert) {
   [
-    ['confidential', 'Confidential'],
-    ['limitedDistribution', 'Limited Distribution'],
-    ['highlyConfidential', 'Highly Confidential']
+    ['CONFIDENTIAL', 'Confidential'],
+    ['LIMITED_DISTRIBUTION', 'Limited distribution'],
+    ['HIGHLY_CONFIDENTIAL', 'Highly confidential']
   ].forEach(([source, target]) => {
     assert.equal(formatAsCapitalizedStringWithSpaces(source), target, `correctly converts ${source}`);
   });
