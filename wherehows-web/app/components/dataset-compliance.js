@@ -468,7 +468,7 @@ export default Component.extend({
 
     return columnFieldProps.reduce((acc, { identifierField, dataType }) => {
       const currentPrivacyAttrs = getKeysOnField(
-        ['identifierType', 'logicalType', 'securityClassification'],
+        ['identifierType', 'logicalType', 'securityClassification', 'nonOwner'],
         identifierField,
         complianceEntities
       );
@@ -654,10 +654,11 @@ export default Component.extend({
     const datasetFields = get(
       this,
       'compliancePolicyChangeSet'
-    ).map(({ identifierField, identifierType, logicalType, classification }) => ({
+    ).map(({ identifierField, identifierType, logicalType, nonOwner, classification }) => ({
       identifierField,
       identifierType,
       logicalType,
+      nonOwner,
       securityClassification: classification
     }));
     // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
@@ -685,7 +686,8 @@ export default Component.extend({
         identifierField,
         identifierType: fieldIdentifierTypes.none.value,
         logicalType: null,
-        securityClassification: null
+        securityClassification: null,
+        nonOwner: false
       }));
 
       const confirmHandler = (function() {
@@ -976,14 +978,16 @@ export default Component.extend({
      * @param {String} identifierType
      */
     onFieldIdentifierTypeChange({ identifierField }, { value: identifierType = null }) {
-      const currentComplianceEntities = get(this, 'compliancePolicyChangeSet');
+      const complianceEntitiesChangeSet = get(this, 'compliancePolicyChangeSet');
       // A reference to the current field in the compliance list, it should exist even for empty complianceEntities
       // since this is a reference created in the working copy: compliancePolicyChangeSet
-      const currentFieldInComplianceList = currentComplianceEntities.findBy('identifierField', identifierField);
+      const changeSetComplianceField = complianceEntitiesChangeSet.findBy('identifierField', identifierField);
 
-      setProperties(currentFieldInComplianceList, {
+      // Reset field attributes on change to field in change set
+      setProperties(changeSetComplianceField, {
         identifierType,
         logicalType: null,
+        nonOwner: false,
         isDirty: true
       });
 

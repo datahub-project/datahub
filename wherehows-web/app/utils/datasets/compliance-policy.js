@@ -152,7 +152,8 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       securityClassification,
       policyModificationTime,
       privacyPolicyExists,
-      isDirty
+      isDirty,
+      nonOwner
     } = mappedColumnFields[fieldName];
     const suggestion = fieldSuggestionMap[identifierField];
 
@@ -163,6 +164,7 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       logicalType,
       privacyPolicyExists,
       isDirty,
+      nonOwner,
       classification: securityClassification
     };
 
