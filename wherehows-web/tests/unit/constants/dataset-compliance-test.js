@@ -19,7 +19,7 @@ test('getComplianceSteps function should behave as expected', function(assert) {
 
   assert.deepEqual(result, complianceSteps, 'getComplianceSteps result is expected shape when no args are passed');
 
-  result = getComplianceSteps({ hasSchema: false });
+  result = getComplianceSteps(false);
   assert.deepEqual(
     result,
     { ...complianceSteps, ...piiTaggingStep },
