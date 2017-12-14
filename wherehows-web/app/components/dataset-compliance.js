@@ -726,22 +726,13 @@ export default Component.extend({
   validateFields() {
     const notify = get(this, 'notifications.notify');
     const complianceEntities = get(this, policyComplianceEntitiesKey);
-    const idFieldsHaveValidLogicalType = this.checkEachEntityByLogicalType(
-      complianceEntities.filter(({ identifierType }) =>
-        getIdTypeDataTypes(get(this, 'complianceDataTypes')).includes(identifierType)
-      ),
-      [...genericLogicalTypes, ...idLogicalTypes]
-    );
+
     const fieldIdentifiersAreUnique = isListUnique(complianceEntities.mapBy('identifierField'));
     const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
 
     if (!fieldIdentifiersAreUnique || !schemaFieldLengthGreaterThanComplianceEntities) {
       notify('error', { content: complianceDataException });
       return Promise.reject(new Error(complianceDataException));
-    }
-
-    if (!idFieldsHaveValidLogicalType) {
-      return Promise.reject(notify('error', { content: missingTypes }));
     }
   },
 
