@@ -8,7 +8,7 @@ import {
   IFieldIdentifierOption,
   SuggestionIntent,
   getDefaultSecurityClassification,
-  IdLogicalType
+  IComplianceFieldFormatOption
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
@@ -16,15 +16,11 @@ import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/complia
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
-// aliases the select field format string to ensure returned values from field format prop
-// is type safe for this ad-hoc value
-type UnSelectedFieldFormatValue = 'Select Field Format...';
-
 /**
  * Constant definition for an unselected field format
- * @type {UnSelectedFieldFormatValue}
+ * @type {object}
  */
-const unSelectedFieldFormatValue: UnSelectedFieldFormatValue = 'Select Field Format...';
+const unSelectedFieldFormatValue = { value: null, label: 'Select Field Format...', isDisabled: true };
 
 export default class DatasetComplianceRow extends DatasetTableRow {
   /**
@@ -170,7 +166,8 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
       return {
         identifierType: getLabel(complianceFieldIdDropdownOptions),
-        logicalType: get(this, 'fieldFormats').find(format => format === value)
+        logicalType:
+          (get(this, 'fieldFormats').find(({ value: format }) => format === value) || { value: void 0 }).value || void 0
       }[fieldProp];
     }
   }
@@ -233,15 +230,15 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type ComputedProperty<Array<IComplianceDataType.supportedFieldFormats> | void>
    * @memberof DatasetComplianceRow
    */
-  fieldFormats = computed('isIdType', function(
-    this: DatasetComplianceRow
-  ): Array<IdLogicalType | UnSelectedFieldFormatValue> {
+  fieldFormats = computed('isIdType', function(this: DatasetComplianceRow): Array<IComplianceFieldFormatOption> {
     const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
     const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
     const complianceDataType = complianceDataTypes.findBy('id', identifierType);
 
     if (complianceDataType && isIdType) {
-      const fieldFormatOptions = complianceDataType.supportedFieldFormats || [];
+      const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
+      const fieldFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
+
       return fieldFormatOptions.length > 1 ? [unSelectedFieldFormatValue, ...fieldFormatOptions] : fieldFormatOptions;
     }
 
@@ -349,7 +346,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Handles the updates when the field logical type changes on this field
      * @param {(IComplianceField['logicalType'])} value contains the selected drop-down value
      */
-    onFieldLogicalTypeChange(this: DatasetComplianceRow, value: IComplianceField['logicalType']) {
+    onFieldLogicalTypeChange(this: DatasetComplianceRow, { value }: { value: IComplianceField['logicalType'] | null }) {
       const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
       if (typeof onFieldLogicalTypeChange === 'function') {
         onFieldLogicalTypeChange(get(this, 'field'), value);
