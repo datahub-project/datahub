@@ -699,11 +699,8 @@ export default Component.extend({
 
       // Create confirmation dialog
       get(this, 'notifications').notify('confirm', {
-        header: 'Some field formats are unspecified',
-        content:
-          `There are ${unformatted.length} non-ID fields that have no field format specified. ` +
-          `Are you sure they don't contain any of the following PII?\n\n` +
-          `Name, Email, Phone, Address, Location, IP Address, Payment Info, Password, National ID, Device ID etc.`,
+        header: 'Confirm fields marked as `none`',
+        content: `There are ${unformatted.length} non-ID fields. `,
         dialogActions: dialogActions
       });
 
@@ -1089,7 +1086,8 @@ export default Component.extend({
         const onSave = get(this, 'onSave');
         setSaveFlag(isSaving);
 
-        return await this.whenRequestCompletes(onSave(), { isSaving });
+        await this.whenRequestCompletes(onSave(), { isSaving });
+        return this.updateStep(-1);
       } finally {
         setSaveFlag();
       }
