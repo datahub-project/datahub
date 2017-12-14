@@ -1,12 +1,6 @@
 import Component from '@ember/component';
 import { get } from '@ember/object';
-import {
-  Classification,
-  ISecurityClassificationOption,
-  securityClassificationDropdownOptions
-} from 'wherehows-web/constants';
-
-type NullOrClassification = null | Classification;
+import { ISecurityClassificationOption, securityClassificationDropdownOptions } from 'wherehows-web/constants';
 
 export default class SchemalessTagging extends Component {
   classNames = ['schemaless-tagging'];
@@ -21,7 +15,9 @@ export default class SchemalessTagging extends Component {
    * Interface for parent supplied onClassificationChange action
    * @memberof SchemalessTagging
    */
-  onClassificationChange: (securityClassification: NullOrClassification) => NullOrClassification;
+  onClassificationChange: (
+    securityClassification: ISecurityClassificationOption['value']
+  ) => ISecurityClassificationOption['value'];
 
   /**
    * Flag indicating that the dataset contains personally identifiable data
@@ -46,10 +42,10 @@ export default class SchemalessTagging extends Component {
 
   /**
    * The current dataset classification value
-   * @type {(null | Classification)}
+   * @type { ISecurityClassificationOption.value}
    * @memberof SchemalessTagging
    */
-  classification: null | Classification;
+  classification: ISecurityClassificationOption['value'];
 
   actions = {
     /**

@@ -1,5 +1,6 @@
 import Ember from 'ember';
 import { capitalize } from '@ember/string';
+import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import {
   Classification,
   nonIdFieldLogicalTypes,
@@ -10,17 +11,8 @@ import {
   IdLogicalType,
   ComplianceFieldIdValue
 } from 'wherehows-web/constants/datasets/compliance';
+import { IComplianceField } from 'wherehows-web/constants/index';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-
-/**
- * Defines the interface for an each security classification dropdown option
- * @export
- * @interface ISecurityClassificationOption
- */
-export interface ISecurityClassificationOption {
-  value: '' | Classification;
-  label: string;
-}
 
 /**
  * Describes the interface for a drop down option for the field format column in the compliance table
@@ -65,11 +57,12 @@ const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(strin
  * @type {Array<ISecurityClassificationOption>}
  */
 const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [
-  '',
+  null,
   ...classifiers.sort()
-].map((value: '' | Classification) => ({
+].map((value: ISecurityClassificationOption['value']) => ({
   value,
-  label: value ? formatAsCapitalizedStringWithSpaces(value) : '...'
+  label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
+  isDisabled: !value
 }));
 
 /**
@@ -144,9 +137,9 @@ const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = Object.values(C
  */
 const getDefaultSecurityClassification = (
   complianceDataTypes: Array<IComplianceDataType> = [],
-  identifierType: ComplianceFieldIdValue
+  identifierType: IComplianceField['identifierType']
 ): IComplianceDataType['defaultSecurityClassification'] | null => {
-  const complianceDataType = complianceDataTypes.findBy('id', identifierType);
+  const complianceDataType = complianceDataTypes.findBy('id', identifierType || '');
 
   return complianceDataType ? complianceDataType.defaultSecurityClassification : null;
 };

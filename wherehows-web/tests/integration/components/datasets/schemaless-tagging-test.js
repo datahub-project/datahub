@@ -22,7 +22,7 @@ test('it shows the current classification', function(assert) {
   assert.expect(3);
   this.render(hbs`{{datasets/schemaless-tagging classification=classification}}`);
 
-  assert.equal(document.querySelector(`select`).value, '', "displays '' when not set");
+  assert.equal(document.querySelector(`select`).value, 'Unspecified', "displays 'Unspecified' when not set");
 
   this.set('classification', Classification.LimitedDistribution);
 

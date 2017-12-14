@@ -1,34 +1,41 @@
 import Ember from 'ember';
-import { ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { arrayMap } from 'wherehows-web/utils/array';
 
 const { String: { htmlSafe } } = Ember;
 
 /**
- * Defines the interface field identifier drop downs
+ * Defines the generic interface field identifier drop downs
  * @interface IFieldIdentifierOption
+ * @template T 
  */
-interface IFieldIdentifierOption {
-  value: string;
+interface IFieldIdentifierOption<T> {
+  value: T;
   label: string;
   isDisabled?: boolean;
 }
 
 /**
- * Defines the interface for compliance data type field options
+ * Defines the interface for compliance data type field option
  * @interface IComplianceFieldIdentifierOption
- * @extends {IFieldIdentifierOption}
+ * @extends {IFieldIdentifierOption<ComplianceFieldIdValue>}
  */
-interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption {
-  value: ComplianceFieldIdValue;
-}
+interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption<ComplianceFieldIdValue> {}
 
-interface IComplianceFieldFormatOption {
-  value: IdLogicalType | null;
-  label: string;
-  isDisabled?: boolean;
-}
+/**
+ * Defines the interface for a compliance field format dropdown option
+ * @interface IComplianceFieldFormatOption
+ * @extends {(IFieldIdentifierOption<IdLogicalType | null>)}
+ */
+interface IComplianceFieldFormatOption extends IFieldIdentifierOption<IdLogicalType | null> {}
+
+/**
+ * Defines the interface for an each security classification dropdown option
+ * @interface ISecurityClassificationOption
+ * @extends {(IFieldIdentifierOption<Classification | null>)}
+ */
+interface ISecurityClassificationOption extends IFieldIdentifierOption<Classification | null> {}
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -44,7 +51,7 @@ const compliancePolicyStrings = {
   invalidPolicyData: 'Received policy in an unexpected format! Please check the provided attributes and try again.',
   helpText: {
     classification:
-      'The default value is taken from go/dht and should be good enough in most cases. ' +
+      'This security classification is from go/dht and should be good enough in most cases. ' +
       'You can optionally override it if required by house security.'
   }
 };
@@ -114,7 +121,7 @@ export {
   complianceSteps,
   hiddenTrackingFields,
   getComplianceSteps,
-  IFieldIdentifierOption,
   IComplianceFieldIdentifierOption,
-  IComplianceFieldFormatOption
+  IComplianceFieldFormatOption,
+  ISecurityClassificationOption
 };
