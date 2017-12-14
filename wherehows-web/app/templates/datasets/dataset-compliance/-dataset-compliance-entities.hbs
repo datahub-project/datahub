@@ -54,19 +54,7 @@
       {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
         System Suggestion Confidence
       {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
-        Compliance Information
-        <a
-          target="_blank"
-          href="http://go/metadata_acquisition#ProjectOverview-compliance">
-          <sup>
-            More Info
-
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on various IDs"></span>
-          </sup>
-        </a>
-      {{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}Compliance Information{{/head.column}}
     {{/table.head}}
 
     <tr>
@@ -92,6 +80,7 @@
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
           onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
+          onFieldOwnerChange=(action 'onFieldOwnerChange')
           onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange') as |row|
         }}
 
@@ -135,8 +124,22 @@
             {{/if}}
           {{/row.cell}}
 
-          {{#row.cell class="dataset-compliance-fields__tall-cell"}}
-            <div>
+          {{#row.cell}}
+            <section class="compliance-depends compliance-depends--visible">
+              <div class="dataset-compliance-fields__form-input">
+                Field ID Type
+                <a
+                  target="_blank"
+                  href="http://go/metadata_acquisition#ProjectOverview-compliance">
+                  <sup>
+                    More Info
+
+                    <span class="glyphicon glyphicon-question-sign"
+                          title="More information on various IDs"></span>
+                  </sup>
+                </a>
+              </div>
+
               {{ember-selector
                 disabled=(not isEditing)
                 values=complianceFieldIdDropdownOptions
@@ -147,10 +150,10 @@
               {{#if row.identifierTypeBeforeSuggestion}}
                 <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
               {{/if}}
-            </div>
+            </section>
 
-            <div>
-              <span>
+            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
                 Field Format
                 <a
                   target="_blank"
@@ -162,7 +165,7 @@
                       title="More information on Field Format"></span>
                 </sup>
                 </a>
-              </span>
+              </div>
 
               {{ember-selector
                 disabled=(not isEditing)
@@ -174,10 +177,26 @@
               {{#if row.logicalTypeBeforeSuggestion}}
                 <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
               {{/if}}
-            </div>
+            </section>
 
-            <div>
-              <span>
+            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
+                Not an Owner
+              </div>
+
+              {{input
+                id=(concat row.rowId '-compliance-field-owner-toggle')
+                type="checkbox"
+                class="toggle-switch toggle-switch--light"
+                disabled=(not isEditing)
+                checked=(readonly row.nonOwner)
+                change=(action row.onOwnerChange value="target.checked")
+              }}
+              <label for="{{concat row.rowId '-compliance-field-owner-toggle'}}" class="toggle-button"></label>
+            </section>
+
+            <section class="compliance-depends {{if (or row.isPiiType row.isIdType) 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
                 Security Classification
                 <sup>
                   <span
@@ -190,7 +209,7 @@
                     }}
                   </span>
                 </sup>
-              </span>
+              </div>
 
               {{ember-selector
                 class="nacho-select--hidden-state"
@@ -199,7 +218,7 @@
                 selected=row.classification
                 selectionDidChange=(action row.onFieldClassificationChange)
               }}
-            </div>
+            </section>
           {{/row.cell}}
         {{/body.row}}
       {{/each}}

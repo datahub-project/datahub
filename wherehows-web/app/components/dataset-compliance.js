@@ -10,11 +10,10 @@ import {
   getDefaultSecurityClassification,
   compliancePolicyStrings,
   logicalTypesForIds,
-  hasPredefinedFieldFormat,
-  getDefaultLogicalType,
   getComplianceSteps,
   hiddenTrackingFields,
-  isExempt
+  isExempt,
+  ComplianceFieldIdValue
 } from 'wherehows-web/constants';
 import {
   isPolicyExpectedShape,
@@ -131,10 +130,14 @@ export default Component.extend({
   /**
    * Reads the complianceDataTypes property and transforms into a list of drop down options for the field
    * identifier type
-   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption>>}
+   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption | {value: null | 'NONE'}>>}
    */
   complianceFieldIdDropdownOptions: computed('complianceDataTypes', function() {
-    return getFieldIdentifierOptions(get(this, 'complianceDataTypes'));
+    const noneAndUnSpecifiedDropdownOptions = [
+      { value: null, label: 'Select Field Type...', isDisabled: true },
+      { value: ComplianceFieldIdValue.None, label: 'None' }
+    ];
+    return [...noneAndUnSpecifiedDropdownOptions, ...getFieldIdentifierOptions(get(this, 'complianceDataTypes'))];
   }),
 
   /**
@@ -972,24 +975,19 @@ export default Component.extend({
      * @param {String} logicalType
      * @param {String} identifierType
      */
-    onFieldIdentifierTypeChange({ identifierField }, { value: identifierType }) {
+    onFieldIdentifierTypeChange({ identifierField }, { value: identifierType = null }) {
       const currentComplianceEntities = get(this, 'compliancePolicyChangeSet');
       // A reference to the current field in the compliance list, it should exist even for empty complianceEntities
       // since this is a reference created in the working copy: compliancePolicyChangeSet
       const currentFieldInComplianceList = currentComplianceEntities.findBy('identifierField', identifierField);
-      let logicalType;
-      if (hasPredefinedFieldFormat(identifierType)) {
-        logicalType = getDefaultLogicalType(identifierType);
-      }
 
       setProperties(currentFieldInComplianceList, {
         identifierType,
-        logicalType,
+        logicalType: null,
         isDirty: true
       });
+
       // Set the defaultClassification for the identifierField,
-      // although the classification is based on the logicalType,
-      // an identifierField may only have one valid logicalType for it's given identifierType
       this.setDefaultClassification({ identifierField, identifierType });
     },
 
@@ -1008,7 +1006,7 @@ export default Component.extend({
     },
 
     /**
-     * Updates the filed classification
+     * Updates the field security classification
      * @param {String} identifierField the identifier field to update the classification for
      * @param {String} classification
      * @return {*}
@@ -1023,6 +1021,19 @@ export default Component.extend({
 
       // Apply the updated classification value to the current instance of the field in working copy
       setProperties(currentFieldInComplianceList, { classification, isDirty: true });
+    },
+
+    /**
+     * Updates the field non owner flag
+     * @param {ComplianceFieldIdValue} identifierField
+     * @param {boolean} nonOwner
+     */
+    onFieldOwnerChange({ identifierField }, nonOwner) {
+      const currentFieldInComplianceList = get(this, 'compliancePolicyChangeSet').findBy(
+        'identifierField',
+        identifierField
+      );
+      setProperties(currentFieldInComplianceList, { nonOwner, isDirty: true });
     },
 
     /**
