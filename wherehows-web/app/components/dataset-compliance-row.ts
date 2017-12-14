@@ -8,7 +8,6 @@ import {
   IFieldIdentifierOption,
   SuggestionIntent,
   getDefaultSecurityClassification,
-  IdLogicalType,
   IComplianceFieldFormatOption
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
