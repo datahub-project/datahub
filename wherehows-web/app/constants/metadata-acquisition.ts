@@ -86,27 +86,6 @@ const isMixedId = (identifierType: string) => identifierType === fieldIdentifier
 const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
 
 /**
- * Checks if an identifierType has a predefined/immutable value for the field format, i.e. should not be changed by
- * the end user
- * @param {string} identifierType the identifierType to check against
- * @return {boolean}
- */
-const hasPredefinedFieldFormat = (identifierType: string) => {
-  return isMixedId(identifierType) || isCustomId(identifierType);
-};
-
-/**
- * Gets the default logical type for an identifier type
- * @param {string} identifierType
- * @return {string | void}
- */
-const getDefaultLogicalType = (identifierType: string): string | void => {
-  if (isMixedId(identifierType)) {
-    return 'URN';
-  }
-};
-
-/**
  * Returns a list of logicalType mappings for displaying its value and a label by logicalType
  * @template T IdLogicalType | NonIdLogicalType
  * @template K 'id' | 'generic'
@@ -178,10 +157,8 @@ export {
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,
-  hasPredefinedFieldFormat,
   logicalTypesForIds,
   logicalTypesForGeneric,
-  getDefaultLogicalType,
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
   logicalTypeValueLabel,
