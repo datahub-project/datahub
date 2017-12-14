@@ -98,10 +98,11 @@ interface INonIdLogicalTypesSignature {
  * @interface IComplianceField
  */
 interface IComplianceField {
-  identifierType: ComplianceFieldIdValue;
+  identifierType: ComplianceFieldIdValue | void;
   logicalType: IdLogicalType | null;
   classification: Classification | null;
   privacyPolicyExists: boolean;
+  nonOwner: boolean;
   isDirty: boolean;
   suggestion?: {
     identifierType: ComplianceFieldIdValue;

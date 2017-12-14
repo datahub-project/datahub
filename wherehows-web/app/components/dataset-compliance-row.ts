@@ -5,10 +5,10 @@ import {
   Classification,
   ComplianceFieldIdValue,
   IComplianceField,
-  IFieldIdentifierOption,
   SuggestionIntent,
   getDefaultSecurityClassification,
-  IComplianceFieldFormatOption
+  IComplianceFieldFormatOption,
+  IComplianceFieldIdentifierOption
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
@@ -90,10 +90,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Dropdown options for each compliance field / record
-   * @type {Array<IFieldIdentifierOption>}
+   * @type {Array<IComplianceFieldIdentifierOption>}
    * @memberof DatasetComplianceRow
    */
-  complianceFieldIdDropdownOptions: Array<IFieldIdentifierOption>;
+  complianceFieldIdDropdownOptions: Array<IComplianceFieldIdentifierOption>;
 
   /**
    * Reference to the current value of the field's SuggestionIntent if present
@@ -140,11 +140,11 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    *  Takes a field property and extracts the value on the current policy if a suggestion currently exists for the field
-   * @param {('logicalType' | 'identifierType')} fieldProp 
-   * @returns {(string | void)} 
+   * @param {('logicalType' | 'identifierType')} fieldProp
+   * @returns {(string | null)} 
    * @memberof DatasetComplianceRow
    */
-  getCurrentValueBeforeSuggestion(fieldProp: 'logicalType' | 'identifierType'): string | void {
+  getCurrentValueBeforeSuggestion(fieldProp: 'logicalType' | 'identifierType'): string | null {
     /**
      * Current value on policy prior to the suggested value
      * @type {string}
@@ -152,40 +152,40 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     const value = get(get(this, 'field'), fieldProp);
 
     if (hasEnumerableKeys(get(this, 'prediction')) && value) {
-      /**
-       * Field drop down options
-       */
-      const complianceFieldIdDropdownOptions = get(this, 'complianceFieldIdDropdownOptions');
+      const { label: currentIdType } = getWithDefault(this, 'complianceFieldIdDropdownOptions', []).findBy(
+        'value',
+        value
+      ) || { label: null };
 
-      /**
-       * Convenience function to get `label` attribute on the display properties object
-       * @param {(Array<IFieldIdentifierOption> | IFieldIdentifierOption)} [dropDownOptions=[]]
-       */
-      const getLabel = (dropDownOptions: Array<IFieldIdentifierOption> = []) =>
-        ((Array.isArray(dropDownOptions) && dropDownOptions.findBy('value', value)) || { label: void 0 }).label;
+      const { value: currentLogicalType }: Pick<IComplianceFieldFormatOption, 'value'> = getWithDefault(
+        this,
+        'fieldFormats',
+        []
+      ).findBy('value', value) || { value: null };
 
       return {
-        identifierType: getLabel(complianceFieldIdDropdownOptions),
-        logicalType:
-          (get(this, 'fieldFormats').find(({ value: format }) => format === value) || { value: void 0 }).value || void 0
+        identifierType: currentIdType,
+        logicalType: currentLogicalType
       }[fieldProp];
     }
+
+    return null;
   }
 
   /**
    * Returns a computed value for the field identifierType
-   * @type {ComputedProperty<ComplianceFieldIdValue>}
+   * @type {ComputedProperty<IComplianceField['identifierType']>}
    * @memberof DatasetComplianceRow
    */
   identifierType = computed('field.identifierType', 'prediction', function(
     this: DatasetComplianceRow
-  ): ComplianceFieldIdValue {
+  ): IComplianceField['identifierType'] {
     /**
      * Describes the interface for the options bag param passed into the getIdentifierType function below
      * @interface IGetIdentParams
      */
     interface IGetIdentParams {
-      identifierType: ComplianceFieldIdValue;
+      identifierType: IComplianceField['identifierType'];
       prediction: { identifierType: ComplianceFieldIdValue } | void;
     }
 
@@ -193,15 +193,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     /**
      * Inner function takes the field.identifierType and prediction values, and
      * returns the identifierType to be rendered in the ui
-     * @param {IGetIdentParams} params 
-     * @returns {ComplianceFieldIdValue}
+     * @param {IGetIdentParams} params
+     * @returns {IComplianceField.identifierType}
      */
-    const getIdentifierType = (params: IGetIdentParams): ComplianceFieldIdValue => {
-      const {
-        identifierType,
-        prediction: { identifierType: suggestedIdentifierType } = { identifierType: void 0 }
-      } = params;
-      return suggestedIdentifierType || identifierType;
+    const getIdentifierType = (params: IGetIdentParams): IComplianceField['identifierType'] => {
+      const { identifierType, prediction } = params;
+      return prediction ? prediction.identifierType : identifierType;
     };
 
     return getIdentifierType({ identifierType, prediction });
@@ -209,40 +206,43 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Gets the identifierType on the compliance policy before the suggested value
-   * @type {ComputedProperty<string>}
+   * @type {ComputedProperty<string | null>}
    * @memberof DatasetComplianceRow
    */
-  identifierTypeBeforeSuggestion = computed('identifierType', function(): string | void {
+  identifierTypeBeforeSuggestion = computed('identifierType', function(): string | null {
     return this.getCurrentValueBeforeSuggestion('identifierType');
   });
 
   /**
    * Gets the logicalType on the compliance policy before the suggested value
-   * @type {ComputedProperty<string>}
+   * @type {ComputedProperty<string | null>}
    * @memberof DatasetComplianceRow
    */
-  logicalTypeBeforeSuggestion = computed('logicalType', function(): string | void {
+  logicalTypeBeforeSuggestion = computed('logicalType', function(): string | null {
     return this.getCurrentValueBeforeSuggestion('logicalType');
   });
 
   /**
    * A list of field formats that are determined based on the field identifierType
-   * @type ComputedProperty<Array<IComplianceDataType.supportedFieldFormats> | void>
+   * @type ComputedProperty<Array<IComplianceFieldFormatOption>>
    * @memberof DatasetComplianceRow
    */
   fieldFormats = computed('isIdType', function(this: DatasetComplianceRow): Array<IComplianceFieldFormatOption> {
-    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
+    const identifierType = get(get(this, 'field'), 'identifierType') || '';
     const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
     const complianceDataType = complianceDataTypes.findBy('id', identifierType);
+    let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
 
     if (complianceDataType && isIdType) {
-      const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
-      const fieldFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
+      const supportedFieldFormats = complianceDataType.supportedFieldFormats || fieldFormatOptions;
+      const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
 
-      return fieldFormatOptions.length > 1 ? [unSelectedFieldFormatValue, ...fieldFormatOptions] : fieldFormatOptions;
+      return supportedFormatOptions.length
+        ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
+        : supportedFormatOptions;
     }
 
-    return [];
+    return fieldFormatOptions;
   });
 
   /**
@@ -251,11 +251,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   isIdType: ComputedProperty<boolean> = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
-    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
-    const complianceDataTypes = get(this, 'complianceDataTypes');
-    const complianceDataType = complianceDataTypes.findBy('id', identifierType) || { idType: false };
+    const { field: { identifierType }, complianceDataTypes } = getProperties(this, ['field', 'complianceDataTypes']);
+    const { idType } = complianceDataTypes.findBy('id', identifierType || '') || { idType: false };
 
-    return complianceDataType.idType;
+    return idType;
   });
 
   /**
@@ -264,15 +263,16 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   isPiiType = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
-    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
+    const { identifierType } = get(this, 'field');
 
-    return !get(this, 'isIdType') && ![ComplianceFieldIdValue.None, null].includes(identifierType);
+    // If identifierType exists, and field is not idType or None or null
+    return !!identifierType && !get(this, 'isIdType') && ![ComplianceFieldIdValue.None, null].includes(identifierType);
   });
 
   /**
    * The fields logical type, rendered as an Object
    * If a prediction exists for this field, the predicted value is shown instead
-   * @type {(ComputedProperty<IFieldFormatDropdownOption | void>)}
+   * @type {(ComputedProperty<IComplianceField.logicalType>)}
    * @memberof DatasetComplianceRow
    */
   logicalType = computed('field.logicalType', 'prediction', function(
@@ -296,7 +296,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   classification = computed('field.classification', 'field.identifierType', 'complianceDataTypes', function(
     this: DatasetComplianceRow
-  ): Classification | null {
+  ): IComplianceField['classification'] {
     const { field: { identifierType, classification }, complianceDataTypes } = getProperties(this, [
       'field',
       'complianceDataTypes'
