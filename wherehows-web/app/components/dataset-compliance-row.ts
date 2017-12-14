@@ -7,13 +7,24 @@ import {
   IComplianceField,
   IFieldIdentifierOption,
   SuggestionIntent,
-  getDefaultSecurityClassification
+  getDefaultSecurityClassification,
+  IdLogicalType
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
 import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
+
+// aliases the select field format string to ensure returned values from field format prop
+// is type safe for this ad-hoc value
+type UnSelectedFieldFormatValue = 'Select Field Format...';
+
+/**
+ * Constant definition for an unselected field format
+ * @type {UnSelectedFieldFormatValue}
+ */
+const unSelectedFieldFormatValue: UnSelectedFieldFormatValue = 'Select Field Format...';
 
 export default class DatasetComplianceRow extends DatasetTableRow {
   /**
@@ -30,10 +41,16 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   complianceDataTypes: Array<IComplianceDataType>;
 
   /**
+   * Reference to the compliance `onFieldOwnerChange` action
+   * @memberof DatasetComplianceRow
+   */
+  onFieldOwnerChange: (field: IComplianceField, nonOwner: boolean) => void;
+
+  /**
    * Describes action interface for `onFieldIdentifierTypeChange` action
    * @memberof DatasetComplianceRow
    */
-  onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: ComplianceFieldIdValue }) => void;
+  onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: ComplianceFieldIdValue | null }) => void;
 
   /**
    * Describes action interface for `onFieldLogicalTypeChange` action
@@ -60,6 +77,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   identifierField: ComputedProperty<string> = alias('field.identifierField');
+
+  /**
+   * Flag indicating if this field is a non owner or owner
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceRow
+   */
+  nonOwner: ComputedProperty<boolean> = alias('field.nonOwner').readOnly();
 
   /**
    * The field's dataType attribute
@@ -206,21 +230,46 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * A list of field formats that are determined based on the field identifierType
-   * @type ComputedProperty<Array<IFieldFormatDropdownOption> | void>
+   * @type ComputedProperty<Array<IComplianceDataType.supportedFieldFormats> | void>
    * @memberof DatasetComplianceRow
    */
-  fieldFormats = computed('field.identifierType', function(
+  fieldFormats = computed('isIdType', function(
     this: DatasetComplianceRow
-  ): IComplianceDataType['supportedFieldFormats'] {
+  ): Array<IdLogicalType | UnSelectedFieldFormatValue> {
     const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
-    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
     const complianceDataType = complianceDataTypes.findBy('id', identifierType);
 
-    if (complianceDataType && complianceDataType.idType) {
-      return complianceDataType.supportedFieldFormats;
+    if (complianceDataType && isIdType) {
+      const fieldFormatOptions = complianceDataType.supportedFieldFormats || [];
+      return fieldFormatOptions.length > 1 ? [unSelectedFieldFormatValue, ...fieldFormatOptions] : fieldFormatOptions;
     }
 
     return [];
+  });
+
+  /**
+   * Flag indicating that this field has an identifier type of idType that is true
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceRow
+   */
+  isIdType: ComputedProperty<boolean> = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
+    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
+    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const complianceDataType = complianceDataTypes.findBy('id', identifierType) || { idType: false };
+
+    return complianceDataType.idType;
+  });
+
+  /**
+   * Flag indicating that this field has an identifier type that is of pii type
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceRow
+   */
+  isPiiType = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
+    const identifierType: ComplianceFieldIdValue = get(get(this, 'field'), 'identifierType');
+
+    return !get(this, 'isIdType') && ![ComplianceFieldIdValue.None, null].includes(identifierType);
   });
 
   /**
@@ -284,16 +333,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     }
   });
 
-  /**
-   * 
-   * @memberof DatasetComplianceRow
-   */
   actions = {
     /**
      * Handles UI changes to the field identifierType
      * @param {{ value: ComplianceFieldIdValue }} { value }
      */
-    onFieldIdentifierTypeChange(this: DatasetComplianceRow, { value }: { value: ComplianceFieldIdValue }) {
+    onFieldIdentifierTypeChange(this: DatasetComplianceRow, { value }: { value: ComplianceFieldIdValue | null }) {
       const onFieldIdentifierTypeChange = get(this, 'onFieldIdentifierTypeChange');
       if (typeof onFieldIdentifierTypeChange === 'function') {
         onFieldIdentifierTypeChange(get(this, 'field'), { value });
@@ -302,7 +347,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
     /**
      * Handles the updates when the field logical type changes on this field
-     * @param {(IComplianceField['logicalType'])} value contains the selected dropdown value
+     * @param {(IComplianceField['logicalType'])} value contains the selected drop-down value
      */
     onFieldLogicalTypeChange(this: DatasetComplianceRow, value: IComplianceField['logicalType']) {
       const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
@@ -320,6 +365,14 @@ export default class DatasetComplianceRow extends DatasetTableRow {
       if (typeof onFieldClassificationChange === 'function') {
         onFieldClassificationChange(get(this, 'field'), { value });
       }
+    },
+
+    /**
+     * Handles the nonOwner flag update on the field
+     * @param {boolean} nonOwner
+     */
+    onOwnerChange(this: DatasetComplianceRow, nonOwner: boolean) {
+      get(this, 'onFieldOwnerChange')(get(this, 'field'), nonOwner);
     },
 
     /**
