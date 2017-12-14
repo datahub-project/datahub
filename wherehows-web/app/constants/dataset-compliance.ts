@@ -93,12 +93,10 @@ const complianceSteps = {
 
 /**
  * Takes a map of dataset options and constructs the relevant compliance edit wizard steps to build the wizard flow
- * @param {{ hasSchema: boolean }} [{ hasSchema }={ hasSchema: true }] flag indicating if the dataset is schema-less
- * @returns {([x: number]: {name: string})}
+ * @param {boolean} [hasSchema=true] flag indicating if the dataset has a schema or otherwise
+ * @returns {({ [x: number]: { name: string } })}
  */
-const getComplianceSteps = (
-  { hasSchema }: { hasSchema: boolean } = { hasSchema: true }
-): { [x: number]: { name: string } } => {
+const getComplianceSteps = (hasSchema: boolean = true): { [x: number]: { name: string } } => {
   // Step to tag dataset with PII data, this is at the dataset level for schema-less datasets
   const piiTaggingStep = { 0: { name: 'editDatasetLevelCompliancePolicy' } };
 
