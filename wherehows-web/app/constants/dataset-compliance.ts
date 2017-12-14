@@ -1,5 +1,5 @@
 import Ember from 'ember';
-import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
+import { ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { arrayMap } from 'wherehows-web/utils/array';
 
@@ -22,6 +22,12 @@ interface IFieldIdentifierOption {
  */
 interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption {
   value: ComplianceFieldIdValue;
+}
+
+interface IComplianceFieldFormatOption {
+  value: IdLogicalType | null;
+  label: string;
+  isDisabled?: boolean;
 }
 
 /**
@@ -111,5 +117,6 @@ export {
   hiddenTrackingFields,
   getComplianceSteps,
   IFieldIdentifierOption,
-  IComplianceFieldIdentifierOption
+  IComplianceFieldIdentifierOption,
+  IComplianceFieldFormatOption
 };
