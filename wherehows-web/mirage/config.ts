@@ -23,24 +23,6 @@ export default function(this: IMirageServer) {
     };
   });
 
-  interface IComplianceSuggestionsObject {
-    complianceSuggestions: any;
-  }
-
-  this.get('/datasets/:id/compliance/suggestions', function(
-    this: IFunctionRouteHandler,
-    { complianceSuggestions }: IComplianceSuggestionsObject
-  ) {
-    return {
-      status: ApiStatus.OK,
-      autoClassification: {
-        urn: '',
-        classificationResult: JSON.stringify(this.serialize(complianceSuggestions.all())),
-        lastModified: new Date().getTime()
-      }
-    };
-  });
-
   interface IFlowsObject {
     flows: any;
   }
