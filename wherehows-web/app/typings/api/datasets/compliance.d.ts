@@ -3,7 +3,6 @@ import {
   ComplianceFieldIdValue,
   Classification,
   IdLogicalType,
-  CustomIdLogicalType,
   NonIdLogicalType,
   DatasetClassifiers,
   PurgePolicy
@@ -95,10 +94,11 @@ export interface IComplianceSuggestion {
 export interface ISuggestedFieldClassification {
   confidenceLevel: number;
   suggestion: {
-    identifierType: ComplianceFieldIdValue;
-    identifierField: string;
-    logicalType: IdLogicalType | CustomIdLogicalType | NonIdLogicalType;
-    securityClassification: Classification;
+    identifierType: IComplianceEntity['identifierType'];
+    identifierField: IComplianceEntity['identifierField'];
+    logicalType: IComplianceEntity['logicalType'];
+    securityClassification: IComplianceEntity['securityClassification'];
+    nonOwner: IComplianceEntity['nonOwner'];
   };
 }
 

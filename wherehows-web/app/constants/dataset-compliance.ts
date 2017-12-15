@@ -43,7 +43,8 @@ interface ISecurityClassificationOption extends IFieldIdentifierOption<Classific
  */
 const compliancePolicyStrings = {
   // TODO:  DSS-6122 Create and move to Error module
-  complianceDataException: 'Unexpected discrepancy in compliance data',
+  complianceDataException: 'Unexpected discrepancy in compliance data.',
+  complianceFieldNotUnique: 'Compliance fields have failed to verify a uniqueness check.',
   missingTypes: 'Looks like you may have forgotten to specify a `Field Format` for all ID fields?',
   successUpdating: 'Congrats! Your changes have been successfully saved!',
   failedUpdating: 'Oops! We are having trouble updating this dataset at the moment.',
