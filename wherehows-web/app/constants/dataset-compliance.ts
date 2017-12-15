@@ -54,7 +54,8 @@ const compliancePolicyStrings = {
     classification:
       'This security classification is from go/dht and should be good enough in most cases. ' +
       'You can optionally override it if required by house security.'
-  }
+  },
+  missingPurgePolicy: 'Please specify a Compliance Purge Policy'
 };
 
 /**

@@ -44,7 +44,8 @@ const {
   failedUpdating,
   helpText,
   successUploading,
-  invalidPolicyData
+  invalidPolicyData,
+  missingPurgePolicy
 } = compliancePolicyStrings;
 
 /**
@@ -775,6 +776,14 @@ export default Component.extend({
   },
 
   /**
+   * Notifies the user to provide a missing purge policy
+   * @return {Promise<never>}
+   */
+  needsPurgePolicyType() {
+    return Promise.reject(get(this, 'notifications').notify('error', { content: missingPurgePolicy }));
+  },
+
+  /**
    * Updates the currently active step in the edit sequence
    * @param {number} step
    */
@@ -889,7 +898,13 @@ export default Component.extend({
      * @return {void|Promise.<void>}
      */
     didEditPurgePolicy() {
-      if (isExempt(get(this, 'complianceInfo.complianceType'))) {
+      const { complianceType } = get(this, 'complianceInfo');
+
+      if (!complianceType) {
+        return this.needsPurgePolicyType();
+      }
+
+      if (isExempt(complianceType)) {
         return this.showPurgeExemptionWarning();
       }
     },
