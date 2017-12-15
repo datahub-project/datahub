@@ -3,13 +3,9 @@ import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-heade
 import {
   securityClassificationDropdownOptions,
   DatasetClassifiers,
-  fieldIdentifierTypes,
   getFieldIdentifierOptions,
-  idLogicalTypes,
-  nonIdFieldLogicalTypes,
   getDefaultSecurityClassification,
   compliancePolicyStrings,
-  logicalTypesForIds,
   getComplianceSteps,
   hiddenTrackingFields,
   isExempt,
@@ -42,6 +38,7 @@ const {
 const { schedule } = run;
 const {
   complianceDataException,
+  complianceFieldNotUnique,
   missingTypes,
   successUpdating,
   failedUpdating,
@@ -57,12 +54,6 @@ const {
  */
 const getIdTypeDataTypes = (complianceDataTypes = []) =>
   complianceDataTypes.filter(complianceDataType => complianceDataType.idType).mapBy('id');
-
-/**
- * List of non Id field data type classifications
- * @type {Array}
- */
-const genericLogicalTypes = Object.keys(nonIdFieldLogicalTypes).sort();
 
 /**
  * String constant referencing the datasetClassification on the privacy policy
@@ -346,9 +337,6 @@ export default Component.extend({
     // Flag this component's data as problematic
     set(this, '_hasBadData', true);
   },
-
-  // Map logicalTypes to options consumable by DOM
-  idLogicalTypes: logicalTypesForIds,
 
   // Map of classifiers options for drop down
   classifiers: securityClassificationDropdownOptions,
@@ -661,11 +649,12 @@ export default Component.extend({
       nonOwner,
       securityClassification: classification
     }));
-    // Fields that do not have a logicalType, and no identifierType or identifierType is `fieldIdentifierTypes.none`
+
+    // Fields that do not have a logicalType, and no identifierType or identifierType is ComplianceFieldIdValue.None
     const { formatted, unformatted } = datasetFields.reduce(
       ({ formatted, unformatted }, field) => {
         const { identifierType, logicalType } = getProperties(field, ['identifierType', 'logicalType']);
-        if (!logicalType && (fieldIdentifierTypes.none.value === identifierType || !identifierType)) {
+        if (!logicalType && (ComplianceFieldIdValue.None === identifierType || !identifierType)) {
           unformatted = [...unformatted, field];
         } else {
           formatted = [...formatted, field];
@@ -684,7 +673,7 @@ export default Component.extend({
     if (unformatted.length) {
       unformattedComplianceEntities = unformatted.map(({ identifierField }) => ({
         identifierField,
-        identifierType: fieldIdentifierTypes.none.value,
+        identifierType: ComplianceFieldIdValue.None,
         logicalType: null,
         securityClassification: null,
         nonOwner: false
@@ -726,13 +715,28 @@ export default Component.extend({
   validateFields() {
     const notify = get(this, 'notifications.notify');
     const complianceEntities = get(this, policyComplianceEntitiesKey);
+    const idTypeIdentifiers = getIdTypeDataTypes(get(this, 'complianceDataTypes'));
+    const idTypeComplianceEntities = complianceEntities.filter(({ identifierType }) =>
+      idTypeIdentifiers.includes(identifierType)
+    );
 
+    // Validation operations
+    const idFieldsHaveValidLogicalType = idTypeComplianceEntities.every(({ logicalType }) => logicalType);
     const fieldIdentifiersAreUnique = isListUnique(complianceEntities.mapBy('identifierField'));
     const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
 
-    if (!fieldIdentifiersAreUnique || !schemaFieldLengthGreaterThanComplianceEntities) {
+    if (!fieldIdentifiersAreUnique) {
+      notify('error', { content: complianceFieldNotUnique });
+      return Promise.reject(new Error(complianceFieldNotUnique));
+    }
+
+    if (!schemaFieldLengthGreaterThanComplianceEntities) {
       notify('error', { content: complianceDataException });
-      return Promise.reject(new Error(complianceDataException));
+      return Promise.reject(new Error(complianceFieldNotUnique));
+    }
+
+    if (!idFieldsHaveValidLogicalType) {
+      return Promise.reject(notify('error', { content: missingTypes }));
     }
   },
 
@@ -860,7 +864,7 @@ export default Component.extend({
           await this.validateFields();
         } catch (e) {
           // Flag this dataset's data as problematic
-          if (e instanceof Error && e.message === complianceDataException) {
+          if (e instanceof Error && [complianceDataException, complianceFieldNotUnique].includes(e.message)) {
             set(this, '_hasBadData', true);
             window.scrollTo(0, 0);
           }

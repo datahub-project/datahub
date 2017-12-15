@@ -1,29 +1,8 @@
-import Ember from 'ember';
 import { capitalize } from '@ember/string';
 import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
-import {
-  Classification,
-  nonIdFieldLogicalTypes,
-  NonIdLogicalType,
-  idLogicalTypes,
-  genericLogicalTypes,
-  fieldIdentifierTypes,
-  IdLogicalType,
-  ComplianceFieldIdValue
-} from 'wherehows-web/constants/datasets/compliance';
+import { Classification, ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
 import { IComplianceField } from 'wherehows-web/constants/index';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-
-/**
- * Describes the interface for a drop down option for the field format column in the compliance table
- * 
- * @export
- * @interface IFieldFormatDropdownOption
- */
-export interface IFieldFormatDropdownOption {
-  value: IdLogicalType | NonIdLogicalType;
-  label: string;
-}
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -70,58 +49,13 @@ const securityClassificationDropdownOptions: Array<ISecurityClassificationOption
  * @param {string} identifierType
  * @return {boolean}
  */
-const isMixedId = (identifierType: string) => identifierType === fieldIdentifierTypes.generic.value;
+const isMixedId = (identifierType: string) => identifierType === ComplianceFieldIdValue.MixedId;
 /**
  * Checks if the identifierType is a custom Id
  * @param {string} identifierType
-  * @return {boolean}
+ * @return {boolean}
  */
-const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
-
-/**
- * Returns a list of logicalType mappings for displaying its value and a label by logicalType
- * @template T IdLogicalType | NonIdLogicalType
- * @template K 'id' | 'generic'
- * @param {K} logicalType
- * @returns {(Array<{ value: T; label: string }>)}
- */
-const logicalTypeValueLabel = <T extends IdLogicalType | NonIdLogicalType, K extends 'id' | 'generic'>(
-  logicalType: K
-) => {
-  const logicalTypes: Array<IdLogicalType | NonIdLogicalType> = {
-    id: idLogicalTypes,
-    generic: genericLogicalTypes
-  }[logicalType];
-
-  return logicalTypes.map((value: T) => {
-    let label: string;
-
-    // guard checks that if the logical type string is generic, then the value union can be assumed to be
-    // a NonIdLogicalType, otherwise it is an id /custom logicalType
-    if (logicalType === 'generic') {
-      label = nonIdFieldLogicalTypes[<NonIdLogicalType>value].displayAs;
-    } else {
-      label = value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, value => Ember.String.capitalize(value.toLowerCase()));
-    }
-
-    return {
-      value,
-      label
-    };
-  });
-};
-
-/**
- * Map logicalTypes to options consumable by DOM
- * @returns {Array<IFieldFormatDropdownOption>}
- */
-const logicalTypesForIds: Array<IFieldFormatDropdownOption> = logicalTypeValueLabel('id');
-
-/**
- * Map generic logical type to options consumable in DOM
- * @returns {Array<IFieldFormatDropdownOption>}
- */
-const logicalTypesForGeneric: Array<IFieldFormatDropdownOption> = logicalTypeValueLabel('generic');
+const isCustomId = (identifierType: string) => identifierType === ComplianceFieldIdValue.CustomId;
 
 /**
  * Caches a list of fieldIdentifierTypes values
@@ -150,10 +84,7 @@ export {
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,
-  logicalTypesForIds,
-  logicalTypesForGeneric,
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
-  logicalTypeValueLabel,
   getDefaultSecurityClassification
 };
