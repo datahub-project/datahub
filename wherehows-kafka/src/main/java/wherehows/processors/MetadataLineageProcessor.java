@@ -13,13 +13,17 @@
  */
 package wherehows.processors;
 
-import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -31,6 +35,13 @@ import wherehows.dao.table.LineageDao;
 
 @Slf4j
 public class MetadataLineageProcessor extends KafkaMessageProcessor {
+
+  private final Config config = ConfigFactory.load();
+
+  private final String whitelistStr = config.hasPath("whitelist.mle") ? config.getString("whitelist.mle") : "";
+
+  private final Set<agent> whitelistAppTypes =
+      Arrays.stream(whitelistStr.split(";")).map(agent::valueOf).collect(Collectors.toSet());
 
   private final LineageDao _lineageDao = DAO_FACTORY.getLineageDao();
 
@@ -62,18 +73,17 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
   }
 
   private void processEvent(MetadataLineageEvent event) throws Exception {
-    final KafkaAuditHeader auditHeader = event.auditHeader;
-    if (auditHeader == null) {
-      throw new Exception("Missing Kafka Audit header: " + event.toString());
-    }
-
     if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
 
-    log.debug("MLE: " + event.lineage.toString() + " TS: " + auditHeader.time);
+    log.debug("MLE: " + event.lineage.toString());
 
     agent appType = event.type;
+    if (whitelistAppTypes.size() > 0 && !whitelistAppTypes.contains(appType)) {
+      throw new RuntimeException("App Type not in whitelist, skip processing");
+    }
+
     List<DatasetLineage> lineages = event.lineage;
     DeploymentDetail deployments = event.deploymentDetail;
 
