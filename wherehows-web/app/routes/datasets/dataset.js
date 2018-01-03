@@ -18,7 +18,12 @@ import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/dataset
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
+// import check  acl permission action
+import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
+import { currentUser } from 'wherehows-web/utils/api/authentication';
+
 const { getJSON } = $;
+const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
@@ -319,6 +324,33 @@ export default Route.extend({
         return Promise.reject(new Error('Dataset references request failed.'));
       })
       .catch(() => set(controller, 'hasReferences', false));
+
+    // TODO: Get stutus current user to see data in ACL access tab
+    Promise.resolve(currentUser())
+      .then(userInfo => {
+        setProperties(controller, {
+          userInfo
+        });
+        return checkAclAccess(userInfo.userName).then(value => {
+          setProperties(controller, {
+            aclAccessResponse: value,
+            currentUserInfo: userInfo.userName,
+            aclUsers: value.body
+          });
+        });
+      })
+      // return Promise.resolve(checkAclAccess(userInfo.userName)).then(value => {
+      //   console.log('value', value);
+      //   setProperties(controller, {
+      //     aclAccessResponse: value,
+      //     currentUserInfo: userInfo.userName,
+      //     aclUsers: value.body
+      //   });
+      // });
+      // })
+      .catch(error => {
+        console.log('It is ACL response error', error);
+      }); //-end
   },
 
   actions: {

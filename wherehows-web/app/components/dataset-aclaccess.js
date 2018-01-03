@@ -1,33 +1,45 @@
 import Component from '@ember/component';
 import { inject } from '@ember/service';
-import { computed, get, set } from '@ember/object';
+import { computed, getProperties, get, set, trySet } from '@ember/object';
+
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
+import { requestAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
-import { currentUser as cuser } from 'wherehows-web/utils/api/authentication';
-import { aclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
-import _ from 'lodash';
+import { baseCommentEditorOptions } from 'wherehows-web/constants';
 
-let pageContent = userName => {
+import _ from 'lodash';
+/**
+ * Defined the method returns the page static content
+ * @param {string} userName
+ * @return {Object} pageContent
+ */
+const pageContent = userName => {
+  userName = _.capitalize(userName);
   return {
     success: {
       info: `${userName}, you have access to this data`,
       requestInfo: 'Congrats! Your request has been approved!',
       requestMessage: 'You now have a access to this data',
       classNameIcon: 'fa fa-check-circle-o fa-lg',
-      classNameFont: 'acl-access__success'
+      classNameFont: 'acl-permission__success'
     },
     reject: {
       info: `${userName}, you currently do not have access to this dataset`,
       requestInfo: 'Sorry, you request has been denied by the system.',
       requestMessage: 'If you feel this is in error, contact acreqjests@linkedin.',
       classNameIcon: 'fa fa-ban fa-lg',
-      classNameFont: 'acl-access__reject'
+      classNameFont: 'acl-permission__reject'
     }
   };
 };
 
-let accessState = userName => {
+/**
+ * Defined the method returns the page state
+ * @param {*} userName 
+ * @return {Object} accessState
+ */
+const accessState = userName => {
   const content = pageContent(userName);
   return {
     hasAcess: {
@@ -64,15 +76,13 @@ const dummyLDAP = ['Mitchell_Rath', 'ABC', 'Juwan.Simonis', 'Gust.Tillman45', 'T
 
 export default Component.extend({
   notifications: inject(),
-  // users: null,
-  requestAccessReason: '',
-  //new atitecture
+  requestReason: '',
   accessInfo: null,
   accessResponse: null,
   currentUser: null,
+  isUserTyping: true,
   pageState: computed('accessInfo', 'accessResponse', function() {
-    let accessInfo = get(this, 'accessInfo');
-    let accessResponse = get(this, 'accessResponse');
+    const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
 
     if (accessInfo) {
       if (accessInfo.isAccess) {
@@ -92,19 +102,34 @@ export default Component.extend({
     return null;
   }),
 
-  state: computed('pageState', function() {
-    let userName = get(this, 'currentUser');
-    let pageState = get(this, 'pageState');
-    return accessState(userName)[pageState];
+  users: computed('accessInfo', 'accessResponse', function() {
+    const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
+    let aclList;
+
+    if (accessInfo && accessInfo.body) {
+      aclList = aclList || _.map(accessInfo.body, item => item.tableItem);
+    }
+    if (accessResponse && accessResponse.hasOwnProperty('tableItem')) {
+      aclList.push(accessResponse.tableItem);
+    }
+    return aclList;
   }),
 
-  // change state to pageState
+  state: computed('pageState', function() {
+    const { currentUser, pageState } = getProperties(this, ['currentUser', 'pageState']);
+    return accessState(currentUser)[pageState];
+  }),
+
   isLoadForm: computed('pageState', function() {
     return get(this, 'pageState') === 'noAccess';
   }),
 
   resetForm() {
-    set(this, 'requestAccessReason', '');
+    set(this, 'requestReason', '');
+  },
+
+  setState(key, value) {
+    set(this, key, value);
   },
 
   actions: {
@@ -121,49 +146,28 @@ export default Component.extend({
         url: url
       });
 
-      // const res2 = await aclAccess(email);
-      // const res3 = aclAccess(email).then(function(value) {
-      //   return value;
-      // });
-
-      // console.log('res2', res2);
-      // console.log('res3', res3);
-      // this is work
-      Promise.resolve(aclAccess(email)).then(value => {
-        console.log('this is value', value);
-      });
-
+      // console.log('email', get(this, 'currentUser'));
+      // console.log('response', response);
       set(this, 'accessInfo', response);
-
-      const responseBody = response.body;
-      const aclList = _.map(responseBody, item => item.tableItem);
-
-      set(this, 'users', aclList);
       this.toggleProperty('isLoading');
-
-      console.log('this is test propers', get(this, 'testProps'));
-
-      //test username
-      // const aboutme = await getJSON({
-      //   url: 'http://localhost:4200/api/v1/user/me'
-      // });
-      const aboutme = await cuser();
-      console.log('about Me', aboutme);
     },
 
-    async sendRequest() {
-      const inputComment = get(this, 'requestAccessReason');
-      const currentUser = get(this, 'currentUser');
-      const response = await postJSON({
-        url: queryAccessUrl,
-        data: {
-          principal: `urn:li:userPrincipal:${currentUser}`,
-          businessJustification: inputComment
-        }
-      });
+    requestAccess() {
+      const { requestReason, currentUser } = getProperties(this, ['requestReason', 'currentUser']);
+      // const inputComment = get(this, 'requestReason');
+      // const currentUser = get(this, 'currentUser');
+      const data = {
+        principal: `urn:li:userPrincipal:${currentUser}`,
+        businessJustification: requestReason
+      };
 
-      set(this, 'accessResponse', response);
-      this.resetForm();
+      Promise.resolve(requestAclAccess(currentUser, data))
+        .then(response => {
+          this.setState('accessResponse', response);
+        })
+        .catch(error => {
+          throw `It is request access error : ${error}`;
+        });
     },
     cancelRequest() {
       this.resetForm();

@@ -8,28 +8,35 @@
         </li>
       {{/each}}
     </ul>
+
     <div class="row">
       <div class="col-xs-5">
         {{#if datasetView.removed}}
           <span class="removed-dataset">
             REMOVED
           </span>
+
           <sup>
-            <span class="glyphicon glyphicon-question-sign" title="This dataset has been removed">
-              {{tooltip-on-element
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title="This dataset has been removed">
+                {{tooltip-on-element
                   event="hover"
                   text="This dataset has been removed"
                 }}
-            </span>
+              </span>
           </sup>
         {{/if}}
+
         {{#if datasetView.deprecated}}
           <a data-toggle="tab" href="#propertiestab" {{action "showProperties" preventDefault=false}}>
             <span class="deprecated-dataset">
               DEPRECATED
             </span>
             <sup>
-              <span class="glyphicon glyphicon-question-sign" title="Click to view dataset properties">
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title="Click to view dataset properties">
                 {{tooltip-on-element
                   event="hover"
                   text="Click to view dataset properties"
@@ -38,12 +45,13 @@
             </sup>
           </a>
         {{/if}}
+
         <h3>{{ model.name }}</h3>
       </div>
       <div class="col-xs-7 text-right">
         <ul class="datasetDetailsLinks">
           <li>
-            {{#dataset-favorite dataset=model action="didFavorite" }}
+            {{#dataset-favorite dataset=model action="didFavorite"}}
             {{/dataset-favorite}}
             <span class="hidden-sm hidden-xs">
               {{#if model.isFavorite}}
@@ -55,32 +63,34 @@
           </li>
           {{#if model.hdfsBrowserLink}}
             <li>
-              <a target="_blank" href= {{model.hdfsBrowserLink}} title="View on HDFS">
-                <i class="fa fa-database"></i>
-                <span class="hidden-sm hidden-xs">
-                  HDFS
-                </span>
+              <a target="_blank" href={{model.hdfsBrowserLink}}
+                title="View on HDFS">
+              <i class="fa fa-database"></i>
+              <span class="hidden-sm hidden-xs">
+                    HDFS
+                  </span>
               </a>
             </li>
           {{/if}}
           <li>
-            {{#link-to 'lineage.dataset' model.id title='View Lineage' }}
+            {{#link-to 'lineage.dataset' model.id title='View Lineage'}}
               <i class="fa fa-sitemap"></i>
               <span class="hidden-sm hidden-xs">Lineage</span>
             {{/link-to}}
           </li>
           {{#if model.hasSchemaHistory}}
             <li>
-              <a target="_blank" href= {{schemaHistoryUrl}} title="View Schema History">
-                <i class="fa fa-history"></i>
-                <span class="hidden-sm hidden-xs">
-                  Schema History
-                </span>
+              <a target="_blank" href={{schemaHistoryUrl}}
+                title="View Schema History">
+              <i class="fa fa-history"></i>
+              <span class="hidden-sm hidden-xs">
+                      Schema History
+                    </span>
               </a>
             </li>
           {{/if}}
           <li>
-            {{#dataset-watch dataset=model getDatasets="getDataset" }}
+            {{#dataset-watch dataset=model getDatasets="getDataset"}}
             {{/dataset-watch}}
             <span class="hidden-xs hidden-sm">
               {{#if model.isWatched}}
@@ -94,6 +104,7 @@
       </div>
     </div>
     {{dataset-owner-list owners=owners datasetName=model.name}}
+
     {{#if hasinstances}}
       <div class="row">
         <span class="col-xs-1">Instances:</span>
@@ -116,6 +127,7 @@
         </div>
       </div>
     {{/if}}
+
     {{#if hasversions}}
       <div class="row">
         <span class="col-xs-1">Versions:</span>
@@ -139,6 +151,7 @@
       </div>
     {{/if}}
   </div>
+
   <ul class="nav nav-tabs nav-justified tabbed-navigation-list">
     {{#unless isPinot}}
       <li id="properties">
@@ -152,15 +165,10 @@
         Comments
       </a>
     </li>
-    <li id="schemas">
-      <a data-toggle="tab" href="#schematab">Schema</a>
-    </li>
-
-    {{!-- add test access feature --}}
+    <li id="schemas"><a data-toggle="tab" href="#schematab">Schema</a></li>
     <li id="aclaccess">
-      <a data-toggle="tab" href="#ace-accesstab">ACL Access</a>
+      <a data-toggle="tab" href="#acl-accesstab">ACL Access</a>
     </li>
-
     <li id="ownership" class="active">
       <a data-toggle="tab" href="#ownertab">Ownership</a>
       {{#if requiredMinNotConfirmed}}
@@ -169,7 +177,9 @@
     </li>
     {{#if isInternal}}
       <li id="compliance">
-        <a data-toggle="tab" title="Compliance" href="#compliancetab">
+        <a data-toggle="tab"
+           title="Compliance"
+           href="#compliancetab">
           Compliance
         </a>
         {{#if isNewComplianceInfo}}
@@ -178,26 +188,31 @@
       </li>
     {{/if}}
     {{#unless isSFDC}}
-      <li id="samples">
-        <a data-toggle="tab" href="#sampletab">Sample Data</a>
-      </li>
+      <li id="samples"><a data-toggle="tab" href="#sampletab">Sample Data</a></li>
     {{/unless}}
     <li id="impacts">
-      <a data-toggle="tab" title="Down Stream Impact Analysis" href="#impacttab">
+      <a data-toggle="tab"
+         title="Down Stream Impact Analysis"
+         href="#impacttab">
         Downstream
       </a>
     </li>
     <li id="depends">
-      <a data-toggle="tab" title="Relations" href="#dependtab">
+      <a data-toggle="tab"
+         title="Relations"
+         href="#dependtab">
         Relations
       </a>
     </li>
     <li id="access">
-      <a data-toggle="tab" title="Accessibilities" href="#accesstab">
+      <a data-toggle="tab"
+         title="Accessibilities"
+         href="#accesstab">
         Availability
       </a>
     </li>
   </ul>
+
   <div class="tab-content">
     {{#unless isPinot}}
       <div id="propertiestab" class="tab-pane">
@@ -206,9 +221,11 @@
           deprecationNote=datasetView.deprecationNote
           onUpdateDeprecation=(action "updateDeprecation")
         }}
+
         {{dataset-property properties=properties}}
       </div>
     {{/unless}}
+
     <div id="commentstab" class="tab-pane">
       {{dataset-comments
         comments=datasetComments
@@ -217,6 +234,7 @@
         addDatasetComment=(action "createDatasetComment")
       }}
     </div>
+
     <div id="schematab" class="tab-pane">
       {{dataset-schema
         isTable=isTable
@@ -249,6 +267,7 @@
       {{#dataset-access hasAccess=hasAccess accessibilities=accessibilities}}
       {{/dataset-access}}
     </div>
+
     <div id="compliancetab" class="tab-pane">
       {{dataset-compliance
         datasetName=model.name
@@ -263,9 +282,12 @@
         onReset=(action "resetPrivacyCompliancePolicy")
       }}
     </div>
-  
-    <div id="ace-accesstab" class="tab-pane">
-      {{dataset-aclaccess}}
+
+     <div id="acl-accesstab" class="tab-pane">
+      {{dataset-aclaccess
+        accessInfo=aclAccessResponse
+        currentUser=currentUserInfo
+      }}
     </div>
 
   </div>

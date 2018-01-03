@@ -1,20 +1,20 @@
 <td>
-    {{user-avatar userName=owner.userName}}
+    {{user-avatar userName=user.userName}}
 </td>
 <td>
-    {{owner.name}}
+    {{user.name}}
 </td>
 <td>
-    {{owner.idType}}
+    {{user.idType}}
 </td>
 <td>
-    {{owner.source}}
+    {{user.source}}
 </td>
 <td>
-    {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+    {{moment-calendar user.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
 </td>
 <td class="acl-table__ownership">
-    {{owner.ownerShip}}
+    {{user.ownerShip}}
 </td>
 <td>
     <button class="nacho-button nacho-button--small confirm-suggested-dataset-author" {{action "addOwner"}}>
