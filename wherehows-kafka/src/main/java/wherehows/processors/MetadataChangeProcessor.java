@@ -13,7 +13,6 @@
  */
 package wherehows.processors;
 
-import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
@@ -21,6 +20,11 @@ import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.Schemaless;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -38,6 +42,12 @@ import static wherehows.common.utils.StringUtil.*;
 
 @Slf4j
 public class MetadataChangeProcessor extends KafkaMessageProcessor {
+
+  private final Config config = ConfigFactory.load();
+
+  private final String whitelistStr = config.hasPath("whitelist.mce") ? config.getString("whitelist.mce") : "";
+
+  private final Set<String> whitelistActors = new HashSet<>(Arrays.asList(whitelistStr.split(";")));
 
   private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
 
@@ -76,19 +86,18 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
   }
 
   private void processEvent(MetadataChangeEvent event) throws Exception {
-    final KafkaAuditHeader auditHeader = event.auditHeader;
-    if (auditHeader == null) {
-      throw new Exception("Missing Kafka Audit header: " + event.toString());
+    final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
+    if (whitelistActors.size() > 0 && !whitelistActors.contains(changeAuditStamp.actorUrn.toString())) {
+      throw new RuntimeException("Actor not in whitelist, skip processing");
     }
+    final ChangeType changeType = changeAuditStamp.type;
 
     final DatasetIdentifier identifier = event.datasetIdentifier;
-    log.debug("MCE: " + identifier + " TS: " + auditHeader.time);
-    final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
-    final ChangeType changeType = changeAuditStamp.type;
+    log.debug("MCE: " + identifier);
 
     // check dataset name length to be within limit. Otherwise, save to DB will fail.
     if (identifier.nativeName.length() > MAX_DATASET_NAME_LENGTH) {
-      throw new Exception("Dataset name too long: " + identifier);
+      throw new IllegalArgumentException("Dataset name too long: " + identifier);
     }
 
     // if DELETE, mark dataset as removed and return
