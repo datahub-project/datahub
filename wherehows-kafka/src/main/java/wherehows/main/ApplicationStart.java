@@ -13,7 +13,6 @@
  */
 package wherehows.main;
 
-import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
 import com.typesafe.config.Config;
@@ -27,8 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import wherehows.actors.KafkaClientMaster;
 import wherehows.common.utils.ProcessUtil;
-import wherehows.dao.DaoFactory;
 import wherehows.dao.ConnectionPoolProperties;
+import wherehows.dao.DaoFactory;
 
 
 @Slf4j
@@ -77,7 +76,7 @@ public class ApplicationStart {
 
     try (PrintWriter out = new PrintWriter(pidFile, "UTF-8")) {
       out.println(ProcessUtil.getCurrentProcessId());
-    } catch (FileNotFoundException|UnsupportedEncodingException e) {
+    } catch (FileNotFoundException | UnsupportedEncodingException e) {
       log.error("Unable to write to " + pidFile);
     }
   }
