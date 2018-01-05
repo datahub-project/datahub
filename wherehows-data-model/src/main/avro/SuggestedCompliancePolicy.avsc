@@ -14,6 +14,12 @@
           "namespace": "com.linkedin.events.metadata",
           "fields": [
             {
+              "name": "uid",
+              "type": [ "null", "string" ],
+              "doc": "Unique identifier for the suggestion.",
+              "default": null
+            },
+            {
               "name": "suggestion",
               "type": "ComplianceEntity",
               "doc": "Suggestion for the field level compliance metadata."
@@ -37,6 +43,12 @@
           "name": "SuggestedDatasetClassification",
           "namespace": "com.linkedin.events.metadata",
           "fields": [
+            {
+              "name": "uid",
+              "type": [ "null", "string" ],
+              "doc": "Unique identifier for the suggestion.",
+              "default": null
+            },
             {
               "name": "isContaining",
               "type": "boolean",

@@ -7,7 +7,7 @@
     {
       "name": "actorUrn",
       "type": [ "null", "string" ],
-      "doc": "urn:li:corpuser:jsmith, urn:li:team:xyz, urn:li:service:money"
+      "doc": "urn:li:corpuser:ldap, urn:li:corpGroup:abc, and urn:li:multiProduct:mp_name"
     },
     {
       "name": "impersonatorUrn",

@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -47,7 +48,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final String whitelistStr = config.hasPath("whitelist.mce") ? config.getString("whitelist.mce") : "";
 
-  private final Set<String> whitelistActors = new HashSet<>(Arrays.asList(whitelistStr.split(";")));
+  private final Set<String> whitelistActors =
+      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
 
   private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
 
@@ -62,6 +64,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
   public MetadataChangeProcessor(DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producerTopic, producer);
+    log.info("MCE whitelist: " + whitelistActors);
   }
 
   /**
@@ -87,9 +90,11 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private void processEvent(MetadataChangeEvent event) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
-    if (whitelistActors.size() > 0 && !whitelistActors.contains(changeAuditStamp.actorUrn.toString())) {
-      throw new RuntimeException("Actor not in whitelist, skip processing");
+    String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
+    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+      throw new RuntimeException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
+
     final ChangeType changeType = changeAuditStamp.type;
 
     final DatasetIdentifier identifier = event.datasetIdentifier;
