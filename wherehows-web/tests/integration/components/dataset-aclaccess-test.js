@@ -2,48 +2,18 @@ import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
 import wait from 'ember-test-helpers/wait';
+import {
+  accessInfoTesting as accessInfo,
+  approvedResponseTesting as approvedResponse
+} from 'wherehows-web/constants/dataset-aclaccess';
 
 moduleForComponent('dataset-aclaccess', 'Integration | Component | dataset aclaccess', {
   integration: true
 });
+
 //TODO: Define testing case
 const currentUser = 'Mitchell_Rath';
 const accessResponse = { isApproved: false };
-const accessInfo = permmision => {
-  return {
-    isAccess: permmision,
-    body: [
-      {
-        id: 0,
-        principal: 'urn:li:userPrincipal:Mitchell_rath',
-        businessJustification: 'grandfathered in Mitchell_rath',
-        accessTypes: ['READ', 'WRITE'],
-        tableItem: {
-          userName: 'Mitchell_Rath',
-          name: 'Crawford MacGyver',
-          idType: 'USER',
-          source: 'WP',
-          modifiedTime: '2017-06-01T16:40:46.470Z',
-          ownerShip: 'DataOwner'
-        }
-      }
-    ]
-  };
-};
-const approvedResponse = {
-  principal: 'urn:li:userPrincipal:ABC',
-  businessJustification: 'asdsd read',
-  accessTypes: 'READ',
-  tableItem: {
-    userName: 'ABC',
-    name: 'Solon Streich I',
-    idType: 'USER',
-    source: 'TY',
-    modifiedTime: '2017-03-19T23:34:52.456Z',
-    ownerShip: 'DataOwner'
-  },
-  id: 3
-};
 
 //TODO: test each part of the component loading situation
 test('it renders', function(assert) {

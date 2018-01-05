@@ -62,8 +62,50 @@ const accessState = userName => {
   };
 };
 
+/**
+ * Defined a method to array from two object
+ * @param {*} objFirst 
+ * @param {*} objSecond 
+ * @returns [{*}] Array
+ */
+const pickList = (objFirst = {}, objSecond = {}) => {
+  let result;
+  if (objFirst && objFirst.body) {
+    result = result || _.map(objFirst.body, item => item.tableItem);
+  }
+  if (objSecond && objSecond.hasOwnProperty('tableItem')) {
+    result.push(objSecond.tableItem);
+  }
+  return result;
+};
+
+/**
+ * Testing data
+ */
 const queryAccessUrl = 'http://localhost:3000/elements/';
 
 const dummyLDAP = ['Mitchell_Rath', 'ABC', 'Juwan.Simonis', 'Gust.Tillman45', 'Tessie.Smitham59'];
 
-export { pageContent, accessState, queryAccessUrl, dummyLDAP };
+const approvedResponseTesting = {
+  principal: 'urn:li:userPrincipal:ABC',
+  businessJustification: 'asdsd read',
+  accessTypes: 'READ',
+  tableItem: {
+    userName: 'ABC',
+    name: 'Solon Streich I',
+    idType: 'USER',
+    source: 'TY',
+    modifiedTime: '2017-03-19T23:34:52.456Z',
+    ownerShip: 'DataOwner'
+  },
+  id: 3
+};
+
+const accessInfoTesting = permmision => {
+  return {
+    isAccess: permmision,
+    body: [approvedResponseTesting]
+  };
+};
+
+export { pageContent, accessState, queryAccessUrl, dummyLDAP, pickList, accessInfoTesting, approvedResponseTesting };
