@@ -13,6 +13,7 @@
  */
 package wherehows.processors;
 
+import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FailedMetadataLineageEvent;
@@ -21,12 +22,13 @@ import com.linkedin.events.metadata.agent;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
@@ -40,14 +42,15 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
 
   private final String whitelistStr = config.hasPath("whitelist.mle") ? config.getString("whitelist.mle") : "";
 
-  private final Set<agent> whitelistAppTypes =
-      Arrays.stream(whitelistStr.split(";")).map(agent::valueOf).collect(Collectors.toSet());
+  private final Set<String> whitelistActors =
+      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
 
   private final LineageDao _lineageDao = DAO_FACTORY.getLineageDao();
 
   public MetadataLineageProcessor(DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producerTopic, producer);
+    log.info("MLE whitelist: " + whitelistActors);
   }
 
   /**
@@ -76,26 +79,43 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
-
     log.debug("MLE: " + event.lineage.toString());
 
-    agent appType = event.type;
-    if (whitelistAppTypes.size() > 0 && !whitelistAppTypes.contains(appType)) {
-      throw new RuntimeException("App Type not in whitelist, skip processing");
+    String actorUrn = getActorUrn(event);
+
+    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+      throw new RuntimeException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
     List<DatasetLineage> lineages = event.lineage;
     DeploymentDetail deployments = event.deploymentDetail;
 
     // create lineage
-    _lineageDao.createLineages(appType, lineages, deployments);
+    _lineageDao.createLineages(actorUrn, lineages, deployments);
+  }
+
+  /**
+   * Get actor Urn string from app type or change audit stamp
+   */
+  private String getActorUrn(MetadataLineageEvent event) {
+    // use app type first
+    if (event.type != agent.UNUSED) {
+      return "urn:li:multiProduct:" + event.type.name().toLowerCase();
+    }
+
+    // if app type = UNUSED, use actorUrn in ChangeAuditStamp
+    ChangeAuditStamp auditStamp = event.changeAuditStamp;
+    if (auditStamp == null || auditStamp.actorUrn == null) {
+      throw new IllegalArgumentException("Requires ChangeAuditStamp actorUrn if MLE agent is UNUSED");
+    }
+    return auditStamp.actorUrn.toString();
   }
 
   private FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {
-    FailedMetadataLineageEvent faileEvent = new FailedMetadataLineageEvent();
-    faileEvent.time = System.currentTimeMillis();
-    faileEvent.error = ExceptionUtils.getStackTrace(throwable);
-    faileEvent.metadataLineageEvent = event;
-    return faileEvent;
+    FailedMetadataLineageEvent failedEvent = new FailedMetadataLineageEvent();
+    failedEvent.time = System.currentTimeMillis();
+    failedEvent.error = ExceptionUtils.getStackTrace(throwable);
+    failedEvent.metadataLineageEvent = event;
+    return failedEvent;
   }
 }
