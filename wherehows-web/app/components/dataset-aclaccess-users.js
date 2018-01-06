@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { getProperties } from '@ember/object';
+import { get } from '@ember/object';
 
 export default Component.extend({
   tagName: 'tr',
@@ -8,7 +8,7 @@ export default Component.extend({
 
   actions: {
     addOwner() {
-      const { addOwner } = getProperties(this, 'addOwner');
+      const { addOwner } = get(this, 'addOwner');
       return addOwner();
     }
   }
