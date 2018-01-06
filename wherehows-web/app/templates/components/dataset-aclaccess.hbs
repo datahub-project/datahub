@@ -1,4 +1,11 @@
 {{#if state}}
+    <section>
+        {{#if isLoadSpinner}}
+            {{dataset-spinner 
+              isLoadSpinner = isLoadSpinner}}
+        {{/if}}
+    </section>
+
     <section id="acl-permissioninfo">
         <header class="acl-permission__header">
             <span>
@@ -92,4 +99,6 @@
 <br />
 <br />
 <button class="btn btn-primary btn-lg" {{action "click"}}>change state</button>
+<button class="btn btn-primary btn-lg" {{action "resetSpinner"}}>close spinner</button>
+
 {{yield}}

@@ -14,6 +14,7 @@ export default Component.extend({
   accessInfo: null,
   accessResponse: null,
   currentUser: null,
+  isLoadSpinner: false,
 
   pageState: computed('accessInfo', 'accessResponse', function() {
     const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
@@ -84,18 +85,28 @@ export default Component.extend({
         businessJustification: requestReason
       };
 
+      set(this, 'isLoadSpinner', true);
+
       Promise.resolve(requestAclAccess(currentUser, data))
         .then(response => {
           set(this, 'accessResponse', response);
+          // set(this, 'isLoadSpinner', false);
         })
         .catch(error => {
           throw `It is request access error : ${error}`;
         });
 
+      console.log('parent isloadspinner', get(this, 'isLoadSpinner'));
+
       // get(this, 'notifications').notify(NotificationEvent.confirm, {
       //   header: 'Delete comment',
       //   content: 'Are you sure you want to delete this comment?'
       // });
+    },
+
+    resetSpinner() {
+      console.log('reset spinner');
+      set(this, 'isLoadSpinner', false);
     },
 
     cancelRequest() {
