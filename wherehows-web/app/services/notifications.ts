@@ -34,8 +34,10 @@ interface INotificationHandlerTrap<T, K extends keyof T> {
 
 /**
  * Describes the interface for a confirmation modal object
+ * @export
+ * @interface IConfirmOptions
  */
-interface IConfirmOptions {
+export interface IConfirmOptions {
   header: string;
   content: string;
   dismissButtonText?: string;
