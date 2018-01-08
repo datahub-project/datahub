@@ -5,7 +5,8 @@ import {
   IdLogicalType,
   NonIdLogicalType,
   DatasetClassifiers,
-  PurgePolicy
+  PurgePolicy,
+  DatasetClassification
 } from 'wherehows-web/constants';
 
 /**
@@ -19,12 +20,12 @@ export interface IComplianceEntity {
   // Unique identifier for a complianceEntity, must match a field with equal field path in the dataset schema
   identifierField: string;
   // Tag indicating the type of the the field
-  identifierType: ComplianceFieldIdValue | NonIdLogicalType;
+  identifierType: ComplianceFieldIdValue | NonIdLogicalType | null;
   // Tag indicating the type of the identifierType,
   // solely applicable to corresponding id's with an idType of `false` in the complianceDataTypes endpoint
-  logicalType: IdLogicalType;
+  logicalType: IdLogicalType | null;
   // User specified / default security classification for the related schema field
-  securityClassification: Classification;
+  securityClassification: Classification | null;
   // Flag indicating that the dataset is of a subject type, default is false
   nonOwner: boolean;
 }
@@ -48,7 +49,7 @@ export interface IComplianceInfo {
   // for datasets with a schema, this derived from the complianceEntities
   containingPersonalData?: boolean;
   // Tags for a types of data contained in the related dataset
-  datasetClassification: { [K in keyof typeof DatasetClassifiers]: boolean };
+  datasetClassification: DatasetClassification;
   // Unique wherehows specific database identifier
   datasetId: number;
   // Unique urn for the dataset

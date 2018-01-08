@@ -1,3 +1,9 @@
+import {
+  IComplianceEntity,
+  ISuggestedFieldClassification,
+  IComplianceSuggestion
+} from 'wherehows-web/typings/api/datasets/compliance';
+
 /**
  * String indicating that the user affirms or ignored a field suggestion
  */
@@ -77,18 +83,19 @@ enum ComplianceFieldIdValue {
  * @interface IComplianceField
  */
 interface IComplianceField {
-  identifierType: ComplianceFieldIdValue | void;
-  logicalType: IdLogicalType | null;
-  classification: Classification | null;
+  identifierType: IComplianceEntity['identifierType'] | void;
+  logicalType: IComplianceEntity['logicalType'] | null;
+  classification: IComplianceEntity['securityClassification'] | null;
   privacyPolicyExists: boolean;
-  nonOwner: boolean;
+  nonOwner: IComplianceEntity['nonOwner'];
   isDirty: boolean;
+  suggestionAuthority?: SuggestionIntent;
   suggestion?: {
-    identifierType: ComplianceFieldIdValue;
-    logicalType: IComplianceField['logicalType'];
-    securityClassification: Classification;
-    confidenceLevel: number;
-    suggestionsModificationTime: number;
+    identifierType: IComplianceEntity['identifierType'];
+    logicalType: IComplianceEntity['logicalType'];
+    securityClassification: IComplianceEntity['securityClassification'];
+    confidenceLevel: ISuggestedFieldClassification['confidenceLevel'];
+    suggestionsModificationTime: IComplianceSuggestion['lastModified'];
   };
 }
 

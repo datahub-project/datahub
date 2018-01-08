@@ -101,7 +101,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {(ComputedProperty<SuggestionIntent | void>)}
    * @memberof DatasetComplianceRow
    */
-  suggestionAuthority: ComputedProperty<SuggestionIntent | void> = alias('field.suggestionAuthority');
+  suggestionAuthority: ComputedProperty<IComplianceField['suggestionAuthority']> = alias('field.suggestionAuthority');
 
   /**
    * Maps the suggestion response, if present, to a string resolution
@@ -186,7 +186,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      */
     interface IGetIdentParams {
       identifierType: IComplianceField['identifierType'];
-      prediction: { identifierType: ComplianceFieldIdValue } | void;
+      prediction: { identifierType: IComplianceField['identifierType'] } | void;
     }
 
     const { field: { identifierType }, prediction } = getProperties(this, ['field', 'prediction']);
@@ -264,9 +264,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   isPiiType = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
     const { identifierType } = get(this, 'field');
+    const isDefinedIdentifierType = identifierType !== null || identifierType !== ComplianceFieldIdValue;
 
     // If identifierType exists, and field is not idType or None or null
-    return !!identifierType && !get(this, 'isIdType') && ![ComplianceFieldIdValue.None, null].includes(identifierType);
+    return !!identifierType && !get(this, 'isIdType') && isDefinedIdentifierType;
   });
 
   /**
@@ -313,7 +314,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   prediction = computed('field.suggestion', 'field.suggestionAuthority', function(
     this: DatasetComplianceRow
   ): {
-    identifierType: ComplianceFieldIdValue;
+    identifierType: IComplianceField['identifierType'];
     logicalType: IComplianceField['logicalType'];
     confidence: number;
   } | void {

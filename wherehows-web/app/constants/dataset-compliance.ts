@@ -125,5 +125,6 @@ export {
   getComplianceSteps,
   IComplianceFieldIdentifierOption,
   IComplianceFieldFormatOption,
-  ISecurityClassificationOption
+  ISecurityClassificationOption,
+  IFieldIdentifierOption
 };
