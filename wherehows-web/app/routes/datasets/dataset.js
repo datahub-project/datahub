@@ -18,7 +18,6 @@ import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/dataset
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
-// import check  acl permission action
 import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
 import { currentUser } from 'wherehows-web/utils/api/authentication';
 
@@ -325,7 +324,7 @@ export default Route.extend({
       })
       .catch(() => set(controller, 'hasReferences', false));
 
-    // TODO: Get stutus current user to see data in ACL access tab
+    // TODO: Get current user ACL permission info for ACL access tab
     Promise.resolve(currentUser())
       .then(userInfo => {
         setProperties(controller, {
@@ -339,18 +338,13 @@ export default Route.extend({
           });
         });
       })
-      // return Promise.resolve(checkAclAccess(userInfo.userName)).then(value => {
-      //   console.log('value', value);
-      //   setProperties(controller, {
-      //     aclAccessResponse: value,
-      //     currentUserInfo: userInfo.userName,
-      //     aclUsers: value.body
-      //   });
-      // });
-      // })
       .catch(error => {
-        console.log('It is ACL response error', error);
-      }); //-end
+        setProperties(controller, {
+          aclAccessResponse: null,
+          currentUserInfo: ''
+        });
+        throw error;
+      });
   },
 
   actions: {

@@ -18,17 +18,18 @@ const user = {
 test('it renders', function(assert) {
   const className = '.dataset-author-record';
 
-  assert.expect(4);
+  this.setProperties({
+    user: user,
+    addOwner: function() {}
+  });
 
-  this.set('user', user);
-
-  this.render(hbs`{{dataset-aclaccess-users user=user}}`);
+  this.render(hbs`{{dataset-aclaccess-users
+                    user=user
+                    addOwner=addOwner}}`);
 
   assert.ok(this.$(), 'Render without errors');
 
   assert.equal(document.querySelector(className).tagName, 'TR', 'Component wrapper is <tr> tag');
 
   assert.equal(this.get('user'), user, 'user property should equal to user');
-
-  assert.equal(document.querySelector('.nacho-button').tagName, 'BUTTON', 'The Component includes a button');
 });

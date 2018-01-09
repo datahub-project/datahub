@@ -15,12 +15,8 @@ $gray-color: rgb(234, 234, 234);
     margin-left: item-spacing(2);
 
     &__header {
-      font-size: 18px;
+      font-size: 16px;
     }
-  }
-
-  &__meta strong {
-    font-size: 16px;
   }
 
   &__success {
@@ -29,6 +25,10 @@ $gray-color: rgb(234, 234, 234);
 
   &__reject {
     color: $reject-color;
+  }
+
+  &__separator {
+    margin-top: 3px;
   }
 }
 
@@ -98,8 +98,4 @@ $gray-color: rgb(234, 234, 234);
   &__ownership {
     color: #bfc0c1;
   }
-}
-
-#acl-permissioninfo hr {
-  margin-top: 3px;
 }

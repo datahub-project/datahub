@@ -1,7 +1,6 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
-import wait from 'ember-test-helpers/wait';
 import {
   accessInfoTesting as accessInfo,
   approvedResponseTesting as approvedResponse
@@ -50,7 +49,7 @@ test('component content renders correctly with permission', function(assert) {
     this.$('.acl-permission__meta')
       .text()
       .trim(),
-    'Mitchell_rath, you have access to this data',
+    'Mitchell_Rath, you have access to this data',
     'Render the permission message'
   );
 
@@ -79,7 +78,7 @@ test('component content renders correctly without permission', function(assert) 
     this.$('.acl-permission__meta')
       .text()
       .trim(),
-    'Mitchell_rath, you currently do not have access to this dataset',
+    'Mitchell_Rath, you currently do not have access to this dataset',
     'Render permission message correctly'
   );
 
@@ -116,9 +115,9 @@ test('component content renders permission rejected', function(assert) {
   });
 
   this.render(hbs`
-  {{dataset-aclaccess 
-    accessInfo=accessInfo 
-    currentUser=currentUser 
+  {{dataset-aclaccess
+    accessInfo=accessInfo
+    currentUser=currentUser
     accessResponse=accessResponse}}`);
 
   assert.ok(
@@ -144,9 +143,9 @@ test('component content renders permission approved', function(assert) {
   });
 
   this.render(hbs`
-  {{dataset-aclaccess 
-    accessInfo=accessInfo 
-    currentUser=currentUser 
+  {{dataset-aclaccess
+    accessInfo=accessInfo
+    currentUser=currentUser
     accessResponse=accessResponse}}`);
 
   assert.ok(
@@ -173,8 +172,8 @@ test('it should invoke the reset action on cancel', function(assert) {
   });
 
   this.render(hbs`
-  {{dataset-aclaccess 
-    accessInfo=accessInfo 
+  {{dataset-aclaccess
+    accessInfo=accessInfo
     currentUser=currentUser
     requestReason=requestReason}}`);
 
@@ -183,32 +182,4 @@ test('it should invoke the reset action on cancel', function(assert) {
   triggerEvent('.nacho-button--secondary', 'click');
 
   assert.equal(this.get('requestReason'), '');
-});
-
-test('it should invoke the submit action', function(assert) {
-  this.setProperties({
-    accessInfo: accessInfo(false),
-    currentUser,
-    accessResponse,
-    requestReason: 'request read access'
-  });
-
-  this.render(hbs`
-  {{dataset-aclaccess 
-    accessInfo=accessInfo 
-    currentUser=currentUser
-    requestReason=requestReason}}`);
-
-  triggerEvent('.nacho-button--inverse', 'click');
-
-  return wait().then(() => {
-    assert.equal(
-      this.$('.acl-permission__meta')
-        .children('p')
-        .text()
-        .trim(),
-      'You now have a access to this data',
-      'Render request form subtitle 2 correctly'
-    );
-  });
 });
