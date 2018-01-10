@@ -1,5 +1,6 @@
+const fixtures = ['dataset-nodes', 'metric-metrics', 'user-entities', 'compliance-data-types', 'list-platforms'];
+
 export default function(server) {
-  const fixtures = ['dataset-nodes', 'metric-metrics', 'user-entities', 'compliance-data-types'];
   server.loadFixtures(...fixtures);
   server.create('config');
   server.createList('owner', 6);
