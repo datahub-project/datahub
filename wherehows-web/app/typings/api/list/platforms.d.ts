@@ -8,7 +8,7 @@ import { ApiStatus } from 'wherehows-web/utils/api/shared';
  */
 export interface IDataPlatform {
   // Policies supported for this dataset
-  supportedPolicies: Array<PurgePolicy>;
+  supportedPurgePolicies: Array<PurgePolicy>;
   // the type of the dataset platform with the given name e.g. DISTRIBUTED_FILE_SYSTEM, RELATIONAL_DB
   type: string;
   // the name of the dataset platform

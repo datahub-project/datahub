@@ -3,17 +3,17 @@
  * @enum {string}
  */
 enum DatasetPlatform {
-  Kafka = 'KAFKA',
-  Espresso = 'ESPRESSO',
-  Oracle = 'ORACLE',
-  MySql = 'MYSQL',
-  Teradata = 'TERADATA',
-  HDFS = 'HDFS',
-  Ambry = 'AMBRY',
-  Couchbase = 'COUCHBASE',
-  Voldemort = 'VOLDEMORT',
-  Venice = 'VENICE',
-  Hive = 'HIVE'
+  Kafka = 'kafka',
+  Espresso = 'espresso',
+  Oracle = 'oracle',
+  MySql = 'mysql',
+  Teradata = 'teradata',
+  HDFS = 'hdfs',
+  Ambry = 'ambry',
+  Couchbase = 'couchbase',
+  Voldemort = 'voldemort',
+  Venice = 'venice',
+  Hive = 'hive'
 }
 
 export { DatasetPlatform };
