@@ -1,4 +1,4 @@
-import { DatasetPlatform } from 'wherehows-web/constants/datasets/platform';
+import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 
 /**
  * Available values for the purge policy
@@ -17,7 +17,6 @@ enum PurgePolicy {
  */
 type PurgePolicyProperties = {
   [K in PurgePolicy]: {
-    platforms: Array<DatasetPlatform>;
     desc: string;
     displayAs: string;
   }
@@ -29,38 +28,41 @@ type PurgePolicyProperties = {
  */
 const purgePolicyProps: PurgePolicyProperties = {
   AUTO_PURGE: {
-    platforms: [DatasetPlatform.Teradata, DatasetPlatform.Espresso, DatasetPlatform.HDFS],
     desc:
       'Choose this option only if it’s acceptable to have the centralized system purge this dataset based on the provided metadata (e.g. member ID, seat ID etc).',
     displayAs: 'Auto Purge'
   },
   MANUAL_PURGE: {
-    platforms: [
-      DatasetPlatform.MySql,
-      DatasetPlatform.Espresso,
-      DatasetPlatform.Teradata,
-      DatasetPlatform.Oracle,
-      DatasetPlatform.HDFS
-    ],
     desc: 'Choose this option only if you or your team have implemented a custom mechanism to purge this dataset.',
     displayAs: 'Manual Purge'
   },
   LIMITED_RETENTION: {
-    platforms: [DatasetPlatform.Kafka, DatasetPlatform.Teradata, DatasetPlatform.HDFS],
     desc:
       'Choose this option only if you rely on the data platform’s default limited retention mechanism to purge your data.',
     displayAs: 'Auto Limited Retention'
   },
   MANUAL_LIMITED_RETENTION: {
-    platforms: [DatasetPlatform.Espresso, DatasetPlatform.Oracle, DatasetPlatform.MySql],
     desc: 'Choose this option only if you have a well established process to ensure limited data retention.',
     displayAs: 'Manual Limited Retention'
   },
   PURGE_EXEMPTED: {
-    platforms: Object.keys(DatasetPlatform).map((k: keyof typeof DatasetPlatform) => DatasetPlatform[k]),
     desc: 'Choose this option only if the dataset is explicitly exempted from purging',
     displayAs: 'Purge Exempt'
   }
+};
+
+/**
+ * Extracts the purge policy for a given platform from the list of DatasetPlatforms
+ * @param {IDataPlatform.name} platformName the name of the dataset platform
+ * @param {Array<IDataPlatform>} [platforms=[]] the list of objects with IDataPlatform interface
+ * @returns {Array<PurgePolicy>}
+ */
+const getSupportedPurgePolicies = (
+  platformName: IDataPlatform['name'],
+  platforms: Array<IDataPlatform> = []
+): Array<PurgePolicy> => {
+  const platform = platforms.findBy('name', platformName);
+  return platform ? platform.supportedPurgePolicies : [];
 };
 
 /**
@@ -81,4 +83,4 @@ const isExempt = (policy: PurgePolicy) => policy === PurgePolicy.PurgeExempt;
  */
 const missingPolicyText = 'This dataset does not have a current compliance purge policy.';
 
-export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy, missingPolicyText };
+export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy, missingPolicyText, getSupportedPurgePolicies };
