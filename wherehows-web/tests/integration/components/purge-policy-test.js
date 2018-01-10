@@ -1,10 +1,23 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
-import { missingPolicyText, purgePolicyProps, exemptPolicy } from 'wherehows-web/constants';
+import { triggerEvent, waitUntil, find } from 'ember-native-dom-helpers';
+import sinon from 'sinon';
+
+import { missingPolicyText, purgePolicyProps, exemptPolicy, PurgePolicy } from 'wherehows-web/constants';
+import { DatasetPlatform } from 'wherehows-web/constants/datasets/platform';
+import platforms from 'wherehows-web/mirage/fixtures/list-platforms';
+import { ApiStatus } from 'wherehows-web/utils/api';
 
 moduleForComponent('purge-policy', 'Integration | Component | purge policy', {
-  integration: true
+  integration: true,
+
+  beforeEach() {
+    this.server = sinon.createFakeServer();
+  },
+
+  afterEach() {
+    this.server.restore();
+  }
 });
 
 const policyList = '.purge-policy-list';
@@ -59,17 +72,25 @@ test('it renders a user message if the purge policy is not set and is in readonl
   );
 });
 
-test('it indicates the currently selected purge policy', function(assert) {
+test('it indicates the currently selected purge policy', async function(assert) {
   assert.expect(1);
-  const selectedPolicy = policyTypes[1];
-  const platform = purgePolicyProps[selectedPolicy].platforms[0];
+  const selectedPolicy = PurgePolicy.ManualPurge;
+  const platform = DatasetPlatform.MySql;
 
   this.set('isEditable', true);
   this.set('platform', platform);
   this.set('purgePolicy', selectedPolicy);
 
-  this.render(hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform}}`);
+  this.server.respondWith('GET', '/api/v1/list/platforms', [
+    200,
+    { 'Content-Type': 'application/json' },
+    JSON.stringify({ status: ApiStatus.OK, platforms })
+  ]);
 
+  this.render(hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform}}`);
+  this.server.respond();
+
+  await waitUntil(() => find(`${policyList} [type=radio][value=${selectedPolicy}]`));
   assert.ok(
     document.querySelector(`${policyList} [type=radio][value=${selectedPolicy}]`).checked,
     `${selectedPolicy} radio is checked`
@@ -83,7 +104,7 @@ test('it focuses the comment element for exempt policy', function(assert) {
     assert.equal(++focusMethodCount, 1, 'focusEditor action is invoked');
   };
   let selectedPolicy = exemptPolicy;
-  let platform = purgePolicyProps[selectedPolicy].platforms[0];
+  let platform = DatasetPlatform.MySql;
   let focusMethodCount = 0;
 
   this.setProperties({

@@ -67,7 +67,7 @@ declare module 'ember-concurrency' {
       cancelAll(): void;
     };
 
-  export function task<T, A>(generatorFn: (a: A) => Iterator<T>): Task<T, (a: A) => TaskInstance<T>>;
+  export function task<T, A>(generatorFn: (a: A) => Iterator<T>): Task<T, (a?: A) => TaskInstance<T>>;
 
   export function task<T, A1, A2>(
     generatorFn: (a1: A1, a2: A2) => Iterator<T>
