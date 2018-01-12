@@ -30,6 +30,8 @@ declare module 'fetch' {
   export default function fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
 }
 
+declare module 'scrollmonitor';
+
 /**
  * Merges global type defs for global modules on the window namespace.
  * These should be refactored into imported modules if available or shimmed as such
