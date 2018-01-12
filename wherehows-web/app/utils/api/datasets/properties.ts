@@ -140,12 +140,23 @@ const readNonPinotProperties = async (id: number): Promise<Array<IPropertyItem>>
 };
 
 /**
- * Extracts samples and columns for a dataset that is sourced from pinot
- * @param {IDatasetPinotProperties} properties
- * @returns
+ * Describes the inteface of object returned from the api request to get pinot properties
+ * @interface IDatasetSamplesAndColumns
  */
-const getDatasetSamplesAndColumns = (properties: IDatasetPinotProperties) => {
-  const { elements = [] } = properties;
+interface IDatasetSamplesAndColumns {
+  hasSamples: boolean;
+  samples: Array<string>;
+  columns: Array<string>;
+}
+/**
+ * Extracts samples and columns for a dataset that is sourced from pinot
+ * @param {IDatasetPinotProperties} [properties=<IDatasetPinotProperties>{}] 
+ * @returns 
+ */
+const getDatasetSamplesAndColumns = (
+  properties: IDatasetPinotProperties = <IDatasetPinotProperties>{}
+): IDatasetSamplesAndColumns | void => {
+  const { elements = [{ columnNames: [], results: [] }] } = properties;
   const [{ columnNames = [], results }] = elements;
   if (columnNames.length) {
     return {

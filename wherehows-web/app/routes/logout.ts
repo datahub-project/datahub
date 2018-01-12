@@ -10,7 +10,6 @@ export default class Logout extends Route.extend(AuthenticatedRouteMixin) {
   /**
    * Reference to the application session service, implemented with Ember Simple Auth
    * @type {ComputedProperty<Session>}
-   * @return {Service}
    */
   session: ComputedProperty<Session> = inject();
 
