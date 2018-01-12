@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get, set } from '@ember/object';
+import { get, set, observer } from '@ember/object';
 import { run, next } from '@ember/runloop';
 import { task } from 'ember-concurrency';
 import {
@@ -92,18 +92,23 @@ export default class PurgePolicyComponent extends Component {
   }
 
   /**
+   * Observes changes to the platform property and invokes the task to update the supportedPurgePolicies prop
+   * @type {void}
+   * @memberof PurgePolicyComponent
+   */
+  platformChanged = observer('platform', function(this: PurgePolicyComponent) {
+    get(this, 'getPlatformPolicies').perform();
+  });
+
+  /**
    * Task to retrieve platform policies for and set supported policies for the current platform
    * @memberof PurgePolicyComponent
    */
-  getPlatformPolicies = task(function*(
-    this: PurgePolicyComponent
-  ): IterableIterator<Array<PurgePolicy> | Promise<Array<IDataPlatform>>> {
+  getPlatformPolicies = task(function*(this: PurgePolicyComponent): IterableIterator<Promise<Array<IDataPlatform>>> {
     const platform = get(this, 'platform');
 
     if (platform) {
-      const supportedPurgePolicies = getSupportedPurgePolicies(platform, yield readPlatforms());
-
-      yield set(this, 'supportedPurgePolicies', supportedPurgePolicies);
+      set(this, 'supportedPurgePolicies', getSupportedPurgePolicies(platform, yield readPlatforms()));
     }
   }).restartable();
 
