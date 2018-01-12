@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
+import { computed, set, get, setProperties, getProperties, getWithDefault, observer } from '@ember/object';
 import ComputedProperty, { gt, not, or } from '@ember/object/computed';
 import { run, schedule } from '@ember/runloop';
 import { inject } from '@ember/service';
@@ -43,6 +43,7 @@ import {
   IComplianceSuggestion
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { ApiStatus } from 'wherehows-web/utils/api';
+import { task } from 'ember-concurrency';
 
 /**
  * Describes the DatasetCompliance actions index signature to allow
@@ -62,6 +63,11 @@ type SchemaFieldToPolicyValue = Pick<
     policyModificationTime: IComplianceInfo['modifiedTime'];
     dataType: string;
   };
+
+/**
+ * Describes the interface for a mapping of field names to type, SchemaFieldToPolicyValue
+ * @interface ISchemaFieldsToPolicy
+ */
 interface ISchemaFieldsToPolicy {
   [fieldName: string]: SchemaFieldToPolicyValue;
 }
@@ -130,7 +136,16 @@ const changeSetFieldsRequiringReview = arrayFilter<IComplianceChangeSet>(fieldCh
  */
 const initialStepIndex = -1;
 
-export default class DatasetCompliance extends Component {
+/**
+ * Applies the observer to the editStepIndex to trigger the update edit step task
+ */
+const ObservableDecorator = Component.extend({
+  editStepIndexChanged: observer('editStepIndex', function(this: DatasetCompliance) {
+    get(this, 'updateEditStepTask').perform();
+  })
+});
+
+export default class DatasetCompliance extends ObservableDecorator {
   isNewComplianceInfo: boolean;
   datasetName: string;
   sortColumnWithName: string;
@@ -138,8 +153,8 @@ export default class DatasetCompliance extends Component {
   sortDirection: string;
   searchTerm: string;
   helpText = helpText;
-  watchers: Array<any>;
-  complianceWatchers: any;
+  watchers: Array<{ stateChange: (fn: () => void) => void; watchItem: Element; destroy?: Function }>;
+  complianceWatchers: WeakMap<Element, {}>;
   _hasBadData: boolean;
   _message: string;
   _alertType: string;
@@ -258,64 +273,61 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Handles the transition between steps in the compliance edit wizard
-   * including performing each step's post processing action once a user has
-   * completed a step
-   * @type {ComputedProperty<{ name: string }>}
-   * TODO: improve ergonomics by enabling async awareness in the templates
-   * visually, step transition happens before the post step action is actually completed,
-   * even though this is reversed if the object is rejected
+   * e-c Task to update the current edit step in the wizard flow.
+   * Handles the transitions between steps, including performing each step's
+   * post processing action once a user has completed a step, or reverting the step
+   * and stepping backward if the post process fails
+   * @type {Task<void, (a?: void) => TaskInstance<void>>}
+   * @memberof DatasetCompliance
    */
-  editStep = computed(
-    'editStepIndex',
-    (function() {
-      // initialize the previous action with a no-op function
-      let previousAction = noop;
-      // initialize the last seen index to the same value as editStepIndex
-      let lastIndex = initialStepIndex;
+  updateEditStepTask = (function() {
+    // initialize the previous action with a no-op function
+    let previousAction = noop;
+    // initialize the last seen index to the same value as editStepIndex
+    let lastIndex = initialStepIndex;
 
-      return function(this: DatasetCompliance): { name: string } {
-        const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-        // the current step in the edit sequence
-        const editStep = editSteps[currentIndex] || {};
-        const { name } = editStep;
+    return task(function*(this: DatasetCompliance): IterableIterator<void> {
+      const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
+      // the current step in the edit sequence
+      const editStep = editSteps[currentIndex] || {};
+      const { name } = editStep;
 
-        if (name) {
-          // using the steps name, construct a reference to the step process handler
-          const nextAction = this.actions[`did${classify(name)}`];
-          let previousActionResult;
+      if (name) {
+        // using the steps name, construct a reference to the step process handler
+        const nextAction = this.actions[`did${classify(name)}`];
+        let previousActionResult: void;
 
-          // if the transition is backward, then the previous action is ignored
-          currentIndex > lastIndex && (previousActionResult = previousAction.call(this));
-          lastIndex = currentIndex;
+        // if the transition is backward, then the previous action is ignored
+        currentIndex > lastIndex && (previousActionResult = previousAction.call(this));
+        lastIndex = currentIndex;
 
-          Promise.resolve(previousActionResult)
-            .then(() => {
-              // if the previous action is resolved successfully, then replace with the next processor
-              if (typeof nextAction === 'function') {
-                return (previousAction = nextAction);
-              }
-              // otherwise clear the previous action
-              previousAction = noop;
-            })
-            .catch(() => {
-              // if the previous action settles in a rejected state, replace with no-op before
-              // invoking the previousStep action to go back in the sequence
-              // batch previousStep invocation in a afterRender queue due to editStepIndex update
-              previousAction = noop;
-              run(() => {
-                if (this.isDestroyed || this.isDestroyed) {
-                  return;
-                }
-                schedule('afterRender', this, this.actions.previousStep);
-              });
-            });
+        try {
+          yield previousActionResult;
+          // if the previous action is resolved successfully, then replace with the next processor
+          previousAction = typeof nextAction === 'function' ? nextAction : noop;
+
+          set(this, 'editStep', editStep);
+        } catch {
+          // if the previous action settles in a rejected state, replace with no-op before
+          // invoking the previousStep action to go back in the sequence
+          // batch previousStep invocation in a afterRender queue due to editStepIndex update
+          previousAction = noop;
+          run(() => {
+            if (this.isDestroyed || this.isDestroying) {
+              return;
+            }
+            schedule('afterRender', this, this.actions.previousStep);
+          });
         }
+      }
+    }).enqueue();
+  })();
 
-        return editStep;
-      };
-    })()
-  );
+  /**
+   * Holds a reference to the current step in the compliance edit wizard flow 
+   * @type {{ name: string }}
+   */
+  editStep: { name: string };
 
   /**
    * A list of ui values and labels for review filter drop-down
@@ -399,7 +411,7 @@ export default class DatasetCompliance extends Component {
       return;
     }
 
-    this.watchers.forEach(watcher => watcher.destroy());
+    this.watchers.forEach(watcher => watcher.destroy && watcher.destroy());
   }
 
   /**
@@ -988,8 +1000,8 @@ export default class DatasetCompliance extends Component {
      */
     previousStep(this: DatasetCompliance) {
       const editStepIndex = get(this, 'editStepIndex');
-      const nextState = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
-      this.updateStep(nextState);
+      const previousIndex = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
+      this.updateStep(previousIndex);
     },
 
     /**
@@ -997,8 +1009,8 @@ export default class DatasetCompliance extends Component {
      */
     nextStep(this: DatasetCompliance) {
       const { editStepIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-      const nextState = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
-      this.updateStep(nextState);
+      const nextIndex = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
+      this.updateStep(nextIndex);
     },
 
     /**
@@ -1176,7 +1188,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Updates the logical type for the given identifierField
      * @param {IComplianceChangeSet} field
-     * @param {IComplianceField['logicalType']} logicalType
+     * @param {IComplianceField.logicalType} logicalType
      */
     onFieldLogicalTypeChange(
       this: DatasetCompliance,
@@ -1189,7 +1201,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Updates the field security classification
      * @param {IComplianceChangeSet} { identifierField } the identifier field to update the classification for
-     * @param {{value: IComplianceField['classification']}} { value: classification = null }
+     * @param {{value: IComplianceField.classification}} { value: classification = null }
      */
     onFieldClassificationChange(
       this: DatasetCompliance,
@@ -1215,7 +1227,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Updates the field non owner flag
      * @param {IComplianceChangeSet} { identifierField }
-     * @param {IComplianceField['nonOwner']} nonOwner
+     * @param {IComplianceField.nonOwner} nonOwner
      */
     onFieldOwnerChange(
       this: DatasetCompliance,
@@ -1248,7 +1260,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Updates the complianceType on the compliance policy
      * @param {PurgePolicy} purgePolicy
-     * @returns {IComplianceInfo['complianceType']}
+     * @returns {IComplianceInfo.complianceType}
      */
     onDatasetPurgePolicyChange(
       this: DatasetCompliance,
@@ -1276,8 +1288,8 @@ export default class DatasetCompliance extends Component {
 
     /**
      * Updates the confidentiality flag on the dataset compliance
-     * @param {IComplianceInfo['confidentiality']} [securityClassification=null]
-     * @returns {IComplianceInfo['confidentiality']}
+     * @param {IComplianceInfo.confidentiality} [securityClassification=null]
+     * @returns {IComplianceInfo.confidentiality}
      */
     onDatasetSecurityClassificationChange(
       this: DatasetCompliance,
