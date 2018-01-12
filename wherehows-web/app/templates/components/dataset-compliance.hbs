@@ -91,16 +91,16 @@
   {{/if}}
 
   {{#unless schemaless}}
-    {{#if (and (eq editStepIndex 0) (not _hasBadData))}}
+    {{#if (and (eq editStep.name editSteps.0.name) (not _hasBadData))}}
       {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
     {{/if}}
   {{/unless}}
 
-  {{#if (or isReadOnly (eq editStepIndex 2))}}
+  {{#if (or isReadOnly (eq editStep.name editSteps.2.name))}}
     {{partial "datasets/dataset-compliance/dataset-classification"}}
   {{/if}}
 
-  {{#if (or isReadOnly (eq editStepIndex 1))}}
+  {{#if (or isReadOnly (eq editStep.name editSteps.1.name))}}
     {{purge-policy
       isEditable=(not isReadOnly)
       platform=platform
@@ -112,7 +112,7 @@
 
   {{#if schemaless}}
 
-    {{#if (or isReadOnly (eq editStepIndex 0))}}
+    {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
       {{datasets/schemaless-tagging
         isEditable=(not isReadOnly)
         classification=(readonly complianceInfo.confidentiality)
@@ -124,7 +124,7 @@
 
   {{else}}
 
-    {{#if (or isReadOnly (eq editStepIndex 0))}}
+    {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
       {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
     {{/if}}
 
