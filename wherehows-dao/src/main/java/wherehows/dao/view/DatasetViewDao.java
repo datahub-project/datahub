@@ -94,6 +94,15 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
+  public List<DatasetView> listDatasets(@Nonnull String platform, @Nonnull String prefix, int start, int count)
+      throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
+  public List<String> listNames(@Nonnull String platform, @Nonnull String prefix) throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
   /**
    * Get dataset columns by dataset id
    * @param datasetId int
@@ -125,7 +134,8 @@ public class DatasetViewDao extends BaseViewDao {
     params.put("datasetId", datasetId);
     params.put("columnId", columnId);
 
-    List<DatasetColumn> columns = getEntityListBy(GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID, DatasetColumn.class, params);
+    List<DatasetColumn> columns =
+        getEntityListBy(GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID, DatasetColumn.class, params);
     fillInColumnEntity(columns);
     return columns;
   }
