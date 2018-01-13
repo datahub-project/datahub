@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
 import play.cache.Cache;
@@ -112,5 +114,35 @@ public class Dataset {
       }
     }
     return users;
+  }
+
+  /**
+   * Generate prefix for dataset name segment search. Append '.' or '/' according to platform.
+   * @param platform String
+   * @param name original prefix name
+   * @return prefix to be used in next listNames
+   */
+  public static String getPlatformPrefix(@Nonnull String platform, @Nullable String name) {
+    String delim = "HDFS".equalsIgnoreCase(platform) ? "/" : ".";
+
+    if (StringUtils.isBlank(name)) {
+      return "HDFS".equalsIgnoreCase(platform) ? "/" : "";
+    }
+    if (!name.endsWith(delim)) {
+      return name + delim;
+    }
+    return name;
+  }
+
+  /**
+   * Check if the prefix is dataset name or not (segment)
+   */
+  public static boolean listNamePrefixIsDataset(@Nonnull String platform, @Nullable String prefix) {
+    if (StringUtils.isBlank(prefix)) {
+      return false;
+    }
+
+    String delim = "HDFS".equalsIgnoreCase(platform) ? "/" : ".";
+    return !prefix.endsWith(delim);
   }
 }
