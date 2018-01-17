@@ -33,6 +33,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
+import wherehows.exceptions.UnauthoraizedException;
 
 
 @Slf4j
@@ -84,7 +85,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     String actorUrn = getActorUrn(event);
 
     if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
-      throw new RuntimeException("Actor " + actorUrn + " not in whitelist, skip processing");
+      throw new UnauthoraizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
     List<DatasetLineage> lineages = event.lineage;
