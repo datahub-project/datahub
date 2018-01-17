@@ -18,7 +18,9 @@ enum SuggestionIntent {
 enum Classification {
   Confidential = 'CONFIDENTIAL',
   LimitedDistribution = 'LIMITED_DISTRIBUTION',
-  HighlyConfidential = 'HIGHLY_CONFIDENTIAL'
+  HighlyConfidential = 'HIGHLY_CONFIDENTIAL',
+  Internal = 'INTERNAL',
+  Public = 'PUBLIC'
 }
 
 /**
