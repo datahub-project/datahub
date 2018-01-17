@@ -36,6 +36,7 @@ import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
+import wherehows.exceptions.UnauthoraizedException;
 import wherehows.models.table.DictDataset;
 
 import static wherehows.common.utils.StringUtil.*;
@@ -92,7 +93,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
     if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
-      throw new RuntimeException("Actor " + actorUrn + " not in whitelist, skip processing");
+      throw new UnauthoraizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
     final ChangeType changeType = changeAuditStamp.type;
