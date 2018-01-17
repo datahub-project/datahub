@@ -1,20 +1,17 @@
 import Component from '@ember/component';
-import { get, set, observer } from '@ember/object';
+import { get, set } from '@ember/object';
 import { run, next } from '@ember/runloop';
-import { task } from 'ember-concurrency';
+import DatasetCompliance from 'wherehows-web/components/dataset-compliance';
 import {
   baseCommentEditorOptions,
   DatasetPlatform,
   exemptPolicy,
-  getSupportedPurgePolicies,
   isExempt,
   missingPolicyText,
   PurgePolicy,
   purgePolicyProps
 } from 'wherehows-web/constants';
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
-import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
-import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 
 export default class PurgePolicyComponent extends Component {
   /**
@@ -40,7 +37,7 @@ export default class PurgePolicyComponent extends Component {
    * @type {Array<PurgePolicy>}
    * @memberof PurgePolicyComponent
    */
-  supportedPurgePolicies: Array<PurgePolicy> = [];
+  supportedPurgePolicies: DatasetCompliance['supportedPurgePolicies'];
 
   /**
    * The dataset's  platform
@@ -86,31 +83,6 @@ export default class PurgePolicyComponent extends Component {
     this._super(...arguments);
     this.checkExemption(get(this, 'purgePolicy'));
   }
-
-  didInsertElement() {
-    get(this, 'getPlatformPolicies').perform();
-  }
-
-  /**
-   * Observes changes to the platform property and invokes the task to update the supportedPurgePolicies prop
-   * @type {void}
-   * @memberof PurgePolicyComponent
-   */
-  platformChanged = observer('platform', function(this: PurgePolicyComponent) {
-    get(this, 'getPlatformPolicies').perform();
-  });
-
-  /**
-   * Task to retrieve platform policies for and set supported policies for the current platform
-   * @memberof PurgePolicyComponent
-   */
-  getPlatformPolicies = task(function*(this: PurgePolicyComponent): IterableIterator<Promise<Array<IDataPlatform>>> {
-    const platform = get(this, 'platform');
-
-    if (platform) {
-      set(this, 'supportedPurgePolicies', getSupportedPurgePolicies(platform, yield readPlatforms()));
-    }
-  }).restartable();
 
   /**
    * Checks that the selected purge policy is exempt, if so, set the

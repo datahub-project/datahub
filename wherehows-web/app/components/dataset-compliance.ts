@@ -6,6 +6,9 @@ import { inject } from '@ember/service';
 import { classify } from '@ember/string';
 import { IFieldIdentifierOption } from 'wherehows-web/constants/dataset-compliance';
 import { Classification } from 'wherehows-web/constants/datasets/compliance';
+import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
+import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
+import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
@@ -23,7 +26,8 @@ import {
   IComplianceField,
   DatasetClassification,
   SuggestionIntent,
-  PurgePolicy
+  PurgePolicy,
+  getSupportedPurgePolicies
 } from 'wherehows-web/constants';
 import {
   isPolicyExpectedShape,
@@ -44,7 +48,7 @@ import {
   IComplianceSuggestion
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { ApiStatus } from 'wherehows-web/utils/api';
-import { task } from 'ember-concurrency';
+import { task, TaskInstance } from 'ember-concurrency';
 
 /**
  * Describes the DatasetCompliance actions index signature to allow
@@ -140,11 +144,24 @@ const changeSetFieldsRequiringReview = arrayFilter<IComplianceChangeSet>(fieldCh
 const initialStepIndex = -1;
 
 /**
- * Applies the observer to the editStepIndex to trigger the update edit step task
+ * Defines observers for the DatasetCompliance Component
+ * @type {Component}
  */
 const ObservableDecorator = Component.extend({
+  /**
+   * Observes changes editStepIndex to trigger the update edit step task
+   * @type {() => void}
+   */
   editStepIndexChanged: observer('editStepIndex', function(this: DatasetCompliance) {
     get(this, 'updateEditStepTask').perform();
+  }),
+
+  /**
+   * Observes changes to the platform property and invokes the task to update the supportedPurgePolicies prop
+   * @type {() => void}
+   */
+  platformChanged: observer('platform', function(this: DatasetCompliance) {
+    get(this, 'complianceAvailabilityTask').perform();
   })
 });
 
@@ -161,6 +178,8 @@ export default class DatasetCompliance extends ObservableDecorator {
   _hasBadData: boolean;
   _message: string;
   _alertType: string;
+  platform: IDatasetView['platform'];
+  isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: void | IComplianceInfo;
   complianceSuggestion: IComplianceSuggestion;
@@ -233,6 +252,13 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @memberof DatasetCompliance
    */
   isSaving = false;
+
+  /**
+   * The list of supported purge policies for the related platform
+   * @type {Array<PurgePolicy>}
+   * @memberof DatasetCompliance
+   */
+  supportedPurgePolicies: Array<PurgePolicy> = [];
 
   constructor() {
     super(...arguments);
@@ -353,6 +379,10 @@ export default class DatasetCompliance extends ObservableDecorator {
     }
   }
 
+  didInsertElement() {
+    get(this, 'complianceAvailabilityTask').perform();
+  }
+
   /**
    * @override
    */
@@ -364,6 +394,33 @@ export default class DatasetCompliance extends ObservableDecorator {
   }
 
   /**
+   * Parent task to determine if a compliance policy can be created or updated for the dataset
+   * @type {Task<TaskInstance<Promise<Array<IDataPlatform>>>, () => TaskInstance<TaskInstance<Promise<Array<IDataPlatform>>>>>}
+   * @memberof DatasetCompliance
+   */
+  complianceAvailabilityTask = task(function*(
+    this: DatasetCompliance
+  ): IterableIterator<TaskInstance<Promise<Array<IDataPlatform>>>> {
+    yield get(this, 'getPlatformPoliciesTask').perform();
+
+    const supportedPurgePolicies = get(this, 'supportedPurgePolicies');
+    set(this, 'isCompliancePolicyAvailable', !!supportedPurgePolicies.length);
+  }).restartable();
+
+  /**
+   * Task to retrieve platform policies and set supported policies for the current platform
+   * @type {Task<Promise<Array<IDataPlatform>>, () => TaskInstance<Promise<Array<IDataPlatform>>>>}
+   * @memberof DatasetCompliance
+   */
+  getPlatformPoliciesTask = task(function*(this: DatasetCompliance): IterableIterator<Promise<Array<IDataPlatform>>> {
+    const platform = get(this, 'platform');
+
+    if (platform) {
+      set(this, 'supportedPurgePolicies', getSupportedPurgePolicies(platform, yield readPlatforms()));
+    }
+  }).restartable();
+
+  /**
    * A `lite` / intermediary step to occlusion culling, this helps to improve the rendering of
    * elements that are currently rendered in the viewport by hiding that aren't.
    * Setting them to visibility hidden doesn't remove them from the document flow, but the browser
@@ -372,13 +429,14 @@ export default class DatasetCompliance extends ObservableDecorator {
    */
   enableDomCloaking() {
     const dom = this.element.querySelector('.dataset-compliance-fields');
-    const triggerCount = 100;
+    const triggerThreshold = 100;
+
     if (dom) {
       const rows = dom.querySelectorAll('tbody tr');
 
       // if we already have watchers for elements, or if the elements previously cached are no longer valid,
       // e.g. those elements were destroyed when new data was received, pagination etc
-      if (rows.length > triggerCount && (!this.complianceWatchers || !this.complianceWatchers.has(rows[0]))) {
+      if (rows.length > triggerThreshold && (!this.complianceWatchers || !this.complianceWatchers.has(rows[0]))) {
         /**
          * If an item is not in the viewport add a class to occlude it
          */
@@ -1067,7 +1125,7 @@ export default class DatasetCompliance extends ObservableDecorator {
         });
 
         // defaults the containing personal data flag to false if undefined
-        if (typeof containingPersonalData !== 'undefined') {
+        if (typeof containingPersonalData === 'undefined') {
           set(complianceInfo, 'containingPersonalData', false);
         }
 
