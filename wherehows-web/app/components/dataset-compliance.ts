@@ -5,6 +5,7 @@ import { run, schedule } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
 import { IFieldIdentifierOption } from 'wherehows-web/constants/dataset-compliance';
+import { Classification } from 'wherehows-web/constants/datasets/compliance';
 
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
@@ -52,6 +53,7 @@ import { task } from 'ember-concurrency';
 interface IDatasetComplianceActions {
   didEditCompliancePolicy: () => Promise<boolean>;
   didEditPurgePolicy: () => Promise<{} | void>;
+  didEditDatasetLevelCompliancePolicy: () => Promise<void>;
   [K: string]: (...args: Array<any>) => any;
 }
 
@@ -96,7 +98,8 @@ const {
   helpText,
   successUploading,
   invalidPolicyData,
-  missingPurgePolicy
+  missingPurgePolicy,
+  defaultDatasetClassificationMsg
 } = compliancePolicyStrings;
 
 /**
@@ -1045,6 +1048,39 @@ export default class DatasetCompliance extends ObservableDecorator {
       }
 
       return isConfirmed;
+    },
+
+    /**
+     * Handles tasks to be processed after the wizard step to edit a datasets pii and security classification is
+     * completed
+     * @returns {Promise<void>}
+     */
+    async didEditDatasetLevelCompliancePolicy(this: DatasetCompliance): Promise<void> {
+      const complianceInfo = get(this, 'complianceInfo');
+
+      if (complianceInfo) {
+        const { confidentiality, containingPersonalData } = complianceInfo;
+        const dialogActions: { [prop: string]: () => void } = {};
+        const confirmConfidentialityPromise = new Promise((resolve, reject) => {
+          dialogActions['didConfirm'] = () => resolve();
+          dialogActions['didDismiss'] = () => reject();
+        });
+
+        // defaults the containing personal data flag to false if undefined
+        if (typeof containingPersonalData !== 'undefined') {
+          set(complianceInfo, 'containingPersonalData', false);
+        }
+
+        if (!confidentiality) {
+          get(this, 'notifications').notify(NotificationEvent.confirm, {
+            dialogActions,
+            header: 'Confirm dataset classification',
+            content: defaultDatasetClassificationMsg
+          });
+          await confirmConfidentialityPromise;
+          set(complianceInfo, 'confidentiality', Classification.Internal);
+        }
+      }
     },
 
     /**
