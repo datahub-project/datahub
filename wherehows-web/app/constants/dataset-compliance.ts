@@ -55,7 +55,9 @@ const compliancePolicyStrings = {
       'This security classification is from go/dht and should be good enough in most cases. ' +
       'You can optionally override it if required by house security.'
   },
-  missingPurgePolicy: 'Please specify a Compliance Purge Policy'
+  missingPurgePolicy: 'Please specify a Compliance Purge Policy',
+  defaultDatasetClassificationMsg: `You haven't set this dataset's security classification, 
+  it's value will be set to default of "${Classification.Internal}"`
 };
 
 /**

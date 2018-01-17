@@ -9,65 +9,40 @@
 <ul class="purge-policy-list">
   {{#if isEditable}}
 
-    {{#if getPlatformPolicies.isRunning}}
-      {{pendulum-ellipsis-animation}}
-    {{/if}}
+    {{#each-in purgePolicyProps as |purgeType prop|}}
+      <li
+        class="purge-policy-list__item {{unless (contains purgeType supportedPurgePolicies)
+                                                'purge-policy-list__item--disabled'}}">
 
-    {{#if getPlatformPolicies.last.isError}}
-    {{!--todo: swap out with error-state component--}}
-      {{empty-state
-        heading="Purge Policies not available"
-        subHead="Could not find supported purge policies for this platform"
-      }}
+        {{#radio-button-composer
+          name="dataset-purge-policy"
+          value=(if (contains purgeType supportedPurgePolicies) purgeType null)
+          disabled=(if (contains purgeType supportedPurgePolicies) false true)
+          groupValue=(readonly purgePolicy)
+          changed=(action "onChange")
+        }}
+          {{prop.displayAs}}
+        {{/radio-button-composer}}
 
-      <div class="purge-policy-list__retry-platforms">
-        <button
-          class="nacho-button nacho-button--large-inverse"
-          onclick={{perform getPlatformPolicies}}>
-          Retry
-        </button>
-      </div>
+        {{#unless (contains purgeType supportedPurgePolicies)}}
+          <p class="purge-policy-list__availability">
+            Purge policy not available for <span class="purge-policy-list__platform--unavailable">
+            {{platform}}</span>
+          </p>
+        {{/unless}}
 
-    {{/if}}
+        <p>{{prop.desc}}</p>
 
-    {{#if getPlatformPolicies.last.isSuccessful}}
+        {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
 
-      {{#each-in purgePolicyProps as |purgeType prop|}}
-        <li
-          class="purge-policy-list__item {{unless (contains purgeType supportedPurgePolicies)
-                                                  'purge-policy-list__item--disabled'}}">
+          {{medium-content-editable
+            value=purgeNote
+            options=editorOptions
+            class="comment-new__content"}}
 
-          {{#radio-button-composer
-            name="dataset-purge-policy"
-            value=(if (contains purgeType supportedPurgePolicies) purgeType null)
-            disabled=(if (contains purgeType supportedPurgePolicies) false true)
-            groupValue=(readonly purgePolicy)
-            changed=(action "onChange")
-          }}
-            {{prop.displayAs}}
-          {{/radio-button-composer}}
-
-          {{#unless (contains purgeType supportedPurgePolicies)}}
-            <p class="purge-policy-list__availability">
-              Purge policy not available for <span class="purge-policy-list__platform--unavailable">
-              {{platform}}</span>
-            </p>
-          {{/unless}}
-
-          <p>{{prop.desc}}</p>
-
-          {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
-
-            {{medium-content-editable
-              value=purgeNote
-              options=editorOptions
-              class="comment-new__content"}}
-
-          {{/if}}
-        </li>
-      {{/each-in}}
-
-    {{/if}}
+        {{/if}}
+      </li>
+    {{/each-in}}
 
   {{else}}
 
