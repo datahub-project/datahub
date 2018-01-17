@@ -1,9 +1,15 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent, waitUntil, find } from 'ember-native-dom-helpers';
+import { triggerEvent } from 'ember-native-dom-helpers';
 import sinon from 'sinon';
 
-import { missingPolicyText, purgePolicyProps, exemptPolicy, PurgePolicy } from 'wherehows-web/constants';
+import {
+  missingPolicyText,
+  purgePolicyProps,
+  exemptPolicy,
+  PurgePolicy,
+  getSupportedPurgePolicies
+} from 'wherehows-web/constants';
 import { DatasetPlatform } from 'wherehows-web/constants/datasets/platform';
 import platforms from 'wherehows-web/mirage/fixtures/list-platforms';
 import { ApiStatus } from 'wherehows-web/utils/api';
@@ -80,6 +86,7 @@ test('it indicates the currently selected purge policy', async function(assert) 
   this.set('isEditable', true);
   this.set('platform', platform);
   this.set('purgePolicy', selectedPolicy);
+  this.set('supportedPurgePolicies', getSupportedPurgePolicies(platform, platforms));
 
   this.server.respondWith('GET', '/api/v1/list/platforms', [
     200,
@@ -87,10 +94,11 @@ test('it indicates the currently selected purge policy', async function(assert) 
     JSON.stringify({ status: ApiStatus.OK, platforms })
   ]);
 
-  this.render(hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform}}`);
+  this.render(
+    hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform supportedPurgePolicies=supportedPurgePolicies}}`
+  );
   this.server.respond();
 
-  await waitUntil(() => find(`${policyList} [type=radio][value=${selectedPolicy}]`));
   assert.ok(
     document.querySelector(`${policyList} [type=radio][value=${selectedPolicy}]`).checked,
     `${selectedPolicy} radio is checked`
