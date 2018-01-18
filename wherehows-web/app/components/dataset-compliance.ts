@@ -23,7 +23,6 @@ import {
   ComplianceFieldIdValue,
   IComplianceFieldIdentifierOption,
   IDatasetClassificationOption,
-  IComplianceField,
   DatasetClassification,
   SuggestionIntent,
   PurgePolicy,
@@ -61,14 +60,19 @@ interface IDatasetComplianceActions {
   [K: string]: (...args: Array<any>) => any;
 }
 
+/**
+ * Alias for the properties defined on an object indicating the values for a compliance entity object in
+ * addition to related component metadata using in processing ui interactions / rendering for the field
+ */
 type SchemaFieldToPolicyValue = Pick<
   IComplianceEntity,
   'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner'
-> &
-  Pick<IComplianceField, 'privacyPolicyExists' | 'isDirty'> & {
-    policyModificationTime: IComplianceInfo['modifiedTime'];
-    dataType: string;
-  };
+> & {
+  privacyPolicyExists: boolean;
+  isDirty: boolean;
+  policyModificationTime: IComplianceInfo['modifiedTime'];
+  dataType: string;
+};
 
 /**
  * Describes the interface for a mapping of field names to type, SchemaFieldToPolicyValue
@@ -78,6 +82,10 @@ interface ISchemaFieldsToPolicy {
   [fieldName: string]: SchemaFieldToPolicyValue;
 }
 
+/**
+ * Alias for the properties on an object indicating the suggested values for field / record properties
+ * as well as suggestions metadata
+ */
 type SchemaFieldToSuggestedValue = Pick<
   IComplianceEntity,
   'identifierType' | 'logicalType' | 'securityClassification'
@@ -85,12 +93,26 @@ type SchemaFieldToSuggestedValue = Pick<
   Pick<ISuggestedFieldClassification, 'confidenceLevel'> & {
     suggestionsModificationTime: IComplianceSuggestion['lastModified'];
   };
+
+/**
+ * Describes the mapping of attributes to value types for a datasets schema field names to suggested property values
+ * @interface ISchemaFieldsToSuggested
+ */
 interface ISchemaFieldsToSuggested {
   [fieldName: string]: SchemaFieldToSuggestedValue;
 }
+/**
+ * Describes the interface for a locally assembled compliance field instance
+ * used in rendering a compliance row
+ */
+export type IComplianceChangeSet = {
+  suggestion?: SchemaFieldToSuggestedValue;
+  suggestionAuthority?: SuggestionIntent;
+} & SchemaFieldToPolicyValue;
 
-type IComplianceChangeSet = SchemaFieldToPolicyValue | SchemaFieldToPolicyValue & SchemaFieldToSuggestedValue;
-
+/**
+ * Defines the applicable string values for compliance fields drop down filter
+ */
 type ShowAllShowReview = 'showReview' | 'showAll';
 
 const {
@@ -835,9 +857,9 @@ export default class DatasetCompliance extends ObservableDecorator {
 
   /**
    * Requires that the user confirm that any non-id fields are ok to be saved without a field format specified
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  async confirmUnformattedFields() {
+  async confirmUnformattedFields(): Promise<boolean> {
     type FormattedAndUnformattedEntities = {
       formatted: Array<IComplianceEntity>;
       unformatted: Array<IComplianceEntity>;
@@ -1162,12 +1184,12 @@ export default class DatasetCompliance extends ObservableDecorator {
     /**
      * Augments the field props with w a suggestionAuthority indicating that the field
      * suggestion has either been accepted or ignored, and assigns the value of that change to the prop
-     * @param {IComplianceField} field field for which this suggestion intent should apply
+     * @param {IComplianceChangeSet} field field for which this suggestion intent should apply
      * @param {SuggestionIntent} [intent=SuggestionIntent.ignore] user's intended action for suggestion, Defaults to `ignore`
      */
     onFieldSuggestionIntentChange(
       this: DatasetCompliance,
-      field: IComplianceField,
+      field: IComplianceChangeSet,
       intent: SuggestionIntent = SuggestionIntent.ignore
     ) {
       set(field, 'suggestionAuthority', intent);
@@ -1282,12 +1304,12 @@ export default class DatasetCompliance extends ObservableDecorator {
     /**
      * Updates the logical type for the given identifierField
      * @param {IComplianceChangeSet} field
-     * @param {IComplianceField.logicalType} logicalType
+     * @param {IComplianceChangeSet.logicalType} logicalType
      */
     onFieldLogicalTypeChange(
       this: DatasetCompliance,
       field: IComplianceChangeSet,
-      logicalType: IComplianceField['logicalType']
+      logicalType: IComplianceChangeSet['logicalType']
     ) {
       setProperties(field, <IComplianceChangeSet>{ logicalType, isDirty: true });
     },
@@ -1295,12 +1317,12 @@ export default class DatasetCompliance extends ObservableDecorator {
     /**
      * Updates the field security classification
      * @param {IComplianceChangeSet} { identifierField } the identifier field to update the classification for
-     * @param {{value: IComplianceField.classification}} { value: classification = null }
+     * @param {{value: IComplianceChangeSet.classification}} { value: classification = null }
      */
     onFieldClassificationChange(
       this: DatasetCompliance,
       { identifierField }: IComplianceChangeSet,
-      { value: classification = null }: { value: IComplianceField['classification'] }
+      { value: securityClassification = null }: { value: IComplianceChangeSet['securityClassification'] }
     ) {
       const currentFieldInComplianceList = get(this, 'compliancePolicyChangeSet').findBy(
         'identifierField',
@@ -1312,7 +1334,7 @@ export default class DatasetCompliance extends ObservableDecorator {
       // Apply the updated classification value to the current instance of the field in working copy
       if (currentFieldInComplianceList) {
         setProperties(currentFieldInComplianceList, <IComplianceChangeSet>{
-          securityClassification: classification,
+          securityClassification,
           isDirty: true
         });
       }
@@ -1321,12 +1343,12 @@ export default class DatasetCompliance extends ObservableDecorator {
     /**
      * Updates the field non owner flag
      * @param {IComplianceChangeSet} { identifierField }
-     * @param {IComplianceField.nonOwner} nonOwner
+     * @param {IComplianceChangeSet.nonOwner} nonOwner
      */
     onFieldOwnerChange(
       this: DatasetCompliance,
       { identifierField }: IComplianceChangeSet,
-      nonOwner: IComplianceField['nonOwner']
+      nonOwner: IComplianceChangeSet['nonOwner']
     ) {
       const currentFieldInComplianceList = get(this, 'compliancePolicyChangeSet').findBy(
         'identifierField',
@@ -1397,7 +1419,7 @@ export default class DatasetCompliance extends ObservableDecorator {
     /**
      * If all validity checks are passed, invoke onSave action on controller
      */
-    async saveCompliance(this: DatasetCompliance) {
+    async saveCompliance(this: DatasetCompliance): Promise<void> {
       const setSaveFlag = (flag = false) => set(this, 'isSaving', flag);
 
       try {
