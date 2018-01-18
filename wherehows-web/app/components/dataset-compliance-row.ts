@@ -1,10 +1,10 @@
+import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import ComputedProperty, { alias } from '@ember/object/computed';
 import { computed, get, getProperties, getWithDefault } from '@ember/object';
 import {
   Classification,
   ComplianceFieldIdValue,
-  IComplianceField,
   SuggestionIntent,
   getDefaultSecurityClassification,
   IComplianceFieldFormatOption,
@@ -25,10 +25,10 @@ const unSelectedFieldFormatValue = { value: null, label: 'Select Field Format...
 export default class DatasetComplianceRow extends DatasetTableRow {
   /**
    * Declares the field property on a DatasetTableRow. Contains attributes for a compliance field record
-   * @type {IComplianceField}
+   * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceRow
    */
-  field: IComplianceField;
+  field: IComplianceChangeSet;
 
   /**
    * Reference to the compliance data types
@@ -40,32 +40,32 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * Reference to the compliance `onFieldOwnerChange` action
    * @memberof DatasetComplianceRow
    */
-  onFieldOwnerChange: (field: IComplianceField, nonOwner: boolean) => void;
+  onFieldOwnerChange: (field: IComplianceChangeSet, nonOwner: boolean) => void;
 
   /**
    * Describes action interface for `onFieldIdentifierTypeChange` action
    * @memberof DatasetComplianceRow
    */
-  onFieldIdentifierTypeChange: (field: IComplianceField, option: { value: ComplianceFieldIdValue | null }) => void;
+  onFieldIdentifierTypeChange: (field: IComplianceChangeSet, option: { value: ComplianceFieldIdValue | null }) => void;
 
   /**
    * Describes action interface for `onFieldLogicalTypeChange` action
    * @memberof DatasetComplianceRow
    */
-  onFieldLogicalTypeChange: (field: IComplianceField, value: IComplianceField['logicalType']) => void;
+  onFieldLogicalTypeChange: (field: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
 
   /**
    * Describes action interface for `onFieldClassificationChange` action
    * 
    * @memberof DatasetComplianceRow
    */
-  onFieldClassificationChange: (field: IComplianceField, option: { value: '' | Classification }) => void;
+  onFieldClassificationChange: (field: IComplianceChangeSet, option: { value: '' | Classification }) => void;
 
   /**
    * Describes action interface for `onSuggestionIntent` action
    * @memberof DatasetComplianceRow
    */
-  onSuggestionIntent: (field: IComplianceField, intent?: SuggestionIntent) => void;
+  onSuggestionIntent: (field: IComplianceChangeSet, intent?: SuggestionIntent) => void;
 
   /**
    * The field identifier attribute
@@ -101,7 +101,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {(ComputedProperty<SuggestionIntent | void>)}
    * @memberof DatasetComplianceRow
    */
-  suggestionAuthority: ComputedProperty<IComplianceField['suggestionAuthority']> = alias('field.suggestionAuthority');
+  suggestionAuthority: ComputedProperty<IComplianceChangeSet['suggestionAuthority']> = alias(
+    'field.suggestionAuthority'
+  );
 
   /**
    * Maps the suggestion response, if present, to a string resolution
@@ -149,7 +151,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Current value on policy prior to the suggested value
      * @type {string}
      */
-    const value = get(get(this, 'field'), fieldProp);
+    const value = get(this, 'field')[fieldProp];
 
     if (hasEnumerableKeys(get(this, 'prediction')) && value) {
       const { label: currentIdType } = getWithDefault(this, 'complianceFieldIdDropdownOptions', []).findBy(
@@ -174,19 +176,19 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Returns a computed value for the field identifierType
-   * @type {ComputedProperty<IComplianceField['identifierType']>}
+   * @type {ComputedProperty<IComplianceChangeSet['identifierType']>}
    * @memberof DatasetComplianceRow
    */
   identifierType = computed('field.identifierType', 'prediction', function(
     this: DatasetComplianceRow
-  ): IComplianceField['identifierType'] {
+  ): IComplianceChangeSet['identifierType'] {
     /**
      * Describes the interface for the options bag param passed into the getIdentifierType function below
      * @interface IGetIdentParams
      */
     interface IGetIdentParams {
-      identifierType: IComplianceField['identifierType'];
-      prediction: { identifierType: IComplianceField['identifierType'] } | void;
+      identifierType: IComplianceChangeSet['identifierType'];
+      prediction: { identifierType: IComplianceChangeSet['identifierType'] } | void;
     }
 
     const { field: { identifierType }, prediction } = getProperties(this, ['field', 'prediction']);
@@ -194,9 +196,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Inner function takes the field.identifierType and prediction values, and
      * returns the identifierType to be rendered in the ui
      * @param {IGetIdentParams} params
-     * @returns {IComplianceField.identifierType}
+     * @returns {IComplianceChangeSet.identifierType}
      */
-    const getIdentifierType = (params: IGetIdentParams): IComplianceField['identifierType'] => {
+    const getIdentifierType = (params: IGetIdentParams): IComplianceChangeSet['identifierType'] => {
       const { identifierType, prediction } = params;
       return prediction ? prediction.identifierType : identifierType;
     };
@@ -228,7 +230,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   fieldFormats = computed('isIdType', function(this: DatasetComplianceRow): Array<IComplianceFieldFormatOption> {
-    const identifierType = get(get(this, 'field'), 'identifierType') || '';
+    const identifierType = get(this, 'field')['identifierType'] || '';
     const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
     const complianceDataType = complianceDataTypes.findBy('id', identifierType);
     let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
@@ -273,12 +275,12 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   /**
    * The fields logical type, rendered as an Object
    * If a prediction exists for this field, the predicted value is shown instead
-   * @type {(ComputedProperty<IComplianceField.logicalType>)}
+   * @type {(ComputedProperty<IComplianceChangeSet.logicalType>)}
    * @memberof DatasetComplianceRow
    */
   logicalType = computed('field.logicalType', 'prediction', function(
     this: DatasetComplianceRow
-  ): IComplianceField['logicalType'] {
+  ): IComplianceChangeSet['logicalType'] {
     const {
       field: { logicalType },
       prediction: { logicalType: suggestedLogicalType } = { logicalType: null }
@@ -297,13 +299,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   classification = computed('field.classification', 'field.identifierType', 'complianceDataTypes', function(
     this: DatasetComplianceRow
-  ): IComplianceField['classification'] {
-    const { field: { identifierType, classification }, complianceDataTypes } = getProperties(this, [
+  ): IComplianceChangeSet['securityClassification'] {
+    const { field: { identifierType, securityClassification }, complianceDataTypes } = getProperties(this, [
       'field',
       'complianceDataTypes'
     ]);
 
-    return classification || getDefaultSecurityClassification(complianceDataTypes, identifierType);
+    return securityClassification || getDefaultSecurityClassification(complianceDataTypes, identifierType);
   });
 
   /**
@@ -314,11 +316,11 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   prediction = computed('field.suggestion', 'field.suggestionAuthority', function(
     this: DatasetComplianceRow
   ): {
-    identifierType: IComplianceField['identifierType'];
-    logicalType: IComplianceField['logicalType'];
+    identifierType: IComplianceChangeSet['identifierType'];
+    logicalType: IComplianceChangeSet['logicalType'];
     confidence: number;
   } | void {
-    const field = getWithDefault(this, 'field', <IComplianceField>{});
+    const field = getWithDefault(this, 'field', <IComplianceChangeSet>{});
     // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
     // the suggestion for this field. It's value should not be taken into account on re-renders
     // in place, this substitutes an empty suggestion
@@ -345,9 +347,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
     /**
      * Handles the updates when the field logical type changes on this field
-     * @param {(IComplianceField['logicalType'])} value contains the selected drop-down value
+     * @param {(IComplianceChangeSet['logicalType'])} value contains the selected drop-down value
      */
-    onFieldLogicalTypeChange(this: DatasetComplianceRow, { value }: { value: IComplianceField['logicalType'] | null }) {
+    onFieldLogicalTypeChange(this: DatasetComplianceRow, { value }: { value: IComplianceChangeSet['logicalType'] }) {
       const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
       if (typeof onFieldLogicalTypeChange === 'function') {
         onFieldLogicalTypeChange(get(this, 'field'), value);
