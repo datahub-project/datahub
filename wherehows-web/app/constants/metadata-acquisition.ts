@@ -1,7 +1,7 @@
 import { capitalize } from '@ember/string';
+import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { Classification, ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
-import { IComplianceField } from 'wherehows-web/constants/index';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 
 /**
@@ -71,7 +71,7 @@ const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = Object.values(C
  */
 const getDefaultSecurityClassification = (
   complianceDataTypes: Array<IComplianceDataType> = [],
-  identifierType: IComplianceField['identifierType']
+  identifierType: IComplianceChangeSet['identifierType']
 ): IComplianceDataType['defaultSecurityClassification'] | null => {
   const complianceDataType = complianceDataTypes.findBy('id', identifierType || '');
 
