@@ -13,12 +13,14 @@ interface FetchConfig {
  * Augments the user supplied headers with the default accept and content-type headers
  * @param {FetchConfig.headers} headers
  */
-const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
-  headers: {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    ...headers
-  }
+const withBaseFetchHeaders = (headers: FetchConfig['headers']): { headers: FetchConfig['headers'] } => ({
+  headers: Object.assign(
+    {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    headers
+  )
 });
 
 /**
@@ -38,7 +40,7 @@ const json = <T>(url: string = '', fetchConfig: object = {}): Promise<T> =>
  * @return {Promise<T>}
  */
 const getJSON = <T>(config: FetchConfig): Promise<T> => {
-  const fetchConfig = { ...baseFetchHeaders(config.headers), method: 'GET' };
+  const fetchConfig = { ...withBaseFetchHeaders(config.headers), method: 'GET' };
 
   return json<T>(config.url, fetchConfig);
 };
@@ -54,7 +56,7 @@ const postJSON = <T>(config: FetchConfig): Promise<T> => {
   const fetchConfig = Object.assign(
     requestBody,
     config.data && { body: JSON.stringify(config.data) },
-    baseFetchHeaders(config.headers),
+    withBaseFetchHeaders(config.headers),
     { method: 'POST' }
   );
 
@@ -69,7 +71,7 @@ const postJSON = <T>(config: FetchConfig): Promise<T> => {
  */
 const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
-  const fetchConfig = Object.assign(requestBody, baseFetchHeaders(config.headers), { method: 'DELETE' });
+  const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'DELETE' });
 
   return json<T>(config.url, fetchConfig);
 };
@@ -83,7 +85,7 @@ const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
 const putJSON = <T>(config: FetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
 
-  const fetchConfig = Object.assign(requestBody, baseFetchHeaders(config.headers), { method: 'PUT' });
+  const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'PUT' });
 
   return json<T>(config.url, fetchConfig);
 };
@@ -95,7 +97,7 @@ const putJSON = <T>(config: FetchConfig): Promise<T> => {
  */
 const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   const fetchConfig = {
-    ...baseFetchHeaders(config.headers),
+    ...withBaseFetchHeaders(config.headers),
     method: 'HEAD'
   };
   const { ok, headers, statusText } = await fetch(config.url, fetchConfig);
