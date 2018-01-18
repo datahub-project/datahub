@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.dao.table.DictDatasetDao;
@@ -95,7 +96,7 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
-  public PagedCollection<DatasetView> listDatasets(@Nonnull String platform, @Nonnull String prefix, int start,
+  public PagedCollection<DatasetView> listDatasets(@Nullable String platform, @Nonnull String prefix, int start,
       int count) throws Exception {
     throw new RuntimeException("Not implemented yet");
   }

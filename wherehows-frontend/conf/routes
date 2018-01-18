@@ -270,6 +270,12 @@ GET           /api/v2/dataset/listNames                                         
 
 GET           /api/v2/dataset/listDatasets                                      controllers.api.v2.Dataset.listDatasets()
 
+GET           /api/v2/dataset/totalDatasets                                     controllers.api.v2.Dataset.totalDatasets()
+
+GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms()
+
+GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes()
+
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
 
