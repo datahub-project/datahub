@@ -61,7 +61,9 @@ const isCustomId = (identifierType: string) => identifierType === ComplianceFiel
  * Caches a list of fieldIdentifierTypes values
  * @type {Array<ComplianceFieldIdValue>}
  */
-const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = Object.values(ComplianceFieldIdValue);
+const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = <Array<ComplianceFieldIdValue>>Object.values(
+  ComplianceFieldIdValue
+);
 
 /**
  * Retrieves the default security classification for an identifier type, or null if it does not exist
