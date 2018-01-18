@@ -20,12 +20,13 @@ import javax.annotation.Nonnull;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.dao.table.DictDatasetDao;
+import wherehows.models.PagedCollection;
 import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 import static wherehows.util.UrnUtil.*;
 
 
@@ -94,8 +95,8 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
-  public List<DatasetView> listDatasets(@Nonnull String platform, @Nonnull String prefix, int start, int count)
-      throws Exception {
+  public PagedCollection<DatasetView> listDatasets(@Nonnull String platform, @Nonnull String prefix, int start,
+      int count) throws Exception {
     throw new RuntimeException("Not implemented yet");
   }
 

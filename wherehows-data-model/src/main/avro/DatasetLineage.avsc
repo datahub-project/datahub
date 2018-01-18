@@ -28,12 +28,14 @@
         "symbols": [
           "DIRECT_COPY",
           "TRANSFORMED",
-          "VIEW"
+          "VIEW",
+          "MANAGE"
         ],
         "symbolDocs": {
           "DIRECT_COPY": "Direct copy without modification",
-          "TRANSFORMED": "Transformed data with modification(format or content change)",
-          "VIEW": "Represent lineage data like database view. i.e. HIVE use VIEW type to show HDFS stored datasets"
+          "TRANSFORMED": "Transformed data with modification (format or content change)",
+          "VIEW": "Represents a view relationship where source is the view, and destination is the table.",
+          "MANAGE": "Represents a higher level of source dataset (e.g. HIVE), managing a lower level of destination dataset (e.g. HDFS)"
         }
       },
       "doc": "The type name for the metadata lineage operation"
