@@ -80,6 +80,19 @@ public class Dataset extends Controller {
     }
   }
 
+  public static Promise<Result> totalDatasets() {
+    try {
+      String platform = request().getQueryString("platform");
+      String prefix = StringUtils.defaultIfBlank(request().getQueryString("prefix"), "");
+
+      return Promise.promise(
+          () -> ok(String.valueOf(DATASET_VIEW_DAO.listDatasets(platform, prefix, 0, 1).getTotal())));
+    } catch (Exception e) {
+      Logger.error("Fail to count total datasets", e);
+      return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
+    }
+  }
+
   public static Promise<Result> getComplianceDataTypes() {
     try {
       return Promise.promise(() -> ok(
