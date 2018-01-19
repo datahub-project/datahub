@@ -1733,9 +1733,9 @@ broccoli-templater@^1.0.0:
     broccoli-stew "^1.2.0"
     lodash.template "^3.3.2"
 
-broccoli-typescript-compiler@^2.0.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/broccoli-typescript-compiler/-/broccoli-typescript-compiler-2.1.0.tgz#b543fbf7407a83d0c99aaf4befd042294526f281"
+broccoli-typescript-compiler@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/broccoli-typescript-compiler/-/broccoli-typescript-compiler-2.1.1.tgz#3d40d277c4804305cb8d4cd779137e44a4c16419"
   dependencies:
     array-binsearch "^1.0.1"
     broccoli-funnel "^1.2.0"
@@ -1744,7 +1744,7 @@ broccoli-typescript-compiler@^2.0.0:
     fs-tree-diff "^0.5.2"
     heimdalljs "0.3.3"
     md5-hex "^2.0.0"
-    typescript "~2.5.2"
+    typescript "~2.6.1"
     walk-sync "^0.3.2"
 
 broccoli-uglify-sourcemap@^2.0.0:
@@ -2897,9 +2897,9 @@ ember-cli-test-loader@^2.2.0:
   dependencies:
     ember-cli-babel "^6.8.1"
 
-ember-cli-typescript@^1.0.3:
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/ember-cli-typescript/-/ember-cli-typescript-1.0.3.tgz#4b247b4ea56e421626825943eb5bc27263e96f46"
+ember-cli-typescript@^1.0.4:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/ember-cli-typescript/-/ember-cli-typescript-1.0.6.tgz#e1d256aa399eea74a2041954b78d8fc8d6f72295"
   dependencies:
     broccoli-debug "^0.6.3"
     broccoli-funnel "^1.0.6"
@@ -2907,9 +2907,9 @@ ember-cli-typescript@^1.0.3:
     broccoli-plugin "^1.2.1"
     broccoli-source "^1.1.0"
     broccoli-stew "^1.4.0"
-    broccoli-typescript-compiler "^2.0.0"
+    broccoli-typescript-compiler "^2.1.1"
     debug "^2.2.0"
-    ember-cli-babel "^6.3.0"
+    ember-cli-babel "^6.6.0"
     silent-error "^1.1.0"
 
 ember-cli-uglify@^2.0.0:
@@ -7652,9 +7652,13 @@ typedarray@^0.0.6:
   version "0.0.6"
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
 
-typescript@^2.5.3, typescript@~2.5.2:
+typescript@^2.5.3:
   version "2.5.3"
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.5.3.tgz#df3dcdc38f3beb800d4bc322646b04a3f6ca7f0d"
+
+typescript@~2.6.1:
+  version "2.6.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-2.6.2.tgz#3c5b6fd7f6de0914269027f03c0946758f7673a4"
 
 uc.micro@^1.0.1, uc.micro@^1.0.3:
   version "1.0.3"
