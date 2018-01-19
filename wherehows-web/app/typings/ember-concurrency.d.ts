@@ -35,8 +35,8 @@ declare module 'ember-concurrency' {
     readonly state: ComputedProperty<TaskInstanceState>;
     readonly value?: T;
     cancel(): void;
-    catch: () => RSVP.Promise<any>;
-    finally: () => RSVP.Promise<any>;
+    catch(): RSVP.Promise<any>;
+    finally(): RSVP.Promise<any>;
     then<TResult1 = T, TResult2 = never>(
       onfulfilled?: ((value: T) => TResult1 | RSVP.Promise<TResult1>) | undefined | null,
       onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
