@@ -31,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import wherehows.converters.KafkaLogCompactionConverter;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
@@ -95,6 +96,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
       throw new UnauthoraizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
+
+    event = new KafkaLogCompactionConverter().convert(event);
 
     final ChangeType changeType = changeAuditStamp.type;
 
