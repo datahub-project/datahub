@@ -10,6 +10,17 @@ interface FetchConfig {
 }
 
 /**
+ * Desribes the available options on an option bag to be passed into a fetch call
+ * @interface IFetchOptions
+ */
+interface IFetchOptions {
+  method?: string;
+  body?: any;
+  headers?: object | Headers;
+  credentials?: RequestCredentials;
+}
+
+/**
  * Augments the user supplied headers with the default accept and content-type headers
  * @param {FetchConfig.headers} headers
  */
@@ -30,7 +41,7 @@ const withBaseFetchHeaders = (headers: FetchConfig['headers']): { headers: Fetch
  * @param {object} fetchConfig 
  * @returns {Promise<T>} 
  */
-const json = <T>(url: string = '', fetchConfig: object = {}): Promise<T> =>
+const json = <T>(url: string = '', fetchConfig: IFetchOptions = {}): Promise<T> =>
   fetch(url, fetchConfig).then<T>(response => response.json());
 
 /**
