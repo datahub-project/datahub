@@ -7,7 +7,8 @@ const MergeTrees = require('broccoli-merge-trees');
 module.exports = function(defaults) {
   const app = new EmberApp(defaults, {
     babel: {
-      plugins: ['transform-object-rest-spread', 'transform-class-properties']
+      plugins: ['transform-object-rest-spread', 'transform-class-properties'],
+      sourceMaps: 'inline'
     },
 
     'ember-cli-babel': {
