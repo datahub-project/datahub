@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { setProperties } from '@ember/object';
 import fetch from 'fetch';
-
-const { Route, setProperties } = Ember;
 
 const flowUrlRoot = 'api/v1/flow';
 

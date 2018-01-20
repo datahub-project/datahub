@@ -1,10 +1,11 @@
-import Ember from 'ember';
+import Controller from '@ember/controller';
+import $ from 'jquery';
 
-export default Ember.Controller.extend({
+export default Controller.extend({
   isEdit: false,
   updateLoading: false,
-  lineageUrl: function () {
-    var model = this.get("model");
+  lineageUrl: computed('model.refID', function() {
+    var model = this.get('model');
     if (model) {
       if (model.refID) {
         var id = parseInt(model.refID);
@@ -14,10 +15,9 @@ export default Ember.Controller.extend({
       }
     }
     return '';
-
-  }.property('model.refID'),
-  showLineage: function () {
-    var model = this.get("model");
+  }),
+  showLineage: computed('model.refID', function() {
+    var model = this.get('model');
     if (model) {
       if (model.refID) {
         var id = parseInt(model.refID);
@@ -27,23 +27,24 @@ export default Ember.Controller.extend({
       }
     }
     return false;
-
-  }.property('model.refID'),
+  }),
   actions: {
-    editMode: function () {
-      this.set('isEdit', true)
+    editMode: function() {
+      this.set('isEdit', true);
     },
-    cancelEditMode: function () {
-      this.set('isEdit', false)
+    cancelEditMode: function() {
+      this.set('isEdit', false);
     },
-    update: function () {
-      var model = this.get("model")
-      var url = '/api/v1/metrics/' + model.id + '/update'
-      var token = $("#csrfToken").val().replace('/', '')
-      var _this = this
-      var data = JSON.parse(JSON.stringify(model))
-      this.set('updateLoading', true)
-      data.token = token
+    update: function() {
+      var model = this.get('model');
+      var url = '/api/v1/metrics/' + model.id + '/update';
+      var token = $('#csrfToken')
+        .val()
+        .replace('/', '');
+      var _this = this;
+      var data = JSON.parse(JSON.stringify(model));
+      this.set('updateLoading', true);
+      data.token = token;
       $.ajax({
         url: url,
         method: 'POST',
@@ -54,13 +55,15 @@ export default Ember.Controller.extend({
         dataType: 'json',
         //data: JSON.stringify(data)
         data: data
-      }).done(function (data, txt, xhr) {
-        _this.set('isEdit', false)
-        _this.set('updateLoading', false)
-      }).fail(function (xhr, txt, err) {
-        Notify.toast('Could not update.', 'Update Metric', 'Error')
-        _this.set('updateLoading', false)
       })
+        .done(function(data, txt, xhr) {
+          _this.set('isEdit', false);
+          _this.set('updateLoading', false);
+        })
+        .fail(function(xhr, txt, err) {
+          Notify.toast('Could not update.', 'Update Metric', 'Error');
+          _this.set('updateLoading', false);
+        });
     }
   }
 });

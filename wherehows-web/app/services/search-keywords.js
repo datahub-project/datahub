@@ -1,11 +1,9 @@
 import Ember from 'ember';
 import buildUrl from 'wherehows-web/utils/build-url';
+import { isEmpty } from '@ember/utils';
+import Service from '@ember/service';
 
-const {
-  Service,
-  isEmpty,
-  $: { getJSON }
-} = Ember;
+const { $: { getJSON } } = Ember;
 
 /**
  * Runtime cache of recently seen typeahead results
@@ -24,11 +22,12 @@ let lastSeenQuery = '';
  * @param {String} routeName name of the route to return
  * @return {String} route url of the keyword route
  */
-const keywordRoutes = routeName => ({
-  datasets: '/api/v1/autocomplete/datasets',
-  metrics: '/api/v1/autocomplete/metrics',
-  flows: '/api/v1/autocomplete/flows'
-}[routeName] || '/api/v1/autocomplete/search');
+const keywordRoutes = routeName =>
+  ({
+    datasets: '/api/v1/autocomplete/datasets',
+    metrics: '/api/v1/autocomplete/metrics',
+    flows: '/api/v1/autocomplete/flows'
+  }[routeName] || '/api/v1/autocomplete/search');
 
 /**
  * Retrieves the keywords for a given url
@@ -45,11 +44,10 @@ const getKeywordsFor = url =>
       return resolve(cachedKeywords);
     }
 
-    getJSON(url)
-      .then(response => {
-        const { status } = response;
-        status === 'ok' && resolve(keywordResultsCache[String(url)] = response);
-      });
+    getJSON(url).then(response => {
+      const { status } = response;
+      status === 'ok' && resolve((keywordResultsCache[String(url)] = response));
+    });
   });
 
 /**
@@ -65,11 +63,13 @@ const apiResultsFor = (source = 'datasets') => ([query, , asyncResults]) => {
   const url = buildUrl(autoCompleteBaseUrl, 'input', query);
   lastSeenQuery = query;
 
-  getKeywordsFor(url).then(({ source = [], input }) => {
-    if (input === lastSeenQuery) {
-      return source;
-    }
-  }).then(asyncResults);
+  getKeywordsFor(url)
+    .then(({ source = [], input }) => {
+      if (input === lastSeenQuery) {
+        return source;
+      }
+    })
+    .then(asyncResults);
 };
 
 export default Service.extend({

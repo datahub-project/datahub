@@ -1,15 +1,16 @@
 module.exports = {
+  root: true,
   globals: {
     server: true,
     define: true,
   },
   "extends": [
-    "eslint:recommended",
-    "prettier"
+    "prettier",
+    'plugin:ember/recommended'
   ],
   "parser": "babel-eslint",
-  "parserOptions": {
-    "ecmaVersion": 8,
+  parserOptions: {
+    "ecmaVersion": 2017,
     "sourceType": "module",
     "ecmaFeatures": {
       "experimentalObjectRestSpread": true
@@ -17,9 +18,7 @@ module.exports = {
   },
   "env": {
     "browser": true,
-    "es6": true,
-    "node": true,
-    "embertest": true
+    "node": true
   },
   "rules": {
     "no-implicit-globals": [
@@ -28,6 +27,34 @@ module.exports = {
     "prettier/prettier": ["error", { "singleQuote": true, "printWidth": 120 }]
   },
   "plugins": [
-    "prettier"
+    "prettier",
+    'ember'
+  ],
+  overrides: [
+    // node files
+    {
+      files: [
+        'testem.js',
+        'ember-cli-build.js',
+        'config/**/*.js'
+      ],
+      parserOptions: {
+        sourceType: 'script',
+        ecmaVersion: 2015
+      },
+      env: {
+        browser: false,
+        node: true
+      }
+    },
+
+    // test files
+    {
+      files: ['tests/**/*.js'],
+      excludedFiles: ['tests/dummy/**/*.js'],
+      env: {
+        embertest: true
+      }
+    }
   ]
 };

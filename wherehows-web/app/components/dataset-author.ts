@@ -112,7 +112,7 @@ export default class DatasetAuthor extends Component {
      * Invokes the external action removeOwner to remove an owner from the confirmed list
      * @return {boolean | void | IOwner}
      */
-    removeOwner: () => {
+    removeOwner(this: DatasetAuthor): boolean | void | IOwner {
       const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
       return isOwnerMutable && removeOwner(owner);
     },
@@ -121,7 +121,7 @@ export default class DatasetAuthor extends Component {
      * Invokes the external action for  confirming the suggested owner
      * @return {Array<IOwner> | void}
      */
-    confirmOwner: () => {
+    confirmOwner(this: DatasetAuthor): Array<IOwner> | void {
       const { owner, confirmSuggestedOwner } = getProperties(this, ['owner', 'confirmSuggestedOwner']);
       return confirmSuggestedOwner(owner);
     },
@@ -131,7 +131,7 @@ export default class DatasetAuthor extends Component {
      * @param {OwnerType} type value to update the type attribute with
      * @return {void}
      */
-    changeOwnerType: (type: OwnerType) => {
+    changeOwnerType(this: DatasetAuthor, type: OwnerType): boolean | void {
       const { owner, isOwnerMutable, updateOwnerType } = getProperties(this, [
         'owner',
         'isOwnerMutable',

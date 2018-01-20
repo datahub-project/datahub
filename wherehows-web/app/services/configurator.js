@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import Service from '@ember/service';
+import { assert } from '@ember/debug';
 import fetch from 'fetch';
-
-const { Service, assert } = Ember;
 
 /**
  * Deep clones a reference value provided. If the value is primitive, i.e. not immutable deepClone is an

@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import Component from '@ember/component';
 import connect from 'ember-redux/components/connect';
 
-const { Component } = Ember;
 const entities = ['datasets', 'metrics', 'flows']; // hardcoded here to maintain the sort order
 /**
  * Selector function that takes a Redux Store to extract

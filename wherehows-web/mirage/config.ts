@@ -124,7 +124,7 @@ export default function(this: IMirageServer) {
         departmentNum: 0,
         email: testUser + '@linkedin.com',
         name: testUser,
-        userSetting: {
+        userSetting: <{ [prop: string]: null }>{
           detailDefaultView: null,
           defaultWatch: null
         }

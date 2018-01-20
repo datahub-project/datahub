@@ -49,23 +49,23 @@ declare module 'ember-concurrency' {
     Idle = 'idle'
   }
 
-  type Task<T, P> = TaskProperty<T> &
-    ComputedProperty<{ perform: P }> & {
-      readonly isIdle: boolean;
-      readonly isQueued: boolean;
-      readonly isRunning: boolean;
-      readonly last?: TaskInstance<T>;
-      readonly lastCanceled?: TaskInstance<T>;
-      readonly lastComplete?: TaskInstance<T>;
-      readonly lastErrored?: TaskInstance<T>;
-      readonly lastIncomplete?: TaskInstance<T>;
-      readonly lastPerformed?: TaskInstance<T>;
-      readonly lastRunning?: TaskInstance<T>;
-      readonly lastSuccessful?: TaskInstance<T>;
-      readonly performCount: number;
-      readonly state: TaskState;
-      cancelAll(): void;
-    };
+  type Task<T, P> = TaskProperty<T> & {
+    perform: ComputedProperty<P>;
+    readonly isIdle: boolean;
+    readonly isQueued: boolean;
+    readonly isRunning: boolean;
+    readonly last?: TaskInstance<T>;
+    readonly lastCanceled?: TaskInstance<T>;
+    readonly lastComplete?: TaskInstance<T>;
+    readonly lastErrored?: TaskInstance<T>;
+    readonly lastIncomplete?: TaskInstance<T>;
+    readonly lastPerformed?: TaskInstance<T>;
+    readonly lastRunning?: TaskInstance<T>;
+    readonly lastSuccessful?: TaskInstance<T>;
+    readonly performCount: number;
+    readonly state: TaskState;
+    cancelAll(): void;
+  };
 
   export function task<T, A>(generatorFn: (a: A) => Iterator<T>): Task<T, (a?: A) => TaskInstance<T>>;
 

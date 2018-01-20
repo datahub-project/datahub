@@ -1,7 +1,8 @@
-import Ember from 'ember';
+import Router from '@ember/routing/router';
+import { get, getWithDefault } from '@ember/object';
+import { inject as service } from '@ember/service';
+import { scheduleOnce } from '@ember/runloop';
 import config from './config/environment';
-
-const { get, Router, getWithDefault, inject: { service }, run: { scheduleOnce } } = Ember;
 
 const AppRouter = Router.extend({
   location: config.locationType,
@@ -57,7 +58,7 @@ AppRouter.map(function() {
   });
   this.route('datasets', function() {
     this.route('dataset', {
-      path: '/:datasetIdentifier'
+      path: '/:dataset_id'
     });
   });
   this.route('search');

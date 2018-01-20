@@ -63,9 +63,4 @@ const lazyRequestUrnPagedDatasets = createLazyRequest(
 // Async action creator for ActionTypes.REQUEST_DATASET_NODES
 const lazyRequestDatasetNodes = createLazyRequest(requestDatasetNodes, receiveDatasetNodes, fetchNodes('datasets'));
 
-export {
-  ActionTypes,
-  lazyRequestPagedDatasets,
-  lazyRequestUrnPagedDatasets,
-  lazyRequestDatasetNodes
-};
+export { ActionTypes, lazyRequestPagedDatasets, lazyRequestUrnPagedDatasets, lazyRequestDatasetNodes };

@@ -1,4 +1,7 @@
-import Ember from 'ember';
+import Controller from '@ember/controller';
+import { scheduleOnce } from '@ember/runloop';
+import { computed } from '@ember/object';
+import $ from 'jquery';
 
 let currentLeft;
 let currentRight;
@@ -8,10 +11,10 @@ let chartData = [];
 let schemaData = [];
 let skipChangeEvent = false;
 
-export default Ember.Controller.extend({
+export default Controller.extend({
   schemaName: '',
   instance: jsondiffpatch.create({
-    objectHash: function (obj, index) {
+    objectHash: function(obj, index) {
       if (typeof obj._id !== 'undefined') {
         return obj._id;
       }
@@ -25,74 +28,69 @@ export default Ember.Controller.extend({
     }
   }),
   actions: {
-    onSelect: function (dataset, data) {
+    onSelect: function(dataset, data) {
       this.highlightRow(dataset, data, false);
-      if (dataset && (dataset.id != 0)) {
+      if (dataset && dataset.id != 0) {
         this.updateTimeLine(dataset.id, false);
       }
     }
   },
-  previousPage: function () {
-    var model = this.get("model");
+  previousPage: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       if (currentPage <= 1) {
         return currentPage;
-      }
-      else {
+      } else {
         return currentPage - 1;
       }
     } else {
       return 1;
     }
-
-  }.property('model.data.page'),
-  nextPage: function () {
-    var model = this.get("model");
+  }),
+  nextPage: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       var totalPages = model.data.totalPages;
       if (currentPage >= totalPages) {
         return totalPages;
-      }
-      else {
+      } else {
         return currentPage + 1;
       }
     } else {
       return 1;
     }
-  }.property('model.data.page'),
-  first: function () {
-    var model = this.get("model");
+  }),
+  first: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       if (currentPage <= 1) {
         return true;
-      }
-      else {
-        return false
+      } else {
+        return false;
       }
     } else {
       return false;
     }
-  }.property('model.data.page'),
-  last: function () {
-    var model = this.get("model");
+  }),
+  last: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       var totalPages = model.data.totalPages;
       if (currentPage >= totalPages) {
         return true;
-      }
-      else {
-        return false
+      } else {
+        return false;
       }
     } else {
       return false;
     }
-  }.property('model.data.page'),
+  }),
 
-  updateSchemas(page, datasetId){
+  updateSchemas(page, datasetId) {
     let url;
     if (!this.schemaName) {
       url = '/api/v1/schemaHistory/datasets?size=10&page=' + page;
@@ -105,7 +103,7 @@ export default Ember.Controller.extend({
     }
 
     $.get(url, data => {
-      if (data && data.status == "ok") {
+      if (data && data.status == 'ok') {
         this.set('model', data);
         if (data.data && data.data.datasets && data.data.datasets.length > 0) {
           this.updateTimeLine(data.data.datasets[0].id, true);
@@ -117,9 +115,8 @@ export default Ember.Controller.extend({
   updateTimeLine(id, highlightFirstRow) {
     var historyUrl = '/api/v1/schemaHistory/historyData/' + id;
     $.get(historyUrl, data => {
-      if (data && data.status == "ok") {
-
-        $('#historytabs a:first').tab("show");
+      if (data && data.status == 'ok') {
+        $('#historytabs a:first').tab('show');
         if (highlightFirstRow) {
           this.highlightRow(null, null, true);
         }
@@ -130,18 +127,18 @@ export default Ember.Controller.extend({
         leftSelected = null;
         this.updateDiffView();
         chartData = [];
-        $("#leftSchemaSelector").html('');
-        $("#leftSchemaSelector").append(new Option('-- choose a date --', 'na'));
-        $("#rightSchemaSelector").html('');
-        $("#rightSchemaSelector").append(new Option('-- choose a date --', 'na'));
+        $('#leftSchemaSelector').html('');
+        $('#leftSchemaSelector').append(new Option('-- choose a date --', 'na'));
+        $('#rightSchemaSelector').html('');
+        $('#rightSchemaSelector').append(new Option('-- choose a date --', 'na'));
         for (var i = 0; i < schemaData.length; i++) {
           var modified = data.data[i].modified;
-          $("#leftSchemaSelector").append(new Option(modified, i));
-          $("#rightSchemaSelector").append(new Option(modified, i));
+          $('#leftSchemaSelector').append(new Option(modified, i));
+          $('#rightSchemaSelector').append(new Option(modified, i));
           var fields = parseInt(schemaData[i].fieldCount);
-          var dateArray = modified.split("-")
+          var dateArray = modified.split('-');
           if (dateArray && dateArray.length == 3) {
-            chartData.push([Date.UTC(dateArray[0], dateArray[1] - 1, dateArray[2]), fields])
+            chartData.push([Date.UTC(dateArray[0], dateArray[1] - 1, dateArray[2]), fields]);
           }
         }
         $('#leftSchemaSelector').change(() => {
@@ -156,7 +153,7 @@ export default Ember.Controller.extend({
             var left = JSON.parse(schemaData[selected].schema);
             currentLeft = left;
           }
-          this.updateDiffView();
+          scheduleOnce('afterRender', this, 'updateDiffView');
         });
 
         $('#rightSchemaSelector').change(() => {
@@ -182,7 +179,8 @@ export default Ember.Controller.extend({
           },
           xAxis: {
             type: 'datetime',
-            dateTimeLabelFormats: { // don't display the dummy year
+            dateTimeLabelFormats: {
+              // don't display the dummy year
               month: '%b  %Y',
               year: '%Y'
             }
@@ -221,57 +219,45 @@ export default Ember.Controller.extend({
                   }
                   skipChangeEvent = false;
 
-                  $('#historytabs a:last').tab("show");
-                  /*
-                   var obj = $( "a[tab-heading-transclude='']");
-                   if (obj && obj.length > 1)
-                   {
-                   $(obj[1]).click();
-                   }
-                   */
+                  $('#historytabs a:last').tab('show');
                 }
               }
             }
           },
           tooltip: {
-            formatter: function () {
+            formatter: function() {
               var index = this.point.index;
               var changed = 0;
-              var text = "<b>" + Highcharts.dateFormat('%b %e %Y', this.point.x) + '</b><br/>'
+              var text = '<b>' + Highcharts.dateFormat('%b %e %Y', this.point.x) + '</b><br/>';
               if (index == 0) {
-                text += 'since last change <br/><span style="color:blue;' +
-                    'text-decoration: underline;font-style: italic;">';
+                text +=
+                  'since last change <br/><span style="color:blue;' +
+                  'text-decoration: underline;font-style: italic;">';
                 text += 'Click the node to view schema</span>';
                 return text;
-              }
-              else {
+              } else {
                 changed = schemaData[index].fieldCount - schemaData[index - 1].fieldCount;
               }
 
               if (changed == 0) {
-                text += "No";
-              }
-              else {
+                text += 'No';
+              } else {
                 text += Math.abs(changed);
               }
 
               if (changed == 1 || changed == -1) {
                 text += ' column has been ';
-              }
-              else {
+              } else {
                 text += ' columns has been ';
               }
               if (changed == 0) {
                 text += ' added/removed ';
-              }
-              else if (changed > 0) {
+              } else if (changed > 0) {
                 text += ' added ';
-              }
-              else {
+              } else {
                 text += ' removed ';
               }
-              text += 'since last change <br/><span style="color:blue;' +
-                  'font-style: italic;">';
+              text += 'since last change <br/><span style="color:blue;' + 'font-style: italic;">';
               text += 'Click the node to view diff</span>';
 
               return text;
@@ -286,10 +272,12 @@ export default Ember.Controller.extend({
             verticalAlign: 'middle',
             borderWidth: 0
           },
-          series: [{
-            showInLegend: false,
-            data: chartData
-          }]
+          series: [
+            {
+              showInLegend: false,
+              data: chartData
+            }
+          ]
         });
       }
     });
@@ -297,21 +285,23 @@ export default Ember.Controller.extend({
 
   updateDiffView() {
     var delta = this.get('instance').diff(currentLeft, currentRight);
-    $("#schemaContent").html(jsondiffpatch.formatters.html.format(delta, currentLeft));
+    $('#schemaContent').html(jsondiffpatch.formatters.html.format(delta, currentLeft));
     jsondiffpatch.formatters.html.hideUnchanged();
   },
 
   highlightRow(dataset, data, firstRow) {
-    var rows = $(".schema-row");
+    var rows = $('.schema-row');
     if (rows) {
       if (firstRow) {
         $(rows[0]).addClass('highlight');
         return;
-
       }
       for (var index = 0; index < data.data.datasets.length; index++) {
         if (dataset == data.data.datasets[index]) {
-          $(rows[index]).addClass('highlight').siblings().removeClass('highlight');
+          $(rows[index])
+            .addClass('highlight')
+            .siblings()
+            .removeClass('highlight');
           break;
         }
       }

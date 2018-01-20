@@ -8,7 +8,8 @@ import {
   SuggestionIntent,
   getDefaultSecurityClassification,
   IComplianceFieldFormatOption,
-  IComplianceFieldIdentifierOption
+  IComplianceFieldIdentifierOption,
+  IFieldIdentifierOption
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
@@ -18,9 +19,13 @@ import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
 /**
  * Constant definition for an unselected field format
- * @type {object}
+ * @type {IFieldIdentifierOption<null>}
  */
-const unSelectedFieldFormatValue = { value: null, label: 'Select Field Format...', isDisabled: true };
+const unSelectedFieldFormatValue: IFieldIdentifierOption<null> = {
+  value: null,
+  label: 'Select Field Format...',
+  isDisabled: true
+};
 
 export default class DatasetComplianceRow extends DatasetTableRow {
   /**
@@ -56,7 +61,6 @@ export default class DatasetComplianceRow extends DatasetTableRow {
 
   /**
    * Describes action interface for `onFieldClassificationChange` action
-   * 
    * @memberof DatasetComplianceRow
    */
   onFieldClassificationChange: (field: IComplianceChangeSet, option: { value: '' | Classification }) => void;
@@ -143,10 +147,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   /**
    *  Takes a field property and extracts the value on the current policy if a suggestion currently exists for the field
    * @param {('logicalType' | 'identifierType')} fieldProp
-   * @returns {(string | null)} 
+   * @returns {(string | null)}
    * @memberof DatasetComplianceRow
    */
-  getCurrentValueBeforeSuggestion(fieldProp: 'logicalType' | 'identifierType'): string | null {
+  getCurrentValueBeforeSuggestion(
+    this: DatasetComplianceRow,
+    fieldProp: 'logicalType' | 'identifierType'
+  ): string | null {
     /**
      * Current value on policy prior to the suggested value
      * @type {string}
@@ -236,7 +243,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
 
     if (complianceDataType && isIdType) {
-      const supportedFieldFormats = complianceDataType.supportedFieldFormats || fieldFormatOptions;
+      const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
       const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
 
       return supportedFormatOptions.length
@@ -266,7 +273,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   isPiiType = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
     const { identifierType } = get(this, 'field');
-    const isDefinedIdentifierType = identifierType !== null || identifierType !== ComplianceFieldIdValue;
+    const isDefinedIdentifierType = identifierType !== null || identifierType !== ComplianceFieldIdValue.None;
 
     // If identifierType exists, and field is not idType or None or null
     return !!identifierType && !get(this, 'isIdType') && isDefinedIdentifierType;
@@ -379,7 +386,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
      * Handler for user interactions with a suggested value. Applies / ignores the suggestion
      * Then invokes the parent supplied suggestion handler
      * @param {string | void} intent a binary indicator to accept or ignore suggestion
-     * @param {SuggestionIntent} intent 
+     * @param {SuggestionIntent} intent
      */
     onSuggestionAction(this: DatasetComplianceRow, intent?: SuggestionIntent) {
       const onSuggestionIntent = get(this, 'onSuggestionIntent');

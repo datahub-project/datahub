@@ -2,7 +2,7 @@ declare module 'ember-modal-dialog/components/modal-dialog';
 
 declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   import Mixin from '@ember/object/mixin';
-  export default Mixin.create({});
+  export default Mixin;
 }
 
 declare module 'ember-simple-auth/services/session' {

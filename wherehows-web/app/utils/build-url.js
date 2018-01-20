@@ -1,7 +1,4 @@
-import {
-  encode,
-  decode
-} from 'wherehows-web/utils/encode-decode-uri-component-with-space';
+import { encode, decode } from 'wherehows-web/utils/encode-decode-uri-component-with-space';
 
 /**
  * Construct a url by appending a query pair (?key=value | &key=value) to a base url and
