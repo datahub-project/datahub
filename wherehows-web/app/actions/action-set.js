@@ -1,8 +1,5 @@
-import Ember from 'ember';
+import { assert } from '@ember/debug';
 
-const {
-  assert
-} = Ember;
 const actionSet = new Set();
 const upperCaseUnderscoreRegex = /^[A-Z_]+$/g;
 

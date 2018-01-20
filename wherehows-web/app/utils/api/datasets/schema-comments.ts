@@ -19,7 +19,7 @@ const datasetSchemaCommentUrlById = (datasetId: number, columnId: number) =>
  * @return {Promise<Array<IDatasetComment>>}
  */
 const readDatasetSchemaComments = async (datasetId: number, columnId: number): Promise<Array<IDatasetComment>> => {
-  const defaultData = { comments: [] };
+  const defaultData: { comments: Array<IDatasetComment> } = { comments: [] };
   const { status, data: { comments = [] } = defaultData } = await getJSON<IDatasetCommentsGetResponse>({
     url: datasetSchemaCommentUrlById(datasetId, columnId)
   });

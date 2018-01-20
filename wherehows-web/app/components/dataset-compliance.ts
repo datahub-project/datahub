@@ -175,6 +175,7 @@ const ObservableDecorator = Component.extend({
    * @type {() => void}
    */
   editStepIndexChanged: observer('editStepIndex', function(this: DatasetCompliance) {
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     get(this, 'updateEditStepTask').perform();
   }),
 
@@ -183,6 +184,7 @@ const ObservableDecorator = Component.extend({
    * @type {() => void}
    */
   platformChanged: observer('platform', function(this: DatasetCompliance) {
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     get(this, 'complianceAvailabilityTask').perform();
   })
 });
@@ -286,10 +288,11 @@ export default class DatasetCompliance extends ObservableDecorator {
     super(...arguments);
 
     //sets default values for class fields
-    this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
-    this.filterBy || set(this, 'filterBy', 'identifierField');
-    this.sortDirection || set(this, 'sortDirection', 'asc');
-    this.searchTerm || set(this, 'searchTerm', '');
+    this.sortColumnWithName ||
+      set<DatasetCompliance, 'sortColumnWithName', string>(this, 'sortColumnWithName', 'identifierField');
+    this.filterBy || set<DatasetCompliance, 'filterBy', string>(this, 'filterBy', 'identifierField');
+    this.sortDirection || set<DatasetCompliance, 'sortDirection', string>(this, 'sortDirection', 'asc');
+    this.searchTerm || set<DatasetCompliance, 'searchTerm', string>(this, 'searchTerm', '');
     this.schemaFieldNamesMappedToDataTypes || (this.schemaFieldNamesMappedToDataTypes = []);
     this.complianceDataTypes || (this.complianceDataTypes = []);
   }
@@ -315,11 +318,14 @@ export default class DatasetCompliance extends ObservableDecorator {
    */
   complianceFieldIdDropdownOptions = computed('complianceDataTypes', function(
     this: DatasetCompliance
-  ): Array<IComplianceFieldIdentifierOption | IFieldIdentifierOption<null | 'NONE'>> {
-    const noneAndUnSpecifiedDropdownOptions = [
+  ): Array<IComplianceFieldIdentifierOption | IFieldIdentifierOption<null | ComplianceFieldIdValue.None>> {
+    type NoneAndUnspecifiedOptions = Array<IFieldIdentifierOption<null | ComplianceFieldIdValue.None>>;
+
+    const noneAndUnSpecifiedDropdownOptions: NoneAndUnspecifiedOptions = [
       { value: null, label: 'Select Field Type...', isDisabled: true },
       { value: ComplianceFieldIdValue.None, label: 'None' }
     ];
+
     return [...noneAndUnSpecifiedDropdownOptions, ...getFieldIdentifierOptions(get(this, 'complianceDataTypes'))];
   });
 
@@ -340,7 +346,7 @@ export default class DatasetCompliance extends ObservableDecorator {
     return task(function*(this: DatasetCompliance): IterableIterator<void> {
       const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
       // the current step in the edit sequence
-      const editStep = editSteps[currentIndex] || {};
+      const editStep = editSteps[currentIndex] || { name: '' };
       const { name } = editStep;
 
       if (name) {
@@ -375,7 +381,7 @@ export default class DatasetCompliance extends ObservableDecorator {
   })();
 
   /**
-   * Holds a reference to the current step in the compliance edit wizard flow 
+   * Holds a reference to the current step in the compliance edit wizard flow
    * @type {{ name: string }}
    */
   editStep: { name: string };
@@ -390,7 +396,7 @@ export default class DatasetCompliance extends ObservableDecorator {
     { value: 'showReview', label: 'Showing only fields to review' }
   ];
 
-  didReceiveAttrs() {
+  didReceiveAttrs(this: DatasetCompliance) {
     this._super(...arguments);
     // Perform validation step on the received component attributes
     this.validateAttrs();
@@ -401,7 +407,8 @@ export default class DatasetCompliance extends ObservableDecorator {
     }
   }
 
-  didInsertElement() {
+  didInsertElement(this: DatasetCompliance) {
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     get(this, 'complianceAvailabilityTask').perform();
   }
 
@@ -423,6 +430,7 @@ export default class DatasetCompliance extends ObservableDecorator {
   complianceAvailabilityTask = task(function*(
     this: DatasetCompliance
   ): IterableIterator<TaskInstance<Promise<Array<IDataPlatform>>>> {
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     yield get(this, 'getPlatformPoliciesTask').perform();
 
     const supportedPurgePolicies = get(this, 'supportedPurgePolicies');
@@ -511,7 +519,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @returns {boolean | void}
    * @memberof DatasetCompliance
    */
-  validateAttrs(): boolean | void {
+  validateAttrs(this: DatasetCompliance): boolean | void {
     const fieldNames: Array<string> = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).mapBy('fieldName');
 
     // identifier field names from the column api should be unique
@@ -599,7 +607,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * to what is available on the dataset schema
    * @return {boolean}
    */
-  isSchemaFieldLengthGreaterThanComplianceEntities(): boolean {
+  isSchemaFieldLengthGreaterThanComplianceEntities(this: DatasetCompliance): boolean {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
       const { length: columnFieldsLength } = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []);
@@ -721,7 +729,10 @@ export default class DatasetCompliance extends ObservableDecorator {
     this: DatasetCompliance
   ): ISchemaFieldsToSuggested {
     const identifierFieldToSuggestion: ISchemaFieldsToSuggested = {};
-    const complianceSuggestion = get(this, 'complianceSuggestion') || {};
+    const complianceSuggestion = get(this, 'complianceSuggestion') || {
+      lastModified: 0,
+      suggestedFieldClassification: <any[]>[]
+    };
     const { lastModified: suggestionsModificationTime, suggestedFieldClassification = [] } = complianceSuggestion;
 
     // If the compliance suggestions array contains suggestions the create reduced lookup map,
@@ -795,7 +806,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @returns {(Pick<DatasetCompliance, '_message' | '_alertType'>)}
    * @memberof DatasetCompliance
    */
-  clearMessages(): Pick<DatasetCompliance, '_message' | '_alertType'> {
+  clearMessages(this: DatasetCompliance): Pick<DatasetCompliance, '_message' | '_alertType'> {
     return setProperties(this, {
       _message: '',
       _alertType: ''
@@ -814,6 +825,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @memberof DatasetCompliance
    */
   whenRequestCompletes<T extends { status: ApiStatus }>(
+    this: DatasetCompliance,
     request: Promise<T>,
     { successMessage = successUpdating, isSaving = false }: { successMessage?: string; isSaving?: boolean } = {}
   ): Promise<void> {
@@ -845,10 +857,10 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @param {string} identifierField the field for which the default classification should apply
    * @param {ComplianceFieldIdValue} identifierType the value of the field's identifier type
    */
-  setDefaultClassification({
-    identifierField,
-    identifierType
-  }: Pick<IComplianceEntity, 'identifierField' | 'identifierType'>) {
+  setDefaultClassification(
+    this: DatasetCompliance,
+    { identifierField, identifierType }: Pick<IComplianceEntity, 'identifierField' | 'identifierType'>
+  ) {
     const complianceDataTypes = get(this, 'complianceDataTypes');
     const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
 
@@ -859,7 +871,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * Requires that the user confirm that any non-id fields are ok to be saved without a field format specified
    * @returns {Promise<boolean>}
    */
-  async confirmUnformattedFields(): Promise<boolean> {
+  async confirmUnformattedFields(this: DatasetCompliance): Promise<boolean> {
     type FormattedAndUnformattedEntities = {
       formatted: Array<IComplianceEntity>;
       unformatted: Array<IComplianceEntity>;
@@ -868,31 +880,31 @@ export default class DatasetCompliance extends ObservableDecorator {
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
     const formattedAndUnformattedEntities: FormattedAndUnformattedEntities = { formatted: [], unformatted: [] };
     // All candidate fields that can be on policy, excluding tracking type fields
-    const changeSetEntities: Array<IComplianceEntity> = get(
-      this,
-      'compliancePolicyChangeSet'
-    ).map(({ identifierField, identifierType = null, logicalType, nonOwner, securityClassification }) => ({
-      identifierField,
-      identifierType,
-      logicalType,
-      nonOwner,
-      securityClassification
-    }));
+    const changeSetEntities: Array<IComplianceEntity> = get(this, 'compliancePolicyChangeSet').map(
+      ({ identifierField, identifierType = null, logicalType, nonOwner, securityClassification }) => ({
+        identifierField,
+        identifierType,
+        logicalType,
+        nonOwner,
+        securityClassification
+      })
+    );
 
     // Fields that do not have a logicalType, and no identifierType or identifierType is ComplianceFieldIdValue.None
-    const {
-      formatted,
-      unformatted
-    }: FormattedAndUnformattedEntities = changeSetEntities.reduce(({ formatted, unformatted }, field) => {
-      const { identifierType, logicalType } = getProperties(field, ['identifierType', 'logicalType']);
-      if (!logicalType && (ComplianceFieldIdValue.None === identifierType || !identifierType)) {
-        unformatted = [...unformatted, field];
-      } else {
-        formatted = [...formatted, field];
-      }
+    const { formatted, unformatted }: FormattedAndUnformattedEntities = changeSetEntities.reduce(
+      ({ formatted, unformatted }, field) => {
+        const { identifierType, logicalType } = getProperties(field, ['identifierType', 'logicalType']);
 
-      return { formatted, unformatted };
-    }, formattedAndUnformattedEntities);
+        if (!logicalType && (ComplianceFieldIdValue.None === identifierType || !identifierType)) {
+          unformatted = [...unformatted, field];
+        } else {
+          formatted = [...formatted, field];
+        }
+
+        return { formatted, unformatted };
+      },
+      formattedAndUnformattedEntities
+    );
 
     const dialogActions = <IConfirmOptions['dialogActions']>{};
     let isConfirmed = true;
@@ -941,7 +953,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @method
    * @return {any | Promise<any>}
    */
-  validateFields() {
+  validateFields(this: DatasetCompliance) {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
     const idTypeIdentifiers = getIdTypeDataTypes(get(this, 'complianceDataTypes'));
@@ -972,7 +984,7 @@ export default class DatasetCompliance extends ObservableDecorator {
   /**
    * Gets a reference to the current dataset classification object
    */
-  getDatasetClassificationRef(): DatasetClassification {
+  getDatasetClassificationRef(this: DatasetCompliance): DatasetClassification {
     const complianceInfo = get(this, 'complianceInfo');
 
     if (!complianceInfo) {
@@ -993,7 +1005,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * Display a modal dialog requesting that the user check affirm that the purge type is exempt
    * @return {Promise<void>}
    */
-  showPurgeExemptionWarning() {
+  showPurgeExemptionWarning(this: DatasetCompliance) {
     const dialogActions = <IConfirmOptions['dialogActions']>{};
 
     get(this, 'notifications').notify(NotificationEvent.confirm, {
@@ -1013,7 +1025,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * Notifies the user to provide a missing purge policy
    * @return {Promise<never>}
    */
-  needsPurgePolicyType() {
+  needsPurgePolicyType(this: DatasetCompliance) {
     return Promise.reject(get(this, 'notifications').notify(NotificationEvent.error, { content: missingPurgePolicy }));
   }
 
@@ -1021,7 +1033,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * Updates the currently active step in the edit sequence
    * @param {number} step
    */
-  updateStep(step: number) {
+  updateStep(this: DatasetCompliance, step: number) {
     set(this, 'editStepIndex', step);
   }
 

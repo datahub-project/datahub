@@ -1,8 +1,5 @@
-import Ember from 'ember';
-const {
-  Component,
-  computed
-} = Ember;
+import Component from '@ember/component';
+import { computed } from '@ember/object';
 
 export default Component.extend({
   tagName: 'th',
@@ -11,17 +8,17 @@ export default Component.extend({
   sortColumnWithName: '',
   sortDirection: null,
 
-  isColumnActive: computed('sortColumnWithName', 'columnName', function () {
-    const {sortColumnWithName, columnName} = this.getProperties('sortColumnWithName', 'columnName');
+  isColumnActive: computed('sortColumnWithName', 'columnName', function() {
+    const { sortColumnWithName, columnName } = this.getProperties('sortColumnWithName', 'columnName');
     return sortColumnWithName && sortColumnWithName === columnName;
   }),
 
   click() {
-    const {
-      columnName,
-      sortDirection,
-      isColumnActive
-    } = this.getProperties('columnName', 'sortDirection', 'isColumnActive');
+    const { columnName, sortDirection, isColumnActive } = this.getProperties(
+      'columnName',
+      'sortDirection',
+      'isColumnActive'
+    );
 
     if (columnName) {
       let updatedSortDirection;

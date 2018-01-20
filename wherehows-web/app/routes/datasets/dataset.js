@@ -1,4 +1,7 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { set, get, setProperties } from '@ember/object';
+import { inject } from '@ember/service';
+import $ from 'jquery';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
 import { readNonPinotProperties, readPinotProperties } from 'wherehows-web/utils/api/datasets/properties';
@@ -18,7 +21,7 @@ import {
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
-const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
+const { getJSON } = $;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
@@ -36,7 +39,7 @@ export default Route.extend({
    * Runtime application configuration options
    * @type {Ember.Service}
    */
-  configurator: service(),
+  configurator: inject(),
 
   queryParams: {
     urn: {
@@ -46,12 +49,12 @@ export default Route.extend({
 
   /**
    * Reads the dataset given a identifier from the dataset endpoint
-   * @param {string} datasetIdentifier a identifier / id for the dataset to be fetched
+   * @param {string} dataset_id a identifier / id for the dataset to be fetched
    * @param {string} [urn] optional urn identifier for dataset
    * @return {Promise<IDataset>}
    */
-  async model({ datasetIdentifier, urn }) {
-    let datasetId = datasetIdentifier;
+  async model({ dataset_id, urn }) {
+    let datasetId = dataset_id;
 
     if (datasetId === 'urn' && isDatasetUrn(urn)) {
       datasetId = await datasetUrnToId(urn);

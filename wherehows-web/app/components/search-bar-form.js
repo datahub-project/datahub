@@ -1,6 +1,7 @@
-import Ember from 'ember';
-
-const { get, set, computed, Component, inject: { service }, run: { debounce } } = Ember;
+import Component from '@ember/component';
+import { computed, set, get } from '@ember/object';
+import { inject } from '@ember/service';
+import { debounce } from '@ember/runloop';
 
 /**
  * Number of milliseconds to wait before triggering a request for keywords
@@ -13,7 +14,7 @@ export default Component.extend({
    * Service to retrieve type ahead keywords for a dataset
    * @type {Ember.Service}
    */
-  keywords: service('search-keywords'),
+  keywords: inject('search-keywords'),
 
   // Keywords and search Category filter
   currentFilter: 'datasets',
@@ -63,7 +64,7 @@ export default Component.extend({
      *   as category
      */
     search() {
-      this.sendAction('didSearch', {
+      get(this, 'didSearch')({
         keyword: get(this, 'search'),
         category: get(this, 'currentFilter')
       });

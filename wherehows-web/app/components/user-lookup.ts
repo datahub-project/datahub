@@ -35,6 +35,7 @@ export default class UserLookup extends Component {
   constructor() {
     super(...arguments);
 
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     set(this, 'userNamesResolver', get(get(this, 'userLookup'), 'userNamesResolver'));
   }
 
@@ -52,6 +53,7 @@ export default class UserLookup extends Component {
     }
 
     const { didFindUser } = this;
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     const findUser = get(get(this, 'userLookup'), 'getPartyEntityWithUserName');
     const userEntity = await findUser(userName);
 

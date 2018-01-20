@@ -1,7 +1,8 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { scheduleOnce } from '@ember/runloop';
 import _ from 'lodash';
+import $ from 'jquery';
 
-const $ = window.$;
 const d3 = window.d3;
 let rotation = false;
 let ZOOM_DURATION = 2000;
@@ -14,15 +15,19 @@ function setupSearch({ lineageType, lineageId }) {
   const height = $(window).height() * 0.99;
 
   $('#graphSplitter').height(height * 0.6);
-  $('#nodeInfoSplitter').height(height * 0.4).tabs({ active: 0 });
-  $('#main-splitter').height(height).splitter({
-    type: 'h',
-    dock: 'bottom',
-    dockSpeed: 200,
-    dockKey: 'W',
-    accessKey: 'W',
-    sizeTop: true
-  });
+  $('#nodeInfoSplitter')
+    .height(height * 0.4)
+    .tabs({ active: 0 });
+  $('#main-splitter')
+    .height(height)
+    .splitter({
+      type: 'h',
+      dock: 'bottom',
+      dockSpeed: 200,
+      dockKey: 'W',
+      accessKey: 'W',
+      sizeTop: true
+    });
 
   refreshLineageData(lineageType, lineageId);
 
@@ -303,7 +308,11 @@ function setupDagreGraph(data, rotation, type) {
           sourceLinks.some(({ source, target }) => {
             const match = v === source && w === target;
             if (match) {
-              d3.select(graphLink).transition().duration(ZOOM_DURATION).style('opacity', 1);
+              d3
+                .select(graphLink)
+                .transition()
+                .duration(ZOOM_DURATION)
+                .style('opacity', 1);
               return match;
             }
           });
@@ -311,14 +320,22 @@ function setupDagreGraph(data, rotation, type) {
           targetLinks.some(({ source, target }) => {
             const match = v === source && w === target;
             if (match) {
-              d3.select(graphLink).transition().duration(ZOOM_DURATION).style('opacity', 1);
+              d3
+                .select(graphLink)
+                .transition()
+                .duration(ZOOM_DURATION)
+                .style('opacity', 1);
               return match;
             }
           });
         }
       });
 
-      d3.select(graphNodes[nodeId]).transition().duration(duration).style('opacity', 1);
+      d3
+        .select(graphNodes[nodeId])
+        .transition()
+        .duration(duration)
+        .style('opacity', 1);
     });
   }
 
@@ -342,11 +359,11 @@ function setupDagreGraph(data, rotation, type) {
     highlightNodesAndLinks(nodes, duration);
 
     var padding = {
-      left: 40,
-      right: 80, // use more padding on bottom/right
-      top: 40,
-      bottom: 80 // accommodate node width and height
-    },
+        left: 40,
+        right: 80, // use more padding on bottom/right
+        top: 40,
+        bottom: 80 // accommodate node width and height
+      },
       left =
         _.min(
           _.map(nodes, function(node) {
@@ -465,15 +482,39 @@ function setupDagreGraph(data, rotation, type) {
   });
 
   function maskGraph(duration) {
-    d3.selectAll('.edgePath').transition().duration(duration).style('opacity', 0.2);
-    d3.selectAll('.edgeLabel').transition().duration(duration).style('opacity', 0.2);
-    d3.selectAll('.node').transition().duration(duration).style('opacity', 0.2);
+    d3
+      .selectAll('.edgePath')
+      .transition()
+      .duration(duration)
+      .style('opacity', 0.2);
+    d3
+      .selectAll('.edgeLabel')
+      .transition()
+      .duration(duration)
+      .style('opacity', 0.2);
+    d3
+      .selectAll('.node')
+      .transition()
+      .duration(duration)
+      .style('opacity', 0.2);
   }
 
   function clearGraph(duration) {
-    d3.selectAll('.edgePath').transition().duration(duration).style('opacity', 1);
-    d3.selectAll('.edgeLabel').transition().duration(duration).style('opacity', 1);
-    d3.selectAll('.node').transition().duration(duration).style('opacity', 1);
+    d3
+      .selectAll('.edgePath')
+      .transition()
+      .duration(duration)
+      .style('opacity', 1);
+    d3
+      .selectAll('.edgeLabel')
+      .transition()
+      .duration(duration)
+      .style('opacity', 1);
+    d3
+      .selectAll('.node')
+      .transition()
+      .duration(duration)
+      .style('opacity', 1);
   }
 
   function deselectAll() {
@@ -728,7 +769,11 @@ function setupDagreGraph(data, rotation, type) {
 
   var render = new dagreD3.render();
   var svg = d3.select('#svg-canvas');
-  var graphSVG = svg.append('svg').attr('class', 'graph-attach').attr('width', '100%').attr('height', '100%');
+  var graphSVG = svg
+    .append('svg')
+    .attr('class', 'graph-attach')
+    .attr('width', '100%')
+    .attr('height', '100%');
   var svgGroup = graphSVG.append('g');
   var miniSVG = svg
     .append('svg')
@@ -744,7 +789,11 @@ function setupDagreGraph(data, rotation, type) {
     .attr('height', '100%')
     .style('fill', '#DDD')
     .style('opacity', '0.5');
-  var minimapSVG = miniSVG.append('svg').attr('class', 'minimap-attach').attr('width', '100%').attr('height', '100%');
+  var minimapSVG = miniSVG
+    .append('svg')
+    .attr('class', 'minimap-attach')
+    .attr('width', '100%')
+    .attr('height', '100%');
   var overlay = minimapSVG
     .append('rect', ':first-child')
     .attr('class', 'overlay')
@@ -808,7 +857,10 @@ function setupDagreGraph(data, rotation, type) {
 
     var obj = $(str);
     $('#nodeInfoSplitter').scrollTo(obj, 800);
-    obj.addClass('highlight').siblings().removeClass('highlight');
+    obj
+      .addClass('highlight')
+      .siblings()
+      .removeClass('highlight');
   }
 
   var resetViewport = function() {
@@ -825,7 +877,10 @@ function setupDagreGraph(data, rotation, type) {
     let h = origHeight / scale;
     let tx = 0;
     let ty = 0;
-    zoom.translate([0, 0]).scale(scale).event(svg);
+    zoom
+      .translate([0, 0])
+      .scale(scale)
+      .event(svg);
     svg.attr('height', g.graph().height * scale);
     svg.attr('width', g.graph().width * scale);
     var t = [0, 0];
@@ -863,7 +918,9 @@ function setupDagreGraph(data, rotation, type) {
 
 const d3LineageTooltip = function(gravity) {
   const toOuterHTML = function(data) {
-    return $('<div />').append(data.eq(0).clone()).html();
+    return $('<div />')
+      .append(data.eq(0).clone())
+      .html();
   };
 
   return window.Tooltip(gravity).title(function(d) {
@@ -885,19 +942,28 @@ const d3LineageTooltip = function(gravity) {
     }
 
     function appendRow(key, value, tooltip) {
-      const keyrow = $('<div>').attr('class', 'key').append(key);
-      const valrow = $('<div>').attr('class', 'value').append(value);
+      const keyrow = $('<div>')
+        .attr('class', 'key')
+        .append(key);
+      const valrow = $('<div>')
+        .attr('class', 'value')
+        .append(value);
       const clearrow = $('<div>').attr('class', 'clear');
-      tooltip.append($('<div>').append(keyrow).append(valrow).append(clearrow));
+      tooltip.append(
+        $('<div>')
+          .append(keyrow)
+          .append(valrow)
+          .append(clearrow)
+      );
     }
 
     return toOuterHTML($xtraceTooltip);
   });
 };
 
-export default Ember.Route.extend({
+export default Route.extend({
   model({ id }) {
-    Ember.run.scheduleOnce('afterRender', this, setupSearch, { lineageId: id, lineageType: 'dataset' });
+    scheduleOnce('afterRender', this, setupSearch, { lineageId: id, lineageType: 'dataset' });
   },
 
   deactivate() {

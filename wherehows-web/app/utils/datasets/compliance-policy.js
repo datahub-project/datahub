@@ -1,8 +1,6 @@
-import Ember from 'ember';
 import { DatasetClassifiers } from 'wherehows-web/constants/dataset-classification';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
-
-const { assert, Logger: { warn } } = Ember;
+import { assert, warn } from '@ember/debug';
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values

@@ -63,7 +63,11 @@ const lazySelectPagedMetrics = createLazyRequest(
   fetchPagedEntities('metrics')
 );
 
-const lazyRequestMetricNodes = createLazyRequest(requestMetricNodes, receiveMetricNodes, fetchNamedEntityNodes('metrics'));
+const lazyRequestMetricNodes = createLazyRequest(
+  requestMetricNodes,
+  receiveMetricNodes,
+  fetchNamedEntityNodes('metrics')
+);
 
 const lazyRequestNamedPagedMetrics = createLazyRequest(
   requestPagedNamedMetrics,

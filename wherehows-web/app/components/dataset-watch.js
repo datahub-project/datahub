@@ -1,14 +1,16 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import $ from 'jquery';
 
-export default Ember.Component.extend({
+export default Component.extend({
   actions: {
     watch: function(dataset) {
-      var url = '/api/v1/datasets/' + dataset.id + '/watch'
-      var method = !dataset.watchId ? 'POST' : 'DELETE'
-      if(method.toLowerCase() === 'delete')
-        url += '/' + dataset.watchId
-      var token = $("#csrfToken").val().replace('/', '')
-      var _this = this
+      var url = '/api/v1/datasets/' + dataset.id + '/watch';
+      var method = !dataset.watchId ? 'POST' : 'DELETE';
+      if (method.toLowerCase() === 'delete') url += '/' + dataset.watchId;
+      var token = $('#csrfToken')
+        .val()
+        .replace('/', '');
+      var _this = this;
       $.ajax({
         url: url,
         method: method,
@@ -21,12 +23,14 @@ export default Ember.Component.extend({
           item_type: 'dataset',
           notification_type: 'weekly'
         }
-      }).done(function(data, txt, xhr){
-        _this.set('dataset.isWatched', !dataset.isWatched)
-        _this.sendAction('getDatasets')
-      }).fail(function(xhr, txt, err){
-        console.log('Error: Could not watch dataset.')
       })
+        .done(function(data, txt, xhr) {
+          _this.set('dataset.isWatched', !dataset.isWatched);
+          _this.sendAction('getDatasets');
+        })
+        .fail(function(xhr, txt, err) {
+          console.log('Error: Could not watch dataset.');
+        });
     }
   }
 });

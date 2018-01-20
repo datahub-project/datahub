@@ -79,7 +79,7 @@ export default class PurgePolicyComponent extends Component {
    */
   onPolicyChange: (purgePolicy: PurgePolicy) => IComplianceInfo['complianceType'] | null;
 
-  didReceiveAttrs() {
+  didReceiveAttrs(this: PurgePolicyComponent) {
     this._super(...arguments);
     this.checkExemption(get(this, 'purgePolicy'));
   }
@@ -89,7 +89,7 @@ export default class PurgePolicyComponent extends Component {
    * flag to request the exemption to true
    * @param {PurgePolicy} purgePolicy
    */
-  checkExemption(purgePolicy: PurgePolicy) {
+  checkExemption(this: PurgePolicyComponent, purgePolicy: PurgePolicy) {
     const exemptionReasonRequested = isExempt(purgePolicy);
     set(this, 'requestExemptionReason', exemptionReasonRequested);
 
@@ -103,7 +103,7 @@ export default class PurgePolicyComponent extends Component {
   /**
    * Applies cursor / document focus to the purge note text editor
    */
-  focusEditor() {
+  focusEditor(this: PurgePolicyComponent) {
     const exemptionReasonElement = <HTMLElement>get(this, 'element').querySelector('.comment-new__content');
 
     if (exemptionReasonElement) {

@@ -1,6 +1,8 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { set } from '@ember/object';
+import $ from 'jquery';
 
-export default Ember.Route.extend({
+export default Route.extend({
   controllerName: 'idpc',
 
   setupController(controller, params) {
@@ -11,7 +13,7 @@ export default Ember.Route.extend({
       var userTickets;
       $.get(ticketsUrl, data => {
         controller.set('ticketsInProgress', false);
-        if (data && data.status == "ok") {
+        if (data && data.status === 'ok') {
           controller.set('headlessTickets', data.headlessTickets);
           if (data.headlessTickets && data.headlessTickets.length > 0) {
             controller.set('headlessNoTickets', false);
@@ -25,29 +27,27 @@ export default Ember.Route.extend({
             controller.set('userNoTickets', false);
             userTickets = data.userTickets;
             controller.set('userTickets', data.userTickets);
-          }
-          else {
+          } else {
             controller.set('userNoTickets', true);
           }
           controller.set('membersInProgress', true);
           var membersUrl = '/api/v1/jira/members/' + params.user;
           $.get(membersUrl, data => {
             controller.set('membersInProgress', false);
-            if (data && data.status == "ok" && data.currentUser && data.currentUser[0]) {
+            if (data && data.status === 'ok' && data.currentUser && data.currentUser[0]) {
               var currentUser = controller.get('selectedUser');
-              Ember.set(currentUser, 'displayName', data.currentUser[0].displayName);
+              set(currentUser, 'displayName', data.currentUser[0].displayName);
               var org = data.currentUser[0].orgHierarchy;
               var breadcrumbs;
               if (org) {
                 breadcrumbs = controller.get('genBreadcrumbs')(org);
-              }
-              else {
+              } else {
                 var hierarchy = '/jweiner';
                 breadcrumbs = controller.get('genBreadcrumbs')(hierarchy);
               }
               controller.set('breadcrumbs', breadcrumbs);
               if (breadcrumbs) {
-                Ember.set(currentUser, 'url', breadcrumbs[breadcrumbs.length - 1].urn);
+                set(currentUser, 'url', breadcrumbs[breadcrumbs.length - 1].urn);
               }
 
               if (data.members && data.members.length > 0) {
@@ -78,8 +78,10 @@ export default Ember.Route.extend({
       memberOpened = 0;
       if (tickets) {
         for (var j = 0; j < tickets.length; j++) {
-          if (tickets[j].currentAssigneeOrgHierarchy &&
-              (tickets[j].currentAssigneeOrgHierarchy.indexOf(members[i].userName) != -1)) {
+          if (
+            tickets[j].currentAssigneeOrgHierarchy &&
+            tickets[j].currentAssigneeOrgHierarchy.indexOf(members[i].userName) !== -1
+          ) {
             memberTotal += 1;
             if (tickets[j].ticketStatus.toLowerCase() === 'open') {
               memberOpened += 1;
@@ -92,13 +94,11 @@ export default Ember.Route.extend({
       members[i].openedHeadlessTickets = memberOpened;
       members[i].closedHeadlessTickets = memberTotal - memberOpened;
       if (members[i].totalHeadlessTickets > 0) {
-        members[i].headlessTicketsCompletion =
-            Math.round(( (memberTotal - memberOpened) / memberTotal ) * 100);
-      }
-      else {
+        members[i].headlessTicketsCompletion = Math.round((memberTotal - memberOpened) / memberTotal * 100);
+      } else {
         members[i].headlessTicketsCompletion = 100;
       }
-      members[i].url = "/idpc/" + members[i].userName;
+      members[i].url = '/idpc/' + members[i].userName;
       memberRollupOpened += memberOpened;
       memberRollupTotal += memberTotal;
     }
@@ -107,19 +107,18 @@ export default Ember.Route.extend({
       var totalHeadlessTickets = memberRollupTotal;
       var openedHeadlessTickets = memberRollupOpened;
       var headlessTicketsCompletion;
-      var closedHeadlessTickets =
-          totalHeadlessTickets - openedHeadlessTickets;
+      var closedHeadlessTickets = totalHeadlessTickets - openedHeadlessTickets;
       if (totalHeadlessTickets > 0) {
-        headlessTicketsCompletion =
-            Math.round(( (
-                totalHeadlessTickets - openedHeadlessTickets) / totalHeadlessTickets ) * 100);
+        headlessTicketsCompletion = Math.round(
+          (totalHeadlessTickets - openedHeadlessTickets) / totalHeadlessTickets * 100
+        );
       } else {
         headlessTicketsCompletion = 100;
       }
-      Ember.set(currentUser, 'totalHeadlessTickets', totalHeadlessTickets);
-      Ember.set(currentUser, 'openedHeadlessTickets', openedHeadlessTickets);
-      Ember.set(currentUser, 'closedHeadlessTickets', closedHeadlessTickets);
-      Ember.set(currentUser, 'headlessTicketsCompletion', headlessTicketsCompletion);
+      set(currentUser, 'totalHeadlessTickets', totalHeadlessTickets);
+      set(currentUser, 'openedHeadlessTickets', openedHeadlessTickets);
+      set(currentUser, 'closedHeadlessTickets', closedHeadlessTickets);
+      set(currentUser, 'headlessTicketsCompletion', headlessTicketsCompletion);
     }
     return members;
   }
