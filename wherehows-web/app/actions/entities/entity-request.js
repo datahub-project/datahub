@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import { isBlank } from '@ember/utils';
 import fetch from 'fetch';
 import buildUrl from 'wherehows-web/utils/build-url';
-const { isBlank } = Ember;
 
 /**
  *

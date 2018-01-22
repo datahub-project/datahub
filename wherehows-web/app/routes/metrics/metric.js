@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { setProperties } from '@ember/object';
 import fetch from 'fetch';
-
-const { Route, setProperties } = Ember;
 
 const metricsUrlRoot = '/api/v1/metrics';
 
@@ -39,7 +38,7 @@ export default Route.extend({
   /**
    * Fetches the metric with the id specified in the route
    * @param metric_id
-   * @return {Thenable<V, void>|Promise<V, X>}
+   * @return {Promise<any>}
    */
   model({ metric_id }) {
     const metricsUrl = `${metricsUrlRoot}/${metric_id}`;

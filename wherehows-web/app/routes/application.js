@@ -1,8 +1,10 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { inject as service } from '@ember/service';
+import { run } from '@ember/runloop';
+import { computed, set, get, setProperties, getProperties, getWithDefault, observer } from '@ember/object';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 import { feedback, avatar } from 'wherehows-web/constants';
 
-const { Route, run, get, inject: { service }, testing } = Ember;
 const { mail, subject, title } = feedback;
 const { url: avatarUrl } = avatar;
 
@@ -76,19 +78,6 @@ export default Route.extend(ApplicationRouteMixin, {
   sessionAuthenticated() {
     this._super(...arguments);
     this._loadCurrentUser();
-  },
-
-  /**
-   * __It reloads the Ember.js application__ by redirecting the browser
-   * to the application's root URL so that all in-memory data (such as Ember
-   * Data stores etc.) gets cleared.
-   * @override ApplicationRouteMixin.sessionInvalidated
-   * @link https://github.com/simplabs/ember-simple-auth/issues/1048
-   */
-  sessionInvalidated() {
-    if (!testing) {
-      window.location.replace('/');
-    }
   },
 
   /**

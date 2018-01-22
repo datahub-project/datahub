@@ -9,5 +9,5 @@ export default Factory.extend({
   jobCount: 2,
   created: 1371143981901,
   modified: 1381956064561,
-  appCode: faker.list.random('AZKABAN PROD WAR' ,'LTX1-HOLDEMAZ01')
+  appCode: faker.list.random('AZKABAN PROD WAR', 'LTX1-HOLDEMAZ01')
 });

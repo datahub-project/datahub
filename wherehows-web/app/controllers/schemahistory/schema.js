@@ -1,19 +1,20 @@
-import Ember from 'ember';
+import Controller, { inject } from '@ember/controller';
+import { computed } from '@ember/object';
 
-export default Ember.Controller.extend({
-  schemahistory: Ember.inject.controller(),
+export default Controller.extend({
+  schemahistory: inject,
   actions: {
-    onSelect: function (dataset, data) {
+    onSelect: function(dataset, data) {
       const schemaHistoryController = this.schemahistory;
 
       schemaHistoryController.highlightRow(dataset, data, false);
-      if (dataset && (dataset.id != 0)) {
+      if (dataset && dataset.id != 0) {
         schemaHistoryController.updateTimeLine(dataset.id, false);
       }
     }
   },
-  previousPage: function () {
-    var model = this.get("model");
+  previousPage: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       if (currentPage <= 1) {
@@ -24,9 +25,9 @@ export default Ember.Controller.extend({
     } else {
       return 1;
     }
-  }.property('model.data.page'),
-  nextPage: function () {
-    var model = this.get("model");
+  }),
+  nextPage: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       var totalPages = model.data.totalPages;
@@ -38,9 +39,9 @@ export default Ember.Controller.extend({
     } else {
       return 1;
     }
-  }.property('model.data.page'),
-  first: function () {
-    var model = this.get("model");
+  }),
+  first: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       if (currentPage <= 1) {
@@ -51,9 +52,9 @@ export default Ember.Controller.extend({
     } else {
       return false;
     }
-  }.property('model.data.page'),
-  last: function () {
-    var model = this.get("model");
+  }),
+  last: computed('model.data.page', function() {
+    var model = this.get('model');
     if (model && model.data && model.data.page) {
       var currentPage = model.data.page;
       var totalPages = model.data.totalPages;
@@ -65,5 +66,5 @@ export default Ember.Controller.extend({
     } else {
       return false;
     }
-  }.property('model.data.page')
+  })
 });

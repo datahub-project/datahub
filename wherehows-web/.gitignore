@@ -1,6 +1,12 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# compiled output
+/dist
+/tmp
+
 # dependencies
-node_modules
-bower_components
+/node_modules
+/bower_components
 
 # misc
 /.sass-cache
@@ -8,9 +14,13 @@ bower_components
 /coverage/*
 /libpeerconnection.log
 npm-debug.log*
-testem.log
 yarn-error.log
+testem.log
 
+# ember-try
+.node_modules.ember-try/
+bower.json.ember-try
+package.json.ember-try
 # vscode
 jsconfig.json
 /.vscode/

@@ -265,12 +265,11 @@ export default class Notifications extends Service {
      */
     setCurrentNotification = async (notification: INotification) => {
       if (notification.type === 'modal') {
-        setProperties(this, { modal: notification, isShowingModal: true });
+        setProperties<Notifications, 'modal' | 'isShowingModal'>(this, { modal: notification, isShowingModal: true });
       } else {
         const { props } = notification;
         const toastDelay = delay((<IToast>props).duration);
-
-        setProperties(this, { toast: notification, isShowingToast: true });
+        setProperties<Notifications, 'toast' | 'isShowingToast'>(this, { toast: notification, isShowingToast: true });
 
         if (!(<IToast>props).isSticky) {
           await toastDelay;

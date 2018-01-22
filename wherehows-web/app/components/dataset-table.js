@@ -1,12 +1,5 @@
-import Ember from 'ember';
-
-const {
-  Component,
-  computed,
-  setProperties,
-  get,
-  set
-} = Ember;
+import Component from '@ember/component';
+import { setProperties, computed, get, set } from '@ember/object';
 
 // A default static list of page lengths
 const defaultPageLengths = [10, 50, 100];
@@ -28,11 +21,10 @@ export default Component.extend({
    * to the first item found in the pageLengths, default or runtime.
    * Will reset to first element on subsequent updates or set value
    */
-  limit: computed('pageLengths', function () {
+  limit: computed('pageLengths', function() {
     // Defaulting operation in the event the pageLengths is set to an falsey
     // value
-    return get(this, 'pageLengths.firstObject') ||
-      defaultPageLengths.firstObject;
+    return get(this, 'pageLengths.firstObject') || defaultPageLengths.firstObject;
   }),
 
   /**
@@ -43,16 +35,11 @@ export default Component.extend({
     const searchTerm = get(this, 'searchTerm');
     const fieldRegex = new RegExp(`.*${searchTerm}.*`, 'i');
 
-    return get(this, 'fields').filter(
-      field => fieldRegex.test(String(field[get(this, 'filterBy')]))
-    );
+    return get(this, 'fields').filter(field => fieldRegex.test(String(field[get(this, 'filterBy')])));
   }),
 
   sortBy: computed('sortColumnWithName', 'sortDirection', function() {
-    const { sortColumnWithName, sortDirection } = this.getProperties(
-      'sortColumnWithName',
-      'sortDirection'
-    );
+    const { sortColumnWithName, sortDirection } = this.getProperties('sortColumnWithName', 'sortDirection');
     return `${sortColumnWithName}:${sortDirection}`;
   }).readOnly(),
 

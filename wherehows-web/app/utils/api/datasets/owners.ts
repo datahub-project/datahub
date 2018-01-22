@@ -76,7 +76,7 @@ const readDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
   if (status === ApiStatus.OK) {
     return owners.map(owner => ({
       ...owner,
-      modifiedTime: new Date(owner.modifiedTime!)
+      modifiedTime: new Date(<number>owner.modifiedTime!) // Api response is always in number format
     }));
   }
 

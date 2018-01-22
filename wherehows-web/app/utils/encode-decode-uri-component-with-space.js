@@ -5,8 +5,7 @@
  * @param {String} sequence to be encoded
  * @returns {String} the encoded URI component sequence with spaces represented by plus
  */
-export const encode = sequence =>
-  encodeURIComponent(sequence).replace(/\%20/g, '+');
+export const encode = sequence => encodeURIComponent(sequence).replace(/\%20/g, '+');
 
 /**
  * Decodes a URI component sequence by replacing `+` with spaces prior to decoding
@@ -14,8 +13,7 @@ export const encode = sequence =>
  * @param {String} sequence to be decoded
  * @returns {String} the decoded URI component sequence with spaces
  */
-export const decode = sequence =>
-  decodeURIComponent(String(sequence).replace(/\+/g, ' '));
+export const decode = sequence => decodeURIComponent(String(sequence).replace(/\+/g, ' '));
 
 /**
  *

@@ -1,9 +1,10 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { computed } from '@ember/object';
 
-export default Ember.Component.extend({
+export default Component.extend({
   random: Math.floor(Math.random() * 10000),
-  content: Ember.computed({
-    get: function () {
+  content: computed({
+    get: function() {
       if (!this.editor) {
         return undefined;
       }
@@ -12,7 +13,7 @@ export default Ember.Component.extend({
       }
       return undefined;
     },
-    set: function (key, val) {
+    set: function(key, val) {
       if (!this.editor) {
         this.preset = val;
         return val;
@@ -23,14 +24,14 @@ export default Ember.Component.extend({
       return val;
     }
   }),
-  didInsertElement: function () {
+  didInsertElement: function() {
     this.editor = window.ace.edit(this.random + '_editor');
     this.editor.$blockScrolling = Infinity;
     this.editor.setTheme('ace/theme/github');
     this.editor.getSession().setMode('ace/mode/sql');
     this.editor.setReadOnly(false);
     var self = this;
-    this.editor.on('change', function () {
+    this.editor.on('change', function() {
       self.notifyPropertyChange('content');
     });
 
@@ -40,25 +41,26 @@ export default Ember.Component.extend({
     }
   },
   actions: {
-    save: function () {
+    save: function() {
       var url = this.get('savePath');
-      url = url.replace(/\{.\w+\}/, this.get('itemId'))
+      url = url.replace(/\{.\w+\}/, this.get('itemId'));
       var method = 'POST';
       var data = {};
-      data[this.get('saveParam')] = this.editor.getSession().getValue()
+      data[this.get('saveParam')] = this.editor.getSession().getValue();
       $.ajax({
         url: url,
         method: method,
         dataType: 'json',
         data: data
-      }).done(function (data, txt, xhr) {
-        if (data && data.status && data.status != "success") {
-          Notify.toast("Failed to update data", "Failed to update data within editor", "error")
-        }
-      }).fail(function (xhr, txt, err) {
-        Notify.toast("Failed to update data", "Failed to update data within editor", "error")
       })
-
+        .done(function(data, txt, xhr) {
+          if (data && data.status && data.status != 'success') {
+            Notify.toast('Failed to update data', 'Failed to update data within editor', 'error');
+          }
+        })
+        .fail(function(xhr, txt, err) {
+          Notify.toast('Failed to update data', 'Failed to update data within editor', 'error');
+        });
     }
   }
 });
