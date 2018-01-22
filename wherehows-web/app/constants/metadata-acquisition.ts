@@ -22,7 +22,19 @@ const lowQualitySuggestionConfidenceThreshold = 0.5;
  * Stores a unique list of classification values
  * @type {Array<Classification>} the list of classification values
  */
-const classifiers = Object.values(Classification);
+const classifiers = [
+  Classification.HighlyConfidential,
+  Classification.Confidential,
+  Classification.LimitedDistribution,
+  Classification.Internal,
+  Classification.Public
+];
+
+/**
+ * Lists the dataset security classification options that are exluded for datasets containing PII
+ * @type {Classification[]}
+ */
+const classifiersExcludedIfPII = [Classification.Internal, Classification.Public];
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
@@ -32,17 +44,17 @@ const classifiers = Object.values(Classification);
 const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(string.toLowerCase().replace(/[_]/g, ' '));
 
 /**
- * A derived list of security classification options from classifiers list, including an empty string option and value
- * @type {Array<ISecurityClassificationOption>}
+ * Derives the list of security classification options from the list of classifiers and disables options if
+ * the containsPii argument is truthy. Includes a disabled placeholder option: Unspecified
+ * @param {boolean = false} containsPii flag indicating if the dataset contains Pii
+ * @return {Array<ISecurityClassificationOption>}
  */
-const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [
-  null,
-  ...classifiers.sort()
-].map((value: ISecurityClassificationOption['value']) => ({
-  value,
-  label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
-  isDisabled: !value
-}));
+const getSecurityClassificationDropDownOptions = (containsPii: boolean = false): Array<ISecurityClassificationOption> =>
+  [null, ...classifiers].map((value: ISecurityClassificationOption['value']) => ({
+    value,
+    label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
+    isDisabled: !value || (containsPii && classifiersExcludedIfPII.includes(value))
+  }));
 
 /**
  * Checks if the identifierType is a mixed Id
@@ -81,7 +93,7 @@ const getDefaultSecurityClassification = (
 };
 
 export {
-  securityClassificationDropdownOptions,
+  getSecurityClassificationDropDownOptions,
   formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeValues,
   isMixedId,
