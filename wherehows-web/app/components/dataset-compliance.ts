@@ -4,7 +4,7 @@ import ComputedProperty, { gt, not, or } from '@ember/object/computed';
 import { run, schedule } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
-import { IFieldIdentifierOption } from 'wherehows-web/constants/dataset-compliance';
+import { IFieldIdentifierOption, ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { Classification } from 'wherehows-web/constants/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
@@ -12,7 +12,7 @@ import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 
 import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
-  securityClassificationDropdownOptions,
+  getSecurityClassificationDropDownOptions,
   DatasetClassifiers,
   getFieldIdentifierOptions,
   getDefaultSecurityClassification,
@@ -248,7 +248,7 @@ export default class DatasetCompliance extends ObservableDecorator {
   complianceDataTypes: Array<IComplianceDataType>;
 
   // Map of classifiers options for drop down
-  classifiers = securityClassificationDropdownOptions;
+  classifiers: Array<ISecurityClassificationOption> = getSecurityClassificationDropDownOptions();
 
   /**
    * Default to show all fields to review
