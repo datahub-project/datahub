@@ -15,6 +15,8 @@ import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/prope
 import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
 
+const { post, getJSON } = $;
+
 export default Controller.extend({
   queryParams: ['urn'],
   /**
