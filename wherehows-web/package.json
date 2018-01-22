@@ -38,7 +38,7 @@
     "ember-cli": "~2.18.0",
     "ember-cli-app-version": "^3.0.0",
     "ember-cli-babel": "^6.6.0",
-    "ember-cli-bootstrap-sassy": "^0.5.6",
+    "ember-cli-bootstrap-sassy": "^0.5.8",
     "ember-cli-code-coverage": "theseyi/ember-cli-code-coverage",
     "ember-cli-dependency-checker": "^2.0.0",
     "ember-cli-eslint": "^4.2.1",
