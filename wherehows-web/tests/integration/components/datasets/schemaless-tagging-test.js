@@ -80,13 +80,14 @@ test('it invokes the onPersonalDataChange external action on when toggled', func
 
   this.set('isEditable', true);
   this.set('containsPersonalData', false);
+  this.set('onClassificationChange', () => {});
   this.set('onPersonalDataChange', containsPersonalData => {
     assert.equal(++onPersonalDataChangeCallCount, 1, 'successfully invokes the external action');
     assert.ok(containsPersonalData, 'flag value is truthy');
   });
 
   this.render(
-    hbs`{{datasets/schemaless-tagging isEditable=isEditable onPersonalDataChange=onPersonalDataChange containsPersonalData=containsPersonalData}}`
+    hbs`{{datasets/schemaless-tagging isEditable=isEditable onPersonalDataChange=onPersonalDataChange onClassificationChange=onClassificationChange containsPersonalData=containsPersonalData}}`
   );
 
   assert.equal(onPersonalDataChangeCallCount, 0, 'external action is not invoked on instantiation');
