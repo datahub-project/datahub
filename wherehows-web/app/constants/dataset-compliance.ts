@@ -8,7 +8,7 @@ const { String: { htmlSafe } } = Ember;
 /**
  * Defines the generic interface field identifier drop downs
  * @interface IFieldIdentifierOption
- * @template T 
+ * @template T
  */
 interface IFieldIdentifierOption<T> {
   value: T;
@@ -56,13 +56,12 @@ const compliancePolicyStrings = {
       'You can optionally override it if required by house security.'
   },
   missingPurgePolicy: 'Please specify a Compliance Purge Policy',
-  defaultDatasetClassificationMsg: `You haven't set this dataset's security classification, 
-  it's value will be set to default of "${Classification.Internal}"`
+  missingDatasetSecurityClassification: 'Please specify a security classification for this dataset.'
 };
 
 /**
  * Takes a compliance data type and transforms it into a compliance field identifier option
- * @param {IComplianceDataType} complianceDataType 
+ * @param {IComplianceDataType} complianceDataType
  * @returns {IComplianceFieldIdentifierOption}
  */
 const getFieldIdentifierOption = (complianceDataType: IComplianceDataType): IComplianceFieldIdentifierOption => {
