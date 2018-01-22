@@ -5,7 +5,6 @@ import { run, schedule } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
 import { IFieldIdentifierOption, ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
-import { Classification } from 'wherehows-web/constants/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
@@ -125,7 +124,7 @@ const {
   successUploading,
   invalidPolicyData,
   missingPurgePolicy,
-  defaultDatasetClassificationMsg
+  missingDatasetSecurityClassification
 } = compliancePolicyStrings;
 
 /**
@@ -1152,11 +1151,6 @@ export default class DatasetCompliance extends ObservableDecorator {
 
       if (complianceInfo) {
         const { confidentiality, containingPersonalData } = complianceInfo;
-        const dialogActions: { [prop: string]: () => void } = {};
-        const confirmConfidentialityPromise = new Promise((resolve, reject) => {
-          dialogActions['didConfirm'] = () => resolve();
-          dialogActions['didDismiss'] = () => reject();
-        });
 
         // defaults the containing personal data flag to false if undefined
         if (typeof containingPersonalData === 'undefined') {
@@ -1164,13 +1158,11 @@ export default class DatasetCompliance extends ObservableDecorator {
         }
 
         if (!confidentiality) {
-          get(this, 'notifications').notify(NotificationEvent.confirm, {
-            dialogActions,
-            header: 'Confirm dataset classification',
-            content: defaultDatasetClassificationMsg
+          get(this, 'notifications').notify(NotificationEvent.error, {
+            content: missingDatasetSecurityClassification
           });
-          await confirmConfidentialityPromise;
-          set(complianceInfo, 'confidentiality', Classification.Internal);
+
+          return Promise.reject(new Error(missingDatasetSecurityClassification));
         }
       }
     },
