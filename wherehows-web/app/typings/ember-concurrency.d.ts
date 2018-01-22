@@ -35,8 +35,8 @@ declare module 'ember-concurrency' {
     readonly state: ComputedProperty<TaskInstanceState>;
     readonly value?: T;
     cancel(): void;
-    catch: () => RSVP.Promise<any>;
-    finally: () => RSVP.Promise<any>;
+    catch(): RSVP.Promise<any>;
+    finally(): RSVP.Promise<any>;
     then<TResult1 = T, TResult2 = never>(
       onfulfilled?: ((value: T) => TResult1 | RSVP.Promise<TResult1>) | undefined | null,
       onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null
@@ -49,23 +49,23 @@ declare module 'ember-concurrency' {
     Idle = 'idle'
   }
 
-  type Task<T, P> = TaskProperty<T> &
-    ComputedProperty<{ perform: P }> & {
-      readonly isIdle: boolean;
-      readonly isQueued: boolean;
-      readonly isRunning: boolean;
-      readonly last?: TaskInstance<T>;
-      readonly lastCanceled?: TaskInstance<T>;
-      readonly lastComplete?: TaskInstance<T>;
-      readonly lastErrored?: TaskInstance<T>;
-      readonly lastIncomplete?: TaskInstance<T>;
-      readonly lastPerformed?: TaskInstance<T>;
-      readonly lastRunning?: TaskInstance<T>;
-      readonly lastSuccessful?: TaskInstance<T>;
-      readonly performCount: number;
-      readonly state: TaskState;
-      cancelAll(): void;
-    };
+  type Task<T, P> = TaskProperty<T> & {
+    perform: ComputedProperty<P>;
+    readonly isIdle: boolean;
+    readonly isQueued: boolean;
+    readonly isRunning: boolean;
+    readonly last?: TaskInstance<T>;
+    readonly lastCanceled?: TaskInstance<T>;
+    readonly lastComplete?: TaskInstance<T>;
+    readonly lastErrored?: TaskInstance<T>;
+    readonly lastIncomplete?: TaskInstance<T>;
+    readonly lastPerformed?: TaskInstance<T>;
+    readonly lastRunning?: TaskInstance<T>;
+    readonly lastSuccessful?: TaskInstance<T>;
+    readonly performCount: number;
+    readonly state: TaskState;
+    cancelAll(): void;
+  };
 
   export function task<T, A>(generatorFn: (a: A) => Iterator<T>): Task<T, (a?: A) => TaskInstance<T>>;
 

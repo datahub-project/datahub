@@ -1,6 +1,7 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { get } from '@ember/object';
 
-export default Ember.Component.extend({
+export default Component.extend({
   classNames: ['drop-region'],
   classNameBindings: ['dragClass'],
   dragClass: 'deactivated',
@@ -15,9 +16,9 @@ export default Ember.Component.extend({
     this.set('dragClass', 'activated');
   },
 
-  drop (e) {
+  drop(e) {
     const data = e.dataTransfer.getData('text/data');
-    this.sendAction('dropped', data, this.get('param'));
+    get(this, 'dropped')(data, get(this, 'param'));
     this.set('dragClass', 'deactivated');
   }
 });

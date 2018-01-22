@@ -1,11 +1,12 @@
-import Ember from 'ember';
+import LinkComponent from '@ember/routing/link-component';
+import { computed } from '@ember/object';
 
-export default Ember.LinkComponent.extend({
+export default LinkComponent.extend({
   tagName: 'li',
 
   attributeBindings: ['data-toggle', 'data-target'],
 
-  hrefForA: Ember.computed('models', 'qualifiedRouteName', function () {
+  hrefForA: computed('models', 'qualifiedRouteName', function() {
     let qualifiedRouteName = this.get('qualifiedRouteName');
     let models = this.get('models');
 

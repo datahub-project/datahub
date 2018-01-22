@@ -1,9 +1,8 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
 import route from 'ember-redux/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { asyncRequestBrowseData } from 'wherehows-web/actions/browse';
 
-const { Route } = Ember;
 // TODO: DSS-6581 Create URL retrieval module
 // TODO: Route should transition to browse/entity, pay attention to the fact that
 //   this route initializes store with entity metrics on entry

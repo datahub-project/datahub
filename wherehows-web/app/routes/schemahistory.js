@@ -1,16 +1,20 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { run, scheduleOnce } from '@ember/runloop';
+import $ from 'jquery';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 
-export default Ember.Route.extend(AuthenticatedRouteMixin, {
+export default Route.extend(AuthenticatedRouteMixin, {
   init() {
     this._super(...arguments);
-    Ember.run.scheduleOnce('afterRender', this, 'bindKeyEvent');
+    scheduleOnce('afterRender', this, 'bindKeyEvent');
   },
 
   bindKeyEvent() {
-    Ember.$('#name').bind('paste keyup', () => {
-      this.controller.set('schemaName', Ember.$("#name").val());
-      this.controller.updateSchemas(1, 0);
-    });
+    $('#name').bind('paste keyup', () =>
+      scheduleOnce(() => {
+        this.controller.set('schemaName', $('#name').val());
+        this.controller.updateSchemas(1, 0);
+      })
+    );
   }
 });

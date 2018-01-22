@@ -1,12 +1,10 @@
-import Ember from 'ember';
+import { debug } from '@ember/debug';
 import { createAction } from 'redux-actions';
 
 import actionSet from 'wherehows-web/actions/action-set';
 import { lazyRequestUrnPagedDatasets, lazyRequestDatasetNodes } from 'wherehows-web/actions/datasets';
 import { lazyRequestNamedPagedMetrics, lazyRequestMetricNodes } from 'wherehows-web/actions/metrics';
 import { lazyRequestFlowsNodes, lazyRequestPagedUrnApplicationFlows } from 'wherehows-web/actions/flows';
-
-const { debug } = Ember;
 
 const ActionTypes = {
   REQUEST_NODE_LIST: actionSet('REQUEST_NODE_LIST'),
@@ -40,7 +38,8 @@ const asyncRequestEntityQueryData = (params, listURL, { queryParamsKeys: queryPa
 
     // For each entity fetch the list of nodes and the actual entities for the given query
     try {
-      let nodesResult = {}, pagedEntities = {};
+      let nodesResult = {},
+        pagedEntities = {};
       switch (entity) {
         case 'datasets':
           [nodesResult, pagedEntities] = await Promise.all([

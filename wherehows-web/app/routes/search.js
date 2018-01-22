@@ -1,8 +1,9 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { isBlank } from '@ember/utils';
+import $ from 'jquery';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import buildUrl from 'wherehows-web/utils/build-url';
 
-const { Route, isBlank, $: { getJSON } } = Ember;
 const queryParams = ['keyword', 'category', 'page', 'source'];
 // TODO: DSS-6581 Create URL retrieval module
 const urlRoot = '/api/v1/search';
@@ -44,7 +45,7 @@ export default Route.extend(AuthenticatedRouteMixin, {
       return url;
     }, urlRoot);
 
-    return Promise.resolve(getJSON(searchUrl)).then(({ status, result }) => {
+    return Promise.resolve($.getJSON(searchUrl)).then(({ status, result }) => {
       if (status === 'ok') {
         const { keywords, data } = result;
 

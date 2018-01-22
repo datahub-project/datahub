@@ -2,7 +2,7 @@ import { Factory } from 'ember-cli-mirage';
 
 export default Factory.extend({
   isInternal: true,
-  tracking: {
+  tracking: () => ({
     trackers: {
       piwik: {
         piwikSiteId: 1337,
@@ -10,5 +10,5 @@ export default Factory.extend({
       }
     },
     isEnabled: true
-  }
+  })
 });

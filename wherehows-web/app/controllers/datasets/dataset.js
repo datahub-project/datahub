@@ -1,4 +1,9 @@
-import Ember from 'ember';
+import Controller from '@ember/controller';
+import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
+import { debug } from '@ember/debug';
+import { inject as service } from '@ember/service';
+import { run, scheduleOnce } from '@ember/runloop';
+import $ from 'jquery';
 import {
   datasetComplianceUrlById,
   createDatasetComment,
@@ -9,20 +14,6 @@ import {
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
-
-const {
-  set,
-  get,
-  getProperties,
-  debug,
-  getWithDefault,
-  setProperties,
-  inject: { service },
-  $: { post, getJSON },
-  run,
-  run: { scheduleOnce },
-  Controller
-} = Ember;
 
 export default Controller.extend({
   queryParams: ['urn'],
@@ -37,9 +28,18 @@ export default Controller.extend({
   hasSamples: false,
   currentVersion: '0',
   latestVersion: '0',
-  ownerTypes: [],
-  userTypes: [{ name: 'Corporate User', value: 'urn:li:corpuser' }, { name: 'Group User', value: 'urn:li:corpGroup' }],
-  isPinot: function() {
+  init() {
+    setProperties(this, {
+      ownerTypes: [],
+      userTypes: [
+        { name: 'Corporate User', value: 'urn:li:corpuser' },
+        { name: 'Group User', value: 'urn:li:corpGroup' }
+      ]
+    });
+
+    this._super(...arguments);
+  },
+  isPinot: computed('model.source', function() {
     var model = this.get('model');
     if (model) {
       if (model.source) {
@@ -47,8 +47,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.source'),
-  isHDFS: function() {
+  }),
+  isHDFS: computed('model.urn', function() {
     var model = this.get('model');
     if (model) {
       if (model.urn) {
@@ -56,8 +56,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.urn'),
-  isSFDC: function() {
+  }),
+  isSFDC: computed('model.source', function() {
     var model = this.get('model');
     if (model) {
       if (model.source) {
@@ -65,8 +65,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.source'),
-  lineageUrl: function() {
+  }),
+  lineageUrl: computed('model.id', function() {
     var model = this.get('model');
     if (model) {
       if (model.id) {
@@ -74,8 +74,8 @@ export default Controller.extend({
       }
     }
     return '';
-  }.property('model.id'),
-  schemaHistoryUrl: function() {
+  }),
+  schemaHistoryUrl: computed('model.id', function() {
     var model = this.get('model');
     if (model) {
       if (model.id) {
@@ -83,7 +83,7 @@ export default Controller.extend({
       }
     }
     return '';
-  }.property('model.id'),
+  }),
 
   refreshVersions: function(dbId) {
     var model = this.get('model');
@@ -216,8 +216,8 @@ export default Controller.extend({
     },
     /**
      * Updates the dataset's deprecation properties
-     * @param {boolean} isDeprecated 
-     * @param {string} deprecationNote 
+     * @param {boolean} isDeprecated
+     * @param {string} deprecationNote
      * @return {IDatasetView}
      */
     async updateDeprecation(isDeprecated, deprecationNote) {

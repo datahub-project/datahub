@@ -2,7 +2,7 @@ declare module 'ember-modal-dialog/components/modal-dialog';
 
 declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   import Mixin from '@ember/object/mixin';
-  export default Mixin.create({});
+  export default Mixin;
 }
 
 declare module 'ember-simple-auth/services/session' {
@@ -27,7 +27,10 @@ declare module 'ember-cli-mirage';
 // TS assumes the mapping btw ES modules and CJS modules is 1:1
 // However, `ember-fetch` is the module name, but it's imported with `fetch`
 declare module 'fetch' {
-  export default function fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
+  export default function fetch(
+    input: RequestInfo,
+    options?: { method?: string; body?: any; headers?: object | Headers; credentials?: RequestCredentials }
+  ): Promise<Response>;
 }
 
 declare module 'scrollmonitor';

@@ -1,5 +1,4 @@
-import Ember from 'ember';
-const { Controller } = Ember;
+import Controller from '@ember/controller';
 
 /**
  * Handles query params for browse.entity route

@@ -1,9 +1,9 @@
-import Ember from 'ember';
-
-const { Route, get, inject: { service } } = Ember;
+import Route from '@ember/routing/route';
+import { get } from '@ember/object';
+import { inject } from '@ember/service';
 
 export default Route.extend({
-  session: service(),
+  session: inject(),
 
   /**
    * Check is the user is currently authenticated when attempting to access

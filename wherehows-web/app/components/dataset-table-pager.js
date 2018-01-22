@@ -1,29 +1,19 @@
-import Ember from 'ember';
-
-const {
-  Component,
-  computed,
-  getProperties,
-  get
-} = Ember;
+import Component from '@ember/component';
+import { getProperties, computed, get } from '@ember/object';
 
 export default Component.extend({
   tagName: '',
 
   classNames: ['nacho-pager'],
 
-  pages: computed('numberOfPages', function () {
+  pages: computed('numberOfPages', function() {
     const numberOfPages = get(this, 'numberOfPages');
 
     return [...Array(numberOfPages).keys()].map(x => x + 1);
   }),
 
-  numberOfPages: computed('data', 'limit', function () {
-    const { data, limit: rowsPerPage = 1 } = getProperties(
-      this,
-      'data',
-      'limit'
-    );
+  numberOfPages: computed('data', 'limit', function() {
+    const { data, limit: rowsPerPage = 1 } = getProperties(this, 'data', 'limit');
     let numberOfPages = 1;
 
     if (Array.isArray(data)) {

@@ -10,12 +10,10 @@ export default Factory.extend({
   isWatched: false,
   modified: faker.date.past(),
   name: faker.commerce.productName(),
-  properties: {
+  properties: () => ({
     DB_ID: faker.random.number({ min: 10000, max: 20000 }),
     TBL_ID: faker.random.number({ min: 10000, max: 20000 }),
-    view_depends_on:[
-       faker.commerce.productName()
-    ],
+    view_depends_on: [faker.commerce.productName()],
     create_time: faker.date.past(),
     etl_source: 'COLUMN_V2',
     input_format: faker.commerce.productName(),
@@ -26,10 +24,10 @@ export default Factory.extend({
     serialization_format: 'Sequence',
     tbl_type: 'VIRTUAL_VIEW',
     view_expanded_text: faker.lorem.sentence()
-  },
+  }),
   schema: 'abcd',
   source: 'Hive',
   urn: faker.internet.url(),
   watchId: 0,
-  owners: [],
+  owners: () => []
 });

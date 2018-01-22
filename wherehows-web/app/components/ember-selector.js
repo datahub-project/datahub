@@ -1,15 +1,15 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { observer, get } from '@ember/object';
 
-export default Ember.Component.extend({
+export default Component.extend({
   classNames: ['nacho-select'],
-  content: [],
 
   init() {
     this._super(...arguments);
     this.updateContent();
   },
 
-  onSelectionChanged: Ember.observer('selected', 'values', function() {
+  onSelectionChanged: observer('selected', 'values', function() {
     this.updateContent();
   }),
 
@@ -43,7 +43,7 @@ export default Ember.Component.extend({
 
       this.set('selected', selected);
 
-      this.sendAction('selectionDidChange', _selected);
+      get(this, 'selectionDidChange')(_selected);
     }
   }
 });

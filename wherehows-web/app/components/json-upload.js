@@ -1,6 +1,7 @@
 import Ember from 'ember';
 
-const { get, computed, Component } = Ember;
+import Component from '@ember/component';
+import { get, computed } from '@ember/object';
 
 export default Component.extend({
   classNames: ['nacho-uploader'],

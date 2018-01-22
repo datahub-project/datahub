@@ -1,27 +1,28 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { get } from '@ember/object';
+import { inject } from '@ember/service';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { featureEntryPoints } from 'wherehows-web/constants/application';
 
-const { get, Route, inject: { service } } = Ember;
 const { browse, scriptFinder, schemaHistory, idpc } = featureEntryPoints;
 
 export default Route.extend(AuthenticatedRouteMixin, {
   /**
    * @type {Ember.Service}
    */
-  sessionUser: service('current-user'),
+  sessionUser: inject('current-user'),
 
   /**
    * Runtime application configuration options
    * @type {Ember.Service}
    */
-  configurator: service(),
+  configurator: inject(),
 
   /**
    * Metrics tracking service
    * @type {Ember.Service}
    */
-  metrics: service(),
+  metrics: inject(),
 
   model() {
     // Static list of content for the index route featureCard links

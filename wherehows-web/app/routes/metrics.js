@@ -1,12 +1,12 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 
-export default Ember.Route.extend(AuthenticatedRouteMixin, {
+export default Route.extend(AuthenticatedRouteMixin, {
   actions: {
-    getMetrics: function () {
+    getMetrics: function() {
       var listUrl = '/api/v1/list/metrics';
-      $.get(listUrl, function (data) {
-        if (data && data.status == "ok") {
+      $.get(listUrl, function(data) {
+        if (data && data.status == 'ok') {
           // renderMetricListView(data.nodes);
         }
       });
@@ -16,7 +16,7 @@ export default Ember.Route.extend(AuthenticatedRouteMixin, {
       updateActiveTab();
 
       $.get(url, data => {
-        if (data && data.status == "ok") {
+        if (data && data.status == 'ok') {
           this.controller.set('model', data);
           this.controller.set('urn', null);
           this.controller.set('detailview', false);

@@ -1,9 +1,7 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
 import route from 'ember-redux/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { asyncRequestEntityQueryData } from 'wherehows-web/actions/browse/entity';
-
-const { Route } = Ember;
 
 // TODO: DSS-6581 Create URL retrieval module
 const listUrl = '/api/v1/list';

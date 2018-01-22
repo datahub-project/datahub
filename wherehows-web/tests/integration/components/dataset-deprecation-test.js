@@ -1,9 +1,17 @@
 import { moduleForComponent, test } from 'ember-qunit';
+import { click } from 'ember-native-dom-helpers';
+import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import hbs from 'htmlbars-inline-precompile';
 import { run } from '@ember/runloop';
 
 moduleForComponent('dataset-deprecation', 'Integration | Component | dataset deprecation', {
-  integration: true
+  integration: true,
+
+  beforeEach() {
+    this.register('service:notifications', notificationsStub);
+
+    this.inject.service('notifications');
+  }
 });
 
 test('it renders', function(assert) {
@@ -40,7 +48,7 @@ test('setting the deprecated property should toggle the checkbox', function(asse
   assert.notOk(this.$('#dataset-is-deprecated').is(':checked'), 'checkbox is unchecked when property is set false');
 });
 
-test('triggers the onUpdateDeprecation action when submitted', function(assert) {
+test('triggers the onUpdateDeprecation action when submitted', async function(assert) {
   let submitActionCallCount = 0;
 
   this.set('submit', function(deprecated, note) {
@@ -54,14 +62,10 @@ test('triggers the onUpdateDeprecation action when submitted', function(assert) 
   assert.equal(submitActionCallCount, 0, 'action is not called on render');
   assert.equal(this.$('#dataset-is-deprecated').is(':checked'), false, 'deprecation checkbox is unchecked');
 
-  run(() => {
-    document.querySelector('#dataset-is-deprecated').click();
-  });
+  await click('#dataset-is-deprecated');
 
   assert.equal(this.$('#dataset-is-deprecated').is(':checked'), true, 'deprecation checkbox is checked');
-  run(() => {
-    document.querySelector('.dataset-deprecation-toggle__actions [type=submit]').click();
-  });
+  await click('.dataset-deprecation-toggle__actions [type=submit]');
 
   assert.equal(submitActionCallCount, 1, 'action is called once');
 });
