@@ -1,6 +1,6 @@
 import Component from '@ember/component';
-import { get } from '@ember/object';
-import { ISecurityClassificationOption, securityClassificationDropdownOptions } from 'wherehows-web/constants';
+import { get, computed } from '@ember/object';
+import { getSecurityClassificationDropDownOptions, ISecurityClassificationOption } from 'wherehows-web/constants';
 
 export default class SchemalessTagging extends Component {
   classNames = ['schemaless-tagging'];
@@ -31,7 +31,11 @@ export default class SchemalessTagging extends Component {
    * @type {Array<ISecurityClassificationOption>}
    * @memberof SchemalessTagging
    */
-  classifiers: Array<ISecurityClassificationOption> = securityClassificationDropdownOptions;
+  classifiers = computed('containsPersonalData', function(
+    this: SchemalessTagging
+  ): Array<ISecurityClassificationOption> {
+    return getSecurityClassificationDropDownOptions(get(this, 'containsPersonalData'));
+  });
 
   /**
    * Flag indicating if this component should be in edit mode or readonly
@@ -54,6 +58,10 @@ export default class SchemalessTagging extends Component {
      * @returns boolean
      */
     onPersonalDataToggle(this: SchemalessTagging, containsPersonalDataTag: boolean) {
+      if (containsPersonalDataTag) {
+        this.actions.onSecurityClassificationChange.call(this, { value: null });
+      }
+
       return get(this, 'onPersonalDataChange')(containsPersonalDataTag);
     },
 
@@ -62,7 +70,10 @@ export default class SchemalessTagging extends Component {
      * @param {ISecurityClassificationOption} { value } security Classification value for the dataset
      * @returns null | Classification
      */
-    onSecurityClassificationChange(this: SchemalessTagging, { value }: ISecurityClassificationOption) {
+    onSecurityClassificationChange(
+      this: SchemalessTagging,
+      { value }: { value: ISecurityClassificationOption['value'] }
+    ) {
       const securityClassification = value || null;
       return get(this, 'onClassificationChange')(securityClassification);
     }

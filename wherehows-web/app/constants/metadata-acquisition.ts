@@ -31,6 +31,12 @@ const classifiers = [
 ];
 
 /**
+ * Lists the dataset security classification options that are exluded for datasets containing PII
+ * @type {Classification[]}
+ */
+const classifiersExcludedIfPII = [Classification.Internal, Classification.Public];
+
+/**
  * Takes a string, returns a formatted string. Niche , single use case
  * for now, so no need to make into a helper
  * @param {string} string
@@ -38,16 +44,17 @@ const classifiers = [
 const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(string.toLowerCase().replace(/[_]/g, ' '));
 
 /**
- * A derived list of security classification options from classifiers list, including an empty string option and value
- * @type {Array<ISecurityClassificationOption>}
+ * Derives the list of security classification options from the list of classifiers and disables options if
+ * the containsPii argument is truthy. Includes a disabled placeholder option: Unspecified
+ * @param {boolean = false} containsPii flag indicating if the dataset contains Pii
+ * @return {Array<ISecurityClassificationOption>}
  */
-const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [null, ...classifiers].map(
-  (value: ISecurityClassificationOption['value']) => ({
+const getSecurityClassificationDropDownOptions = (containsPii: boolean = false): Array<ISecurityClassificationOption> =>
+  [null, ...classifiers].map((value: ISecurityClassificationOption['value']) => ({
     value,
     label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
-    isDisabled: !value
-  })
-);
+    isDisabled: !value || (containsPii && classifiersExcludedIfPII.includes(value))
+  }));
 
 /**
  * Checks if the identifierType is a mixed Id
@@ -86,7 +93,7 @@ const getDefaultSecurityClassification = (
 };
 
 export {
-  securityClassificationDropdownOptions,
+  getSecurityClassificationDropDownOptions,
   formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeValues,
   isMixedId,
