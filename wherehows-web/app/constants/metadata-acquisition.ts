@@ -22,7 +22,13 @@ const lowQualitySuggestionConfidenceThreshold = 0.5;
  * Stores a unique list of classification values
  * @type {Array<Classification>} the list of classification values
  */
-const classifiers = Object.values(Classification);
+const classifiers = [
+  Classification.HighlyConfidential,
+  Classification.Confidential,
+  Classification.LimitedDistribution,
+  Classification.Internal,
+  Classification.Public
+];
 
 /**
  * Takes a string, returns a formatted string. Niche , single use case
@@ -35,14 +41,13 @@ const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(strin
  * A derived list of security classification options from classifiers list, including an empty string option and value
  * @type {Array<ISecurityClassificationOption>}
  */
-const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [
-  null,
-  ...classifiers.sort()
-].map((value: ISecurityClassificationOption['value']) => ({
-  value,
-  label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
-  isDisabled: !value
-}));
+const securityClassificationDropdownOptions: Array<ISecurityClassificationOption> = [null, ...classifiers].map(
+  (value: ISecurityClassificationOption['value']) => ({
+    value,
+    label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
+    isDisabled: !value
+  })
+);
 
 /**
  * Checks if the identifierType is a mixed Id
