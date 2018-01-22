@@ -5,6 +5,11 @@ declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   export default Mixin;
 }
 
+declare module 'ember-simple-auth/authenticators/base' {
+  import EmberObject from '@ember/object';
+  export default EmberObject;
+}
+
 declare module 'ember-simple-auth/services/session' {
   import Ember from 'ember';
   import Service from '@ember/service';
