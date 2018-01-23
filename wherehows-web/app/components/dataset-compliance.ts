@@ -9,7 +9,6 @@ import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 
-import isTrackingHeaderField from 'wherehows-web/utils/validators/tracking-headers';
 import {
   getSecurityClassificationDropDownOptions,
   DatasetClassifiers,
@@ -531,34 +530,6 @@ export default class DatasetCompliance extends ObservableDecorator {
   }
 
   /**
-   * cached boolean flag indicating that fields do contain a `kafka type` tracking header.
-   * Used to indicate to viewer that these fields are hidden.
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetCompliance
-   */
-  containsHiddenTrackingFields = computed('truncatedColumnFields.length', function(this: DatasetCompliance): boolean {
-    // If their is a diff in schemaFieldNamesMappedToDataTypes and truncatedColumnFields,
-    //   then we have hidden tracking fields
-    return (
-      get(get(this, 'truncatedColumnFields'), 'length') !==
-      get(get(this, 'schemaFieldNamesMappedToDataTypes'), 'length')
-    );
-  });
-
-  /**
-   *  Filters the mapped compliance data fields without `kafka type` tracking headers
-   * @type {(ComputedProperty<Array<Pick<IDatasetColumn, "dataType" | "fieldName">>>)}
-   * @memberof DatasetCompliance
-   */
-  truncatedColumnFields = computed('schemaFieldNamesMappedToDataTypes', function(
-    this: DatasetCompliance
-  ): Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>> {
-    return getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).filter(
-      ({ fieldName }) => !isTrackingHeaderField(fieldName)
-    );
-  });
-
-  /**
    * Checks that all tags/ dataset content types have a boolean value
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
@@ -702,20 +673,21 @@ export default class DatasetCompliance extends ObservableDecorator {
    * Computed prop over the current Id fields in the Privacy Policy
    * @type {ComputedProperty<ISchemaFieldsToPolicy>}
    */
-  columnIdFieldsToCurrentPrivacyPolicy = computed(`{truncatedColumnFields,${policyComplianceEntitiesKey}.[]}`, function(
-    this: DatasetCompliance
-  ): ISchemaFieldsToPolicy {
-    const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
-    // Truncated list of Dataset field names and data types currently returned from the column endpoint
-    const columnFieldProps = get(this, 'truncatedColumnFields').map(({ fieldName, dataType }) => ({
-      identifierField: fieldName,
-      dataType
-    }));
+  columnIdFieldsToCurrentPrivacyPolicy = computed(
+    `{schemaFieldNamesMappedToDataTypes,${policyComplianceEntitiesKey}.[]}`,
+    function(this: DatasetCompliance): ISchemaFieldsToPolicy {
+      const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
+      // Truncated list of Dataset field names and data types currently returned from the column endpoint
+      const columnFieldProps = get(this, 'schemaFieldNamesMappedToDataTypes').map(({ fieldName, dataType }) => ({
+        identifierField: fieldName,
+        dataType
+      }));
 
-    return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, {
-      policyModificationTime: modifiedTime
-    });
-  });
+      return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, {
+        policyModificationTime: modifiedTime
+      });
+    }
+  );
 
   /**
    * Creates a mapping of compliance suggestions to identifierField
@@ -766,7 +738,7 @@ export default class DatasetCompliance extends ObservableDecorator {
   compliancePolicyChangeSet = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
     this: DatasetCompliance
   ): Array<IComplianceChangeSet> {
-    // truncatedColumnFields is a dependency for cp columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
+    // schemaFieldNamesMappedToDataTypes is a dependency for cp columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
     // TODO: move source to TS
     return mergeMappedColumnFieldsWithSuggestions(
       get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
