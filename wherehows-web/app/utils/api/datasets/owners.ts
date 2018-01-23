@@ -1,14 +1,13 @@
-import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
-import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import {
   IPartyEntity,
   IPartyEntityResponse,
   IPartyProps,
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
-import { arrayFilter } from 'wherehows-web/utils/array';
+import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 
 /**
  * Defines a string enum for valid owner types
@@ -50,12 +49,6 @@ enum OwnerSource {
   Fs = 'FS',
   Other = 'OTHER'
 }
-
-/**
- * The minimum required number of owners with a confirmed status
- * @type {number}
- */
-const minRequiredConfirmed = 2;
 
 /**
  * Constructs the dataset owners url
@@ -184,31 +177,7 @@ const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMa
     {}
   );
 
-/**
- * Given an IOwner object, determines if it qualifies as a valid confirmed owner
- * @param {IOwner}
- * @return {boolean}
- */
-const isValidConfirmedOwner = ({ confirmedBy, type, idType, isActive }: IOwner): boolean =>
-  !!confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User && isActive;
-
-/**
- * Filters out a list of valid confirmed owners in a list of owners
- * @type {(array: Array<IOwner> = []) => Array<IOwner>}
- */
-const validConfirmedOwners = arrayFilter(isValidConfirmedOwner);
-
-/**
- * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
- * @param {Array<IOwner>} owners the list of owners to check
- * @return {boolean}
- */
-const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
-  validConfirmedOwners(owners).length < minRequiredConfirmed;
-
 export {
-  validConfirmedOwners,
-  isRequiredMinOwnersNotConfirmed,
   readDatasetOwners,
   readPartyEntities,
   readPartyEntitiesMap,

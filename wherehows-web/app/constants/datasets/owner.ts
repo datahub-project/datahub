@@ -1,7 +1,7 @@
+import { set } from '@ember/object';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
-import { isListUnique } from 'wherehows-web/utils/array';
-import { set } from '@ember/object';
+import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
 
 /**
  * Initial user name for candidate owners
@@ -10,7 +10,7 @@ import { set } from '@ember/object';
 const defaultOwnerUserName = 'New Owner';
 
 /**
- * The minimum required number of owners
+ * The minimum required number of owners with a confirmed status
  * @type {number}
  */
 const minRequiredConfirmedOwners = 2;
@@ -90,6 +90,7 @@ function updateOwner<K extends keyof IOwner>(
  */
 const confirmOwner = (owner: IOwner, confirmedBy: string): IOwner['confirmedBy'] =>
   set(owner, 'confirmedBy', confirmedBy || null);
+
 /**
  * Defines the default properties for a newly created IOwner instance
  *@type {IOwner}
@@ -109,10 +110,34 @@ const defaultOwnerProps: IOwner = {
   isActive: true
 };
 
+/**
+ * Given an IOwner object, determines if it qualifies as a valid confirmed owner
+ * @param {IOwner}
+ * @return {boolean}
+ */
+const isValidConfirmedOwner = ({ confirmedBy, type, idType, isActive }: IOwner): boolean =>
+  !!confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User && isActive;
+
+/**
+ * Filters out a list of valid confirmed owners in a list of owners
+ * @type {(array: Array<IOwner> = []) => Array<IOwner>}
+ */
+const validConfirmedOwners = arrayFilter(isValidConfirmedOwner);
+
+/**
+ * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
+ * @param {Array<IOwner>} owners the list of owners to check
+ * @return {boolean}
+ */
+const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
+  validConfirmedOwners(owners).length < minRequiredConfirmedOwners;
+
 export {
   defaultOwnerProps,
   defaultOwnerUserName,
   minRequiredConfirmedOwners,
+  validConfirmedOwners,
+  isRequiredMinOwnersNotConfirmed,
   ownerAlreadyExists,
   updateOwner,
   confirmOwner
