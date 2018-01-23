@@ -1,6 +1,15 @@
 <td>
   {{user-avatar userName=owner.userName}}
+
   {{owner.userName}}
+
+  {{#if isOwnerInActive}}
+
+    <button class="nacho-button nacho-button--small dataset-author-record__action--inactive">
+      Inactive
+    </button>
+
+  {{/if}}
 </td>
 
 <td>

@@ -105,7 +105,8 @@ const defaultOwnerProps: IOwner = {
   sortId: 0,
   source: OwnerSource.Ui,
   confirmedBy: null,
-  idType: OwnerIdType.User
+  idType: OwnerIdType.User,
+  isActive: true
 };
 
 export {

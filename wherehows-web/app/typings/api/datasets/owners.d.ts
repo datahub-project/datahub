@@ -8,7 +8,7 @@ interface IOwner {
   confirmedBy: null | string;
   email: null | string;
   idType: OwnerIdType;
-  isActive?: boolean;
+  isActive: boolean;
   isGroup: boolean;
   modifiedTime?: number | Date;
   name: string;

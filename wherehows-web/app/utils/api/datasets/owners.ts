@@ -8,6 +8,7 @@ import {
 } from 'wherehows-web/typings/api/datasets/party-entities';
 import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
+import { arrayFilter } from 'wherehows-web/utils/array';
 
 /**
  * Defines a string enum for valid owner types
@@ -184,14 +185,18 @@ const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMa
   );
 
 /**
- * Filters out a list of valid confirmed owners in a list of owners
- * @param {Array<IOwner>} [owners=[]] the owners to filter
- * @returns {Array<IOwner>}
+ * Given an IOwner object, determines if it qualifies as a valid confirmed owner
+ * @param {IOwner}
+ * @return {boolean}
  */
-const validConfirmedOwners = (owners: Array<IOwner> = []): Array<IOwner> =>
-  owners.filter(
-    ({ confirmedBy, type, idType }) => confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User
-  );
+const isValidConfirmedOwner = ({ confirmedBy, type, idType, isActive }: IOwner): boolean =>
+  !!confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User && isActive;
+
+/**
+ * Filters out a list of valid confirmed owners in a list of owners
+ * @type {(array: Array<IOwner> = []) => Array<IOwner>}
+ */
+const validConfirmedOwners = arrayFilter(isValidConfirmedOwner);
 
 /**
  * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
