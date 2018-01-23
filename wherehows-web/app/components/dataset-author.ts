@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty, { equal } from '@ember/object/computed';
+import ComputedProperty, { equal, not } from '@ember/object/computed';
 import { getProperties, computed } from '@ember/object';
 import { assert } from '@ember/debug';
 
@@ -18,7 +18,10 @@ export default class DatasetAuthor extends Component {
 
   classNames = ['dataset-author-record'];
 
-  classNameBindings = ['isConfirmedSuggestedOwner:dataset-author-record--disabled'];
+  classNameBindings = [
+    'isConfirmedSuggestedOwner:dataset-author-record--disabled',
+    'isOwnerInActive:dataset-author-record--inactive'
+  ];
 
   /**
    * The owner record being rendered
@@ -72,22 +75,27 @@ export default class DatasetAuthor extends Component {
   isOwnerMutable: ComputedProperty<boolean> = equal('owner.source', OwnerSource.Ui);
 
   /**
+   * Negates the owner attribute flag `isActive`, indicating owner record is considered inactive
+   * @type {ComputedProperty<boolean>}
+   * @memberOf DatasetAuthor
+   */
+  isOwnerInActive: ComputedProperty<boolean> = not('owner.isActive');
+
+  /**
    * Determines if the owner record is a system suggested owner and if this record is confirmed by a user
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthor
    */
-  isConfirmedSuggestedOwner: ComputedProperty<boolean> = computed('commonOwners', function(this: DatasetAuthor) {
+  isConfirmedSuggestedOwner: ComputedProperty<boolean> = computed('commonOwners', function(
+    this: DatasetAuthor
+  ): boolean {
     const { commonOwners, isOwnerMutable, owner: { userName } } = getProperties(this, [
       'commonOwners',
       'isOwnerMutable',
       'owner'
     ]);
 
-    if (!isOwnerMutable) {
-      return commonOwners.findBy('userName', userName);
-    }
-
-    return false;
+    return isOwnerMutable ? false : !!commonOwners.findBy('userName', userName);
   });
 
   constructor() {
