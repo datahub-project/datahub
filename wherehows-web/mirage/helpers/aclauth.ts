@@ -1,5 +1,6 @@
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { Response, faker } from 'ember-cli-mirage';
+import ApprovedAclUser from 'wherehows-web/mirage/fixtures/dataset-acl-users';
 
 const textContentHeader = { 'Content-Type': 'text/plain; charset=utf-8' };
 //TODO: Build a dummy server to simulate ACL authentication process
@@ -50,4 +51,19 @@ const aclAuth = (_schema: any, { requestBody }: { requestBody: string }) => {
   return new Response(401, textContentHeader, { status: ApiStatus.FAILED, isApproved: false });
 };
 
-export { aclAuth };
+/**
+ *  For testing purpose, defined a mocked response when user is granted ACL permission
+ */
+const approvedResponseTesting = ApprovedAclUser[0];
+
+/**
+ * For testing purpose, defined a method to mock ACL server response
+ */
+const accessInfoTesting = (permmision: boolean) => {
+  return {
+    isAccess: permmision,
+    body: [approvedResponseTesting]
+  };
+};
+
+export { aclAuth, accessInfoTesting, approvedResponseTesting };

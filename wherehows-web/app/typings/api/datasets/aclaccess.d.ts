@@ -1,7 +1,7 @@
 /**
  * Describes the interface about ACL authorized user's info
  */
-interface IAclUserInfo {
+export interface IAclUserInfo {
   name: string;
   idType: string;
   source: string;
@@ -44,15 +44,9 @@ export interface IRequestAclApproved {
   principal: string;
   businessJustification: string;
   accessTypes: Array<'READ' | 'WRITE'>;
-  tableItem: {
-    userName: string;
-    name: string;
-    idType: string;
-    source: string;
-    modifiedTime: string;
-    ownerShip: string;
-  };
+  tableItem: IAclUserInfo;
 }
+
 /**
  * Describe the interface which is a response from ACL authentication request
  */
@@ -61,7 +55,7 @@ export type IRequestResponse = IRequestAclReject | IRequestAclApproved;
 /**
  * Describe the interface to compose the ACL authentication request payload
  */
-export interface Iprincipal {
+export interface IPrincipal {
   principal: string;
   businessJustification: string;
 }
@@ -69,7 +63,7 @@ export interface Iprincipal {
 /**
  * Describe the interface for page static resources
  */
-interface IpageInfo {
+interface IPageInfo {
   info: string;
   requestInfo: string;
   requestMessage: string;
@@ -80,15 +74,15 @@ interface IpageInfo {
 /**
  * Describe the interface for page static resources in the authorization state and unauthorized state 
  */
-export interface IpageConcent {
-  success: IpageInfo;
-  reject: IpageInfo;
+export interface IPageConcent {
+  success: IPageInfo;
+  reject: IPageInfo;
 }
 
 /**
  * Describe the interface for the static page content in a state
  */
-interface IpageStateInfo {
+interface IPageStateInfo {
   state: string;
   info: string;
   icon: string;
@@ -100,6 +94,6 @@ interface IpageStateInfo {
 /**
  * Describe the interface for page content in each state
  */
-export interface IpageState {
-  [propName: string]: IpageStateInfo;
+export interface IPageState {
+  [propName: string]: IPageStateInfo;
 }

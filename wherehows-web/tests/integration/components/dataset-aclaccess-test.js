@@ -4,7 +4,7 @@ import { triggerEvent } from 'ember-native-dom-helpers';
 import {
   accessInfoTesting as accessInfo,
   approvedResponseTesting as approvedResponse
-} from 'wherehows-web/constants/dataset-aclaccess';
+} from 'wherehows-web/mirage/helpers/aclauth';
 
 moduleForComponent('dataset-aclaccess', 'Integration | Component | dataset aclaccess', {
   integration: true
@@ -157,7 +157,7 @@ test('component content renders permission approved', function(assert) {
       .children('p')
       .text()
       .trim(),
-    'You now have a access to this data',
+    'You now have access to this data',
     'Render request form subtitle 2 correctly'
   );
   assert.equal(this.$('.dataset-author-record').length, 2, 'Render table body correctly');

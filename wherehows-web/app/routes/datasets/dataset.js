@@ -22,7 +22,6 @@ import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
 import { currentUser } from 'wherehows-web/utils/api/authentication';
 
 const { getJSON } = $;
-const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;

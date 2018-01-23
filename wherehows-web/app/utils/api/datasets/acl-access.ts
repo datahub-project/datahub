@@ -1,6 +1,11 @@
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
-import { queryAccessUrl } from 'wherehows-web/constants/dataset-aclaccess';
-import { Iprincipal, IRequestResponse } from 'wherehows-web/typings/api/datasets/aclaccess';
+import { IPrincipal, IRequestResponse } from 'wherehows-web/typings/api/datasets/aclaccess';
+
+/**
+ * Defined ACL authentication server address
+ */
+const queryAccessUrl = '/api/v1/acl';
+
 /**
  * Defined ACL authentication server URL
  * @param {string} userName 
@@ -20,10 +25,10 @@ const checkAclAccess = async (userName: string): Promise<any> => {
 /**
  *  Defined the method to request ACL page permission
  * @param {string} userName
- * @param {Iprincipal} data 
+ * @param {IPrincipal} data 
  * @return {Promise<IRequestResponse>} getAclAccess
  */
-const getAclAccess = (userName: string, data: Iprincipal): Promise<IRequestResponse> => {
+const getAclAccess = (userName: string, data: IPrincipal): Promise<IRequestResponse> => {
   return postJSON({
     url: aclAuthURL(userName),
     data

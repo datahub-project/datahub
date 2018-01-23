@@ -1,6 +1,7 @@
 import { moduleForComponent, test } from 'ember-qunit';
 import Notifications from 'wherehows-web/services/notifications';
-import { accessInfoTesting as accessInfo, accessState } from 'wherehows-web/constants/dataset-aclaccess';
+import { accessState } from 'wherehows-web/constants/dataset-aclaccess';
+import { accessInfoTesting as accessInfo } from 'wherehows-web/mirage/helpers/aclauth';
 
 moduleForComponent('dataset-aclaccess', 'Unit | Component | dataset aclaccess', {
   unit: true,

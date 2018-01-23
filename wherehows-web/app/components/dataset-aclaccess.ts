@@ -5,59 +5,53 @@ import { computed, getProperties, get, set } from '@ember/object';
 import { task } from 'ember-concurrency';
 
 import { getAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
-import { accessState, pickList, getPrincipal } from 'wherehows-web/constants/dataset-aclaccess';
+import { accessState, pickList, getPrincipal, aclPageState } from 'wherehows-web/constants/dataset-aclaccess';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
-import { IAclInfo, IRequestAclReject, IRequestAclApproved } from 'wherehows-web/typings/api/datasets/aclaccess';
+import { IAclInfo, IAclUserInfo, IRequestResponse, IPageState } from 'wherehows-web/typings/api/datasets/aclaccess';
 
-export default class DatsetAclAccess extends Component {
-  constructor() {
-    super(...arguments);
-    this.resetForm = this.resetForm.bind(this);
-    this.actions.cancelTasks = this.actions.cancelTasks.bind(this);
-    this.actions.addOwner = this.actions.addOwner.bind(this);
-  }
+export default class DatasetAclAccess extends Component {
   /**
    * Reference to the application notifications Service
    * @type {ComputedProperty<Notifications>}
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
   notifications = <ComputedProperty<Notifications>>inject();
 
   /**
    * Define property binds to the textarea
    * @type {string}
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
   requestReason: string;
 
   /**
    * Define the property to show the user info
    * @type {string}
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
   currentUser: string;
 
   /**
    * Define the property to initialize the page 
    * @type {IAclInfo}
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
   accessInfo: IAclInfo;
 
   /**
    *  Define the property to update the page when a user is granted permission.
-   * @type {IRequestAclReject | IRequestAclApproved}
-   * @memberOf DatsetAclAccess
+   * @type {IRequestResponse}
+   * @memberOf DatasetAclAccess
    */
-  accessResponse: IRequestAclReject | IRequestAclApproved;
+  accessResponse: IRequestResponse;
 
   /**
    * Define the computed property to decide the page state. 
    * The component has 5 states ['emptyState', 'hasAccess','noAccess','denyAccess','getAccess'].
    * @type {string}
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
-  pageState: ComputedProperty<string> = computed('accessInfo', 'accessResponse', function(this: DatsetAclAccess) {
+  pageState: ComputedProperty<string> = computed('accessInfo', 'accessResponse', function(this: DatasetAclAccess) {
     const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
 
     const isLoadPage = accessInfo ? true : false;
@@ -66,51 +60,53 @@ export default class DatsetAclAccess extends Component {
     const idApproved = accessResponse && accessResponse.hasOwnProperty('isApproved') ? true : false;
 
     if (!isLoadPage) {
-      return 'emptyState';
+      return aclPageState.emptyState;
     } else if (hasAccess) {
-      return 'hasAccess';
+      return aclPageState.hasAccess;
     } else if (!canAccess) {
-      return 'noAccess';
+      return aclPageState.noAccess;
     } else if (idApproved) {
-      return 'denyAccess';
+      return aclPageState.denyAccess;
     }
 
-    return 'getAccess';
+    return aclPageState.getAccess;
   });
 
   /**
    * Define the computed property to pick authorized users information based on the property of accessInfo and accessResponse
-   * @type {string}
-   * @memberOf DatsetAclAccess
+   * @type Array<IAclUserInfo>
+   * @memberOf DatasetAclAccess
    */
-  users: ComputedProperty<Array<any>> = computed('accessInfo', 'accessResponse', function(this: DatsetAclAccess) {
+  users: ComputedProperty<Array<IAclUserInfo>> = computed('accessInfo', 'accessResponse', function(
+    this: DatasetAclAccess
+  ) {
     const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
     return pickList(accessInfo, accessResponse);
   });
 
   /**
    * Define the computed property to load page content based on pageState
-   * @type {object}
-   * @memberOf DatsetAclAccess
+   * @type { IPageState }
+   * @memberOf DatasetAclAccess
    */
-  state: ComputedProperty<object> = computed('pageState', function(this: DatsetAclAccess) {
+  state: ComputedProperty<IPageState> = computed('pageState', function(this: DatasetAclAccess) {
     const { currentUser, pageState } = getProperties(this, ['currentUser', 'pageState']);
     return accessState(currentUser)[pageState];
   });
 
   /**
    * Action to reset the request form
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
-  resetForm(this: DatsetAclAccess) {
+  resetForm(this: DatasetAclAccess) {
     set(this, 'requestReason', '');
   }
 
   /**
    * Action to request ACL access permission
-   * @memberOf DatsetAclAccess
+   * @memberOf DatasetAclAccess
    */
-  requestAccess = task(function*(this: DatsetAclAccess): IterableIterator<Promise<any>> {
+  requestAccess = task(function*(this: DatasetAclAccess): IterableIterator<Promise<IRequestResponse>> {
     const { requestReason, currentUser } = getProperties(this, ['requestReason', 'currentUser']);
     const requestBody = getPrincipal(currentUser, requestReason);
 
@@ -129,7 +125,7 @@ export default class DatsetAclAccess extends Component {
     /**
      * Action to cancel all tasks due to long time waiting
      */
-    cancelTasks(this: DatsetAclAccess) {
+    cancelTasks(this: DatasetAclAccess) {
       this.requestAccess.cancelAll();
     },
 
