@@ -36,3 +36,10 @@ test('Authenticate methods work as expected', async function(assert) {
   assert.ok(typeof response.then === 'function', 'returns a Promise object or thennable');
   assert.equal((await response).username, data.username, 'authenticate correctly resolves with api response');
 });
+
+test('Restore method works as expected', function(assert) {
+  const authenticator = new Authenticator();
+  const response = authenticator.restore();
+
+  assert.ok(typeof response.then === 'function', 'returns a Promise object or thennable');
+});
