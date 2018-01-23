@@ -1,6 +1,8 @@
 import Base from 'ember-simple-auth/authenticators/base';
 import { IAuthenticateResponse, IAuthenticationData } from 'wherehows-web/typings/api/authentication/user';
-import { postJSON } from 'wherehows-web/utils/api/fetcher';
+import JQuery from 'jquery';
+
+const { post } = JQuery;
 
 export default Base.extend({
   /**
@@ -11,10 +13,13 @@ export default Base.extend({
    * @return {Promise<IAuthenticationData>}
    */
   authenticate: async (username: string, password: string): Promise<IAuthenticationData> => {
-    const { data } = await postJSON<IAuthenticateResponse>({
+    // retaining usage of jquery post method as opposed to fetch, since api currently fails with string response
+    // TODO: update mid-tier exception handling
+    const { data } = await (<JQuery.jqXHR<IAuthenticateResponse>>post({
       url: '/authenticate',
-      data: { username, password }
-    });
+      contentType: 'application/json',
+      data: JSON.stringify({ username, password })
+    }));
 
     return { ...data };
   },
