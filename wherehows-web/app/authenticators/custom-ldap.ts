@@ -1,4 +1,5 @@
 import Base from 'ember-simple-auth/authenticators/base';
+import { IAuthenticateResponse, IAuthenticationData } from 'wherehows-web/typings/api/authentication/user';
 import { postJSON } from 'wherehows-web/utils/api/fetcher';
 
 export default Base.extend({
@@ -9,8 +10,8 @@ export default Base.extend({
    * @param {string} password matching candidate password for username
    * @return {Promise<{}>}
    */
-  authenticate: async (username: string, password: string): Promise<{}> => {
-    const { data } = await postJSON<{ data: {} }>({
+  authenticate: async (username: string, password: string): Promise<IAuthenticationData> => {
+    const { data } = await postJSON<IAuthenticateResponse>({
       url: '/authenticate',
       data: { username, password }
     });
