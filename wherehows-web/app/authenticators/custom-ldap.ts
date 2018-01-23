@@ -8,7 +8,7 @@ export default Base.extend({
    *   Resolves with data object returned from successful request.
    * @param {string} username username to authenticate with
    * @param {string} password matching candidate password for username
-   * @return {Promise<{}>}
+   * @return {Promise<IAuthenticationData>}
    */
   authenticate: async (username: string, password: string): Promise<IAuthenticationData> => {
     const { data } = await postJSON<IAuthenticateResponse>({
