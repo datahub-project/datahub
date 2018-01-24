@@ -26,7 +26,9 @@ const ownerAlreadyExists = (
   owners: Array<IOwner>,
   { userName, source }: Pick<IOwner, 'userName' | 'source'>
 ): boolean => {
-  return userName && source
+  /* prettier-ignore */
+  // https://github.com/prettier/prettier/issues/3805
+  return (userName && source)
     ? owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`)
     : false;
 };
