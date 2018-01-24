@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.events.metadata.CaseSensitivityInfo;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetProperty;
+import com.linkedin.events.metadata.DatasetRefresh;
 import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.DatasetStorageType;
 import com.linkedin.events.metadata.PartitionKey;
@@ -104,7 +105,7 @@ public class DictDatasetDaoTest {
         });
 
     String propertyStr = "{nativeType: TABLE, storageType: TABLE, uri: oracle:///abc/test, caseSensitivity: "
-        + "{datasetName: false, fieldName: false, dataContent: true}, extras: {foo: bar}}";
+        + "{datasetName: false, fieldName: false, dataContent: true}, refresh: null, extras: {foo: bar}}";
 
     String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
         + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "
@@ -149,6 +150,8 @@ public class DictDatasetDaoTest {
     DatasetProperty property2 = new DatasetProperty();
     property2.nativeType = PlatformNativeType.TABLE;
     property2.storageType = DatasetStorageType.TABLE;
+    property2.refresh = new DatasetRefresh();
+    property2.refresh.lastRefresh = 10000;
 
     List<String> tags2 = Arrays.asList("tag1", "tag3");
 
@@ -170,7 +173,8 @@ public class DictDatasetDaoTest {
         new ObjectMapper().readValue(ds.getProperties(), new TypeReference<Map<String, Object>>() {
         });
 
-    String propertyStr = "{nativeType: TABLE, storageType: TABLE, uri: null, caseSensitivity: null, extras: null}";
+    String propertyStr =
+        "{nativeType: TABLE, storageType: TABLE, uri: null, caseSensitivity: null, refresh: {lastRefresh: 10000}, extras: null}";
 
     String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
         + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "

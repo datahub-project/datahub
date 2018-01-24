@@ -10,7 +10,17 @@
       "type": {
         "type": "enum",
         "name": "PlatformNativeType",
-        "symbols": ["TABLE", "VIEW", "DIRECTORY", "FILE", "INDEX", "STREAM", "BLOB", "FUNCTION", "OTHER"],
+        "symbols": [
+          "TABLE",
+          "VIEW",
+          "DIRECTORY",
+          "FILE",
+          "INDEX",
+          "STREAM",
+          "BLOB",
+          "FUNCTION",
+          "OTHER"
+        ],
         "symbolDocs": {
           "TABLE": "table",
           "VIEW": "view, virtual view, logical view, materialized view",
@@ -27,11 +37,31 @@
     {
       "name": "storageType",
       "doc": "The type or format that the dataset is stored with in the platform",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "enum",
           "name": "DatasetStorageType",
-          "symbols": [ "TABLE", "EXTERNAL_TABLE", "VIEW", "MATERIALIZED_VIEW", "AVRO", "ORC", "PARQUET", "RC", "JSON",
-            "BINARY_JSON", "SEQUENCE", "FLAT_FILE", "XML", "INDEX", "PROTOCOL_BUFFER", "THRIFT", "BINARY", "OTHER" ],
+          "symbols": [
+            "TABLE",
+            "EXTERNAL_TABLE",
+            "VIEW",
+            "MATERIALIZED_VIEW",
+            "AVRO",
+            "ORC",
+            "PARQUET",
+            "RC",
+            "JSON",
+            "BINARY_JSON",
+            "SEQUENCE",
+            "FLAT_FILE",
+            "XML",
+            "INDEX",
+            "PROTOCOL_BUFFER",
+            "THRIFT",
+            "BINARY",
+            "OTHER"
+          ],
           "symbolDocs": {
             "TABLE": "Table",
             "EXTERNAL_TABLE": "External table",
@@ -58,12 +88,17 @@
     },
     {
       "name": "uri",
-      "type": [ "null", "string" ],
+      "type": [
+        "null",
+        "string"
+      ],
       "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. This is often used in codes and scripts."
     },
     {
       "name": "caseSensitivity",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "record",
           "name": "CaseSensitivityInfo",
           "doc": "Is the object_name/field_name/data_value case sensitive?",
@@ -91,9 +126,30 @@
       ]
     },
     {
+      "name": "refresh",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "DatasetRefresh",
+          "doc": "The dataset refresh status",
+          "fields": [
+            {
+              "name": "lastRefresh",
+              "type": "long",
+              "doc": "When the dataset was last refreshed in milli-seconds since epoch"
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
       "name": "extras",
       "doc": "Extra dataset property information",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "map",
           "values": "string"
         }
