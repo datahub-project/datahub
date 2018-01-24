@@ -2,10 +2,15 @@ import { module, test } from 'qunit';
 import { updateOwner, confirmOwner, ownerAlreadyExists } from 'wherehows-web/constants/datasets/owner';
 import owners from 'wherehows-web/mirage/fixtures/owners';
 
-let testOwners = JSON.parse(JSON.stringify(owners));
-let [testOwner] = testOwners;
+let testOwners;
+let testOwner;
 
-module('Unit | Constants | constants/datasets/owner');
+module('Unit | Constants | constants/datasets/owner', {
+  beforeEach() {
+    testOwners = JSON.parse(JSON.stringify(owners));
+    testOwner = testOwners[0];
+  }
+});
 
 test('updateOwner behaves as expected', function(assert) {
   assert.expect(6);
