@@ -1,10 +1,10 @@
-import { ApiRoot } from 'wherehows-web/utils/api/shared';
+import { getApiRoot } from 'wherehows-web/utils/api/shared';
 
 /**
  * Defines the endpoint for datasets
  * @type {string}
  */
-export const datasetsUrlRoot = `${ApiRoot}/datasets`;
+export const datasetsUrlRoot = `${getApiRoot()}/datasets`;
 
 /**
  * Constructs a url to get a dataset with a given id
