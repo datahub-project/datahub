@@ -13,11 +13,8 @@ import {
   augmentObjectsWithHtmlComments
 } from 'wherehows-web/utils/api/datasets/columns';
 
-import {
-  readDatasetOwners,
-  getUserEntities,
-  isRequiredMinOwnersNotConfirmed
-} from 'wherehows-web/utils/api/datasets/owners';
+import { readDatasetOwners, getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
+import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 

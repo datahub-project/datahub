@@ -1,5 +1,7 @@
 <td>
-  {{user-avatar userName=owner.userName}}
+  {{#unless isOwnerInActive}}
+    {{user-avatar userName=owner.userName}}
+  {{/unless}}
 
   {{owner.userName}}
 
