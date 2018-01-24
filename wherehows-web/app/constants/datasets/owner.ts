@@ -1,7 +1,7 @@
+import { set } from '@ember/object';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
-import { isListUnique } from 'wherehows-web/utils/array';
-import { set } from '@ember/object';
+import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
 
 /**
  * Initial user name for candidate owners
@@ -10,20 +10,28 @@ import { set } from '@ember/object';
 const defaultOwnerUserName = 'New Owner';
 
 /**
- * The minimum required number of owners
+ * The minimum required number of owners with a confirmed status
  * @type {number}
  */
 const minRequiredConfirmedOwners = 2;
 
 /**
- * Checks that a userName already exists in the list of IOwner instances
+ * Checks that a userName & source pair already exists in the list of IOwner instances
  * @param {Array<IOwner>} owners the list of owners
  * @param {string} userName userName to check for uniqueness
  * @param {OwnerSource} source source to include in composite unique key
  * @return {boolean} true if owner username in current list of owners
  */
-const ownerAlreadyExists = (owners: Array<IOwner>, { userName, source }: Pick<IOwner, 'userName' | 'source'>) =>
-  owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`);
+const ownerAlreadyExists = (
+  owners: Array<IOwner>,
+  { userName, source }: Pick<IOwner, 'userName' | 'source'>
+): boolean => {
+  /* prettier-ignore */
+  // https://github.com/prettier/prettier/issues/3805
+  return (userName && source)
+    ? owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`)
+    : false;
+};
 
 // overloads
 function updateOwner(owners: Array<IOwner>, owner: IOwner, props: IOwner): void | Array<IOwner>;
@@ -44,7 +52,7 @@ function updateOwner<K extends keyof IOwner>(
  * @returns {(void | Array<IOwner>)} the updated list of owners if the owner list contains no duplicates
  */
 function updateOwner<K extends keyof IOwner>(
-  owners: Array<IOwner>,
+  owners: Array<IOwner> = [],
   owner: IOwner,
   props: K | IOwner,
   value?: IOwner[K]
@@ -90,6 +98,7 @@ function updateOwner<K extends keyof IOwner>(
  */
 const confirmOwner = (owner: IOwner, confirmedBy: string): IOwner['confirmedBy'] =>
   set(owner, 'confirmedBy', confirmedBy || null);
+
 /**
  * Defines the default properties for a newly created IOwner instance
  *@type {IOwner}
@@ -109,10 +118,34 @@ const defaultOwnerProps: IOwner = {
   isActive: true
 };
 
+/**
+ * Given an IOwner object, determines if it qualifies as a valid confirmed owner
+ * @param {IOwner}
+ * @return {boolean}
+ */
+const isValidConfirmedOwner = ({ confirmedBy, type, idType, isActive }: IOwner): boolean =>
+  !!confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User && isActive;
+
+/**
+ * Filters out a list of valid confirmed owners in a list of owners
+ * @type {(array: Array<IOwner> = []) => Array<IOwner>}
+ */
+const validConfirmedOwners = arrayFilter(isValidConfirmedOwner);
+
+/**
+ * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
+ * @param {Array<IOwner>} owners the list of owners to check
+ * @return {boolean}
+ */
+const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
+  validConfirmedOwners(owners).length < minRequiredConfirmedOwners;
+
 export {
   defaultOwnerProps,
   defaultOwnerUserName,
   minRequiredConfirmedOwners,
+  validConfirmedOwners,
+  isRequiredMinOwnersNotConfirmed,
   ownerAlreadyExists,
   updateOwner,
   confirmOwner

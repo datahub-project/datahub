@@ -12,15 +12,11 @@ import {
   ownerAlreadyExists,
   confirmOwner,
   updateOwner,
-  minRequiredConfirmedOwners
+  minRequiredConfirmedOwners,
+  validConfirmedOwners,
+  isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/constants/datasets/owner';
-import {
-  isRequiredMinOwnersNotConfirmed,
-  OwnerIdType,
-  OwnerSource,
-  OwnerType,
-  validConfirmedOwners
-} from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 /**
