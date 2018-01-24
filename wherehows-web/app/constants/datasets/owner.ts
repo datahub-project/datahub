@@ -16,14 +16,20 @@ const defaultOwnerUserName = 'New Owner';
 const minRequiredConfirmedOwners = 2;
 
 /**
- * Checks that a userName already exists in the list of IOwner instances
+ * Checks that a userName & source pair already exists in the list of IOwner instances
  * @param {Array<IOwner>} owners the list of owners
  * @param {string} userName userName to check for uniqueness
  * @param {OwnerSource} source source to include in composite unique key
  * @return {boolean} true if owner username in current list of owners
  */
-const ownerAlreadyExists = (owners: Array<IOwner>, { userName, source }: Pick<IOwner, 'userName' | 'source'>) =>
-  owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`);
+const ownerAlreadyExists = (
+  owners: Array<IOwner>,
+  { userName, source }: Pick<IOwner, 'userName' | 'source'>
+): boolean => {
+  return userName && source
+    ? owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`)
+    : false;
+};
 
 // overloads
 function updateOwner(owners: Array<IOwner>, owner: IOwner, props: IOwner): void | Array<IOwner>;
@@ -44,7 +50,7 @@ function updateOwner<K extends keyof IOwner>(
  * @returns {(void | Array<IOwner>)} the updated list of owners if the owner list contains no duplicates
  */
 function updateOwner<K extends keyof IOwner>(
-  owners: Array<IOwner>,
+  owners: Array<IOwner> = [],
   owner: IOwner,
   props: K | IOwner,
   value?: IOwner[K]
