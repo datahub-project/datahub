@@ -1,11 +1,11 @@
 import Ember from 'ember';
-import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
+import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { IAuthenticateResponse, ICurrentUserResponse, IUser } from 'wherehows-web/typings/api/authentication/user';
 
 const { $: { getJSON, get } } = Ember;
 const logoutUrl = '/logout';
 const loginUrl = '/authenticate';
-const currentUserUrl = `${ApiRoot}/user/me`;
+const currentUserUrl = `${getApiRoot()}/user/me`;
 
 const castGetJSONToPromise = <T>(url: string): Promise<T> => Promise.resolve(getJSON(url));
 
