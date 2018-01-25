@@ -19,7 +19,7 @@
     "eslint-check-prettier-conflict": "./node_modules/.bin/eslint --print-config .eslintrc.js | ./node_modules/.bin/eslint-config-prettier-check"
   },
   "devDependencies": {
-    "@types/ember": "2.8.5",
+    "@types/ember": "^2.8.7",
     "@types/ember-testing-helpers": "^0.0.3",
     "@types/lodash": "^4.14.83",
     "@types/rsvp": "^4.0.0",
