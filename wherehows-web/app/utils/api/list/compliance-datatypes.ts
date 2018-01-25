@@ -1,5 +1,4 @@
 import { IComplianceDataType, IComplianceDataTypeResponse } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { ApiStatus } from 'wherehows-web/utils/api';
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
 import { getListUrlRoot } from 'wherehows-web/utils/api/list/shared';
 
@@ -14,15 +13,11 @@ const complianceDataTypesUrl = `${getListUrlRoot('v2')}/complianceDataTypes`;
  * @returns {Promise<Array<IComplianceDataType>>}
  */
 const readComplianceDataTypes = async (): Promise<Array<IComplianceDataType>> => {
-  const { status, complianceDataTypes = [], msg } = await getJSON<IComplianceDataTypeResponse>({
+  const { complianceDataTypes = [] } = await getJSON<IComplianceDataTypeResponse>({
     url: complianceDataTypesUrl
   });
 
-  if (status === ApiStatus.OK && complianceDataTypes.length) {
-    return complianceDataTypes;
-  }
-
-  throw new Error(msg);
+  return complianceDataTypes;
 };
 
 export { readComplianceDataTypes };
