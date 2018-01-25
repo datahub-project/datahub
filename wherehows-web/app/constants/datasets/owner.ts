@@ -25,13 +25,10 @@ const minRequiredConfirmedOwners = 2;
 const ownerAlreadyExists = (
   owners: Array<IOwner>,
   { userName, source }: Pick<IOwner, 'userName' | 'source'>
-): boolean => {
-  /* prettier-ignore */
-  // https://github.com/prettier/prettier/issues/3805
-  return (userName && source)
+): boolean =>
+  userName && source
     ? owners.map(({ userName, source }) => `${userName}:${source}`).includes(`${userName}:${source}`)
     : false;
-};
 
 // overloads
 function updateOwner(owners: Array<IOwner>, owner: IOwner, props: IOwner): void | Array<IOwner>;

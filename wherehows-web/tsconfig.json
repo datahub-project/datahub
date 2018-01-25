@@ -10,6 +10,7 @@
     "module": "es6",
     "allowSyntheticDefaultImports": true,
     "noEmit": true,
+    "noEmitOnError": true,
     "noImplicitThis": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
