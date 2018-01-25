@@ -29,7 +29,5 @@ export interface IComplianceDataType {
  * @interface IComplianceDataTypeResponse
  */
 export interface IComplianceDataTypeResponse {
-  status: ApiStatus;
   complianceDataTypes?: Array<IComplianceDataType>;
-  msg?: string;
 }

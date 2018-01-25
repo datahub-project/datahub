@@ -21,10 +21,6 @@ export interface IDataPlatform {
  * @interface IPlatformsResponse
  */
 export interface IPlatformsResponse {
-  // Response status
-  status: ApiStatus;
   // optional platforms property containing the list of platforms
   platforms?: Array<IDataPlatform>;
-  // optional api error message
-  msg?: string;
 }
