@@ -23,14 +23,13 @@
     text-decoration: line-through;
   }
 
-  &#{&} &__action {
+  &#{&} &__indicator {
     &--disabled {
       background-color: set-color(grey, mid);
     }
 
     &--inactive {
       background-color: set-color(red, maroonflush);
-      outline: none;
       pointer-events: none;
     }
   }

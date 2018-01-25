@@ -7,9 +7,9 @@
 
   {{#if isOwnerInActive}}
 
-    <button class="nacho-button nacho-button--small dataset-author-record__action--inactive">
+    <span class="nacho-button nacho-button--small dataset-author-record__indicator--inactive">
       Inactive
-    </button>
+    </span>
 
   {{/if}}
 </td>
@@ -36,10 +36,10 @@
     {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
   {{else}}
 
-    <button
-      class="nacho-button nacho-button--small dataset-author-record__action--disabled">
+    <span
+      class="nacho-button nacho-button--small dataset-author-record__indicator--disabled">
       Not Saved
-    </button>
+    </span>
 
   {{/if}}
 </td>
@@ -69,10 +69,10 @@
 
     {{#if isConfirmedSuggestedOwner}}
 
-      <button
-        class="nacho-button nacho-button--small dataset-author-record__action--disabled">
+      <span
+        class="nacho-button nacho-button--small dataset-author-record__indicator--disabled">
         Added
-      </button>
+      </span>
 
     {{else}}
 
