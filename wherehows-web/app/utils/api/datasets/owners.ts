@@ -7,7 +7,7 @@ import {
 } from 'wherehows-web/typings/api/datasets/party-entities';
 import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
-import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
+import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 
 /**
  * Defines a string enum for valid owner types
@@ -57,7 +57,7 @@ enum OwnerSource {
  */
 const datasetOwnersUrlById = (id: number): string => `${datasetUrlById(id)}/owners`;
 
-const partyEntitiesUrl = `${ApiRoot}/party/entities`;
+const partyEntitiesUrl = `${getApiRoot()}/party/entities`;
 
 /**
  * Requests the list of dataset owners from the GET endpoint, converts the modifiedTime property

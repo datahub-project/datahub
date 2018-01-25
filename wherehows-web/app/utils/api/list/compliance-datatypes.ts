@@ -1,13 +1,13 @@
 import { IComplianceDataType, IComplianceDataTypeResponse } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { ApiStatus } from 'wherehows-web/utils/api';
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
-import { listUrlRoot } from 'wherehows-web/utils/api/list/shared';
+import { getListUrlRoot } from 'wherehows-web/utils/api/list/shared';
 
 /**
  * Defines the url endpoint for the list of dataset compliance data types and attributes
  * @type {string}
  */
-const complianceDataTypesUrl = `${listUrlRoot}/complianceDataTypes`;
+const complianceDataTypesUrl = `${getListUrlRoot('v2')}/complianceDataTypes`;
 
 /**
  * Requests the list of compliance data types and the related attributes
