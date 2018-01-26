@@ -10,27 +10,38 @@
       "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application. For more information see go/kafkaauditheader"
     },
     {
-      "name": "datasetList",
-      "doc": "A complete list inventory of datasets with only name and basic properties",
+      "name": "changeAuditStamp",
+      "type": "ChangeAuditStamp",
+      "doc": "The change auditing information, including actor, change type and timestamp, etc"
+    },
+    {
+      "name": "dataPlatformUrn",
+      "type": "string",
+      "doc": "The common platform for the inventory listing"
+    },
+    {
+      "name": "dataOrigin",
+      "type": "DataOrigin",
+      "doc": "The common origin/Source tier for the inventory listing"
+    },
+    {
+      "name": "namespace",
+      "type": "string",
+      "doc": "The namespace or common prefix for the inventory listing"
+    },
+    {
+      "name": "exclusionPatterns",
       "type": {
         "type": "array",
-        "items": {
-          "type": "record",
-          "name": "DatasetInventoryItem",
-          "doc": "inventory item of dataset with only name and basic properties",
-          "fields": [
-            {
-              "name": "datasetIdentifier",
-              "type": "DatasetIdentifier",
-              "doc": "Unique Identifier of a dataset, which contains three parts: dataPlatform, name, origin"
-            },
-            {
-              "name": "datasetProperty",
-              "type": [ "null", "DatasetProperty" ],
-              "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, URI"
-            }
-          ]
-        }
+        "items": "string"
+      },
+      "doc": "Native name patterns (in regex) that have be excluded from the inventory listing"
+    },
+    {
+      "name": "nativeNames",
+      "type": {
+        "type": "array",
+        "items": "string"
       }
     }
   ]
