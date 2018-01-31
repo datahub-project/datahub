@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import connect from 'ember-redux/components/connect';
+import { connect } from 'ember-redux';
 import { urnRegex, specialFlowUrnRegex } from 'wherehows-web/utils/validators/urn';
 
 /**

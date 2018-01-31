@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import connect from 'ember-redux/components/connect';
+import { connect } from 'ember-redux';
 
 const entities = ['datasets', 'metrics', 'flows']; // hardcoded here to maintain the sort order
 /**
