@@ -68,6 +68,7 @@ public class DictDatasetDao extends BaseDao {
    * @return dataset id
    * @throws Exception
    */
+  @Nullable
   public DictDataset insertUpdateDataset(@Nonnull DatasetIdentifier identifier, @Nonnull ChangeAuditStamp auditStamp,
       @Nullable DatasetProperty property, @Nullable DatasetSchema schema, @Nullable List<DeploymentDetail> deployments,
       @Nullable List<String> tags, @Nullable List<Capacity> capacities, @Nullable PartitionSpecification partitions)
