@@ -118,31 +118,30 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     final DatasetSchema dsSchema = event.schema instanceof DatasetSchema ? (DatasetSchema) event.schema : null;
 
     // create or update dataset
-    final DictDataset ds =
+    final DictDataset dataset =
         _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, dsSchema,
             event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
 
     // if schema is not null, insert or update schema
     if (dsSchema != null) { // if instanceof DatasetSchema
-      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), event.datasetProperty, changeAuditStamp,
-          dsSchema);
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, dataset, event.datasetProperty, changeAuditStamp, dsSchema);
     } else if (event.schema instanceof Schemaless) { // if instanceof Schemaless
-      _fieldDetailDao.insertUpdateSchemaless(identifier, ds.getId(), changeAuditStamp);
+      _fieldDetailDao.insertUpdateSchemaless(identifier, dataset, changeAuditStamp);
     }
 
     // if owners are not null, insert or update owner
     if (event.owners != null) {
-      _ownerDao.insertUpdateOwnership(identifier, ds.getId(), changeAuditStamp, event.owners);
+      _ownerDao.insertUpdateOwnership(identifier, dataset, changeAuditStamp, event.owners);
     }
 
     // if compliance is not null, insert or update compliance
     if (event.compliancePolicy != null) {
-      _complianceDao.insertUpdateCompliance(identifier, ds.getId(), changeAuditStamp, event.compliancePolicy);
+      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance
     if (event.suggestedCompliancePolicy != null) {
-      _complianceDao.insertUpdateSuggestedCompliance(identifier, ds.getId(), changeAuditStamp,
+      _complianceDao.insertUpdateSuggestedCompliance(identifier, dataset, changeAuditStamp,
           event.suggestedCompliancePolicy);
     }
   }

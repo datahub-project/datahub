@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
+import wherehows.models.table.DictDataset;
 import wherehows.models.table.DsCompliance;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetFieldEntity;
@@ -66,15 +67,20 @@ public class DatasetComplianceDao extends BaseDao {
   /**
    * Insert / update dataset compliance table given information from MetadataChangeEvent
    * @param identifier DatasetIdentifier
-   * @param datasetId int
+   * @param dataset DictDataset
    * @param auditStamp ChangeAuditStamp
    * @param compliance MCE CompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, int datasetId,
+  public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, @Nullable DictDataset dataset,
       @Nonnull ChangeAuditStamp auditStamp, @Nonnull CompliancePolicy compliance) throws Exception {
 
     String datasetUrn = toWhDatasetUrn(identifier);
+
+    if (dataset == null) {
+      throw new RuntimeException("Fail to update dataset compliance, dataset is NULL.");
+    }
+    int datasetId = dataset.getId();
 
     // find dataset compliance if exist
     DsCompliance dsCompliance = null;
@@ -128,12 +134,12 @@ public class DatasetComplianceDao extends BaseDao {
   /**
    * Insert / update dataset suggested compliance data from MetadataChangeEvent
    * @param identifier DatasetIdentifier
-   * @param datasetId int
+   * @param dataset DictDataset
    * @param auditStamp ChangeAuditStamp
    * @param suggestion MCE SuggestedCompliancePolicy
    * @throws Exception
    */
-  public void insertUpdateSuggestedCompliance(@Nonnull DatasetIdentifier identifier, int datasetId,
+  public void insertUpdateSuggestedCompliance(@Nonnull DatasetIdentifier identifier, @Nullable DictDataset dataset,
       @Nonnull ChangeAuditStamp auditStamp, @Nonnull SuggestedCompliancePolicy suggestion) throws Exception {
     // TODO: write suggested compliance information to DB
     throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
