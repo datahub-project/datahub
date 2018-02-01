@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import connect from 'ember-redux/components/connect';
+import { connect } from 'ember-redux';
 
 /**
  * A Selector function that takes the Redux Store and applies
