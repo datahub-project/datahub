@@ -26,8 +26,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
+import wherehows.models.table.DictDataset;
 import wherehows.models.table.DsOwner;
 
 import static wherehows.util.UrnUtil.*;
@@ -59,14 +61,19 @@ public class DatasetOwnerDao extends BaseDao {
   /**
    * Insert or update dataset owners given information from MetadataChangeEvent
    * @param identifier DatasetIdentifier
-   * @param datasetId int
+   * @param dataset DictDataset
    * @param auditStamp ChangeAuditStamp
    * @param owners List<OwnerInfo>
    */
-  public void insertUpdateOwnership(DatasetIdentifier identifier, int datasetId, @Nonnull ChangeAuditStamp auditStamp,
-      @Nonnull List<OwnerInfo> owners) throws Exception {
+  public void insertUpdateOwnership(DatasetIdentifier identifier, @Nullable DictDataset dataset,
+      @Nonnull ChangeAuditStamp auditStamp, @Nonnull List<OwnerInfo> owners) throws Exception {
 
     String datasetUrn = toWhDatasetUrn(identifier);
+
+    if (dataset == null) {
+      throw new RuntimeException("Fail to update dataset owners, dataset is NULL.");
+    }
+    int datasetId = dataset.getId();
 
     if (owners.size() == 0) {
       throw new IllegalArgumentException("OwnerInfo array is empty!");
@@ -166,13 +173,11 @@ public class DatasetOwnerDao extends BaseDao {
     return Arrays.asList(updatedOwners, removedOwners);
   }
 
-
   /**
    * Mapping between MCE OwnerCategory and WhereHows owner type values
    */
   public static final BiMap<OwnerCategory, String> OWNER_CATEGORY_MAP =
-      new ImmutableBiMap.Builder<OwnerCategory, String>()
-          .put(OwnerCategory.DATA_OWNER, "Owner")
+      new ImmutableBiMap.Builder<OwnerCategory, String>().put(OwnerCategory.DATA_OWNER, "Owner")
           .put(OwnerCategory.PRODUCER, "Producer")
           .put(OwnerCategory.DELEGATE, "Delegate")
           .put(OwnerCategory.STAKEHOLDER, "Stakeholder")
