@@ -77,8 +77,8 @@ public class DatasetComplianceDaoTest {
     policy.complianceEntities = Arrays.asList(entity);
     policy.datasetConfidentiality = SecurityClassification.HIGHLY_CONFIDENTIAL;
 
-    String complianceEntityStr = "[{fieldPath: field1, complianceDataType: ADDRESS, fieldFormat: null, "
-        + "securityClassification: CONFIDENTIAL}]";
+    String complianceEntityStr = "[{fieldPath: field1, complianceDataType: ADDRESS, complianceDataTypeUrn: null, "
+        + "fieldFormat: null, securityClassification: CONFIDENTIAL}]";
 
     complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn2, actor2);
 
