@@ -15,6 +15,10 @@ package controllers.api.v2;
 
 import controllers.Application;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import play.Logger;
@@ -39,36 +43,29 @@ public class Dataset extends Controller {
   private Dataset() {
   }
 
-  public static Promise<Result> listNames() {
+  public static Promise<Result> listSegments(@Nullable String platform, @Nonnull String prefix) {
     try {
-      String platform = request().getQueryString("platform");
-      String prefix = request().getQueryString("prefix");
       if (StringUtils.isBlank(platform)) {
-        throw new IllegalArgumentException("Missing platform");
+        return Promise.promise(() -> ok(Json.toJson(
+            DATA_TYPES_DAO.getAllPlatforms().stream().map(s -> s.get("name")).collect(Collectors.toList()))));
       }
 
-      // if prefix is a dataset name, then return itself
-      if (listNamePrefixIsDataset(platform, prefix)) {
-        return Promise.promise(() -> ok(Json.toJson(Collections.singletonList(prefix))));
+      List<String> names = DATASET_VIEW_DAO.listNames(platform, getPlatformPrefix(platform, prefix));
+
+      // if prefix is a dataset name, then return empty list
+      if (names.size() == 1 && names.get(0).equalsIgnoreCase(prefix)) {
+        return Promise.promise(() -> ok(Json.toJson(Collections.emptyList())));
       }
 
-      return Promise.promise(
-          () -> ok(Json.toJson(DATASET_VIEW_DAO.listNames(platform, getPlatformPrefix(platform, prefix)))));
+      return Promise.promise(() -> ok(Json.toJson(names)));
     } catch (Exception e) {
       Logger.error("Fail to list dataset names/sections", e);
       return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
     }
   }
 
-  public static Promise<Result> listDatasets() {
+  public static Promise<Result> listDatasets(@Nullable String platform, @Nonnull String prefix) {
     try {
-      String platform = request().getQueryString("platform");
-      String prefix = request().getQueryString("prefix");
-
-      if (StringUtils.isBlank(platform) || StringUtils.isBlank(prefix)) {
-        throw new IllegalArgumentException("Missing platform or prefix");
-      }
-
       int page = NumberUtils.toInt(request().getQueryString("page"), 0);
       int start = page * _dataset_search_page_size;
 
@@ -80,11 +77,8 @@ public class Dataset extends Controller {
     }
   }
 
-  public static Promise<Result> totalDatasets() {
+  public static Promise<Result> countDatasets(@Nullable String platform, @Nonnull String prefix) {
     try {
-      String platform = request().getQueryString("platform");
-      String prefix = StringUtils.defaultIfBlank(request().getQueryString("prefix"), "");
-
       return Promise.promise(
           () -> ok(String.valueOf(DATASET_VIEW_DAO.listDatasets(platform, prefix, 0, 1).getTotal())));
     } catch (Exception e) {
