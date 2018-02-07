@@ -79,6 +79,20 @@
 /// @return {Color}
 /// @require $color-scheme
 @function set-color($color, $hue) {
+  /// Color Scheme
+  /// @type Map
+  /// @prop {String} key - Scheme name
+  /// @prop {Map} hue - a qualifying hue for the enclosing color
+  $color-scheme: (
+    red: (red5: rgb(255, 44, 51), maroonflush: rgb(199, 37, 78)),
+    green: (green5: rgb(70, 154, 31)),
+    orange: (orange5: rgb(229, 88, 0)),
+    blue: (oxford: rgb(53, 75, 87), curious: rgb(26, 161, 217), eastern: rgb(26, 132, 188), blue5: rgb(26, 161, 217)),
+    grey: (light: rgb(237, 237, 237), dark: rgb(68, 68, 68), mid: rgb(153, 153, 153)),
+    black: (dune: rgb(41, 39, 36)),
+    white: (base: rgb(255, 255, 255), catskill: rgb(243, 247, 249), earlydawn:rgb(255, 249, 232))
+  );
+
   @return map-get(map-get($color-scheme, $color), $hue);
 }
 
@@ -89,7 +103,18 @@
   /// @type Map
   /// @prop {String} key - number representing a spacing type
   /// @prop {Length} value - pixel length
-  $item-spacings: (0: 0px, 1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px, 8: 64px, 9: 96px);
+  $item-spacings: (
+    0: 0px,
+    1: 4px,
+    2: 8px,
+    3: 12px,
+    4: 16px,
+    5: 24px,
+    6: 32px,
+    7: 48px,
+    8: 64px,
+    9: 96px
+  );
 
   // If item-spacing is passed a list, for example:
   // padding: item-spacing(1 2 3 4)
@@ -108,4 +133,155 @@
   }
 
   @return map-get($item-spacings, $spacing-unit);
+}
+/// Gets a color from the color palette map and applies a provided opacity if value  is less than 1
+@function get-color($colorKey, $opacity: 1) {
+  $color-palette: (
+    blue0: #e6f7ff,
+    blue1: #caedff,
+    blue2: #98d8f4,
+    blue3: #65c3e8,
+    blue4: #33aada,
+    blue5: #0091ca,
+    blue6: #0084bf,
+    blue7: #0073b1,
+    blue8: #006097,
+    blue9: #004b7c,
+    blue10: #003f67,
+    purple0: #f5f5fe,
+    purple1: #e6e6ff,
+    purple2: #cacafc,
+    purple3: #b2b0fa,
+    purple4: #9896f2,
+    purple5: #827be9,
+    purple6: #756ddd,
+    purple7: #665ed0,
+    purple8: #544bc2,
+    purple9: #4034b0,
+    purple10: #2c2b9d,
+    red0: #fef2f1,
+    red1: #ffe0db,
+    red2: #ffbcba,
+    red3: #ff999a,
+    red4: #ff6c70,
+    red5: #ff2c33,
+    red6: #ee1620,
+    red7: #d11124,
+    red8: #b10823,
+    red9: #900021,
+    red10: #790021,
+    orange0: #fff3ea,
+    orange1: #fde3d2,
+    orange2: #f8c19e,
+    orange3: #f6a16c,
+    orange4: #ef7e37,
+    orange5: #e55800,
+    orange6: #cf5000,
+    orange7: #b74700,
+    orange8: #993a00,
+    orange9: #7c2e00,
+    orange10: #6a2300,
+    teal0: #ecf9fb,
+    teal1: #ccf0f3,
+    teal2: #98dade,
+    teal3: #68c5cd,
+    teal4: #17afb8,
+    teal5: #0e95a0,
+    teal6: #0c8996,
+    teal7: #087889,
+    teal8: #036475,
+    teal9: #00505d,
+    teal10: #00414c,
+    pink0: #fff1fa,
+    pink1: #ffdff6,
+    pink2: #ffb9e2,
+    pink3: #ff91cf,
+    pink4: #ff61b6,
+    pink5: #ff1b90,
+    pink6: #e61e89,
+    pink7: #cc167e,
+    pink8: #ac0a70,
+    pink9: #890060,
+    pink10: #720059,
+    green0: #f0f7e8,
+    green1: #dcf0cb,
+    green2: #b5d99f,
+    green3: #91c475,
+    green4: #6baf49,
+    green5: #469a1f,
+    green6: #398b18,
+    green7: #2f7b15,
+    green8: #22670f,
+    green9: #165209,
+    green10: #0e4507,
+    gray0: #f3f6f8,
+    gray1: #e6e9ec,
+    gray2: #cdcfd2,
+    gray3: #b3b6b9,
+    gray4: #9b9ea2,
+    gray5: #84878a,
+    gray6: #777a7d,
+    gray7: #696c6f,
+    gray8: #575a5d,
+    gray9: #44474a,
+    gray10: #373a3d,
+    slate0: #f3f6f8,
+    slate1: #e1e9ee,
+    slate2: #c7d1d8,
+    slate3: #acb9c2,
+    slate4: #92a1ac,
+    slate5: #7a8b98,
+    slate6: #6a7e89,
+    slate7: #5c6f7c,
+    slate8: #485d69,
+    slate9: #344a57,
+    slate10: #283e4a,
+    silver0: #f5f5f5,
+    silver1: #e9e9e9,
+    silver2: #cfcfcf,
+    silver3: #b6b6b6,
+    silver4: #9e9e9e,
+    silver5: #878787,
+    silver6: #7a7a7a,
+    silver7: #6c6c6c,
+    silver8: #5a5a5a,
+    silver9: #474747,
+    silver10: #3a3a3a,
+    gold0: #fdf4dc,
+    gold1: #f1e8c5,
+    gold2: #dccea4,
+    gold3: #c5b583,
+    gold4: #af9b62,
+    gold5: #9b8443,
+    gold6: #8b783f,
+    gold7: #7a6b3b,
+    gold8: #645831,
+    gold9: #4e4628,
+    gold10: #42391e,
+    copper0: #fdf3f1,
+    copper1: #f5e3e0,
+    copper2: #e2c7c4,
+    copper3: #d2adac,
+    copper4: #c19191,
+    copper5: #b27878,
+    copper6: #a76969,
+    copper7: #9b5959,
+    copper8: #834a4a,
+    copper9: #693939,
+    copper10: #5c2d2d,
+    white: #ffffff,
+    black: #000000
+  );
+
+  $color: map-get($color-palette, $colorKey);
+
+  @if ($color == null) {
+    @error '#{$colorKey} not found in `$color-palette`';
+  }
+
+  @if ($opacity < 1) {
+    $color: rgba($color, $opacity);
+  }
+
+  @return $color;
 }
