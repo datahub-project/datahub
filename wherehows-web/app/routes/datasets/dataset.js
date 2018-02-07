@@ -342,7 +342,6 @@ export default Route.extend({
           aclAccessResponse: null,
           currentUserInfo: ''
         });
-        throw error;
       });
   },
 
