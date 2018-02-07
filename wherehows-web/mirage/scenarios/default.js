@@ -1,4 +1,11 @@
-const fixtures = ['dataset-nodes', 'metric-metrics', 'user-entities', 'compliance-data-types', 'list-platforms'];
+const fixtures = [
+  'dataset-nodes',
+  'metric-metrics',
+  'user-entities',
+  'compliance-data-types',
+  'list-platforms',
+  'dataset-acl-users'
+];
 
 export default function(server) {
   server.loadFixtures(...fixtures);

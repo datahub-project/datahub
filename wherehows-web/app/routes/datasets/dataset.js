@@ -18,6 +18,9 @@ import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/dataset
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
+import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
+import { currentUser } from 'wherehows-web/utils/api/authentication';
+
 const { getJSON } = $;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
@@ -319,6 +322,28 @@ export default Route.extend({
         return Promise.reject(new Error('Dataset references request failed.'));
       })
       .catch(() => set(controller, 'hasReferences', false));
+
+    // TODO: Get current user ACL permission info for ACL access tab
+    Promise.resolve(currentUser())
+      .then(userInfo => {
+        setProperties(controller, {
+          userInfo
+        });
+        return checkAclAccess(userInfo.userName).then(value => {
+          setProperties(controller, {
+            aclAccessResponse: value,
+            currentUserInfo: userInfo.userName,
+            aclUsers: value.body
+          });
+        });
+      })
+      .catch(error => {
+        setProperties(controller, {
+          aclAccessResponse: null,
+          currentUserInfo: ''
+        });
+        throw error;
+      });
   },
 
   actions: {
