@@ -2,12 +2,7 @@
 
 /// Regular font family
 /// @type List
-$text-font-stack: (
-  'Source Sans Pro',
-  'Helvetica',
-  'Arial',
-  sans-serif
-) !default;
+$text-font-stack: ('Source Sans Pro', 'Helvetica', 'Arial', sans-serif) !default;
 
 /// font family for font-awesome
 ///@type list
@@ -24,54 +19,8 @@ $glyphicons-stack: (
 );
 
 $font-weights: (
-        normal:(
-                2: 200,
-                3: 300,
-                4: 400,
-                6: 600
-        ),
-        italic:(
-                2: 200,
-                3: 300,
-                4: 400,
-                6: 600
-        )
-);
-
-/// Color Scheme
-/// @type Map
-/// @prop {String} key - Scheme name
-/// @prop {Map} hue - a qualifying hue for the enclosing color
-$color-scheme: (
-  red: (
-    red5: rgb(255, 44, 51),
-    maroonflush: rgb(199, 37, 78)
-  ),
-  green: (
-    green5: rgb(70, 154, 31)
-  ),
-  orange: (
-    orange5: rgb(229, 88, 0)
-  ),
-  blue: (
-    oxford: rgb(53, 75, 87),
-    curious: rgb(26, 161, 217),
-    eastern: rgb(26, 132, 188),
-    blue5: rgb(26, 161, 217)
-  ),
-  grey: (
-    light: rgb(237, 237, 237),
-    dark: rgb(68, 68, 68),
-    mid: rgb(153, 153, 153)
-  ),
-  black: (
-    dune: rgb(41, 39, 36)
-  ),
-  white: (
-    base: rgb(255, 255, 255),
-    catskill: rgb(243, 247, 249),
-    earlydawn:rgb(255, 249, 232)
-  )
+  normal:(2: 200, 3: 300, 4: 400, 6: 600),
+  italic:(2: 200, 3: 300, 4: 400, 6: 600)
 );
 
 //===============
@@ -110,23 +59,18 @@ $nav-min-height: 50px !default;
 /// @prop {String} keys - Keys are identifiers mapped to a given length
 /// @prop {Map} values - Values are actual breakpoints expressed in pixels
 $breakpoints: (
-  'small': (min-width: 320px),
-  'medium': (min-width: 768px),
-  'large': (min-width: 979px),
-  'huge': (min-width: 1024px)
-) !default;
+    'small': (min-width: 320px),
+    'medium': (min-width: 768px),
+    'large': (min-width: 979px),
+    'huge': (min-width: 1024px)
+  )
+  !default;
 
 /// Z-indexes map, gathering all Z layers of the application
 /// @type Map
 /// @prop {String} key - Layer’s name
 /// @prop {Number} value - Z value mapped to the key
-$z-indexes: (
-  'toast': 6000,
-  'modal': 5000,
-  'dropdown': 4000,
-  'default': 0,
-  'below': -1
-) !default;
+$z-indexes: ('toast': 6000, 'modal': 5000, 'dropdown': 4000, 'default': 0, 'below': -1) !default;
 
 /// Absolute URL where all assets are served from
 /// @type String
