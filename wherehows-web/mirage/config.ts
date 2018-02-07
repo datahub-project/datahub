@@ -3,6 +3,7 @@ import { IFunctionRouteHandler, IMirageServer } from 'wherehows-web/typings/embe
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { getConfig } from 'wherehows-web/mirage/helpers/config';
 import { getAuth } from 'wherehows-web/mirage/helpers/authenticate';
+import { aclAuth } from 'wherehows-web/mirage/helpers/aclauth';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -132,6 +133,40 @@ export default function(this: IMirageServer) {
       status: ApiStatus.OK
     };
   });
+
+  /**
+   * Add GET request to check the current user ACL permission
+   */
+  this.get('/acl', (server: any, request: any) => {
+    if (request.queryParams.hasOwnProperty('LDAP')) {
+      const { LDAP } = request.queryParams;
+      const principal = `urn:li:userPrincipal:${LDAP}`;
+      let accessUserslist = server.db.datasetAclUsers.where({ principal });
+
+      if (accessUserslist.length > 0) {
+        return {
+          status: ApiStatus.OK,
+          isAccess: true,
+          body: server.db.datasetAclUsers
+        };
+      }
+      return {
+        status: ApiStatus.FAILED,
+        isAccess: false,
+        body: server.db.datasetAclUsers
+      };
+    } else {
+      return {
+        users: server.db.datasetAclUsers,
+        status: ApiStatus.OK
+      };
+    }
+  });
+
+  /**
+   * Add POST request to support to the current user get ACL permission.
+   */
+  this.post('/acl', aclAuth);
 
   this.passthrough();
 }
