@@ -14,6 +14,7 @@
 package wherehows.dao.view;
 
 import java.util.List;
+import java.util.Map;
 import javax.persistence.EntityManagerFactory;
 
 
@@ -26,14 +27,14 @@ public class DataTypesViewDao extends BaseViewDao {
   /**
    * Get all compliance dataTypes
    */
-  public List<Object> getAllComplianceDataTypes() throws Exception {
+  public List<Map<String, Object>> getAllComplianceDataTypes() throws Exception {
     throw new UnsupportedOperationException("Operation not implemented");
   }
 
   /**
    * Get all data platforms
    */
-  public List<Object> getAllPlatforms() throws Exception {
+  public List<Map<String, Object>> getAllPlatforms() throws Exception {
     throw new UnsupportedOperationException("Operation not implemented");
   }
 }
