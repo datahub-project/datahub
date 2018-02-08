@@ -266,15 +266,25 @@ GET           /api/v1/jira/tickets/:managerId                                   
 
 POST          /api/v1/tracking                                                  controllers.api.v1.Tracking.addTrackingEvent()
 
-GET           /api/v2/dataset/listNames                                         controllers.api.v2.Dataset.listNames()
+GET           /api/v2/platforms/:platform/:prefix                               controllers.api.v2.Dataset.listSegments(platform: String, prefix: String)
 
-GET           /api/v2/dataset/listDatasets                                      controllers.api.v2.Dataset.listDatasets()
+GET           /api/v2/platforms/:platform                                       controllers.api.v2.Dataset.listSegments(platform: String, prefix = "")
 
-GET           /api/v2/dataset/totalDatasets                                     controllers.api.v2.Dataset.totalDatasets()
+GET           /api/v2/platforms                                                 controllers.api.v2.Dataset.listSegments(platform = null, prefix = "")
 
-GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms()
+GET           /api/v2/datasets/platform/:platform/:prefix                       controllers.api.v2.Dataset.listDatasets(platform: String, prefix: String)
 
-GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes()
+GET           /api/v2/datasets/platform/:platform                               controllers.api.v2.Dataset.listDatasets(platform: String, prefix = "")
+
+GET           /api/v2/datasets/count/platform/:platform/:prefix                 controllers.api.v2.Dataset.countDatasets(platform: String, prefix: String)
+
+GET           /api/v2/datasets/count/platform/:platform                         controllers.api.v2.Dataset.countDatasets(platform: String, prefix = "")
+
+GET           /api/v2/datasets/count                                            controllers.api.v2.Dataset.countDatasets(platform = null, prefix = "")
+
+GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms
+
+GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
