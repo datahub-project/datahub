@@ -54,4 +54,9 @@ public class OwnerViewDao extends BaseViewDao {
     }
     return owners;
   }
+
+  @Nullable
+  public List<DatasetOwner> getDatasetOwners(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
 }

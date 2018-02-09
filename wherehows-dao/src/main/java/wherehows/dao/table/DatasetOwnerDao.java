@@ -31,6 +31,7 @@ import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.DictDataset;
 import wherehows.models.table.DsOwner;
+import wherehows.models.view.DatasetOwner;
 
 import static wherehows.util.UrnUtil.*;
 
@@ -56,6 +57,16 @@ public class DatasetOwnerDao extends BaseDao {
     params.put("ownerSource", source);
 
     return findListBy(DsOwner.class, params);
+  }
+
+  /**
+   * Update dataset owners.
+   * @param datasetUrn String
+   * @param owners List<DatasetOwner>
+   * @param user String
+   */
+  public void updateDatasetOwners(@Nonnull String datasetUrn, @Nonnull List<DatasetOwner> owners, @Nonnull String user) throws Exception {
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   /**

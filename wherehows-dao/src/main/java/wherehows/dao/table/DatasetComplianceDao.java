@@ -57,11 +57,20 @@ public class DatasetComplianceDao extends BaseDao {
     return dsComplianceToDatasetCompliance(findComplianceById(datasetId));
   }
 
+  @Nullable
+  public DatasetCompliance getDatasetComplianceByUrn(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet, use getDatasetComplianceByDatasetId");
+  }
+
   public void updateDatasetCompliance(@Nonnull DatasetCompliance record, @Nonnull String user) throws Exception {
     DsCompliance compliance = datasetComplianceToDsCompliance(record);
     compliance.setModifiedBy(user);
 
     update(compliance);
+  }
+
+  public void updateDatasetComplianceByUrn(@Nonnull DatasetCompliance record, @Nonnull String user) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet, use updateDatasetCompliance");
   }
 
   /**
@@ -128,6 +137,11 @@ public class DatasetComplianceDao extends BaseDao {
 
   @Nullable
   public DsComplianceSuggestion findComplianceSuggestionByUrn(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
+  }
+
+  @Nullable
+  public DsComplianceSuggestion getComplianceSuggestion(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
   }
 

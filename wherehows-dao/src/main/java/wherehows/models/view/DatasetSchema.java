@@ -26,5 +26,9 @@ public class DatasetSchema {
 
   private Boolean schemaless;
 
+  private String rawSchema;
+
+  private String keySchema;
+
   private List<DatasetColumn> columns;
 }

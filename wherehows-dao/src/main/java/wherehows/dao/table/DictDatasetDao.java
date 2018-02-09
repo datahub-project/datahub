@@ -192,6 +192,11 @@ public class DictDatasetDao extends BaseDao {
     executeUpdate(SET_DATASET_DEPRECATION, params);
   }
 
+  public void setDatasetDeprecation(@Nonnull String datasetUrn, boolean isDeprecated,
+      @Nullable String deprecationNote, @Nonnull String user) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
   /**
    * Set active/removed status of a dataset.
    * @param identifier DatasetIdentifier
