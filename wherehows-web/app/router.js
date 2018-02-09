@@ -57,9 +57,21 @@ AppRouter.map(function() {
     path: '/*wildcard'
   });
   this.route('datasets', function() {
-    this.route('dataset', {
-      path: '/:dataset_id'
-    });
+    this.route(
+      'dataset',
+      {
+        path: '/:dataset_id'
+      },
+      function() {
+        this.route('properties');
+        this.route('comments');
+        this.route('schema');
+        this.route('ownership');
+        this.route('compliance');
+        this.route('sample');
+        this.route('relations');
+      }
+    );
   });
   this.route('search');
   this.route('metrics', function() {

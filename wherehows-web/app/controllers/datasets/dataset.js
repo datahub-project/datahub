@@ -14,10 +14,13 @@ import {
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
+import { Tabs } from 'wherehows-web/constants/datasets/shared';
+import { action } from 'ember-decorators/object';
 
 const { post, getJSON } = $;
 
-export default Controller.extend({
+// gradual refactor into es class, hence extends EmberObject instance
+export default class extends Controller.extend({
   queryParams: ['urn'],
   /**
    * Reference to the application notifications Service
@@ -203,20 +206,6 @@ export default Controller.extend({
 
   actions: {
     /**
-     * Renders the properties tab elements.
-     * temporary workaround to query parameters, the file is a holdover from the legacy WH app
-     */
-    showProperties() {
-      // FIXME: this is a stop gap pending transition to queryParams tabbed nav in datasets.
-      // :facepalm:
-      run(() => {
-        scheduleOnce('afterRender', null, () => {
-          $('.tabbed-navigation-list li.active:not(#properties)').removeClass('active');
-          $('.tabbed-navigation-list #properties').addClass('active');
-        });
-      });
-    },
-    /**
      * Updates the dataset's deprecation properties
      * @param {boolean} isDeprecated
      * @param {string} deprecationNote
@@ -334,4 +323,25 @@ export default Controller.extend({
         .catch(this.exceptionOnSave);
     }
   }
-});
+}) {
+  tabIds = Tabs;
+
+  tabSelected;
+
+  constructor() {
+    super();
+    this.tabSelected || (this.tabSelected = Tabs.Ownership);
+  }
+
+  /**
+   * Handles user generated tab selection action by transitioning to specified route
+   * @param {Tabs} tabSelected the currently selected tab
+   */
+  @action
+  tabSelectionChanged(tabSelected) {
+    // if the tab selection is same as current, noop
+    return get(this, 'tabSelected') === tabSelected
+      ? void 0
+      : this.transitionToRoute(`datasets.dataset.${tabSelected}`, get(this, 'datasetId'));
+  }
+}

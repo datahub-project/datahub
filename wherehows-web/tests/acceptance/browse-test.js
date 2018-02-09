@@ -1,5 +1,4 @@
 import { test } from 'qunit';
-import { delay } from 'wherehows-web/utils/promise-delay';
 import moduleForAcceptance from 'wherehows-web/tests/helpers/module-for-acceptance';
 import { authenticationUrl, testUser, testPassword } from 'wherehows-web/tests/helpers/login/constants';
 import {
@@ -8,7 +7,7 @@ import {
   loginSubmitButton
 } from 'wherehows-web/tests/helpers/login/page-element-constants';
 
-moduleForAcceptance('Acceptance | login', {
+moduleForAcceptance('Acceptance | browse', {
   beforeEach() {
     visit(authenticationUrl);
     fillIn(loginUserInput, testUser);
