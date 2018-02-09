@@ -50,7 +50,7 @@ public class Dataset extends Controller {
             DATA_TYPES_DAO.getAllPlatforms().stream().map(s -> s.get("name")).collect(Collectors.toList()))));
       }
 
-      List<String> names = DATASET_VIEW_DAO.listNames(platform, getPlatformPrefix(platform, prefix));
+      List<String> names = DATASET_VIEW_DAO.listSegments(platform, "PROD", getPlatformPrefix(platform, prefix));
 
       // if prefix is a dataset name, then return empty list
       if (names.size() == 1 && names.get(0).equalsIgnoreCase(prefix)) {
@@ -69,8 +69,8 @@ public class Dataset extends Controller {
       int page = NumberUtils.toInt(request().getQueryString("page"), 0);
       int start = page * _dataset_search_page_size;
 
-      return Promise.promise(
-          () -> ok(Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, prefix, start, _dataset_search_page_size))));
+      return Promise.promise(() -> ok(
+          Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _dataset_search_page_size))));
     } catch (Exception e) {
       Logger.error("Fail to list datasets", e);
       return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
@@ -80,7 +80,7 @@ public class Dataset extends Controller {
   public static Promise<Result> countDatasets(@Nullable String platform, @Nonnull String prefix) {
     try {
       return Promise.promise(
-          () -> ok(String.valueOf(DATASET_VIEW_DAO.listDatasets(platform, prefix, 0, 1).getTotal())));
+          () -> ok(String.valueOf(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, 0, 1).getTotal())));
     } catch (Exception e) {
       Logger.error("Fail to count total datasets", e);
       return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));

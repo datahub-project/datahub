@@ -96,12 +96,16 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
-  public PagedCollection<DatasetView> listDatasets(@Nullable String platform, @Nonnull String prefix, int start,
-      int count) throws Exception {
+  public PagedCollection<DatasetView> listDatasets(@Nullable String platform, @Nullable String origin,
+      @Nonnull String prefix, int start, int count) throws Exception {
     throw new RuntimeException("Not implemented yet");
   }
 
-  public List<String> listNames(@Nonnull String platform, @Nonnull String prefix) throws Exception {
+  public List<String> listSegments(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
+  public List<String> listFullNames(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
     throw new RuntimeException("Not implemented yet");
   }
 

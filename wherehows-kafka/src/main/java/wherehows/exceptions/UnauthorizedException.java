@@ -16,9 +16,9 @@ package wherehows.exceptions;
 /**
  * An exception to be thrown when authorization is denied.
  */
-public class UnauthoraizedException extends RuntimeException {
+public class UnauthorizedException extends RuntimeException {
 
-  public UnauthoraizedException(String message) {
+  public UnauthorizedException(String message) {
     super(message);
   }
 }
