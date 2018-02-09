@@ -1,6 +1,7 @@
 import { Factory, faker } from 'ember-cli-mirage';
 
 export default Factory.extend({
+  id: faker.random.number({ min: 10000, max: 20000 }),
   created: null,
   formatedModified: '2017-09-04 10:34:44.0',
   hasSchemaHistory: false,
