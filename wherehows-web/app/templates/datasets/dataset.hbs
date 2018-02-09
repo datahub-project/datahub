@@ -29,7 +29,8 @@
         {{/if}}
 
         {{#if datasetView.deprecated}}
-          <a data-toggle="tab" href="#propertiestab" {{action "showProperties" preventDefault=false}}>
+          {{#link-to "datasets.dataset.properties" datasetId}}
+
             <span class="deprecated-dataset">
               DEPRECATED
             </span>
@@ -43,7 +44,8 @@
                 }}
               </span>
             </sup>
-          </a>
+
+          {{/link-to}}
         {{/if}}
 
         <h3>{{ model.name }}</h3>
@@ -152,32 +154,35 @@
     {{/if}}
   </div>
 
-  {{#ivy-tabs selection=selection as |tabs|}}
+  {{#ivy-tabs selection=tabSelected as |tabs|}}
 
     {{#tabs.tablist as |tablist|}}
 
       {{#unless isPinot}}
-        {{#tablist.tab "Properties" on-select=(action (mut selection))}}Properties{{/tablist.tab}}
+        {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
+          Properties
+        {{/tablist.tab}}
       {{/unless}}
 
       {{!--feature not available--}}
       <span style="display:none">
-        {{#tablist.tab "Access" on-select=(action (mut selection))}}ACL Access{{/tablist.tab}}
+        {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
       </span>
 
-      {{#tablist.tab "Comments" on-select=(action (mut selection))}}Comments{{/tablist.tab}}
+      {{#tablist.tab tabIds.Comments on-select=(action "tabSelectionChanged")}}Comments{{/tablist.tab}}
 
-      {{#tablist.tab "Schema" on-select=(action (mut selection))}}Schema{{/tablist.tab}}
+      {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
-      {{#tablist.tab "Ownership" on-select=(action (mut selection))}}
+      {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
         Ownership
+
         {{#if requiredMinNotConfirmed}}
           <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
         {{/if}}
       {{/tablist.tab}}
 
       {{#if isInternal}}
-        {{#tablist.tab "Compliance" on-select=(action (mut selection))}}
+        {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
           Compliance
 
           {{#if isNewComplianceInfo}}
@@ -187,14 +192,16 @@
       {{/if}}
 
       {{#unless isSFDC}}
-        {{#tablist.tab "Sample Data" on-select=(action (mut selection))}}Sample Data{{/tablist.tab}}
+        {{#tablist.tab tabIds.SampleData on-select=(action "tabSelectionChanged")}}
+          Sample Data{{/tablist.tab}}
       {{/unless}}
 
-      {{#tablist.tab "Relations" on-select=(action (mut selection))}}Relations{{/tablist.tab}}
+      {{#tablist.tab tabIds.Relations on-select=(action "tabSelectionChanged")}}
+        Relations{{/tablist.tab}}
 
     {{/tabs.tablist}}
 
-    {{#tabs.tabpanel "Properties"}}
+    {{#tabs.tabpanel tabIds.Properties}}
       {{#unless isPinot}}
         {{dataset-deprecation
           deprecated=datasetView.deprecated
@@ -206,7 +213,7 @@
       {{/unless}}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Comments"}}
+    {{#tabs.tabpanel tabIds.Comments}}
       {{dataset-comments
         comments=datasetComments
         updateDatasetComment=(action "updateDatasetComment")
@@ -215,7 +222,7 @@
       }}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Schema"}}
+    {{#tabs.tabpanel tabIds.Schema}}
       {{dataset-schema
         isTable=isTable
         json=model.schema
@@ -223,7 +230,7 @@
       }}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Ownership"}}
+    {{#tabs.tabpanel tabIds.Ownership}}
       {{dataset-authors
         owners=owners
         ownerTypes=ownerTypes
@@ -231,19 +238,19 @@
       }}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Sample Data"}}
+    {{#tabs.tabpanel tabIds.SampleData}}
       {{#unless isSFDC}}
         {{dataset-sample hasSamples=hasSamples isPinot=isPinot columns=columns samples=samples}}
       {{/unless}}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Relations"}}
+    {{#tabs.tabpanel tabIds.Relations}}
       {{#unless isSFDC}}
         {{dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
       {{/unless}}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Compliance"}}
+    {{#tabs.tabpanel tabIds.Compliance}}
       {{dataset-compliance
         datasetName=model.name
         schemaless=schemaless
@@ -258,7 +265,7 @@
       }}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel "Access"}}
+    {{#tabs.tabpanel tabIds.Access}}
       {{dataset-aclaccess
         accessInfo=aclAccessResponse
         currentUser=currentUserInfo
