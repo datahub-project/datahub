@@ -96,6 +96,7 @@ export default Route.extend({
 
     // Don't set default zero Ids on controller
     if (id) {
+      id = +id;
       controller.set('datasetId', id);
 
       /**
