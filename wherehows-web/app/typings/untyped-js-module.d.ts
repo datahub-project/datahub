@@ -25,6 +25,14 @@ declare module 'ember-simple-auth/services/session' {
 }
 
 declare module 'wherehows-web/utils/datasets/compliance-policy';
+declare module 'wherehows-web/controllers/datasets/dataset' {
+  import Controller from '@ember/controller';
+  import { Tabs } from 'wherehows-web/constants/datasets/shared';
+
+  export default class extends Controller {
+    tabSelected: Tabs;
+  }
+}
 
 declare module 'ember-cli-mirage';
 
