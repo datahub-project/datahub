@@ -26,13 +26,13 @@ public class LineageDao {
 
   /**
    * Create lineage dataset that requested the lineage via Kafka lineage event.
+   * @param actorUrn String actor Urn
    * @param datasetLineages List of lineages
    * @param deployment deployment environment i.e. PROD, DEV, EI and etc
    * @return return process result as true/false
    */
-
-  public Boolean createLineages(@Nonnull List<DatasetLineage> datasetLineages,
-      @Nullable DeploymentDetail deployment) {
+  public Boolean createLineages(@Nullable String actorUrn, @Nonnull List<DatasetLineage> datasetLineages,
+      @Nullable DeploymentDetail deployment) throws Exception {
     // TODO: write lineage Dao to DB
     throw new UnsupportedOperationException("Lineage not implemented yet.");
   }

@@ -54,6 +54,10 @@ const lazyRequestPagedFlows = createLazyRequest(requestPagedFlows, receivePagedF
 
 const lazyRequestFlowsNodes = createLazyRequest(requestFlowsNodes, receiveFlowsNodes, fetchUrnPathEntityNodes('flows'));
 
-const lazyRequestPagedUrnApplicationFlows = createLazyRequest(requestPagedUrnFlows, receivePagedUrnFlows, fetchUrnPathEntities('flows'));
+const lazyRequestPagedUrnApplicationFlows = createLazyRequest(
+  requestPagedUrnFlows,
+  receivePagedUrnFlows,
+  fetchUrnPathEntities('flows')
+);
 
 export { ActionTypes, lazyRequestPagedFlows, lazyRequestFlowsNodes, lazyRequestPagedUrnApplicationFlows };

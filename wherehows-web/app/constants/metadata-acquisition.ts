@@ -1,15 +1,8 @@
-import Ember from 'ember';
-import {
-  Classification,
-  nonIdFieldLogicalTypes,
-  NonIdLogicalType,
-  idLogicalTypes,
-  customIdLogicalTypes,
-  genericLogicalTypes,
-  fieldIdentifierTypes,
-  IdLogicalType,
-  FieldIdValues
-} from 'wherehows-web/constants/datasets/compliance';
+import { capitalize } from '@ember/string';
+import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
+import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
+import { Classification, ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
+import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -26,145 +19,86 @@ const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
 const lowQualitySuggestionConfidenceThreshold = 0.5;
 
 /**
- * A map of id logical types including custom ids to the default field classification for Ids
- * @type {Object}
- */
-const idFieldDataTypeClassification: { [K: string]: Classification.LimitedDistribution } = [
-  ...customIdLogicalTypes,
-  ...idLogicalTypes
-].reduce(
-  (classification, idLogicalType) =>
-    Object.assign(classification, { [idLogicalType]: Classification.LimitedDistribution }),
-  {}
-);
-
-/**
- * Creates a mapping of nonIdFieldLogicalTypes to default classification for that field
- * @type {Object}
- */
-const nonIdFieldDataTypeClassification: { [K: string]: Classification } = genericLogicalTypes.reduce(
-  (classification, logicalType) =>
-    Object.assign(classification, {
-      [logicalType]: nonIdFieldLogicalTypes[logicalType].classification
-    }),
-  {}
-);
-
-/**
- * A merge of id and non id field type security classifications
- * @type {[K: string] : Classification}
- */
-const defaultFieldDataTypeClassification = { ...idFieldDataTypeClassification, ...nonIdFieldDataTypeClassification };
-
-/**
  * Stores a unique list of classification values
- * @type {Set<Classification>} the list of classification values
+ * @type {Array<Classification>} the list of classification values
  */
-const classifiers = Object.values(defaultFieldDataTypeClassification).filter(
-  (classifier, index, iter) => iter.indexOf(classifier) === index
-);
+const classifiers = [
+  Classification.HighlyConfidential,
+  Classification.Confidential,
+  Classification.LimitedDistribution,
+  Classification.Internal,
+  Classification.Public
+];
+
+/**
+ * Lists the dataset security classification options that are exluded for datasets containing PII
+ * @type {Classification[]}
+ */
+const classifiersExcludedIfPII = [Classification.Internal, Classification.Public];
+
+/**
+ * Takes a string, returns a formatted string. Niche , single use case
+ * for now, so no need to make into a helper
+ * @param {string} string
+ */
+const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(string.toLowerCase().replace(/[_]/g, ' '));
+
+/**
+ * Derives the list of security classification options from the list of classifiers and disables options if
+ * the containsPii argument is truthy. Includes a disabled placeholder option: Unspecified
+ * @param {boolean = false} containsPii flag indicating if the dataset contains Pii
+ * @return {Array<ISecurityClassificationOption>}
+ */
+const getSecurityClassificationDropDownOptions = (containsPii: boolean = false): Array<ISecurityClassificationOption> =>
+  [null, ...classifiers].map((value: ISecurityClassificationOption['value']) => ({
+    value,
+    label: value ? formatAsCapitalizedStringWithSpaces(value) : 'Unspecified',
+    isDisabled: !value || (containsPii && classifiersExcludedIfPII.includes(value))
+  }));
 
 /**
  * Checks if the identifierType is a mixed Id
  * @param {string} identifierType
  * @return {boolean}
  */
-const isMixedId = (identifierType: string) => identifierType === fieldIdentifierTypes.generic.value;
+const isMixedId = (identifierType: string) => identifierType === ComplianceFieldIdValue.MixedId;
 /**
  * Checks if the identifierType is a custom Id
  * @param {string} identifierType
-  * @return {boolean}
- */
-const isCustomId = (identifierType: string) => identifierType === fieldIdentifierTypes.custom.value;
-
-/**
- * Checks if an identifierType has a predefined/immutable value for the field format, i.e. should not be changed by
- * the end user
- * @param {string} identifierType the identifierType to check against
  * @return {boolean}
  */
-const hasPredefinedFieldFormat = (identifierType: string) => {
-  return isMixedId(identifierType) || isCustomId(identifierType);
-};
-
-/**
- * Gets the default logical type for an identifier type
- * @param {string} identifierType
- * @return {string | void}
- */
-const getDefaultLogicalType = (identifierType: string): string | void => {
-  if (isMixedId(identifierType)) {
-    return 'URN';
-  }
-};
-
-/**
- * Returns a list of logicalType mappings for displaying its value and a label by logicalType
- * @param {('id' | 'generic')} logicalType 
- * @returns {Array<{value: NonIdLogicalType | IdLogicalType; label: string;}>}
- */
-const logicalTypeValueLabel = (logicalType: 'id' | 'generic') => {
-  const logicalTypes: Array<NonIdLogicalType | IdLogicalType> = {
-    id: idLogicalTypes,
-    generic: genericLogicalTypes
-  }[logicalType];
-
-  return logicalTypes.map((value: NonIdLogicalType | IdLogicalType) => {
-    let label: string;
-
-    // guard checks that if the logical type string is generic, then the value union can be assumed to be
-    // a NonIdLogicalType, otherwise it is an id /custom logicalType
-    if (logicalType === 'generic') {
-      label = nonIdFieldLogicalTypes[<NonIdLogicalType>value].displayAs;
-    } else {
-      label = value.replace(/_/g, ' ').replace(/([A-Z]{3,})/g, value => Ember.String.capitalize(value.toLowerCase()));
-    }
-
-    return {
-      value,
-      label
-    };
-  });
-};
-
-/**
- * Map logicalTypes to options consumable by DOM
- * @returns {Array<{value: IdLogicalType; label: string;}>}
- */
-const logicalTypesForIds = logicalTypeValueLabel('id');
-
-/**
- * Map generic logical type to options consumable in DOM
- * @returns {Array<{value: NonIdLogicalType; label: string;}>}
- */
-const logicalTypesForGeneric = logicalTypeValueLabel('generic');
-
-/**
- * A list of field identifier types that are Ids i.e member ID, org ID, group ID
- * @type {Array<FieldIdValues>}
- */
-const fieldIdentifierTypeIds: Array<FieldIdValues> = Object.values(fieldIdentifierTypes)
-  .filter(({ isId }) => isId)
-  .map(({ value }) => value);
+const isCustomId = (identifierType: string) => identifierType === ComplianceFieldIdValue.CustomId;
 
 /**
  * Caches a list of fieldIdentifierTypes values
- * @type {Array<FieldIdValues>}
+ * @type {Array<ComplianceFieldIdValue>}
  */
-const fieldIdentifierTypeValues: Array<FieldIdValues> = Object.values(FieldIdValues);
+const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = <Array<ComplianceFieldIdValue>>Object.values(
+  ComplianceFieldIdValue
+);
+
+/**
+ * Retrieves the default security classification for an identifier type, or null if it does not exist
+ * @param {Array<IComplianceDataType>} [complianceDataTypes=[]] the list of compliance data types
+ * @param {ComplianceFieldIdValue} identifierType the compliance data type id string
+ * @returns {(IComplianceDataType['defaultSecurityClassification'] | null)}
+ */
+const getDefaultSecurityClassification = (
+  complianceDataTypes: Array<IComplianceDataType> = [],
+  identifierType: IComplianceChangeSet['identifierType']
+): IComplianceDataType['defaultSecurityClassification'] | null => {
+  const complianceDataType = complianceDataTypes.findBy('id', identifierType || '');
+
+  return complianceDataType ? complianceDataType.defaultSecurityClassification : null;
+};
 
 export {
-  defaultFieldDataTypeClassification,
-  classifiers,
-  fieldIdentifierTypeIds,
+  getSecurityClassificationDropDownOptions,
+  formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,
-  hasPredefinedFieldFormat,
-  logicalTypesForIds,
-  logicalTypesForGeneric,
-  getDefaultLogicalType,
   lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
-  logicalTypeValueLabel
+  getDefaultSecurityClassification
 };

@@ -24,4 +24,21 @@
     padding: item-spacing(1);
     color: set-color(grey, mid);
   }
+
+  &__form-input {
+    padding: item-spacing(2 0);
+    margin-top: item-spacing(2);
+    opacity: 0.8;
+  }
+}
+
+.compliance-depends {
+  display: none;
+  opacity: 0;
+
+  &--visible {
+    opacity: 1;
+    display: block;
+    transition: all 0.4s ease 0.4s;
+  }
 }

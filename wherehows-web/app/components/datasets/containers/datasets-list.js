@@ -1,7 +1,5 @@
-import Ember from 'ember';
-import connect from 'ember-redux/components/connect';
-
-const { Component } = Ember;
+import Component from '@ember/component';
+import { connect } from 'ember-redux';
 
 /**
  * A Selector function that takes the Redux Store and applies

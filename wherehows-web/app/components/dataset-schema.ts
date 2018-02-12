@@ -39,7 +39,7 @@ export default class DatasetSchema extends Component {
    * @param {Element} jsonViewer
    * @return {JQuery}
    */
-  buildJsonView(jsonViewer: Element) {
+  buildJsonView(this: DatasetSchema, jsonViewer: Element): JQuery | void {
     try {
       return $(jsonViewer).JSONView(JSON.parse(get(this, 'json')));
     } catch (e) {
@@ -57,7 +57,7 @@ export default class DatasetSchema extends Component {
   /**
    * Retains references to the DOM elements for showing the schema
    */
-  cacheDomReference() {
+  cacheDomReference(this: DatasetSchema) {
     const { jsonViewer, jsonTable } = getProperties(this, ['jsonTable', 'jsonViewer']);
 
     if (!(jsonViewer && jsonTable)) {
@@ -70,7 +70,7 @@ export default class DatasetSchema extends Component {
     }
   }
 
-  didReceiveAttrs() {
+  didReceiveAttrs(this: DatasetSchema) {
     if (get(this, 'isTable')) {
       const jsonTable = get(this, 'jsonTable');
       jsonTable && this.buildTableView(jsonTable);
@@ -84,7 +84,7 @@ export default class DatasetSchema extends Component {
     this.cacheDomReference();
   }
 
-  willDestroyElement() {
+  willDestroyElement(this: DatasetSchema) {
     setProperties(this, {
       jsonViewer: null,
       jsonTable: null

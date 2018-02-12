@@ -1,15 +1,17 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { scheduleOnce } from '@ember/runloop';
+import $ from 'jquery';
 
-export default Ember.Route.extend({
+export default Route.extend({
   init() {
     this._super(...arguments);
 
-    Ember.run.scheduleOnce('afterRender', null, () => {
-      Ember.$('#jiratabs a:first').tab('show');
+    scheduleOnce('afterRender', null, () => {
+      $('#jiratabs a:first').tab('show');
     });
   },
 
-  redirect: function () {
+  redirect() {
     this.transitionTo('idpc.user', 'jweiner');
   }
 });

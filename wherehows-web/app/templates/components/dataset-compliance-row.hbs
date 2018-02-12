@@ -1,6 +1,9 @@
 {{yield (hash
           cell=(component 'dataset-table-cell')
-          isFieldFormatDisabled=isFieldFormatDisabled
+          rowId=elementId
+          nonOwner=nonOwner
+          isIdType=isIdType
+          isPiiType=isPiiType
           identifierType=identifierType
           identifierField=identifierField
           dataType=dataType
@@ -16,4 +19,5 @@
           onFieldClassificationChange=(action 'onFieldClassificationChange')
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onSuggestionAction=(action 'onSuggestionAction')
+          onOwnerChange=(action 'onOwnerChange')
         )}}

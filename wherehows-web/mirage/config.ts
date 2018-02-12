@@ -1,8 +1,27 @@
 import { faker } from 'ember-cli-mirage';
+import { getDatasetColumns } from 'wherehows-web/mirage/helpers/columns';
+import { getDatasetCompliance } from 'wherehows-web/mirage/helpers/compliance';
+import { getComplianceDataTypes } from 'wherehows-web/mirage/helpers/compliance-data-types';
+import { getDatasetComplianceSuggestion } from 'wherehows-web/mirage/helpers/compliance-suggestions';
+import { getDataset } from 'wherehows-web/mirage/helpers/dataset';
+import { getDatasetAccess } from 'wherehows-web/mirage/helpers/dataset-access';
+import { getDatasetComments } from 'wherehows-web/mirage/helpers/dataset-comments';
+import { getDatasetDbVersions } from 'wherehows-web/mirage/helpers/dataset-db-versions';
+import { getDatasetDepends } from 'wherehows-web/mirage/helpers/dataset-depends';
+import { getDatasetImpact } from 'wherehows-web/mirage/helpers/dataset-impact';
+import { getDatasetInstances } from 'wherehows-web/mirage/helpers/dataset-instances';
+import { getDatasetOwners } from 'wherehows-web/mirage/helpers/dataset-owners';
+import { getDatasetPlatforms } from 'wherehows-web/mirage/helpers/dataset-platforms';
+import { getDatasetProperties } from 'wherehows-web/mirage/helpers/dataset-properties';
+import { getDatasetReferences } from 'wherehows-web/mirage/helpers/dataset-references';
+import { getDatasetSample } from 'wherehows-web/mirage/helpers/dataset-sample';
+import { getDatasetView } from 'wherehows-web/mirage/helpers/dataset-view';
+import { getOwnerTypes } from 'wherehows-web/mirage/helpers/owner-types';
 import { IFunctionRouteHandler, IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
 import { getConfig } from 'wherehows-web/mirage/helpers/config';
 import { getAuth } from 'wherehows-web/mirage/helpers/authenticate';
+import { aclAuth } from 'wherehows-web/mirage/helpers/aclauth';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -11,25 +30,45 @@ export default function(this: IMirageServer) {
 
   this.passthrough('/write-coverage');
 
+  this.namespace = '/api/v2';
+
+  this.get('/list/complianceDataTypes', getComplianceDataTypes);
+
+  this.get('/list/platforms', getDatasetPlatforms);
+
   this.namespace = '/api/v1';
 
-  interface IComplianceSuggestionsObject {
-    complianceSuggestions: any;
-  }
+  this.get('/datasets/:dataset_id', getDataset);
 
-  this.get('/datasets/:id/compliance/suggestions', function(
-    this: IFunctionRouteHandler,
-    { complianceSuggestions }: IComplianceSuggestionsObject
-  ) {
-    return {
-      status: ApiStatus.OK,
-      autoClassification: {
-        urn: '',
-        classificationResult: JSON.stringify(this.serialize(complianceSuggestions.all())),
-        lastModified: new Date().getTime()
-      }
-    };
-  });
+  this.get('/datasets/:dataset_id/view', getDatasetView);
+
+  this.get('/datasets/:dataset_id/columns', getDatasetColumns);
+
+  this.get('/datasets/:dataset_id/compliance', getDatasetCompliance);
+
+  this.get('/datasets/:dataset_id/compliance/suggestions', getDatasetComplianceSuggestion);
+
+  this.get('/datasets/:dataset_id/comments', getDatasetComments);
+
+  this.get('/datasets/:dataset_id/owners', getDatasetOwners);
+
+  this.get('/datasets/:dataset_id/instances', getDatasetInstances);
+
+  this.get('/owner/types', getOwnerTypes);
+
+  this.get('/datasets/:dataset_id/sample', getDatasetSample);
+
+  this.get('/datasets/:dataset_id/impacts', getDatasetImpact);
+
+  this.get('/datasets/:dataset_id/depends', getDatasetDepends);
+
+  this.get('/datasets/:dataset_id/access', getDatasetAccess);
+
+  this.get('/datasets/:dataset_id/references', getDatasetReferences);
+
+  this.get('/datasets/:dataset_id/properties', getDatasetProperties);
+
+  this.get('/datasets/:dataset_id/versions/db/:db_id', getDatasetDbVersions);
 
   interface IFlowsObject {
     flows: any;
@@ -132,7 +171,7 @@ export default function(this: IMirageServer) {
         departmentNum: 0,
         email: testUser + '@linkedin.com',
         name: testUser,
-        userSetting: {
+        userSetting: <{ [prop: string]: null }>{
           detailDefaultView: null,
           defaultWatch: null
         }
@@ -140,6 +179,41 @@ export default function(this: IMirageServer) {
       status: ApiStatus.OK
     };
   });
+
+  /**
+   * Add GET request to check the current user ACL permission
+   */
+  this.get('/acl', (server: any, request: any) => {
+    if (request.queryParams.hasOwnProperty('LDAP')) {
+      const { LDAP } = request.queryParams;
+      const principal = `urn:li:userPrincipal:${LDAP}`;
+      let accessUserslist = server.db.datasetAclUsers.where({ principal });
+
+      if (accessUserslist.length > 0) {
+        return {
+          status: ApiStatus.OK,
+          isAccess: true,
+          body: server.db.datasetAclUsers
+        };
+      }
+      return {
+        status: ApiStatus.FAILED,
+        isAccess: false,
+        body: server.db.datasetAclUsers
+      };
+    } else {
+      return {
+        users: server.db.datasetAclUsers,
+        status: ApiStatus.OK
+      };
+    }
+  });
+
+  /**
+   * Add POST request to support to the current user get ACL permission.
+   */
+  this.post('/acl', aclAuth);
+
   this.passthrough();
 }
 

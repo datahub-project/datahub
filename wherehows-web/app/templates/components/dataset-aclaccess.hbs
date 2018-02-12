@@ -1,0 +1,102 @@
+{{#if state}}
+  <section>
+    {{#if requestAccess.isRunning}}
+      {{dataset-spinner 
+        cancelTasks =(action "cancelTasks")}}
+    {{/if}}
+  </section>
+
+  <section id="acl-permissioninfo">
+   <header class="acl-permission__header">
+     <span>
+       <i class= {{concat state.icon " " state.font}} title="permission"></i>
+     </span>
+
+     <div class="acl-permission__meta">
+       <strong class= {{concat state.font " " 'acl-permission__meta__header'}}>{{state.info}}</strong>
+       <p>{{state.message}}</p>
+     </div>
+   </header>
+
+    {{#unless state.isLoadForm}}
+        <hr class="acl-permission__separator"/>
+    {{/unless}}
+  </section>
+
+  <section id="acl-permissionrequest">
+   {{#if state.isLoadForm }}
+     <form class="acl-form" {{action (perform requestAccess) on="submit"}}>
+       <h4 class=" acl-form__meta acl-form__header">Request Access</h4>
+       <div class="acl-form__meta acl-form__container ">
+         <h4 class="acl-form__meta__header">Why do you need access?</h4>
+         <p class="acl-form__meta__content ">Please add business reason you need to access this data.</p>
+       </div>
+
+       {{textarea 
+        value=requestReason
+        class="acl-form__content"}}
+
+       <div class="comment-new__actions">
+         <button
+           type="submit"
+           class="nacho-button--large nacho-button--inverse">
+           Submit
+         </button>
+         <button 
+           type="reset"
+           class="nacho-button--large nacho-button--secondary " 
+           {{action resetForm}}>
+            Cancel
+         </button>
+       </div>
+     </form>
+
+     <hr />
+    {{/if}}
+  </section>
+
+  <section id="acl-accessusers">
+    <header>
+      <h4 class="acl-table__header">People with ACL Access</h4>
+      <p>These people have been granted access. if you'd like access to the data, please request above</p>
+    </header>
+
+    <table class="nacho-table nacho-table--bordered dataset-owner-table">
+      <thead>
+        <tr>
+          <th class="dataset-author-column--wide">LDAP Username</th>
+          <th>Full Name</th>
+          <th class="dataset-author-column--narrow">ID Type</th>
+          <th>Source</th>
+          <th>Last Modified</th>
+          <th>
+          Ownership Type
+            <a target="_blank" href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
+              <sup>
+                <span class="glyphicon glyphicon-question-sign" title="Link to more information"></span>
+              </sup>
+            </a>
+          </th>
+          <th>Add suggested Owner</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {{#each users as |user|}}
+          {{dataset-aclaccess-users
+            user=user
+            addOwner=(action "addOwner")
+          }}
+       {{/each}}
+      </tbody>
+    </table>
+  </section>
+
+{{else}}
+  {{empty-state
+    heading="No Data Found"
+    subHead="If you feel this is in error, please contact aclrequests@linkedin."
+  }}
+{{/if}}
+
+{{yield}}

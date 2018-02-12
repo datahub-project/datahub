@@ -10,15 +10,28 @@ interface FetchConfig {
 }
 
 /**
+ * Desribes the available options on an option bag to be passed into a fetch call
+ * @interface IFetchOptions
+ */
+interface IFetchOptions {
+  method?: string;
+  body?: any;
+  headers?: object | Headers;
+  credentials?: RequestCredentials;
+}
+
+/**
  * Augments the user supplied headers with the default accept and content-type headers
  * @param {FetchConfig.headers} headers
  */
-const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
-  headers: {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    ...headers
-  }
+const withBaseFetchHeaders = (headers: FetchConfig['headers']): { headers: FetchConfig['headers'] } => ({
+  headers: Object.assign(
+    {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    headers
+  )
 });
 
 /**
@@ -28,7 +41,7 @@ const baseFetchHeaders = (headers: FetchConfig['headers']) => ({
  * @param {object} fetchConfig 
  * @returns {Promise<T>} 
  */
-const json = <T>(url: string, fetchConfig: object): Promise<T> =>
+const json = <T>(url: string = '', fetchConfig: IFetchOptions = {}): Promise<T> =>
   fetch(url, fetchConfig).then<T>(response => response.json());
 
 /**
@@ -38,7 +51,7 @@ const json = <T>(url: string, fetchConfig: object): Promise<T> =>
  * @return {Promise<T>}
  */
 const getJSON = <T>(config: FetchConfig): Promise<T> => {
-  const fetchConfig = { ...baseFetchHeaders(config.headers), method: 'GET' };
+  const fetchConfig = { ...withBaseFetchHeaders(config.headers), method: 'GET' };
 
   return json<T>(config.url, fetchConfig);
 };
@@ -50,9 +63,11 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
  * @returns {Promise<T>} 
  */
 const postJSON = <T>(config: FetchConfig): Promise<T> => {
+  const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
   const fetchConfig = Object.assign(
+    requestBody,
     config.data && { body: JSON.stringify(config.data) },
-    baseFetchHeaders(config.headers),
+    withBaseFetchHeaders(config.headers),
     { method: 'POST' }
   );
 
@@ -66,11 +81,8 @@ const postJSON = <T>(config: FetchConfig): Promise<T> => {
  * @return {Promise<T>}
  */
 const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
-  const fetchConfig = Object.assign(
-    config.data && { body: JSON.stringify(config.data) },
-    baseFetchHeaders(config.headers),
-    { method: 'DELETE' }
-  );
+  const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
+  const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'DELETE' });
 
   return json<T>(config.url, fetchConfig);
 };
@@ -82,11 +94,9 @@ const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
  * @return {Promise<T>}
  */
 const putJSON = <T>(config: FetchConfig): Promise<T> => {
-  const fetchConfig = Object.assign(
-    config.data && { body: JSON.stringify(config.data) },
-    baseFetchHeaders(config.headers),
-    { method: 'PUT' }
-  );
+  const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
+
+  const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'PUT' });
 
   return json<T>(config.url, fetchConfig);
 };
@@ -98,7 +108,7 @@ const putJSON = <T>(config: FetchConfig): Promise<T> => {
  */
 const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   const fetchConfig = {
-    ...baseFetchHeaders(config.headers),
+    ...withBaseFetchHeaders(config.headers),
     method: 'HEAD'
   };
   const { ok, headers, statusText } = await fetch(config.url, fetchConfig);
@@ -111,17 +121,19 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
 };
 
 /**
- * Wraps a request Promise, passthrough response if successful, otherwise handle the error and rethrow if not api error
+ * Wraps a request Promise, pass-through response if successful, otherwise handle the error and rethrow if not api error
+ * @template T
  * @param {Promise<T>} fetcher the api request to wrap
- * @param {K} defaultValue
- * @return {Promise<K | T>}
+ * @param {T} defaultValue
+ * @returns {Promise<T|null>}
  */
-const fetchAndHandleIfApiError = async <T, K>(fetcher: Promise<T>, defaultValue: K): Promise<T | K | null> => {
-  let result: T | K | null = typeof defaultValue === 'undefined' ? null : defaultValue;
+const fetchAndHandleIfApiError = async <T>(fetcher: Promise<T>, defaultValue: T): Promise<T | null> => {
+  let result = typeof defaultValue === 'undefined' ? null : defaultValue;
   try {
     result = await fetcher;
   } catch (e) {
-    //handle error
+    // TODO: if error is an api error, display notification and allow default return
+    // otherwise throw
   }
   return result;
 };

@@ -14,8 +14,8 @@
       "type": {
         "type": "enum",
         "name": "ComplianceDataType",
-        "doc": "The business / semantic meaning or data type of data fields. http://go/gdpr-taxonomy",
-        "symbols" : [
+        "doc": "[Deprecated] Please set this to UNUSED and use complianceDataTypeUrn instead.",
+        "symbols": [
           "NONE",
           "MEMBER_ID",
           "SUBJECT_MEMBER_ID",
@@ -46,9 +46,10 @@
           "CONTRACT_ID",
           "SEAT_ID",
           "ADVERTISER_ID",
-          "SLIDESHARE_USER_ID"
+          "SLIDESHARE_USER_ID",
+          "UNUSED"
         ],
-        "symbolDocs" : {
+        "symbolDocs": {
           "NONE": "None of the following types apply",
           "MEMBER_ID": "ID for LinkedIn members",
           "SUBJECT_MEMBER_ID": "Member ID that are subject owner of the record",
@@ -79,14 +80,26 @@
           "CONTRACT_ID": "ID for a contract, a grouping of enterprise users for an LTS product",
           "SEAT_ID": "ID for a user of an LTS enterprise product",
           "ADVERTISER_ID": "ID for an LMS advertiser",
-          "SLIDESHARE_USER_ID": "ID for a slideshare user"
+          "SLIDESHARE_USER_ID": "ID for a slideshare user",
+          "UNUSED": "This field is not used. Refer to complianceDataTypeUrn instead."
         }
       }
     },
     {
+      "name": "complianceDataTypeUrn",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "[Required] A ComplianceDataType urn, e.g. urn:li:complianceDataType:MEMBER_ID. See the full list at compliance-data-type.",
+      "default": null
+    },
+    {
       "name": "fieldFormat",
       "doc": "Specify the optional field format",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "enum",
           "name": "FieldFormat",
           "symbols": [

@@ -21,13 +21,18 @@
     },
     {
       "name": "datasetProperty",
-      "type": [ "null", "DatasetProperty" ],
+      "type": [
+        "null",
+        "DatasetProperty"
+      ],
       "doc": "Basic properties of a dataset, such as Native Type, Case Sensitivity, URI"
     },
     {
       "name": "owners",
       "doc": "A complete list of owners info",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "items": "OwnerInfo",
           "doc": "Ownership information"
@@ -36,12 +41,17 @@
     },
     {
       "name": "partitionSpec",
-      "type": [ "null", "PartitionSpecification" ],
+      "type": [
+        "null",
+        "PartitionSpecification"
+      ],
       "doc": "Partition specification detail"
     },
     {
       "name": "deploymentInfo",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "items": "DeploymentDetail"
         }
@@ -50,7 +60,9 @@
     },
     {
       "name": "tags",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "items": "string"
         }
@@ -59,12 +71,18 @@
     },
     {
       "name": "schema",
-      "doc": "The schema/structure definition of a dataset. For Key-Value and Document db, a dedicated KeySchema is provided. Schema includes KeySchema, OriginalSchema, FieldSchema, ChangeDataCaptureFields, AuditFields",
-      "type": [ "null", "DatasetSchema" ]
+      "doc": "The schema/structure definition of a dataset. For Key-Value and Document db, a dedicated KeySchema is provided. Schema includes KeySchema, OriginalSchema, FieldSchema, ChangeDataCaptureFields, AuditFields. Set this field to Schemaless explicitly for schemaless systems.",
+      "type": [
+        "null",
+        "DatasetSchema",
+        "Schemaless"
+      ]
     },
     {
       "name": "constraints",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "doc": "Array of constraints",
           "items": "Constraint"
@@ -73,7 +91,9 @@
     },
     {
       "name": "indices",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "doc": "Array of indices",
           "items": "Index"
@@ -82,7 +102,9 @@
     },
     {
       "name": "capacity",
-      "type": [ "null", {
+      "type": [
+        "null",
+        {
           "type": "array",
           "doc": "Array of capacity info",
           "items": "Capacity"
@@ -91,12 +113,18 @@
     },
     {
       "name": "compliancePolicy",
-      "type": [ "null", "CompliancePolicy" ],
+      "type": [
+        "null",
+        "CompliancePolicy"
+      ],
       "doc": "Human-entered compliance metadata"
     },
     {
       "name": "suggestedCompliancePolicy",
-      "type": [ "null", "SuggestedCompliancePolicy" ],
+      "type": [
+        "null",
+        "SuggestedCompliancePolicy"
+      ],
       "default": null,
       "doc": "Machine-suggested compliance metadata"
     }

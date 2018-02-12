@@ -1,13 +1,13 @@
-import { ApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
-import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import {
   IPartyEntity,
   IPartyEntityResponse,
   IPartyProps,
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { IOwner, IOwnerPostResponse, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
+import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 
 /**
  * Defines a string enum for valid owner types
@@ -51,19 +51,13 @@ enum OwnerSource {
 }
 
 /**
- * The minimum required number of owners with a confirmed status
- * @type {number}
- */
-const minRequiredConfirmed = 2;
-
-/**
  * Constructs the dataset owners url
  * @param {number} id the id of the dataset
  * @return {string} the dataset owners url
  */
 const datasetOwnersUrlById = (id: number): string => `${datasetUrlById(id)}/owners`;
 
-const partyEntitiesUrl = `${ApiRoot}/party/entities`;
+const partyEntitiesUrl = `${getApiRoot()}/party/entities`;
 
 /**
  * Requests the list of dataset owners from the GET endpoint, converts the modifiedTime property
@@ -76,7 +70,7 @@ const readDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
   if (status === ApiStatus.OK) {
     return owners.map(owner => ({
       ...owner,
-      modifiedTime: new Date(owner.modifiedTime!)
+      modifiedTime: new Date(<number>owner.modifiedTime!) // Api response is always in number format
     }));
   }
 
@@ -183,27 +177,7 @@ const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMa
     {}
   );
 
-/**
- * Filters out a list of valid confirmed owners in a list of owners
- * @param {Array<IOwner>} [owners=[]] the owners to filter
- * @returns {Array<IOwner>}
- */
-const validConfirmedOwners = (owners: Array<IOwner> = []): Array<IOwner> =>
-  owners.filter(
-    ({ confirmedBy, type, idType }) => confirmedBy && type === OwnerType.Owner && idType === OwnerIdType.User
-  );
-
-/**
- * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
- * @param {Array<IOwner>} owners the list of owners to check
- * @return {boolean}
- */
-const isRequiredMinOwnersNotConfirmed = (owners: Array<IOwner> = []): boolean =>
-  validConfirmedOwners(owners).length < minRequiredConfirmed;
-
 export {
-  validConfirmedOwners,
-  isRequiredMinOwnersNotConfirmed,
   readDatasetOwners,
   readPartyEntities,
   readPartyEntitiesMap,

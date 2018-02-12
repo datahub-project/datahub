@@ -1,8 +1,6 @@
-import Ember from 'ember';
-import connect from 'ember-redux/components/connect';
+import Component from '@ember/component';
+import { connect } from 'ember-redux';
 import { urnRegex, specialFlowUrnRegex } from 'wherehows-web/utils/validators/urn';
-
-const { Component } = Ember;
 
 /**
  * Matches string representing a url path segment that contains a `page` segment followed by a page number

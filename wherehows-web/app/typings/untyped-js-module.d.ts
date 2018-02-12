@@ -2,7 +2,12 @@ declare module 'ember-modal-dialog/components/modal-dialog';
 
 declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   import Mixin from '@ember/object/mixin';
-  export default Mixin.create({});
+  export default Mixin;
+}
+
+declare module 'ember-simple-auth/authenticators/base' {
+  import EmberObject from '@ember/object';
+  export default EmberObject;
 }
 
 declare module 'ember-simple-auth/services/session' {
@@ -20,6 +25,14 @@ declare module 'ember-simple-auth/services/session' {
 }
 
 declare module 'wherehows-web/utils/datasets/compliance-policy';
+declare module 'wherehows-web/controllers/datasets/dataset' {
+  import Controller from '@ember/controller';
+  import { Tabs } from 'wherehows-web/constants/datasets/shared';
+
+  export default class extends Controller {
+    tabSelected: Tabs;
+  }
+}
 
 declare module 'ember-cli-mirage';
 
@@ -27,8 +40,13 @@ declare module 'ember-cli-mirage';
 // TS assumes the mapping btw ES modules and CJS modules is 1:1
 // However, `ember-fetch` is the module name, but it's imported with `fetch`
 declare module 'fetch' {
-  export default function fetch(input: RequestInfo, init?: RequestInit): Promise<Response>;
+  export default function fetch(
+    input: RequestInfo,
+    options?: { method?: string; body?: any; headers?: object | Headers; credentials?: RequestCredentials }
+  ): Promise<Response>;
 }
+
+declare module 'scrollmonitor';
 
 /**
  * Merges global type defs for global modules on the window namespace.

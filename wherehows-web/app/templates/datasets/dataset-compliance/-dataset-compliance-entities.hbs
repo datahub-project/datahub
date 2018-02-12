@@ -1,7 +1,9 @@
 <section class="metadata-prompt">
   <header class="metadata-prompt__header">
     <p>
-      {{if isEditing "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?" "IDs and PII in the schema"}}
+      {{if isEditing
+           "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?"
+           "IDs and PII in the schema"}}
       <a
         target="_blank"
         href="http://go/gdpr-pii">
@@ -14,10 +16,6 @@
       </a>
     </p>
   </header>
-  {{!--Renders content of `hiddenTrackingFields` to the viewer if the dataset contains hidden tracking fields--}}
-  {{#if containsHiddenTrackingFields}}
-    {{hiddenTrackingFields}}
-  {{/if}}
 </section>
 
 <section class="compliance-entities-meta">
@@ -52,51 +50,12 @@
       {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
         System Suggestion Confidence
       {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
-        ID Type
-        <a
-          target="_blank"
-          href="http://go/metadata_acquisition#ProjectOverview-compliance">
-          <sup>
-            More Info
-
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on various IDs"></span>
-          </sup>
-        </a>
-      {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped"}}
-        Field Format
-        <a
-          target="_blank"
-          href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
-          <sup>
-            More Info
-
-            <span class="glyphicon glyphicon-question-sign"
-                  title="More information on Field Format"></span>
-          </sup>
-        </a>
-      {{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped dataset-compliance-fields__classification-column"}}
-        Security Classification
-        <sup>
-          <span
-            class="glyphicon glyphicon-question-sign"
-            title={{helpText.classification}}>
-            {{tooltip-on-component
-              event="click"
-              hideOn="click"
-              text=helpText.classification
-            }}
-          </span>
-        </sup>
-      {{/head.column}}
+      {{#head.column class="nacho-table-cell-wrapped"}}Compliance Information{{/head.column}}
     {{/table.head}}
 
     <tr>
       <th></th>
-      <th colspan="6">
+      <th colspan="4">
         {{disable-bubble-input
           title="Search field names"
           placeholder="Search field names"
@@ -111,10 +70,13 @@
         {{#body.row
           field=field
           isNewComplianceInfo=isNewComplianceInfo
+          complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
+          complianceDataTypes=complianceDataTypes
           class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
           onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
           onFieldClassificationChange=(action 'onFieldClassificationChange')
           onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
+          onFieldOwnerChange=(action 'onFieldOwnerChange')
           onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange') as |row|
         }}
 
@@ -158,45 +120,101 @@
             {{/if}}
           {{/row.cell}}
 
-          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
-            {{ember-selector
-              disabled=(not isEditing)
-              values=fieldIdentifierOptions
-              selected=(readonly row.identifierType)
-              selectionDidChange=(action row.onFieldIdentifierTypeChange)
-            }}
+          {{#row.cell}}
+            <section class="compliance-depends compliance-depends--visible">
+              <div class="dataset-compliance-fields__form-input">
+                Field Type
+                <a
+                  target="_blank"
+                  href="http://go/metadata_acquisition#ProjectOverview-compliance">
+                  <sup>
+                    More Info
 
-            {{#if row.identifierTypeBeforeSuggestion}}
-              <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
-            {{/if}}
-          {{/row.cell}}
+                    <span class="glyphicon glyphicon-question-sign"
+                          title="More information on various IDs"></span>
+                  </sup>
+                </a>
+              </div>
 
-          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
-            {{#power-select
-              options=row.fieldFormats
-              selected=row.logicalType
-              disabled=(or row.isFieldFormatDisabled (not isEditing))
-              placeholder="Select Format"
-              allowClear=true
-              searchField="label"
-              triggerClass="ember-power-select-trigger-search"
-              onchange=(action row.onFieldLogicalTypeChange) as |fieldFormat|}}
-              {{fieldFormat.label}}
-            {{/power-select}}
+              {{ember-selector
+                disabled=(not isEditing)
+                values=complianceFieldIdDropdownOptions
+                selected=(readonly row.identifierType)
+                selectionDidChange=(action row.onFieldIdentifierTypeChange)
+              }}
 
-            {{#if row.logicalTypeBeforeSuggestion}}
-              <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
-            {{/if}}
-          {{/row.cell}}
+              {{#if row.identifierTypeBeforeSuggestion}}
+                <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
+              {{/if}}
+            </section>
 
-          {{#row.cell class="dataset-compliance-fields__tall-cell dataset-compliance-fields__tall-cell"}}
-            {{ember-selector
-              class="nacho-select--hidden-state nacho-select--pre-wrap"
-              values=classifiers
-              selected=row.classification
-              disabled=(or (not isEditing) (not row.logicalType))
-              selectionDidChange=(action row.onFieldClassificationChange)
-            }}
+            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
+                Field Format
+                <a
+                  target="_blank"
+                  href="http://go/metadata_acquisition#ProjectOverview-compliance">
+                <sup>
+                More Info
+
+                <span class="glyphicon glyphicon-question-sign"
+                      title="More information on Field Format"></span>
+                </sup>
+                </a>
+              </div>
+
+              {{ember-selector
+                disabled=(not isEditing)
+                values=row.fieldFormats
+                selected=(readonly row.logicalType)
+                selectionDidChange=(action row.onFieldLogicalTypeChange)
+              }}
+
+              {{#if row.logicalTypeBeforeSuggestion}}
+                <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
+              {{/if}}
+            </section>
+
+            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
+                Not an Owner
+              </div>
+
+              {{input
+                id=(concat row.rowId '-compliance-field-owner-toggle')
+                type="checkbox"
+                class="toggle-switch toggle-switch--light"
+                disabled=(not isEditing)
+                checked=(readonly row.nonOwner)
+                change=(action row.onOwnerChange value="target.checked")
+              }}
+              <label for="{{concat row.rowId '-compliance-field-owner-toggle'}}" class="toggle-button"></label>
+            </section>
+
+            <section class="compliance-depends {{if (or row.isPiiType row.isIdType) 'compliance-depends--visible'}}">
+              <div class="dataset-compliance-fields__form-input">
+                Security Classification
+                <sup>
+                  <span
+                    class="glyphicon glyphicon-question-sign"
+                    title={{helpText.classification}}>
+                    {{tooltip-on-element
+                      event="click"
+                      hideOn="click"
+                      text=helpText.classification
+                    }}
+                  </span>
+                </sup>
+              </div>
+
+              {{ember-selector
+                class="nacho-select--hidden-state"
+                disabled=(not isEditing)
+                values=classifiers
+                selected=row.classification
+                selectionDidChange=(action row.onFieldClassificationChange)
+              }}
+            </section>
           {{/row.cell}}
         {{/body.row}}
       {{/each}}

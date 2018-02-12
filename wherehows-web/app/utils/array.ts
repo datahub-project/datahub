@@ -16,6 +16,7 @@ const arrayFilter = <T>(filtrationFunction: (param: T) => boolean): ((array: Arr
 
 /**
  * Composable reducer abstraction, curries a reducing iteratee and returns a reducing function that takes a list
+ * @template U
  * @param {(acc: U) => U} iteratee
  * @param {U} init the initial value in the reduction sequence
  * @return {(arr: Array<T>) => U}
@@ -27,6 +28,7 @@ const arrayReduce = <T, U>(
 
 /**
  * Duplicate check using every to short-circuit iteration
+ * @template T
  * @param {Array<T>} [list = []] list to check for dupes
  * @return {boolean} true is unique
  */
@@ -34,6 +36,7 @@ const isListUnique = <T>(list: Array<T> = []): boolean => new Set(list).size ===
 
 /**
  * Extracts all non falsey values from a list.
+ * @template T
  * @param {Array<T>} list the list of items to compact
  * @return {Array<T>}
  */

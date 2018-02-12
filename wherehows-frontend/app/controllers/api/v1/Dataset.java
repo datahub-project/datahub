@@ -25,7 +25,6 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import play.Logger;
 import play.cache.Cache;
 import play.libs.F.Promise;
@@ -35,6 +34,7 @@ import play.mvc.Result;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
+import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
 import wherehows.models.table.DatasetDependency;
@@ -42,6 +42,7 @@ import wherehows.models.table.ImpactDataset;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 
@@ -58,6 +59,8 @@ public class Dataset extends Controller {
   private static final OwnerViewDao OWNER_VIEW_DAO = Application.DAO_FACTORY.getOwnerViewDao();
 
   private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
+
+  private static final DataTypesViewDao DATA_TYPES_DAO = Application.DAO_FACTORY.getDataTypesViewDao();
 
   private static final String URN_CACHE_KEY = "wh.urn.cache.";
   private static final int URN_CACHE_PERIOD = 24 * 3600; // cache for 24 hours
@@ -242,13 +245,14 @@ public class Dataset extends Controller {
   public static Result getDatasetColumnsByID(int id) {
     String urn = getDatasetUrnByIdOrCache(id);
 
-    List<DatasetColumn> columns = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
+    DatasetSchema schema = DATASET_VIEW_DAO.getDatasetColumnsByID(id, urn);
 
     ObjectNode result = Json.newObject();
 
-    if (columns != null && columns.size() > 0) {
+    if (schema != null) {
       result.put("status", "ok");
-      result.set("columns", Json.toJson(columns));
+      result.put("schemaless", schema.getSchemaless());
+      result.set("columns", Json.toJson(schema.getColumns()));
     } else {
       result.put("status", "error");
       result.put("message", "record not found");
@@ -870,6 +874,30 @@ public class Dataset extends Controller {
     result.put("status", "ok");
     result.set("access", Json.toJson(DatasetsDAO.getDatasetAccessibilty(datasetId)));
     return ok(result);
+  }
+
+  public static Promise<Result> getComplianceDataTypes() {
+    ObjectNode result = Json.newObject();
+    try {
+      result.set("complianceDataTypes", Json.toJson(DATA_TYPES_DAO.getAllComplianceDataTypes()));
+      result.put("status", "ok");
+    } catch (Exception e) {
+      Logger.error("Fail to get compliance data types", e);
+      result.put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+    }
+    return Promise.promise(() -> ok(result));
+  }
+
+  public static Promise<Result> getDataPlatforms() {
+    ObjectNode result = Json.newObject();
+    try {
+      result.set("platforms", Json.toJson(DATA_TYPES_DAO.getAllPlatforms()));
+      result.put("status", "ok");
+    } catch (Exception e) {
+      Logger.error("Fail to get data platforms", e);
+      result.put("status", "failed").put("error", "true").put("msg", "Fetch data Error: " + e.toString());
+    }
+    return Promise.promise(() -> ok(result));
   }
 
   public static Promise<Result> getDatasetCompliance(int datasetId) {

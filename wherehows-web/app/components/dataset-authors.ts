@@ -12,15 +12,11 @@ import {
   ownerAlreadyExists,
   confirmOwner,
   updateOwner,
-  minRequiredConfirmedOwners
+  minRequiredConfirmedOwners,
+  validConfirmedOwners,
+  isRequiredMinOwnersNotConfirmed
 } from 'wherehows-web/constants/datasets/owner';
-import {
-  isRequiredMinOwnersNotConfirmed,
-  OwnerIdType,
-  OwnerSource,
-  OwnerType,
-  validConfirmedOwners
-} from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerIdType, OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 /**
@@ -153,6 +149,7 @@ export default class DatasetAuthors extends Component {
     const typeOfSaveAction = typeof this.save;
 
     // on instantiation, sets a reference to the userNamesResolver async function
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     set(this, 'userNamesResolver', get(get(this, 'userLookup'), 'userNamesResolver'));
 
     assert(
@@ -166,7 +163,7 @@ export default class DatasetAuthors extends Component {
      * Adds the component owner record to the list of owners with default props
      * @returns {Array<IOwner> | void}
      */
-    addOwner: (newOwner: IOwner): Array<IOwner> | void => {
+    addOwner(this: DatasetAuthors, newOwner: IOwner): Array<IOwner> | void {
       const owners = get(this, 'owners') || [];
       const { notify } = get(this, 'notifications');
 
@@ -186,7 +183,7 @@ export default class DatasetAuthors extends Component {
      * @param {IOwner} owner owner to be updates
      * @param {OwnerType} type new value to be set on the type attribute
      */
-    updateOwnerType: (owner: IOwner, type: OwnerType): Array<IOwner> | void => {
+    updateOwnerType(this: DatasetAuthors, owner: IOwner, type: OwnerType): Array<IOwner> | void {
       const owners = get(this, 'owners') || [];
       return updateOwner(owners, owner, 'type', type);
     },
@@ -196,16 +193,16 @@ export default class DatasetAuthors extends Component {
      * @param {IOwner} owner the owner to add to the list of owner with the source set to OwnerSource.Ui
      * @return {Array<IOwner> | void}
      */
-    confirmSuggestedOwner: (owner: IOwner): Array<IOwner> | void => {
+    confirmSuggestedOwner(this: DatasetAuthors, owner: IOwner): Array<IOwner> | void {
       const suggestedOwner = { ...owner, source: OwnerSource.Ui };
-      return this.actions.addOwner(suggestedOwner);
+      return this.actions.addOwner.call(this, suggestedOwner);
     },
 
     /**
      * removes an owner instance from the list of owners
      * @param {IOwner} owner the owner to be removed
      */
-    removeOwner: (owner: IOwner): IOwner => {
+    removeOwner(this: DatasetAuthors, owner: IOwner): IOwner {
       const owners = get(this, 'owners') || [];
       return owners.removeObject(owner);
     }

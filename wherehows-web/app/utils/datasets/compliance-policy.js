@@ -1,8 +1,6 @@
-import Ember from 'ember';
 import { DatasetClassifiers } from 'wherehows-web/constants/dataset-classification';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
-
-const { assert, Logger: { warn } } = Ember;
+import { assert, warn } from '@ember/debug';
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
@@ -152,7 +150,8 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       securityClassification,
       policyModificationTime,
       privacyPolicyExists,
-      isDirty
+      isDirty,
+      nonOwner
     } = mappedColumnFields[fieldName];
     const suggestion = fieldSuggestionMap[identifierField];
 
@@ -163,7 +162,8 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       logicalType,
       privacyPolicyExists,
       isDirty,
-      classification: securityClassification
+      nonOwner,
+      securityClassification
     };
 
     // If a suggestion exists for this field add the suggestion attribute to the field properties / changeSet

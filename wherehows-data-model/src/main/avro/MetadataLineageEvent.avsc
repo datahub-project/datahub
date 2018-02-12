@@ -10,6 +10,12 @@
       "doc": "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader"
     },
     {
+      "name": "changeAuditStamp",
+      "type": ["null", "ChangeAuditStamp"],
+      "doc": "Required, marked as optional for backward compatibility. The change auditing information, including actor, change type and timestamp, etc",
+      "default": null
+    },
+    {
       "name": "type",
       "type": {
         "type": "enum",
@@ -30,7 +36,8 @@
           "TERADATA",
           "UMP",
           "VENICE",
-          "VOLDEMORT_BNP"
+          "VOLDEMORT_BNP",
+          "UNUSED"
         ],
         "symbolDocs": {
           "AZKABAN": "Azkaban - batch workflow job scheduler",
@@ -48,10 +55,11 @@
           "TERADATA": "Teradata - Data Warehouse",
           "UMP": "UMP - Unified Metrics Pipeline",
           "VENICE": "Venice - Derived Data Platform",
-          "VOLDEMORT": "Voldemort - Distributed Key Value Storage"
+          "VOLDEMORT": "Voldemort - Distributed Key Value Storage",
+          "UNUSED": "Always use this value as the field is now deprecated"
         }
       },
-      "doc": "The type name of the application, such as Azkaban, Gobblin, etc."
+      "doc": "Deprecated. New clients should set this to UNUSED and use actor field in changeAuditStamp instead."
     },
     {
       "name": "name",

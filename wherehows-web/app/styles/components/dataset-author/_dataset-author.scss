@@ -1,5 +1,3 @@
-$owner-list-issue-color: set-color(red, maroonflush);
-
 .dataset-author {
   margin-top: item-spacing(7);
 
@@ -21,9 +19,18 @@ $owner-list-issue-color: set-color(red, maroonflush);
     pointer-events: none;
   }
 
-  &#{&} &__action {
+  &--inactive {
+    text-decoration: line-through;
+  }
+
+  &#{&} &__indicator {
     &--disabled {
       background-color: set-color(grey, mid);
+    }
+
+    &--inactive {
+      background-color: set-color(red, maroonflush);
+      pointer-events: none;
     }
   }
 }

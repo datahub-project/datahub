@@ -13,22 +13,31 @@
  */
 package wherehows.processors;
 
-import com.linkedin.events.KafkaAuditHeader;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
+import com.linkedin.events.metadata.Schemaless;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import wherehows.converters.KafkaLogCompactionConverter;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
+import wherehows.exceptions.UnauthorizedException;
 import wherehows.models.table.DictDataset;
 
 import static wherehows.common.utils.StringUtil.*;
@@ -36,6 +45,13 @@ import static wherehows.common.utils.StringUtil.*;
 
 @Slf4j
 public class MetadataChangeProcessor extends KafkaMessageProcessor {
+
+  private final Config config = ConfigFactory.load();
+
+  private final String whitelistStr = config.hasPath("whitelist.mce") ? config.getString("whitelist.mce") : "";
+
+  private final Set<String> whitelistActors =
+      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
 
   private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
 
@@ -50,6 +66,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
   public MetadataChangeProcessor(DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
     super(daoFactory, producerTopic, producer);
+    log.info("MCE whitelist: " + whitelistActors);
   }
 
   /**
@@ -63,7 +80,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     log.debug("Processing Metadata Change Event record.");
 
-    MetadataChangeEvent event = (MetadataChangeEvent) indexedRecord;
+    final MetadataChangeEvent event = (MetadataChangeEvent) indexedRecord;
     try {
       processEvent(event);
     } catch (Exception exception) {
@@ -74,59 +91,66 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
   }
 
   private void processEvent(MetadataChangeEvent event) throws Exception {
-    final KafkaAuditHeader auditHeader = event.auditHeader;
-    if (auditHeader == null) {
-      throw new Exception("Missing Kafka Audit header: " + event.toString());
+    final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
+    String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
+    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+      throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
-    final DatasetIdentifier identifier = event.datasetIdentifier;
-    log.debug("MCE: " + identifier + " TS: " + auditHeader.time);
-    final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
+    event = new KafkaLogCompactionConverter().convert(event);
+
     final ChangeType changeType = changeAuditStamp.type;
 
-    if (changeType == ChangeType.DELETE) {
-      // TODO: delete dataset
-      throw new Exception("Dataset deletion not yet implemented: " + identifier);
-    }
+    final DatasetIdentifier identifier = event.datasetIdentifier;
+    log.debug("MCE: " + identifier);
 
     // check dataset name length to be within limit. Otherwise, save to DB will fail.
     if (identifier.nativeName.length() > MAX_DATASET_NAME_LENGTH) {
-      throw new Exception("Dataset name too long: " + identifier);
+      throw new IllegalArgumentException("Dataset name too long: " + identifier);
     }
 
+    // if DELETE, mark dataset as removed and return
+    if (changeType == ChangeType.DELETE) {
+      _dictDatasetDao.setDatasetRemoved(identifier, true, changeAuditStamp);
+      return;
+    }
+
+    final DatasetSchema dsSchema = event.schema instanceof DatasetSchema ? (DatasetSchema) event.schema : null;
+
     // create or update dataset
-    DictDataset ds =
-        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, event.schema,
+    final DictDataset dataset =
+        _dictDatasetDao.insertUpdateDataset(identifier, changeAuditStamp, event.datasetProperty, dsSchema,
             event.deploymentInfo, toStringList(event.tags), event.capacity, event.partitionSpec);
 
     // if schema is not null, insert or update schema
-    if (event.schema != null) {
-      _fieldDetailDao.insertUpdateDatasetFields(identifier, ds.getId(), event.datasetProperty, changeAuditStamp,
-          event.schema);
+    if (dsSchema != null) { // if instanceof DatasetSchema
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, dataset, event.datasetProperty, changeAuditStamp, dsSchema);
+    } else if (event.schema instanceof Schemaless) { // if instanceof Schemaless
+      _fieldDetailDao.insertUpdateSchemaless(identifier, dataset, changeAuditStamp);
     }
 
     // if owners are not null, insert or update owner
     if (event.owners != null) {
-      _ownerDao.insertUpdateOwnership(identifier, ds.getId(), changeAuditStamp, event.owners);
+      _ownerDao.insertUpdateOwnership(identifier, dataset, changeAuditStamp, event.owners);
     }
 
     // if compliance is not null, insert or update compliance
     if (event.compliancePolicy != null) {
-      _complianceDao.insertUpdateCompliance(identifier, ds.getId(), changeAuditStamp, event.compliancePolicy);
+      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance
     if (event.suggestedCompliancePolicy != null) {
-      _complianceDao.insertUpdateSuggestedCompliance(identifier, ds.getId(), changeAuditStamp,
+      _complianceDao.insertUpdateSuggestedCompliance(identifier, dataset, changeAuditStamp,
           event.suggestedCompliancePolicy);
     }
   }
 
   private FailedMetadataChangeEvent newFailedEvent(MetadataChangeEvent event, Throwable throwable) {
-    FailedMetadataChangeEvent faileEvent = new FailedMetadataChangeEvent();
-    faileEvent.time = System.currentTimeMillis();
-    faileEvent.error = ExceptionUtils.getStackTrace(throwable);
-    faileEvent.metadataChangeEvent = event;
-    return faileEvent;
+    FailedMetadataChangeEvent failedEvent = new FailedMetadataChangeEvent();
+    failedEvent.time = System.currentTimeMillis();
+    failedEvent.error = ExceptionUtils.getStackTrace(throwable);
+    failedEvent.metadataChangeEvent = event;
+    return failedEvent;
   }
 }

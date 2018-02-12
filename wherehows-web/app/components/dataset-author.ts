@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty, { equal } from '@ember/object/computed';
+import ComputedProperty, { equal, not } from '@ember/object/computed';
 import { getProperties, computed } from '@ember/object';
 import { assert } from '@ember/debug';
 
@@ -18,7 +18,10 @@ export default class DatasetAuthor extends Component {
 
   classNames = ['dataset-author-record'];
 
-  classNameBindings = ['isConfirmedSuggestedOwner:dataset-author-record--disabled'];
+  classNameBindings = [
+    'isConfirmedSuggestedOwner:dataset-author-record--disabled',
+    'isOwnerInActive:dataset-author-record--inactive'
+  ];
 
   /**
    * The owner record being rendered
@@ -72,22 +75,27 @@ export default class DatasetAuthor extends Component {
   isOwnerMutable: ComputedProperty<boolean> = equal('owner.source', OwnerSource.Ui);
 
   /**
+   * Negates the owner attribute flag `isActive`, indicating owner record is considered inactive
+   * @type {ComputedProperty<boolean>}
+   * @memberOf DatasetAuthor
+   */
+  isOwnerInActive: ComputedProperty<boolean> = not('owner.isActive');
+
+  /**
    * Determines if the owner record is a system suggested owner and if this record is confirmed by a user
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthor
    */
-  isConfirmedSuggestedOwner: ComputedProperty<boolean> = computed('commonOwners', function(this: DatasetAuthor) {
+  isConfirmedSuggestedOwner: ComputedProperty<boolean> = computed('commonOwners', function(
+    this: DatasetAuthor
+  ): boolean {
     const { commonOwners, isOwnerMutable, owner: { userName } } = getProperties(this, [
       'commonOwners',
       'isOwnerMutable',
       'owner'
     ]);
 
-    if (!isOwnerMutable) {
-      return commonOwners.findBy('userName', userName);
-    }
-
-    return false;
+    return isOwnerMutable ? false : !!commonOwners.findBy('userName', userName);
   });
 
   constructor() {
@@ -112,7 +120,7 @@ export default class DatasetAuthor extends Component {
      * Invokes the external action removeOwner to remove an owner from the confirmed list
      * @return {boolean | void | IOwner}
      */
-    removeOwner: () => {
+    removeOwner(this: DatasetAuthor): boolean | void | IOwner {
       const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
       return isOwnerMutable && removeOwner(owner);
     },
@@ -121,7 +129,7 @@ export default class DatasetAuthor extends Component {
      * Invokes the external action for  confirming the suggested owner
      * @return {Array<IOwner> | void}
      */
-    confirmOwner: () => {
+    confirmOwner(this: DatasetAuthor): Array<IOwner> | void {
       const { owner, confirmSuggestedOwner } = getProperties(this, ['owner', 'confirmSuggestedOwner']);
       return confirmSuggestedOwner(owner);
     },
@@ -131,7 +139,7 @@ export default class DatasetAuthor extends Component {
      * @param {OwnerType} type value to update the type attribute with
      * @return {void}
      */
-    changeOwnerType: (type: OwnerType) => {
+    changeOwnerType(this: DatasetAuthor, type: OwnerType): boolean | void {
       const { owner, isOwnerMutable, updateOwnerType } = getProperties(this, [
         'owner',
         'isOwnerMutable',

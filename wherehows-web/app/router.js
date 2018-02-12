@@ -1,7 +1,8 @@
-import Ember from 'ember';
+import Router from '@ember/routing/router';
+import { get, getWithDefault } from '@ember/object';
+import { inject as service } from '@ember/service';
+import { scheduleOnce } from '@ember/runloop';
 import config from './config/environment';
-
-const { get, Router, getWithDefault, inject: { service }, run: { scheduleOnce } } = Ember;
 
 const AppRouter = Router.extend({
   location: config.locationType,
@@ -56,9 +57,21 @@ AppRouter.map(function() {
     path: '/*wildcard'
   });
   this.route('datasets', function() {
-    this.route('dataset', {
-      path: '/:datasetIdentifier'
-    });
+    this.route(
+      'dataset',
+      {
+        path: '/:dataset_id'
+      },
+      function() {
+        this.route('properties');
+        this.route('comments');
+        this.route('schema');
+        this.route('ownership');
+        this.route('compliance');
+        this.route('sample');
+        this.route('relations');
+      }
+    );
   });
   this.route('search');
   this.route('metrics', function() {

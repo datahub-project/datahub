@@ -17,14 +17,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
 import lombok.extern.slf4j.Slf4j;
 import wherehows.dao.table.DictDatasetDao;
+import wherehows.models.PagedCollection;
 import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.*;
 import static wherehows.util.UrnUtil.*;
 
 
@@ -39,14 +42,17 @@ public class DatasetViewDao extends BaseViewDao {
   }
 
   private static final String GET_DATASET_COLUMNS_BY_DATASET_ID =
-      "select dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
+      "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
           + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
           + "dfd.is_distributed as distributed, c.comment, "
           + "( SELECT count(*) FROM dict_dataset_field_comment ddfc "
           + "WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count "
-          + "FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON "
-          + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN field_comments c ON "
-          + "c.id = ddfc.comment_id WHERE dfd.dataset_id = :datasetId ORDER BY dfd.sort_id";
+          + "FROM dict_field_detail dfd "
+          + "LEFT JOIN dict_dataset_field_comment ddfc ON ddfc.field_id = dfd.field_id "
+          + "  AND ddfc.comment_id = (select max(comment_id) from dict_dataset_field_comment "
+          + "  where field_id = dfd.field_id and is_default = true) "
+          + "LEFT JOIN field_comments c ON c.id = ddfc.comment_id "
+          + "WHERE dfd.dataset_id = :datasetId ORDER BY dfd.sort_id";
 
   private static final String GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID =
       "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
@@ -90,19 +96,37 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
+  public PagedCollection<DatasetView> listDatasets(@Nullable String platform, @Nullable String origin,
+      @Nonnull String prefix, int start, int count) throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
+  public List<String> listSegments(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
+  public List<String> listFullNames(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
+    throw new RuntimeException("Not implemented yet");
+  }
+
   /**
    * Get dataset columns by dataset id
    * @param datasetId int
    * @param datasetUrn String
    * @return List of DatasetColumn
    */
-  public List<DatasetColumn> getDatasetColumnsByID(int datasetId, @Nonnull String datasetUrn) {
+  public DatasetSchema getDatasetColumnsByID(int datasetId, @Nonnull String datasetUrn) {
     Map<String, Object> params = new HashMap<>();
     params.put("datasetId", datasetId);
 
     List<DatasetColumn> columns = getEntityListBy(GET_DATASET_COLUMNS_BY_DATASET_ID, DatasetColumn.class, params);
     fillInColumnEntity(columns);
-    return columns;
+
+    DatasetSchema schema = new DatasetSchema();
+    schema.setSchemaless(false);
+    schema.setColumns(columns);
+
+    return schema;
   }
 
   /**
@@ -116,7 +140,8 @@ public class DatasetViewDao extends BaseViewDao {
     params.put("datasetId", datasetId);
     params.put("columnId", columnId);
 
-    List<DatasetColumn> columns = getEntityListBy(GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID, DatasetColumn.class, params);
+    List<DatasetColumn> columns =
+        getEntityListBy(GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID, DatasetColumn.class, params);
     fillInColumnEntity(columns);
     return columns;
   }

@@ -18,4 +18,8 @@
       @include pill(set-color(red, maroonflush), set-color(white, base));
     }
   }
+
+  &__retry-platforms {
+    @include flex-column-center;
+  }
 }

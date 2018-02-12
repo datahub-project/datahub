@@ -1,6 +1,6 @@
-import Ember from 'ember';
-
-const { Controller, computed, get, set, String: { capitalize } } = Ember;
+import Controller from '@ember/controller';
+import { computed, set, get } from '@ember/object';
+import { capitalize } from '@ember/string';
 
 const sources = ['all', 'dali', 'espresso', 'hive', 'hdfs', 'kafka', 'oracle', 'teradata', 'voldemort'];
 
@@ -23,7 +23,7 @@ export default Controller.extend({
 
   isMetric: false,
 
-  datasetTitle: function() {
+  datasetTitle: computed('model.source', function() {
     var model = this.get('model');
     if (model && model.source) {
       if (model.source.toLocaleLowerCase() != 'all') {
@@ -31,8 +31,8 @@ export default Controller.extend({
       }
     }
     return 'Datasets';
-  }.property('model.source'),
-  isDatasets: function() {
+  }),
+  isDatasets: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'datasets') {
@@ -40,8 +40,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.category'),
-  isComments: function() {
+  }),
+  isComments: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'comments') {
@@ -49,8 +49,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.category'),
-  isMetrics: function() {
+  }),
+  isMetrics: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'metrics') {
@@ -58,8 +58,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.category'),
-  isFlows: function() {
+  }),
+  isFlows: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'flows') {
@@ -67,8 +67,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.category'),
-  isJobs: function() {
+  }),
+  isJobs: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
       if (model.category.toLocaleLowerCase() === 'jobs') {
@@ -76,8 +76,8 @@ export default Controller.extend({
       }
     }
     return false;
-  }.property('model.category'),
-  previousPage: function() {
+  }),
+  previousPage: computed('model.page', function() {
     var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
@@ -89,8 +89,8 @@ export default Controller.extend({
     } else {
       return 1;
     }
-  }.property('model.page'),
-  nextPage: function() {
+  }),
+  nextPage: computed('model.page', function() {
     var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
@@ -103,8 +103,8 @@ export default Controller.extend({
     } else {
       return 1;
     }
-  }.property('model.page'),
-  first: function() {
+  }),
+  first: computed('model.page', function() {
     var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
@@ -116,8 +116,8 @@ export default Controller.extend({
     } else {
       return false;
     }
-  }.property('model.page'),
-  last: function() {
+  }),
+  last: computed('model.page', function() {
     var model = this.get('model');
     if (model && model.page) {
       var currentPage = model.page;
@@ -130,7 +130,7 @@ export default Controller.extend({
     } else {
       return false;
     }
-  }.property('model.page'),
+  }),
 
   actions: {
     sourceDidChange(groupName, value) {

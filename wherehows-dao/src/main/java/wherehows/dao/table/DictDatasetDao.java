@@ -45,6 +45,9 @@ public class DictDatasetDao extends BaseDao {
   private static final String SET_DATASET_DEPRECATION =
       "UPDATE DictDataset SET isDeprecated = :deprecated WHERE id = :datasetId";
 
+  private static final String SET_DATASET_ACTIVE =
+      "UPDATE DictDataset SET isActive = :active WHERE urn = :datasetUrn";
+
   public DictDataset findByUrn(@Nonnull String urn) {
     return findBy(DictDataset.class, "urn", urn);
   }
@@ -65,6 +68,7 @@ public class DictDatasetDao extends BaseDao {
    * @return dataset id
    * @throws Exception
    */
+  @Nullable
   public DictDataset insertUpdateDataset(@Nonnull DatasetIdentifier identifier, @Nonnull ChangeAuditStamp auditStamp,
       @Nullable DatasetProperty property, @Nullable DatasetSchema schema, @Nullable List<DeploymentDetail> deployments,
       @Nullable List<String> tags, @Nullable List<Capacity> capacities, @Nullable PartitionSpecification partitions)
@@ -186,5 +190,24 @@ public class DictDatasetDao extends BaseDao {
     params.put("deprecated", isDeprecated);
 
     executeUpdate(SET_DATASET_DEPRECATION, params);
+  }
+
+  /**
+   * Set active/removed status of a dataset.
+   * @param identifier DatasetIdentifier
+   * @param isRemoved boolean
+   * @param auditStamp ChangeAuditStamp
+   * @throws Exception
+   */
+  public void setDatasetRemoved(@Nonnull DatasetIdentifier identifier, boolean isRemoved,
+      @Nonnull ChangeAuditStamp auditStamp) throws Exception {
+
+    String urn = toWhDatasetUrn(identifier);
+
+    Map<String, Object> params = new HashMap<>();
+    params.put("datasetUrn", urn);
+    params.put("active", !isRemoved);
+
+    executeUpdate(SET_DATASET_ACTIVE, params);
   }
 }

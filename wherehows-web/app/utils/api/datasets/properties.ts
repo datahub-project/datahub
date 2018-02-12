@@ -72,17 +72,13 @@ const formatPropertyDateValue = (property: keyof IDatasetProperties, value: any)
   }
 
   if (property === 'dumpdate') {
-    return [
-      ['-', 0, 4],
-      ['-', 4, 6],
-      [' ', 6, 8],
-      [':', 8, 10],
-      [':', 10, 12],
-      ['', 12, 14]
-    ].reduce((dateString, props) => {
-      const [postfix, ...range] = props;
-      return dateString + value.substring(...range) + postfix;
-    }, '');
+    return [['-', 0, 4], ['-', 4, 6], [' ', 6, 8], [':', 8, 10], [':', 10, 12], ['', 12, 14]].reduce(
+      (dateString, props: [string, number, number]): string => {
+        const [postfix, start, end] = props;
+        return value ? dateString + ('' + value).substring(start, end) + postfix : dateString;
+      },
+      ''
+    );
   }
 
   return value;
@@ -140,12 +136,23 @@ const readNonPinotProperties = async (id: number): Promise<Array<IPropertyItem>>
 };
 
 /**
+ * Describes the inteface of object returned from the api request to get pinot properties
+ * @interface IDatasetSamplesAndColumns
+ */
+interface IDatasetSamplesAndColumns {
+  hasSamples: boolean;
+  samples: Array<string>;
+  columns: Array<string>;
+}
+/**
  * Extracts samples and columns for a dataset that is sourced from pinot
- * @param {IDatasetPinotProperties} properties
+ * @param {IDatasetPinotProperties} [properties=<IDatasetPinotProperties>{}]
  * @returns
  */
-const getDatasetSamplesAndColumns = (properties: IDatasetPinotProperties) => {
-  const { elements = [] } = properties;
+const getDatasetSamplesAndColumns = (
+  properties: IDatasetPinotProperties = <IDatasetPinotProperties>{}
+): IDatasetSamplesAndColumns | void => {
+  const { elements = [{ columnNames: [], results: [] }] } = properties;
   const [{ columnNames = [], results }] = elements;
   if (columnNames.length) {
     return {

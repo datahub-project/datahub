@@ -1,23 +1,27 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
+import { set, get, setProperties } from '@ember/object';
+import { inject } from '@ember/service';
+import $ from 'jquery';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
 import { readNonPinotProperties, readPinotProperties } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
+import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
 import {
   readDatasetColumns,
   columnDataTypesAndFieldNames,
   augmentObjectsWithHtmlComments
 } from 'wherehows-web/utils/api/datasets/columns';
 
-import {
-  readDatasetOwners,
-  getUserEntities,
-  isRequiredMinOwnersNotConfirmed
-} from 'wherehows-web/utils/api/datasets/owners';
+import { readDatasetOwners, getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
+import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
 import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import isDatasetUrn from 'wherehows-web/utils/validators/urn';
 
-const { Route, get, set, setProperties, inject: { service }, $: { getJSON } } = Ember;
+import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
+import { currentUser } from 'wherehows-web/utils/api/authentication';
+
+const { getJSON } = $;
 // TODO: DSS-6581 Move to URL retrieval module
 const datasetsUrlRoot = '/api/v1/datasets';
 const datasetUrl = id => `${datasetsUrlRoot}/${id}`;
@@ -35,7 +39,7 @@ export default Route.extend({
    * Runtime application configuration options
    * @type {Ember.Service}
    */
-  configurator: service(),
+  configurator: inject(),
 
   queryParams: {
     urn: {
@@ -45,12 +49,12 @@ export default Route.extend({
 
   /**
    * Reads the dataset given a identifier from the dataset endpoint
-   * @param {string} datasetIdentifier a identifier / id for the dataset to be fetched
+   * @param {string} dataset_id a identifier / id for the dataset to be fetched
    * @param {string} [urn] optional urn identifier for dataset
    * @return {Promise<IDataset>}
    */
-  async model({ datasetIdentifier, urn }) {
-    let datasetId = datasetIdentifier;
+  async model({ dataset_id, urn }) {
+    let datasetId = dataset_id;
 
     if (datasetId === 'urn' && isDatasetUrn(urn)) {
       datasetId = await datasetUrnToId(urn);
@@ -92,6 +96,7 @@ export default Route.extend({
 
     // Don't set default zero Ids on controller
     if (id) {
+      id = +id;
       controller.set('datasetId', id);
 
       /**
@@ -108,8 +113,9 @@ export default Route.extend({
           let properties;
 
           const [
-            columns,
+            { schemaless, columns },
             compliance,
+            complianceDataTypes,
             complianceSuggestion,
             datasetComments,
             isInternal,
@@ -119,6 +125,7 @@ export default Route.extend({
           ] = await Promise.all([
             readDatasetColumns(id),
             readDatasetCompliance(id),
+            readComplianceDataTypes(),
             readDatasetComplianceSuggestion(id),
             readDatasetComments(id),
             get(this, 'configurator').getConfig('isInternal'),
@@ -137,9 +144,11 @@ export default Route.extend({
 
           setProperties(controller, {
             complianceInfo,
+            complianceDataTypes,
             isNewComplianceInfo,
             complianceSuggestion,
             datasetComments,
+            schemaless,
             schemas,
             isInternal,
             datasetView,
@@ -314,6 +323,27 @@ export default Route.extend({
         return Promise.reject(new Error('Dataset references request failed.'));
       })
       .catch(() => set(controller, 'hasReferences', false));
+
+    // TODO: Get current user ACL permission info for ACL access tab
+    Promise.resolve(currentUser())
+      .then(userInfo => {
+        setProperties(controller, {
+          userInfo
+        });
+        return checkAclAccess(userInfo.userName).then(value => {
+          setProperties(controller, {
+            aclAccessResponse: value,
+            currentUserInfo: userInfo.userName,
+            aclUsers: value.body
+          });
+        });
+      })
+      .catch(error => {
+        setProperties(controller, {
+          aclAccessResponse: null,
+          currentUserInfo: ''
+        });
+      });
   },
 
   actions: {

@@ -1,6 +1,8 @@
+import { IFieldIdentifierOption } from 'wherehows-web/constants';
+
 /**
  * List of string values for every dataset classifier
- * @enum {number}
+ * @enum {string}
  */
 enum DatasetClassifiers {
   CONNECTIONS_FOLLOWERS_FOLLOWING = 'Connections + Followers + Following',
@@ -26,4 +28,19 @@ enum DatasetClassifiers {
   OTHER_CLICKSTREAM_BROWSING_DATA = 'Other Clickstream Data + Browsing history'
 }
 
-export { DatasetClassifiers };
+/**
+ * Defines a type alias for a DatasetClassification interface, constrains the keys as attributes on DatasetClassifiers
+ * and specifies value types
+ */
+type DatasetClassification = { [K in keyof typeof DatasetClassifiers]: boolean | void };
+
+/**
+ * Describes the interface for a DatasetClassification option
+ * @interface IDatasetClassificationOption
+ * @extends {(IFieldIdentifierOption<boolean | void>)}
+ */
+interface IDatasetClassificationOption extends IFieldIdentifierOption<boolean | void> {
+  classifier: keyof typeof DatasetClassifiers;
+}
+
+export { DatasetClassifiers, DatasetClassification, IDatasetClassificationOption };

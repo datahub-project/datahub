@@ -1,32 +1,73 @@
-{{#each-in purgePolicyProps as |purgeType prop|}}
-  <li
-    class="purge-policy-list__item {{unless (contains (uppercase platform) prop.platforms) 'purge-policy-list__item--disabled'}}">
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      Compliance Purge Policy
 
-    {{#radio-button-composer
-      name="dataset-purge-policy"
-      value=(if (contains (uppercase platform) prop.platforms) purgeType null)
-      disabled=(if (contains (uppercase platform) prop.platforms) false true)
-      groupValue=(readonly purgePolicy)
-      changed=(action "onChange")
-    }}
-      {{prop.displayAs}}
-    {{/radio-button-composer}}
+      <a
+        target="_blank"
+        href="http://go/gdpr/deletions/purgePolicies">
+        <sup>
+          More Info
 
-    {{#unless (contains (uppercase platform) prop.platforms)}}
-      <p class="purge-policy-list__availability">
-        Purge policy not available for <span class="purge-policy-list__platform--unavailable">{{lowercase platform}}</span>
-      </p>
-    {{/unless}}
+          <span class="glyphicon glyphicon-question-sign"
+                title="More information Purge Policies"></span>
+        </sup>
+      </a>
+    </p>
+  </header>
+</section>
 
-    <p>{{prop.desc}}</p>
+<ul class="purge-policy-list">
+  {{#if isEditable}}
 
-    {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
+    {{#each-in purgePolicyProps as |purgeType prop|}}
+      <li
+        class="purge-policy-list__item {{unless (contains purgeType supportedPurgePolicies)
+                                                'purge-policy-list__item--disabled'}}">
 
-      {{medium-content-editable
-        value=purgeNote
-        options=editorOptions
-        class="comment-new__content"}}
+        {{#radio-button-composer
+          name="dataset-purge-policy"
+          value=(if (contains purgeType supportedPurgePolicies) purgeType null)
+          disabled=(if (contains purgeType supportedPurgePolicies) false true)
+          groupValue=(readonly purgePolicy)
+          changed=(action "onChange")
+        }}
+          {{prop.displayAs}}
+        {{/radio-button-composer}}
+
+        {{#unless (contains purgeType supportedPurgePolicies)}}
+          <p class="purge-policy-list__availability">
+            Purge policy not available for <span class="purge-policy-list__platform--unavailable">
+            {{platform}}</span>
+          </p>
+        {{/unless}}
+
+        <p>{{prop.desc}}</p>
+
+        {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
+
+          {{medium-content-editable
+            value=purgeNote
+            options=editorOptions
+            class="comment-new__content"}}
+
+        {{/if}}
+      </li>
+    {{/each-in}}
+
+  {{else}}
+
+    {{#if purgePolicy}}
+      <li class="purge-policy-list__item">
+        <strong>
+          {{get (get purgePolicyProps purgePolicy) "displayAs"}}
+        </strong>
+      </li>
+    {{else}}
+
+      <p>{{missingPolicyText}}</p>
+      <sub>To update, click edit and follow the steps</sub>
 
     {{/if}}
-  </li>
-{{/each-in}}
+  {{/if}}
+</ul>

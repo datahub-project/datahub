@@ -1,7 +1,5 @@
-import Ember from 'ember';
-import connect from 'ember-redux/components/connect';
-
-const { Component } = Ember;
+import Component from '@ember/component';
+import { connect } from 'ember-redux';
 
 /**
  * Extract the childIds for an entity under a specific category

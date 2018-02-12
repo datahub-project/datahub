@@ -26,8 +26,6 @@ import wherehows.models.view.DatasetOwner;
 
 public class OwnerViewDao extends BaseViewDao {
 
-  private static final Logger log = LoggerFactory.getLogger(OwnerViewDao.class);
-
   public OwnerViewDao(EntityManagerFactory factory) {
     super(factory);
   }

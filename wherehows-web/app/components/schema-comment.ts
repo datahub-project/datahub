@@ -1,6 +1,5 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
-import MutableArray from '@ember/array/mutable';
 import { getProperties, get, set } from '@ember/object';
 import { inject } from '@ember/service';
 import { assert } from '@ember/debug';
@@ -25,26 +24,34 @@ enum SchemaCommentActions {
 interface IGetCommentsTaskArgs {
   datasetId: number;
   columnId: number;
-  comments: MutableArray<IDatasetComment>;
+  comments: Array<IDatasetComment>;
 }
 
 export class SchemaComment extends Component {
-  comments = [];
+  comments: Array<IDatasetComment> = [];
   count = 0;
   datasetId = 0;
   columnId = 0;
   isShowingFieldComment = false;
 
   /**
-   * 
-   * 
+   * Local reference to the notifications service
    * @memberof SchemaComment
    */
   notifications: ComputedProperty<Notifications> = inject();
 
+  /**
+   * Enum of applicable values for schema comment actions
+   * @type {SchemaCommentActions}
+   */
   SchemaCommentActions = SchemaCommentActions;
 
-  getComments = task(function*({ datasetId, columnId, comments }: IGetCommentsTaskArgs) {
+  /**
+   * Task to get related schema comments
+   * TODO: refactor move to container component
+   * @type {"ember-concurrency".Task<Promise<Array<IDatasetComment>>, (a?: IGetCommentsTaskArgs) => "ember-concurrency".TaskInstance<Promise<Array<IDatasetComment>>>>}
+   */
+  getCommentsTask = task(function*({ datasetId, columnId, comments }: IGetCommentsTaskArgs) {
     const schemaComments: Array<IDatasetComment> = yield readDatasetSchemaComments(datasetId, columnId);
     const withHtmlComments = augmentObjectsWithHtmlComments(
       schemaComments.map(({ text }) => <IDatasetColumn>{ comment: text })
@@ -57,6 +64,7 @@ export class SchemaComment extends Component {
       const props = getProperties(this, ['datasetId', 'columnId', 'comments']);
       set(this, 'isShowingFieldComment', true);
 
+      // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
       return get(this, 'getComments').perform(props);
     },
 
@@ -64,14 +72,19 @@ export class SchemaComment extends Component {
       return set(this, 'isShowingFieldComment', false);
     },
 
-    async handleSchemaComment(this: SchemaComment, strategy: keyof typeof SchemaCommentActions) {
+    /**
+     * Given a schema comment action, invokes the related action to process the schema comment
+     * @param {SchemaCommentActions} strategy
+     * @return {Promise<boolean>}
+     */
+    async handleSchemaComment(this: SchemaComment, strategy: SchemaCommentActions) {
       const [, { text }] = arguments;
-      const { datasetId, columnId, notifications, comments, getComments } = getProperties(this, [
+      const { datasetId, columnId, notifications, comments, getCommentsTask } = getProperties(this, [
         'datasetId',
         'columnId',
         'notifications',
         'comments',
-        'getComments'
+        'getCommentsTask'
       ]);
       const { notify } = notifications;
 
@@ -86,7 +99,8 @@ export class SchemaComment extends Component {
       try {
         await action();
         notify(NotificationEvent.success, { content: 'Success!' });
-        getComments.perform({ datasetId, columnId, comments });
+        // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
+        getCommentsTask.perform({ datasetId, columnId, comments });
       } catch (e) {
         notify(NotificationEvent.error, { content: e.message });
       }

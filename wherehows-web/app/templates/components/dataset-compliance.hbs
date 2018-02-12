@@ -1,115 +1,175 @@
-<div id="compliance" class="tab-body">
-  {{#if _hasBadData}}
-    <div class="alert alert-danger post-action-notification" role="alert">
-      <p>
-        Oops! We have discovered some issues with this Dataset's fields that
-        may put any updates in an invalid state. <br/>
-        Unfortunately updates are <strong>disabled</strong> at this time. <br/>
-        Please shoot us an email at
-        <a href="mailto:ask_metadata@linkedin.com">ask_metadata@linkedin.com</a>
-        and we will get on this asap! <br/>
-        Our apologies.
-      </p>
-    </div>
-  {{else}}
-    <section class="action-bar">
-      {{#if isEditing}}
+{{#if complianceAvailabilityTask.isRunning}}
+  {{pendulum-ellipsis-animation}}
+{{else}}
+  {{#if isCompliancePolicyAvailable}}
 
-        {{#if _message}}
-          <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
-            {{_message}}
-          </div>
-        {{/if}}
+    <div id="compliance" class="tab-body">
+      {{#if _hasBadData}}
+        <div class="alert alert-danger post-action-notification" role="alert">
+          <p>
+            Oops! We have discovered some issues with this Dataset's fields that
+            may put any updates in an invalid state. <br/>
+            Unfortunately updates are <strong>disabled</strong> at this time. <br/>
+            Please shoot us an email at
+            <a href="mailto:ask_metadata@linkedin.com">ask_metadata@linkedin.com</a>
+            and we will get on this asap! <br/>
+            Our apologies.
+          </p>
+        </div>
+      {{else}}
+        <section class="action-bar">
+          {{#if isEditing}}
 
-        <div class="container action-bar__content">
-          {{#if (has-next editStep editSteps)}}
-            <button
-              class="nacho-button nacho-button--large-inverse action-bar__item"
-              title="Next"
-              {{action "nextStep"}}>
-              Next
-            </button>
-          {{else}}
-            <button
-              class="nacho-button nacho-button--large-inverse action-bar__item"
-              title={{unless isDatasetFullyClassified
-                             "Ensure you have provided a yes/no value for all dataset tags"
-                             "Save"}}
-                disabled={{isSavingDisabled}}
-              {{action "saveCompliance"}}>
-              Save
-            </button>
+            {{#if _message}}
+              <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
+                {{_message}}
+              </div>
+            {{/if}}
+
+            <div class="container action-bar__content">
+              {{#if (has-next editStep editSteps)}}
+                <button
+                  class="nacho-button nacho-button--large-inverse action-bar__item"
+                  title="Next"
+                  {{action "nextStep"}}>
+                  Next
+                </button>
+              {{else}}
+                <button
+                  class="nacho-button nacho-button--large-inverse action-bar__item"
+                  title={{unless isDatasetFullyClassified
+                                 "Ensure you have provided a yes/no value for all dataset tags"
+                                 "Save"}}
+                    disabled={{isSavingDisabled}}
+                  {{action "saveCompliance"}}>
+                  Save
+                </button>
+              {{/if}}
+
+              {{#if (has-previous editStep editSteps)}}
+                <button
+                  class="nacho-button--large nacho-button--secondary action-bar__item"
+                  title="Back"
+                  {{action "previousStep"}}>
+                  Back
+                </button>
+
+              {{/if}}
+            </div>
+
           {{/if}}
+        </section>
+      {{/if}}
 
-          {{#if (has-previous editStep editSteps)}}
-            <button
-              class="nacho-button--large nacho-button--secondary action-bar__item"
-              title="Back"
-              {{action "previousStep"}}>
-              Back
-            </button>
-
-          {{/if}}
+      <div class="secondary-actions">
+        <div class="policy-last-saved">
+          Last saved:
+          <span class="policy-last-saved__saved">
+            {{if isNewComplianceInfo 'Never'
+                 (moment-from-now complianceInfo.modifiedTime)}}
+          </span>
         </div>
 
+        {{#unless isEditing}}
+
+          <button
+            {{action "nextStep"}}
+            class="nacho-button--large nacho-button--secondary secondary-actions__action">
+            Edit
+          </button>
+
+          {{#unless isNewComplianceInfo}}
+            <button
+              {{action "onComplianceDownloadJson"}}
+              class="nacho-button nacho-button--large-inverse secondary-actions__action">
+              Download compliance metadata
+            </button>
+          {{/unless}}
+
+        {{/unless}}
+      </div>
+
+      {{#if isEditing}}
+        <div class="dataset-compliance-step-container">
+          {{partial "datasets/dataset-compliance/-dataset-compliance-step-indicator"}}
+        </div>
       {{/if}}
-    </section>
-  {{/if}}
 
-  <div class="secondary-actions">
-    <div class="policy-last-saved">
-      Last saved:
-      <span class="policy-last-saved__saved">
-        {{if isNewComplianceInfo 'Never'
-             (moment-from-now complianceInfo.modifiedTime)}}
-      </span>
-    </div>
-
-    {{#unless isEditing}}
-
-      <button
-        {{action "nextStep"}}
-        class="nacho-button--large nacho-button--secondary secondary-actions__action">
-        Edit
-      </button>
-
-      {{#unless isNewComplianceInfo}}
-        <button
-          {{action "onComplianceDownloadJson"}}
-          class="nacho-button nacho-button--large-inverse secondary-actions__action">
-          Download compliance metadata
-        </button>
+      {{#unless schemaless}}
+        {{#if (and (eq editStep.name editSteps.0.name) (not _hasBadData))}}
+          {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+        {{/if}}
       {{/unless}}
 
-    {{/unless}}
-  </div>
+      {{#if (or isReadOnly (eq editStep.name editSteps.2.name))}}
+        {{partial "datasets/dataset-compliance/dataset-classification"}}
+      {{/if}}
 
-  {{#if isEditing}}
-    <div class="dataset-compliance-step-container">
-      {{partial "datasets/dataset-compliance/-dataset-compliance-step-indicator"}}
+      {{#if (or isReadOnly (eq editStep.name editSteps.1.name))}}
+        {{#if getPlatformPoliciesTask.isRunning}}
+          {{pendulum-ellipsis-animation}}
+        {{/if}}
+
+        {{#if getPlatformPoliciesTask.last.isError}}
+        {{!--todo: swap out with error-state component--}}
+          {{empty-state
+            heading="Purge Policies not available"
+            subHead="Could not find supported purge policies for this platform"
+          }}
+
+          <div class="purge-policy-list__retry-platforms">
+            <button
+              class="nacho-button nacho-button--large-inverse"
+              onclick={{perform getPlatformPoliciesTask}}>
+              Retry
+            </button>
+          </div>
+
+        {{/if}}
+
+        {{#if getPlatformPoliciesTask.last.isSuccessful}}
+
+          {{purge-policy
+            isEditable=(not isReadOnly)
+            platform=platform
+            supportedPurgePolicies=supportedPurgePolicies
+            purgeNote=complianceInfo.compliancePurgeNote
+            purgePolicy=(readonly complianceInfo.complianceType)
+            onPolicyChange=(action "onDatasetPurgePolicyChange")
+          }}
+
+        {{/if}}
+      {{/if}}
+
+      {{#if schemaless}}
+
+        {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
+          {{datasets/schemaless-tagging
+            isEditable=(not isReadOnly)
+            classification=(readonly complianceInfo.confidentiality)
+            containsPersonalData=(readonly complianceInfo.containingPersonalData)
+            onClassificationChange=(action "onDatasetSecurityClassificationChange")
+            onPersonalDataChange=(action "onDatasetLevelPolicyChange")
+          }}
+        {{/if}}
+
+      {{else}}
+
+        {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
+          {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+        {{/if}}
+
+      {{/if}}
     </div>
-  {{/if}}
 
-  {{#if (and (eq editStepIndex 0) (not _hasBadData))}}
-    {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
-  {{/if}}
+  {{else}}
 
-  {{#if (or isReadOnly (eq editStepIndex 2))}}
-    {{partial "datasets/dataset-compliance/dataset-classification"}}
-  {{/if}}
-
-  {{#if (or isReadOnly (eq editStepIndex 0))}}
-    {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
-  {{/if}}
-
-  {{#if (eq editStepIndex 1)}}
-    {{purge-policy
-      platform=platform
-      purgeNote=complianceInfo.compliancePurgeNote
-      purgePolicy=(readonly complianceInfo.complianceType)
-      onPolicyChange=(action "onDatasetPurgePolicyChange")
+    {{empty-state
+      heading="Compliance Policy not available"
+      subHead="Compliance Policy is currently not available for this platform"
     }}
+
   {{/if}}
-</div>
+{{/if}}
 
 {{yield}}
