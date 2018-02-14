@@ -13,6 +13,8 @@
  */
 package controllers.api.v2;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import controllers.Application;
 import java.util.Collections;
 import java.util.List;
@@ -26,19 +28,37 @@ import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import play.mvc.Results;
+import wherehows.dao.table.DatasetComplianceDao;
+import wherehows.dao.table.DatasetOwnerDao;
+import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
+import wherehows.dao.view.OwnerViewDao;
+import wherehows.models.view.DatasetCompliance;
+import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetSchema;
+import wherehows.models.view.DatasetView;
+import wherehows.models.view.DsComplianceSuggestion;
 
 import static utils.Dataset.*;
 
 
 public class Dataset extends Controller {
 
-  private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
-
   private static final DataTypesViewDao DATA_TYPES_DAO = Application.DAO_FACTORY.getDataTypesViewDao();
 
-  private static final int _dataset_search_page_size = 20;
+  private static final DictDatasetDao DICT_DATASET_DAO = Application.DAO_FACTORY.getDictDatasetDao();
+
+  private static final DatasetViewDao DATASET_VIEW_DAO = Application.DAO_FACTORY.getDatasetViewDao();
+
+  private static final OwnerViewDao OWNER_VIEW_DAO = Application.DAO_FACTORY.getOwnerViewDao();
+
+  private static final DatasetOwnerDao OWNER_DAO = Application.DAO_FACTORY.getDatasteOwnerDao();
+
+  private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
+
+  private static final int _DEFAULT_PAGE_SIZE = 20;
 
   private Dataset() {
   }
@@ -46,8 +66,10 @@ public class Dataset extends Controller {
   public static Promise<Result> listSegments(@Nullable String platform, @Nonnull String prefix) {
     try {
       if (StringUtils.isBlank(platform)) {
-        return Promise.promise(() -> ok(Json.toJson(
-            DATA_TYPES_DAO.getAllPlatforms().stream().map(s -> s.get("name")).collect(Collectors.toList()))));
+        return Promise.promise(() -> ok(Json.toJson(DATA_TYPES_DAO.getAllPlatforms()
+            .stream()
+            .map(s -> String.format("[platform=%s]", s.get("name")))
+            .collect(Collectors.toList()))));
       }
 
       List<String> names = DATASET_VIEW_DAO.listSegments(platform, "PROD", getPlatformPrefix(platform, prefix));
@@ -67,10 +89,10 @@ public class Dataset extends Controller {
   public static Promise<Result> listDatasets(@Nullable String platform, @Nonnull String prefix) {
     try {
       int page = NumberUtils.toInt(request().getQueryString("page"), 0);
-      int start = page * _dataset_search_page_size;
+      int start = page * _DEFAULT_PAGE_SIZE;
 
       return Promise.promise(() -> ok(
-          Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _dataset_search_page_size))));
+          Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _DEFAULT_PAGE_SIZE))));
     } catch (Exception e) {
       Logger.error("Fail to list datasets", e);
       return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
@@ -105,5 +127,168 @@ public class Dataset extends Controller {
       Logger.error("Fail to get data platforms", e);
       return Promise.promise(() -> notFound("Fetch data Error: " + e.toString()));
     }
+  }
+
+  public static Promise<Result> getDataset(@Nonnull String datasetUrn) {
+    final DatasetView view;
+    try {
+      view = DATASET_VIEW_DAO.getDatasetView(datasetUrn);
+    } catch (Exception e) {
+      Logger.error("Failed to get dataset view", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().set("dataset", Json.toJson(view))));
+  }
+
+  public static Promise<Result> updateDatasetDeprecation(String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(Results::unauthorized);
+    }
+
+    try {
+      JsonNode record = request().body().asJson();
+
+      boolean deprecated = record.get("deprecated").asBoolean();
+
+      String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : null;
+
+      DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, username);
+    } catch (Exception e) {
+      Logger.error("Update dataset deprecation fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    return Promise.promise(Results::ok);
+  }
+
+  public static Promise<Result> getDatasetSchema(String datasetUrn) {
+    final DatasetSchema schema;
+    try {
+      schema = DATASET_VIEW_DAO.getDatasetSchema(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(Results::notFound);
+      }
+
+      Logger.error("Fetch schema fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().set("schema", Json.toJson(schema))));
+  }
+
+  public static Promise<Result> getDatasetOwners(String datasetUrn) {
+    final List<DatasetOwner> owners;
+    try {
+      owners = OWNER_VIEW_DAO.getDatasetOwners(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(Results::notFound);
+      }
+
+      Logger.error("Fetch owners fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    if (owners == null) {
+      return Promise.promise(Results::notFound);
+    }
+    return Promise.promise(() -> ok(Json.newObject().set("owners", Json.toJson(owners))));
+  }
+
+  public static Promise<Result> updateDatasetOwners(String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(Results::unauthorized);
+    }
+
+    final JsonNode content = request().body().asJson();
+    // content should contain arraynode 'owners': []
+    if (content == null || !content.has("owners") || !content.get("owners").isArray()) {
+      return Promise.promise(() -> badRequest("Update dataset owners fail: missing owners field"));
+    }
+
+    try {
+      final List<DatasetOwner> owners = Json.mapper().readerFor(new TypeReference<List<DatasetOwner>>() {
+      }).readValue(content.get("owners"));
+
+      long confirmedOwnerUserCount = owners.stream()
+          .filter(s -> "owner".equalsIgnoreCase(s.getType()) && "user".equalsIgnoreCase(s.getIdType())
+              && "UI".equalsIgnoreCase(s.getSource()))
+          .count();
+
+      // enforce at least two UI (confirmed) USER DataOwner for a dataset before making any changes
+      if (confirmedOwnerUserCount < 2) {
+        return Promise.promise(() -> badRequest("Less than 2 UI USER owners"));
+      }
+
+      OWNER_DAO.updateDatasetOwners(datasetUrn, owners, username);
+    } catch (Exception e) {
+      Logger.error("Update Dataset owners fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+    return Promise.promise(Results::ok);
+  }
+
+  public static Promise<Result> getDatasetCompliance(@Nonnull String datasetUrn) {
+    final DatasetCompliance record;
+    try {
+      record = COMPLIANCE_DAO.getDatasetComplianceByUrn(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(Results::notFound);
+      }
+
+      Logger.error("Fetch compliance fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    if (record == null) {
+      return Promise.promise(Results::notFound);
+    }
+    return Promise.promise(() -> ok(Json.newObject().set("complianceInfo", Json.toJson(record))));
+  }
+
+  public static Promise<Result> updateDatasetCompliance(@Nonnull String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(Results::unauthorized);
+    }
+
+    try {
+      DatasetCompliance record = Json.mapper().convertValue(request().body().asJson(), DatasetCompliance.class);
+
+      if (record.getDatasetUrn() == null || !record.getDatasetUrn().equals(datasetUrn)) {
+        throw new IllegalArgumentException("Dataset Urn not exist or doesn't match.");
+      }
+
+      COMPLIANCE_DAO.updateDatasetComplianceByUrn(record, username);
+    } catch (Exception e) {
+      Logger.error("Update Compliance Info fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    return Promise.promise(Results::ok);
+  }
+
+  public static Promise<Result> getDatasetSuggestedCompliance(String datasetUrn) {
+    final DsComplianceSuggestion record;
+    try {
+      record = COMPLIANCE_DAO.getComplianceSuggestion(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(Results::notFound);
+      }
+
+      Logger.error("Fetch compliance suggestion fail", e);
+      return Promise.promise(() -> internalServerError(e.toString()));
+    }
+
+    if (record == null) {
+      return Promise.promise(Results::notFound);
+    }
+    return Promise.promise(() -> ok(Json.newObject().set("complianceSuggestion", Json.toJson(record))));
   }
 }
