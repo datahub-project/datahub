@@ -23,7 +23,7 @@ export const datasetsCountUrl = ({ platform, prefix }: Partial<IReadDatasetsOpti
   const urlRoot = `${datasetsUrlRoot('v2')}/count`;
 
   if (platform && prefix) {
-    `${urlRoot}/count`;
+    `${urlRoot}/platform/${platform}/prefix/${prefix}`;
   }
 
   if (platform) {
@@ -42,7 +42,7 @@ export const datasetsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): strin
   const urlRoot = datasetsUrlRoot('v2');
 
   if (platform && prefix) {
-    return `${urlRoot}/platform/${platform}/${prefix}`;
+    return `${urlRoot}/platform/${platform}/prefix/${prefix}`;
   }
 
   if (platform) {
