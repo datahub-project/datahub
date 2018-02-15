@@ -1,14 +1,17 @@
 .ellipsis-loader {
-  display: block;
-  min-width: 70px;
+  $container-width: 70px;
+  min-width: $container-width;
+  height: 100%;
 
   &__ellipsis {
+    $ellipsis-height: 15px;
     margin-left: -25px;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: left;
-    height: 15px;
+    min-height: $ellipsis-height;
+    height: 100%;
   }
 
   &__circle {

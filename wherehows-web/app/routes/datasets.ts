@@ -1,6 +1,4 @@
-import Ember from 'ember';
+import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 
-const { Route } = Ember;
-
-export default Route.extend(AuthenticatedRouteMixin);
+export default class extends Route.extend(AuthenticatedRouteMixin) {}

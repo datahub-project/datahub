@@ -1,15 +1,14 @@
 <div class="row">
-  {{!-- TODO: DSS-7029 browser-view is really a misnomer and should be renamed to browser-summary :( --}}
-  {{browser/containers/browser-view}}
+  {{browser/containers/browser-summary params=model}}
 </div>
 
 <div class="row">
   <div class="col-sm-3 wh-sidebar">
-    {{browser/containers/browser-rail header=header}}
+    {{browser/containers/browser-rail header=header params=model}}
   </div>
 
   <div class="col-sm-9 wh-main-content">
-    {{browser/containers/browser-viewport}}
+    {{browser/containers/browser-viewport params=model}}
   </div>
 </div>
 {{outlet}}
