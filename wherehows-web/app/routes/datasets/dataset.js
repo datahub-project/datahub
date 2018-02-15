@@ -15,8 +15,13 @@ import {
 
 import { readDatasetOwners, getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
 import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
-import { readDataset, datasetUrnToId, readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
-import isDatasetUrn from 'wherehows-web/utils/validators/urn';
+import {
+  readDatasetById,
+  datasetUrnToId,
+  readDatasetView,
+  readDatasetByUrn
+} from 'wherehows-web/utils/api/datasets/dataset';
+import { isWhUrn, isLiUrn } from 'wherehows-web/utils/validators/urn';
 
 import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
 import { currentUser } from 'wherehows-web/utils/api/authentication';
@@ -53,14 +58,18 @@ export default Route.extend({
    * @param {string} [urn] optional urn identifier for dataset
    * @return {Promise<IDataset>}
    */
-  async model({ dataset_id, urn }) {
-    let datasetId = dataset_id;
+  async model({ dataset_id: datasetId, urn }) {
+    if (datasetId === 'urn') {
+      if (isWhUrn(urn)) {
+        return readDatasetById(await datasetUrnToId(urn));
+      }
 
-    if (datasetId === 'urn' && isDatasetUrn(urn)) {
-      datasetId = await datasetUrnToId(urn);
+      if (isLiUrn(urn)) {
+        return await readDatasetByUrn(urn);
+      }
     }
 
-    return await readDataset(datasetId);
+    return await readDatasetById(datasetId);
   },
 
   /**
