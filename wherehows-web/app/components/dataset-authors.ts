@@ -3,7 +3,7 @@ import { inject } from '@ember/service';
 import ComputedProperty, { filter } from '@ember/object/computed';
 import { set, get, computed, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
-import { task, Task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 
 import UserLookup from 'wherehows-web/services/user-lookup';
 import CurrentUser from 'wherehows-web/services/current-user';
@@ -138,9 +138,7 @@ export default class DatasetAuthors extends Component {
    * @type {Task<Promise<Array<IOwner>>, void>}
    * @memberof DatasetAuthors
    */
-  saveOwners: Task<Promise<Array<IOwner>>, void> = task(function*(
-    this: DatasetAuthors
-  ): IterableIterator<Promise<Array<IOwner>>> {
+  saveOwners = task(function*(this: DatasetAuthors): IterableIterator<Promise<Array<IOwner>>> {
     yield get(this, 'save')(get(this, 'owners'));
   }).drop();
 

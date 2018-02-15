@@ -406,7 +406,6 @@ export default class DatasetCompliance extends ObservableDecorator {
   }
 
   didInsertElement(this: DatasetCompliance) {
-    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     get(this, 'complianceAvailabilityTask').perform();
   }
 
@@ -428,7 +427,6 @@ export default class DatasetCompliance extends ObservableDecorator {
   complianceAvailabilityTask = task(function*(
     this: DatasetCompliance
   ): IterableIterator<TaskInstance<Promise<Array<IDataPlatform>>>> {
-    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     yield get(this, 'getPlatformPoliciesTask').perform();
 
     const supportedPurgePolicies = get(this, 'supportedPurgePolicies');
