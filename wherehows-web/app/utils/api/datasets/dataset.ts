@@ -12,7 +12,8 @@ import {
   datasetsCountUrl,
   datasetsUrl,
   datasetsUrlRoot,
-  datasetUrlById
+  datasetUrlById,
+  datasetUrlByUrn
 } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api';
 
@@ -31,7 +32,7 @@ const datasetViewUrlById = (id: number) => `${datasetUrlById(id)}/view`;
  * @param {number} id the id of the dataset
  * @return {Promise<IDataset>}
  */
-const readDataset = async (id: number | string): Promise<IDataset> => {
+const readDatasetById = async (id: number | string): Promise<IDataset> => {
   id = parseInt(id + '', 10);
   // if id is less than or equal 0, throw illegal dataset error
   if (id <= 0 || !Number.isInteger(id)) {
@@ -46,6 +47,16 @@ const readDataset = async (id: number | string): Promise<IDataset> => {
   }
 
   throw new Error(errorMessage);
+};
+
+/**
+ * Reads a dataset by urn, in the li format
+ * @param {string} urn
+ * @returns {Promise<IDatasetView>}
+ */
+const readDatasetByUrn = async (urn: string): Promise<IDatasetView> => {
+  const { dataset } = await getJSON<Pick<IDatasetViewGetResponse, 'dataset'>>({ url: datasetUrlByUrn(urn) });
+  return dataset!;
 };
 
 /**
@@ -128,4 +139,4 @@ const readDatasetsCount = async ({ platform, prefix }: Partial<IReadDatasetsOpti
   return await getJSON<number>({ url });
 };
 
-export { readDataset, datasetUrnToId, readDatasetView, readDatasets, readDatasetsCount };
+export { readDatasetById, datasetUrnToId, readDatasetView, readDatasets, readDatasetsCount, readDatasetByUrn };

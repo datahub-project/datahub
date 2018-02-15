@@ -4,7 +4,14 @@
  *   The value following the urn key is retained
  * @type {RegExp}
  */
-const urnRegex = /([a-z_]+):\/{3}([a-z0-9_\-/{}]*)/i;
+const datasetUrnRegexWH = /([a-z_]+):\/{3}([a-z0-9_\-/{}]*)/i;
+
+/**
+ * Matches a urn string that follows the pattern captures, the comma delimited platform, segment and fabric
+ * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
+ * @type {RegExp}
+ */
+const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:(\w+),([\w.\-]+),(\w+)\)/;
 
 /**
  * Matches urn's that occur in flow urls
@@ -13,10 +20,24 @@ const urnRegex = /([a-z_]+):\/{3}([a-z0-9_\-/{}]*)/i;
 const specialFlowUrnRegex = /(?:\?urn=)([a-z0-9_\-/{}\s]+)/i;
 
 /**
+ * Checks if a string matches the datasetUrnRegexWH
+ * @param {string} candidateUrn
+ * @returns {boolean}
+ */
+const isWhUrn = (candidateUrn: string): boolean => datasetUrnRegexWH.test(String(candidateUrn));
+
+/**
+ * Checks if a string matches the datasetUrnRegexLI
+ * @param {string} candidateUrn
+ * @returns {boolean}
+ */
+const isLiUrn = (candidateUrn: string): boolean => datasetUrnRegexLI.test(String(candidateUrn));
+
+/**
  * Asserts that a provided string matches the urn pattern above
  * @param {string} candidateUrn the string to test on
  */
-const isUrn = (candidateUrn: string) => urnRegex.test(String(candidateUrn));
+const isUrn = (candidateUrn: string) => isLiUrn(candidateUrn) || isWhUrn(candidateUrn);
 
 /**
  * Extracts the platform string from the candidate urn string
@@ -24,7 +45,8 @@ const isUrn = (candidateUrn: string) => urnRegex.test(String(candidateUrn));
  * @returns {string | void}
  */
 const getPlatformFromUrn = (candidateUrn: string) => {
-  const matches = urnRegex.exec(candidateUrn);
+  const matches = datasetUrnRegexWH.exec(candidateUrn);
+
   if (matches) {
     const [, platform] = matches;
     return platform.toUpperCase();
@@ -33,4 +55,4 @@ const getPlatformFromUrn = (candidateUrn: string) => {
 
 export default isUrn;
 
-export { urnRegex, specialFlowUrnRegex, getPlatformFromUrn };
+export { datasetUrnRegexWH, datasetUrnRegexLI, isWhUrn, isLiUrn, specialFlowUrnRegex, getPlatformFromUrn };
