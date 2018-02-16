@@ -288,21 +288,21 @@ GET           /api/v2/list/platforms                                            
 
 GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes
 
-GET           /api/v2/dataset/:urn                                              controllers.api.v2.Dataset.getDataset(urn: String)
+GET           /api/v2/datasets/:urn                                             controllers.api.v2.Dataset.getDataset(urn: String)
 
-PUT           /api/v2/dataset/:urn/deprecate                                    controllers.api.v2.Dataset.updateDatasetDeprecation(urn: String)
+PUT           /api/v2/datasets/:urn/deprecate                                   controllers.api.v2.Dataset.updateDatasetDeprecation(urn: String)
 
-GET           /api/v2/dataset/:urn/schema                                       controllers.api.v2.Dataset.getDatasetSchema(urn: String)
+GET           /api/v2/datasets/:urn/schema                                      controllers.api.v2.Dataset.getDatasetSchema(urn: String)
 
-GET           /api/v2/dataset/:urn/owners                                       controllers.api.v2.Dataset.getDatasetOwners(urn: String)
+GET           /api/v2/datasets/:urn/owners                                      controllers.api.v2.Dataset.getDatasetOwners(urn: String)
 
-POST          /api/v2/dataset/:urn/owners                                       controllers.api.v2.Dataset.updateDatasetOwners(urn: String)
+POST          /api/v2/datasets/:urn/owners                                      controllers.api.v2.Dataset.updateDatasetOwners(urn: String)
 
-GET           /api/v2/dataset/:urn/compliance                                   controllers.api.v2.Dataset.getDatasetCompliance(urn: String)
+GET           /api/v2/datasets/:urn/compliance                                  controllers.api.v2.Dataset.getDatasetCompliance(urn: String)
 
-POST          /api/v2/dataset/:urn/compliance                                   controllers.api.v2.Dataset.updateDatasetCompliance(urn: String)
+POST          /api/v2/datasets/:urn/compliance                                  controllers.api.v2.Dataset.updateDatasetCompliance(urn: String)
 
-GET           /api/v2/dataset/:urn/complianceSuggestion                         controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
+GET           /api/v2/datasets/:urn/complianceSuggestion                        controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
