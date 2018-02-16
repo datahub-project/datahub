@@ -13,8 +13,18 @@
  */
 package wherehows.processors;
 
+import com.typesafe.config.Config;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Future;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import wherehows.dao.DaoFactory;
 
 
@@ -23,16 +33,14 @@ import wherehows.dao.DaoFactory;
  */
 public abstract class KafkaMessageProcessor {
 
-  protected final DaoFactory DAO_FACTORY;
+  private final String _producerTopic;
 
-  protected final String _producerTopic;
+  private final KafkaProducer<String, IndexedRecord> _procuder;
 
-  protected final KafkaProducer<String, IndexedRecord> PRODUCER;
-
-  public KafkaMessageProcessor(DaoFactory daoFactory, String producerTopic, KafkaProducer<String, IndexedRecord> producer) {
-    this.DAO_FACTORY = daoFactory;
+  public KafkaMessageProcessor(String producerTopic,
+      KafkaProducer<String, IndexedRecord> producer) {
     this._producerTopic = producerTopic;
-    this.PRODUCER = producer;
+    this._procuder = producer;
   }
 
   /**
@@ -41,4 +49,23 @@ public abstract class KafkaMessageProcessor {
    */
   public abstract void process(IndexedRecord indexedRecord);
 
+  protected Future<RecordMetadata> sendMessage(IndexedRecord message) {
+    return this._procuder.send(new ProducerRecord(_producerTopic, message));
+  }
+
+  /**
+   * Extract whitelisted actors from the given config and configPath
+   * @param config
+   * @param configPath
+   * @return A set of actor names or null if corresponding config doesn't exists
+   */
+  @Nullable
+  protected Set<String> getWhitelistedActors(@Nonnull Config config, @Nonnull String configPath) {
+    String actors = config.hasPath(configPath) ? config.getString(configPath) : null;
+    if (actors == null) {
+      return null;
+    }
+
+    return new HashSet<>(Arrays.asList(actors.split(";")));
+  }
 }

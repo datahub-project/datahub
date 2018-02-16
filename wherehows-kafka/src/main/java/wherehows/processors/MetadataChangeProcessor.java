@@ -46,27 +46,26 @@ import static wherehows.common.utils.StringUtil.*;
 @Slf4j
 public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
-  private final Config config = ConfigFactory.load();
+  private final DictDatasetDao _dictDatasetDao;
+  private final FieldDetailDao _fieldDetailDao;
+  private final DatasetOwnerDao _ownerDao;
+  private final DatasetComplianceDao _complianceDao;
 
-  private final String whitelistStr = config.hasPath("whitelist.mce") ? config.getString("whitelist.mce") : "";
-
-  private final Set<String> whitelistActors =
-      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
-
-  private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
-
-  private final FieldDetailDao _fieldDetailDao = DAO_FACTORY.getDictFieldDetailDao();
-
-  private final DatasetOwnerDao _ownerDao = DAO_FACTORY.getDatasteOwnerDao();
-
-  private final DatasetComplianceDao _complianceDao = DAO_FACTORY.getDatasetComplianceDao();
+  private final Set<String> _whitelistActors;
 
   private final int MAX_DATASET_NAME_LENGTH = 400;
 
-  public MetadataChangeProcessor(DaoFactory daoFactory, String producerTopic,
+  public MetadataChangeProcessor(Config config, DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producerTopic, producer);
-    log.info("MCE whitelist: " + whitelistActors);
+    super(producerTopic, producer);
+
+    _dictDatasetDao = daoFactory.getDictDatasetDao();
+    _fieldDetailDao = daoFactory.getDictFieldDetailDao();
+    _ownerDao = daoFactory.getDatasteOwnerDao();
+    _complianceDao = daoFactory.getDatasetComplianceDao();
+
+    _whitelistActors = getWhitelistedActors(config, "whitelist.mce");
+    log.info("MCE whitelist: " + _whitelistActors);
   }
 
   /**
@@ -86,14 +85,14 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     } catch (Exception exception) {
       log.error("MCE Processor Error:", exception);
       log.error("Message content: {}", event.toString());
-      this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
+      sendMessage(newFailedEvent(event, exception));
     }
   }
 
   private void processEvent(MetadataChangeEvent event) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
-    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+    if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 

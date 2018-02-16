@@ -26,7 +26,7 @@ import wherehows.dao.DaoFactory;
 public class DummyProcessor extends KafkaMessageProcessor {
 
   public DummyProcessor(DaoFactory daoFactory, String producerTopic, KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producerTopic, producer);
+    super(producerTopic, producer);
   }
 
   /**

@@ -13,6 +13,8 @@
  */
 package wherehows.processors;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Sets;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
@@ -20,38 +22,34 @@ import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
+import wherehows.exceptions.SelfLineageException;
 import wherehows.exceptions.UnauthorizedException;
 
 
 @Slf4j
 public class MetadataLineageProcessor extends KafkaMessageProcessor {
 
-  private final Config config = ConfigFactory.load();
+  private final LineageDao _lineageDao;
 
-  private final String whitelistStr = config.hasPath("whitelist.mle") ? config.getString("whitelist.mle") : "";
+  private final Set<String> _whitelistActors;
 
-  private final Set<String> whitelistActors =
-      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
-
-  private final LineageDao _lineageDao = DAO_FACTORY.getLineageDao();
-
-  public MetadataLineageProcessor(DaoFactory daoFactory, String producerTopic,
+  public MetadataLineageProcessor(Config config, DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producerTopic, producer);
-    log.info("MLE whitelist: " + whitelistActors);
+    super(producerTopic, producer);
+    this._lineageDao = daoFactory.getLineageDao();
+
+    _whitelistActors = getWhitelistedActors(config, "whitelist.mle");
+    log.info("MLE whitelist: " + _whitelistActors);
   }
 
   /**
@@ -72,23 +70,25 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     } catch (Exception exception) {
       log.error("MLE Processor Error:", exception);
       log.error("Message content: {}", event.toString());
-      this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
+      sendMessage(newFailedEvent(event, exception));
     }
   }
 
-  private void processEvent(MetadataLineageEvent event) throws Exception {
+  @VisibleForTesting
+  void processEvent(MetadataLineageEvent event) throws Exception {
     if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
     log.debug("MLE: " + event.lineage.toString());
 
     String actorUrn = getActorUrn(event);
-
-    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+    if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
     List<DatasetLineage> lineages = event.lineage;
+    validateLineages(lineages);
+
     DeploymentDetail deployments = event.deploymentDetail;
 
     // create lineage
@@ -118,5 +118,13 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);
     failedEvent.metadataLineageEvent = event;
     return failedEvent;
+  }
+
+  private void validateLineages(List<DatasetLineage> lineages) {
+    for (DatasetLineage lineage : lineages) {
+      if (Sets.intersection(new HashSet(lineage.sourceDataset), new HashSet(lineage.destinationDataset)).size() > 0) {
+        throw new SelfLineageException("Source & destination datasets shouldn't overlap");
+      }
+    }
   }
 }
