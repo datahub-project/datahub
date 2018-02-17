@@ -44,21 +44,22 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
-  private final Config config = ConfigFactory.load();
+  private final Set<String> _whitelistActors;
 
-  private final String whitelistStr = config.hasPath("whitelist.mie") ? config.getString("whitelist.mie") : "";
+  private final DatasetViewDao _datasetViewDao;
 
-  private final Set<String> whitelistActors =
-      StringUtils.isBlank(whitelistStr) ? null : new HashSet<>(Arrays.asList(whitelistStr.split(";")));
+  private final DictDatasetDao _dictDatasetDao;
 
-  private final DatasetViewDao _datasetViewDao = DAO_FACTORY.getDatasetViewDao();
-
-  private final DictDatasetDao _dictDatasetDao = DAO_FACTORY.getDictDatasetDao();
-
-  public MetadataInventoryProcessor(DaoFactory daoFactory, String producerTopic,
+  public MetadataInventoryProcessor(Config config, DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
-    super(daoFactory, producerTopic, producer);
-    log.info("MIE whitelist: " + whitelistActors);
+    super(producerTopic, producer);
+
+    _datasetViewDao = daoFactory.getDatasetViewDao();
+    _dictDatasetDao = daoFactory.getDictDatasetDao();
+
+    _whitelistActors = getWhitelistedActors(config, "whitelist.mie");
+
+    log.info("MIE whitelist: " + _whitelistActors);
   }
 
   /**
@@ -78,14 +79,14 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     } catch (Exception exception) {
       log.error("MIE Processor Error:", exception);
       log.error("Message content: {}", event.toString());
-      this.PRODUCER.send(new ProducerRecord(_producerTopic, newFailedEvent(event, exception)));
+      sendMessage(newFailedEvent(event, exception));
     }
   }
 
   private void processEvent(MetadataInventoryEvent event) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
-    if (whitelistActors != null && !whitelistActors.contains(actorUrn)) {
+    if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
