@@ -19,6 +19,7 @@ dependencies {
     compile externalDependency.confluent_avro_serde
 
     testCompile externalDependency.testng
+    testCompile externalDependency.mockito
 }
 
 test {

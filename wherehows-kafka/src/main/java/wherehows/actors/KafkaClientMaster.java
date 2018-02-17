@@ -16,6 +16,8 @@ package wherehows.actors;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.actor.UntypedActor;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,6 +49,8 @@ public class KafkaClientMaster extends UntypedActor {
 
   // List of kafka workers
   private static List<ActorRef> _kafkaWorkers = new ArrayList<>();
+
+  private static final Config CONFIG = ConfigFactory.load();
 
   public KafkaClientMaster(String kafkaJobDir) {
     this.KAFKA_JOB_DIR = kafkaJobDir;
@@ -129,9 +133,9 @@ public class KafkaClientMaster extends UntypedActor {
 
     // get processor instance
     Class processorClass = Class.forName(processor);
-    Constructor<?> ctor = processorClass.getConstructor(DaoFactory.class, String.class, KafkaProducer.class);
+    Constructor<?> ctor = processorClass.getConstructor(Config.class, DaoFactory.class, String.class, KafkaProducer.class);
     KafkaMessageProcessor processorInstance =
-        (KafkaMessageProcessor) ctor.newInstance(DAO_FACTORY, producerTopic, producer);
+        (KafkaMessageProcessor) ctor.newInstance(CONFIG, DAO_FACTORY, producerTopic, producer);
 
     // create worker
     return getContext().actorOf(Props.create(KafkaWorker.class, consumerTopic, consumer, processorInstance));
