@@ -82,12 +82,11 @@ public class FieldDetailDao extends BaseDao {
   /**
    * Insert or update Schemaless from MetadataChangeEvent
    * @param identifier DatasetIdentifier
-   * @param dataset DictDataset
    * @param auditStamp ChangeAuditStamp
    * @throws Exception
    */
-  public void insertUpdateSchemaless(@Nonnull DatasetIdentifier identifier, @Nullable DictDataset dataset,
-      @Nonnull ChangeAuditStamp auditStamp) throws Exception {
+  public void insertUpdateSchemaless(@Nonnull DatasetIdentifier identifier, @Nonnull ChangeAuditStamp auditStamp)
+      throws Exception {
     throw new UnsupportedOperationException("Support for Schemaless not yet implemented.");
   }
 

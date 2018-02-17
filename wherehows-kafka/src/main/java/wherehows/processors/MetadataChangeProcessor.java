@@ -125,7 +125,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     if (dsSchema != null) { // if instanceof DatasetSchema
       _fieldDetailDao.insertUpdateDatasetFields(identifier, dataset, event.datasetProperty, changeAuditStamp, dsSchema);
     } else if (event.schema instanceof Schemaless) { // if instanceof Schemaless
-      _fieldDetailDao.insertUpdateSchemaless(identifier, dataset, changeAuditStamp);
+      _fieldDetailDao.insertUpdateSchemaless(identifier, changeAuditStamp);
     }
 
     // if owners are not null, insert or update owner

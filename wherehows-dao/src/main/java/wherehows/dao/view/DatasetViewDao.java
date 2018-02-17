@@ -101,15 +101,18 @@ public class DatasetViewDao extends BaseViewDao {
     return view;
   }
 
+  @Nonnull
   public PagedCollection<DatasetView> listDatasets(@Nullable String platform, @Nullable String origin,
       @Nonnull String prefix, int start, int count) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
+  @Nonnull
   public List<String> listSegments(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
+  @Nonnull
   public List<String> listFullNames(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }

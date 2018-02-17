@@ -42,4 +42,6 @@ public class DatasetCompliance {
   private String modifiedBy;
 
   private Long modifiedTime;
+
+  private Boolean fromUpstream;
 }

@@ -57,7 +57,7 @@ public class DatasetComplianceDao extends BaseDao {
     return dsComplianceToDatasetCompliance(findComplianceById(datasetId));
   }
 
-  @Nullable
+  @Nonnull
   public DatasetCompliance getDatasetComplianceByUrn(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet, use getDatasetComplianceByDatasetId");
   }
