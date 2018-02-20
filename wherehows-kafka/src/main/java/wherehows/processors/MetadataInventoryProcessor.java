@@ -57,7 +57,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     _datasetViewDao = daoFactory.getDatasetViewDao();
     _dictDatasetDao = daoFactory.getDictDatasetDao();
 
-    _whitelistActors = getWhitelistedActors(config, "whitelist.mie");
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mie");
 
     log.info("MIE whitelist: " + _whitelistActors);
   }

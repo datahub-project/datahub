@@ -13,14 +13,18 @@
  */
 package wherehows.util;
 
+import com.google.common.collect.ImmutableSet;
+import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.testng.annotations.Test;
 import wherehows.utils.ProcessorUtil;
 
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
@@ -37,5 +41,26 @@ public class ProcessorUtilTest {
     List<Pattern> exclusions = Collections.singletonList(Pattern.compile("a"));
 
     assertEquals(ProcessorUtil.listDiffWithExclusion(existing, updated, exclusions), Arrays.asList("c"));
+  }
+
+  @Test
+  public void testGetWhitelistedActors() {
+    Config config = mock(Config.class);
+    when(config.hasPath("whitelist")).thenReturn(true);
+    when(config.getString("whitelist")).thenReturn("foo;bar");
+
+    Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
+
+    assertEquals(actors, ImmutableSet.of("foo", "bar"));
+  }
+
+  @Test
+  public void testGetWhitelistedActorsNoPath() {
+    Config config = mock(Config.class);
+    when(config.hasPath("whitelist")).thenReturn(false);
+
+    Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
+
+    assertEquals(actors, null);
   }
 }
