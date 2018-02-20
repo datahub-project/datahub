@@ -53,19 +53,4 @@ public abstract class KafkaMessageProcessor {
     return this._procuder.send(new ProducerRecord(_producerTopic, message));
   }
 
-  /**
-   * Extract whitelisted actors from the given config and configPath
-   * @param config
-   * @param configPath
-   * @return A set of actor names or null if corresponding config doesn't exists
-   */
-  @Nullable
-  protected Set<String> getWhitelistedActors(@Nonnull Config config, @Nonnull String configPath) {
-    String actors = config.hasPath(configPath) ? config.getString(configPath) : null;
-    if (actors == null) {
-      return null;
-    }
-
-    return new HashSet<>(Arrays.asList(actors.split(";")));
-  }
 }
