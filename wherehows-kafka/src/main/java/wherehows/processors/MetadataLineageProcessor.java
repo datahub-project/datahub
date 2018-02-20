@@ -34,6 +34,7 @@ import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
 import wherehows.exceptions.SelfLineageException;
 import wherehows.exceptions.UnauthorizedException;
+import wherehows.utils.ProcessorUtil;
 
 
 @Slf4j
@@ -48,7 +49,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     super(producerTopic, producer);
     this._lineageDao = daoFactory.getLineageDao();
 
-    _whitelistActors = getWhitelistedActors(config, "whitelist.mle");
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mle");
     log.info("MLE whitelist: " + _whitelistActors);
   }
 

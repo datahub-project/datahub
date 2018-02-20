@@ -21,16 +21,11 @@ import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.Schemaless;
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigFactory;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.converters.KafkaLogCompactionConverter;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
@@ -39,6 +34,7 @@ import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
 import wherehows.exceptions.UnauthorizedException;
 import wherehows.models.table.DictDataset;
+import wherehows.utils.ProcessorUtil;
 
 import static wherehows.common.utils.StringUtil.*;
 
@@ -64,7 +60,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     _ownerDao = daoFactory.getDatasteOwnerDao();
     _complianceDao = daoFactory.getDatasetComplianceDao();
 
-    _whitelistActors = getWhitelistedActors(config, "whitelist.mce");
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mce");
     log.info("MCE whitelist: " + _whitelistActors);
   }
 

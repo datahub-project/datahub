@@ -13,10 +13,15 @@
  */
 package wherehows.utils;
 
+import com.typesafe.config.Config;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class ProcessorUtil {
@@ -38,5 +43,22 @@ public class ProcessorUtil {
     return existing.stream()
         .filter(s -> exclusions.stream().noneMatch(p -> p.matcher(s).find()))
         .collect(Collectors.toList());
+  }
+
+
+  /**
+   * Extract whitelisted actors from the given config and configPath
+   * @param config The {@link Config}
+   * @param configPath Key for the white list config
+   * @return A set of actor names or null if corresponding config doesn't exists
+   */
+  @Nullable
+  public static Set<String> getWhitelistedActors(@Nonnull Config config, @Nonnull String configPath) {
+    String actors = config.hasPath(configPath) ? config.getString(configPath) : null;
+    if (actors == null) {
+      return null;
+    }
+
+    return new HashSet<>(Arrays.asList(actors.split(";")));
   }
 }
