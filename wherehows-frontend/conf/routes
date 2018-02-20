@@ -266,6 +266,10 @@ GET           /api/v1/jira/tickets/:managerId                                   
 
 POST          /api/v1/tracking                                                  controllers.api.v1.Tracking.addTrackingEvent()
 
+GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms
+
+GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes
+
 GET           /api/v2/platforms/:platform/prefix/:prefix                        controllers.api.v2.Dataset.listSegments(platform: String, prefix: String)
 
 GET           /api/v2/platforms/:platform                                       controllers.api.v2.Dataset.listSegments(platform: String, prefix = "")
@@ -283,10 +287,6 @@ GET           /api/v2/datasets/count/platform/:platform/prefix/:prefix          
 GET           /api/v2/datasets/count/platform/:platform                         controllers.api.v2.Dataset.countDatasets(platform: String, prefix = "")
 
 GET           /api/v2/datasets/count                                            controllers.api.v2.Dataset.countDatasets(platform = null, prefix = "")
-
-GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms
-
-GET           /api/v2/list/complianceDataTypes                                  controllers.api.v2.Dataset.getComplianceDataTypes
 
 GET           /api/v2/datasets/:urn                                             controllers.api.v2.Dataset.getDataset(urn: String)
 
