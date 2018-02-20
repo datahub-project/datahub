@@ -16,7 +16,6 @@ package controllers.api.v2;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import controllers.Application;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -28,7 +27,6 @@ import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
-import play.mvc.Results;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
@@ -60,6 +58,8 @@ public class Dataset extends Controller {
 
   private static final int _DEFAULT_PAGE_SIZE = 20;
 
+  private static final JsonNode _EMPTY_RESPONSE = Json.newObject();
+
   private Dataset() {
   }
 
@@ -76,13 +76,13 @@ public class Dataset extends Controller {
 
       // if prefix is a dataset name, then return empty list
       if (names.size() == 1 && names.get(0).equalsIgnoreCase(prefix)) {
-        return Promise.promise(() -> ok(Json.toJson(Collections.emptyList())));
+        return Promise.promise(() -> ok(Json.newArray()));
       }
 
       return Promise.promise(() -> ok(Json.toJson(names)));
     } catch (Exception e) {
       Logger.error("Fail to list dataset names/sections", e);
-      return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
   }
 
@@ -95,7 +95,7 @@ public class Dataset extends Controller {
           Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _DEFAULT_PAGE_SIZE))));
     } catch (Exception e) {
       Logger.error("Fail to list datasets", e);
-      return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
   }
 
@@ -105,7 +105,7 @@ public class Dataset extends Controller {
           () -> ok(String.valueOf(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, 0, 1).getTotal())));
     } catch (Exception e) {
       Logger.error("Fail to count total datasets", e);
-      return Promise.promise(() -> internalServerError("Fetch data Error: " + e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
   }
 
@@ -115,7 +115,7 @@ public class Dataset extends Controller {
           Json.newObject().set("complianceDataTypes", Json.toJson(DATA_TYPES_DAO.getAllComplianceDataTypes()))));
     } catch (Exception e) {
       Logger.error("Fail to get compliance data types", e);
-      return Promise.promise(() -> notFound("Fetch data Error: " + e.toString()));
+      return Promise.promise(() -> notFound(errorResponse(e)));
     }
   }
 
@@ -125,7 +125,7 @@ public class Dataset extends Controller {
           () -> ok(Json.newObject().set("platforms", Json.toJson(DATA_TYPES_DAO.getAllPlatforms()))));
     } catch (Exception e) {
       Logger.error("Fail to get data platforms", e);
-      return Promise.promise(() -> notFound("Fetch data Error: " + e.toString()));
+      return Promise.promise(() -> notFound(errorResponse(e)));
     }
   }
 
@@ -135,7 +135,7 @@ public class Dataset extends Controller {
       view = DATASET_VIEW_DAO.getDatasetView(datasetUrn);
     } catch (Exception e) {
       Logger.error("Failed to get dataset view", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
     return Promise.promise(() -> ok(Json.newObject().set("dataset", Json.toJson(view))));
@@ -144,7 +144,7 @@ public class Dataset extends Controller {
   public static Promise<Result> updateDatasetDeprecation(String datasetUrn) {
     final String username = session("user");
     if (StringUtils.isBlank(username)) {
-      return Promise.promise(Results::unauthorized);
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
     }
 
     try {
@@ -157,10 +157,10 @@ public class Dataset extends Controller {
       DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, username);
     } catch (Exception e) {
       Logger.error("Update dataset deprecation fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    return Promise.promise(Results::ok);
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
   }
 
   public static Promise<Result> getDatasetSchema(String datasetUrn) {
@@ -169,11 +169,11 @@ public class Dataset extends Controller {
       schema = DATASET_VIEW_DAO.getDatasetSchema(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        return Promise.promise(Results::notFound);
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
       }
 
       Logger.error("Fetch schema fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
     return Promise.promise(() -> ok(Json.newObject().set("schema", Json.toJson(schema))));
@@ -185,15 +185,15 @@ public class Dataset extends Controller {
       owners = OWNER_VIEW_DAO.getDatasetOwners(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        return Promise.promise(Results::notFound);
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
       }
 
       Logger.error("Fetch owners fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
     if (owners == null) {
-      return Promise.promise(Results::notFound);
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
     }
     return Promise.promise(() -> ok(Json.newObject().set("owners", Json.toJson(owners))));
   }
@@ -201,13 +201,13 @@ public class Dataset extends Controller {
   public static Promise<Result> updateDatasetOwners(String datasetUrn) {
     final String username = session("user");
     if (StringUtils.isBlank(username)) {
-      return Promise.promise(Results::unauthorized);
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
     }
 
     final JsonNode content = request().body().asJson();
     // content should contain arraynode 'owners': []
     if (content == null || !content.has("owners") || !content.get("owners").isArray()) {
-      return Promise.promise(() -> badRequest("Update dataset owners fail: missing owners field"));
+      return Promise.promise(() -> badRequest(errorResponse("Update dataset owners fail: missing owners field")));
     }
 
     try {
@@ -221,15 +221,15 @@ public class Dataset extends Controller {
 
       // enforce at least two UI (confirmed) USER DataOwner for a dataset before making any changes
       if (confirmedOwnerUserCount < 2) {
-        return Promise.promise(() -> badRequest("Less than 2 UI USER owners"));
+        return Promise.promise(() -> badRequest(errorResponse("Less than 2 UI USER owners")));
       }
 
       OWNER_DAO.updateDatasetOwners(datasetUrn, owners, username);
     } catch (Exception e) {
       Logger.error("Update Dataset owners fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
-    return Promise.promise(Results::ok);
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
   }
 
   public static Promise<Result> getDatasetCompliance(@Nonnull String datasetUrn) {
@@ -238,23 +238,20 @@ public class Dataset extends Controller {
       record = COMPLIANCE_DAO.getDatasetComplianceByUrn(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        return Promise.promise(Results::notFound);
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
       }
 
       Logger.error("Fetch compliance fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    if (record == null) {
-      return Promise.promise(Results::notFound);
-    }
     return Promise.promise(() -> ok(Json.newObject().set("complianceInfo", Json.toJson(record))));
   }
 
   public static Promise<Result> updateDatasetCompliance(@Nonnull String datasetUrn) {
     final String username = session("user");
     if (StringUtils.isBlank(username)) {
-      return Promise.promise(Results::unauthorized);
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
     }
 
     try {
@@ -267,10 +264,10 @@ public class Dataset extends Controller {
       COMPLIANCE_DAO.updateDatasetComplianceByUrn(record, username);
     } catch (Exception e) {
       Logger.error("Update Compliance Info fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    return Promise.promise(Results::ok);
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
   }
 
   public static Promise<Result> getDatasetSuggestedCompliance(String datasetUrn) {
@@ -279,16 +276,24 @@ public class Dataset extends Controller {
       record = COMPLIANCE_DAO.getComplianceSuggestion(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
-        return Promise.promise(Results::notFound);
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
       }
 
       Logger.error("Fetch compliance suggestion fail", e);
-      return Promise.promise(() -> internalServerError(e.toString()));
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
     if (record == null) {
-      return Promise.promise(Results::notFound);
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
     }
     return Promise.promise(() -> ok(Json.newObject().set("complianceSuggestion", Json.toJson(record))));
+  }
+
+  private static <E extends Throwable> JsonNode errorResponse(E e) {
+    return errorResponse(e.toString());
+  }
+
+  private static JsonNode errorResponse(String msg) {
+    return Json.newObject().put("msg", msg);
   }
 }
