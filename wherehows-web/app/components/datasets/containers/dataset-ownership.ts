@@ -68,12 +68,12 @@ export default class DatasetOwnershipContainer extends Component {
     set(this, 'ownerTypes', ownerTypes);
   });
 
-  @action
   /**
    * Persists the changes to the owners list
    * @param {Array<IOwner>} updatedOwners
    * @return {Promise<void>}
    */
+  @action
   saveOwnerChanges(updatedOwners: Array<IOwner>): Promise<void> {
     return updateDatasetOwnersByUrn(get(this, 'urn'), '', updatedOwners);
   }

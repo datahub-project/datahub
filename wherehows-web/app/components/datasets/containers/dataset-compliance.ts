@@ -146,20 +146,20 @@ export default class DatasetComplianceContainer extends Component {
     setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
   });
 
-  @action
   /**
    * Persists the updates to the compliance policy on the remote host
    * @param {IComplianceInfo} complianceInfo
    * @return {Promise<void>}
    */
+  @action
   savePrivacyCompliancePolicy(complianceInfo: IComplianceInfo): Promise<void> {
     return saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo);
   }
 
-  @action
   /**
    * Resets the compliance information for the dataset with the previously persisted properties
    */
+  @action
   resetPrivacyCompliancePolicy() {
     get(this, 'getComplianceTask').perform();
   }

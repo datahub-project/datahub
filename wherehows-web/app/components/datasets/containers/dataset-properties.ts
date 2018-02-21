@@ -1,7 +1,10 @@
 import Component from '@ember/component';
 import { get, setProperties } from '@ember/object';
+import ComputedProperty from '@ember/object/computed';
+import { inject } from '@ember/service';
 import { task } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { updateDatasetDeprecationByUrn } from 'wherehows-web/utils/api/datasets/properties';
@@ -31,6 +34,13 @@ export default class DatasetPropertiesContainer extends Component {
    */
   properties: Array<never> = [];
 
+  /**
+   * References the application notifications service
+   * @memberof DatasetPropertiesContainer
+   * @type {ComputedProperty<Notifications>}
+   */
+  notifications = <ComputedProperty<Notifications>>inject();
+
   constructor() {
     super(...arguments);
     this.deprecationNote || (this.deprecationNote = '');
@@ -55,15 +65,33 @@ export default class DatasetPropertiesContainer extends Component {
     setProperties(this, { deprecated, deprecationNote });
   });
 
-  @action
   /**
    * Persists the changes to the dataset deprecation properties upstream
    * @param {boolean} isDeprecated
    * @param {string} updatedDeprecationNote
    * @return {Promise<void>}
    */
-  async updateDeprecation(isDeprecated: boolean, updatedDeprecationNote: string): Promise<void> {
-    await updateDatasetDeprecationByUrn(get(this, 'urn'), isDeprecated, updatedDeprecationNote);
-    get(this, 'getDeprecationPropertiesTask').perform();
+  @action
+  async updateDeprecation(
+    this: DatasetPropertiesContainer,
+    isDeprecated: boolean,
+    updatedDeprecationNote: string
+  ): Promise<void> {
+    const { notify } = get(this, 'notifications');
+
+    try {
+      await updateDatasetDeprecationByUrn(get(this, 'urn'), isDeprecated, updatedDeprecationNote);
+
+      notify(NotificationEvent.success, {
+        content: 'Successfully updated deprecation status'
+      });
+    } catch (e) {
+      notify(NotificationEvent.error, {
+        content: `An error occurred: ${e.message}`
+      });
+    } finally {
+      // set current state
+      get(this, 'getDeprecationPropertiesTask').perform();
+    }
   }
 }
