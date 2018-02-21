@@ -71,10 +71,10 @@ export default class DatasetAuthors extends Component {
 
   /**
    * A list of valid owner type strings returned from the remote api endpoint
-   * @type {Array<string>}
+   * @type {Array<OwnerType>}
    * @memberof DatasetAuthors
    */
-  ownerTypes: Array<string>;
+  ownerTypes: Array<OwnerType>;
 
   /**
    * Flag that resolves in the affirmative if the number of confirmed owner is less the minimum required

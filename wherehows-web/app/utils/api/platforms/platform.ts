@@ -18,7 +18,7 @@ const platformsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): string => {
   const urlRoot = platformsUrlRoot('v2');
 
   if (platform && prefix) {
-    return `${urlRoot}/${platform}/${prefix}`;
+    return `${urlRoot}/${platform}/prefix/${prefix}`;
   }
 
   if (platform) {

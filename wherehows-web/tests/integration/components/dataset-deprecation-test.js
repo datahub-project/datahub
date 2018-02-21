@@ -23,7 +23,7 @@ test('it renders', function(assert) {
     this.$()
       .text()
       .trim(),
-    'Dataset is deprecated?',
+    'Is this dataset deprecated?',
     'shows the question asking if the dataset is deprecated'
   );
   assert.equal(this.$('#dataset-is-deprecated').length, 1, 'has one input checkbox with known selector');

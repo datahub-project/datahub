@@ -1,7 +1,7 @@
 import { warn } from '@ember/debug';
 import { ApiStatus } from 'wherehows-web/utils/api';
 import { getJSON, putJSON } from 'wherehows-web/utils/api/fetcher';
-import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import {
   IDatasetProperties,
   IDatasetPropertiesGetResponse,
@@ -26,6 +26,13 @@ interface IPropertyItem {
 const datasetPropertiesUrlById = (id: number) => `${datasetUrlById(id)}/properties`;
 
 const datasetDeprecationUrlById = (id: number) => `${datasetUrlById(id)}/deprecate`;
+
+/**
+ * Returns the url for a dataset deprecation endpoint by urn
+ * @param {string} urn
+ * @return {string}
+ */
+const datasetDeprecationUrlByUrn = (urn: string) => `${datasetUrlByUrn(urn)}/deprecate`;
 
 /**
  * Reads the response from the dataset properties endpoint and returns properties if found
@@ -197,4 +204,31 @@ const updateDatasetDeprecation = async (id: number, deprecated: boolean, depreca
   }
 };
 
-export { readDatasetProperties, readNonPinotProperties, readPinotProperties, updateDatasetDeprecation };
+/**
+ * Persists the changes to a datasets deprecation properties by urn
+ * @param {string} urn
+ * @param {boolean} deprecated
+ * @param {string} deprecationNote
+ * @return {Promise<void>}
+ */
+const updateDatasetDeprecationByUrn = (
+  urn: string,
+  deprecated: boolean,
+  deprecationNote: string = ''
+): Promise<void> => {
+  return putJSON<void>({
+    url: datasetDeprecationUrlByUrn(urn),
+    data: {
+      deprecated,
+      deprecationNote
+    }
+  });
+};
+
+export {
+  readDatasetProperties,
+  readNonPinotProperties,
+  readPinotProperties,
+  updateDatasetDeprecation,
+  updateDatasetDeprecationByUrn
+};

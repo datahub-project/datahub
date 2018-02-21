@@ -11,7 +11,7 @@
 
     <div class="row">
       <div class="col-xs-5">
-        {{#if datasetView.removed}}
+        {{#if model.removed}}
           <span class="removed-dataset">
             REMOVED
           </span>
@@ -28,8 +28,8 @@
           </sup>
         {{/if}}
 
-        {{#if datasetView.deprecated}}
-          {{#link-to "datasets.dataset.properties" datasetId}}
+        {{#if model.deprecated}}
+          {{#link-to "datasets.dataset.properties" encodedUrn}}
 
             <span class="deprecated-dataset">
               DEPRECATED
@@ -48,110 +48,10 @@
           {{/link-to}}
         {{/if}}
 
-        <h3>{{ model.name }}</h3>
-      </div>
-      <div class="col-xs-7 text-right">
-        <ul class="datasetDetailsLinks">
-          <li>
-            {{#dataset-favorite dataset=model action="didFavorite"}}
-            {{/dataset-favorite}}
-            <span class="hidden-sm hidden-xs">
-              {{#if model.isFavorite}}
-                Unfavorite
-              {{else}}
-                Favorite
-              {{/if}}
-            </span>
-          </li>
-          {{#if model.hdfsBrowserLink}}
-            <li>
-              <a target="_blank" href={{model.hdfsBrowserLink}}
-                title="View on HDFS">
-              <i class="fa fa-database"></i>
-              <span class="hidden-sm hidden-xs">
-                    HDFS
-                  </span>
-              </a>
-            </li>
-          {{/if}}
-          <li>
-            {{#link-to 'lineage.dataset' model.id title='View Lineage'}}
-              <i class="fa fa-sitemap"></i>
-              <span class="hidden-sm hidden-xs">Lineage</span>
-            {{/link-to}}
-          </li>
-          {{#if model.hasSchemaHistory}}
-            <li>
-              <a target="_blank" href={{schemaHistoryUrl}}
-                title="View Schema History">
-              <i class="fa fa-history"></i>
-              <span class="hidden-sm hidden-xs">
-                      Schema History
-                    </span>
-              </a>
-            </li>
-          {{/if}}
-          <li>
-            {{#dataset-watch dataset=model getDatasets="getDataset"}}
-            {{/dataset-watch}}
-            <span class="hidden-xs hidden-sm">
-              {{#if model.isWatched}}
-                Unwatch
-              {{else}}
-                Watch
-              {{/if}}
-            </span>
-          </li>
-        </ul>
+        <h3>{{ model.nativeName }}</h3>
       </div>
     </div>
-    {{dataset-owner-list owners=owners datasetName=model.name}}
-
-    {{#if hasinstances}}
-      <div class="row">
-        <span class="col-xs-1">Instances:</span>
-        <div class="btn-toolbar col-xs-11" role="toolbar">
-          {{#each instances as |instance index|}}
-            <div class="btn-group" role="group">
-              {{#if index}}
-                <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-default instance-btn" {{action
-                  "updateInstance" instance}}>
-                  {{ instance.dbCode }}
-                </button>
-              {{else}}
-                <button type="button" data-value="{{ instance.dbCode }}" class="btn btn-primary instance-btn" {{action
-                  "updateInstance" instance}}>
-                  {{ instance.dbCode }}
-                </button>
-              {{/if}}
-            </div>
-          {{/each}}
-        </div>
-      </div>
-    {{/if}}
-
-    {{#if hasversions}}
-      <div class="row">
-        <span class="col-xs-1">Versions:</span>
-        <div class="btn-toolbar col-xs-11" role="toolbar">
-          {{#each versions as |version index|}}
-            <div class="btn-group" role="group">
-              {{#if index}}
-                <button type="button" data-value="{{ version }}" class="btn btn-default version-btn" {{action
-                  "updateVersion" version}}>
-                  {{ version }}
-                </button>
-              {{else}}
-                <button type="button" data-value="{{ version }}" class="btn btn-primary version-btn" {{action
-                  "updateVersion" version}}>
-                  {{ version }}
-                </button>
-              {{/if}}
-            </div>
-          {{/each}}
-        </div>
-      </div>
-    {{/if}}
+    {{dataset-owner-list owners=owners datasetName=model.nativeName}}
   </div>
 
   {{#ivy-tabs selection=tabSelected as |tabs|}}
@@ -168,8 +68,6 @@
       <span style="display:none">
         {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
       </span>
-
-      {{#tablist.tab tabIds.Comments on-select=(action "tabSelectionChanged")}}Comments{{/tablist.tab}}
 
       {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
@@ -191,26 +89,14 @@
         {{/tablist.tab}}
       {{/if}}
 
-      {{#unless isSFDC}}
-        {{#tablist.tab tabIds.SampleData on-select=(action "tabSelectionChanged")}}
-          Sample Data{{/tablist.tab}}
-      {{/unless}}
-
-      {{#tablist.tab tabIds.Relations on-select=(action "tabSelectionChanged")}}
-        Relations{{/tablist.tab}}
-
     {{/tabs.tablist}}
 
     {{#tabs.tabpanel tabIds.Properties}}
-      {{#unless isPinot}}
-        {{dataset-deprecation
-          deprecated=datasetView.deprecated
-          deprecationNote=datasetView.deprecationNote
-          onUpdateDeprecation=(action "updateDeprecation")
-        }}
-
-        {{dataset-property properties=properties}}
-      {{/unless}}
+      {{datasets/containers/dataset-properties
+        urn=encodedUrn
+        deprecated=model.deprecated
+        deprecationNote=model.deprecationNote
+      }}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Comments}}
@@ -223,45 +109,18 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Schema}}
-      {{dataset-schema
-        isTable=isTable
-        json=model.schema
-        schemas=schemas
-      }}
+      {{datasets/containers/dataset-schema urn=encodedUrn}}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Ownership}}
-      {{dataset-authors
-        owners=owners
-        ownerTypes=ownerTypes
-        save=(action "saveOwnerChanges")
-      }}
-    {{/tabs.tabpanel}}
-
-    {{#tabs.tabpanel tabIds.SampleData}}
-      {{#unless isSFDC}}
-        {{dataset-sample hasSamples=hasSamples isPinot=isPinot columns=columns samples=samples}}
-      {{/unless}}
-    {{/tabs.tabpanel}}
-
-    {{#tabs.tabpanel tabIds.Relations}}
-      {{#unless isSFDC}}
-        {{dataset-relations hasDepends=hasDepends depends=depends hasReferences=hasReferences references=references}}
-      {{/unless}}
+      {{datasets/containers/dataset-ownership urn=encodedUrn}}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Compliance}}
-      {{dataset-compliance
-        datasetName=model.name
-        schemaless=schemaless
-        platform=datasetView.platform
-        complianceInfo=complianceInfo
-        complianceSuggestion=complianceSuggestion
-        isNewComplianceInfo=isNewComplianceInfo
-        schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
-        complianceDataTypes=complianceDataTypes
-        onSave=(action "savePrivacyCompliancePolicy")
-        onReset=(action "resetPrivacyCompliancePolicy")
+      {{datasets/containers/dataset-compliance
+        urn=encodedUrn
+        platform=model.platform
+        datasetName=model.nativeName
       }}
     {{/tabs.tabpanel}}
 
