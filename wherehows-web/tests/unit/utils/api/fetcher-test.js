@@ -1,11 +1,4 @@
-import {
-  getJSON,
-  postJSON,
-  deleteJSON,
-  putJSON,
-  getHeaders,
-  fetchAndHandleIfApiError
-} from 'wherehows-web/utils/api/fetcher';
+import { getJSON, postJSON, deleteJSON, putJSON, getHeaders } from 'wherehows-web/utils/api/fetcher';
 import { module, test } from 'qunit';
 import sinon from 'sinon';
 
@@ -20,7 +13,7 @@ module('Unit | Utility | api/fetcher', {
 });
 
 test('each http request function exists', function(assert) {
-  [getJSON, postJSON, deleteJSON, putJSON, getHeaders, fetchAndHandleIfApiError].forEach(httpRequest =>
+  [getJSON, postJSON, deleteJSON, putJSON, getHeaders].forEach(httpRequest =>
     assert.ok(typeof httpRequest === 'function', `${httpRequest} is a function`)
   );
 });
