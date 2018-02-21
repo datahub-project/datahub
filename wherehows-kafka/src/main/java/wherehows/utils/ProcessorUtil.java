@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 
 public class ProcessorUtil {
@@ -45,7 +46,6 @@ public class ProcessorUtil {
         .collect(Collectors.toList());
   }
 
-
   /**
    * Extract whitelisted actors from the given config and configPath
    * @param config The {@link Config}
@@ -55,7 +55,7 @@ public class ProcessorUtil {
   @Nullable
   public static Set<String> getWhitelistedActors(@Nonnull Config config, @Nonnull String configPath) {
     String actors = config.hasPath(configPath) ? config.getString(configPath) : null;
-    if (actors == null) {
+    if (StringUtils.isEmpty(actors)) {
       return null;
     }
 
