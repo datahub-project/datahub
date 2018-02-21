@@ -19,9 +19,8 @@ export const datasetUrlById = (id: number): string => `${datasetsUrlRoot('v1')}/
  * @param {string} urn
  * @returns {string}
  */
-export const datasetUrlByUrn = (urn: string): string => `${getApiRoot('v2')}/dataset/${urn}`;
-//FIXME api plurality ^^^^^^^^^^
-// export const datasetUrlByUrn = (urn: string): string => `${datasetsUrlRoot('v2')}/${urn}`;
+export const datasetUrlByUrn = (urn: string): string => `${datasetsUrlRoot('v2')}/${urn}`;
+
 /**
  * Composes the datasets count url from a given platform and or prefix if provided
  * @param {Partial<IReadDatasetsOptionBag>} [{ platform, prefix }={}]

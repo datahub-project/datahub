@@ -1,7 +1,7 @@
 import { faker } from 'ember-cli-mirage';
 import { IFunctionRouteHandler, IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
-import { getDatasetColumns } from 'wherehows-web/mirage/helpers/columns';
+import { getDatasetColumns, getDatasetSchema } from 'wherehows-web/mirage/helpers/columns';
 import { getDatasetCompliance } from 'wherehows-web/mirage/helpers/compliance';
 import { getComplianceDataTypes } from 'wherehows-web/mirage/helpers/compliance-data-types';
 import { getDatasetComplianceSuggestion } from 'wherehows-web/mirage/helpers/compliance-suggestions';
@@ -31,6 +31,16 @@ export default function(this: IMirageServer) {
   this.passthrough('/write-coverage');
 
   this.namespace = '/api/v2';
+
+  this.get('/datasets/:identifier/', getDatasetView);
+
+  this.get('/datasets/:identifier/owners', getDatasetOwners);
+
+  this.get('/datasets/:dataset_id/schema', getDatasetSchema);
+
+  this.get('/datasets/:dataset_id/compliance/suggestions', getDatasetComplianceSuggestion);
+
+  this.get('/datasets/:dataset_id/owners', getDatasetOwners);
 
   this.get('/list/complianceDataTypes', getComplianceDataTypes);
 

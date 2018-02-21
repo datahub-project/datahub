@@ -1,15 +1,23 @@
 <form {{action "onSave" on="submit"}}>
-  <label for="dataset-is-deprecated">
-    Dataset is deprecated?
-  </label>
 
-  {{input
-    id="dataset-is-deprecated"
-    type="checkbox"
-    title="Is this dataset deprecated?"
-    checked=(readonly deprecatedAlias)
-    change=(action "toggleDeprecatedStatus")
-  }}
+  <div class="dataset-deprecation-toggle__toggle-header">
+
+    <p class="dataset-deprecation-toggle__toggle-header__label">
+      Is this dataset deprecated?
+    </p>
+
+    {{input
+      id="dataset-is-deprecated"
+      type="checkbox"
+      title="Is this dataset deprecated?"
+      class="toggle-switch toggle-switch--light"
+      checked=(readonly deprecatedAlias)
+      change=(action "toggleDeprecatedStatus")
+    }}
+    <label for="dataset-is-deprecated" class="toggle-button">
+    </label>
+
+  </div>
 
   {{#if deprecatedAlias}}
 

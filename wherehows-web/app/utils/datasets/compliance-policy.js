@@ -1,19 +1,24 @@
 import { DatasetClassifiers } from 'wherehows-web/constants/dataset-classification';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 import { assert, warn } from '@ember/debug';
+import { decodeUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
  *   for non null properties as per Avro schema
- * @param {number} datasetId id for the dataset that this privacy object applies to
+ * @param {number} datasetId identifier for the dataset that this privacy object applies to
  */
-const createInitialComplianceInfo = datasetId => ({
-  datasetId,
-  complianceType: '',
-  compliancePurgeNote: '',
-  complianceEntities: [],
-  datasetClassification: {}
-});
+const createInitialComplianceInfo = datasetId => {
+  const identifier = typeof datasetId === 'string' ? { urn: decodeUrn(datasetId) } : { datasetId };
+
+  return {
+    ...identifier,
+    complianceType: '',
+    compliancePurgeNote: '',
+    complianceEntities: [],
+    datasetClassification: {}
+  };
+};
 
 /**
  *

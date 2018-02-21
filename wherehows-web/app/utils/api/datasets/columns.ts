@@ -25,16 +25,20 @@ const datasetColumnUrlById = (id: number): string => `${datasetUrlById(id)}/colu
 
 /**
  * Maps an object with a column prop to an object containing markdown comments, if the dataset has a comment attribute
- * @template T 
+ * @template T
  * @param {T} objectWithComment
- * @return {T & {commentHtml: string} | {} & T}
+ * @returns {(T | T & {commentHtml: string})}
  */
-const augmentWithHtmlComment = <T extends { comment: string }>(objectWithComment: T) => {
+const augmentWithHtmlComment = <T extends { comment: string }>(
+  objectWithComment: T
+): T | T & { commentHtml: string } => {
   const { comment } = objectWithComment;
   // TODO: DSS-6122 Refactor global function reference to marked
   // not using spread operator here: https://github.com/Microsoft/TypeScript/issues/10727
   // current ts version: 2.5.3
-  return Object.assign({}, objectWithComment, comment && { commentHtml: window.marked(comment).htmlSafe() });
+  return comment
+    ? Object.assign({}, objectWithComment, { commentHtml: window.marked(comment).htmlSafe() })
+    : objectWithComment;
 };
 
 /**
@@ -55,7 +59,9 @@ const columnDataTypeAndFieldName = ({
  * Takes a list of objects with comments and returns an array of objects with comments or html comments
  * @type {(array: Array<T extends { comment: string } & Object>) => Array<T | T extends { commentHtml: string }>}
  */
-const augmentObjectsWithHtmlComments = arrayMap(augmentWithHtmlComment);
+const augmentObjectsWithHtmlComments = arrayMap<IDatasetColumn, IDatasetColumnWithHtmlComments | IDatasetColumn>(
+  augmentWithHtmlComment
+);
 
 /**
  * Takes a list of IDatasetColumn / IDatasetColumn with html comments and pulls the dataType and and fullFieldPath (as fieldName) attributes
