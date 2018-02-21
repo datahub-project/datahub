@@ -25,8 +25,6 @@ interface IPropertyItem {
  */
 const datasetPropertiesUrlById = (id: number) => `${datasetUrlById(id)}/properties`;
 
-const datasetDeprecationUrlById = (id: number) => `${datasetUrlById(id)}/deprecate`;
-
 /**
  * Returns the url for a dataset deprecation endpoint by urn
  * @param {string} urn
@@ -143,7 +141,7 @@ const readNonPinotProperties = async (id: number): Promise<Array<IPropertyItem>>
 };
 
 /**
- * Describes the inteface of object returned from the api request to get pinot properties
+ * Describes the interface of object returned from the api request to get pinot properties
  * @interface IDatasetSamplesAndColumns
  */
 interface IDatasetSamplesAndColumns {
@@ -185,50 +183,19 @@ const readPinotProperties = async (id: number) => {
 };
 
 /**
- * Updates the properties on the dataset for deprecation
- * @param {number} id the id of the dataset
- * @param {boolean} deprecated flag indicating deprecation
- * @param {string} [deprecationNote=''] optional note accompanying deprecation change
- */
-const updateDatasetDeprecation = async (id: number, deprecated: boolean, deprecationNote: string = '') => {
-  const { status, msg } = await putJSON<{ status: ApiStatus; msg: string }>({
-    url: datasetDeprecationUrlById(id),
-    data: {
-      deprecated,
-      deprecationNote
-    }
-  });
-
-  if (status !== ApiStatus.OK) {
-    throw new Error(msg);
-  }
-};
-
-/**
  * Persists the changes to a datasets deprecation properties by urn
  * @param {string} urn
  * @param {boolean} deprecated
  * @param {string} deprecationNote
  * @return {Promise<void>}
  */
-const updateDatasetDeprecationByUrn = (
-  urn: string,
-  deprecated: boolean,
-  deprecationNote: string = ''
-): Promise<void> => {
-  return putJSON<void>({
+const updateDatasetDeprecationByUrn = (urn: string, deprecated: boolean, deprecationNote: string = ''): Promise<void> =>
+  putJSON<void>({
     url: datasetDeprecationUrlByUrn(urn),
     data: {
       deprecated,
       deprecationNote
     }
   });
-};
 
-export {
-  readDatasetProperties,
-  readNonPinotProperties,
-  readPinotProperties,
-  updateDatasetDeprecation,
-  updateDatasetDeprecationByUrn
-};
+export { readDatasetProperties, readNonPinotProperties, readPinotProperties, updateDatasetDeprecationByUrn };
