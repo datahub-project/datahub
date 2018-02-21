@@ -1,4 +1,5 @@
 import fetch from 'fetch';
+import { throwIfApiError } from 'wherehows-web/utils/api/errors/errors';
 
 /**
  * Describes the attributes on the fetch configuration object
@@ -10,7 +11,7 @@ interface FetchConfig {
 }
 
 /**
- * Desribes the available options on an option bag to be passed into a fetch call
+ * Describes the available options on an option bag to be passed into a fetch call
  * @interface IFetchOptions
  */
 interface IFetchOptions {
@@ -38,11 +39,11 @@ const withBaseFetchHeaders = (headers: FetchConfig['headers']): { headers: Fetch
  * Sends a HTTP request and resolves with the JSON response
  * @template T
  * @param {string} url the url for the endpoint to request a response from
- * @param {object} fetchConfig 
- * @returns {Promise<T>} 
+ * @param {object} fetchConfig
+ * @returns {Promise<T>}
  */
 const json = <T>(url: string = '', fetchConfig: IFetchOptions = {}): Promise<T> =>
-  fetch(url, fetchConfig).then<T>(response => response.json());
+  fetch(url, fetchConfig).then<T>(response => throwIfApiError(response));
 
 /**
  * Conveniently gets a JSON response using the fetch api
@@ -59,8 +60,8 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Initiates a POST request using the Fetch api
  * @template T
- * @param {FetchConfig} config 
- * @returns {Promise<T>} 
+ * @param {FetchConfig} config
+ * @returns {Promise<T>}
  */
 const postJSON = <T>(config: FetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
@@ -120,22 +121,4 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   throw new Error(statusText);
 };
 
-/**
- * Wraps a request Promise, pass-through response if successful, otherwise handle the error and rethrow if not api error
- * @template T
- * @param {Promise<T>} fetcher the api request to wrap
- * @param {T} defaultValue
- * @returns {Promise<T|null>}
- */
-const fetchAndHandleIfApiError = async <T>(fetcher: Promise<T>, defaultValue: T): Promise<T | null> => {
-  let result = typeof defaultValue === 'undefined' ? null : defaultValue;
-  try {
-    result = await fetcher;
-  } catch (e) {
-    // TODO: if error is an api error, display notification and allow default return
-    // otherwise throw
-  }
-  return result;
-};
-
-export { getJSON, postJSON, deleteJSON, putJSON, getHeaders, fetchAndHandleIfApiError };
+export { getJSON, postJSON, deleteJSON, putJSON, getHeaders };

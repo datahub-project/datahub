@@ -21,3 +21,13 @@ export enum ApiStatus {
   FAILED = 'failed',
   ERROR = 'error'
 }
+
+/**
+ * Enumerates the currently available Api statuses
+ * @type {number}
+ */
+export enum ApiStatusNumber {
+  NotFound = 404,
+  UnAuthorized = 401,
+  InternalServerError = 500
+}

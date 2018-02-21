@@ -5,13 +5,7 @@ import hbs from 'htmlbars-inline-precompile';
 import { run } from '@ember/runloop';
 
 moduleForComponent('dataset-deprecation', 'Integration | Component | dataset deprecation', {
-  integration: true,
-
-  beforeEach() {
-    this.register('service:notifications', notificationsStub);
-
-    this.inject.service('notifications');
-  }
+  integration: true
 });
 
 test('it renders', function(assert) {
