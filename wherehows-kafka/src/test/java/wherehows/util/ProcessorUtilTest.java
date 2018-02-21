@@ -63,4 +63,15 @@ public class ProcessorUtilTest {
 
     assertEquals(actors, null);
   }
+
+  @Test
+  public void testGetWhitelistedActorsEmptyValue() {
+    Config config = mock(Config.class);
+    when(config.hasPath("whitelist")).thenReturn(true);
+    when(config.getString("whitelist")).thenReturn("");
+
+    Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
+
+    assertEquals(actors, null);
+  }
 }
