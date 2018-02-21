@@ -37,4 +37,14 @@ interface IOwnerPostResponse {
   msg?: string;
 }
 
-export { IOwnerPostResponse, IOwnerResponse, IOwner };
+/**
+ * Describes the properties on a response to a request for owner types
+ * @interface
+ */
+interface IOwnerTypeResponse {
+  status: ApiStatus;
+  ownerTypes?: Array<OwnerType>;
+  msg?: string;
+}
+
+export { IOwnerPostResponse, IOwnerResponse, IOwner, IOwnerTypeResponse };

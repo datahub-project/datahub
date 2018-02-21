@@ -11,6 +11,7 @@ import {
   deleteDatasetComment,
   updateDatasetComment
 } from 'wherehows-web/utils/api';
+import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
 import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
@@ -28,14 +29,8 @@ export default class extends Controller.extend({
    */
   notifications: service(),
 
-  isTable: true,
-  hasImpacts: false,
-  hasSamples: false,
-  currentVersion: '0',
-  latestVersion: '0',
   init() {
     setProperties(this, {
-      ownerTypes: [],
       userTypes: [
         { name: 'Corporate User', value: 'urn:li:corpuser' },
         { name: 'Group User', value: 'urn:li:corpGroup' }
@@ -206,19 +201,6 @@ export default class extends Controller.extend({
 
   actions: {
     /**
-     * Updates the dataset's deprecation properties
-     * @param {boolean} isDeprecated
-     * @param {string} deprecationNote
-     * @return {IDatasetView}
-     */
-    async updateDeprecation(isDeprecated, deprecationNote) {
-      const datasetId = get(this, 'datasetId');
-
-      await updateDatasetDeprecation(datasetId, isDeprecated, deprecationNote);
-      return set(this, 'datasetView', await readDatasetView(datasetId));
-    },
-
-    /**
      * Action handler creates a dataset comment with the type and text pas
      * @param {CommentTypeUnion} type the comment type
      * @param {string} text the text of the comment
@@ -324,12 +306,29 @@ export default class extends Controller.extend({
     }
   }
 }) {
+  /**
+   * Enum of tab properties
+   * @type {Tabs}
+   */
   tabIds = Tabs;
 
+  /**
+   * The currently selected tab in view
+   * @type {Tabs}
+   */
   tabSelected;
 
+  /**
+   * Converts the uri on a model to a usable URN format
+   * @type {ComputedProperty<string>}
+   */
+  encodedUrn = computed('model', function() {
+    const { uri = '' } = get(this, 'model');
+    return encodeUrn(uri);
+  });
+
   constructor() {
-    super();
+    super(...arguments);
     this.tabSelected || (this.tabSelected = Tabs.Ownership);
   }
 
@@ -342,6 +341,6 @@ export default class extends Controller.extend({
     // if the tab selection is same as current, noop
     return get(this, 'tabSelected') === tabSelected
       ? void 0
-      : this.transitionToRoute(`datasets.dataset.${tabSelected}`, get(this, 'datasetId'));
+      : this.transitionToRoute(`datasets.dataset.${tabSelected}`, get(this, 'encodedUrn'));
   }
 }

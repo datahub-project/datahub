@@ -1,10 +1,19 @@
+import { assert } from '@ember/debug';
+
 /**
  * Matches a url string with a `urn` query. urn query with letters or underscore segment of any length greater
  *   than 1 followed by colon and 3 forward slashes and a segment containing letters, {, }, _ or /, or none
  *   The value following the urn key is retained
  * @type {RegExp}
  */
-const urnRegex = /([a-z_]+):\/{3}([a-z0-9_\-/{}]*)/i;
+const datasetUrnRegexWH = /([a-z_]+):\/{3}([a-z0-9_\-/{}.]*)/i;
+
+/**
+ * Matches a urn string that follows the pattern captures, the comma delimited platform, segment and fabric
+ * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
+ * @type {RegExp}
+ */
+const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:(\w+),([\w.\-\/]+),(\w+)\)/;
 
 /**
  * Matches urn's that occur in flow urls
@@ -13,10 +22,24 @@ const urnRegex = /([a-z_]+):\/{3}([a-z0-9_\-/{}]*)/i;
 const specialFlowUrnRegex = /(?:\?urn=)([a-z0-9_\-/{}\s]+)/i;
 
 /**
+ * Checks if a string matches the datasetUrnRegexWH
+ * @param {string} candidateUrn
+ * @returns {boolean}
+ */
+const isWhUrn = (candidateUrn: string): boolean => datasetUrnRegexWH.test(String(candidateUrn));
+
+/**
+ * Checks if a string matches the datasetUrnRegexLI
+ * @param {string} candidateUrn
+ * @returns {boolean}
+ */
+const isLiUrn = (candidateUrn: string): boolean => datasetUrnRegexLI.test(String(candidateUrn));
+
+/**
  * Asserts that a provided string matches the urn pattern above
  * @param {string} candidateUrn the string to test on
  */
-const isUrn = (candidateUrn: string) => urnRegex.test(String(candidateUrn));
+const isUrn = (candidateUrn: string) => isLiUrn(candidateUrn) || isWhUrn(candidateUrn);
 
 /**
  * Extracts the platform string from the candidate urn string
@@ -24,13 +47,69 @@ const isUrn = (candidateUrn: string) => urnRegex.test(String(candidateUrn));
  * @returns {string | void}
  */
 const getPlatformFromUrn = (candidateUrn: string) => {
-  const matches = urnRegex.exec(candidateUrn);
+  const matches = datasetUrnRegexWH.exec(candidateUrn);
+
   if (matches) {
     const [, platform] = matches;
     return platform.toUpperCase();
   }
 };
 
+/**
+ * Converts a WH URN format to a LI URN format
+ * @param {string} whUrn
+ * @return {string}
+ */
+const convertWhUrnToLiUrn = (whUrn: string): string => {
+  assert(`Expected ${whUrn} to be in the WH urn format`, isWhUrn(whUrn));
+  const [, platform, path] = datasetUrnRegexWH.exec(whUrn)!;
+
+  return `urn:li:dataset:(urn:li:dataPlatform:${platform},${path},PROD)`;
+};
+
+/**
+ * Cached RegExp object for a global search of /
+ * @type {RegExp}
+ */
+const encodedSlashRegExp = new RegExp(encodeURIComponent('/'), 'g');
+/**
+ * Replaces any occurrence of / with the encoded equivalent
+ * @param {string} urn
+ * @return {string}
+ */
+const encodeForwardSlash = (urn: string): string => urn.replace(/\//g, encodeURIComponent('/'));
+
+/**
+ * Replaces encoded slashes with /
+ * @param {string} urn
+ * @return {string}
+ */
+const decodeForwardSlash = (urn: string): string => urn.replace(encodedSlashRegExp, decodeURIComponent('/'));
+
+/**
+ * Replaces occurrences of / with the encoded counterpart in a urn string
+ * @param {string} urn
+ * @return {string}
+ */
+const encodeUrn = (urn: string): string => encodeForwardSlash(urn);
+
+/**
+ * Replaces encoded occurrences of / with the string /
+ * @param {string} urn
+ * @return {string}
+ */
+const decodeUrn = (urn: string): string => decodeForwardSlash(urn);
+
 export default isUrn;
 
-export { urnRegex, specialFlowUrnRegex, getPlatformFromUrn };
+export {
+  datasetUrnRegexWH,
+  datasetUrnRegexLI,
+  isWhUrn,
+  isLiUrn,
+  specialFlowUrnRegex,
+  getPlatformFromUrn,
+  convertWhUrnToLiUrn,
+  encodeUrn,
+  decodeUrn
+};

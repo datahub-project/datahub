@@ -15,6 +15,13 @@ export const datasetsUrlRoot = (version: ApiVersion) => `${getApiRoot(version)}/
 export const datasetUrlById = (id: number): string => `${datasetsUrlRoot('v1')}/${id}`;
 
 /**
+ * Composes a url to get a specific dataset by urn
+ * @param {string} urn
+ * @returns {string}
+ */
+export const datasetUrlByUrn = (urn: string): string => `${datasetsUrlRoot('v2')}/${urn}`;
+
+/**
  * Composes the datasets count url from a given platform and or prefix if provided
  * @param {Partial<IReadDatasetsOptionBag>} [{ platform, prefix }={}]
  * @returns {string}
@@ -23,7 +30,7 @@ export const datasetsCountUrl = ({ platform, prefix }: Partial<IReadDatasetsOpti
   const urlRoot = `${datasetsUrlRoot('v2')}/count`;
 
   if (platform && prefix) {
-    `${urlRoot}/count`;
+    `${urlRoot}/platform/${platform}/prefix/${prefix}`;
   }
 
   if (platform) {
@@ -42,7 +49,7 @@ export const datasetsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): strin
   const urlRoot = datasetsUrlRoot('v2');
 
   if (platform && prefix) {
-    return `${urlRoot}/platform/${platform}/${prefix}`;
+    return `${urlRoot}/platform/${platform}/prefix/${prefix}`;
   }
 
   if (platform) {

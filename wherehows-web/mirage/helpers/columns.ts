@@ -9,4 +9,15 @@ const getDatasetColumns = function(this: IFunctionRouteHandler, { columns }: { c
   };
 };
 
-export { getDatasetColumns };
+const getDatasetSchema = function(this: IFunctionRouteHandler, { columns }: { columns: any }) {
+  return {
+    schema: {
+      columns: this.serialize(columns.all()),
+      schemaless: false,
+      keySchema: null,
+      rawSchema: '{}'
+    }
+  };
+};
+
+export { getDatasetColumns, getDatasetSchema };

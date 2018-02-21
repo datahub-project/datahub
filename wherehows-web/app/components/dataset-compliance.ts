@@ -204,7 +204,13 @@ export default class DatasetCompliance extends ObservableDecorator {
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: void | IComplianceInfo;
-  complianceSuggestion: IComplianceSuggestion;
+
+  /**
+   * Suggested values for compliance types e.g. identifier type and/or logical type
+   * @type {IComplianceSuggestion | void}
+   */
+  complianceSuggestion: IComplianceSuggestion | void;
+
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
   onReset: <T extends { status: ApiStatus }>() => Promise<T>;
   onSave: <T extends { status: ApiStatus }>() => Promise<T>;
@@ -676,10 +682,12 @@ export default class DatasetCompliance extends ObservableDecorator {
     function(this: DatasetCompliance): ISchemaFieldsToPolicy {
       const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
-      const columnFieldProps = get(this, 'schemaFieldNamesMappedToDataTypes').map(({ fieldName, dataType }) => ({
-        identifierField: fieldName,
-        dataType
-      }));
+      const columnFieldProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
+        ({ fieldName, dataType }) => ({
+          identifierField: fieldName,
+          dataType
+        })
+      );
 
       return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, {
         policyModificationTime: modifiedTime

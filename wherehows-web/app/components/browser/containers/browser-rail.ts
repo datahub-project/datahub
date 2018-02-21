@@ -6,9 +6,10 @@ import { IBrowserRouteParams } from 'wherehows-web/routes/browse/entity';
 import { readPlatforms } from 'wherehows-web/utils/api/platforms/platform';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
+import { sanitizePlatformNodeString } from 'wherehows-web/utils/validators/platform';
 
 /**
- * Describes a node with parameters used by dynamic-link component to create links to items lised in the rail
+ * Describes a node with parameters used by dynamic-link component to create links to items listed in the rail
  * @interface IRailNode
  */
 interface IRailNode {
@@ -23,24 +24,29 @@ interface IRailNode {
  * Given a platform and entity, returns a closure function that maps each node to a
  * list of IRailNode
  * @param {string} platform
- * @param {IBrowserRouteParams['entity']} entity
+ * @param {IBrowserRouteParams.entity} entity
  * @returns {(array: string[]) => IRailNode[]}
  */
 export const mapNodeToRoute = (
   platform: string,
   entity: IBrowserRouteParams['entity']
 ): ((array: string[]) => IRailNode[]) =>
-  arrayMap((node: string): IRailNode => ({
-    title: node,
-    text: node,
-    route: 'browse.entity',
-    model: entity,
-    queryParams: nodeToQueryParams({ platform, node })
-  }));
+  arrayMap((node: string): IRailNode => {
+    //FIXME: measure perf, and see if sanitize step can be performed conditionally for list, in a Schwartzian transform instead
+    const sanitizedString = sanitizePlatformNodeString(node);
+
+    return {
+      title: sanitizedString,
+      text: sanitizedString,
+      route: 'browse.entity',
+      model: entity,
+      queryParams: nodeToQueryParams({ platform, node })
+    };
+  });
 
 export default class BrowserRail extends Component {
   /**
-   * Passed in parameters containing route or queryparameters values to be used in request
+   * Passed in parameters containing route or query parameters values to be used in request
    * @type {IBrowserRouteParams}
    * @memberof BrowserRail
    */
