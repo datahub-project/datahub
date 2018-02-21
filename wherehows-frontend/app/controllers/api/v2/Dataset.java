@@ -152,7 +152,7 @@ public class Dataset extends Controller {
 
       boolean deprecated = record.get("deprecated").asBoolean();
 
-      String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : null;
+      String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : "";
 
       DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, username);
     } catch (Exception e) {
