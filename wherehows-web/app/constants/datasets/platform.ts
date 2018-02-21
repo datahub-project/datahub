@@ -1,6 +1,6 @@
 import { IBrowserRouteParams } from 'wherehows-web/routes/browse/entity';
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
-import { getPlatformFromString, isDatasetPlatform, isDatasetPrefix } from 'wherehows-web/utils/validators/platform';
+import { getPlatformFromString, isDatasetPlatform, isDatasetSegment } from 'wherehows-web/utils/validators/platform';
 
 /**
  * The known/supported list of dataset platforms
@@ -36,8 +36,8 @@ const nodeToQueryParams = ({
 }: Pick<IBrowserRouteParams, 'platform'> & { node: string }): Partial<IReadDatasetsOptionBag> => {
   const queryParams = {};
 
-  if (isDatasetPrefix(node)) {
-    Object.assign(queryParams, { prefix: node.replace(/\//g, '') });
+  if (isDatasetSegment(node)) {
+    Object.assign(queryParams, { prefix: node });
   }
 
   // If the node is a platform, assign that value to the query params object

@@ -110,6 +110,7 @@ export {
   specialFlowUrnRegex,
   getPlatformFromUrn,
   convertWhUrnToLiUrn,
+  encodeForwardSlash,
   encodeUrn,
   decodeUrn
 };
