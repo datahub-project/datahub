@@ -1,6 +1,16 @@
 {{#search/filter-rail header=header as |rail|}}
-  {{rail.links
-    links=nodes}}
+
+  {{#if nodesTask.isRunning}}
+    <div class="nacho-filter-rail__loading">
+      {{pendulum-ellipsis-animation}}
+    </div>
+  {{else}}
+
+    {{rail.links
+      links=nodes}}
+
+  {{/if}}
+
 {{/search/filter-rail}}
 
 {{yield}}

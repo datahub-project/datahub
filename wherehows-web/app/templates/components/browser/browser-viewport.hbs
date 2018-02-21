@@ -61,42 +61,49 @@
     {{/table.body}}
   {{/dataset-table}}
 {{else}}
-  {{#dataset-table
-    fields=entities as |table|}}
-    {{#table.body as |body|}}
-      {{#each
-        table.data as |entity|}}
-        {{#body.row as |row|}}
-          {{#row.cell}}
-            {{#link-to entityRoute entity.id}}
-              <span class="entity-list__title">
-                {{entity.name}}
-              </span>
-            {{/link-to}}
-            <br>
-            {{#if (eq currentEntity 'metrics')}}
-              {{entity.group}} - {{entity.dashboardName}}
+  {{#if entities}}
+
+    {{#dataset-table
+      fields=entities as |table|}}
+      {{#table.body as |body|}}
+        {{#each
+          table.data as |entity|}}
+          {{#body.row as |row|}}
+            {{#row.cell}}
+              {{#link-to entityRoute 'urn' (query-params urn=entity.uri)}}
+                <span class="entity-list__title">
+                  {{entity.nativeName}}
+                </span>
+              {{/link-to}}
               <br>
-              {{entity.description}}
-            {{/if}}
+              {{#if (eq currentEntity 'metrics')}}
+                {{entity.group}} - {{entity.dashboardName}}
+                <br>
+                {{entity.description}}
+              {{/if}}
 
-            {{#if (eq currentEntity 'datasets')}}
-              {{dataset-owner-list owners=entity.owners datasetName=entity.name}}
-            {{/if}}
+              {{#if entity.modifiedTime}}
+                <span>Last Modified:</span>
 
-            {{#if entity.formatedModified}}
-              <span>Last Modified:</span>
+                <span title="{{entity.modifiedTime}}">
+                  {{moment-from-now entity.modifiedTime }}
+                </span>
+              {{/if}}
+            {{/row.cell}}
+            {{#row.cell}}
+              {{datasets/dataset-actions actionItems=actionItems}}
+            {{/row.cell}}
+          {{/body.row}}
+        {{/each}}
+      {{/table.body}}
+    {{/dataset-table}}
 
-              <span title="{{entity.formatedModified}}">
-                {{moment-from-now entity.formatedModified }}
-              </span>
-            {{/if}}
-          {{/row.cell}}
-          {{#row.cell}}
-            {{datasets/dataset-actions actionItems=actionItems}}
-          {{/row.cell}}
-        {{/body.row}}
-      {{/each}}
-    {{/table.body}}
-  {{/dataset-table}}
+  {{else}}
+
+    {{empty-state
+      heading="No entities found"
+      subHead="Could not find any datasets in our records"
+    }}
+
+  {{/if}}
 {{/if}}

@@ -57,7 +57,7 @@ interface IDatasetGetResponse {
 }
 
 /**
- * Describes the interface of a response from the GET datasetView endpoint 
+ * Describes the interface of a response from the GET datasetView endpoint
  * @interface IDatasetViewGetResponse
  */
 interface IDatasetViewGetResponse {
@@ -65,4 +65,31 @@ interface IDatasetViewGetResponse {
   dataset?: IDatasetView;
 }
 
-export { IDatasetViewGetResponse, IDatasetView, IDatasetGetResponse, IDataset };
+/**
+ * Describes the response from the GET /datasets api
+ * @interface IDatasetsGetResponse
+ */
+interface IDatasetsGetResponse {
+  total: number;
+  start: number;
+  count: number;
+  elements: Array<IDatasetView>;
+}
+
+/**
+ * Describes the options for the dataset
+ * @interface IReadDatasetsOptionBag
+ */
+interface IReadDatasetsOptionBag {
+  platform: DatasetPlatform | string;
+  prefix: string;
+}
+
+export {
+  IDatasetViewGetResponse,
+  IDatasetView,
+  IDatasetGetResponse,
+  IDataset,
+  IDatasetsGetResponse,
+  IReadDatasetsOptionBag
+};

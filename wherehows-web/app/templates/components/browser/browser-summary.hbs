@@ -1,0 +1,29 @@
+<nav role="navigation">
+  <ul class="nav navbar-nav browse-nav">
+    {{#each-in metadata as |entity meta|}}
+      {{#nav-link
+        "browse.entity" entity
+        (query-params page=1 platform="" prefix="")
+        tagName="li"
+        class="col-md-4 browse-nav__entity"}}
+
+        {{#if (and datasetTask.isRunning (eq entity "datasets"))}}
+          {{pendulum-ellipsis-animation}}
+        {{else}}
+
+          <span class="browse-nav__alt">
+              See all
+          </span>
+          <div class="browse-nav__item">
+            <p class="browse-nav__count">{{meta.count}}</p>
+            <p class="browse-nav__title">{{entity}}</p>
+            <p class="browse-nav__subtext">
+              {{if meta.currentPlatform 'in' 'in total'}} {{meta.currentPlatform}}
+            </p>
+          </div>
+
+        {{/if}}
+      {{/nav-link}}
+    {{/each-in}}
+  </ul>
+</nav>

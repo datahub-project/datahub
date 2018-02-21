@@ -1,1 +1,18 @@
-{{browser/browser-viewport currentEntity=currentEntity entities=entities entityRoute=entityRoute}}
+{{#if getEntitiesTask.isRunning}}
+
+  <div class="browse-viewport__loading">
+    {{pendulum-ellipsis-animation}}
+  </div>
+
+{{else}}
+  {{#if getEntitiesTask.last.isError}}
+
+    {{empty-state
+      heading="An error occurred getting entities"
+      subHead=getEntitiesTask.last.error
+    }}
+
+  {{else}}
+    {{browser/browser-viewport currentEntity=currentEntity entities=entities entityRoute=entityRoute}}
+  {{/if}}
+{{/if}}

@@ -1,29 +1,6 @@
-{{!-- rename to entity-actions --}}
 <ul>
   {{#each actionItems as |actionItem|}}
-  {{!--maybe dynamic link with actionItem only for each?--}}
     <li></li>
   {{/each}}
 </ul>
-<ul class="datasetTableLinks">
-  <li class="text-center no-link">
-                        <span class="source">
-                          {{ dataset.source }}
-                        </span>
-  </li>
-  <li class="text-center" title="ownership">
-    {{dataset-owner dataset=dataset action="owned"}}
-  </li>
-  <li class="text-center" title="favorite">
-    {{dataset-favorite dataset=dataset action="didFavorite"}}
-  </li>
-  <li class="text-center" title="watch">
-    {{dataset-watch dataset=dataset getDatasets='getDatasets'}}
-  </li>
-  <li class="text-center">
-    <a href="/lineage/dataset/{{dataset.id}}"
-       title="lineage for {{dataset.name}}">
-      <i class="fa fa-sitemap"></i>
-    </a>
-  </li>
-</ul>
+

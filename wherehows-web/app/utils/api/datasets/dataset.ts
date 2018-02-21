@@ -2,11 +2,18 @@ import { warn } from '@ember/debug';
 import {
   IDataset,
   IDatasetGetResponse,
+  IDatasetsGetResponse,
   IDatasetView,
-  IDatasetViewGetResponse
+  IDatasetViewGetResponse,
+  IReadDatasetsOptionBag
 } from 'wherehows-web/typings/api/datasets/dataset';
 import { getHeaders, getJSON } from 'wherehows-web/utils/api/fetcher';
-import { datasetsUrlRoot, datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import {
+  datasetsCountUrl,
+  datasetsUrl,
+  datasetsUrlRoot,
+  datasetUrlById
+} from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api';
 
 // TODO:  DSS-6122 Create and move to Error module
@@ -43,8 +50,8 @@ const readDataset = async (id: number | string): Promise<IDataset> => {
 
 /**
  * Reads the response from the datasetView endpoint for the provided dataset id
- * @param {number} id 
- * @returns {Promise<IDatasetView>} 
+ * @param {number} id
+ * @returns {Promise<IDatasetView>}
  */
 const readDatasetView = async (id: number): Promise<IDatasetView> => {
   const { status, dataset } = await getJSON<IDatasetViewGetResponse>({ url: datasetViewUrlById(id) });
@@ -62,7 +69,7 @@ const readDatasetView = async (id: number): Promise<IDatasetView> => {
  * @return {string}
  */
 const datasetIdTranslationUrlByUrn = (urn: string): string => {
-  return `${datasetsUrlRoot}/urntoid/${encodeURIComponent(urn)}`;
+  return `${datasetsUrlRoot('v1')}/urntoid/${encodeURIComponent(urn)}`;
 };
 
 /**
@@ -92,4 +99,33 @@ const datasetUrnToId = async (urn: string): Promise<number> => {
   return datasetId;
 };
 
-export { readDataset, datasetUrnToId, readDatasetView };
+/**
+ * Fetches the datasets for a platform, and prefix and returns the list of datasets in the
+ * response
+ * @param {IReadDatasetsOptionBag} {
+ *   platform,
+ *   prefix
+ * }
+ * @returns {Promise<IDatasetsGetResponse['elements']>}
+ */
+const readDatasets = async ({
+  platform,
+  prefix
+}: IReadDatasetsOptionBag): Promise<IDatasetsGetResponse['elements']> => {
+  const url = datasetsUrl({ platform, prefix });
+  const response = await getJSON<IDatasetsGetResponse>({ url });
+
+  return response ? [...response.elements] : [];
+};
+
+/**
+ * Gets the number of datasets, if provided, using the platform and prefix also
+ * @param {Partial<IReadDatasetsOptionBag>} { platform, prefix }
+ * @returns {Promise<number>}
+ */
+const readDatasetsCount = async ({ platform, prefix }: Partial<IReadDatasetsOptionBag>): Promise<number> => {
+  const url = datasetsCountUrl({ platform, prefix });
+  return await getJSON<number>({ url });
+};
+
+export { readDataset, datasetUrnToId, readDatasetView, readDatasets, readDatasetsCount };
