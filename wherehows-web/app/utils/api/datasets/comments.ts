@@ -1,9 +1,10 @@
 import Ember from 'ember';
 import { IDatasetComment, IDatasetCommentsGetResponse } from 'wherehows-web/typings/api/datasets/comments';
-import { datasetUrlById } from 'wherehows-web/utils/api/datasets/shared';
+import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
+import { getJSON } from 'wherehows-web/utils/api/fetcher';
 
-const { $: { getJSON, post, ajax } } = Ember;
+const { $: { getJSON: $getJSON, post, ajax } } = Ember;
 
 // TODO:  DSS-6122 Create and move to Error module
 /**
@@ -26,6 +27,13 @@ const csrfToken = '_UNUSED_';
 const datasetCommentsUrlById = (id: number): string => `${datasetUrlById(id)}/comments`;
 
 /**
+ * Returns the url for a dataset comment by urn
+ * @param {string} urn
+ * @return {string}
+ */
+const datasetCommentsUrnByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/comments`;
+
+/**
  * Gets a specific comment on a dataset
  * @param {number} datasetId the id of the dataset
  * @param {number} commentId the id of the comment
@@ -40,7 +48,7 @@ const datasetCommentUrlById = (datasetId: number, commentId: number): string =>
  * @return {Promise<Array<IDatasetComment>>}
  */
 const readDatasetComments = async (id: number): Promise<Array<IDatasetComment>> => {
-  const response: IDatasetCommentsGetResponse = await Promise.resolve(getJSON(datasetCommentsUrlById(id)));
+  const response: IDatasetCommentsGetResponse = await Promise.resolve($getJSON(datasetCommentsUrlById(id)));
   const { status, data: { comments } } = response;
 
   if (status === ApiStatus.OK) {
@@ -48,6 +56,18 @@ const readDatasetComments = async (id: number): Promise<Array<IDatasetComment>> 
   }
 
   throw new Error(datasetCommentsApiException);
+};
+
+/**
+ * Reads the dataset comments related to the urn
+ * @param {string} urn
+ * @return {Promise<Array<IDatasetComment>>}
+ */
+const readDatasetCommentsByUrn = async (urn: string): Promise<Array<IDatasetComment>> => {
+  const { data: { comments } } = await getJSON<Pick<IDatasetCommentsGetResponse, 'data'>>({
+    url: datasetCommentsUrnByUrn(urn)
+  });
+  return comments;
 };
 
 /**
@@ -138,4 +158,10 @@ const updateDatasetComment = async (
   }
 };
 
-export { readDatasetComments, createDatasetComment, deleteDatasetComment, updateDatasetComment };
+export {
+  readDatasetComments,
+  createDatasetComment,
+  deleteDatasetComment,
+  updateDatasetComment,
+  readDatasetCommentsByUrn
+};

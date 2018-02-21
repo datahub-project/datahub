@@ -1,4 +1,4 @@
-import { test } from 'qunit';
+import { skip } from 'qunit';
 import moduleForAcceptance from 'wherehows-web/tests/helpers/module-for-acceptance';
 import defaultScenario from 'wherehows-web/mirage/scenarios/default';
 import { visit, find, currentURL, waitUntil } from 'ember-native-dom-helpers';
@@ -10,7 +10,7 @@ moduleForAcceptance('Acceptance | datasets/dataset/ownership', {
   }
 });
 
-test('visiting /datasets/dataset/ownership', async function(assert) {
+skip('visiting /datasets/dataset/ownership', async function(assert) {
   assert.expect(2);
   defaultScenario(server);
   const url = '/datasets/12345/ownership';

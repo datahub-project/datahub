@@ -4,9 +4,6 @@ import $ from 'jquery';
 
 export default Controller.extend({
   urn: null,
-  currentName: null,
-  urnWatched: false,
-  detailview: true,
   previousPage: computed('model.data.page', function() {
     var model = this.get('model');
     if (model && model.data && model.data.page) {
