@@ -108,6 +108,33 @@ const ownerWithModifiedTimeAsDate = (owner: IOwner): IOwner => ({
 }); // Api response is always in number format
 
 /**
+ * Describes the mapping function returned from the ownerWithoutPropertiesMappingFnFactory,
+ * takes an owner and returns an object with a subset of the properties on IOwner
+ * @interface IOwnerWithoutPropMappingFn
+ */
+interface IOwnerWithoutPropsMappingFn {
+  (owner: IOwner): Partial<IOwner>;
+}
+
+/**
+ * Returns a mapping function of type IOwnerWithoutPropsMappingFn
+ * @template K key on the IOwner interface
+ * @param {Array<K>} [props=[]] list of keys/ attributes to exclude from the IOwner instance
+ * @returns {IOwnerWithoutPropsMappingFn} mapping function
+ * TODO: abstract into type-safe fleecing /object filter-map function
+ */
+const ownerWithoutPropertiesMappingFnFactory = <K extends keyof IOwner>(
+  props: Array<K> = []
+): IOwnerWithoutPropsMappingFn => (owner: IOwner): Partial<IOwner> => {
+  const partialOwner = { ...owner };
+
+  return props.reduce((owner, prop) => {
+    delete owner[prop];
+    return owner;
+  }, partialOwner);
+};
+
+/**
  * Modifies a list of owners with a modified date property as a Date object
  * @type {(array: Array<IOwner>) => Array<IOwner>}
  */
@@ -159,12 +186,14 @@ const updateDatasetOwners = async (
  * @return {Promise<void>}
  */
 const updateDatasetOwnersByUrn = (urn: string, csrfToken: string = '', updatedOwners: Array<IOwner>): Promise<void> => {
+  const ownersWithoutModifiedTime = arrayMap(ownerWithoutPropertiesMappingFnFactory(['modifiedTime']));
+
   return postJSON<void>({
     url: datasetOwnersUrlByUrn(urn),
     headers: { 'csrf-token': csrfToken },
     data: {
       csrfToken,
-      owners: updatedOwners
+      owners: ownersWithoutModifiedTime(updatedOwners) // strips the modified time from each owner, remote is source of truth
     }
   });
 };
