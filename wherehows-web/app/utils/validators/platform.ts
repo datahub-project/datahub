@@ -13,11 +13,11 @@ const platformRegex = /\[platform=([^\]]+)]/;
 const isDatasetPlatform = (candidate: string): boolean => platformRegex.test(candidate);
 
 /**
- * Checks that a string represents a dataset prefix
+ * Checks that a string represents a dataset segment
  * @param {string} candidate
  * @returns {boolean}
  */
-const isDatasetPrefix = (candidate: string): boolean =>
+const isDatasetSegment = (candidate: string): boolean =>
   !isDatasetPlatform(candidate) && ['.', '/'].includes(candidate.slice(-1));
 
 /**
@@ -50,4 +50,4 @@ const sanitizePlatformNodeString = (nodeString: string): string => {
   return nodeString;
 };
 
-export { platformRegex, isDatasetPlatform, isDatasetPrefix, getPlatformFromString, sanitizePlatformNodeString };
+export { platformRegex, isDatasetPlatform, isDatasetSegment, getPlatformFromString, sanitizePlatformNodeString };
