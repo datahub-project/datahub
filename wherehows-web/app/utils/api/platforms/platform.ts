@@ -1,6 +1,7 @@
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
 import { ApiVersion, getApiRoot } from 'wherehows-web/utils/api/shared';
+import { encodeForwardSlash } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Generates the base url for a platform given a specified ApiVersion
@@ -18,7 +19,7 @@ const platformsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): string => {
   const urlRoot = platformsUrlRoot('v2');
 
   if (platform && prefix) {
-    return `${urlRoot}/${platform}/prefix/${prefix}`;
+    return `${urlRoot}/${platform}/prefix/${encodeForwardSlash(prefix)}`;
   }
 
   if (platform) {

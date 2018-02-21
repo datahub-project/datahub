@@ -10,7 +10,7 @@ type IGetEntityTaskStrategy = { [K in IBrowserRouteParams['entity']]: Promise<Ar
 
 export default class BrowserViewport extends Component {
   /**
-   * Passed in parameters containing route or queryparameters values to be used in request
+   * Passed in parameters containing route or query parameters values to be used in request
    * @type {IBrowserRouteParams}
    * @memberof BrowserViewport
    */

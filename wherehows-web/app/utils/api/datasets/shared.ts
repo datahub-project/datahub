@@ -1,5 +1,6 @@
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
 import { ApiVersion, getApiRoot } from 'wherehows-web/utils/api/shared';
+import { encodeForwardSlash } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Defines the endpoint for datasets
@@ -49,7 +50,7 @@ export const datasetsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): strin
   const urlRoot = datasetsUrlRoot('v2');
 
   if (platform && prefix) {
-    return `${urlRoot}/platform/${platform}/prefix/${prefix}`;
+    return `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
   }
 
   if (platform) {
