@@ -42,7 +42,7 @@ export default function(this: IMirageServer) {
 
   this.get('/datasets/:dataset_id/owners', getDatasetOwners);
 
-  this.get('/list/complianceDataTypes', getComplianceDataTypes);
+  this.get('/list/compliance-data-types', getComplianceDataTypes);
 
   this.get('/list/platforms', getDatasetPlatforms);
 
