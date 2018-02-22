@@ -1,4 +1,5 @@
 import { assert } from '@ember/debug';
+import { DatasetPlatform } from 'wherehows-web/constants';
 
 /**
  * Matches a url string with a `urn` query. urn query with letters or underscore segment of any length greater
@@ -62,10 +63,22 @@ const getPlatformFromUrn = (candidateUrn: string) => {
  */
 const convertWhUrnToLiUrn = (whUrn: string): string => {
   assert(`Expected ${whUrn} to be in the WH urn format`, isWhUrn(whUrn));
-  const [, platform, path] = datasetUrnRegexWH.exec(whUrn)!;
 
-  return `urn:li:dataset:(urn:li:dataPlatform:${platform},${path},PROD)`;
+  const [, platform, path] = datasetUrnRegexWH.exec(whUrn)!;
+  const formattedPath = convertWhDatasetPathToLiPath(<DatasetPlatform>platform, path);
+
+  return `urn:li:dataset:(urn:li:dataPlatform:${platform},${formattedPath},PROD)`;
 };
+
+/**
+ * Converts a path from WH urn format, replace forward slash with periods in non DatasetPlatform.HDFS cases,
+ * add leading forward slash if platform is DatasetPlatform.HDFS
+ * @param {DatasetPlatform} platform
+ * @param {string} path
+ * @return {string}
+ */
+const convertWhDatasetPathToLiPath = (platform: DatasetPlatform, path: string): string =>
+  platform === DatasetPlatform.HDFS ? `/${path}` : path.replace(/\//g, '.');
 
 /**
  * Cached RegExp object for a global search of /
