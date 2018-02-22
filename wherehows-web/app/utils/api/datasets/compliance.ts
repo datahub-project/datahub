@@ -36,7 +36,7 @@ const datasetComplianceSuggestionsUrlById = (id: number): string => `${datasetCo
  * @param {string} urn
  * @return {string}
  */
-const datasetComplianceSuggestionUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/complianceSuggestion`;
+const datasetComplianceSuggestionUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/compliance/suggestion`;
 
 /**
  * Determines if the client app should 'new' a compliance policy
