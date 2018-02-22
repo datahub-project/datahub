@@ -42,7 +42,7 @@ test('setting the deprecated property should toggle the checkbox', function(asse
   assert.notOk(this.$('#dataset-is-deprecated').is(':checked'), 'checkbox is unchecked when property is set false');
 });
 
-test('triggers the onUpdateDeprecation action when submitted', async function(assert) {
+skip('triggers the onUpdateDeprecation action when submitted', async function(assert) {
   let submitActionCallCount = 0;
 
   this.set('submit', function(deprecated, note) {
