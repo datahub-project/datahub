@@ -2,17 +2,6 @@ import Route from '@ember/routing/route';
 import { set, get, setProperties } from '@ember/object';
 import { inject } from '@ember/service';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
-import { readDatasetCompliance, readDatasetComplianceSuggestion } from 'wherehows-web/utils/api/datasets/compliance';
-import { readNonPinotProperties, readPinotProperties } from 'wherehows-web/utils/api/datasets/properties';
-import { readDatasetComments } from 'wherehows-web/utils/api/datasets/comments';
-import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
-import {
-  readDatasetColumns,
-  columnDataTypesAndFieldNames,
-  augmentObjectsWithHtmlComments
-} from 'wherehows-web/utils/api/datasets/columns';
-
-import { readDatasetOwners, getUserEntities } from 'wherehows-web/utils/api/datasets/owners';
 import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
 import { readDatasetById, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import isUrn, { isWhUrn, isLiUrn, convertWhUrnToLiUrn, encodeUrn, decodeUrn } from 'wherehows-web/utils/validators/urn';
@@ -74,17 +63,7 @@ export default Route.extend({
     set(controller, 'model', model);
     setProperties(controller, {
       isInternal: await get(this, 'configurator').getConfig('isInternal')
-      // ...properties,
-      // requiredMinNotConfirmed: isRequiredMinOwnersNotConfirmed(owners)
     });
-
-    // If urn exists, create a breadcrumb list
-    // TODO: DSS-7068 Refactoring in progress , move this to a computed prop on a container component
-    // FIXME: DSS-7068 browse.entity?urn route does not exist for last item in breadcrumb i.e. the dataset
-    //  currently being viewed. Should this even be a link in the first place?
-    if (model.uri) {
-      set(controller, 'breadcrumbs', makeUrnBreadcrumbs(model.uri));
-    }
 
     // TODO: Get current user ACL permission info for ACL access tab
     Promise.resolve(currentUser())

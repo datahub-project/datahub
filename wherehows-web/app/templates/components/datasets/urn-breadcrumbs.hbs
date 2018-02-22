@@ -1,0 +1,25 @@
+<li class="nacho-breadcrumbs__crumb">
+
+  {{link-to
+    "datasets"
+    "browse.entity"
+    "datasets"
+    (query-params page=1 prefix="" platform="")
+    class="nacho-breadcrumbs__crumb__grain"
+  }}
+
+</li>
+
+{{#each breadcrumbs as |crumb|}}
+  <li class="nacho-breadcrumbs__crumb">
+
+    {{link-to
+      crumb.crumb
+      "browse.entity"
+      "datasets"
+      (query-params page=1 prefix=crumb.prefix platform=crumb.platform)
+      class="nacho-breadcrumbs__crumb__grain"
+    }}
+
+  </li>
+{{/each}}
