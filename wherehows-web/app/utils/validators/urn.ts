@@ -78,7 +78,7 @@ const convertWhUrnToLiUrn = (whUrn: string): string => {
  * @return {string}
  */
 const convertWhDatasetPathToLiPath = (platform: DatasetPlatform, path: string): string =>
-  platform === DatasetPlatform.HDFS ? `/${path}` : path.replace(/\//g, '.');
+  String(platform).toLowerCase() === DatasetPlatform.HDFS ? `/${path}` : path.replace(/\//g, '.');
 
 /**
  * Cached RegExp object for a global search of /
@@ -123,6 +123,7 @@ export {
   specialFlowUrnRegex,
   getPlatformFromUrn,
   convertWhUrnToLiUrn,
+  convertWhDatasetPathToLiPath,
   encodeForwardSlash,
   encodeUrn,
   decodeUrn
