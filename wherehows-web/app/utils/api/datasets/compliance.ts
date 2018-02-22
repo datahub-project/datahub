@@ -1,4 +1,6 @@
 import { assert } from '@ember/debug';
+import { ApiResponseStatus } from 'wherehows-web/utils/api';
+import { ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
@@ -82,18 +84,24 @@ const readDatasetCompliance = async (id: number): Promise<IReadComplianceResult>
 };
 
 /**
- * Reads the dataset compliance policy by urn
- * @param {string} urn
+ * Reads the dataset compliance policy by urn.
+ * Resolves with a new compliance policy instance if remote response is ApiResponseStatus.NotFound
+ * @param {string} urn the urn for the related dataset
  * @return {Promise<IReadComplianceResult>}
  */
 const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceResult> => {
-  let { complianceInfo } = await getJSON<Pick<IComplianceGetResponse, 'complianceInfo'>>({
-    url: datasetComplianceUrlByUrn(urn)
-  });
-  const isNewComplianceInfo = !complianceInfo;
+  let complianceInfo: IComplianceGetResponse['complianceInfo'];
+  let isNewComplianceInfo = false;
 
-  if (isNewComplianceInfo) {
-    complianceInfo = createInitialComplianceInfo(urn);
+  try {
+    ({ complianceInfo } = await getJSON<Pick<IComplianceGetResponse, 'complianceInfo'>>({
+      url: datasetComplianceUrlByUrn(urn)
+    }));
+  } catch (e) {
+    if (e instanceof ApiError && e.status === ApiResponseStatus.NotFound) {
+      complianceInfo = createInitialComplianceInfo(urn);
+      isNewComplianceInfo = true;
+    }
   }
 
   return { isNewComplianceInfo, complianceInfo: complianceInfo! };
