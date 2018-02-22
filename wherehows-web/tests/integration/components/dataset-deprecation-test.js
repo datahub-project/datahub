@@ -1,4 +1,4 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { moduleForComponent, test, skip } from 'ember-qunit';
 import { click } from 'ember-native-dom-helpers';
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import hbs from 'htmlbars-inline-precompile';
