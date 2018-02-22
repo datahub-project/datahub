@@ -19,9 +19,9 @@ export default class DatasetDeprecation extends Component {
   /**
    * Working reference to the dataset's deprecated flag
    * @memberof DatasetDeprecation
-   * @type {ComputedProperty<typeof DatasetDeprecation.deprecated>}
+   * @type {ComputedProperty<DatasetDeprecation.deprecated>}
    */
-  deprecatedAlias = oneWay('deprecated');
+  deprecatedAlias: ComputedProperty<DatasetDeprecation['deprecated']> = oneWay('deprecated');
 
   /**
    * Note accompanying the deprecation flag change
@@ -33,9 +33,9 @@ export default class DatasetDeprecation extends Component {
   /**
    * Working reference to the dataset's deprecationNote
    * @memberof DatasetDeprecation
-   * @type {ComputedProperty<typeof DatasetDeprecation.deprecationNote>}
+   * @type {ComputedProperty<DatasetDeprecation.deprecationNote>}
    */
-  deprecationNoteAlias = oneWay('deprecationNote');
+  deprecationNoteAlias: ComputedProperty<DatasetDeprecation['deprecationNote']> = oneWay('deprecationNote');
 
   /**
    * Checks the working / aliased copies of the deprecation properties diverge from the
@@ -95,7 +95,7 @@ export default class DatasetDeprecation extends Component {
     if (onUpdateDeprecation) {
       const noteValue = deprecatedAlias ? deprecationNoteAlias : '';
 
-      await onUpdateDeprecation(deprecatedAlias, noteValue);
+      await onUpdateDeprecation(!!deprecatedAlias, noteValue || '');
       set(this, 'deprecationNoteAlias', noteValue);
     }
   }

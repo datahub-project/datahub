@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
-import { run, next } from '@ember/runloop';
+import { run, schedule } from '@ember/runloop';
 import DatasetCompliance from 'wherehows-web/components/dataset-compliance';
 import {
   baseCommentEditorOptions,
@@ -96,7 +96,7 @@ export default class PurgePolicyComponent extends Component {
     if (exemptionReasonRequested) {
       // schedule for a future queue, 'likely' post render
       // this allows us to ensure that editor it visible after the set above has been performed
-      run(() => next(this, 'focusEditor'));
+      run(() => schedule('afterRender', this, 'focusEditor'));
     }
   }
 
@@ -104,7 +104,8 @@ export default class PurgePolicyComponent extends Component {
    * Applies cursor / document focus to the purge note text editor
    */
   focusEditor(this: PurgePolicyComponent) {
-    const exemptionReasonElement = <HTMLElement>get(this, 'element').querySelector('.comment-new__content');
+    const element = document.querySelector(get(this, 'elementId'));
+    const exemptionReasonElement: HTMLElement | null = element && element.querySelector('.comment-new__content');
 
     if (exemptionReasonElement) {
       exemptionReasonElement.focus();

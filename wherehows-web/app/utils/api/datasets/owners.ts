@@ -301,6 +301,7 @@ export {
   readPartyEntities,
   readPartyEntitiesMap,
   getUserEntities,
+  ownerWithoutPropertiesMappingFnFactory,
   updateDatasetOwners,
   OwnerIdType,
   OwnerType,

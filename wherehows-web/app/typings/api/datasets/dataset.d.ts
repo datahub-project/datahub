@@ -41,7 +41,7 @@ interface IDatasetView {
   tags: Array<string>;
   removed: boolean | null;
   deprecated: boolean | null;
-  deprecationNote: string | null;
+  deprecationNote: string;
   createdTime: number;
   modifiedTime: number;
 }
