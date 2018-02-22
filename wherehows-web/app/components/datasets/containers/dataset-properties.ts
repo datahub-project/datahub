@@ -18,15 +18,15 @@ export default class DatasetPropertiesContainer extends Component {
 
   /**
    * Flag indicating that the dataset is deprecated
-   * @type {boolean | null}
+   * @type {IDatasetView.deprecated}
    */
-  deprecated: boolean | null;
+  deprecated: IDatasetView['deprecated'];
 
   /**
    * Text string, intended to indicate the reason for deprecation
-   * @type {string | null}
+   * @type {IDatasetView.deprecationNote}
    */
-  deprecationNote: string | null;
+  deprecationNote: IDatasetView['deprecationNote'];
 
   /**
    * THe list of properties for the dataset, currently unavailable for v2
@@ -80,7 +80,7 @@ export default class DatasetPropertiesContainer extends Component {
     const { notify } = get(this, 'notifications');
 
     try {
-      await updateDatasetDeprecationByUrn(get(this, 'urn'), isDeprecated, updatedDeprecationNote);
+      await updateDatasetDeprecationByUrn(get(this, 'urn'), isDeprecated, updatedDeprecationNote || '');
 
       notify(NotificationEvent.success, {
         content: 'Successfully updated deprecation status'
