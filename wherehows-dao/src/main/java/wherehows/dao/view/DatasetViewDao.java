@@ -140,7 +140,7 @@ public class DatasetViewDao extends BaseViewDao {
   /**
    * Get dataset schema by dataset urn
    */
-  @Nonnull
+  @Nullable
   public DatasetSchema getDatasetSchema(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
