@@ -1,3 +1,3 @@
-import makeUrnBreadcrumbs from 'wherehows-web/utils/entities/make-urn-breadcrumbs';
+import bakeUrnBreadcrumbs from 'wherehows-web/utils/entities/bake-urn-breadcrumbs';
 
-export { makeUrnBreadcrumbs };
+export { bakeUrnBreadcrumbs };

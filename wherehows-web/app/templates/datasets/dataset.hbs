@@ -1,13 +1,6 @@
 <div class="container">
   <div id="dataset">
-    <ul class="nacho-breadcrumbs">
-      {{#each breadcrumbs as |crumb|}}
-        <li class="nacho-breadcrumbs__crumb">
-          {{link-to crumb.crumb "browse.entity" "datasets" (query-params page=1 urn=crumb.urn)
-                    class="nacho-breadcrumbs__crumb__grain"}}
-        </li>
-      {{/each}}
-    </ul>
+    {{datasets/urn-breadcrumbs urn=model.uri}}
 
     <div class="row">
       <div class="col-xs-5">
@@ -51,6 +44,7 @@
         <h3>{{ model.nativeName }}</h3>
       </div>
     </div>
+
     {{dataset-owner-list owners=owners datasetName=model.nativeName}}
   </div>
 
