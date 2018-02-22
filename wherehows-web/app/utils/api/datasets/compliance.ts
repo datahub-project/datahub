@@ -101,6 +101,8 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
     if (e instanceof ApiError && e.status === ApiResponseStatus.NotFound) {
       complianceInfo = createInitialComplianceInfo(urn);
       isNewComplianceInfo = true;
+    } else {
+      throw e;
     }
   }
 

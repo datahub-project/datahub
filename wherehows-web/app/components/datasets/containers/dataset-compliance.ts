@@ -1,13 +1,17 @@
 import Component from '@ember/component';
 import { get, set, setProperties, getProperties } from '@ember/object';
+import ComputedProperty from '@ember/object/computed';
+import { inject } from '@ember/service';
 import { task, TaskInstance } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { IComplianceInfo, IComplianceSuggestion } from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import {
+  ApiResponseStatus,
   IReadComplianceResult,
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
@@ -15,7 +19,11 @@ import {
 } from 'wherehows-web/utils/api';
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
+import { ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
+import { compliancePolicyStrings } from 'wherehows-web/constants';
+
+const { successUpdating, failedUpdating } = compliancePolicyStrings;
 
 export default class DatasetComplianceContainer extends Component {
   /**
@@ -41,6 +49,12 @@ export default class DatasetComplianceContainer extends Component {
    * @type {IComplianceSuggestion | void}
    */
   complianceSuggestion: IComplianceSuggestion | void;
+
+  /**
+   * Reference to the application notifications Service
+   * @type {ComputedProperty<Notifications>}
+   */
+  notifications: ComputedProperty<Notifications> = inject();
 
   /**
    * Object containing the compliance information for the dataset
@@ -140,11 +154,37 @@ export default class DatasetComplianceContainer extends Component {
    * @type {Task<Promise<IDatasetSchema>, (a?: any) => TaskInstance<Promise<IDatasetSchema>>>}
    */
   getDatasetSchemaTask = task(function*(this: DatasetComplianceContainer): IterableIterator<Promise<IDatasetSchema>> {
-    const { columns, schemaless } = yield readDatasetSchemaByUrn(get(this, 'urn'));
-    const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
-
-    setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
+    try {
+      const { columns, schemaless } = yield readDatasetSchemaByUrn(get(this, 'urn'));
+      const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
+      setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
+    } catch (e) {
+      // If this schema is missing, silence exception, otherwise propagate
+      if (!(e instanceof ApiError && e.status === ApiResponseStatus.NotFound)) {
+        throw e;
+      }
+    }
   });
+
+  /**
+   * Handles user notifications when save succeeds or fails
+   * @template T the return type for the save request
+   * @param {Promise<T>} request async policy save request
+   * @returns {Promise<T>}
+   * @memberof DatasetComplianceContainer
+   */
+  async notifyOnSave<T>(this: DatasetComplianceContainer, request: Promise<T>): Promise<T> {
+    const { notify } = get(this, 'notifications');
+
+    try {
+      await request;
+      notify(NotificationEvent.success, { content: successUpdating });
+    } catch (e) {
+      notify(NotificationEvent.error, { content: failedUpdating });
+    }
+
+    return request;
+  }
 
   /**
    * Persists the updates to the compliance policy on the remote host
@@ -154,7 +194,7 @@ export default class DatasetComplianceContainer extends Component {
   async savePrivacyCompliancePolicy(this: DatasetComplianceContainer): Promise<void> {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
-      return saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo);
+      return this.notifyOnSave<void>(saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo));
     }
   }
 
