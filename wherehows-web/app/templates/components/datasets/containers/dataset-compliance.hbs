@@ -1,12 +1,20 @@
-{{dataset-compliance
-  datasetName=datasetName
-  schemaless=schemaless
-  platform=platform
-  complianceInfo=complianceInfo
-  complianceSuggestion=complianceSuggestion
-  isNewComplianceInfo=isNewComplianceInfo
-  schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
-  complianceDataTypes=complianceDataTypes
-  onSave=(action "savePrivacyCompliancePolicy")
-  onReset=(action "resetPrivacyCompliancePolicy")
-}}
+{{#if getContainerDataTask.last.isError}}
+
+  {{empty-state heading="An error occurred getting this dataset's compliance policy"}}
+
+{{else}}
+
+  {{dataset-compliance
+    datasetName=datasetName
+    schemaless=schemaless
+    platform=platform
+    complianceInfo=complianceInfo
+    complianceSuggestion=complianceSuggestion
+    isNewComplianceInfo=isNewComplianceInfo
+    schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
+    complianceDataTypes=complianceDataTypes
+    onSave=(action "savePrivacyCompliancePolicy")
+    onReset=(action "resetPrivacyCompliancePolicy")
+  }}
+
+{{/if}}

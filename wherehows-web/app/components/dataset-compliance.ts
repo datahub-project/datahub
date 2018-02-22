@@ -117,8 +117,6 @@ const {
   complianceDataException,
   complianceFieldNotUnique,
   missingTypes,
-  successUpdating,
-  failedUpdating,
   helpText,
   successUploading,
   invalidPolicyData,
@@ -791,43 +789,6 @@ export default class DatasetCompliance extends ObservableDecorator {
   }
 
   /**
-   * Helper method to update user when an async server update to the
-   * security specification is handled.
-   * @template T
-   * @param {Promise<T>} request the server request
-   * @param {{successMessage?: string, isSaving?: boolean}} [{ successMessage = successUpdating, isSaving = false }={}]
-   * @prop {successMessage} optional message for successful response
-   * @prop {isSaving} optional flag indicating when the user intends to persist / save
-   * @returns {Promise<void>}
-   * @memberof DatasetCompliance
-   */
-  whenRequestCompletes<T extends { status: ApiStatus }>(
-    this: DatasetCompliance,
-    request: Promise<T>,
-    { successMessage = successUpdating, isSaving = false }: { successMessage?: string; isSaving?: boolean } = {}
-  ): Promise<void> {
-    const { notify } = get(this, 'notifications');
-
-    return Promise.resolve(request)
-      .then(({ status = ApiStatus.ERROR }): void | Promise<void> => {
-        return status === ApiStatus.OK
-          ? notify(NotificationEvent.success, { content: successMessage })
-          : Promise.reject(new Error(`Reason code for this is ${status}`));
-      })
-      .catch((err: string) => {
-        let message = `${failedUpdating} \n ${err}`;
-
-        if (get(this, 'isNewComplianceInfo') && !isSaving) {
-          return notify(NotificationEvent.info, {
-            content: 'This dataset does not have any previously saved fields with a identifying information.'
-          });
-        }
-
-        notify(NotificationEvent.error, { content: message });
-      });
-  }
-
-  /**
    * Sets the default classification for the given identifier field
    * Using the identifierType, determine the field's default security classification based on a values
    * supplied by complianceDataTypes endpoint
@@ -1409,7 +1370,7 @@ export default class DatasetCompliance extends ObservableDecorator {
         const onSave = get(this, 'onSave');
         setSaveFlag(isSaving);
 
-        await this.whenRequestCompletes(onSave(), { isSaving });
+        await onSave();
         return this.updateStep(-1);
       } finally {
         setSaveFlag();
@@ -1419,10 +1380,7 @@ export default class DatasetCompliance extends ObservableDecorator {
     // Rolls back changes made to the compliance spec to current
     // server state
     resetCompliance(this: DatasetCompliance) {
-      const options = {
-        successMessage: 'Field classification has been reset to the previously saved state.'
-      };
-      this.whenRequestCompletes(get(this, 'onReset')(), options);
+      get(this, 'onReset')();
     }
   };
 }
