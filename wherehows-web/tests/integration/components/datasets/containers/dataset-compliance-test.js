@@ -27,8 +27,12 @@ test('it renders', async function(assert) {
     { 'Content-Type': 'application/json' },
     JSON.stringify({})
   ]);
-  this.server.respondWith(/.*\/complianceDataTypes/, [200, { 'Content-Type': 'application/json' }, JSON.stringify([])]);
-  this.server.respondWith(/.*\/complianceSuggestion/, [
+  this.server.respondWith(/.*\/compliance-data-types/, [
+    200,
+    { 'Content-Type': 'application/json' },
+    JSON.stringify([])
+  ]);
+  this.server.respondWith(/.*\/compliance\/suggestion/, [
     200,
     { 'Content-Type': 'application/json' },
     JSON.stringify({})
