@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
-import { run, schedule } from '@ember/runloop';
+import { run, next } from '@ember/runloop';
 import DatasetCompliance from 'wherehows-web/components/dataset-compliance';
 import {
   baseCommentEditorOptions,
@@ -57,7 +57,7 @@ export default class PurgePolicyComponent extends Component {
    * Flag indication that policy has a request exemption reason
    * @type {boolean}
    */
-  requestExemptionReason = false;
+  requestExemptionReason: boolean;
 
   /**
    * An options hash for the purge exempt reason text editor
@@ -79,6 +79,12 @@ export default class PurgePolicyComponent extends Component {
    */
   onPolicyChange: (purgePolicy: PurgePolicy) => IComplianceInfo['complianceType'] | null;
 
+  constructor() {
+    super(...arguments);
+
+    this.requestExemptionReason || (this.requestExemptionReason = false);
+  }
+
   didReceiveAttrs(this: PurgePolicyComponent) {
     this._super(...arguments);
     this.checkExemption(get(this, 'purgePolicy'));
@@ -96,7 +102,7 @@ export default class PurgePolicyComponent extends Component {
     if (exemptionReasonRequested) {
       // schedule for a future queue, 'likely' post render
       // this allows us to ensure that editor it visible after the set above has been performed
-      run(() => schedule('afterRender', this, 'focusEditor'));
+      run(() => next(this, 'focusEditor'));
     }
   }
 
@@ -104,7 +110,7 @@ export default class PurgePolicyComponent extends Component {
    * Applies cursor / document focus to the purge note text editor
    */
   focusEditor(this: PurgePolicyComponent) {
-    const element = document.querySelector(get(this, 'elementId'));
+    const element = get(this, 'element');
     const exemptionReasonElement: HTMLElement | null = element && element.querySelector('.comment-new__content');
 
     if (exemptionReasonElement) {

@@ -1,4 +1,4 @@
-import { moduleForComponent, test, skip } from 'ember-qunit';
+import { moduleForComponent, test } from 'ember-qunit';
 import { click } from 'ember-native-dom-helpers';
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import hbs from 'htmlbars-inline-precompile';
@@ -42,13 +42,13 @@ test('setting the deprecated property should toggle the checkbox', function(asse
   assert.notOk(this.$('#dataset-is-deprecated').is(':checked'), 'checkbox is unchecked when property is set false');
 });
 
-skip('triggers the onUpdateDeprecation action when submitted', async function(assert) {
+test('triggers the onUpdateDeprecation action when submitted', async function(assert) {
   let submitActionCallCount = 0;
 
   this.set('submit', function(deprecated, note) {
     submitActionCallCount++;
     assert.equal(deprecated, true, 'action is called with deprecation value of true');
-    assert.equal(note, null, 'action is called with null deprecation note');
+    assert.equal(note, '', 'action is called with an empty deprecation note');
   });
 
   this.render(hbs`{{dataset-deprecation onUpdateDeprecation=(action submit)}}`);
