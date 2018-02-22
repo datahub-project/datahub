@@ -105,10 +105,8 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
  * @param {IComplianceInfo} complianceInfo
  * @return {Promise<void>}
  */
-const saveDatasetComplianceByUrn = (urn: string, complianceInfo: IComplianceInfo): Promise<void> => {
-  const url = datasetUrlByUrn(urn);
-  return postJSON<void>({ url, data: complianceInfo });
-};
+const saveDatasetComplianceByUrn = (urn: string, complianceInfo: IComplianceInfo): Promise<void> =>
+  postJSON<void>({ url: datasetComplianceUrlByUrn(urn), data: complianceInfo });
 
 /**
  * Requests the compliance suggestions for a given dataset Id and returns the suggestion list

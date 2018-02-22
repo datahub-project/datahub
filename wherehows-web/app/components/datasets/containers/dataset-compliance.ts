@@ -148,12 +148,14 @@ export default class DatasetComplianceContainer extends Component {
 
   /**
    * Persists the updates to the compliance policy on the remote host
-   * @param {IComplianceInfo} complianceInfo
    * @return {Promise<void>}
    */
   @action
-  savePrivacyCompliancePolicy(complianceInfo: IComplianceInfo): Promise<void> {
-    return saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo);
+  async savePrivacyCompliancePolicy(this: DatasetComplianceContainer): Promise<void> {
+    const complianceInfo = get(this, 'complianceInfo');
+    if (complianceInfo) {
+      return saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo);
+    }
   }
 
   /**
