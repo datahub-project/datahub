@@ -26,7 +26,7 @@ export enum ApiStatus {
  * Enumerates the currently available Api statuses
  * @type {number}
  */
-export enum ApiStatusNumber {
+export enum ApiResponseStatus {
   NotFound = 404,
   UnAuthorized = 401,
   InternalServerError = 500
