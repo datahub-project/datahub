@@ -1,6 +1,6 @@
 import { throwIfApiError, ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { module, test } from 'qunit';
-import { ApiResponseStatus } from 'utils/api';
+import { ApiResponseStatus } from 'wherehows-web/utils/api/shared';
 
 module('Unit | Utility | api/errors/errors');
 
