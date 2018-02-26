@@ -40,7 +40,7 @@ export default Route.extend({
       isWhUrn(decodedUrn) && (urn = convertWhUrnToLiUrn(decodedUrn));
 
       if (isLiUrn(decodeUrn(urn))) {
-        return await readDatasetByUrn(encodeUrn(urn));
+        return await readDatasetByUrn(urn);
       }
 
       get(this, 'notifications.notify')('error', {
