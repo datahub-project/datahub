@@ -5,6 +5,11 @@
       visibility: visible;
     }
   }
+
+  &__loading {
+    height: 200px;
+    padding: item-spacing(9 0);
+  }
 }
 
 /// Forces td cells on dataset field classification table to not wrap

@@ -1,5 +1,13 @@
-{{datasets/upstream-dataset
-  nativeName=nativeName
-  description=description
-  upstreamUrn=upstreamUrn
-}}
+{{#if getUpstreamPropertiesTask.isRunning}}
+
+  {{pendulum-ellipsis-animation}}
+
+{{else}}
+
+  {{datasets/upstream-dataset
+    nativeName=nativeName
+    description=description
+    upstreamUrn=upstreamUrn
+  }}
+
+{{/if}}
