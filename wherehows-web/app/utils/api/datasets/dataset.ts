@@ -16,6 +16,7 @@ import {
   datasetUrlByUrn
 } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api';
+import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 
 // TODO:  DSS-6122 Create and move to Error module
 const datasetApiException = 'An error occurred with the dataset api';
@@ -54,8 +55,8 @@ const readDatasetById = async (id: number | string): Promise<IDataset> => {
  * @param {string} urn
  * @returns {Promise<IDatasetView>}
  */
-const readDatasetByUrn = async (urn: string): Promise<IDatasetView> => {
-  const { dataset } = await getJSON<Pick<IDatasetViewGetResponse, 'dataset'>>({ url: datasetUrlByUrn(urn) });
+const readDatasetByUrn = async (urn: string = ''): Promise<IDatasetView> => {
+  const { dataset } = await getJSON<Pick<IDatasetViewGetResponse, 'dataset'>>({ url: datasetUrlByUrn(encodeUrn(urn)) });
   return dataset!;
 };
 

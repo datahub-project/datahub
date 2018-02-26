@@ -28,6 +28,9 @@ export interface IComplianceEntity {
   securityClassification: Classification | null;
   // Flag indicating that the dataset is of a subject type, default is false
   nonOwner: boolean;
+  // Flag indicating that this compliance field is not editable by the end user
+  // field should also be filtered from persisted policy
+  readonly readonly?: boolean;
 }
 
 /**
@@ -49,15 +52,17 @@ export interface IComplianceInfo {
   // for datasets with a schema, this derived from the complianceEntities
   containingPersonalData?: boolean;
   // Tags for a types of data contained in the related dataset
-  datasetClassification: DatasetClassification;
+  datasetClassification: DatasetClassification | null;
   // Unique wherehows specific database identifier
-  datasetId: number;
+  datasetId: null;
   // Unique urn for the dataset
-  datasetUrn?: string;
+  readonly datasetUrn?: string;
   // optional string with username of modifier
   modifiedBy?: string;
   // optional timestamp of last modification date
   modifiedTime?: string;
+  // optional attribute indicating that the compliance policy is derived from a parent in the lineage
+  readonly fromUpstream: boolean;
 }
 
 /**
