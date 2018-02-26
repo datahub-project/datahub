@@ -8,17 +8,27 @@
     {{datasets/containers/upstream-dataset upstreamUrn=complianceInfo.datasetUrn}}
   {{/if}}
 
-  {{dataset-compliance
-    datasetName=datasetName
-    schemaless=schemaless
-    platform=platform
-    complianceInfo=complianceInfo
-    complianceSuggestion=complianceSuggestion
-    isNewComplianceInfo=isNewComplianceInfo
-    schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
-    complianceDataTypes=complianceDataTypes
-    onSave=(action "savePrivacyCompliancePolicy")
-    onReset=(action "resetPrivacyCompliancePolicy")
-  }}
+  {{#if getContainerDataTask.isRunning}}
+
+    <div class="compliance-container__loading">
+      {{pendulum-ellipsis-animation}}
+    </div>
+
+  {{else}}
+
+    {{dataset-compliance
+      datasetName=datasetName
+      schemaless=schemaless
+      platform=platform
+      complianceInfo=complianceInfo
+      complianceSuggestion=complianceSuggestion
+      isNewComplianceInfo=isNewComplianceInfo
+      schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
+      complianceDataTypes=complianceDataTypes
+      onSave=(action "savePrivacyCompliancePolicy")
+      onReset=(action "resetPrivacyCompliancePolicy")
+    }}
+
+  {{/if}}
 
 {{/if}}
