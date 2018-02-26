@@ -44,7 +44,6 @@ import {
   ISuggestedFieldClassification,
   IComplianceSuggestion
 } from 'wherehows-web/typings/api/datasets/compliance';
-import { ApiStatus } from 'wherehows-web/utils/api';
 import { task, TaskInstance } from 'ember-concurrency';
 
 /**
@@ -64,7 +63,7 @@ interface IDatasetComplianceActions {
  */
 type SchemaFieldToPolicyValue = Pick<
   IComplianceEntity,
-  'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner'
+  'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner' | 'readonly'
 > & {
   privacyPolicyExists: boolean;
   isDirty: boolean;
@@ -210,8 +209,8 @@ export default class DatasetCompliance extends ObservableDecorator {
   complianceSuggestion: IComplianceSuggestion | void;
 
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
-  onReset: <T extends { status: ApiStatus }>() => Promise<T>;
-  onSave: <T extends { status: ApiStatus }>() => Promise<T>;
+  onReset: <T>() => Promise<T>;
+  onSave: <T>() => Promise<T>;
 
   classNames = ['compliance-container'];
 
@@ -290,11 +289,10 @@ export default class DatasetCompliance extends ObservableDecorator {
     super(...arguments);
 
     //sets default values for class fields
-    this.sortColumnWithName ||
-      set<DatasetCompliance, 'sortColumnWithName', string>(this, 'sortColumnWithName', 'identifierField');
-    this.filterBy || set<DatasetCompliance, 'filterBy', string>(this, 'filterBy', 'identifierField');
-    this.sortDirection || set<DatasetCompliance, 'sortDirection', string>(this, 'sortDirection', 'asc');
-    this.searchTerm || set<DatasetCompliance, 'searchTerm', string>(this, 'searchTerm', '');
+    this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
+    this.filterBy || set(this, 'filterBy', 'identifierField');
+    this.sortDirection || set(this, 'sortDirection', 'asc');
+    this.searchTerm || set(this, 'searchTerm', '');
     this.schemaFieldNamesMappedToDataTypes || (this.schemaFieldNamesMappedToDataTypes = []);
     this.complianceDataTypes || (this.complianceDataTypes = []);
   }
@@ -625,6 +623,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @param {(policyModificationTime: string)} { policyModificationTime }
    * @returns {ISchemaFieldsToPolicy}
    * @memberof DatasetCompliance
+   * TODO: Move to separate module
    */
   mapColumnIdFieldsToCurrentPrivacyPolicy(
     columnFieldProps: Array<{ identifierField: string; dataType: string }>,
@@ -641,7 +640,6 @@ export default class DatasetCompliance extends ObservableDecorator {
 
       if (sourceField) {
         for (const [key, value] of <Array<[K, IComplianceEntity[K]]>>Object.entries(sourceField)) {
-          // includes is not generic, hence narrowing string assertion here
           if (keys.includes(key)) {
             ret = { ...ret, [key]: value };
           }
@@ -653,7 +651,7 @@ export default class DatasetCompliance extends ObservableDecorator {
 
     return columnFieldProps.reduce((acc, { identifierField, dataType }) => {
       const currentPrivacyAttrs = getKeysOnField(
-        ['identifierType', 'logicalType', 'securityClassification', 'nonOwner'],
+        ['identifierType', 'logicalType', 'securityClassification', 'nonOwner', 'readonly'],
         identifierField,
         complianceEntities
       );
@@ -663,6 +661,7 @@ export default class DatasetCompliance extends ObservableDecorator {
         [identifierField]: {
           identifierField,
           dataType,
+          readonly: false, // default value overridden by value in currentPrivacyAttrs below
           ...currentPrivacyAttrs,
           policyModificationTime,
           privacyPolicyExists: hasEnumerableKeys(currentPrivacyAttrs),
