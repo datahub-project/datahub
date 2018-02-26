@@ -30,6 +30,19 @@
     margin-top: item-spacing(2);
     opacity: 0.8;
   }
+
+  &--readonly {
+    &#{&}#{&} {
+      color: get-color(slate5);
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    &__icon {
+      color: get-color(red7);
+      opacity: 0.9;
+    }
+  }
 }
 
 .compliance-depends {

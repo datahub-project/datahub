@@ -1,7 +1,9 @@
 import Ember from 'ember';
 import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { arrayMap } from 'wherehows-web/utils/array';
+import { arrayFilter, arrayMap } from 'wherehows-web/utils/array';
+import { fleece } from 'wherehows-web/utils/object';
 
 const { String: { htmlSafe } } = Ember;
 
@@ -117,6 +119,29 @@ const getComplianceSteps = (hasSchema: boolean = true): { [x: number]: { name: s
   return complianceSteps;
 };
 
+/**
+ * Returns true if argument of type IComplianceEntity has its readonly attribute not set to true
+ * @param {IComplianceEntity} { readonly }
+ * @returns {boolean}
+ */
+const isEditableComplianceEntity = ({ readonly }: IComplianceEntity): boolean => readonly !== true;
+
+/**
+ * Filters out from a list of compliance entities, entities that are editable
+ * @param {Array<IComplianceEntity>} entities
+ * @returns {Array<IComplianceEntity>}
+ */
+const filterEditableEntities = (entities: Array<IComplianceEntity>): Array<IComplianceEntity> =>
+  arrayFilter(isEditableComplianceEntity)(entities);
+
+/**
+ * Strips out the readonly attribute from a list of compliance entities
+ * @type {(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>}
+ */
+const removeReadonlyAttr = <(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>>arrayMap(
+  fleece<IComplianceEntity, 'readonly'>(['readonly'])
+);
+
 export {
   compliancePolicyStrings,
   getFieldIdentifierOption,
@@ -124,6 +149,8 @@ export {
   complianceSteps,
   hiddenTrackingFields,
   getComplianceSteps,
+  filterEditableEntities,
+  removeReadonlyAttr,
   IComplianceFieldIdentifierOption,
   IComplianceFieldFormatOption,
   ISecurityClassificationOption,

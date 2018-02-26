@@ -278,31 +278,6 @@ export default class extends Controller.extend({
 
       this.set('currentInstance', instance.dbId);
       this.refreshVersions(instance.dbId);
-    },
-
-    /**
-     * Requests the privacyCompliancePolicy for the current dataset id
-     * and sets the result on the controller `privacyCompliancePolicy` property
-     * @returns {Promise.<*>}
-     */
-    resetPrivacyCompliancePolicy() {
-      return getJSON(this.getUrlFor('compliance'), ({ status, complianceInfo }) => {
-        status === 'ok' &&
-          setProperties(this, {
-            complianceInfo,
-            isNewComplianceInfo: false
-          });
-      });
-    },
-
-    /**
-     * Retrieves the current version of the privacyCompliancePolicy document and invokes an api to persist the document
-     * then updates controller state if successful
-     */
-    savePrivacyCompliancePolicy() {
-      return this.saveJson('compliance', get(this, 'complianceInfo'))
-        .then(this.actions.resetPrivacyCompliancePolicy.bind(this))
-        .catch(this.exceptionOnSave);
     }
   }
 }) {

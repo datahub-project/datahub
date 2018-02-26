@@ -81,18 +81,28 @@
         }}
 
           {{#row.cell}}
-            {{#if (and row.suggestion (not row.suggestionResolution))}}
+            {{#if row.isReadonly}}
 
-              <span class="notification-dot notification-dot--has-prediction"
-                    aria-label="Compliance fields have suggested values"></span>
+              <i class="fa fa-lock dataset-compliance-fields--readonly__icon" title="Readonly">
+                {{tooltip-on-element
+                  text="Readonly"
+                }}
+              </i>
 
             {{else}}
+              {{#if (and row.suggestion (not row.suggestionResolution))}}
 
-              {{#if row.isReviewRequested}}
-                <span class="notification-dot notification-dot--needs-review"
-                      aria-label="Compliance policy for field does not exist"></span>
+                <span class="notification-dot notification-dot--has-prediction"
+                      aria-label="Compliance fields have suggested values"></span>
+
+              {{else}}
+
+                {{#if row.isReviewRequested}}
+                  <span class="notification-dot notification-dot--needs-review"
+                        aria-label="Compliance policy for field does not exist"></span>
+                {{/if}}
+
               {{/if}}
-
             {{/if}}
           {{/row.cell}}
 
@@ -137,7 +147,7 @@
               </div>
 
               {{ember-selector
-                disabled=(not isEditing)
+                disabled=(or (not isEditing) row.isReadonly)
                 values=complianceFieldIdDropdownOptions
                 selected=(readonly row.identifierType)
                 selectionDidChange=(action row.onFieldIdentifierTypeChange)
@@ -154,17 +164,17 @@
                 <a
                   target="_blank"
                   href="http://go/metadata_acquisition#ProjectOverview-compliance">
-                <sup>
-                More Info
+                  <sup>
+                    More Info
 
-                <span class="glyphicon glyphicon-question-sign"
-                      title="More information on Field Format"></span>
-                </sup>
+                    <span class="glyphicon glyphicon-question-sign"
+                          title="More information on Field Format"></span>
+                  </sup>
                 </a>
               </div>
 
               {{ember-selector
-                disabled=(not isEditing)
+                disabled=(or (not isEditing) row.isReadonly)
                 values=row.fieldFormats
                 selected=(readonly row.logicalType)
                 selectionDidChange=(action row.onFieldLogicalTypeChange)
@@ -184,7 +194,7 @@
                 id=(concat row.rowId '-compliance-field-owner-toggle')
                 type="checkbox"
                 class="toggle-switch toggle-switch--light"
-                disabled=(not isEditing)
+                disabled=(or (not isEditing) row.isReadonly)
                 checked=(readonly row.nonOwner)
                 change=(action row.onOwnerChange value="target.checked")
               }}
@@ -209,7 +219,7 @@
 
               {{ember-selector
                 class="nacho-select--hidden-state"
-                disabled=(not isEditing)
+                disabled=(or (not isEditing) row.isReadonly)
                 values=classifiers
                 selected=row.classification
                 selectionDidChange=(action row.onFieldClassificationChange)
