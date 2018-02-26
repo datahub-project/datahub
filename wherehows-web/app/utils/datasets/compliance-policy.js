@@ -156,7 +156,8 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       policyModificationTime,
       privacyPolicyExists,
       isDirty,
-      nonOwner
+      nonOwner,
+      readonly
     } = mappedColumnFields[fieldName];
     const suggestion = fieldSuggestionMap[identifierField];
 
@@ -168,7 +169,8 @@ const mergeMappedColumnFieldsWithSuggestions = (mappedColumnFields = {}, fieldSu
       privacyPolicyExists,
       isDirty,
       nonOwner,
-      securityClassification
+      securityClassification,
+      readonly
     };
 
     // If a suggestion exists for this field add the suggestion attribute to the field properties / changeSet

@@ -1,6 +1,6 @@
 import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
-import ComputedProperty, { alias } from '@ember/object/computed';
+import ComputedProperty, { alias, bool } from '@ember/object/computed';
 import { computed, get, getProperties, getWithDefault } from '@ember/object';
 import {
   Classification,
@@ -28,6 +28,8 @@ const unSelectedFieldFormatValue: IFieldIdentifierOption<null> = {
 };
 
 export default class DatasetComplianceRow extends DatasetTableRow {
+  classNameBindings = ['isReadonlyEntity:dataset-compliance-fields--readonly'];
+
   /**
    * Declares the field property on a DatasetTableRow. Contains attributes for a compliance field record
    * @type {IComplianceChangeSet}
@@ -91,6 +93,13 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @memberof DatasetComplianceRow
    */
   dataType: ComputedProperty<string> = alias('field.dataType');
+
+  /**
+   * Aliases a fields readonly attribute as a boolean computed property
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceRow
+   */
+  isReadonlyEntity: ComputedProperty<boolean> = bool('field.readonly');
 
   /**
    * Dropdown options for each compliance field / record
