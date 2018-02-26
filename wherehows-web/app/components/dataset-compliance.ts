@@ -552,7 +552,8 @@ export default class DatasetCompliance extends ObservableDecorator {
   excludesSomeMemberData = computed(datasetClassificationKey, function(this: DatasetCompliance): boolean {
     const { datasetClassification } = get(this, 'complianceInfo') || { datasetClassification: {} };
 
-    return Object.values(datasetClassification).some(hasMemberData => !hasMemberData);
+    // `datasetClassification` is nullable hence default
+    return Object.values(datasetClassification || {}).some(hasMemberData => !hasMemberData);
   });
 
   /**
@@ -608,7 +609,7 @@ export default class DatasetCompliance extends ObservableDecorator {
           ...datasetClassifiers,
           {
             classifier,
-            value: datasetClassification[classifier],
+            value: datasetClassification ? datasetClassification[classifier] : void 0, // undefined !== false, tri-state
             label: DatasetClassifiers[classifier]
           }
         ];

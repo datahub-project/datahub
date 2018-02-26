@@ -4,6 +4,10 @@
 
 {{else}}
 
+  {{#if complianceInfo.fromUpstream}}
+    {{datasets/containers/upstream-dataset upstreamUrn=complianceInfo.datasetUrn}}
+  {{/if}}
+
   {{dataset-compliance
     datasetName=datasetName
     schemaless=schemaless

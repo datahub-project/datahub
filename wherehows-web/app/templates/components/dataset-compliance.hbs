@@ -70,7 +70,7 @@
           </span>
         </div>
 
-        {{#unless isEditing}}
+        {{#unless (or complianceInfo.fromUpstream isEditing)}}
 
           <button
             {{action "nextStep"}}
