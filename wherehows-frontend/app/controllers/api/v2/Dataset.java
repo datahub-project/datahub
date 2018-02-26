@@ -91,8 +91,8 @@ public class Dataset extends Controller {
       int page = NumberUtils.toInt(request().getQueryString("page"), 0);
       int start = page * _DEFAULT_PAGE_SIZE;
 
-      return Promise.promise(() -> ok(
-          Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _DEFAULT_PAGE_SIZE))));
+      return Promise.promise(
+          () -> ok(Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _DEFAULT_PAGE_SIZE))));
     } catch (Exception e) {
       Logger.error("Fail to list datasets", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
@@ -151,10 +151,10 @@ public class Dataset extends Controller {
       JsonNode record = request().body().asJson();
 
       boolean deprecated = record.get("deprecated").asBoolean();
-
       String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : "";
+      Long decommissionTime = record.hasNonNull("decommissionTime") ? record.get("decommissionTime").asLong() : null;
 
-      DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, username);
+      DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, decommissionTime, username);
     } catch (Exception e) {
       Logger.error("Update dataset deprecation fail", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
