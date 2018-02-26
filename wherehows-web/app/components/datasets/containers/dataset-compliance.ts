@@ -21,7 +21,7 @@ import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/c
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
 import { ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
-import { compliancePolicyStrings } from 'wherehows-web/constants';
+import { compliancePolicyStrings, removeReadonlyAttr, filterEditableEntities } from 'wherehows-web/constants';
 
 const { successUpdating, failedUpdating } = compliancePolicyStrings;
 
@@ -194,7 +194,15 @@ export default class DatasetComplianceContainer extends Component {
   async savePrivacyCompliancePolicy(this: DatasetComplianceContainer): Promise<void> {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
-      return this.notifyOnSave<void>(saveDatasetComplianceByUrn(get(this, 'urn'), complianceInfo));
+      const { complianceEntities } = complianceInfo;
+
+      return this.notifyOnSave<void>(
+        saveDatasetComplianceByUrn(get(this, 'urn'), {
+          ...complianceInfo,
+          // filter out readonly entities, then fleece readonly attribute from remaining entities before save
+          complianceEntities: removeReadonlyAttr(filterEditableEntities(complianceEntities))
+        })
+      );
     }
   }
 

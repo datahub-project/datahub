@@ -1,0 +1,30 @@
+.upstream-dataset-banner {
+  @include nacho-container;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  &:hover {
+    .upstream-dataset-banner__description {
+      height: item-spacing(7);
+    }
+  }
+
+  &__description {
+    margin: 0;
+    height: 0;
+    overflow: hidden;
+    transition: height 0.2s ease-in-out;
+  }
+
+  &__informational {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+
+    &__text {
+      margin: 0;
+      padding: item-spacing(2);
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<section class="upstream-dataset-banner__content">
+  <div class="upstream-dataset-banner__informational">
+    <i class="fa fa-info-circle fa-2x"></i>
+
+    <p class="upstream-dataset-banner__informational__text">
+      Compliance Policy on this dataset is transitive from a parent dataset.
+      <br>
+      To make modifications or updates, please modify the parent dataset.
+      <br>
+    </p>
+  </div>
+
+  <header class="upstream-dataset-banner__title">
+    Parent Dataset Name:
+    {{#link-to
+      "datasets.dataset"
+      "urn"
+      (query-params urn=upstreamUrn)
+    }}
+      <strong>{{nativeName}}</strong>
+    {{/link-to}}
+  </header>
+
+  {{#if description}}
+
+    <p class="upstream-dataset-banner__description">
+      Parent Dataset Description:
+      <strong>{{description}}</strong>
+    </p>
+
+  {{/if}}
+</section>
