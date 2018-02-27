@@ -9,7 +9,7 @@ import { decodeUrn } from 'wherehows-web/utils/validators/urn';
  * @param {number} datasetId identifier for the dataset that this privacy object applies to
  */
 const createInitialComplianceInfo = datasetId => {
-  const identifier = typeof datasetId === 'string' ? { urn: decodeUrn(datasetId) } : { datasetId };
+  const identifier = typeof datasetId === 'string' ? { datasetUrn: decodeUrn(datasetId) } : { datasetId };
 
   return {
     ...identifier,
