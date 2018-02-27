@@ -1,7 +1,11 @@
 import Component from '@ember/component';
 import { get, set, getProperties } from '@ember/object';
+import ComputedProperty from '@ember/object/computed';
+import { inject } from '@ember/service';
 import { task, TaskInstance } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
+import Notifications from 'wherehows-web/services/notifications';
+import { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import {
   OwnerType,
@@ -28,6 +32,12 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Array<OwnerType>}
    */
   ownerTypes: Array<OwnerType>;
+
+  /**
+   * Reference to the application notifications Service
+   * @type {ComputedProperty<Notifications>}
+   */
+  notifications: ComputedProperty<Notifications> = inject();
 
   didInsertElement() {
     get(this, 'getContainerDataTask').perform();
@@ -69,12 +79,34 @@ export default class DatasetOwnershipContainer extends Component {
   });
 
   /**
+   * Handles user notifications when save succeeds or fails
+   * @template T the return type for the save request
+   * @param {Promise<T>} request to update owners
+   * @returns {Promise<T>}
+   * @memberof DatasetOwnershipContainer
+   */
+  async notifyOnSave<T>(this: DatasetOwnershipContainer, request: Promise<T>): Promise<T> {
+    const { notify } = get(this, 'notifications');
+
+    try {
+      await request;
+      notify(NotificationEvent.success, { content: 'Changes have been successfully saved!' });
+    } catch (e) {
+      notify(NotificationEvent.error, { content: 'An error occurred while saving.' });
+    }
+
+    return request;
+  }
+
+  /**
    * Persists the changes to the owners list
    * @param {Array<IOwner>} updatedOwners
-   * @return {Promise<void>}
+   * @return {Promise<{}>}
    */
   @action
-  saveOwnerChanges(updatedOwners: Array<IOwner>): Promise<void> {
-    return updateDatasetOwnersByUrn(get(this, 'urn'), '', updatedOwners);
+  async saveOwnerChanges(this: DatasetOwnershipContainer, updatedOwners: Array<IOwner>): Promise<{}> {
+    const result = await this.notifyOnSave(updateDatasetOwnersByUrn(get(this, 'urn'), '', updatedOwners));
+    get(this, 'getDatasetOwnersTask').perform();
+    return result;
   }
 }

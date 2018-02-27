@@ -1,6 +1,6 @@
 import Component from '@ember/component';
-import { computed, set, get, setProperties, getProperties, getWithDefault, observer } from '@ember/object';
-import ComputedProperty, { gt, not, or } from '@ember/object/computed';
+import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
+import ComputedProperty, { not, or } from '@ember/object/computed';
 import { run, schedule } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
@@ -160,31 +160,7 @@ const changeSetFieldsRequiringReview = arrayFilter<IComplianceChangeSet>(fieldCh
  */
 const initialStepIndex = -1;
 
-/**
- * Defines observers for the DatasetCompliance Component
- * @type {Component}
- */
-const ObservableDecorator = Component.extend({
-  /**
-   * Observes changes editStepIndex to trigger the update edit step task
-   * @type {() => void}
-   */
-  editStepIndexChanged: observer('editStepIndex', function(this: DatasetCompliance) {
-    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
-    get(this, 'updateEditStepTask').perform();
-  }),
-
-  /**
-   * Observes changes to the platform property and invokes the task to update the supportedPurgePolicies prop
-   * @type {() => void}
-   */
-  platformChanged: observer('platform', function(this: DatasetCompliance) {
-    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
-    get(this, 'complianceAvailabilityTask').perform();
-  })
-});
-
-export default class DatasetCompliance extends ObservableDecorator {
+export default class DatasetCompliance extends Component {
   isNewComplianceInfo: boolean;
   datasetName: string;
   sortColumnWithName: string;
@@ -239,7 +215,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @type {number}
    * @memberof DatasetCompliance
    */
-  editStepIndex = initialStepIndex;
+  editStepIndex: number;
 
   /**
    * List of complianceDataType values
@@ -262,7 +238,10 @@ export default class DatasetCompliance extends ObservableDecorator {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  isEditing = gt('editStepIndex', initialStepIndex);
+  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(): boolean {
+    // initialStepIndex is less than the currently set step index, and compliance is not from upstream
+    return get(this, 'editStepIndex') > initialStepIndex && !get(this, 'complianceInfo.fromUpstream');
+  });
 
   /**
    * Convenience flag indicating the policy is not currently being edited
@@ -289,6 +268,7 @@ export default class DatasetCompliance extends ObservableDecorator {
     super(...arguments);
 
     //sets default values for class fields
+    this.editStepIndex = initialStepIndex;
     this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
     this.filterBy || set(this, 'filterBy', 'identifierField');
     this.sortDirection || set(this, 'sortDirection', 'asc');
@@ -992,6 +972,7 @@ export default class DatasetCompliance extends ObservableDecorator {
    */
   updateStep(this: DatasetCompliance, step: number) {
     set(this, 'editStepIndex', step);
+    get(this, 'updateEditStepTask').perform();
   }
 
   actions: IDatasetComplianceActions = {

@@ -111,7 +111,7 @@ export default class DatasetComplianceContainer extends Component {
     );
 
     yield* tasks.map(task => task.perform());
-  });
+  }).drop();
 
   /**
    * Reads the compliance properties for the dataset
