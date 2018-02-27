@@ -159,10 +159,10 @@ const updateDatasetOwners = async (
  * @param {Array<IOwner>} updatedOwners
  * @return {Promise<void>}
  */
-const updateDatasetOwnersByUrn = (urn: string, csrfToken: string = '', updatedOwners: Array<IOwner>): Promise<void> => {
+const updateDatasetOwnersByUrn = (urn: string, csrfToken: string = '', updatedOwners: Array<IOwner>): Promise<{}> => {
   const ownersWithoutModifiedTime = arrayMap(fleece<IOwner, 'modifiedTime'>(['modifiedTime']));
 
-  return postJSON<void>({
+  return postJSON<{}>({
     url: datasetOwnersUrlByUrn(urn),
     headers: { 'csrf-token': csrfToken },
     data: {

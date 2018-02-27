@@ -48,8 +48,8 @@ const compliancePolicyStrings = {
   complianceDataException: 'Unexpected discrepancy in compliance data.',
   complianceFieldNotUnique: 'Compliance fields have failed to verify a uniqueness check.',
   missingTypes: 'Looks like you may have forgotten to specify a `Field Format` for all ID fields?',
-  successUpdating: 'Congrats! Your changes have been successfully saved!',
-  failedUpdating: 'Oops! We are having trouble updating this dataset at the moment.',
+  successUpdating: 'Changes have been successfully saved!',
+  failedUpdating: 'An error occurred while saving.',
   successUploading: 'Metadata successfully updated! Please "Save" when ready.',
   invalidPolicyData: 'Received policy in an unexpected format! Please check the provided attributes and try again.',
   helpText: {

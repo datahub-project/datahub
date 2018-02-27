@@ -70,7 +70,7 @@
           </span>
         </div>
 
-        {{#unless (or complianceInfo.fromUpstream isEditing)}}
+        {{#unless isEditing}}
 
           <button
             {{action "nextStep"}}
@@ -171,5 +171,3 @@
 
   {{/if}}
 {{/if}}
-
-{{yield}}
