@@ -105,7 +105,7 @@ const defaultOwnerProps: IOwner = {
   email: null,
   name: '',
   isGroup: false,
-  namespace: OwnerUrnNamespace.groupUser,
+  namespace: OwnerUrnNamespace.corpUser,
   type: OwnerType.Owner,
   subType: null,
   sortId: 0,

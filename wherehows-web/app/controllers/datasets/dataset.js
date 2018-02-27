@@ -29,16 +29,6 @@ export default class extends Controller.extend({
    */
   notifications: service(),
 
-  init() {
-    setProperties(this, {
-      userTypes: [
-        { name: 'Corporate User', value: 'urn:li:corpuser' },
-        { name: 'Group User', value: 'urn:li:corpGroup' }
-      ]
-    });
-
-    this._super(...arguments);
-  },
   isPinot: computed('model.source', function() {
     var model = this.get('model');
     if (model) {
@@ -141,38 +131,6 @@ export default class extends Controller.extend({
     _this.set('currentVersion', version);
   },
 
-  /**
-   * Given a predetermined url id, attempt to persist JSON data at url
-   * @param {string} urlId
-   * @param {object} data
-   * @returns {Promise.<object>}
-   */
-  saveJson(urlId, data) {
-    const request = {
-      url: this.getUrlFor(urlId),
-      data: JSON.stringify(data),
-      contentType: 'application/json'
-    };
-
-    // If the return_code is not 200 reject the Promise
-    return Promise.resolve(post(request)).then(
-      ({ status, msg = '' }) => status === 'ok' || Promise.reject(new Error(msg))
-    );
-  },
-
-  getUrlFor(urlId) {
-    return {
-      compliance: () => datasetComplianceUrlById(`${get(this, 'datasetId')}`)
-    }[urlId]();
-  },
-
-  exceptionOnSave({ message = 'An error occurred' }) {
-    const [error] = arguments;
-    debug(`An error occurred on while updating : ${message}`);
-
-    throw error;
-  },
-
   async handleDatasetComment(strategy, ...args) {
     const { datasetId: id, 'notifications.notify': notify } = getProperties(this, [
       'datasetId',
@@ -227,30 +185,6 @@ export default class extends Controller.extend({
      */
     async updateDatasetComment(commentId, updatedComment) {
       return this.handleDatasetComment.call(this, 'modify', commentId, updatedComment);
-    },
-
-    /**
-     * Persists the list of owners, and if successful, updated the owners
-     * on the controller
-     * @param {Array<IOwner>} updatedOwners the list of owner to send
-     * @returns {Promise<Array<IOwner>>}
-     */
-    async saveOwnerChanges(updatedOwners) {
-      const { datasetId: id, 'notifications.notify': notify } = getProperties(this, [
-        'datasetId',
-        'notifications.notify'
-      ]);
-      const csrfToken = getWithDefault(this, 'csrfToken', '').replace('/', '');
-
-      try {
-        await updateDatasetOwners(id, csrfToken, updatedOwners);
-        notify('success', { content: 'Success!' });
-
-        // updates the shared state for list of dataset owners
-        return set(this, 'owners', await readDatasetOwners(id));
-      } catch (e) {
-        notify('error', { content: e.message });
-      }
     },
 
     updateVersion: function(version) {

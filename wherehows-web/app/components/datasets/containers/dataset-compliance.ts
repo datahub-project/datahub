@@ -111,7 +111,7 @@ export default class DatasetComplianceContainer extends Component {
     );
 
     yield* tasks.map(task => task.perform());
-  });
+  }).drop();
 
   /**
    * Reads the compliance properties for the dataset
@@ -196,13 +196,15 @@ export default class DatasetComplianceContainer extends Component {
     if (complianceInfo) {
       const { complianceEntities } = complianceInfo;
 
-      return this.notifyOnSave<void>(
+      await this.notifyOnSave<void>(
         saveDatasetComplianceByUrn(get(this, 'urn'), {
           ...complianceInfo,
           // filter out readonly entities, then fleece readonly attribute from remaining entities before save
           complianceEntities: removeReadonlyAttr(filterEditableEntities(complianceEntities))
         })
       );
+
+      this.resetPrivacyCompliancePolicy.call(this);
     }
   }
 
