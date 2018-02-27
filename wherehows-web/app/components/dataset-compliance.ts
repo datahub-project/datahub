@@ -305,8 +305,26 @@ export default class DatasetCompliance extends Component {
       { value: null, label: 'Select Field Type...', isDisabled: true },
       { value: ComplianceFieldIdValue.None, label: 'None' }
     ];
+    const dataTypes = get(this, 'complianceDataTypes') || [];
 
-    return [...noneAndUnSpecifiedDropdownOptions, ...getFieldIdentifierOptions(get(this, 'complianceDataTypes'))];
+    /**
+     * Compares each compliance data type
+     * @param {IComplianceDataType} a the compliance type to compare
+     * @param {IComplianceDataType} b the other
+     * @returns {number} 0, 1, -1 indicating sort order
+     */
+    const dataTypeComparator = (a: IComplianceDataType, b: IComplianceDataType): number => {
+      const { idType: aIdType, title: aTitle } = a;
+      const { idType: bIdType, title: bTitle } = b;
+      // Convert boolean values to number type
+      const typeCompare = Number(aIdType) - Number(bIdType);
+
+      // True types first, hence negation
+      // If types are same, then continue with title
+      return typeCompare ? -typeCompare : aTitle.localeCompare(bTitle);
+    };
+
+    return [...noneAndUnSpecifiedDropdownOptions, ...getFieldIdentifierOptions(dataTypes.sort(dataTypeComparator))];
   });
 
   /**
