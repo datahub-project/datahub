@@ -30,4 +30,8 @@ public class DatasetFieldEntity {
   private Boolean nonOwner;
 
   private String securityClassification;
+
+  private Boolean pii;
+
+  private Boolean readonly;
 }
