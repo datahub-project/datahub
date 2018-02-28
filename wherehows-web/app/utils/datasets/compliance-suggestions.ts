@@ -20,7 +20,7 @@ const isHighConfidenceSuggestion = ({ confidenceLevel = 0 }: { confidenceLevel: 
  * @return {{identifierType: IComplianceChangeSet.identifierType, logicalType: IComplianceChangeSet.logicalType, confidence: number} | void}
  */
 const getFieldSuggestions = (
-  field: IComplianceChangeSet
+  field: IComplianceChangeSet = <IComplianceChangeSet>{}
 ): {
   identifierType: IComplianceChangeSet['identifierType'];
   logicalType: IComplianceChangeSet['logicalType'];
