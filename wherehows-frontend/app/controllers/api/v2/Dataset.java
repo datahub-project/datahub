@@ -27,6 +27,7 @@ import play.libs.F.Promise;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import play.mvc.Results;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
@@ -39,6 +40,7 @@ import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 
+import static controllers.api.v1.Dataset.getDatasetUrnByIdOrCache;
 import static utils.Dataset.*;
 
 
@@ -129,11 +131,26 @@ public class Dataset extends Controller {
     }
   }
 
+  public static Promise<Result> getWhUrnById(int id) {
+    String whUrn = getDatasetUrnByIdOrCache(id);
+
+    if (whUrn != null) {
+      response().setHeader("whUrn", whUrn);
+      return Promise.promise(Results::ok);
+    } else {
+      return Promise.promise(Results::notFound);
+    }
+  }
+
   public static Promise<Result> getDataset(@Nonnull String datasetUrn) {
     final DatasetView view;
     try {
       view = DATASET_VIEW_DAO.getDatasetView(datasetUrn);
     } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
       Logger.error("Failed to get dataset view", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }

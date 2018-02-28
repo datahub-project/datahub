@@ -288,6 +288,8 @@ GET           /api/v2/datasets/count/platform/:platform                         
 
 GET           /api/v2/datasets/count                                            controllers.api.v2.Dataset.countDatasets(platform = null, prefix = "")
 
+HEAD          /api/v2/datasets/idtourn/:id                                      controllers.api.v2.Dataset.getWhUrnById(id: Int)
+
 GET           /api/v2/datasets/:urn                                             controllers.api.v2.Dataset.getDataset(urn: String)
 
 PUT           /api/v2/datasets/:urn/deprecate                                   controllers.api.v2.Dataset.updateDatasetDeprecation(urn: String)
