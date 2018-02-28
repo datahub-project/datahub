@@ -22,6 +22,7 @@ import dao.DatasetsDAO;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -212,7 +213,8 @@ public class Dataset extends Controller {
     }
   }
 
-  private static String getDatasetUrnByIdOrCache(int datasetId) {
+  @Nullable
+  public static String getDatasetUrnByIdOrCache(int datasetId) {
     String cacheKey = DATASET_ID_CACHE_KEY + datasetId;
 
     String urn = (String) Cache.get(cacheKey);
@@ -220,9 +222,12 @@ public class Dataset extends Controller {
       return urn;
     }
 
-    urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId);
-    if (urn != null) {
-      Cache.set(cacheKey, urn, DATASET_ID_CACHE_PERIOD);
+    try {
+      urn = DATASETS_DAO.validateUrn(JDBC_TEMPLATE, datasetId);
+      if (urn != null) {
+        Cache.set(cacheKey, urn, DATASET_ID_CACHE_PERIOD);
+      }
+    } catch (Exception e) {
     }
     return urn;
   }
