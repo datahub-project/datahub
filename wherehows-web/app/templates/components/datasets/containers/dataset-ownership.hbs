@@ -1,5 +1,35 @@
-{{dataset-authors
-  owners=owners
-  ownerTypes=ownerTypes
-  save=(action "saveOwnerChanges")
-}}
+{{#if getContainerDataTask.last.isError}}
+
+  {{empty-state heading="A server error occurred getting owners. Please try again shortly."}}
+
+  <div class="dataset-owner__retry-owners">
+    <button
+      class="nacho-button nacho-button--large-inverse"
+      onclick={{perform getContainerDataTask}}>
+
+      {{#if getContainerDataTask.isIdle}}
+        Retry
+      {{else}}
+        {{pendulum-ellipsis-animation}}
+      {{/if}}
+
+    </button>
+  </div>
+
+{{else}}
+
+  {{#if getContainerDataTask.isRunning}}
+
+    {{pendulum-ellipsis-animation}}
+
+  {{else}}
+
+    {{dataset-authors
+      owners=owners
+      ownerTypes=ownerTypes
+      save=(action "saveOwnerChanges")
+    }}
+
+  {{/if}}
+
+{{/if}}

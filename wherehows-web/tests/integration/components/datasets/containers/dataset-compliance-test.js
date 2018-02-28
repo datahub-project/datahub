@@ -3,6 +3,7 @@ import hbs from 'htmlbars-inline-precompile';
 import { waitUntil, find } from 'ember-native-dom-helpers';
 import { urn } from 'wherehows-web/mirage/fixtures/urn';
 import sinon from 'sinon';
+import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 
 moduleForComponent(
   'datasets/containers/dataset-compliance',
@@ -25,7 +26,9 @@ test('it renders', async function(assert) {
   this.server.respondWith('GET', /\/api\/v2\/datasets\/.*/, [
     200,
     { 'Content-Type': 'application/json' },
-    JSON.stringify({})
+    JSON.stringify({
+      complianceInfo: createInitialComplianceInfo(urn)
+    })
   ]);
   this.server.respondWith(/.*\/compliance-data-types/, [
     200,

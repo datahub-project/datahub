@@ -3,13 +3,12 @@
     {{datasets/urn-breadcrumbs urn=model.uri}}
 
     <div class="row">
-      <div class="col-xs-5">
-        {{#if model.removed}}
-          <span class="removed-dataset">
+      {{#if model.removed}}
+        <span class="removed-dataset">
             REMOVED
           </span>
 
-          <sup>
+        <sup>
               <span
                 class="glyphicon glyphicon-question-sign"
                 title="This dataset has been removed">
@@ -18,16 +17,16 @@
                   text="This dataset has been removed"
                 }}
               </span>
-          </sup>
-        {{/if}}
+        </sup>
+      {{/if}}
 
-        {{#if model.deprecated}}
-          {{#link-to "datasets.dataset.properties" encodedUrn}}
+      {{#if model.deprecated}}
+        {{#link-to "datasets.dataset.properties" encodedUrn}}
 
-            <span class="deprecated-dataset">
+          <span class="deprecated-dataset">
               DEPRECATED
             </span>
-            <sup>
+          <sup>
               <span
                 class="glyphicon glyphicon-question-sign"
                 title="Click to view dataset properties">
@@ -36,13 +35,14 @@
                   text="Click to view dataset properties"
                 }}
               </span>
-            </sup>
+          </sup>
 
-          {{/link-to}}
-        {{/if}}
+        {{/link-to}}
+      {{/if}}
 
-        <h3>{{ model.nativeName }}</h3>
-      </div>
+      <h3 class="dataset-name">
+        {{model.nativeName}}
+      </h3>
     </div>
 
     {{dataset-owner-list owners=owners datasetName=model.nativeName}}
@@ -77,7 +77,7 @@
         {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
           Compliance
 
-          {{#if isNewComplianceInfo}}
+          {{#if requiresUserAction}}
             <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
           {{/if}}
         {{/tablist.tab}}
@@ -115,6 +115,9 @@
         urn=encodedUrn
         platform=model.platform
         datasetName=model.nativeName
+        setOnChangeSetChange=(action 'setOnChangeSetChange')
+        setOnChangeSetDrift=(action 'setOnChangeSetDrift')
+        setOnComplianceType=(action 'setOnComplianceTypeChange')
       }}
     {{/tabs.tabpanel}}
 

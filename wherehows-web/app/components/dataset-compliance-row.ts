@@ -13,7 +13,7 @@ import {
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
-import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 
@@ -336,17 +336,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     logicalType: IComplianceChangeSet['logicalType'];
     confidence: number;
   } | void {
-    const field = getWithDefault(this, 'field', <IComplianceChangeSet>{});
-    // If a suggestionAuthority property exists on the field, then the user has already either accepted or ignored
-    // the suggestion for this field. It's value should not be taken into account on re-renders
-    // in place, this substitutes an empty suggestion
-    const { suggestion } = field.hasOwnProperty('suggestionAuthority') ? { suggestion: void 0 } : field;
-
-    if (suggestion && isHighConfidenceSuggestion(suggestion)) {
-      const { identifierType, logicalType, confidenceLevel: confidence } = suggestion;
-
-      return { identifierType, logicalType, confidence: +(confidence * 100).toFixed(2) };
-    }
+    return getFieldSuggestions(getWithDefault(this, 'field', <IComplianceChangeSet>{}));
   });
 
   actions = {
