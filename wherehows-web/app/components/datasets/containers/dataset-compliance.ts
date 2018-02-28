@@ -121,6 +121,8 @@ export default class DatasetComplianceContainer extends Component {
   getContainerDataTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<TaskInstance<Promise<any>>> {
+    const { notify } = get(this, 'notifications');
+
     const tasks = Object.values(
       getProperties(this, [
         'getComplianceTask',
@@ -130,7 +132,11 @@ export default class DatasetComplianceContainer extends Component {
       ])
     );
 
-    yield* tasks.map(task => task.perform());
+    try {
+      yield* tasks.map(task => task.perform());
+    } catch (e) {
+      notify(NotificationEvent.info, { content: e });
+    }
   }).drop();
 
   /**
