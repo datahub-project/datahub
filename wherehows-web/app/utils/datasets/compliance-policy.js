@@ -2,6 +2,7 @@ import { DatasetClassifiers } from 'wherehows-web/constants/dataset-classificati
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 import { assert, warn } from '@ember/debug';
 import { decodeUrn } from 'wherehows-web/utils/validators/urn';
+import { arrayMap } from 'wherehows-web/utils/array';
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
@@ -140,6 +141,12 @@ const fieldChangeSetRequiresReview = ({ isDirty, suggestion, privacyPolicyExists
 };
 
 /**
+ * Gets the fields requiring review
+ * @type {(array: Array<IComplianceChangeSet>) => Array<boolean>}
+ */
+const getFieldsRequiringReview = arrayMap(fieldChangeSetRequiresReview);
+
+/**
  * Merges the column fields with the suggestion for the field if available
  * @param {object} mappedColumnFields a map of column fields to compliance entity properties
  * @param {object} fieldSuggestionMap a map of field suggestion properties keyed by field name
@@ -187,5 +194,6 @@ export {
   isPolicyExpectedShape,
   fieldChangeSetRequiresReview,
   mergeMappedColumnFieldsWithSuggestions,
-  isRecentSuggestion
+  isRecentSuggestion,
+  getFieldsRequiringReview
 };

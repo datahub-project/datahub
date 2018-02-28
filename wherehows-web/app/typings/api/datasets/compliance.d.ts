@@ -71,7 +71,6 @@ export interface IComplianceInfo {
  * @interface IComplianceGetResponse
  */
 export interface IComplianceGetResponse {
-  status: ApiStatus;
   complianceInfo?: IComplianceInfo;
   msg?: string;
 }

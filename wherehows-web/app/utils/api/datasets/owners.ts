@@ -42,7 +42,8 @@ enum OwnerType {
  */
 enum OwnerUrnNamespace {
   corpUser = 'urn:li:corpuser',
-  groupUser = 'urn:li:corpGroup'
+  groupUser = 'urn:li:corpGroup',
+  multiProduct = 'urn:li:multiProduct'
 }
 
 enum OwnerSource {
