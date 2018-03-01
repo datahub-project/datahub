@@ -578,7 +578,7 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Determines if all member data fields should be shown in the member data table i.e. show only fields contained in
+   * Determines if all types of data fields should be shown in the table i.e. show only fields contained in
    * this dataset or otherwise
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
@@ -857,12 +857,13 @@ export default class DatasetCompliance extends Component {
     const formattedAndUnformattedEntities: FormattedAndUnformattedEntities = { formatted: [], unformatted: [] };
     // All candidate fields that can be on policy, excluding tracking type fields
     const changeSetEntities: Array<IComplianceEntity> = get(this, 'compliancePolicyChangeSet').map(
-      ({ identifierField, identifierType = null, logicalType, nonOwner, securityClassification }) => ({
+      ({ identifierField, identifierType = null, logicalType, nonOwner, securityClassification, readonly }) => ({
         identifierField,
         identifierType,
         logicalType,
         nonOwner,
-        securityClassification
+        securityClassification,
+        readonly
       })
     );
 
@@ -1028,8 +1029,8 @@ export default class DatasetCompliance extends Component {
       let willMarkAllAsNo = true;
 
       get(this, 'notifications').notify(NotificationEvent.confirm, {
-        content: 'Are you sure that any this dataset does not contain any of the listed types of member data?',
-        header: 'Dataset contains no member data',
+        content: 'Are you sure this dataset does not contain any of the listed types of data?',
+        header: 'Dataset contains no listed types of data',
         dialogActions
       });
 
