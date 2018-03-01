@@ -48,8 +48,12 @@ export default Route.extend({
       });
     }
 
+    identifier = await datasetIdToUrn(identifier);
+
     // recurse with dataset urn from id
-    return this.model({ dataset_id: await datasetIdToUrn(identifier) });
+    if (identifier) {
+      return this.model({ dataset_id: identifier });
+    }
   },
 
   /**
