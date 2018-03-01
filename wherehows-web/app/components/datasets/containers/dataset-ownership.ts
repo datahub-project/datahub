@@ -106,7 +106,13 @@ export default class DatasetOwnershipContainer extends Component {
   @action
   async saveOwnerChanges(this: DatasetOwnershipContainer, updatedOwners: Array<IOwner>): Promise<{}> {
     const result = await this.notifyOnSave(updateDatasetOwnersByUrn(get(this, 'urn'), '', updatedOwners));
-    get(this, 'getDatasetOwnersTask').perform();
+    const { notify } = get(this, 'notifications');
+
+    try {
+      get(this, 'getDatasetOwnersTask').perform();
+    } catch (e) {
+      notify(NotificationEvent.error, { content: 'Error occurred getting updated owners.' });
+    }
     return result;
   }
 }

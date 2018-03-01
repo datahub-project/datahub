@@ -13,13 +13,17 @@
 {{#each breadcrumbs as |crumb|}}
   <li class="nacho-breadcrumbs__crumb">
 
-    {{link-to
-      crumb.crumb
+    {{#link-to
       "browse.entity"
       "datasets"
       (query-params page=1 prefix=crumb.prefix platform=crumb.platform)
-      class="nacho-breadcrumbs__crumb__grain"
-    }}
+      class="nacho-breadcrumbs__crumb__grain"}}
+
+      <span class="nacho-breadcrumbs__crumb__text">
+        {{crumb.crumb}}
+      </span>
+
+    {{/link-to}}
 
   </li>
 {{/each}}
