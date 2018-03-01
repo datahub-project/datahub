@@ -1,5 +1,6 @@
 import fetch from 'fetch';
-import { throwIfApiError } from 'wherehows-web/utils/api/errors/errors';
+import { apiErrorStatusMessage } from 'wherehows-web/constants/errors/errors';
+import { ApiError, throwIfApiError } from 'wherehows-web/utils/api/errors/errors';
 
 /**
  * Describes the attributes on the fetch configuration object
@@ -112,13 +113,14 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
     ...withBaseFetchHeaders(config.headers),
     method: 'HEAD'
   };
-  const { ok, headers, statusText } = await fetch(config.url, fetchConfig);
+  const response = await fetch(config.url, fetchConfig);
+  const { ok, headers, status } = response;
 
   if (ok) {
     return headers;
   }
 
-  throw new Error(statusText);
+  throw new ApiError(status, apiErrorStatusMessage(status));
 };
 
 export { getJSON, postJSON, deleteJSON, putJSON, getHeaders };

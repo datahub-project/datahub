@@ -1,6 +1,5 @@
 import { assert } from '@ember/debug';
-import { ApiResponseStatus } from 'wherehows-web/utils/api';
-import { ApiError } from 'wherehows-web/utils/api/errors/errors';
+import { notFoundApiError } from 'wherehows-web/utils/api';
 import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { ApiStatus } from 'wherehows-web/utils/api/shared';
@@ -98,7 +97,7 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
       url: datasetComplianceUrlByUrn(urn)
     }));
   } catch (e) {
-    if (e instanceof ApiError && e.status === ApiResponseStatus.NotFound) {
+    if (notFoundApiError(e)) {
       complianceInfo = createInitialComplianceInfo(urn);
       isNewComplianceInfo = true;
     } else {
