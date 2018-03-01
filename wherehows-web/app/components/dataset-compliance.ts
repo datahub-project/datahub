@@ -328,7 +328,28 @@ export default class DatasetCompliance extends Component {
       return typeCompare ? -typeCompare : aTitle.localeCompare(bTitle);
     };
 
-    return [...noneAndUnSpecifiedDropdownOptions, ...getFieldIdentifierOptions(dataTypes.sort(dataTypeComparator))];
+    /**
+     * Inserts a divider in the list of compliance field identifier dropdown options
+     * @param {Array<IComplianceFieldIdentifierOption>} types
+     * @returns {Array<IComplianceFieldIdentifierOption>}
+     */
+    const insertDivider = (types: Array<IComplianceFieldIdentifierOption>): Array<IComplianceFieldIdentifierOption> => {
+      const ids = types.filter(({ isId }) => isId);
+      const nonIds = types.filter(({ isId }) => !isId);
+      const divider = {
+        value: '',
+        label: '---------',
+        isId: false,
+        isDisabled: true
+      };
+
+      return [...ids, <IComplianceFieldIdentifierOption>divider, ...nonIds];
+    };
+
+    return [
+      ...noneAndUnSpecifiedDropdownOptions,
+      ...insertDivider(getFieldIdentifierOptions(dataTypes.sort(dataTypeComparator)))
+    ];
   });
 
   /**

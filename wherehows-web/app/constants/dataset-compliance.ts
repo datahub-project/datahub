@@ -24,7 +24,9 @@ interface IFieldIdentifierOption<T> {
  * @interface IComplianceFieldIdentifierOption
  * @extends {IFieldIdentifierOption<ComplianceFieldIdValue>}
  */
-interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption<ComplianceFieldIdValue> {}
+interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption<ComplianceFieldIdValue> {
+  isId: boolean;
+}
 
 /**
  * Defines the interface for a compliance field format dropdown option
@@ -68,8 +70,8 @@ const compliancePolicyStrings = {
  * @returns {IComplianceFieldIdentifierOption}
  */
 const getFieldIdentifierOption = (complianceDataType: IComplianceDataType): IComplianceFieldIdentifierOption => {
-  const { id, title } = complianceDataType;
-  return { value: id, label: title };
+  const { id, title, idType } = complianceDataType;
+  return { value: id, label: title, isId: idType };
 };
 
 /**
