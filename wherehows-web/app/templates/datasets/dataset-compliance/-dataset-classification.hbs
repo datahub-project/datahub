@@ -2,8 +2,8 @@
   <header class="metadata-prompt__header">
     <p>
       {{if isEditing
-           "Does this dataset contain the following types of Member data?"
-           "Types of member data contained in this dataset"}}
+           "Does this dataset contain the following types of data?"
+           "Types of data contained in this dataset"}}
 
       <!--TODO: DSS-6716-->
       <!-- DRY out with wrapper component that takes the link as an attribute-->
@@ -34,10 +34,10 @@
   fields=datasetClassification as |table|}}
 
   {{#table.head as |head|}}
-    {{#head.column}}Types of member data{{/head.column}}
+    {{#head.column}}Types of data{{/head.column}}
 
     {{#head.column class="dataset-field-content__header"}}
-      <span class="dataset-field-value">Is this type of member data contained in this dataset?</span>
+      <span class="dataset-field-value">Is this type of data contained in this dataset?</span>
     {{/head.column}}
   {{/table.head}}
 
@@ -96,12 +96,19 @@
       {{/body.row}}
     {{else}}
 
-      <tr class="dataset-field-content__empty dataset-field-content__empty dataset-field-content__empty">
-        <td class="text-center" colspan="2">
-          {{empty-state
-            heading="Dataset has not been marked as containing Member data"
-            subHead="Click 'See More' below to view all available types of dataset member data"
-          }}
+      <tr class="dataset-field-content__empty">
+        <td>
+          <div>
+            <header>
+              <strong>
+                None selected
+              </strong>
+            </header>
+
+            <p>
+              Click 'See More' below to view all available types of data
+            </p>
+          </div>
         </td>
       </tr>
 
@@ -117,11 +124,11 @@
           class="nacho-button--large nacho-button--tertiary">
           {{#if shouldShowAllMemberData}}
 
-            See Less <span class="fa fa-caret-up" aria-label="See Less Dataset Member Data"></span>
+            See Less <span class="fa fa-caret-up" aria-label="See Less Types of Data"></span>
 
           {{else}}
 
-            See More <span class="fa fa-caret-down" aria-label="See More Dataset Member Data"></span>
+            See More <span class="fa fa-caret-down" aria-label="See More Types of Data"></span>
 
           {{/if}}
         </button>
