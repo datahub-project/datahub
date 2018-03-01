@@ -1,8 +1,8 @@
 import Controller from '@ember/controller';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
+import { or } from '@ember/object/computed';
 import { debug } from '@ember/debug';
-import $ from 'jquery';
-import { inject as service } from '@ember/service';
+import { inject } from '@ember/service';
 import { run, scheduleOnce } from '@ember/runloop';
 import {
   datasetComplianceUrlById,
@@ -16,45 +16,10 @@ import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/prope
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from 'ember-decorators/object';
-
-const { post, getJSON } = $;
+import Notifications from 'wherehows-web/services/notifications';
 
 // gradual refactor into es class, hence extends EmberObject instance
 export default class extends Controller.extend({
-  queryParams: ['urn'],
-  /**
-   * Reference to the application notifications Service
-   * @type {Ember.Service}
-   */
-  notifications: service(),
-
-  isPinot: computed('model.source', function() {
-    var model = this.get('model');
-    if (model) {
-      if (model.source) {
-        return model.source.toLowerCase() == 'pinot';
-      }
-    }
-    return false;
-  }),
-  isHDFS: computed('model.urn', function() {
-    var model = this.get('model');
-    if (model) {
-      if (model.urn) {
-        return model.urn.substring(0, 7) == 'hdfs://';
-      }
-    }
-    return false;
-  }),
-  isSFDC: computed('model.source', function() {
-    var model = this.get('model');
-    if (model) {
-      if (model.source) {
-        return model.source.toLowerCase() == 'salesforce';
-      }
-    }
-    return false;
-  }),
   lineageUrl: computed('model.id', function() {
     var model = this.get('model');
     if (model) {
@@ -64,71 +29,6 @@ export default class extends Controller.extend({
     }
     return '';
   }),
-  schemaHistoryUrl: computed('model.id', function() {
-    var model = this.get('model');
-    if (model) {
-      if (model.id) {
-        return '/schemaHistory#/schemas/' + model.id;
-      }
-    }
-    return '';
-  }),
-
-  refreshVersions: function(dbId) {
-    var model = this.get('model');
-    if (!model || !model.id) {
-      return;
-    }
-    var versionUrl = '/api/v1/datasets/' + model.id + '/versions/db/' + dbId;
-    $.get(versionUrl, data => {
-      if (data && data.status == 'ok' && data.versions && data.versions.length > 0) {
-        this.set('hasversions', true);
-        this.set('versions', data.versions);
-        this.set('latestVersion', data.versions[0]);
-        this.changeVersion(data.versions[0]);
-      } else {
-        this.set('hasversions', false);
-        this.set('currentVersion', '0');
-        this.set('latestVersion', '0');
-      }
-    });
-  },
-  changeVersion: function(version) {
-    _this = this;
-    var currentVersion = _this.get('currentVersion');
-    var latestVersion = _this.get('latestVersion');
-    if (currentVersion == version) {
-      return;
-    }
-    var objs = $('.version-btn');
-    if (objs && objs.length > 0) {
-      for (var i = 0; i < objs.length; i++) {
-        $(objs[i]).removeClass('btn-default');
-        $(objs[i]).removeClass('btn-primary');
-        if (version == $(objs[i]).attr('data-value')) {
-          $(objs[i]).addClass('btn-primary');
-        } else {
-          $(objs[i]).addClass('btn-default');
-        }
-      }
-    }
-    var model = this.get('model');
-    if (version != latestVersion) {
-      if (!model || !model.id) {
-        return;
-      }
-      var schemaUrl = '/api/v1/datasets/' + model.id + '/schema/' + version;
-      $.get(schemaUrl, function(data) {
-        if (data && data.status == 'ok') {
-          setTimeout(function() {
-            $('#json-viewer').JSONView(JSON.parse(data.schema_text));
-          }, 500);
-        }
-      });
-    }
-
-    _this.set('currentVersion', version);
-  },
 
   async handleDatasetComment(strategy, ...args) {
     const { datasetId: id, 'notifications.notify': notify } = getProperties(this, [
@@ -184,36 +84,11 @@ export default class extends Controller.extend({
      */
     async updateDatasetComment(commentId, updatedComment) {
       return this.handleDatasetComment.call(this, 'modify', commentId, updatedComment);
-    },
-
-    updateVersion: function(version) {
-      this.changeVersion(version);
-    },
-    updateInstance: function(instance) {
-      var currentInstance = this.get('currentInstance');
-      var latestInstance = this.get('latestInstance');
-      if (currentInstance == instance.dbId) {
-        return;
-      }
-      var objs = $('.instance-btn');
-      if (objs && objs.length > 0) {
-        for (var i = 0; i < objs.length; i++) {
-          $(objs[i]).removeClass('btn-default');
-          $(objs[i]).removeClass('btn-primary');
-
-          if (instance.dbCode == $(objs[i]).attr('data-value')) {
-            $(objs[i]).addClass('btn-primary');
-          } else {
-            $(objs[i]).addClass('btn-default');
-          }
-        }
-      }
-
-      this.set('currentInstance', instance.dbId);
-      this.refreshVersions(instance.dbId);
     }
   }
 }) {
+  queryParams = ['urn'];
+
   /**
    * Enum of tab properties
    * @type {Tabs}
@@ -225,6 +100,36 @@ export default class extends Controller.extend({
    * @type {Tabs}
    */
   tabSelected;
+
+  /**
+   * Flag indicating if the compliance info does not have user entered information
+   * @type {boolean}
+   */
+  isNewComplianceInfo;
+
+  /**
+   * Flag indicating is there are suggestions that have not been accepted or ignored
+   * @type {boolean}
+   */
+  hasSuggestions;
+
+  /**
+   * Flag indicating there are fields in the compliance policy that have not been updated by a user
+   * @type {boolean}
+   */
+  compliancePolicyHasDrift;
+
+  /**
+   * Flag indicating that the compliance policy needs user attention
+   * @type {ComputedProperty<boolean>}
+   */
+  requiresUserAction = or('isNewComplianceInfo', 'hasSuggestions', 'compliancePolicyHasDrift');
+
+  /**
+   * Reference to the application notifications Service
+   * @type {ComputedProperty<Notifications>}
+   */
+  notifications = inject();
 
   /**
    * Converts the uri on a model to a usable URN format
@@ -250,5 +155,32 @@ export default class extends Controller.extend({
     return get(this, 'tabSelected') === tabSelected
       ? void 0
       : this.transitionToRoute(`datasets.dataset.${tabSelected}`, get(this, 'encodedUrn'));
+  }
+
+  /**
+   * Setter to update the hasSuggestions flag
+   * @param {boolean} hasSuggestions
+   */
+  @action
+  setOnChangeSetChange(hasSuggestions) {
+    set(this, 'hasSuggestions', hasSuggestions);
+  }
+
+  /**
+   * Setter to update the isNewComplianceInfo flag
+   * @param {boolean} isNewComplianceInfo
+   */
+  @action
+  setOnComplianceTypeChange(isNewComplianceInfo) {
+    set(this, 'isNewComplianceInfo', isNewComplianceInfo);
+  }
+
+  /**
+   * Setter to update the drift flag
+   * @param {boolean} hasDrift
+   */
+  @action
+  setOnChangeSetDrift(hasDrift) {
+    set(this, 'compliancePolicyHasDrift', hasDrift);
   }
 }
