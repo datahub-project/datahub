@@ -1,6 +1,8 @@
 /**
  * Defines available api version types
  */
+import { ApiError } from 'wherehows-web/utils/api/errors/errors';
+
 export type ApiVersion = 'v1' | 'v2';
 
 /**
@@ -31,3 +33,10 @@ export enum ApiResponseStatus {
   UnAuthorized = 401,
   InternalServerError = 500
 }
+
+/**
+ * Convenience function to ascertain if an api error is a not found code
+ * @param {Error} e
+ * @return {boolean}
+ */
+export const notFoundApiError = (e: Error) => e instanceof ApiError && e.status === ApiResponseStatus.NotFound;

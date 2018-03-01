@@ -3,7 +3,7 @@ import { set, get, setProperties } from '@ember/object';
 import { inject } from '@ember/service';
 import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
-import { readDatasetById, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
+import { datasetIdToUrn, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import isUrn, { isWhUrn, isLiUrn, convertWhUrnToLiUrn, encodeUrn, decodeUrn } from 'wherehows-web/utils/validators/urn';
 
 import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
@@ -48,7 +48,8 @@ export default Route.extend({
       });
     }
 
-    return await readDatasetById(identifier);
+    // recurse with dataset urn from id
+    return this.model({ dataset_id: await datasetIdToUrn(identifier) });
   },
 
   /**

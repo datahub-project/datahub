@@ -10,9 +10,8 @@ import {
   IPartyProps,
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { ApiResponseStatus } from 'wherehows-web/utils/api';
+import { notFoundApiError } from 'wherehows-web/utils/api';
 import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
-import { ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { arrayFilter, arrayMap } from 'wherehows-web/utils/array';
@@ -128,7 +127,7 @@ const readDatasetOwnersByUrn = async (urn: string): Promise<Array<IOwner>> => {
     ({ owners = [] } = await getJSON<Pick<IOwnerResponse, 'owners'>>({ url: datasetOwnersUrlByUrn(urn) }));
     return ownersWithModifiedTimeAsDate(owners);
   } catch (e) {
-    if (e instanceof ApiError && e.status === ApiResponseStatus.NotFound) {
+    if (notFoundApiError(e)) {
       return owners;
     } else {
       throw e;
