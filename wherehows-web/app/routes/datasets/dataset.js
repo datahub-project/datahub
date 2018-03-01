@@ -54,6 +54,8 @@ export default Route.extend({
     if (identifier) {
       return this.model({ dataset_id: identifier });
     }
+
+    throw new TypeError(`Could not parse identifier ${identifier}. Please ensure format is valid.`);
   },
 
   /**
