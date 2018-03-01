@@ -11,15 +11,14 @@ import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import {
-  ApiResponseStatus,
   IReadComplianceResult,
+  notFoundApiError,
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
   saveDatasetComplianceByUrn
 } from 'wherehows-web/utils/api';
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
-import { ApiError } from 'wherehows-web/utils/api/errors/errors';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
 import { compliancePolicyStrings, removeReadonlyAttr, filterEditableEntities } from 'wherehows-web/constants';
 
@@ -160,7 +159,7 @@ export default class DatasetComplianceContainer extends Component {
       setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
     } catch (e) {
       // If this schema is missing, silence exception, otherwise propagate
-      if (!(e instanceof ApiError && e.status === ApiResponseStatus.NotFound)) {
+      if (!notFoundApiError(e)) {
         throw e;
       }
     }
