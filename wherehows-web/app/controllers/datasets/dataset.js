@@ -1,9 +1,9 @@
 import Controller from '@ember/controller';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
 import { debug } from '@ember/debug';
+import $ from 'jquery';
 import { inject as service } from '@ember/service';
 import { run, scheduleOnce } from '@ember/runloop';
-import $ from 'jquery';
 import {
   datasetComplianceUrlById,
   createDatasetComment,
@@ -13,7 +13,6 @@ import {
 } from 'wherehows-web/utils/api';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
-import { readDatasetView } from 'wherehows-web/utils/api/datasets/dataset';
 import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from 'ember-decorators/object';
