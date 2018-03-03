@@ -7,14 +7,14 @@ import { DatasetPlatform } from 'wherehows-web/constants';
  *   The value following the urn key is retained
  * @type {RegExp}
  */
-const datasetUrnRegexWH = /([a-z_]+):\/{3}([a-z0-9_\-/{}.]*)/i;
+const datasetUrnRegexWH = /([a-z_-]+):\/{3}([a-z0-9_\-/{}.]*)/i;
 
 /**
  * Matches a urn string that follows the pattern captures, the comma delimited platform, segment and fabric
  * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
  * @type {RegExp}
  */
-const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:(\w+),([\w.\-\/]+),(\w+)\)/;
+const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:([\w-]+),([\w.\-\/]+),(\w+)\)/;
 
 /**
  * Matches urn's that occur in flow urls
