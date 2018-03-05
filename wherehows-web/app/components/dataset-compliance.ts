@@ -334,8 +334,9 @@ export default class DatasetCompliance extends Component {
      * @returns {Array<IComplianceFieldIdentifierOption>}
      */
     const insertDivider = (types: Array<IComplianceFieldIdentifierOption>): Array<IComplianceFieldIdentifierOption> => {
-      const ids = types.filter(({ isId }) => isId);
-      const nonIds = types.filter(({ isId }) => !isId);
+      const isId = ({ isId }: IComplianceFieldIdentifierOption): boolean => isId;
+      const ids = types.filter(isId);
+      const nonIds = types.filter(type => !isId(type));
       const divider = {
         value: '',
         label: '---------',
