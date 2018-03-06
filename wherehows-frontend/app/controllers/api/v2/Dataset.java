@@ -40,7 +40,7 @@ import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 
-import static controllers.api.v1.Dataset.getDatasetUrnByIdOrCache;
+import static controllers.api.v1.Dataset.*;
 import static utils.Dataset.*;
 
 
@@ -90,11 +90,14 @@ public class Dataset extends Controller {
 
   public static Promise<Result> listDatasets(@Nullable String platform, @Nonnull String prefix) {
     try {
+      int start = NumberUtils.toInt(request().getQueryString("start"), 0);
+      int count = NumberUtils.toInt(request().getQueryString("count"), _DEFAULT_PAGE_SIZE);
       int page = NumberUtils.toInt(request().getQueryString("page"), 0);
-      int start = page * _DEFAULT_PAGE_SIZE;
+      // 'start' takes precedence over 'page'
+      int startIndex = (request().getQueryString("start") == null && page > 0) ? page * _DEFAULT_PAGE_SIZE : start;
 
       return Promise.promise(
-          () -> ok(Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, start, _DEFAULT_PAGE_SIZE))));
+          () -> ok(Json.toJson(DATASET_VIEW_DAO.listDatasets(platform, "PROD", prefix, startIndex, count))));
     } catch (Exception e) {
       Logger.error("Fail to list datasets", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
