@@ -41,10 +41,13 @@
       {{/if}}
 
       <h3 class="dataset-name">
-        {{model.nativeName}}
+        <div class="container">
+          {{model.nativeName}}
+        </div>
       </h3>
     </div>
 
+    {{dataset-owner-list owners=owners datasetName=model.nativeName}}
   </div>
 
   {{#ivy-tabs selection=tabSelected as |tabs|}}

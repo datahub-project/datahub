@@ -14,7 +14,7 @@ const datasetUrnRegexWH = /([a-z_-]+):\/{3}([a-z0-9_\-/{}.]*)/i;
  * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
  * @type {RegExp}
  */
-const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:([\w-]+),([\w.\-\/]+),(\w+)\)/;
+const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:([\w-]+),([\w.\-\/{}]+),(\w+)\)/;
 
 /**
  * Matches urn's that occur in flow urls

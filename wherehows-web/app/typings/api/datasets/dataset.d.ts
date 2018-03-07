@@ -83,6 +83,7 @@ interface IDatasetsGetResponse {
 interface IReadDatasetsOptionBag {
   platform: DatasetPlatform | string;
   prefix: string;
+  start?: number;
 }
 
 export {

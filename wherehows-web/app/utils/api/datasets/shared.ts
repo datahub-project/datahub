@@ -1,6 +1,7 @@
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
 import { ApiVersion, getApiRoot } from 'wherehows-web/utils/api/shared';
 import { encodeForwardSlash } from 'wherehows-web/utils/validators/urn';
+import buildUrl from 'wherehows-web/utils/build-url';
 
 /**
  * Defines the endpoint for datasets
@@ -46,16 +47,17 @@ export const datasetsCountUrl = ({ platform, prefix }: Partial<IReadDatasetsOpti
  * @param {IReadDatasetsOptionBag} { platform, prefix }
  * @returns {string}
  */
-export const datasetsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): string => {
+export const datasetsUrl = ({ platform, prefix, start = 0 }: IReadDatasetsOptionBag): string => {
   const urlRoot = datasetsUrlRoot('v2');
+  let url = urlRoot;
 
   if (platform && prefix) {
-    return `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
+    url = `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
   }
 
   if (platform) {
-    return `${urlRoot}/platform/${platform}`;
+    url = `${urlRoot}/platform/${platform}`;
   }
 
-  return urlRoot;
+  return buildUrl(url, 'start', `${start}`);
 };
