@@ -50,9 +50,9 @@ const datasetIdToUrn = async (id: number) => {
  * }
  * @returns {Promise<IDatasetsGetResponse>}
  */
-const readDatasets = async ({ platform, prefix, start }: IReadDatasetsOptionBag): Promise<IDatasetsGetResponse> => {
+const readDatasets = ({ platform, prefix, start }: IReadDatasetsOptionBag): Promise<IDatasetsGetResponse> => {
   const url = datasetsUrl({ platform, prefix, start });
-  return await getJSON<IDatasetsGetResponse>({ url });
+  return getJSON<IDatasetsGetResponse>({ url });
 };
 
 /**
@@ -60,9 +60,9 @@ const readDatasets = async ({ platform, prefix, start }: IReadDatasetsOptionBag)
  * @param {Partial<IReadDatasetsOptionBag>} { platform, prefix }
  * @returns {Promise<number>}
  */
-const readDatasetsCount = async ({ platform, prefix }: Partial<IReadDatasetsOptionBag>): Promise<number> => {
+const readDatasetsCount = ({ platform, prefix }: Partial<IReadDatasetsOptionBag>): Promise<number> => {
   const url = datasetsCountUrl({ platform, prefix });
-  return await getJSON<number>({ url });
+  return getJSON<number>({ url });
 };
 
 export { readDatasets, readDatasetsCount, readDatasetByUrn, datasetIdToUrn };
