@@ -1,18 +1,40 @@
-{{#if getEntitiesTask.isRunning}}
+{{#if getEntityDataTask.isRunning}}
 
   <div class="browse-viewport__loading">
     {{pendulum-ellipsis-animation}}
   </div>
 
 {{else}}
-  {{#if getEntitiesTask.last.isError}}
+  {{#if getEntityDataTask.last.isError}}
 
     {{empty-state
       heading="An error occurred getting entities"
-      subHead=getEntitiesTask.last.error
+      subHead=getEntityDataTask.last.error
     }}
 
   {{else}}
-    {{browser/browser-viewport currentEntity=currentEntity entities=entities entityRoute=entityRoute}}
+    {{browser/browser-viewport
+      currentEntity=currentEntity
+      entities=entities
+      entityRoute=entityRoute
+      getNextEntities=(action 'getNextEntities')
+    }}
+
+    {{#if remainingEntityCount}}
+      {{#if getDatasetsTask.isRunning}}
+
+        <div class="scroll-list-loading">
+          {{pendulum-ellipsis-animation}}
+          <p class="scroll-list-loading__text">Loading {{nextCountSize}} more of {{total}}</p>
+        </div>
+
+      {{else}}
+
+        <div class="scroll-list-loading">
+          <p class="scroll-list-loading__text">Showing {{entities.length}} datasets of {{total}}</p>
+        </div>
+
+      {{/if}}
+    {{/if}}
   {{/if}}
 {{/if}}

@@ -45,18 +45,14 @@ const datasetIdToUrn = async (id: number) => {
  * response
  * @param {IReadDatasetsOptionBag} {
  *   platform,
- *   prefix
+ *   prefix,
+ *   start
  * }
- * @returns {Promise<IDatasetsGetResponse['elements']>}
+ * @returns {Promise<IDatasetsGetResponse>}
  */
-const readDatasets = async ({
-  platform,
-  prefix
-}: IReadDatasetsOptionBag): Promise<IDatasetsGetResponse['elements']> => {
-  const url = datasetsUrl({ platform, prefix });
-  const response = await getJSON<IDatasetsGetResponse>({ url });
-
-  return response ? [...response.elements] : [];
+const readDatasets = async ({ platform, prefix, start }: IReadDatasetsOptionBag): Promise<IDatasetsGetResponse> => {
+  const url = datasetsUrl({ platform, prefix, start });
+  return await getJSON<IDatasetsGetResponse>({ url });
 };
 
 /**

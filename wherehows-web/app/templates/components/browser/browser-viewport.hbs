@@ -61,46 +61,41 @@
     {{/table.body}}
   {{/dataset-table}}
 {{else}}
-  {{#if entities}}
 
-    {{#dataset-table
-      fields=entities as |table|}}
-      {{#table.body as |body|}}
-        {{#each
-          table.data as |entity|}}
-          {{#body.row as |row|}}
-            {{#row.cell}}
-              {{#link-to entityRoute 'urn' (query-params urn=entity.uri)}}
-                <span class="entity-list__title">
-                  {{entity.nativeName}}
-                </span>
-              {{/link-to}}
-              <br>
-              {{#if (eq currentEntity 'metrics')}}
-                {{entity.group}} - {{entity.dashboardName}}
-                <br>
-                {{entity.description}}
-              {{/if}}
+  {{#infinite-scroller
+    use-document=true
+    class="browse-entities"
+    on-load-more=(action 'loadMoreEntities') as |scroller|
+  }}
 
-              {{#if entity.modifiedTime}}
-                <span>Last Modified:</span>
+    {{#each entities as |entity|}}
 
-                <span title="{{entity.modifiedTime}}">
-                  {{moment-from-now entity.modifiedTime }}
-                </span>
-              {{/if}}
-            {{/row.cell}}
-          {{/body.row}}
-        {{/each}}
-      {{/table.body}}
-    {{/dataset-table}}
+      <div class="browse-entities__entity">
+        {{#link-to entityRoute 'urn' (query-params urn=entity.uri)}}
+          <span class="browse-entities__title">
+            {{entity.nativeName}}
+          </span>
+        {{/link-to}}
 
-  {{else}}
+        <br>
 
-    {{empty-state
-      heading="No entities found"
-      subHead="Could not find any datasets in our records"
-    }}
+        {{#if entity.modifiedTime}}
+          <span>Last Modified:</span>
 
-  {{/if}}
+          <span title="{{entity.modifiedTime}}">
+            {{moment-from-now entity.modifiedTime }}
+          </span>
+        {{/if}}
+      </div>
+
+    {{else}}
+
+      {{empty-state
+        heading="No entities found"
+        subHead="Could not find any datasets in our records"
+      }}
+
+    {{/each}}
+
+  {{/infinite-scroller}}
 {{/if}}
