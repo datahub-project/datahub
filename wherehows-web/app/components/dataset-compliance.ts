@@ -317,16 +317,10 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceDataType} b the other
      * @returns {number} 0, 1, -1 indicating sort order
      */
-    const dataTypeComparator = (a: IComplianceDataType, b: IComplianceDataType): number => {
-      const { idType: aIdType, title: aTitle } = a;
-      const { idType: bIdType, title: bTitle } = b;
+    const dataTypeComparator = (a: IComplianceDataType, b: IComplianceDataType): number =>
       // Convert boolean values to number type
-      const typeCompare = Number(aIdType) - Number(bIdType);
-
       // True types first, hence negation
-      // If types are same, then continue with title
-      return typeCompare ? -typeCompare : aTitle.localeCompare(bTitle);
-    };
+      -(Number(a.idType) - Number(b.idType));
 
     /**
      * Inserts a divider in the list of compliance field identifier dropdown options
