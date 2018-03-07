@@ -9,6 +9,13 @@ import { encode, decode } from 'wherehows-web/utils/encode-decode-uri-component-
  * @returns {string}
  */
 export default (baseUrl: string, queryParam: string, queryValue: string): string => {
+  if (!baseUrl) {
+    return '';
+  }
+
+  if (!queryParam) {
+    return baseUrl;
+  }
   // If the query string already contains the initial question mark append
   //   kv-pair with ampersand
   const separator = String(baseUrl).includes('?') ? '&' : '?';
