@@ -36,6 +36,7 @@ import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetOwnership;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
@@ -203,9 +204,9 @@ public class Dataset extends Controller {
   }
 
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
-    final List<DatasetOwner> owners;
+    final DatasetOwnership ownership;
     try {
-      owners = OWNER_VIEW_DAO.getDatasetOwners(datasetUrn);
+      ownership = OWNER_VIEW_DAO.getDatasetOwners(datasetUrn);
     } catch (Exception e) {
       if (e.toString().contains("Response status 404")) {
         return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
@@ -215,10 +216,10 @@ public class Dataset extends Controller {
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    if (owners == null) {
+    if (ownership == null) {
       return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
     }
-    return Promise.promise(() -> ok(Json.newObject().set("owners", Json.toJson(owners))));
+    return Promise.promise(() -> ok(Json.toJson(ownership)));
   }
 
   public static Promise<Result> updateDatasetOwners(String datasetUrn) {

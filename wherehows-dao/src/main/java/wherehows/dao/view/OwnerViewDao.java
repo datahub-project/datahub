@@ -22,6 +22,7 @@ import javax.persistence.EntityManagerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import wherehows.models.view.DatasetOwner;
+import wherehows.models.view.DatasetOwnership;
 
 
 public class OwnerViewDao extends BaseViewDao {
@@ -56,7 +57,7 @@ public class OwnerViewDao extends BaseViewDao {
   }
 
   @Nullable
-  public List<DatasetOwner> getDatasetOwners(@Nonnull String datasetUrn) throws Exception {
+  public DatasetOwnership getDatasetOwners(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 }
