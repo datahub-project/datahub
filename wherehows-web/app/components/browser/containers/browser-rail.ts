@@ -1,12 +1,13 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
 import { task } from 'ember-concurrency';
-import { nodeToQueryParams } from 'wherehows-web/constants';
+import { DatasetPlatform, nodeToQueryParams } from 'wherehows-web/constants';
 import { IBrowserRouteParams } from 'wherehows-web/routes/browse/entity';
 import { readPlatforms } from 'wherehows-web/utils/api/platforms/platform';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { IReadDatasetsOptionBag } from 'wherehows-web/typings/api/datasets/dataset';
-import { sanitizePlatformNodeString } from 'wherehows-web/utils/validators/platform';
+import { isDatasetIdentifier, sanitizePlatformNodeString } from 'wherehows-web/utils/validators/platform';
+import { buildLiUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Describes a node with parameters used by dynamic-link component to create links to items listed in the rail
@@ -15,29 +16,41 @@ import { sanitizePlatformNodeString } from 'wherehows-web/utils/validators/platf
 interface IRailNode {
   title: string;
   text: string;
-  route: 'browse.entity';
+  route: 'browse.entity' | 'datasets.dataset';
   model: IBrowserRouteParams['entity'];
-  queryParams: Partial<IReadDatasetsOptionBag>;
+  queryParams?: Partial<IReadDatasetsOptionBag>;
 }
 
 /**
  * Given a platform and entity, returns a closure function that maps each node to a
  * list of IRailNode
- * @param {string} platform
+ * @param {DatasetPlatform} platform
  * @param {IBrowserRouteParams.entity} entity
  * @returns {(array: string[]) => IRailNode[]}
  */
 export const mapNodeToRoute = (
-  platform: string,
+  platform: DatasetPlatform,
   entity: IBrowserRouteParams['entity']
 ): ((array: string[]) => IRailNode[]) =>
   arrayMap((node: string): IRailNode => {
     //FIXME: measure perf, and see if sanitize step can be performed conditionally for list, in a Schwartzian transform instead
     const sanitizedString = sanitizePlatformNodeString(node);
+    const baseProps = {
+      title: sanitizedString,
+      text: sanitizedString
+    };
+
+    // If node is a dataset identifier, then create link to jump to dataset
+    if (isDatasetIdentifier(node)) {
+      return {
+        ...baseProps,
+        route: 'datasets.dataset',
+        model: buildLiUrn(platform, node)
+      };
+    }
 
     return {
-      title: sanitizedString,
-      text: sanitizedString,
+      ...baseProps,
       route: 'browse.entity',
       model: entity,
       queryParams: nodeToQueryParams({ platform, node })
@@ -76,7 +89,9 @@ export default class BrowserRail extends Component {
    */
   getNodesTask = task(function*(this: BrowserRail): IterableIterator<Promise<Array<string>>> {
     const { prefix, platform, entity } = get(this, 'params');
-    const nodes: Array<IRailNode> = mapNodeToRoute(platform, entity)(yield readPlatforms({ platform, prefix }));
+    const nodes: Array<IRailNode> = mapNodeToRoute(<DatasetPlatform>platform, entity)(
+      yield readPlatforms({ platform, prefix })
+    );
 
     set(this, 'nodes', nodes);
   }).drop();

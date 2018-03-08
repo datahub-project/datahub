@@ -12,6 +12,15 @@
     &:hover {
       background-color: get-color(gray0);
     }
+
+    &__meta-head {
+      margin-left: item-spacing(3);
+      color: get-color(gray5);
+
+      &:first-child {
+        margin-left: 0;
+      }
+    }
   }
 }
 

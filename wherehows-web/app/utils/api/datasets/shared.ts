@@ -32,7 +32,7 @@ export const datasetsCountUrl = ({ platform, prefix }: Partial<IReadDatasetsOpti
   const urlRoot = `${datasetsUrlRoot('v2')}/count`;
 
   if (platform && prefix) {
-    `${urlRoot}/platform/${platform}/prefix/${prefix}`;
+    return `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
   }
 
   if (platform) {
@@ -51,12 +51,12 @@ export const datasetsUrl = ({ platform, prefix, start = 0 }: IReadDatasetsOption
   const urlRoot = datasetsUrlRoot('v2');
   let url = urlRoot;
 
-  if (platform && prefix) {
-    url = `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
-  }
-
   if (platform) {
     url = `${urlRoot}/platform/${platform}`;
+
+    if (prefix) {
+      url = `${urlRoot}/platform/${platform}/prefix/${encodeForwardSlash(prefix)}`;
+    }
   }
 
   return buildUrl(url, 'start', `${start}`);

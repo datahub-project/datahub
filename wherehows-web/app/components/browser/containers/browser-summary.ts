@@ -9,6 +9,7 @@ type IBrowserMetadata = {
   [K in IBrowserRouteParams['entity']]: {
     count: number;
     currentPlatform: string;
+    currentPrefix: string;
   }
 };
 
@@ -38,7 +39,7 @@ export default class BrowserSummary extends Component {
   metadata: IBrowserMetadata = this.entities.reduce(
     (metadata, entity) => ({
       ...metadata,
-      [entity]: { count: 0, currentPlatform: '' }
+      [entity]: { count: 0, currentPlatform: '', currentPrefix: '' }
     }),
     <IBrowserMetadata>{}
   );
@@ -80,7 +81,8 @@ export default class BrowserSummary extends Component {
 
     setProperties(entityMetadata, {
       count: yield readDatasetsCount({ prefix, platform }),
-      currentPlatform: platform
+      currentPlatform: platform,
+      currentPrefix: prefix
     });
   });
 }
