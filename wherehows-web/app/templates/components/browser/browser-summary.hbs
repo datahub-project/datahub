@@ -16,9 +16,15 @@
           </span>
           <div class="browse-nav__item">
             <p class="browse-nav__count">{{meta.count}}</p>
+
             <p class="browse-nav__title">{{entity}}</p>
+
             <p class="browse-nav__subtext">
-              {{if meta.currentPlatform 'in' 'in total'}} {{meta.currentPlatform}}
+              {{if meta.currentPlatform 'in' 'in total'}} <strong>{{meta.currentPlatform}} </strong>
+
+              {{#if meta.currentPrefix}}
+                with prefix <strong>{{meta.currentPrefix}}</strong>
+              {{/if}}
             </p>
           </div>
 

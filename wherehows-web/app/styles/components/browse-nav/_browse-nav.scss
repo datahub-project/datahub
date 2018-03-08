@@ -79,6 +79,11 @@ $browse-nav-border-color: set-color(grey, light);
   &__subtext {
     font-weight: fw(normal, 2);
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    text-align: center;
   }
 }
 

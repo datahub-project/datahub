@@ -12,7 +12,7 @@ const queryParamsKeys = ['page', 'prefix', 'platform', 'size'];
  * @interface IBrowserRouteParams
  */
 export interface IBrowserRouteParams {
-  entity: 'datasets' | 'metrics' | 'flows';
+  entity: string;
   page: number;
   size: number;
   platform: string;

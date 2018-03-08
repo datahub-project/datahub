@@ -83,7 +83,7 @@ export default class BrowserViewport extends Component {
     const response = yield readDatasets({ platform, prefix, start });
     const { total, count, elements } = response;
     const entities = get(this, 'entities');
-    // If new segment / datasource, replace all items rather than append
+    // If new segment / data-source, replace all items rather than append
     const listOp = op === 'set' ? [].setObjects : [].pushObjects;
 
     listOp.call(entities, elements);
@@ -97,7 +97,7 @@ export default class BrowserViewport extends Component {
     });
 
     return response;
-  });
+  }).drop();
 
   /**
    * Async requests for the list of entities and sets the value on class
