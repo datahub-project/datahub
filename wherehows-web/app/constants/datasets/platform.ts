@@ -25,6 +25,17 @@ enum DatasetPlatform {
 }
 
 /**
+ * Enumeration of available dataset fabric
+ * @enum {string}
+ */
+enum Fabric {
+  Prod = 'PROD',
+  EI = 'EI',
+  Corp = 'CORP',
+  Dev = 'DEV'
+}
+
+/**
  * Given a platform and a new node, composes an object of query parameters to be used in the request for
  * platforms or datasets
  * @param {(Pick<IBrowserRouteParams, 'platform'> & { node: string })} { platform, node }
@@ -36,6 +47,7 @@ const nodeToQueryParams = ({
 }: Pick<IBrowserRouteParams, 'platform'> & { node: string }): Partial<IReadDatasetsOptionBag> => {
   const queryParams = {};
 
+  // if node is a segment, apply it as a prefix on the query parameters
   if (isDatasetSegment(node)) {
     Object.assign(queryParams, { prefix: node });
   }
@@ -54,4 +66,4 @@ const nodeToQueryParams = ({
   return queryParams;
 };
 
-export { DatasetPlatform, nodeToQueryParams };
+export { DatasetPlatform, Fabric, nodeToQueryParams };

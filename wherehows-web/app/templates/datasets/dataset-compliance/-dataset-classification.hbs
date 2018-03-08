@@ -97,7 +97,7 @@
     {{else}}
 
       <tr class="dataset-field-content__empty">
-        <td>
+        <td colspan="2">
           <div>
             <header>
               <strong>
@@ -105,9 +105,11 @@
               </strong>
             </header>
 
-            <p>
+            {{#if (and excludesSomeMemberData (not isEditing))}}
+              <p>
               Click 'See More' below to view all available types of data
-            </p>
+              </p>
+            {{/if}}
           </div>
         </td>
       </tr>
