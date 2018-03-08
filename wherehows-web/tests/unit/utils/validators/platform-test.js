@@ -1,4 +1,4 @@
-import { isDatasetIdentifier, isDatasetPlatform } from 'wherehows-web/utils/validators/platform';
+import { isDatasetIdentifier, isDatasetPlatform, isDatasetSegment } from 'wherehows-web/utils/validators/platform';
 import { module, test } from 'qunit';
 
 module('Unit | Utility | validators/platform');
