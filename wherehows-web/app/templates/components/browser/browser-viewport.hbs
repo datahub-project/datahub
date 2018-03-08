@@ -77,15 +77,39 @@
           </span>
         {{/link-to}}
 
-        <br>
+        <div>
+          {{#if entity.createdTime}}
+            <span class="browse-entities__entity__meta-head">
+              <strong>Created:</strong>
+            </span>
 
-        {{#if entity.modifiedTime}}
-          <span>Last Modified:</span>
+            <span title="{{entity.createdTime}}">
+              {{moment-from-now entity.createdTime}}
+            </span>
+          {{/if}}
 
-          <span title="{{entity.modifiedTime}}">
-            {{moment-from-now entity.modifiedTime }}
-          </span>
-        {{/if}}
+          {{#if entity.modifiedTime}}
+            <span class="browse-entities__entity__meta-head">
+              <strong>Modified:</strong>
+            </span>
+
+            <span title="{{entity.modifiedTime}}">
+              {{moment-from-now entity.modifiedTime}}
+            </span>
+          {{/if}}
+
+          {{#if entity.removed}}
+            <span class="browse-entities__entity__meta-head">
+              <span class="removed-dataset removed-dataset--small">REMOVED</span>
+            </span>
+          {{/if}}
+
+          {{#if entity.deprecated}}
+            <span class="browse-entities__entity__meta-head">
+              <span class="deprecated-dataset deprecated-dataset--small">DEPRECATED</span>
+            </span>
+          {{/if}}
+        </div>
       </div>
 
     {{else}}

@@ -21,6 +21,14 @@ const isDatasetSegment = (candidate: string): boolean =>
   !isDatasetPlatform(candidate) && ['.', '/'].includes(candidate.slice(-1));
 
 /**
+ * Checks that a string is not a dataset platform or segment
+ * @param {string} candidate
+ * @return {boolean}
+ */
+const isDatasetIdentifier = (candidate: string): boolean =>
+  !!candidate && !isDatasetPlatform(candidate) && !isDatasetSegment(candidate); // not a platform and does not meet segment rules
+
+/**
  * Takes an encoded platform string and strips out the coding metadata
  * @param {string} candidateString
  * @returns {(string | void)}
@@ -50,4 +58,11 @@ const sanitizePlatformNodeString = (nodeString: string): string => {
   return nodeString;
 };
 
-export { platformRegex, isDatasetPlatform, isDatasetSegment, getPlatformFromString, sanitizePlatformNodeString };
+export {
+  platformRegex,
+  isDatasetPlatform,
+  isDatasetSegment,
+  getPlatformFromString,
+  sanitizePlatformNodeString,
+  isDatasetIdentifier
+};

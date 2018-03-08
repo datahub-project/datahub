@@ -3,10 +3,11 @@
     {{datasets/urn-breadcrumbs urn=model.uri}}
 
     <div class="row">
+      <div class="container">
       {{#if model.removed}}
         <span class="removed-dataset">
             REMOVED
-          </span>
+        </span>
 
         <sup>
               <span
@@ -39,12 +40,10 @@
 
         {{/link-to}}
       {{/if}}
-
-      <h3 class="dataset-name">
-        <div class="container">
+        <h3 class="dataset-name">
           {{model.nativeName}}
-        </div>
-      </h3>
+        </h3>
+      </div>
     </div>
 
     {{dataset-owner-list owners=owners datasetName=model.nativeName}}
