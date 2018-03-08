@@ -92,14 +92,31 @@
             {{else}}
               {{#if (and row.suggestion (not row.suggestionResolution))}}
 
-                <span class="notification-dot notification-dot--has-prediction"
-                      aria-label="Compliance fields have suggested values"></span>
+                <i class="fa fa-question dataset-compliance-fields__has-suggestions__icon" title="Compliance field has suggested values">
+                  {{tooltip-on-element
+                    text="Has suggestions"
+                  }}
+                </i>
 
               {{else}}
 
                 {{#if row.isReviewRequested}}
-                  <span class="notification-dot notification-dot--needs-review"
-                        aria-label="Compliance policy for field does not exist"></span>
+
+                  <i class="fa fa-exclamation dataset-compliance-fields--review-required__icon" title="Compliance policy for field does not exist">
+                    {{tooltip-on-element
+                      text="New field"
+                    }}
+                  </i>
+
+                {{else}}
+
+                  <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!">
+                    {{tooltip-on-element
+                      text="All good!"
+                    }}
+                  </i>
+
+
                 {{/if}}
 
               {{/if}}
