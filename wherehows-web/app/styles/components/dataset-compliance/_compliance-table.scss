@@ -1,9 +1,16 @@
-@import '../variables';
-
 .dataset-compliance-fields {
+  $compliance-suggestion-color: get-color(orange5);
+  $compliance-readonly-color: get-color(red7);
+  $compliance-review-required-color: get-color(blue5);
+  $compliance-ok-color: get-color(green5);
+
   &__has-suggestions {
-    color: $compliance-suggestion-hint;
+    color: $compliance-suggestion-color;
     margin-left: item-spacing(2);
+
+    &__icon {
+      color: $compliance-suggestion-color;
+    }
   }
 
   &__notification-column {
@@ -39,8 +46,20 @@
     }
 
     &__icon {
-      color: get-color(red7);
+      color: $compliance-readonly-color;
       opacity: 0.9;
+    }
+  }
+
+  &--review-required {
+    &__icon {
+      color: $compliance-review-required-color;
+    }
+  }
+
+  &--ok {
+    &__icon {
+      color: $compliance-ok-color;
     }
   }
 }
