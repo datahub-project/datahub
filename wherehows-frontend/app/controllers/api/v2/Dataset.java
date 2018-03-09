@@ -28,6 +28,7 @@ import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Results;
+import wherehows.dao.table.AclDao;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
@@ -59,11 +60,22 @@ public class Dataset extends Controller {
 
   private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
 
+  private static final AclDao ACL_DAO = initAclDao();
+
   private static final int _DEFAULT_PAGE_SIZE = 20;
 
   private static final JsonNode _EMPTY_RESPONSE = Json.newObject();
 
   private Dataset() {
+  }
+
+  private static AclDao initAclDao() {
+    try {
+      return Application.DAO_FACTORY.getAclDao();
+    } catch (Exception e) {
+      Logger.error("ACL DAO init error", e);
+    }
+    return null;
   }
 
   public static Promise<Result> listSegments(@Nullable String platform, @Nonnull String prefix) {
@@ -294,7 +306,7 @@ public class Dataset extends Controller {
     return Promise.promise(() -> ok(_EMPTY_RESPONSE));
   }
 
-  public static Promise<Result> getDatasetSuggestedCompliance(String datasetUrn) {
+  public static Promise<Result> getDatasetSuggestedCompliance(@Nonnull String datasetUrn) {
     final DsComplianceSuggestion record;
     try {
       record = COMPLIANCE_DAO.getComplianceSuggestion(datasetUrn);
@@ -311,6 +323,25 @@ public class Dataset extends Controller {
       return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
     }
     return Promise.promise(() -> ok(Json.newObject().set("complianceSuggestion", Json.toJson(record))));
+  }
+
+  public static Promise<Result> getDatasetAcls(@Nonnull String datasetUrn) {
+    final List<?> acls;
+    try {
+      acls = ACL_DAO.getDatasetAcls(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
+      Logger.error("Fetch ACLs error", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+
+    if (acls == null) {
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+    }
+    return Promise.promise(() -> ok(Json.toJson(acls)));
   }
 
   private static <E extends Throwable> JsonNode errorResponse(E e) {

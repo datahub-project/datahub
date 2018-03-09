@@ -304,7 +304,9 @@ GET           /api/v2/datasets/:urn/compliance                                  
 
 POST          /api/v2/datasets/:urn/compliance                                  controllers.api.v2.Dataset.updateDatasetCompliance(urn: String)
 
-GET           /api/v2/datasets/:urn/compliance/suggestion                        controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
+GET           /api/v2/datasets/:urn/compliance/suggestion                       controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
+
+GET           /api/v2/datasets/:urn/acl                                         controllers.api.v2.Dataset.getDatasetAcls(urn: String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
