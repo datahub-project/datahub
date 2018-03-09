@@ -308,6 +308,10 @@ GET           /api/v2/datasets/:urn/compliance/suggestion                       
 
 GET           /api/v2/datasets/:urn/acl                                         controllers.api.v2.Dataset.getDatasetAcls(urn: String)
 
+POST          /api/v2/datasets/:urn/acl/add                                     controllers.api.v2.Dataset.addUserToDatasetAcl(urn: String)
+
+PUT           /api/v2/datasets/:urn/acl/remove                                  controllers.api.v2.Dataset.removeUserFromDatasetAcl(urn: String)
+
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
 
