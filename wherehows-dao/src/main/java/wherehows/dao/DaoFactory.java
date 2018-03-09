@@ -19,6 +19,7 @@ import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DatasetsDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
+import wherehows.dao.table.AclDao;
 import wherehows.dao.table.LineageDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
@@ -30,7 +31,24 @@ public class DaoFactory {
   protected final EntityManagerFactory entityManagerFactory;
 
   private static DatasetsDao datasetsDao;
+
+  private static DatasetViewDao datasetViewDao;
+
+  private static DictDatasetDao dictDatasetDao;
+
+  private static FieldDetailDao fieldDetailDao;
+
+  private static DatasetOwnerDao datasetOwnerDao;
+
+  private static OwnerViewDao ownerViewDao;
+
+  private static DatasetComplianceDao datasetComplianceDao;
+
+  private static DataTypesViewDao dataTypesViewDao;
+
   private static LineageDao lineageDao;
+
+  private static AclDao aclDao;
 
   public DaoFactory(EntityManagerFactory entityManagerFactory) {
     this.entityManagerFactory = entityManagerFactory;
@@ -43,6 +61,55 @@ public class DaoFactory {
     return datasetsDao;
   }
 
+  public DatasetViewDao getDatasetViewDao() {
+    if (datasetViewDao == null) {
+      datasetViewDao = new DatasetViewDao(entityManagerFactory);
+    }
+    return datasetViewDao;
+  }
+
+  public DictDatasetDao getDictDatasetDao() {
+    if (dictDatasetDao == null) {
+      dictDatasetDao = new DictDatasetDao(entityManagerFactory);
+    }
+    return dictDatasetDao;
+  }
+
+  public FieldDetailDao getDictFieldDetailDao() {
+    if (fieldDetailDao == null) {
+      fieldDetailDao = new FieldDetailDao(entityManagerFactory);
+    }
+    return fieldDetailDao;
+  }
+
+  public DatasetOwnerDao getDatasteOwnerDao() {
+    if (datasetOwnerDao == null) {
+      datasetOwnerDao = new DatasetOwnerDao(entityManagerFactory);
+    }
+    return datasetOwnerDao;
+  }
+
+  public OwnerViewDao getOwnerViewDao() {
+    if (ownerViewDao == null) {
+      ownerViewDao = new OwnerViewDao(entityManagerFactory);
+    }
+    return ownerViewDao;
+  }
+
+  public DatasetComplianceDao getDatasetComplianceDao() {
+    if (datasetComplianceDao == null) {
+      datasetComplianceDao = new DatasetComplianceDao(entityManagerFactory);
+    }
+    return datasetComplianceDao;
+  }
+
+  public DataTypesViewDao getDataTypesViewDao() {
+    if (dataTypesViewDao == null) {
+      dataTypesViewDao = new DataTypesViewDao(entityManagerFactory);
+    }
+    return dataTypesViewDao;
+  }
+
   public LineageDao getLineageDao() {
     if (lineageDao == null) {
       lineageDao = new LineageDao();
@@ -50,31 +117,10 @@ public class DaoFactory {
     return lineageDao;
   }
 
-  public DatasetViewDao getDatasetViewDao() {
-    return new DatasetViewDao(entityManagerFactory);
-  }
-
-  public OwnerViewDao getOwnerViewDao() {
-    return new OwnerViewDao(entityManagerFactory);
-  }
-
-  public DatasetOwnerDao getDatasteOwnerDao() {
-    return new DatasetOwnerDao(entityManagerFactory);
-  }
-
-  public DatasetComplianceDao getDatasetComplianceDao() {
-    return new DatasetComplianceDao(entityManagerFactory);
-  }
-
-  public DictDatasetDao getDictDatasetDao() {
-    return new DictDatasetDao(entityManagerFactory);
-  }
-
-  public FieldDetailDao getDictFieldDetailDao() {
-    return new FieldDetailDao(entityManagerFactory);
-  }
-
-  public DataTypesViewDao getDataTypesViewDao() {
-    return new DataTypesViewDao(entityManagerFactory);
+  public AclDao getAclDao() {
+    if (aclDao == null) {
+      aclDao = new AclDao();
+    }
+    return aclDao;
   }
 }
