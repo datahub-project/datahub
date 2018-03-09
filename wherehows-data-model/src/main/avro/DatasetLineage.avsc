@@ -34,7 +34,7 @@
         "symbolDocs": {
           "DIRECT_COPY": "Direct copy without modification",
           "TRANSFORMED": "Transformed data with modification (format or content change)",
-          "VIEW": "Represents a view relationship where source is the view, and destination is the table.",
+          "VIEW": "Represents a view relationship where source is the table, and destination is the view (e.g. Teradata, Dali)",
           "MANAGE": "Represents a higher level of source dataset (e.g. HIVE), managing a lower level of destination dataset (e.g. HDFS)"
         }
       },
