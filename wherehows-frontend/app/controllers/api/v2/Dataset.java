@@ -344,6 +344,47 @@ public class Dataset extends Controller {
     return Promise.promise(() -> ok(Json.toJson(acls)));
   }
 
+  public static Promise<Result> addUserToDatasetAcl(@Nonnull String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
+    }
+
+    String accessType = request().getQueryString("accessType");
+    String businessJustification = request().getQueryString("businessJustification");
+    Long expireAt = NumberUtils.toLong(request().getQueryString("expireAt"), 0);
+    if (businessJustification == null) {
+      return Promise.promise(() -> badRequest(errorResponse("Missing business justification")));
+    }
+
+    try {
+      if (accessType == null) {
+        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, businessJustification);
+      } else {
+        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, accessType, businessJustification, expireAt);
+      }
+    } catch (Exception e) {
+      Logger.error("Add user to ACL error", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+  }
+
+  public static Promise<Result> removeUserFromDatasetAcl(@Nonnull String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
+    }
+
+    try {
+      ACL_DAO.removeUserFromDatasetAcl(datasetUrn, username);
+    } catch (Exception e) {
+      Logger.error("Remove User from ACL error", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+  }
+
   private static <E extends Throwable> JsonNode errorResponse(E e) {
     return errorResponse(e.toString());
   }
