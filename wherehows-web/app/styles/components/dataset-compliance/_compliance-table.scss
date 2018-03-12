@@ -62,6 +62,21 @@
       color: $compliance-ok-color;
     }
   }
+
+  &--missing-selection {
+    &#{&}#{&} {
+      $invalid-color: get-color(red7, 0.6);
+
+      background-color: $invalid-color;
+      border-color: $invalid-color;
+      color: get-color(white);
+
+      &::after {
+        content: '?';
+        color: get-color(white);
+      }
+    }
+  }
 }
 
 .compliance-depends {
