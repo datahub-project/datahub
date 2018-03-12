@@ -4,6 +4,7 @@ import ComputedProperty, { not, or } from '@ember/object/computed';
 import { run, schedule, next } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
+import { assert } from '@ember/debug';
 import { IFieldIdentifierOption, ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
@@ -16,7 +17,6 @@ import {
   getDefaultSecurityClassification,
   compliancePolicyStrings,
   getComplianceSteps,
-  hiddenTrackingFields,
   isExempt,
   ComplianceFieldIdValue,
   IComplianceFieldIdentifierOption,
@@ -24,18 +24,19 @@ import {
   DatasetClassification,
   SuggestionIntent,
   PurgePolicy,
-  getSupportedPurgePolicies
-} from 'wherehows-web/constants';
-import {
-  isPolicyExpectedShape,
-  fieldChangeSetRequiresReview,
+  getSupportedPurgePolicies,
   mergeMappedColumnFieldsWithSuggestions,
-  getFieldsRequiringReview
-} from 'wherehows-web/utils/datasets/compliance-policy';
+  getFieldsRequiringReview,
+  isFieldIdType,
+  idTypeFieldsHaveLogicalType,
+  changeSetFieldsRequiringReview,
+  changeSetReviewableAttributeTriggers
+} from 'wherehows-web/constants';
+import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import scrollMonitor from 'scrollmonitor';
 import { getFieldsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
-import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
+import { compact, isListUnique } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent, IConfirmOptions } from 'wherehows-web/services/notifications';
@@ -67,7 +68,9 @@ type SchemaFieldToPolicyValue = Pick<
   IComplianceEntity,
   'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner' | 'readonly'
 > & {
+  // flag indicating that the field has a current policy upstream
   privacyPolicyExists: boolean;
+  // flag indicating the field changeSet has been modified on the client
   isDirty: boolean;
   policyModificationTime: IComplianceInfo['modifiedTime'];
   dataType: string;
@@ -77,7 +80,7 @@ type SchemaFieldToPolicyValue = Pick<
  * Describes the interface for a mapping of field names to type, SchemaFieldToPolicyValue
  * @interface ISchemaFieldsToPolicy
  */
-interface ISchemaFieldsToPolicy {
+export interface ISchemaFieldsToPolicy {
   [fieldName: string]: SchemaFieldToPolicyValue;
 }
 
@@ -97,7 +100,7 @@ type SchemaFieldToSuggestedValue = Pick<
  * Describes the mapping of attributes to value types for a datasets schema field names to suggested property values
  * @interface ISchemaFieldsToSuggested
  */
-interface ISchemaFieldsToSuggested {
+export interface ISchemaFieldsToSuggested {
   [fieldName: string]: SchemaFieldToSuggestedValue;
 }
 /**
@@ -126,14 +129,6 @@ const {
 } = compliancePolicyStrings;
 
 /**
- * Takes a list of compliance data types and maps a list of compliance id's with idType set to true
- * @param {Array<IComplianceDataType>} [complianceDataTypes=[]] the list of compliance data types to transform
- * @return {Array<ComplianceFieldIdValue>}
- */
-const getIdTypeDataTypes = (complianceDataTypes: Array<IComplianceDataType> = []) =>
-  complianceDataTypes.filter(complianceDataType => complianceDataType.idType).mapBy('id');
-
-/**
  * String constant referencing the datasetClassification on the privacy policy
  * @type {string}
  */
@@ -149,12 +144,6 @@ const datasetClassifiersKeys = <Array<keyof typeof DatasetClassifiers>>Object.ke
  * @type {string}
  */
 const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
-
-/**
- * Returns a list of changeSet fields that requires user attention
- * @type {function({}): Array<{ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }>}
- */
-const changeSetFieldsRequiringReview = arrayFilter<IComplianceChangeSet>(fieldChangeSetRequiresReview);
 
 /**
  * The initial state of the compliance step for a zero based array
@@ -173,8 +162,6 @@ export default class DatasetCompliance extends Component {
   watchers: Array<{ stateChange: (fn: () => void) => void; watchItem: Element; destroy?: Function }>;
   complianceWatchers: WeakMap<Element, {}>;
   _hasBadData: boolean;
-  _message: string;
-  _alertType: string;
   platform: IDatasetView['platform'];
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
@@ -201,12 +188,6 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<Notifications>}
    */
   notifications: ComputedProperty<Notifications> = inject();
-
-  /**
-   * @type {Handlebars.SafeStringStatic}
-   * @memberof DatasetCompliance
-   */
-  hiddenTrackingFields = hiddenTrackingFields;
 
   /**
    * Flag indicating that the related dataset is schemaless or has a schema
@@ -237,14 +218,15 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOption: 'showReview' | 'showAll' = 'showAll';
+
   /**
    * Flag indicating that the component is in edit mode
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(): boolean {
-    // initialStepIndex is less than the currently set step index, and compliance is not from upstream
-    return get(this, 'editStepIndex') > initialStepIndex && !get(this, 'complianceInfo.fromUpstream');
+  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(this: DatasetCompliance): boolean {
+    // initialStepIndex is less than the currently set step index
+    return get(this, 'editStepIndex') > initialStepIndex;
   });
 
   /**
@@ -304,23 +286,39 @@ export default class DatasetCompliance extends Component {
     this: DatasetCompliance
   ): Array<IComplianceFieldIdentifierOption | IFieldIdentifierOption<null | ComplianceFieldIdValue.None>> {
     type NoneAndUnspecifiedOptions = Array<IFieldIdentifierOption<null | ComplianceFieldIdValue.None>>;
+    // object with interface IComplianceDataType and an index number indicative of position
+    type IndexedComplianceDataType = IComplianceDataType & { index: number };
 
     const noneAndUnSpecifiedDropdownOptions: NoneAndUnspecifiedOptions = [
       { value: null, label: 'Select Field Type...', isDisabled: true },
       { value: ComplianceFieldIdValue.None, label: 'None' }
     ];
-    const dataTypes = get(this, 'complianceDataTypes') || [];
+    // Creates a list of IComplianceDataType each with an index. The intent here is to perform a stable sort on
+    // the items in the list, Array#sort is not stable, so for items that equal on the primary comparator
+    // break the tie based on position in original list
+    const indexedDataTypes: Array<IndexedComplianceDataType> = (get(this, 'complianceDataTypes') || []).map(
+      (type, index) => ({
+        ...type,
+        index
+      })
+    );
 
     /**
-     * Compares each compliance data type
+     * Compares each compliance data type, ensure that positional order is maintained
      * @param {IComplianceDataType} a the compliance type to compare
      * @param {IComplianceDataType} b the other
      * @returns {number} 0, 1, -1 indicating sort order
      */
-    const dataTypeComparator = (a: IComplianceDataType, b: IComplianceDataType): number =>
+    const dataTypeComparator = (a: IndexedComplianceDataType, b: IndexedComplianceDataType): number => {
+      const { idType: aIdType, index: aIndex } = a;
+      const { idType: bIdType, index: bIndex } = b;
       // Convert boolean values to number type
+      const typeCompare = Number(aIdType) - Number(bIdType);
+
       // True types first, hence negation
-      -(Number(a.idType) - Number(b.idType));
+      // If types are same, then sort on original position i.e stable sort
+      return typeCompare ? -typeCompare : aIndex - bIndex;
+    };
 
     /**
      * Inserts a divider in the list of compliance field identifier dropdown options
@@ -343,7 +341,7 @@ export default class DatasetCompliance extends Component {
 
     return [
       ...noneAndUnSpecifiedDropdownOptions,
-      ...insertDivider(getFieldIdentifierOptions(dataTypes.sort(dataTypeComparator)))
+      ...insertDivider(getFieldIdentifierOptions(indexedDataTypes.sort(dataTypeComparator)))
     ];
   });
 
@@ -757,42 +755,70 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<IComplianceChangeSet>}
    * @memberof DatasetCompliance
    */
-  compliancePolicyChangeSet = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
-    this: DatasetCompliance
-  ): Array<IComplianceChangeSet> {
-    // schemaFieldNamesMappedToDataTypes is a dependency for cp columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
-    // TODO: move source to TS
-    const changeSet = mergeMappedColumnFieldsWithSuggestions(
-      get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
-      get(this, 'identifierFieldToSuggestion')
-    );
+  compliancePolicyChangeSet = computed(
+    'columnIdFieldsToCurrentPrivacyPolicy',
+    'complianceDataTypes',
+    'identifierFieldToSuggestion',
+    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      // schemaFieldNamesMappedToDataTypes is a dependency for CP columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
+      const changeSet = mergeMappedColumnFieldsWithSuggestions(
+        get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
+        get(this, 'identifierFieldToSuggestion')
+      );
 
-    run(() => next(this, 'notifyHandlerOfSuggestions', changeSet));
-    run(() => next(this, 'notifyHandlerOfFieldsRequiringReview', changeSet));
+      // pass current changeSet state to parent handlers
+      run(() => next(this, 'notifyHandlerOfSuggestions', changeSet));
+      run(() => next(this, 'notifyHandlerOfFieldsRequiringReview', changeSet, get(this, 'complianceDataTypes')));
 
-    return changeSet;
-  });
+      return changeSet;
+    }
+  );
 
   /**
    * Returns a list of changeSet fields that meets the user selected filter criteria
    * @type {ComputedProperty<IComplianceChangeSet>}
    * @memberof DatasetCompliance
    */
-  filteredChangeSet = computed('changeSetReviewCount', 'fieldReviewOption', 'compliancePolicyChangeSet', function(
-    this: DatasetCompliance
-  ): Array<IComplianceChangeSet> {
-    const changeSet = get(this, 'compliancePolicyChangeSet');
+  filteredChangeSet = computed(
+    'changeSetReviewCount',
+    'fieldReviewOption',
+    'compliancePolicyChangeSet',
+    'complianceDataTypes',
+    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      const { compliancePolicyChangeSet: changeSet, complianceDataTypes } = getProperties(this, [
+        'compliancePolicyChangeSet',
+        'complianceDataTypes'
+      ]);
 
-    return get(this, 'fieldReviewOption') === 'showReview' ? changeSetFieldsRequiringReview(changeSet) : changeSet;
-  });
+      return get(this, 'fieldReviewOption') === 'showReview'
+        ? changeSetFieldsRequiringReview(complianceDataTypes)(changeSet)
+        : changeSet;
+    }
+  );
 
-  notifyHandlerOfSuggestions = (changeSet: Array<IComplianceChangeSet>) => {
-    const hasChangeSetSuggestions = getFieldsSuggestions(changeSet).some(suggestion => !!suggestion);
+  /**
+   * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
+   * @param {Array<IComplianceChangeSet>} changeSet
+   */
+  notifyHandlerOfSuggestions = (changeSet: Array<IComplianceChangeSet>): void => {
+    const hasChangeSetSuggestions = !!compact(getFieldsSuggestions(changeSet)).length;
     this.notifyOnChangeSetSuggestions(hasChangeSetSuggestions);
   };
 
-  notifyHandlerOfFieldsRequiringReview = (changeSet: Array<IComplianceChangeSet>) => {
-    const hasChangeSetDrift = getFieldsRequiringReview(changeSet).some((isReviewRequired: boolean) => isReviewRequired);
+  /**
+   * Invokes external action with flag indicating that a field in the changeSet requires user review
+   * @param {Array<IComplianceDataType>} complianceDataTypes
+   * @param {Array<IComplianceChangeSet>} changeSet
+   */
+  notifyHandlerOfFieldsRequiringReview = (
+    complianceDataTypes: Array<IComplianceDataType>,
+    changeSet: Array<IComplianceChangeSet>
+  ) => {
+    // adding assertions for run-loop callback invocation, because static type checks are bypassed
+    assert('expected complianceDataTypes to be of type `array`', Array.isArray(complianceDataTypes));
+    assert('expected changeSet to be of type `array`', Array.isArray(changeSet));
+
+    const hasChangeSetDrift = !!getFieldsRequiringReview(complianceDataTypes)(changeSet).length;
     this.notifyOnChangeSetRequiresReview(hasChangeSetDrift);
   };
 
@@ -802,24 +828,13 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   changeSetReviewCount = computed(
-    'compliancePolicyChangeSet.@each.{isDirty,suggestion,privacyPolicyExists,suggestionAuthority}',
+    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
+    'complianceDataTypes',
     function(this: DatasetCompliance): number {
-      return changeSetFieldsRequiringReview(get(this, 'compliancePolicyChangeSet')).length;
+      return changeSetFieldsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet'))
+        .length;
     }
   );
-
-  /**
-   * TODO:DSS-6719 refactor into mixin
-   * Clears recently shown user messages
-   * @returns {(Pick<DatasetCompliance, '_message' | '_alertType'>)}
-   * @memberof DatasetCompliance
-   */
-  clearMessages(this: DatasetCompliance): Pick<DatasetCompliance, '_message' | '_alertType'> {
-    return setProperties(this, {
-      _message: '',
-      _alertType: ''
-    });
-  }
 
   /**
    * Sets the default classification for the given identifier field
@@ -928,15 +943,12 @@ export default class DatasetCompliance extends Component {
   validateFields(this: DatasetCompliance) {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
-    const idTypeIdentifiers = getIdTypeDataTypes(get(this, 'complianceDataTypes'));
-    const idTypeComplianceEntities = complianceEntities.filter(({ identifierType }) =>
-      idTypeIdentifiers.includes(identifierType)
-    );
+    const idTypeComplianceEntities = complianceEntities.filter(isFieldIdType(get(this, 'complianceDataTypes')));
 
     // Validation operations
-    const idFieldsHaveValidLogicalType = idTypeComplianceEntities.every(({ logicalType }) => !!logicalType);
-    const fieldIdentifiersAreUnique = isListUnique(complianceEntities.mapBy('identifierField'));
-    const schemaFieldLengthGreaterThanComplianceEntities = this.isSchemaFieldLengthGreaterThanComplianceEntities();
+    const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
+    const fieldIdentifiersAreUnique: boolean = isListUnique(complianceEntities.mapBy('identifierField'));
+    const schemaFieldLengthGreaterThanComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanComplianceEntities();
 
     if (!fieldIdentifiersAreUnique) {
       notify(NotificationEvent.error, { content: complianceFieldNotUnique });
@@ -1306,8 +1318,6 @@ export default class DatasetCompliance extends Component {
         'identifierField',
         identifierField
       );
-      // TODO:DSS-6719 refactor into mixin
-      this.clearMessages();
 
       // Apply the updated classification value to the current instance of the field in working copy
       if (currentFieldInComplianceList) {

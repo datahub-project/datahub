@@ -20,12 +20,6 @@
         <section class="action-bar">
           {{#if isEditing}}
 
-            {{#if _message}}
-              <div class="alert alert-{{_alertType}} post-action-notification action-footer-notification" role="alert">
-                {{_message}}
-              </div>
-            {{/if}}
-
             <div class="container action-bar__content">
               {{#if (has-next editStep editSteps)}}
                 <button

@@ -1,5 +1,5 @@
+import { createInitialComplianceInfo } from 'wherehows-web/constants';
 import { notFoundApiError } from 'wherehows-web/utils/api';
-import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import {
   IComplianceGetResponse,

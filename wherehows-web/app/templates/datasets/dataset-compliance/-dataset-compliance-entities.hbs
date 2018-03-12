@@ -92,7 +92,7 @@
             {{else}}
               {{#if (and row.suggestion (not row.suggestionResolution))}}
 
-                <i class="fa fa-question dataset-compliance-fields__has-suggestions__icon" title="Compliance field has suggested values">
+                <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon" title="Compliance field has suggested values">
                   {{tooltip-on-element
                     text="Has suggestions"
                   }}
@@ -102,9 +102,9 @@
 
                 {{#if row.isReviewRequested}}
 
-                  <i class="fa fa-exclamation dataset-compliance-fields--review-required__icon" title="Compliance policy for field does not exist">
+                  <i class="fa fa-question dataset-compliance-fields--review-required__icon" title="Compliance policy information needs review">
                     {{tooltip-on-element
-                      text="New field"
+                      text="Please review"
                     }}
                   </i>
 
@@ -167,7 +167,7 @@
                 disabled=(or (not isEditing) row.isReadonly)
                 values=complianceFieldIdDropdownOptions
                 selected=(readonly row.identifierType)
-                selectionDidChange=(action row.onFieldIdentifierTypeChange)
+                selectionDidChange=(action row.fieldIdentifierTypeDidChange)
               }}
 
               {{#if row.identifierTypeBeforeSuggestion}}
@@ -194,7 +194,8 @@
                 disabled=(or (not isEditing) row.isReadonly)
                 values=row.fieldFormats
                 selected=(readonly row.logicalType)
-                selectionDidChange=(action row.onFieldLogicalTypeChange)
+                selectionDidChange=(action row.fieldLogicalTypeDidChange)
+                class=(if row.isFieldFormatMissing "dataset-compliance-fields--missing-selection")
               }}
 
               {{#if row.logicalTypeBeforeSuggestion}}
@@ -239,7 +240,7 @@
                 disabled=(or (not isEditing) row.isReadonly)
                 values=classifiers
                 selected=row.classification
-                selectionDidChange=(action row.onFieldClassificationChange)
+                selectionDidChange=(action row.fieldClassificationDidChange)
               }}
             </section>
           {{/row.cell}}
