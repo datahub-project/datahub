@@ -16,6 +16,7 @@ package wherehows.dao.table;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import wherehows.models.table.AccessControlEntry;
 
 
 public class AclDao {
@@ -23,7 +24,7 @@ public class AclDao {
   public AclDao() {
   }
 
-  public List<?> getDatasetAcls(@Nonnull String datasetUrn) throws Exception {
+  public List<AccessControlEntry> getDatasetAcls(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
