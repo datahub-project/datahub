@@ -351,18 +351,20 @@ public class Dataset extends Controller {
       return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
     }
 
-    String accessType = request().getQueryString("accessType");
-    String businessJustification = request().getQueryString("businessJustification");
-    Long expireAt = NumberUtils.toLong(request().getQueryString("expireAt"), 0);
-    if (businessJustification == null) {
+    JsonNode record = request().body().asJson();
+
+    String accessType = record.hasNonNull("accessType") ? record.get("accessType").asText() : null;
+    Long expiresAt = record.hasNonNull("expiresAt") ? record.get("expiresAt").asLong() : null;
+    if (!record.hasNonNull("businessJustification")) {
       return Promise.promise(() -> badRequest(errorResponse("Missing business justification")));
     }
+    String businessJustification = request().getQueryString("businessJustification");
 
     try {
       if (accessType == null) {
         ACL_DAO.addUserToDatasetAcl(datasetUrn, username, businessJustification);
       } else {
-        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, accessType, businessJustification, expireAt);
+        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, accessType, businessJustification, expiresAt);
       }
     } catch (Exception e) {
       Logger.error("Add user to ACL error", e);
