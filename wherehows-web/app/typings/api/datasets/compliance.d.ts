@@ -45,7 +45,7 @@ export interface IComplianceInfo {
   // User entered purge notation for a dataset with a purge exempt policy
   compliancePurgeNote: null | string;
   // Purge Policy for the dataset
-  complianceType: PurgePolicy;
+  complianceType: PurgePolicy | '';
   // Dataset level security classification
   confidentiality: Classification | null;
   // Flag indicating that the dataset contains pii data, typically for schemaless dataset this is user entered,
@@ -62,7 +62,7 @@ export interface IComplianceInfo {
   // optional timestamp of last modification date
   modifiedTime?: string;
   // optional attribute indicating that the compliance policy is derived from a parent in the lineage
-  readonly fromUpstream: boolean;
+  readonly fromUpstream?: boolean;
 }
 
 /**

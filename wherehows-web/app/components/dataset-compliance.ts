@@ -218,14 +218,15 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOption: 'showReview' | 'showAll' = 'showAll';
+
   /**
    * Flag indicating that the component is in edit mode
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(): boolean {
-    // initialStepIndex is less than the currently set step index, and compliance is not from upstream
-    return get(this, 'editStepIndex') > initialStepIndex && !get(this, 'complianceInfo.fromUpstream');
+  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(this: DatasetCompliance): boolean {
+    // initialStepIndex is less than the currently set step index
+    return get(this, 'editStepIndex') > initialStepIndex;
   });
 
   /**
