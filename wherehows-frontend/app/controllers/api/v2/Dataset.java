@@ -35,6 +35,7 @@ import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
+import wherehows.models.table.AccessControlEntry;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DatasetOwnership;
@@ -326,7 +327,7 @@ public class Dataset extends Controller {
   }
 
   public static Promise<Result> getDatasetAcls(@Nonnull String datasetUrn) {
-    final List<?> acls;
+    final List<AccessControlEntry> acls;
     try {
       acls = ACL_DAO.getDatasetAcls(datasetUrn);
     } catch (Exception e) {
