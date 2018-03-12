@@ -1,9 +1,4 @@
-import {
-  IOwner,
-  IOwnerPostResponse,
-  IOwnerResponse,
-  IOwnerTypeResponse
-} from 'wherehows-web/typings/api/datasets/owners';
+import { IOwner, IOwnerResponse, IOwnerTypeResponse } from 'wherehows-web/typings/api/datasets/owners';
 import {
   IPartyEntity,
   IPartyEntityResponse,
@@ -11,7 +6,7 @@ import {
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
 import { notFoundApiError } from 'wherehows-web/utils/api';
-import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
+import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { arrayFilter, arrayMap } from 'wherehows-web/utils/array';
@@ -60,13 +55,6 @@ enum OwnerSource {
 }
 
 /**
- * Constructs the dataset owners url
- * @param {number} id the id of the dataset
- * @return {string} the dataset owners url
- */
-const datasetOwnersUrlById = (id: number): string => `${datasetUrlById(id)}/owners`;
-
-/**
  * Returns the dataset owners url by urn
  * @param {string} urn
  * @return {string}
@@ -84,21 +72,6 @@ const partyEntitiesUrl = `${getApiRoot()}/party/entities`;
  * @return {string}
  */
 const datasetOwnerTypesUrl = () => `${getApiRoot()}/owner/types`;
-
-/**
- * Requests the list of dataset owners from the GET endpoint, converts the modifiedTime property
- * to a date object
- * @param {number} id the dataset Id
- * @return {Promise<Array<IOwner>>} the current list of dataset owners
- */
-const readDatasetOwners = async (id: number): Promise<Array<IOwner>> => {
-  const { owners = [], status, msg } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlById(id) });
-  if (status === ApiStatus.OK) {
-    return ownersWithModifiedTimeAsDate(owners);
-  }
-
-  throw new Error(msg);
-};
 
 /**
  * Modifies an owner object by applying the modified date property as a Date object
@@ -134,34 +107,6 @@ const readDatasetOwnersByUrn = async (urn: string): Promise<Array<IOwner>> => {
       throw e;
     }
   }
-};
-
-/**
- * Persists the updated list of dataset owners
- * @param {number} id the id of the dataset
- * @param {string} csrfToken
- * @param {Array<IOwner>} updatedOwners the updated list of owners for this dataset
- * @return {Promise<IOwnerPostResponse>}
- */
-const updateDatasetOwners = async (
-  id: number,
-  csrfToken: string,
-  updatedOwners: Array<IOwner>
-): Promise<IOwnerPostResponse> => {
-  const { status, msg } = await postJSON<IOwnerPostResponse>({
-    url: datasetOwnersUrlById(id),
-    headers: { 'csrf-token': csrfToken },
-    data: {
-      csrfToken,
-      owners: updatedOwners
-    }
-  });
-
-  if ([ApiStatus.OK, ApiStatus.SUCCESS].includes(status)) {
-    return { status: ApiStatus.OK };
-  }
-
-  throw new Error(msg);
 };
 
 /**
@@ -280,14 +225,12 @@ const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMa
   );
 
 export {
-  readDatasetOwners,
   readDatasetOwnersByUrn,
   updateDatasetOwnersByUrn,
   readDatasetOwnerTypesWithoutConsumer,
   readPartyEntities,
   readPartyEntitiesMap,
   getUserEntities,
-  updateDatasetOwners,
   OwnerIdType,
   OwnerType,
   OwnerUrnNamespace,

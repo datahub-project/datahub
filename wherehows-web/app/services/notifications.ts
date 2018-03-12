@@ -274,7 +274,9 @@ export default class Notifications extends Service {
         if (!(<IToast>props).isSticky) {
           await toastDelay;
           // Burn toast
-          this.actions.dismissToast.call(this);
+          if (!(this.isDestroying || this.isDestroying)) {
+            this.actions.dismissToast.call(this);
+          }
         }
       }
     };
