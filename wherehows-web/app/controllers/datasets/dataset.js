@@ -13,7 +13,6 @@ import {
 } from 'wherehows-web/utils/api';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { updateDatasetDeprecation } from 'wherehows-web/utils/api/datasets/properties';
-import { readDatasetOwners, updateDatasetOwners } from 'wherehows-web/utils/api/datasets/owners';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from 'ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
