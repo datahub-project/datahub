@@ -534,7 +534,7 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   validateAttrs(this: DatasetCompliance): boolean | void {
-    const fieldNames: Array<string> = get(this, 'schemaFieldNamesMappedToDataTypes').mapBy('fieldName');
+    const fieldNames: Array<string> = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).mapBy('fieldName');
 
     // identifier field names from the column api should be unique
     if (isListUnique(fieldNames.sort())) {
@@ -597,7 +597,7 @@ export default class DatasetCompliance extends Component {
   isSchemaFieldLengthGreaterThanComplianceEntities(this: DatasetCompliance): boolean {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
-      const { length: columnFieldsLength } = get(this, 'schemaFieldNamesMappedToDataTypes');
+      const { length: columnFieldsLength } = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []);
       const { length: complianceListLength } = get(complianceInfo, 'complianceEntities') || [];
 
       return columnFieldsLength >= complianceListLength;
@@ -696,10 +696,12 @@ export default class DatasetCompliance extends Component {
     function(this: DatasetCompliance): ISchemaFieldsToPolicy {
       const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
-      const columnFieldProps = get(this, 'schemaFieldNamesMappedToDataTypes').map(({ fieldName, dataType }) => ({
-        identifierField: fieldName,
-        dataType
-      }));
+      const columnFieldProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
+        ({ fieldName, dataType }) => ({
+          identifierField: fieldName,
+          dataType
+        })
+      );
 
       return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, {
         policyModificationTime: modifiedTime
