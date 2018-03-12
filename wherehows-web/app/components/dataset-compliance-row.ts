@@ -1,3 +1,4 @@
+import { action } from 'ember-decorators/object';
 import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import ComputedProperty, { alias, bool } from '@ember/object/computed';
@@ -9,10 +10,13 @@ import {
   getDefaultSecurityClassification,
   IComplianceFieldFormatOption,
   IComplianceFieldIdentifierOption,
-  IFieldIdentifierOption
+  IFieldIdentifierOption,
+  fieldChangeSetRequiresReview,
+  isFieldIdType,
+  changeSetReviewableAttributeTriggers,
+  idTypeFieldHasLogicalType
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { fieldChangeSetRequiresReview } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
@@ -139,10 +143,19 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetComplianceRow
    */
-  isReviewRequested = computed('field.{isDirty,suggestion,privacyPolicyExists,suggestionAuthority}', function(
+  isReviewRequested = computed(`field.{${changeSetReviewableAttributeTriggers}}`, 'complianceDataTypes', function(
     this: DatasetComplianceRow
   ): boolean {
-    return fieldChangeSetRequiresReview(get(this, 'field'));
+    return fieldChangeSetRequiresReview(get(this, 'complianceDataTypes'))(get(this, 'field'));
+  });
+
+  /**
+   * Checks if the field format / logical type for this field if missing if the field is of ID type
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceRow
+   */
+  isFieldFormatMissing = computed('isIdType', 'field.logicalType', function(): boolean {
+    return get(this, 'isIdType') && !idTypeFieldHasLogicalType(get(this, 'field'));
   });
 
   /**
@@ -245,7 +258,9 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type ComputedProperty<Array<IComplianceFieldFormatOption>>
    * @memberof DatasetComplianceRow
    */
-  fieldFormats = computed('isIdType', function(this: DatasetComplianceRow): Array<IComplianceFieldFormatOption> {
+  fieldFormats = computed('isIdType', 'complianceDataTypes', function(
+    this: DatasetComplianceRow
+  ): Array<IComplianceFieldFormatOption> {
     const identifierType = get(this, 'field')['identifierType'] || '';
     const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
     const complianceDataType = complianceDataTypes.findBy('id', identifierType);
@@ -268,11 +283,11 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetComplianceRow
    */
-  isIdType: ComputedProperty<boolean> = computed('field.identifierType', function(this: DatasetComplianceRow): boolean {
-    const { field: { identifierType }, complianceDataTypes } = getProperties(this, ['field', 'complianceDataTypes']);
-    const { idType } = complianceDataTypes.findBy('id', identifierType || '') || { idType: false };
-
-    return idType;
+  isIdType: ComputedProperty<boolean> = computed('field.identifierType', 'complianceDataTypes', function(
+    this: DatasetComplianceRow
+  ): boolean {
+    const { field, complianceDataTypes } = getProperties(this, ['field', 'complianceDataTypes']);
+    return isFieldIdType(complianceDataTypes)(field);
   });
 
   /**
@@ -339,77 +354,86 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     return getFieldSuggestions(getWithDefault(this, 'field', <IComplianceChangeSet>{}));
   });
 
-  actions = {
-    /**
-     * Handles UI changes to the field identifierType
-     * @param {{ value: ComplianceFieldIdValue }} { value }
-     */
-    onFieldIdentifierTypeChange(this: DatasetComplianceRow, { value }: { value: ComplianceFieldIdValue | null }) {
-      const onFieldIdentifierTypeChange = get(this, 'onFieldIdentifierTypeChange');
-      if (typeof onFieldIdentifierTypeChange === 'function') {
-        onFieldIdentifierTypeChange(get(this, 'field'), { value });
-      }
-    },
-
-    /**
-     * Handles the updates when the field logical type changes on this field
-     * @param {(IComplianceChangeSet['logicalType'])} value contains the selected drop-down value
-     */
-    onFieldLogicalTypeChange(this: DatasetComplianceRow, { value }: { value: IComplianceChangeSet['logicalType'] }) {
-      const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
-      if (typeof onFieldLogicalTypeChange === 'function') {
-        onFieldLogicalTypeChange(get(this, 'field'), value);
-      }
-    },
-
-    /**
-     * Handles UI change to field security classification
-     * @param {({ value: '' | Classification })} { value } contains the changed classification value
-     */
-    onFieldClassificationChange(this: DatasetComplianceRow, { value }: { value: '' | Classification }) {
-      const onFieldClassificationChange = get(this, 'onFieldClassificationChange');
-      if (typeof onFieldClassificationChange === 'function') {
-        onFieldClassificationChange(get(this, 'field'), { value });
-      }
-    },
-
-    /**
-     * Handles the nonOwner flag update on the field
-     * @param {boolean} nonOwner
-     */
-    onOwnerChange(this: DatasetComplianceRow, nonOwner: boolean) {
-      get(this, 'onFieldOwnerChange')(get(this, 'field'), nonOwner);
-    },
-
-    /**
-     * Handler for user interactions with a suggested value. Applies / ignores the suggestion
-     * Then invokes the parent supplied suggestion handler
-     * @param {string | void} intent a binary indicator to accept or ignore suggestion
-     * @param {SuggestionIntent} intent
-     */
-    onSuggestionAction(this: DatasetComplianceRow, intent?: SuggestionIntent) {
-      const onSuggestionIntent = get(this, 'onSuggestionIntent');
-
-      // Accept the suggestion for either identifierType and/or logicalType
-      if (intent === SuggestionIntent.accept) {
-        const { identifierType, logicalType } = get(this, 'prediction') || {
-          identifierType: void 0,
-          logicalType: void 0
-        };
-
-        if (identifierType) {
-          this.actions.onFieldIdentifierTypeChange.call(this, { value: identifierType });
-        }
-
-        if (logicalType) {
-          this.actions.onFieldLogicalTypeChange.call(this, logicalType);
-        }
+  /**
+   * Handles UI changes to the field identifierType
+   * @param {{ value: ComplianceFieldIdValue }} { value }
+   */
+  @action
+  fieldIdentifierTypeDidChange(this: DatasetComplianceRow, { value }: { value: ComplianceFieldIdValue | null }) {
+    const onFieldIdentifierTypeChange = get(this, 'onFieldIdentifierTypeChange');
+    if (typeof onFieldIdentifierTypeChange === 'function') {
+      // if the field has a predicted value, but the user changes the identifier type,
+      // ignore the suggestion
+      if (get(this, 'prediction')) {
+        this.onSuggestionAction(SuggestionIntent.ignore);
       }
 
-      // Invokes parent handle to  runtime ignore future suggesting this suggestion
-      if (typeof onSuggestionIntent === 'function') {
-        onSuggestionIntent(get(this, 'field'), intent);
+      onFieldIdentifierTypeChange(get(this, 'field'), { value });
+    }
+  }
+
+  /**
+   * Handles the updates when the field logical type changes on this field
+   * @param {(IComplianceChangeSet['logicalType'])} value contains the selected drop-down value
+   */
+  @action
+  fieldLogicalTypeDidChange(this: DatasetComplianceRow, { value }: { value: IComplianceChangeSet['logicalType'] }) {
+    const onFieldLogicalTypeChange = get(this, 'onFieldLogicalTypeChange');
+    if (typeof onFieldLogicalTypeChange === 'function') {
+      onFieldLogicalTypeChange(get(this, 'field'), value);
+    }
+  }
+
+  /**
+   * Handles UI change to field security classification
+   * @param {({ value: '' | Classification })} { value } contains the changed classification value
+   */
+  @action
+  fieldClassificationDidChange(this: DatasetComplianceRow, { value }: { value: '' | Classification }) {
+    const onFieldClassificationChange = get(this, 'onFieldClassificationChange');
+    if (typeof onFieldClassificationChange === 'function') {
+      onFieldClassificationChange(get(this, 'field'), { value });
+    }
+  }
+
+  /**
+   * Handles the nonOwner flag update on the field
+   * @param {boolean} nonOwner
+   */
+  @action
+  onOwnerChange(this: DatasetComplianceRow, nonOwner: boolean) {
+    get(this, 'onFieldOwnerChange')(get(this, 'field'), nonOwner);
+  }
+
+  /**
+   * Handler for user interactions with a suggested value. Applies / ignores the suggestion
+   * Then invokes the parent supplied suggestion handler
+   * @param {string | void} intent a binary indicator to accept or ignore suggestion
+   * @param {SuggestionIntent} intent
+   */
+  @action
+  onSuggestionAction(this: DatasetComplianceRow, intent?: SuggestionIntent) {
+    const onSuggestionIntent = get(this, 'onSuggestionIntent');
+
+    // Accept the suggestion for either identifierType and/or logicalType
+    if (intent === SuggestionIntent.accept) {
+      const { identifierType, logicalType } = get(this, 'prediction') || {
+        identifierType: void 0,
+        logicalType: void 0
+      };
+
+      if (identifierType) {
+        this.actions.fieldIdentifierTypeDidChange.call(this, { value: identifierType });
+      }
+
+      if (logicalType) {
+        this.actions.fieldLogicalTypeDidChange.call(this, logicalType);
       }
     }
-  };
+
+    // Invokes parent handle to  runtime ignore future suggesting this suggestion
+    if (typeof onSuggestionIntent === 'function') {
+      onSuggestionIntent(get(this, 'field'), intent);
+    }
+  }
 }

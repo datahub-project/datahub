@@ -2,8 +2,8 @@ import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { waitUntil, find } from 'ember-native-dom-helpers';
 import { urn } from 'wherehows-web/mirage/fixtures/urn';
+import { createInitialComplianceInfo } from 'wherehows-web/constants';
 import sinon from 'sinon';
-import { createInitialComplianceInfo } from 'wherehows-web/utils/datasets/compliance-policy';
 
 moduleForComponent(
   'datasets/containers/dataset-compliance',

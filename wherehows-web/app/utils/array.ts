@@ -15,6 +15,15 @@ const arrayFilter = <T>(filtrationFunction: (param: T) => boolean): ((array: Arr
   array.filter(filtrationFunction);
 
 /**
+ * Typesafe utility `data last` function for array every
+ * @template T
+ * @param {(param: T) => boolean} filter
+ * @returns {((array: Array<T>) => boolean)}
+ */
+const arrayEvery = <T>(filter: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
+  array.every(filter);
+
+/**
  * Composable reducer abstraction, curries a reducing iteratee and returns a reducing function that takes a list
  * @template U
  * @param {(acc: U) => U} iteratee
@@ -42,4 +51,4 @@ const isListUnique = <T>(list: Array<T> = []): boolean => new Set(list).size ===
  */
 const compact = <T>(list: Array<T> = []): Array<T> => list.filter(item => item);
 
-export { arrayMap, arrayFilter, arrayReduce, isListUnique, compact };
+export { arrayMap, arrayFilter, arrayReduce, isListUnique, compact, arrayEvery };
