@@ -358,7 +358,7 @@ public class Dataset extends Controller {
     if (!record.hasNonNull("businessJustification")) {
       return Promise.promise(() -> badRequest(errorResponse("Missing business justification")));
     }
-    String businessJustification = request().getQueryString("businessJustification");
+    String businessJustification = record.get("businessJustification").asText();
 
     try {
       if (accessType == null) {
