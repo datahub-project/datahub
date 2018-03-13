@@ -768,7 +768,7 @@ export default class DatasetCompliance extends Component {
 
       // pass current changeSet state to parent handlers
       run(() => next(this, 'notifyHandlerOfSuggestions', changeSet));
-      run(() => next(this, 'notifyHandlerOfFieldsRequiringReview', changeSet, get(this, 'complianceDataTypes')));
+      run(() => next(this, 'notifyHandlerOfFieldsRequiringReview', get(this, 'complianceDataTypes'), changeSet));
 
       return changeSet;
     }
@@ -818,7 +818,9 @@ export default class DatasetCompliance extends Component {
     assert('expected complianceDataTypes to be of type `array`', Array.isArray(complianceDataTypes));
     assert('expected changeSet to be of type `array`', Array.isArray(changeSet));
 
-    const hasChangeSetDrift = !!getFieldsRequiringReview(complianceDataTypes)(changeSet).length;
+    const hasChangeSetDrift = getFieldsRequiringReview(complianceDataTypes)(changeSet).some(
+      (isReviewRequired: boolean) => isReviewRequired
+    );
     this.notifyOnChangeSetRequiresReview(hasChangeSetDrift);
   };
 
