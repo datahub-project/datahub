@@ -65,6 +65,8 @@ public class Dataset extends Controller {
 
   private static final int _DEFAULT_PAGE_SIZE = 20;
 
+  private static final long _DEFAULT_JIT_ACL_PERIOD = 48 * 3600;  // 48 hour in seconds
+
   private static final JsonNode _EMPTY_RESPONSE = Json.newObject();
 
   private Dataset() {
@@ -353,19 +355,16 @@ public class Dataset extends Controller {
 
     JsonNode record = request().body().asJson();
 
-    String accessType = record.hasNonNull("accessType") ? record.get("accessType").asText() : null;
-    Long expiresAt = record.hasNonNull("expiresAt") ? record.get("expiresAt").asLong() : null;
+    String accessType = record.hasNonNull("accessType") ? record.get("accessType").asText() : "r"; // default read
+    Long expiresAt = record.hasNonNull("expiresAt") ? record.get("expiresAt").asLong()
+        : System.currentTimeMillis() / 1000 + _DEFAULT_JIT_ACL_PERIOD; // default now + 48h, in seconds
     if (!record.hasNonNull("businessJustification")) {
       return Promise.promise(() -> badRequest(errorResponse("Missing business justification")));
     }
     String businessJustification = record.get("businessJustification").asText();
 
     try {
-      if (accessType == null) {
-        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, businessJustification);
-      } else {
-        ACL_DAO.addUserToDatasetAcl(datasetUrn, username, accessType, businessJustification, expiresAt);
-      }
+      ACL_DAO.addUserToDatasetAcl(datasetUrn, username, accessType, businessJustification, expiresAt);
     } catch (Exception e) {
       Logger.error("Add user to ACL error", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
