@@ -30,5 +30,5 @@ $feature-card-image-size: 50px !default;
 
 /// Wrap cards in containers with 1:1 ar
 .feature-container {
-  @include aspect-ratio(1, 1);
+  @include aspect-ratio(1, 0.5);
 }
