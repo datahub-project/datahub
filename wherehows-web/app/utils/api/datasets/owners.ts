@@ -94,15 +94,17 @@ const ownersWithModifiedTimeAsDate = arrayMap(ownerWithModifiedTimeAsDate);
  * @param {string} urn
  * @return {Promise<Array<IOwner>>}
  */
-const readDatasetOwnersByUrn = async (urn: string): Promise<Array<IOwner>> => {
-  let owners: Array<IOwner> = [];
+const readDatasetOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
+  let owners: Array<IOwner> = [],
+    fromUpstream = false,
+    datasetUrn = '';
 
   try {
-    ({ owners = [] } = await getJSON<Pick<IOwnerResponse, 'owners'>>({ url: datasetOwnersUrlByUrn(urn) }));
-    return ownersWithModifiedTimeAsDate(owners);
+    ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlByUrn(urn) }));
+    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
   } catch (e) {
     if (notFoundApiError(e)) {
-      return owners;
+      return { owners, fromUpstream, datasetUrn };
     } else {
       throw e;
     }

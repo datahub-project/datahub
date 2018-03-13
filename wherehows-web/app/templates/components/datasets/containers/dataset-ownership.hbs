@@ -24,11 +24,19 @@
 
   {{else}}
 
-    {{dataset-authors
-      owners=owners
-      ownerTypes=ownerTypes
-      save=(action "saveOwnerChanges")
-    }}
+    {{#if fromUpstream}}
+
+      {{datasets/containers/upstream-owners upstreamUrn=upstreamUrn}}
+
+    {{else}}
+
+      {{dataset-authors
+        owners=owners
+        ownerTypes=ownerTypes
+        save=(action "saveOwnerChanges")
+      }}
+
+    {{/if}}
 
   {{/if}}
 
