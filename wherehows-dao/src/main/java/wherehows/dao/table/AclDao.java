@@ -28,11 +28,6 @@ public class AclDao {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
-  public void addUserToDatasetAcl(@Nonnull String datasetUrn, @Nonnull String user, @Nonnull String justification)
-      throws Exception {
-    throw new UnsupportedOperationException("Not implemented yet");
-  }
-
   public void addUserToDatasetAcl(@Nonnull String datasetUrn, @Nonnull String user, @Nullable String accessType,
       @Nonnull String justification, @Nullable Long expiresAt) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
