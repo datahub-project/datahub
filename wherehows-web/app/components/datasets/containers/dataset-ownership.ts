@@ -1,12 +1,12 @@
 import Component from '@ember/component';
-import { get, set, getProperties } from '@ember/object';
+import { get, set, getProperties, setProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { task, TaskInstance } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
 import { NotificationEvent } from 'wherehows-web/services/notifications';
-import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
+import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import {
   OwnerType,
   readDatasetOwnersByUrn,
@@ -39,6 +39,18 @@ export default class DatasetOwnershipContainer extends Component {
    */
   notifications: ComputedProperty<Notifications> = inject();
 
+  /**
+   * Flag indicates that a ownership metadata is inherited from an upstream dataset
+   * @type {boolean}
+   */
+  fromUpstream = false;
+
+  /**
+   * Reference to the upstream dataset
+   * @type {string}
+   */
+  upstreamUrn: string;
+
   didInsertElement() {
     get(this, 'getContainerDataTask').perform();
   }
@@ -59,12 +71,12 @@ export default class DatasetOwnershipContainer extends Component {
 
   /**
    * Reads the owners for this dataset
-   * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<Array<IOwner>>>>}
+   * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
-  getDatasetOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<Array<IOwner>>> {
-    const owners = yield readDatasetOwnersByUrn(get(this, 'urn'));
+  getDatasetOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
+    const { owners, fromUpstream, datasetUrn } = yield readDatasetOwnersByUrn(get(this, 'urn'));
 
-    set(this, 'owners', owners);
+    setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
   });
 
   /**

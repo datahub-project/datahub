@@ -1,0 +1,12 @@
+{{#if getUpstreamPropertiesTask.isRunning}}
+
+  {{pendulum-ellipsis-animation}}
+
+{{else}}
+
+  {{datasets/upstream-owners
+    nativeName=nativeName
+    upstreamUrn=upstreamUrn
+  }}
+
+{{/if}}
