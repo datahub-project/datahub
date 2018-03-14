@@ -119,6 +119,12 @@ export default class extends Controller.extend({
   compliancePolicyHasDrift;
 
   /**
+   * Flag indicating the dataset policy is derived from an upstream source
+   * @type {boolean}
+   */
+  isPolicyFromUpstream = false;
+
+  /**
    * Flag indicating that the compliance policy needs user attention
    * @type {ComputedProperty<boolean>}
    */
@@ -157,21 +163,32 @@ export default class extends Controller.extend({
   }
 
   /**
-   * Setter to update the hasSuggestions flag
+   * Updates the hasSuggestions flag if the policy is not from an upstream dataset, otherwise set to false
    * @param {boolean} hasSuggestions
    */
   @action
   setOnChangeSetChange(hasSuggestions) {
-    set(this, 'hasSuggestions', hasSuggestions);
+    const fromUpstream = get(this, 'isPolicyFromUpstream');
+    set(this, 'hasSuggestions', !fromUpstream && hasSuggestions);
   }
 
   /**
-   * Setter to update the isNewComplianceInfo flag
+   * Updates the isNewComplianceInfo flag if the policy is not from an upstream dataset, otherwise set to false
+   * Also sets the isPolicyFromUpstream attribute
    * @param {boolean} isNewComplianceInfo
+   * @param {boolean} fromUpstream
    */
   @action
-  setOnComplianceTypeChange(isNewComplianceInfo) {
-    set(this, 'isNewComplianceInfo', isNewComplianceInfo);
+  setOnComplianceTypeChange({ isNewComplianceInfo, fromUpstream }) {
+    setProperties(this, {
+      isNewComplianceInfo: !fromUpstream && isNewComplianceInfo,
+      isPolicyFromUpstream: fromUpstream
+    });
+
+    if (fromUpstream) {
+      this.setOnChangeSetChange(false);
+      this.setOnChangeSetDrift(false);
+    }
   }
 
   /**
@@ -180,6 +197,7 @@ export default class extends Controller.extend({
    */
   @action
   setOnChangeSetDrift(hasDrift) {
-    set(this, 'compliancePolicyHasDrift', hasDrift);
+    const fromUpstream = get(this, 'isPolicyFromUpstream');
+    set(this, 'compliancePolicyHasDrift', !fromUpstream && hasDrift);
   }
 }

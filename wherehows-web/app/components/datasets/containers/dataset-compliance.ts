@@ -33,7 +33,7 @@ export default class DatasetComplianceContainer extends Component {
   /**
    * External action on parent
    */
-  setOnComplianceType: (isNewComplianceInfo: boolean) => void;
+  setOnComplianceType: (args: { isNewComplianceInfo: boolean; fromUpstream: boolean }) => void;
 
   /**
    * External action on parent
@@ -140,9 +140,11 @@ export default class DatasetComplianceContainer extends Component {
   getComplianceTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<Promise<IReadComplianceResult>> {
-    const { isNewComplianceInfo, complianceInfo } = yield readDatasetComplianceByUrn(get(this, 'urn'));
+    const { isNewComplianceInfo, complianceInfo }: IReadComplianceResult = yield readDatasetComplianceByUrn(
+      get(this, 'urn')
+    );
 
-    this.onCompliancePolicyStateChange(isNewComplianceInfo);
+    this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!complianceInfo.fromUpstream });
     setProperties(this, { isNewComplianceInfo, complianceInfo });
   });
 
@@ -153,7 +155,7 @@ export default class DatasetComplianceContainer extends Component {
   getComplianceDataTypesTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<Promise<Array<IComplianceDataType>>> {
-    const complianceDataTypes = yield readComplianceDataTypes();
+    const complianceDataTypes: Array<IComplianceDataType> = yield readComplianceDataTypes();
 
     set(this, 'complianceDataTypes', complianceDataTypes);
   });
@@ -165,7 +167,7 @@ export default class DatasetComplianceContainer extends Component {
   getComplianceSuggestionsTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<Promise<IComplianceSuggestion>> {
-    const complianceSuggestion = yield readDatasetComplianceSuggestionByUrn(get(this, 'urn'));
+    const complianceSuggestion: IComplianceSuggestion = yield readDatasetComplianceSuggestionByUrn(get(this, 'urn'));
 
     set(this, 'complianceSuggestion', complianceSuggestion);
   });
@@ -176,7 +178,7 @@ export default class DatasetComplianceContainer extends Component {
    */
   getDatasetSchemaTask = task(function*(this: DatasetComplianceContainer): IterableIterator<Promise<IDatasetSchema>> {
     try {
-      const { columns, schemaless } = yield readDatasetSchemaByUrn(get(this, 'urn'));
+      const { columns, schemaless }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
       const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
       setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
     } catch (e) {
@@ -248,11 +250,18 @@ export default class DatasetComplianceContainer extends Component {
 
   /**
    * Invokes external action if compliance info is new or otherwise
-   * @param {boolean} isNewComplianceInfo
+   * @param {boolean} isNewComplianceInfo flag indicating the policy does not exist remotely
+   * @param {boolean} fromUpstream flag indicating related dataset compliance info is derived
    */
   @action
-  onCompliancePolicyStateChange(isNewComplianceInfo: boolean) {
-    this.setOnComplianceType(isNewComplianceInfo);
+  onCompliancePolicyStateChange({
+    isNewComplianceInfo,
+    fromUpstream
+  }: {
+    isNewComplianceInfo: boolean;
+    fromUpstream: boolean;
+  }) {
+    this.setOnComplianceType({ isNewComplianceInfo, fromUpstream });
   }
 
   /**

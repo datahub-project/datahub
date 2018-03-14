@@ -32,7 +32,7 @@ export default class DatasetAclAccess extends Component {
   currentUser: string;
 
   /**
-   * Define the property to initialize the page 
+   * Define the property to initialize the page
    * @type {IAclInfo}
    * @memberOf DatasetAclAccess
    */
@@ -46,7 +46,7 @@ export default class DatasetAclAccess extends Component {
   accessResponse: IRequestResponse;
 
   /**
-   * Define the computed property to decide the page state. 
+   * Define the computed property to decide the page state.
    * The component has 5 states ['emptyState', 'hasAccess','noAccess','denyAccess','getAccess'].
    * @type {string}
    * @memberOf DatasetAclAccess
@@ -111,7 +111,7 @@ export default class DatasetAclAccess extends Component {
     const requestBody = getPrincipal(currentUser, requestReason);
 
     try {
-      let response = yield getAclAccess(currentUser, requestBody);
+      let response: IRequestResponse = yield getAclAccess(currentUser, requestBody);
       set(this, 'accessResponse', response);
     } catch (error) {
       get(this, 'notifications').notify(NotificationEvent.error, {
