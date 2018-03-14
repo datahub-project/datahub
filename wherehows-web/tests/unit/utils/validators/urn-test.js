@@ -2,11 +2,12 @@ import { module, test } from 'qunit';
 import {
   convertWhDatasetPathToLiPath,
   datasetUrnRegexWH,
+  datasetUrnRegexLI,
   convertWhUrnToLiUrn,
   buildLiUrn,
   isLiUrn
 } from 'wherehows-web/utils/validators/urn';
-import { whUrnToLiUrnMap } from 'wherehows-web/mirage/fixtures/urn';
+import { whUrnToLiUrnMap, liUrns } from 'wherehows-web/mirage/fixtures/urn';
 import { DatasetPlatform } from 'wherehows-web/constants';
 
 const hdfsPath = '/seg1/seg2/seg3/data/kebab-db-name';
@@ -17,6 +18,11 @@ module('Unit | Utility | validators/urn');
 test('converters exist', function(assert) {
   assert.ok(typeof convertWhDatasetPathToLiPath === 'function', 'convertWhDatasetPathToLiPath is a function');
   assert.ok(typeof convertWhUrnToLiUrn === 'function', 'convertWhUrnToLiUrn is a function');
+});
+
+test('datasetUrnRegexLI', function(assert) {
+  assert.expect(liUrns.length);
+  liUrns.forEach(liUrn => assert.ok(datasetUrnRegexLI.test(liUrn), `${liUrn} is a valid urn`));
 });
 
 test('convertWhDatasetPathToLiPath correctly converts an hdfs path', function(assert) {
