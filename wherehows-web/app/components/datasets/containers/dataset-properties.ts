@@ -61,7 +61,7 @@ export default class DatasetPropertiesContainer extends Component {
   getDeprecationPropertiesTask = task(function*(
     this: DatasetPropertiesContainer
   ): IterableIterator<Promise<IDatasetView>> {
-    const { deprecated, deprecationNote } = yield readDatasetByUrn(get(this, 'urn'));
+    const { deprecated, deprecationNote }: IDatasetView = yield readDatasetByUrn(get(this, 'urn'));
     setProperties(this, { deprecated, deprecationNote });
   });
 
