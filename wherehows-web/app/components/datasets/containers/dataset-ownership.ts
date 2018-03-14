@@ -74,7 +74,7 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
   getDatasetOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
-    const { owners, fromUpstream, datasetUrn } = yield readDatasetOwnersByUrn(get(this, 'urn'));
+    const { owners = [], fromUpstream, datasetUrn }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
 
     setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
   });
@@ -86,7 +86,7 @@ export default class DatasetOwnershipContainer extends Component {
   getDatasetOwnerTypesTask = task(function*(
     this: DatasetOwnershipContainer
   ): IterableIterator<Promise<Array<OwnerType>>> {
-    const ownerTypes = yield readDatasetOwnerTypesWithoutConsumer();
+    const ownerTypes: Array<OwnerType> = yield readDatasetOwnerTypesWithoutConsumer();
     set(this, 'ownerTypes', ownerTypes);
   });
 

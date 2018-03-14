@@ -80,7 +80,7 @@ export default class BrowserViewport extends Component {
     start: number
   ): IterableIterator<Promise<IDatasetsGetResponse>> {
     const { prefix, platform, entity } = get(this, 'params');
-    const response = yield readDatasets({ platform, prefix, start });
+    const response: IDatasetsGetResponse = yield readDatasets({ platform, prefix, start });
     const { total, count, elements } = response;
     const entities = get(this, 'entities');
     // If new segment / data-source, replace all items rather than append
