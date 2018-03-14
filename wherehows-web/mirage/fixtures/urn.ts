@@ -17,4 +17,12 @@ const whUrnToLiUrnMap = [
   ['oracle:///ABOOK/ABOOK_DATA', 'urn:li:dataset:(urn:li:dataPlatform:oracle,ABOOK.ABOOK_DATA,PROD)']
 ];
 
-export { urn, whUrnToLiUrnMap, hdfsUrn, nonHdfsUrn };
+const liUrns = [
+  'urn:li:dataset:(urn:li:dataPlatform:oracle,ABOOK.ABOOK_EMAILS,PROD)',
+  'urn:li:dataset:(urn:li:dataPlatform:gibberish,gibberish.gibberish,PROD)',
+  'urn:li:dataset:(urn:li:dataPlatform:hdfs,/gibberish/gibberish/gIbberish/gibberish/gibberish-gibberish-gibberish,PROD)',
+  'urn:li:dataset:(urn:li:dataPlatform:gibberish,GIBBERISH.GIBBERISH_GIBBERISH,PROD)',
+  'urn:li:dataset:(urn:li:dataPlatform:gibberish-gibberish,GIBBERISH.gibberish-gibberish-com.gibberish.gibberish.gibberish.Windows-gibberish,PROD)'
+];
+
+export { urn, whUrnToLiUrnMap, hdfsUrn, nonHdfsUrn, liUrns };

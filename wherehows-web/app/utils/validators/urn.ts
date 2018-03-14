@@ -2,19 +2,24 @@ import { assert } from '@ember/debug';
 import { DatasetPlatform, Fabric } from 'wherehows-web/constants';
 
 /**
+ * Path segment in a urn. common btw WH and LI formats
+ * @type {RegExp}
+ */
+const urnPath = /[\w.\-\/{}+()\s]+/;
+/**
  * Matches a url string with a `urn` query. urn query with letters or underscore segment of any length greater
  *   than 1 followed by colon and 3 forward slashes and a segment containing letters, {, }, _ or /, or none
  *   The value following the urn key is retained
  * @type {RegExp}
  */
-const datasetUrnRegexWH = /([a-z_-]+):\/{3}([a-z0-9_\-/{}.]*)/i;
+const datasetUrnRegexWH = new RegExp(`([a-z_-]+):\/{3}(${urnPath.source})`, 'i');
 
 /**
  * Matches a urn string that follows the pattern captures, the comma delimited platform, segment and fabric
  * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
  * @type {RegExp}
  */
-const datasetUrnRegexLI = /urn:li:dataset:\(urn:li:dataPlatform:([\w-]+),([\w.\-\/{}]+),(\w+)\)/;
+const datasetUrnRegexLI = new RegExp(`urn:li:dataset:\\(urn:li:dataPlatform:([\\w-]+),(${urnPath.source}),(\\w+)\\)`);
 
 /**
  * Matches urn's that occur in flow urls
