@@ -39,7 +39,7 @@ export default class DatasetSchemaContainer extends Component {
    */
   getDatasetSchemaTask = task(function*(this: DatasetSchemaContainer): IterableIterator<Promise<IDatasetSchema>> {
     let schemas,
-      { columns, rawSchema: json } = yield readDatasetSchemaByUrn(get(this, 'urn'));
+      { columns, rawSchema: json }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
     schemas = augmentObjectsWithHtmlComments(columns);
     json || (json = '{}');
 
