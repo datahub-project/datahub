@@ -4,16 +4,12 @@
       {{if isEditing
            "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII information?"
            "IDs and PII in the schema"}}
-      <a
-        target="_blank"
-        href="http://go/gdpr-pii">
-        <sup>
-          More Info
 
-          <span class="glyphicon glyphicon-question-sign"
-                title="More information on Schema field format and types"></span>
-        </sup>
-      </a>
+      {{more-info
+        link="http://go/gdpr-pii"
+        tooltip="more information on Schema field format and types"
+      }}
+
     </p>
   </header>
 </section>
@@ -45,7 +41,16 @@
 
     {{#table.head as |head|}}
       {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
-      {{#head.column columnName="identifierField"}}Field{{/head.column}}
+      {{#head.column columnName="identifierField"}}
+
+        Field
+
+        {{more-info
+          link="http://go/tms-schema"
+          tooltip="more information on Schema"
+        }}
+
+      {{/head.column}}
       {{#head.column columnName="dataType"}}Data Type{{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
         System Suggestion Confidence
@@ -151,16 +156,11 @@
             <section class="compliance-depends compliance-depends--visible">
               <div class="dataset-compliance-fields__form-input">
                 Field Type
-                <a
-                  target="_blank"
-                  href="http://go/metadata_acquisition#ProjectOverview-compliance">
-                  <sup>
-                    More Info
 
-                    <span class="glyphicon glyphicon-question-sign"
-                          title="More information on various IDs"></span>
-                  </sup>
-                </a>
+                {{more-info
+                  link="http://go/metadata_acquisition#ProjectOverview-compliance"
+                  tooltip="more information on various IDs"
+                }}
               </div>
 
               {{ember-selector
@@ -178,16 +178,11 @@
             <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
               <div class="dataset-compliance-fields__form-input">
                 Field Format
-                <a
-                  target="_blank"
-                  href="http://go/metadata_acquisition#ProjectOverview-compliance">
-                  <sup>
-                    More Info
 
-                    <span class="glyphicon glyphicon-question-sign"
-                          title="More information on Field Format"></span>
-                  </sup>
-                </a>
+                {{more-info
+                  link="http://go/metadata_acquisition#ProjectOverview-compliance"
+                  tooltip="more information on Field Format"
+                }}
               </div>
 
               {{ember-selector
