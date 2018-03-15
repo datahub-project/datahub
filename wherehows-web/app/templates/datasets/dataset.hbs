@@ -59,10 +59,7 @@
         {{/tablist.tab}}
       {{/unless}}
 
-      {{!--feature not available--}}
-      <span style="display:none">
-        {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
-      </span>
+      {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
 
       {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
