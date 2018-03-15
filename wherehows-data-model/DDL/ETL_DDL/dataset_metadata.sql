@@ -55,6 +55,7 @@ CREATE TABLE `stg_dict_dataset` (
 -- dataset table
 CREATE TABLE `dict_dataset` (
   `id`                          INT(11) UNSIGNED NOT NULL                                                                   AUTO_INCREMENT,
+  `db_id`                       SMALLINT(6) UNSIGNED NOT NULL                                                               DEFAULT 0,
   `name`                        VARCHAR(200)                                                                                NOT NULL,
   `schema`                      MEDIUMTEXT CHARACTER SET utf8,
   `schema_type`                 VARCHAR(50)                                                                                 DEFAULT 'JSON'
@@ -87,7 +88,7 @@ CREATE TABLE `dict_dataset` (
   `modified_time`               INT UNSIGNED COMMENT 'latest wherehows modified',
   `wh_etl_exec_id`              BIGINT COMMENT 'wherehows etl execution id that modified this record',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_dataset_urn` (`urn`)
+  UNIQUE KEY `uq_dataset_db_id_urn` (`db_id`,`urn`)
 )
   ENGINE = InnoDB
   DEFAULT CHARSET = latin1;
