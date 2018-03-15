@@ -5,18 +5,11 @@
            "Does this dataset contain the following types of data?"
            "Types of data contained in this dataset"}}
 
-      <!--TODO: DSS-6716-->
-      <!-- DRY out with wrapper component that takes the link as an attribute-->
-      <a
-        target="_blank"
-        href="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags">
-        <sup>
-          More Info
 
-          <span class="glyphicon glyphicon-question-sign"
-                title="More information on Dataset classification with examples"></span>
-        </sup>
-      </a>
+      {{more-info
+        link="http://go/gdpr-taxonomy#MetadataTaxonomyforDataSets-DatasetLevelTags"
+        tooltip="more information on Dataset classification with examples"
+      }}
     </p>
 
     {{#if isEditing}}
