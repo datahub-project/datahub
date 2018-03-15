@@ -131,7 +131,8 @@ class HdfsLoad:
           source_created_time,
           source_modified_time,
           created_time,
-          wh_etl_exec_id
+          wh_etl_exec_id,
+          db_id
         )
         select s.name, s.schema, s.schema_type, s.fields,
           s.properties, s.urn,
@@ -140,7 +141,7 @@ class HdfsLoad:
           s.dataset_type, s.hive_serdes_class, s.is_partitioned,
           s.partition_layout_pattern_id, s.sample_partition_full_path,
           s.source_created_time, s.source_modified_time, UNIX_TIMESTAMP(now()),
-          s.wh_etl_exec_id
+          s.wh_etl_exec_id, s.db_id
         from stg_dict_dataset s
         where s.db_id = {db_id}
         on duplicate key update
@@ -152,6 +153,12 @@ class HdfsLoad:
           source_created_time=s.source_created_time, source_modified_time=s.source_modified_time,
           modified_time=UNIX_TIMESTAMP(now()), wh_etl_exec_id=s.wh_etl_exec_id
         ;
+        
+        -- handle deleted or renamed datasets 
+        DELETE ds from dict_dataset ds 
+        where ds.db_id = {db_id} AND NOT EXISTS (select 1 from stg_dict_dataset where urn = ds.urn)
+        ;
+        
         analyze table dict_dataset;
 
         -- update dataset_id of instance table
