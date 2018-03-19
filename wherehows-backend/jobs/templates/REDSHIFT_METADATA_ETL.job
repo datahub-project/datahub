@@ -1,0 +1,45 @@
+# Fetch Redshift dataset metadata
+# Move this to the jobs/ folder in order to have it automated
+
+# Common ETL configs
+job.class=metadata.etl.JythonEtlJob
+# Set to every minute for testing purposes
+job.cron.expr=* * * * * ? *
+job.timeout=600
+#job.cmd.params=
+#job.disabled=1
+job.ref.id=82
+
+# Jython scripts
+job.jython.extract=jython/RedshiftExtract.py
+job.jython.load=jython/RedshiftLoad.py
+
+# Redshift JDBC driver
+redshift.db.driver=com.amazon.redshift.jdbc42.Driver
+
+# Redshift DB name
+redshift.db.name=production
+
+# Redshift username
+redshift.db.username=<REDACTED>
+
+# Redshift password
+redshift.db.password=<REDACTED>
+
+# Redshift JDBC URL
+redshift.db.jdbc.url=jdbc:redshift://docker.for.mac.localhost:5440/production
+
+# Place to store datasets metadata csv file
+redshift.metadata=redshift.csv
+
+# Place to store dataset fields csv file
+redshift.field_metadata=redshift_field.csv
+
+# Place to store the sample data csv file
+redshift.sample_data=redshift_sample.csv
+
+# Whether to get sample data (True/False)
+redshift.load_sample=False
+
+# innodb_lock_wait_timeout when accessing MySQL Db
+innodb_lock_wait_timeout=1500
