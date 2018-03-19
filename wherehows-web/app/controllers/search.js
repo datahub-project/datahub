@@ -2,7 +2,7 @@ import Controller from '@ember/controller';
 import { computed, set, get } from '@ember/object';
 import { capitalize } from '@ember/string';
 
-const sources = ['all', 'dali', 'espresso', 'hive', 'hdfs', 'kafka', 'oracle', 'teradata', 'voldemort'];
+const sources = ['all', 'dali', 'espresso', 'hive', 'hdfs', 'kafka', 'oracle', 'teradata', 'voldemort', 'redshift'];
 
 export default Controller.extend({
   queryParams: ['keyword', 'category', 'source', 'page'],

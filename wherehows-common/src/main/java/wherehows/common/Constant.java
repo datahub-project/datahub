@@ -246,6 +246,17 @@ public class Constant {
   public static final String ORA_LOAD_SAMPLE = "oracle.load_sample";
   public static final String ORA_EXCLUDE_DATABASES_KEY = "oracle.exclude_db";
 
+  // Redshift
+  public static final String RED_DB_USERNAME_KEY = "redshift.db.username";
+  public static final String RED_DB_PASSWORD_KEY = "redshift.db.password";
+  public static final String RED_DB_DRIVER_KEY = "redshift.db.driver";
+  public static final String RED_DB_URL_KEY = "redshift.db.jdbc.url";
+  public static final String RED_SCHEMA_OUTPUT_KEY = "redshift.metadata";
+  public static final String RED_FIELD_OUTPUT_KEY = "redshift.field_metadata";
+  public static final String RED_SAMPLE_OUTPUT_KEY = "redshift.sample_data";
+  public static final String RED_LOAD_SAMPLE = "redshift.load_sample";
+  public static final String RED_EXCLUDE_DATABASES_KEY = "redshift.exclude_db";
+  
   // Multiproduct
   public static final String MULTIPRODUCT_SERVICE_URL = "multiproduct.service.url";
   public static final String GIT_URL_PREFIX = "git.url.prefix";
