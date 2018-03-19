@@ -906,7 +906,7 @@ export default class DatasetCompliance extends Component {
         identifierType: ComplianceFieldIdValue.None,
         logicalType: null,
         securityClassification: null,
-        nonOwner: false
+        nonOwner: null
       }));
 
       const confirmHandler = (function() {
