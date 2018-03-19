@@ -1,29 +1,5 @@
 <div class="form-group nacho-global-search">
   <div class="input-group">
-    <div class="input-group-btn">
-      <div class="dropdown">
-        <button type="button"
-                class="btn btn-default dropdown-toggle nacho-button--large search-button"
-                data-toggle="dropdown"
-                aria-haspopup="true"
-                aria-expanded="false">
-          <strong class="nacho-global-search__filter">{{currentFilter}}</strong>
-          <span class="caret" aria-label="Filter Search"></span>
-        </button>
-
-        <ul class="dropdown-menu">
-          {{#each filterOptions as |filter|}}
-            <li>
-              {{#dynamic-link params=filter}}
-                {{filter.text}}
-              {{/dynamic-link}}
-            </li>
-          {{/each}}
-        </ul>
-      </div>
-    </div>
-
-
     <label for="search-input" class="sr-only">Search</label>
 
     {{aupac-typeahead
@@ -38,11 +14,9 @@
       class="form-control nacho-global-search__text-input"}}
 
     <span class="input-group-btn">
-        <button class="btn btn-default nacho-button--large search-button"
-                id="global-search-button"
-                type="submit" {{action "search"}}>
-          <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
-        </button>
-      </span>
+      <button class="btn btn-default nacho-button--large search-button" type="submit" {{action "search"}} id="global-search-button">
+        <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+      </button>
+    </span>
   </div>
 </div>

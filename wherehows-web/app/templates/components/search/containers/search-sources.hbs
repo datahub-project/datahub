@@ -1,0 +1,5 @@
+{{#if getPlatformsTask.isRunning}}
+  {{pendulum-ellipsis-animation}}
+{{else}}
+  {{yield (hash radioSources=sources)}}
+{{/if}}
