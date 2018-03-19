@@ -20,6 +20,7 @@ import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-d
 import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
+import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 
 /**
  * Constant definition for an unselected field format
@@ -89,7 +90,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetComplianceRow
    */
-  nonOwner: ComputedProperty<boolean> = alias('field.nonOwner').readOnly();
+  nonOwner: ComputedProperty<IComplianceEntity['nonOwner']> = alias('field.nonOwner').readOnly();
 
   /**
    * The field's dataType attribute
