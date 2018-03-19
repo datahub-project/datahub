@@ -26,20 +26,6 @@ export default Component.extend({
   search: '',
 
   /**
-   * Based on the currentFilter returns a list of options
-   *   for the dynamic-link component
-   */
-  filterOptions: computed('currentFilter', function() {
-    const currentFilter = get(this, 'currentFilter');
-    return ['datasets', 'metrics', 'flows'].map(filter => ({
-      title: filter,
-      text: filter,
-      action: `filter${filter.capitalize()}`,
-      activeWhen: filter === currentFilter
-    }));
-  }),
-
-  /**
    * Based on the currentFilter returns placeholder text
    */
   placeholder: computed('currentFilter', function() {
