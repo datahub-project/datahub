@@ -27,7 +27,7 @@ export interface IComplianceEntity {
   // User specified / default security classification for the related schema field
   securityClassification: Classification | null;
   // Flag indicating that the dataset is of a subject type, default is false
-  nonOwner: boolean;
+  nonOwner: boolean | null;
   // Flag indicating that this compliance field is not editable by the end user
   // field should also be filtered from persisted policy
   readonly readonly?: boolean;
