@@ -1,10 +1,13 @@
 <div class="row">
   <div class="col-md-3 wh-sidebar">
     {{#search/filter-rail header=header as |rail|}}
-      {{rail.radioGroup
-        radioOptions=sources
-        title="Source"
-        changed=(action "sourceDidChange")}}
+
+      {{#search/containers/search-sources currentSource=source as |searchSource|}}
+        {{rail.radioGroup
+          radioOptions=searchSource.radioSources
+          title="Source"
+          changed=(action "sourceDidChange")}}
+      {{/search/containers/search-sources}}
 
     {{!--Api for date range not currently available--}}
     {{!--rail.dateRange
