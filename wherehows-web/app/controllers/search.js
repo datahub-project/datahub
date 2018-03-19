@@ -1,55 +1,10 @@
 import Controller from '@ember/controller';
 import { computed, set, get } from '@ember/object';
 import { capitalize } from '@ember/string';
+import { action } from 'ember-decorators/object';
 
-const sources = ['all', 'dali', 'espresso', 'hive', 'hdfs', 'kafka', 'oracle', 'teradata', 'voldemort'];
-
-export default Controller.extend({
-  queryParams: ['keyword', 'category', 'source', 'page'],
-  keyword: '',
-  category: 'datasets',
-  source: 'all',
-  page: 1,
-  header: 'Refine By',
-
-  sources: computed('source', function() {
-    return sources.map(source => ({
-      name: 'source',
-      value: source,
-      label: capitalize(source),
-      group: String(get(this, 'source')).toLowerCase()
-    }));
-  }),
-
-  isMetric: false,
-
-  datasetTitle: computed('model.source', function() {
-    var model = this.get('model');
-    if (model && model.source) {
-      if (model.source.toLocaleLowerCase() != 'all') {
-        return model.source;
-      }
-    }
-    return 'Datasets';
-  }),
-  isDatasets: computed('model.category', function() {
-    var model = this.get('model');
-    if (model && model.category) {
-      if (model.category.toLocaleLowerCase() === 'datasets') {
-        return true;
-      }
-    }
-    return false;
-  }),
-  isComments: computed('model.category', function() {
-    var model = this.get('model');
-    if (model && model.category) {
-      if (model.category.toLocaleLowerCase() === 'comments') {
-        return true;
-      }
-    }
-    return false;
-  }),
+// gradual refactor into es class, hence extends EmberObject instance
+export default class Search extends Controller.extend({
   isMetrics: computed('model.category', function() {
     var model = this.get('model');
     if (model && model.category) {
@@ -59,24 +14,7 @@ export default Controller.extend({
     }
     return false;
   }),
-  isFlows: computed('model.category', function() {
-    var model = this.get('model');
-    if (model && model.category) {
-      if (model.category.toLocaleLowerCase() === 'flows') {
-        return true;
-      }
-    }
-    return false;
-  }),
-  isJobs: computed('model.category', function() {
-    var model = this.get('model');
-    if (model && model.category) {
-      if (model.category.toLocaleLowerCase() === 'jobs') {
-        return true;
-      }
-    }
-    return false;
-  }),
+
   previousPage: computed('model.page', function() {
     var model = this.get('model');
     if (model && model.page) {
@@ -130,19 +68,47 @@ export default Controller.extend({
     } else {
       return false;
     }
-  }),
+  })
+}) {
+  queryParams = ['keyword', 'category', 'source', 'page'];
 
-  actions: {
-    sourceDidChange(groupName, value) {
-      set(this, groupName, value);
-    },
+  /**
+   * Search keyword to look for
+   * @type {string}
+   */
+  keyword = '';
 
-    startDateDidChange(date = null) {
-      set(this, 'startDate', date);
-    },
+  /**
+   * The category to narrow/ filter search results
+   * @type {string}
+   */
+  category = 'datasets';
 
-    endDateDidChange(date = null) {
-      set(this, 'endDate', date);
-    }
+  /**
+   * Dataset Platform to restrict search results to
+   * @type {'all'|DatasetPlatform}
+   */
+  source = 'all';
+
+  /**
+   * The current search page
+   * @type {number}
+   */
+  page = 1;
+
+  /**
+   * Header text for search sidebar
+   * @type {string}
+   */
+  header = 'Refine By';
+
+  /**
+   * Handles the response to changing the source platform to search through
+   * @param _groupName is radioGroup name i.e. binding to Search.source
+   * @param value
+   */
+  @action
+  sourceDidChange(_groupName, value) {
+    set(this, 'source', value);
   }
-});
+}
