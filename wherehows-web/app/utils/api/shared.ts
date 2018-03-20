@@ -40,3 +40,11 @@ export enum ApiResponseStatus {
  * @return {boolean}
  */
 export const notFoundApiError = (e: Error) => e instanceof ApiError && e.status === ApiResponseStatus.NotFound;
+
+/**
+ * Checks that a server response status is a server exception
+ * @param {Error} e
+ * @return {boolean}
+ */
+export const serverExceptionApiError = (e: Error) =>
+  e instanceof ApiError && e.status >= ApiResponseStatus.InternalServerError;
