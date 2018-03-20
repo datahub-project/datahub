@@ -306,6 +306,8 @@ POST          /api/v2/datasets/:urn/compliance                                  
 
 GET           /api/v2/datasets/:urn/compliance/suggestion                       controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
 
+POST          /api/v2/datasets/:urn/compliance/suggestion/feedback              controllers.api.v2.Dataset.sendDatasetSuggestedComplianceFeedback(urn: String)
+
 GET           /api/v2/datasets/:urn/acl                                         controllers.api.v2.Dataset.getDatasetAcls(urn: String)
 
 PUT           /api/v2/datasets/:urn/acl/add                                     controllers.api.v2.Dataset.addUserToDatasetAcl(urn: String)
