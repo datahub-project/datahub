@@ -1,0 +1,19 @@
+{{#if getContainerDataTask.isRunning}}
+
+  {{pendulum-ellipsis-animation}}
+
+{{else}}
+
+  {{dataset-aclaccess
+    acls=acls
+    hasValidAclRequest=hasValidAclRequest
+    userAclRequest=userAclRequest
+    userHasAclAccess=userHasAclAccess
+    requestAccessAndCheckAccessTask=requestAccessAndCheckAccessTask
+    lastAccessRequestTask=lastAccessRequestTask
+    removeAccessTask=removeAccessTask
+    accessTypeDropDownOptions=accessTypeDropDownOptions
+    accessTypeDidChange=(action "accessTypeDidChange")
+  }}
+
+{{/if}}

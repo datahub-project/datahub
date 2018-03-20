@@ -120,10 +120,7 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Access}}
-      {{dataset-aclaccess
-        accessInfo=aclAccessResponse
-        currentUser=currentUserInfo
-      }}
+      {{datasets/containers/dataset-acl-access urn=encodedUrn}}
     {{/tabs.tabpanel}}
 
   {{/ivy-tabs}}

@@ -1,8 +1,8 @@
-import { capitalize } from '@ember/string';
 import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { Classification, ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
+import { formatAsCapitalizedStringWithSpaces } from 'wherehows-web/utils/helpers/string';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy
@@ -35,13 +35,6 @@ const classifiers = [
  * @type {Classification[]}
  */
 const classifiersExcludedIfPII = [Classification.Internal, Classification.Public];
-
-/**
- * Takes a string, returns a formatted string. Niche , single use case
- * for now, so no need to make into a helper
- * @param {string} string
- */
-const formatAsCapitalizedStringWithSpaces = (string: string) => capitalize(string.toLowerCase().replace(/[_]/g, ' '));
 
 /**
  * Derives the list of security classification options from the list of classifiers and disables options if
@@ -94,7 +87,6 @@ const getDefaultSecurityClassification = (
 
 export {
   getSecurityClassificationDropDownOptions,
-  formatAsCapitalizedStringWithSpaces,
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,

@@ -5,7 +5,7 @@ $gray-color: rgb(234, 234, 234);
 .acl-permission {
   &__header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     margin-top: item-spacing(3);
   }
 
@@ -28,7 +28,7 @@ $gray-color: rgb(234, 234, 234);
   }
 
   &__separator {
-    margin-top: 3px;
+    margin: item-spacing(5 0);
   }
 }
 
@@ -48,14 +48,9 @@ $gray-color: rgb(234, 234, 234);
   &__meta {
     margin: 0;
 
-    &__container {
-      display: flex;
-      flex-direction: column;
-    }
-
     &__header {
       font-size: 18px;
-      margin-bottom: 0;
+      margin-bottom: item-spacing(1);
       font-weight: 500;
     }
 
@@ -98,4 +93,13 @@ $gray-color: rgb(234, 234, 234);
   &__ownership {
     color: #bfc0c1;
   }
+}
+
+.disabled-button-hover-state-trap {
+  padding: 16px 2px;
+  outline: none;
+}
+
+.remove-acl-access-button {
+  margin-left: auto;
 }

@@ -5,7 +5,7 @@ import { run, schedule, next } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
 import { assert } from '@ember/debug';
-import { IFieldIdentifierOption, ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
+import { IDropDownOption, ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
@@ -280,12 +280,12 @@ export default class DatasetCompliance extends Component {
   /**
    * Reads the complianceDataTypes property and transforms into a list of drop down options for the field
    * identifier type
-   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption  | IFieldIdentifierOption<null | 'NONE'>>>}
+   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption  | IDropDownOption<null | 'NONE'>>>}
    */
   complianceFieldIdDropdownOptions = computed('complianceDataTypes', function(
     this: DatasetCompliance
-  ): Array<IComplianceFieldIdentifierOption | IFieldIdentifierOption<null | ComplianceFieldIdValue.None>> {
-    type NoneAndUnspecifiedOptions = Array<IFieldIdentifierOption<null | ComplianceFieldIdValue.None>>;
+  ): Array<IComplianceFieldIdentifierOption | IDropDownOption<null | ComplianceFieldIdValue.None>> {
+    type NoneAndUnspecifiedOptions = Array<IDropDownOption<null | ComplianceFieldIdValue.None>>;
     // object with interface IComplianceDataType and an index number indicative of position
     type IndexedComplianceDataType = IComplianceDataType & { index: number };
 
