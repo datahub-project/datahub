@@ -159,6 +159,11 @@ public class DatasetComplianceDao extends BaseDao {
     throw new UnsupportedOperationException("Compliance Suggestion not implemented.");
   }
 
+  public void sendSuggestedComplianceFeedback(@Nonnull String datasetUrn, @Nonnull String uid, @Nonnull String feedback)
+      throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
   /**
    * Convert DatasetCompliance view to DsCompliance entity. Serialize certain fields using json.
    * @param compliance DatasetCompliance

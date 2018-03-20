@@ -328,6 +328,23 @@ public class Dataset extends Controller {
     return Promise.promise(() -> ok(Json.newObject().set("complianceSuggestion", Json.toJson(record))));
   }
 
+  public static Promise<Result> sendDatasetSuggestedComplianceFeedback(@Nonnull String datasetUrn) {
+    try {
+      JsonNode record = request().body().asJson();
+      String feedback = record.hasNonNull("feedback") ? record.get("feedback").asText().toUpperCase() : null;
+      String uid = record.hasNonNull("uid") ? record.get("uid").asText() : "";
+      if (!"ACCEPT".equals(feedback) && !"REJECT".equals(feedback)) {
+        return Promise.promise(() -> badRequest(_EMPTY_RESPONSE));
+      }
+
+      COMPLIANCE_DAO.sendSuggestedComplianceFeedback(datasetUrn, uid, feedback);
+    } catch (Exception e) {
+      Logger.error("Send compliance suggestion feedback fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+  }
+
   public static Promise<Result> getDatasetAcls(@Nonnull String datasetUrn) {
     final List<AccessControlEntry> acls;
     try {
