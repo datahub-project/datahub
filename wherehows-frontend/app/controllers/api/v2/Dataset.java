@@ -332,8 +332,8 @@ public class Dataset extends Controller {
     try {
       JsonNode record = request().body().asJson();
       String feedback = record.hasNonNull("feedback") ? record.get("feedback").asText().toUpperCase() : null;
-      String uid = record.hasNonNull("uid") ? record.get("uid").asText() : null;
-      if (uid == null || (!"ACCEPT".equals(feedback) && !"REJECT".equals(feedback))) {
+      String uid = record.hasNonNull("uid") ? record.get("uid").asText() : "";
+      if (!"ACCEPT".equals(feedback) && !"REJECT".equals(feedback)) {
         return Promise.promise(() -> badRequest(_EMPTY_RESPONSE));
       }
 
