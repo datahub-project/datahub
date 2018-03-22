@@ -32,7 +32,7 @@ import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
-import wherehows.exceptions.UnauthorizedException;
+import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.models.table.DictDataset;
 import wherehows.utils.ProcessorUtil;
 

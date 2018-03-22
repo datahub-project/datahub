@@ -29,11 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-import wherehows.exceptions.SelfLineageException;
-import wherehows.exceptions.UnauthorizedException;
+import wherehows.common.exceptions.SelfLineageException;
+import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.utils.ProcessorUtil;
 
 
