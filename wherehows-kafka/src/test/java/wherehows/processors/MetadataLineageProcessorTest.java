@@ -29,7 +29,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-import wherehows.exceptions.SelfLineageException;
+import wherehows.common.exceptions.SelfLineageException;
 
 import static org.mockito.Mockito.*;
 
