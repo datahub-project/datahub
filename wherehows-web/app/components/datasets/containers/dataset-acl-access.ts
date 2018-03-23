@@ -184,9 +184,12 @@ export default class DatasetAclAccessContainer extends Component {
    */
   removeAccessTask = task(function*(
     this: DatasetAclAccessContainer
-  ): IterableIterator<Promise<void> | TaskInstance<Promise<IAccessControlEntry[]>>> {
+  ): IterableIterator<
+    Promise<void> | TaskInstance<Array<IAccessControlEntry>> | TaskInstance<Promise<IAccessControlEntry[]>>
+  > {
     yield removeAclAccess(get(this, 'urn'));
     yield get(this, 'getDatasetAclsTask').perform();
+    yield get(this, 'checkUserAccessTask').perform();
   }).drop();
 
   /**
@@ -198,5 +201,15 @@ export default class DatasetAclAccessContainer extends Component {
   accessTypeDidChange({ value }: IAccessControlAccessTypeOption) {
     //@ts-ignore object property access path notation limitation
     set(this, 'userAclRequest.accessType', value);
+  }
+
+  /**
+   * Sets the expiresAt attribute timestamp in seconds
+   * @param {Date} date the expiration date object
+   */
+  @action
+  expiresAtDidChange(date: Date) {
+    //@ts-ignore object property access path notation limitation
+    set(this, 'userAclRequest.expiresAt', date.getTime() / 1000);
   }
 }

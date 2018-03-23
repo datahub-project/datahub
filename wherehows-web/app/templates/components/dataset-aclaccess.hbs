@@ -34,17 +34,30 @@
 
   {{/if}}
 
-  {{#if (and lastAccessRequestTask userHasAclAccess)}}
+  {{#if lastAccessRequestTask}}
+    {{#if userHasAclAccess}}
 
-    <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
+      <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
 
-    <div class="acl-permission__meta">
-      <strong class="acl-permission__success acl-permission__meta__header">
-        Congrats, your request has been approved.
-      </strong>
-      <p>You now have access to this dataset</p>
-    </div>
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__success acl-permission__meta__header">
+          Congrats, your request has been approved.
+        </strong>
+        <p>You now have access to this dataset</p>
+      </div>
 
+    {{else}}
+
+      <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
+
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__reject acl-permission__meta__header">
+          Your access has been removed
+        </strong>
+        <p>You no longer have access to this dataset</p>
+      </div>
+
+    {{/if}}
   {{/if}}
 
   {{#if userHasAclAccess}}
@@ -90,6 +103,40 @@
       }}
     </div>
 
+
+    <div class="acl-form__meta">
+      <h4 class="acl-form__meta__header">When should your access expire?</h4>
+      <p class="acl-form__meta__content ">If not specified, defaults to 2 days from now</p>
+
+      {{#power-calendar
+        selected=selectedDate
+        center=centeredDate
+        class="acl-expiration-calendar"
+        onSelect=(action "onExpirationDateChange" value="date")
+        onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
+
+        <nav class="ember-power-calendar-nav">
+
+          <button
+            type="button"
+            class="ember-power-calendar-nav-control"
+            onclick={{action calendar.actions.moveCenter -1 'month'}}>
+            &lt;
+          </button>
+          <div class="ember-power-calendar-nav-title">
+            {{moment-format calendar.center 'MMMM YYYY'}}
+            <p>Expires in {{moment-from-now calendar.selected}}</p>
+          </div>
+          <button class="ember-power-calendar-nav-control" onclick={{action calendar.actions.moveCenter 1 'month'}}>
+            &gt;
+          </button>
+        </nav>
+
+        {{calendar.days minDate=minSelectableExpirationDate}}
+
+      {{/power-calendar}}
+    </div>
+
     <div class="comment-new__actions">
       <span class="disabled-button-hover-state-trap">
         {{#unless hasValidAclRequest}}
@@ -103,7 +150,7 @@
         <button
           type="submit"
           class="nacho-button--large nacho-button--inverse"
-          disabled={{if hasValidAclRequest false true}}>
+          disabled={{not hasValidAclRequest}}>
 
           {{#if requestAccessAndCheckAccessTask.isRunning}}
             {{pendulum-ellipsis-animation}}
@@ -129,7 +176,9 @@
   <header>
     <h4 class="acl-table__header">Accounts with ACL Access</h4>
     {{#unless userHasAclAccess}}
-      <p>These following have been granted access. if you'd like access to the data, please request above</p>
+      <p class="acl-form__meta__content ">
+        These following accounts have been granted access. if you'd like access to the data, please request above
+      </p>
     {{/unless}}
   </header>
   {{#if acls}}

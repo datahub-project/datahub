@@ -16,11 +16,37 @@ export default class DatasetAclAccess extends Component {
   readonly userHasAclAccess: boolean;
 
   /**
-   * External action invoked on change to access request access type
-   * @type {(option: IAccessControlAccessTypeOption) => void}
+   * Currently selected date
+   * @type {Date}
    * @memberof DatasetAclAccess
    */
+  selectedDate: Date = new Date();
+
+  /**
+   * Date around which the calendar is centered
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  centeredDate: Date = this.selectedDate;
+
+  /**
+   * The earliest date a user can select as an expiration date
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  minSelectableExpirationDate: Date = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  /**
+   * External action invoked on change to access request access type
+   * @type {(option: IAccessControlAccessTypeOption) => void}
+   */
   accessTypeDidChange: (option: IAccessControlAccessTypeOption) => void;
+
+  /**
+   * External action invoked on change to expiration date
+   * @type {(date: Date) => void}
+   */
+  expiresAtDidChange: (date: Date) => void;
 
   /**
    * External task to remove the logged in user from the related dataset's acl
@@ -69,5 +95,16 @@ export default class DatasetAclAccess extends Component {
   @action
   onAccessTypeChange(arg: IAccessControlAccessTypeOption): void {
     get(this, 'accessTypeDidChange')(arg);
+  }
+
+  /**
+   * Sets the selectedDate property on this and invokes the external action to set the expiration date
+   * @param {Date} date
+   * @memberof DatasetAclAccess
+   */
+  @action
+  onExpirationDateChange(date: Date) {
+    set(this, 'selectedDate', date);
+    get(this, 'expiresAtDidChange')(date);
   }
 }
