@@ -50,7 +50,6 @@ $gray-color: rgb(234, 234, 234);
 
     &__header {
       font-size: 18px;
-      margin-bottom: item-spacing(1);
       font-weight: 500;
     }
 
@@ -58,6 +57,10 @@ $gray-color: rgb(234, 234, 234);
       color: rgb(115, 115, 115);
       font-weight: 400;
       font-size: 16px;
+    }
+
+    & + & {
+      margin-top: item-spacing(5);
     }
   }
 
@@ -102,4 +105,8 @@ $gray-color: rgb(234, 234, 234);
 
 .remove-acl-access-button {
   margin-left: auto;
+}
+
+.acl-expiration-calendar {
+  @include ember-power-calendar($cell-size: item-spacing(7), $primary-color: get-color(blue7));
 }
