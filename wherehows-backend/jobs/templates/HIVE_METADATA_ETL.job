@@ -27,6 +27,13 @@ hive.database_black_list=your_databsae_black_list
 
 hive.database_white_list=your_database_white_list
 
+# whether to enable table level whitelisting, if enabled only tables with TBLPROPERTIES('wherehows' = 'true') will show up
+hive.table_white_list_enabled=False
+
+# whether to enable table level blacklisting, if enabled tables with TBLPROPERTIES('wherehows' = 'false') will NOT show up
+# if both table_white_list_enabled AND table_black_list_enabled, only tables with TBLPROPERTIES('wherehows' = 'true') will show up -- same as only table_white_list_enabled
+hive.table_black_list_enabled=False
+
 # Place to store the schema csv file
 hive.schema_csv_file=/var/tmp/hive_schema.csv
 
