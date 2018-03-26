@@ -92,7 +92,7 @@ type SchemaFieldToSuggestedValue = Pick<
   IComplianceEntity,
   'identifierType' | 'logicalType' | 'securityClassification'
 > &
-  Pick<ISuggestedFieldClassification, 'confidenceLevel'> & {
+  Pick<ISuggestedFieldClassification, 'confidenceLevel' | 'uid'> & {
     suggestionsModificationTime: IComplianceSuggestion['lastModified'];
   };
 
@@ -178,6 +178,7 @@ export default class DatasetCompliance extends Component {
   onSave: <T>() => Promise<T>;
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
+  notifyOnComplianceSuggestionFeedback: (uid: string | null, feedback: SuggestionIntent) => void;
 
   classNames = ['compliance-container'];
 
@@ -722,7 +723,7 @@ export default class DatasetCompliance extends Component {
     const identifierFieldToSuggestion: ISchemaFieldsToSuggested = {};
     const complianceSuggestion = get(this, 'complianceSuggestion') || {
       lastModified: 0,
-      suggestedFieldClassification: <any[]>[]
+      suggestedFieldClassification: <Array<ISuggestedFieldClassification>>[]
     };
     const { lastModified: suggestionsModificationTime, suggestedFieldClassification = [] } = complianceSuggestion;
 
@@ -731,8 +732,8 @@ export default class DatasetCompliance extends Component {
     if (suggestedFieldClassification.length) {
       return suggestedFieldClassification.reduce(
         (
-          identifierFieldToSuggestion,
-          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel }
+          identifierFieldToSuggestion: ISchemaFieldsToSuggested,
+          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel, uid }
         ) => ({
           ...identifierFieldToSuggestion,
           [identifierField]: {
@@ -740,6 +741,7 @@ export default class DatasetCompliance extends Component {
             logicalType,
             securityClassification,
             confidenceLevel,
+            uid,
             suggestionsModificationTime
           }
         }),
@@ -1184,7 +1186,10 @@ export default class DatasetCompliance extends Component {
       field: IComplianceChangeSet,
       intent: SuggestionIntent = SuggestionIntent.ignore
     ) {
+      const { uid } = field.suggestion!;
+
       set(field, 'suggestionAuthority', intent);
+      get(this, 'notifyOnComplianceSuggestionFeedback')(uid || null, intent);
     },
 
     /**
