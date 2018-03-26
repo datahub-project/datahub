@@ -15,12 +15,18 @@ import {
   notFoundApiError,
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
-  saveDatasetComplianceByUrn
+  saveDatasetComplianceByUrn,
+  saveDatasetComplianceSuggestionFeedbackByUrn
 } from 'wherehows-web/utils/api';
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
-import { compliancePolicyStrings, removeReadonlyAttr, filterEditableEntities } from 'wherehows-web/constants';
+import {
+  compliancePolicyStrings,
+  removeReadonlyAttr,
+  filterEditableEntities,
+  SuggestionIntent
+} from 'wherehows-web/constants';
 
 const { successUpdating, failedUpdating } = compliancePolicyStrings;
 
@@ -271,5 +277,15 @@ export default class DatasetComplianceContainer extends Component {
   @action
   onCompliancePolicyChangeSetDrift(hasDrift: boolean) {
     this.setOnChangeSetDrift(hasDrift);
+  }
+
+  /**
+   * Invokes the external action to save feedback on a compliance suggestion
+   * @param {string | null} uid the uuid for the compliance suggestion
+   * @param {SuggestionIntent} feedback
+   */
+  @action
+  onSuggestionsComplianceFeedback(uid: string | null = null, feedback: SuggestionIntent) {
+    saveDatasetComplianceSuggestionFeedbackByUrn(get(this, 'urn'), uid, feedback);
   }
 }
