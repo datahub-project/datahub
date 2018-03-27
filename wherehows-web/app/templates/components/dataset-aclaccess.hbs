@@ -127,7 +127,10 @@
             {{moment-format calendar.center 'MMMM YYYY'}}
             <p>Expires in {{moment-from-now calendar.selected}}</p>
           </div>
-          <button class="ember-power-calendar-nav-control" onclick={{action calendar.actions.moveCenter 1 'month'}}>
+          <button
+            type="button"
+            class="ember-power-calendar-nav-control"
+            onclick={{action calendar.actions.moveCenter 1 'month'}}>
             &gt;
           </button>
         </nav>
