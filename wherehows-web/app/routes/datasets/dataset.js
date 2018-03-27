@@ -58,6 +58,21 @@ export default Route.extend({
     throw new TypeError(`Could not parse identifier ${identifier}. Please ensure format is valid.`);
   },
 
+  serialize({ uri }) {
+    // updates routes dataset_id param with dataset urn (urn property)
+    return { dataset_id: uri };
+  },
+
+  afterModel(model, transition) {
+    const { dataset_id } = transition.params['datasets.dataset'];
+
+    // Check is dataset_id is a number, and replace with urn
+    // urn's are the primary means of referencing a dataset
+    if (!isNaN(parseInt(dataset_id, 10)) && isFinite(dataset_id)) {
+      this.replaceWith('datasets.dataset', model);
+    }
+  },
+
   /**
    * resetting the urn query param when the hook is invoked
    * @param {Controller} controller
