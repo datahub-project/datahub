@@ -1,13 +1,8 @@
 import Route from '@ember/routing/route';
 import { set, get, setProperties } from '@ember/object';
 import { inject } from '@ember/service';
-import { makeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
-import { isRequiredMinOwnersNotConfirmed } from 'wherehows-web/constants/datasets/owner';
 import { datasetIdToUrn, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import isUrn, { isWhUrn, isLiUrn, convertWhUrnToLiUrn, encodeUrn, decodeUrn } from 'wherehows-web/utils/validators/urn';
-
-import { checkAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
-import { currentUser } from 'wherehows-web/utils/api/authentication';
 import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
 
 export default Route.extend({
@@ -86,26 +81,5 @@ export default Route.extend({
     setProperties(controller, {
       isInternal: await get(this, 'configurator').getConfig('isInternal')
     });
-
-    // TODO: Get current user ACL permission info for ACL access tab
-    Promise.resolve(currentUser())
-      .then(userInfo => {
-        setProperties(controller, {
-          userInfo
-        });
-        return checkAclAccess(userInfo.userName).then(value => {
-          setProperties(controller, {
-            aclAccessResponse: value,
-            currentUserInfo: userInfo.userName,
-            aclUsers: value.body
-          });
-        });
-      })
-      .catch(error => {
-        setProperties(controller, {
-          aclAccessResponse: null,
-          currentUserInfo: ''
-        });
-      });
   }
 });

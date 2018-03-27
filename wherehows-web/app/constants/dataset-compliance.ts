@@ -15,10 +15,10 @@ import { decodeUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Defines the generic interface field identifier drop downs
- * @interface IFieldIdentifierOption
+ * @interface IDropDownOption
  * @template T
  */
-interface IFieldIdentifierOption<T> {
+interface IDropDownOption<T> {
   value: T;
   label: string;
   isDisabled?: boolean;
@@ -27,25 +27,25 @@ interface IFieldIdentifierOption<T> {
 /**
  * Defines the interface for compliance data type field option
  * @interface IComplianceFieldIdentifierOption
- * @extends {IFieldIdentifierOption<ComplianceFieldIdValue>}
+ * @extends {IDropDownOption<ComplianceFieldIdValue>}
  */
-interface IComplianceFieldIdentifierOption extends IFieldIdentifierOption<ComplianceFieldIdValue> {
+interface IComplianceFieldIdentifierOption extends IDropDownOption<ComplianceFieldIdValue> {
   isId: boolean;
 }
 
 /**
  * Defines the interface for a compliance field format dropdown option
  * @interface IComplianceFieldFormatOption
- * @extends {(IFieldIdentifierOption<IdLogicalType | null>)}
+ * @extends {(IDropDownOption<IdLogicalType | null>)}
  */
-interface IComplianceFieldFormatOption extends IFieldIdentifierOption<IdLogicalType | null> {}
+interface IComplianceFieldFormatOption extends IDropDownOption<IdLogicalType | null> {}
 
 /**
  * Defines the interface for an each security classification dropdown option
  * @interface ISecurityClassificationOption
- * @extends {(IFieldIdentifierOption<Classification | null>)}
+ * @extends {(IDropDownOption<Classification | null>)}
  */
-interface ISecurityClassificationOption extends IFieldIdentifierOption<Classification | null> {}
+interface ISecurityClassificationOption extends IDropDownOption<Classification | null> {}
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -305,7 +305,7 @@ export {
   IComplianceFieldIdentifierOption,
   IComplianceFieldFormatOption,
   ISecurityClassificationOption,
-  IFieldIdentifierOption,
+  IDropDownOption,
   fieldChangeSetRequiresReview,
   isFieldIdType,
   mergeMappedColumnFieldsWithSuggestions,

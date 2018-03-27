@@ -10,7 +10,7 @@ import {
   getDefaultSecurityClassification,
   IComplianceFieldFormatOption,
   IComplianceFieldIdentifierOption,
-  IFieldIdentifierOption,
+  IDropDownOption,
   fieldChangeSetRequiresReview,
   isFieldIdType,
   changeSetReviewableAttributeTriggers,
@@ -24,9 +24,9 @@ import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance
 
 /**
  * Constant definition for an unselected field format
- * @type {IFieldIdentifierOption<null>}
+ * @type {IDropDownOption<null>}
  */
-const unSelectedFieldFormatValue: IFieldIdentifierOption<null> = {
+const unSelectedFieldFormatValue: IDropDownOption<null> = {
   value: null,
   label: 'Select Field Format...',
   isDisabled: true

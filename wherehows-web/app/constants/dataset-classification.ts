@@ -1,4 +1,4 @@
-import { IFieldIdentifierOption } from 'wherehows-web/constants';
+import { IDropDownOption } from 'wherehows-web/constants';
 
 /**
  * List of string values for every dataset classifier
@@ -37,9 +37,9 @@ type DatasetClassification = { [K in keyof typeof DatasetClassifiers]: boolean |
 /**
  * Describes the interface for a DatasetClassification option
  * @interface IDatasetClassificationOption
- * @extends {(IFieldIdentifierOption<boolean | void>)}
+ * @extends {(IDropDownOption<boolean | void>)}
  */
-interface IDatasetClassificationOption extends IFieldIdentifierOption<boolean | void> {
+interface IDatasetClassificationOption extends IDropDownOption<boolean | void> {
   classifier: keyof typeof DatasetClassifiers;
 }
 
