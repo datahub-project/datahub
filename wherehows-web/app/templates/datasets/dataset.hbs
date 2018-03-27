@@ -59,7 +59,9 @@
         {{/tablist.tab}}
       {{/unless}}
 
-      {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
+      {{#if isJitAclAccessEnabled}}
+        {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
+      {{/if}}
 
       {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
@@ -119,9 +121,11 @@
       }}
     {{/tabs.tabpanel}}
 
-    {{#tabs.tabpanel tabIds.Access}}
-      {{datasets/containers/dataset-acl-access urn=encodedUrn}}
-    {{/tabs.tabpanel}}
+    {{#if isJitAclAccessEnabled}}
+      {{#tabs.tabpanel tabIds.Access}}
+        {{datasets/containers/dataset-acl-access urn=encodedUrn}}
+      {{/tabs.tabpanel}}
+    {{/if}}
 
   {{/ivy-tabs}}
 </div>
