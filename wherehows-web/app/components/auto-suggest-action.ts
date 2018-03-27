@@ -1,6 +1,7 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { computed, getProperties } from '@ember/object';
+import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import noop from 'wherehows-web/utils/noop';
 import { SuggestionIntent } from 'wherehows-web/constants';
 
@@ -9,9 +10,11 @@ import { SuggestionIntent } from 'wherehows-web/constants';
  * @interface IAutoSuggestAction
  */
 interface IAutoSuggestAction {
-  type: SuggestionIntent | void;
+  type: SuggestionIntent;
   action: Function;
   isAffirmative: ComputedProperty<boolean>;
+  field: IComplianceChangeSet;
+  feedbackAction: (uid: string | null, feedback: SuggestionIntent) => void;
 }
 
 export default Component.extend(<IAutoSuggestAction>{
@@ -21,9 +24,13 @@ export default Component.extend(<IAutoSuggestAction>{
 
   classNameBindings: ['isAffirmative:compliance-auto-suggester-action--accept'],
 
-  type: void 0,
+  type: SuggestionIntent.ignore,
 
   action: noop,
+
+  feedbackAction: noop,
+
+  field: <IComplianceChangeSet>{},
 
   /**
    * Determines the type of suggestion action this is
@@ -35,9 +42,17 @@ export default Component.extend(<IAutoSuggestAction>{
    * Action handler for click event, invokes closure action with type as argument
    */
   click() {
-    const { type: intent, action } = getProperties(this, 'type', 'action');
+    const { type: intent, action, field, feedbackAction } = getProperties(
+      this,
+      'type',
+      'action',
+      'field',
+      'feedbackAction'
+    );
+    const { uid } = field.suggestion!;
 
     if (typeof action === 'function') {
+      feedbackAction(uid || null, intent);
       return action(intent);
     }
   }
