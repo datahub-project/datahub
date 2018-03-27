@@ -52,6 +52,8 @@ public class Application extends Controller {
   private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
   private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
   private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
+  private static final Boolean IS_JIT_ACL_ENABLED =
+      Play.application().configuration().getBoolean("linkedin.jit.acl.enabled", false);
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -155,6 +157,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    config.put("isJitAclAccessEnabled", IS_JIT_ACL_ENABLED);
     config.set("tracking", trackingInfo());
     response.put("status", "ok");
     response.set("config", config);
