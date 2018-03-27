@@ -1,137 +1,110 @@
 import Component from '@ember/component';
+import { get, set, getProperties, computed } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
-import { computed, getProperties, get, set } from '@ember/object';
-import { task } from 'ember-concurrency';
-
-import { getAclAccess } from 'wherehows-web/utils/api/datasets/acl-access';
-import { accessState, pickList, getPrincipal, aclPageState } from 'wherehows-web/constants/dataset-aclaccess';
-import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
-import { IAclInfo, IAclUserInfo, IRequestResponse, IPageState } from 'wherehows-web/typings/api/datasets/aclaccess';
+import { TaskInstance, TaskProperty } from 'ember-concurrency';
+import { action } from 'ember-decorators/object';
+import DatasetAclAccessContainer from 'wherehows-web/components/datasets/containers/dataset-acl-access';
+import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datasets/aclaccess';
+import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
 
 export default class DatasetAclAccess extends Component {
   /**
-   * Reference to the application notifications Service
-   * @type {ComputedProperty<Notifications>}
-   * @memberOf DatasetAclAccess
+   * The currently logged in user is listed on the related datasets acl
+   * @type {boolean}
+   * @memberof DatasetAclAccess
    */
-  notifications = <ComputedProperty<Notifications>>inject();
+  readonly userHasAclAccess: boolean;
 
   /**
-   * Define property binds to the textarea
-   * @type {string}
-   * @memberOf DatasetAclAccess
+   * Currently selected date
+   * @type {Date}
+   * @memberof DatasetAclAccess
    */
-  requestReason: string;
+  selectedDate: Date = new Date();
 
   /**
-   * Define the property to show the user info
-   * @type {string}
-   * @memberOf DatasetAclAccess
+   * Date around which the calendar is centered
+   * @type {Date}
+   * @memberof DatasetAclAccess
    */
-  currentUser: string;
+  centeredDate: Date = this.selectedDate;
 
   /**
-   * Define the property to initialize the page
-   * @type {IAclInfo}
-   * @memberOf DatasetAclAccess
+   * The earliest date a user can select as an expiration date
+   * @type {Date}
+   * @memberof DatasetAclAccess
    */
-  accessInfo: IAclInfo;
+  minSelectableExpirationDate: Date = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
   /**
-   *  Define the property to update the page when a user is granted permission.
-   * @type {IRequestResponse}
-   * @memberOf DatasetAclAccess
+   * External action invoked on change to access request access type
+   * @type {(option: IAccessControlAccessTypeOption) => void}
    */
-  accessResponse: IRequestResponse;
+  accessTypeDidChange: (option: IAccessControlAccessTypeOption) => void;
 
   /**
-   * Define the computed property to decide the page state.
-   * The component has 5 states ['emptyState', 'hasAccess','noAccess','denyAccess','getAccess'].
-   * @type {string}
-   * @memberOf DatasetAclAccess
+   * External action invoked on change to expiration date
+   * @type {(date: Date) => void}
    */
-  pageState: ComputedProperty<string> = computed('accessInfo', 'accessResponse', function(this: DatasetAclAccess) {
-    const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
-
-    const isLoadPage = accessInfo ? true : false;
-    const hasAccess = accessInfo && accessInfo.isAccess ? true : false;
-    const canAccess = accessResponse ? true : false;
-    const idApproved = accessResponse && accessResponse.hasOwnProperty('isApproved') ? true : false;
-
-    if (!isLoadPage) {
-      return aclPageState.emptyState;
-    } else if (hasAccess) {
-      return aclPageState.hasAccess;
-    } else if (!canAccess) {
-      return aclPageState.noAccess;
-    } else if (idApproved) {
-      return aclPageState.denyAccess;
-    }
-
-    return aclPageState.getAccess;
-  });
+  expiresAtDidChange: (date: Date) => void;
 
   /**
-   * Define the computed property to pick authorized users information based on the property of accessInfo and accessResponse
-   * @type Array<IAclUserInfo>
-   * @memberOf DatasetAclAccess
+   * External task to remove the logged in user from the related dataset's acl
+   * @memberof DatasetAclAccess
    */
-  users: ComputedProperty<Array<IAclUserInfo>> = computed('accessInfo', 'accessResponse', function(
+  removeAccessTask: TaskProperty<Promise<void>> & { perform: (a?: {} | undefined) => TaskInstance<Promise<void>> };
+
+  /**
+   * External task reference to the last request for acl entry aliases `requestAccessAndCheckAccessTask`, if exists
+   * @type {ComputedProperty<TaskInstance<DatasetAclAccessContainer.requestAccessAndCheckAccessTask>>}
+   * @memberof DatasetAclAccess
+   */
+  lastAccessRequestTask: ComputedProperty<TaskInstance<DatasetAclAccessContainer['requestAccessAndCheckAccessTask']>>;
+
+  /**
+   * Resolves to true if the last request for access results in an error and the logged in user,
+   * does not have access. Used to indicate that the request may have been denied
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetAclAccess
+   */
+  lastAccessRequestFailedOrDenied = computed('lastAccessRequestTask.isError', 'userHasAclAccess', function(
     this: DatasetAclAccess
-  ) {
-    const { accessInfo, accessResponse } = getProperties(this, ['accessInfo', 'accessResponse']);
-    return pickList(accessInfo, accessResponse);
-  });
-
-  /**
-   * Define the computed property to load page content based on pageState
-   * @type { IPageState }
-   * @memberOf DatasetAclAccess
-   */
-  state: ComputedProperty<IPageState> = computed('pageState', function(this: DatasetAclAccess) {
-    const { currentUser, pageState } = getProperties(this, ['currentUser', 'pageState']);
-    return accessState(currentUser)[pageState];
+  ): boolean {
+    const { lastAccessRequestTask, userHasAclAccess } = getProperties(this, [
+      'lastAccessRequestTask',
+      'userHasAclAccess'
+    ]);
+    const lastRequestErrored = lastAccessRequestTask && lastAccessRequestTask.isError;
+    return !!lastRequestErrored && !userHasAclAccess;
   });
 
   /**
    * Action to reset the request form
-   * @memberOf DatasetAclAccess
+   * @memberof DatasetAclAccess
    */
-  resetForm(this: DatasetAclAccess) {
-    set(this, 'requestReason', '');
+  resetForm() {
+    //@ts-ignore dot notation property access
+    set(this, 'userAclRequest', getDefaultRequestAccessControlEntry());
   }
 
   /**
-   * Action to request ACL access permission
-   * @memberOf DatasetAclAccess
+   * Invokes external action when the accessType to be requested is modified
+   * @param {IAccessControlAccessTypeOption} arg
+   * @memberof DatasetAclAccess
    */
-  requestAccess = task(function*(this: DatasetAclAccess): IterableIterator<Promise<IRequestResponse>> {
-    const { requestReason, currentUser } = getProperties(this, ['requestReason', 'currentUser']);
-    const requestBody = getPrincipal(currentUser, requestReason);
+  @action
+  onAccessTypeChange(arg: IAccessControlAccessTypeOption): void {
+    get(this, 'accessTypeDidChange')(arg);
+  }
 
-    try {
-      let response: IRequestResponse = yield getAclAccess(currentUser, requestBody);
-      set(this, 'accessResponse', response);
-    } catch (error) {
-      get(this, 'notifications').notify(NotificationEvent.error, {
-        content: `${error}, please report to acreqjests@linkedin`
-      });
-      throw `Request access error : ${error}`;
-    }
-  }).drop();
-
-  actions = {
-    /**
-     * Action to cancel all tasks due to long time waiting
-     */
-    cancelTasks(this: DatasetAclAccess) {
-      this.requestAccess.cancelAll();
-    },
-
-    /**
-     * no-op, method for icon of "add suggested owner", it will be rewritten latter
-     */
-    addOwner(): void {}
-  };
+  /**
+   * Sets the selectedDate property on this and invokes the external action to set the expiration date
+   * @param {Date} date
+   * @memberof DatasetAclAccess
+   */
+  @action
+  onExpirationDateChange(date: Date) {
+    set(this, 'selectedDate', date);
+    get(this, 'expiresAtDidChange')(date);
+  }
 }

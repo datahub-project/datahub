@@ -70,6 +70,7 @@ AppRouter.map(function() {
         this.route('compliance');
         this.route('sample');
         this.route('relations');
+        this.route('access');
       }
     );
   });

@@ -65,6 +65,7 @@
     "ember-metrics": "^0.12.1",
     "ember-native-dom-helpers": "^0.5.10",
     "ember-pikaday": "^2.2.4",
+    "ember-power-calendar": "^0.7.1",
     "ember-redux-shim": "^1.1.1",
     "ember-redux-thunk-shim": "^1.1.2",
     "ember-resolver": "^4.0.0",

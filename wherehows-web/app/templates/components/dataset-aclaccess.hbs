@@ -1,102 +1,244 @@
-{{#if state}}
-  <section>
-    {{#if requestAccess.isRunning}}
-      {{dataset-spinner 
-        cancelTasks =(action "cancelTasks")}}
+<header class="acl-permission__header">
+  {{#unless lastAccessRequestTask}}
+
+    {{#if userHasAclAccess}}
+      <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
+
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__success acl-permission__meta__header">
+          You have access to this dataset
+        </strong>
+      </div>
+    {{else}}
+      <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
+
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__reject acl-permission__meta__header">
+          You currently do not have access to this dataset
+        </strong>
+      </div>
     {{/if}}
-  </section>
 
-  <section id="acl-permissioninfo">
-   <header class="acl-permission__header">
-     <span>
-       <i class= {{concat state.icon " " state.font}} title="permission"></i>
-     </span>
+  {{/unless}}
 
-     <div class="acl-permission__meta">
-       <strong class= {{concat state.font " " 'acl-permission__meta__header'}}>{{state.info}}</strong>
-       <p>{{state.message}}</p>
-     </div>
-   </header>
+  {{#if lastAccessRequestFailedOrDenied}}
 
-    {{#unless state.isLoadForm}}
-        <hr class="acl-permission__separator"/>
-    {{/unless}}
-  </section>
+    <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
 
-  <section id="acl-permissionrequest">
-   {{#if state.isLoadForm }}
-     <form class="acl-form" {{action (perform requestAccess) on="submit"}}>
-       <h4 class=" acl-form__meta acl-form__header">Request Access</h4>
-       <div class="acl-form__meta acl-form__container ">
-         <h4 class="acl-form__meta__header">Why do you need access?</h4>
-         <p class="acl-form__meta__content ">Please add business reason you need to access this data.</p>
-       </div>
+    <div class="acl-permission__meta">
+      <strong class="acl-permission__reject acl-permission__meta__header">
+        Sorry, your request has been denied by the system or an error occured with your request.
+      </strong>
+      <p>If you feel this is in error, contact ask_acl@linkedin.</p>
+    </div>
 
-       {{textarea 
-        value=requestReason
+  {{/if}}
+
+  {{#if lastAccessRequestTask}}
+    {{#if userHasAclAccess}}
+
+      <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
+
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__success acl-permission__meta__header">
+          Congrats, your request has been approved.
+        </strong>
+        <p>You now have access to this dataset</p>
+      </div>
+
+    {{else}}
+
+      <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
+
+      <div class="acl-permission__meta">
+        <strong class="acl-permission__reject acl-permission__meta__header">
+          Your access has been removed
+        </strong>
+        <p>You no longer have access to this dataset</p>
+      </div>
+
+    {{/if}}
+  {{/if}}
+
+  {{#if userHasAclAccess}}
+
+    <button
+      class="nacho-button--large nacho-button--inverse remove-acl-access-button"
+      onclick={{perform removeAccessTask}}>
+      {{#if removeAccessTask.isRunning}}
+        {{pendulum-ellipsis-animation}}
+      {{else}}
+        <i class="fa fa-ban" aria-hidden="true"></i>
+
+        Remove My Access
+      {{/if}}
+    </button>
+
+  {{/if}}
+</header>
+
+
+{{#unless userHasAclAccess}}
+  <hr class="acl-permission__separator">
+
+  <form class="acl-form" {{action (perform requestAccessAndCheckAccessTask) on="submit"}}>
+    <h4 class=" acl-form__meta acl-form__header">Request Access</h4>
+    <div class="acl-form__meta">
+      <h4 class="acl-form__meta__header">Why do you need access?</h4>
+      <p class="acl-form__meta__content ">Please add the business reason why you need to access this data.</p>
+
+      {{textarea
+        value=(mut userAclRequest.businessJustification)
         class="acl-form__content"}}
+    </div>
 
-       <div class="comment-new__actions">
-         <button
-           type="submit"
-           class="nacho-button--large nacho-button--inverse">
-           Submit
-         </button>
-         <button 
-           type="reset"
-           class="nacho-button--large nacho-button--secondary " 
-           {{action resetForm}}>
-            Cancel
-         </button>
-       </div>
-     </form>
 
-     <hr />
-    {{/if}}
-  </section>
+    <div class="acl-form__meta">
+      <h4 class="acl-form__meta__header">What type of access do you need?</h4>
 
-  <section id="acl-accessusers">
-    <header>
-      <h4 class="acl-table__header">People with ACL Access</h4>
-      <p>These people have been granted access. if you'd like access to the data, please request above</p>
-    </header>
+      {{ember-selector
+        values=accessTypeDropDownOptions
+        selected=userAclRequest.accessType
+        selectionDidChange=(action "onAccessTypeChange")
+      }}
+    </div>
 
-    <table class="nacho-table nacho-table--bordered dataset-owner-table">
-      <thead>
-        <tr>
-          <th class="dataset-author-column--wide">LDAP Username</th>
-          <th>Full Name</th>
-          <th class="dataset-author-column--narrow">ID Type</th>
-          <th>Source</th>
-          <th>Last Modified</th>
-          <th>
-          Ownership Type
-            <a target="_blank" href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
-              <sup>
-                <span class="glyphicon glyphicon-question-sign" title="Link to more information"></span>
-              </sup>
-            </a>
-          </th>
-          <th>Add suggested Owner</th>
-        </tr>
-      </thead>
 
-      <tbody>
-        {{#each users as |user|}}
-          {{dataset-aclaccess-users
-            user=user
-            addOwner=(action "addOwner")
+    <div class="acl-form__meta">
+      <h4 class="acl-form__meta__header">When should your access expire?</h4>
+      <p class="acl-form__meta__content ">If not specified, defaults to 2 days from now</p>
+
+      {{#power-calendar
+        selected=selectedDate
+        center=centeredDate
+        class="acl-expiration-calendar"
+        onSelect=(action "onExpirationDateChange" value="date")
+        onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
+
+        <nav class="ember-power-calendar-nav">
+
+          <button
+            type="button"
+            class="ember-power-calendar-nav-control"
+            onclick={{action calendar.actions.moveCenter -1 'month'}}>
+            &lt;
+          </button>
+          <div class="ember-power-calendar-nav-title">
+            {{moment-format calendar.center 'MMMM YYYY'}}
+            <p>Expires in {{moment-from-now calendar.selected}}</p>
+          </div>
+          <button class="ember-power-calendar-nav-control" onclick={{action calendar.actions.moveCenter 1 'month'}}>
+            &gt;
+          </button>
+        </nav>
+
+        {{calendar.days minDate=minSelectableExpirationDate}}
+
+      {{/power-calendar}}
+    </div>
+
+    <div class="comment-new__actions">
+      <span class="disabled-button-hover-state-trap">
+        {{#unless hasValidAclRequest}}
+
+          {{tooltip-on-element
+            text="Please provide a business reason for this request"
           }}
-       {{/each}}
-      </tbody>
-    </table>
-  </section>
 
-{{else}}
-  {{empty-state
-    heading="No Data Found"
-    subHead="If you feel this is in error, please contact aclrequests@linkedin."
-  }}
-{{/if}}
+        {{/unless}}
 
-{{yield}}
+        <button
+          type="submit"
+          class="nacho-button--large nacho-button--inverse"
+          disabled={{not hasValidAclRequest}}>
+
+          {{#if requestAccessAndCheckAccessTask.isRunning}}
+            {{pendulum-ellipsis-animation}}
+          {{else}}
+            Submit
+          {{/if}}
+
+        </button>
+      </span>
+
+      <button
+        type="reset"
+        class="nacho-button--large nacho-button--secondary"
+        {{action resetForm}}>
+        Cancel
+      </button>
+    </div>
+  </form>
+
+{{/unless}}
+
+<section id="acl-accessusers">
+  <header>
+    <h4 class="acl-table__header">Accounts with ACL Access</h4>
+    {{#unless userHasAclAccess}}
+      <p class="acl-form__meta__content ">
+        These following accounts have been granted access. if you'd like access to the data, please request above
+      </p>
+    {{/unless}}
+  </header>
+  {{#if acls}}
+
+    {{#dataset-table
+      class="nacho-table nacho-table--stripped"
+      fields=acls
+      sortColumnWithName=sortColumnWithName
+      filterBy=filterBy as |table|
+    }}
+      {{#table.head as |head|}}
+        {{#head.column}}
+          Principal
+        {{/head.column}}
+
+        {{#head.column}}
+          Access Type
+        {{/head.column}}
+
+        {{#head.column}}
+          Business Justification
+        {{/head.column}}
+
+        {{#head.column}}
+          Expiration
+        {{/head.column}}
+      {{/table.head}}
+
+      {{#table.body as |body|}}
+        {{#each (sort-by table.sortBy table.data) as |field|}}
+          {{#body.row as |row|}}
+            {{#row.cell}}
+              {{user-avatar userName=field.principal}}
+
+              {{field.principal}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{field.accessType}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{field.businessJustification}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{if field.expiresAt (moment-from-now (mult field.expiresAt 1000)) '-'}}
+            {{/row.cell}}
+          {{/body.row}}
+        {{/each}}
+
+      {{/table.body}}
+    {{/dataset-table}}
+
+  {{else}}
+
+    {{empty-state
+      heading="There are no users in this dataset's ACL"
+      subHead="If you feel this is in error, please contact ask_acl@linkedin.com"
+    }}
+
+  {{/if}}
+</section>
