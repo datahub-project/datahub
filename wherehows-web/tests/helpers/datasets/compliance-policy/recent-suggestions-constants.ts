@@ -8,7 +8,8 @@ interface IMockTimeStamp {
 const sevenDays: number = 7 * 24 * 60 * 60 * 1000;
 
 const isRecent = ({ policyModificationTime, suggestionModificationTime }: IMockTimeStamp) =>
-  !!suggestionModificationTime && suggestionModificationTime - policyModificationTime >= sevenDays;
+  !policyModificationTime ||
+  (!!suggestionModificationTime && suggestionModificationTime - policyModificationTime >= sevenDays);
 
 const mockTimeStamps = [
   {

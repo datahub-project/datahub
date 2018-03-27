@@ -409,11 +409,10 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   /**
    * Handler for user interactions with a suggested value. Applies / ignores the suggestion
    * Then invokes the parent supplied suggestion handler
-   * @param {string | void} intent a binary indicator to accept or ignore suggestion
-   * @param {SuggestionIntent} intent
+   * @param {SuggestionIntent} intent a binary indicator to accept or ignore suggestion
    */
   @action
-  onSuggestionAction(this: DatasetComplianceRow, intent?: SuggestionIntent) {
+  onSuggestionAction(this: DatasetComplianceRow, intent: SuggestionIntent = SuggestionIntent.ignore) {
     const onSuggestionIntent = get(this, 'onSuggestionIntent');
 
     // Accept the suggestion for either identifierType and/or logicalType

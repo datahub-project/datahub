@@ -3,7 +3,7 @@
  */
 enum SuggestionIntent {
   accept = 'accept',
-  ignore = 'ignore'
+  ignore = 'reject'
 }
 
 /**

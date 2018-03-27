@@ -97,6 +97,8 @@ export interface IComplianceSuggestion {
  * @interface ISuggestedFieldClassification
  */
 export interface ISuggestedFieldClassification {
+  // uuid for the field suggestion
+  uid?: string;
   confidenceLevel: number;
   suggestion: {
     identifierType: IComplianceEntity['identifierType'];

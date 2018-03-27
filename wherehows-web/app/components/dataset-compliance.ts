@@ -92,7 +92,7 @@ type SchemaFieldToSuggestedValue = Pick<
   IComplianceEntity,
   'identifierType' | 'logicalType' | 'securityClassification'
 > &
-  Pick<ISuggestedFieldClassification, 'confidenceLevel'> & {
+  Pick<ISuggestedFieldClassification, 'confidenceLevel' | 'uid'> & {
     suggestionsModificationTime: IComplianceSuggestion['lastModified'];
   };
 
@@ -644,7 +644,7 @@ export default class DatasetCompliance extends Component {
   mapColumnIdFieldsToCurrentPrivacyPolicy(
     columnFieldProps: Array<{ identifierField: string; dataType: string }>,
     complianceEntities: IComplianceInfo['complianceEntities'],
-    { policyModificationTime }: { policyModificationTime: string }
+    { policyModificationTime }: { policyModificationTime: IComplianceInfo['modifiedTime'] }
   ): ISchemaFieldsToPolicy {
     const getKeysOnField = <K extends keyof IComplianceEntity>(
       keys: Array<K> = [],
@@ -694,7 +694,12 @@ export default class DatasetCompliance extends Component {
   columnIdFieldsToCurrentPrivacyPolicy = computed(
     `{schemaFieldNamesMappedToDataTypes,${policyComplianceEntitiesKey}.[]}`,
     function(this: DatasetCompliance): ISchemaFieldsToPolicy {
-      const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
+      const {
+        complianceEntities = [],
+        modifiedTime
+      }: Pick<IComplianceInfo, 'complianceEntities' | 'modifiedTime'> = get(this, 'complianceInfo') || {
+        complianceEntities: []
+      };
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
       const columnFieldProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
         ({ fieldName, dataType }) => ({
@@ -722,7 +727,7 @@ export default class DatasetCompliance extends Component {
     const identifierFieldToSuggestion: ISchemaFieldsToSuggested = {};
     const complianceSuggestion = get(this, 'complianceSuggestion') || {
       lastModified: 0,
-      suggestedFieldClassification: <any[]>[]
+      suggestedFieldClassification: <Array<ISuggestedFieldClassification>>[]
     };
     const { lastModified: suggestionsModificationTime, suggestedFieldClassification = [] } = complianceSuggestion;
 
@@ -731,8 +736,8 @@ export default class DatasetCompliance extends Component {
     if (suggestedFieldClassification.length) {
       return suggestedFieldClassification.reduce(
         (
-          identifierFieldToSuggestion,
-          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel }
+          identifierFieldToSuggestion: ISchemaFieldsToSuggested,
+          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel, uid }
         ) => ({
           ...identifierFieldToSuggestion,
           [identifierField]: {
@@ -740,6 +745,7 @@ export default class DatasetCompliance extends Component {
             logicalType,
             securityClassification,
             confidenceLevel,
+            uid,
             suggestionsModificationTime
           }
         }),
