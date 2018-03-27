@@ -173,13 +173,18 @@ const getIdTypeDataTypes = (complianceDataTypes: Array<IComplianceDataType> = []
 /**
  * Checks if the compliance suggestion has a date that is equal or exceeds the policy mod time by at least the
  * ms time in lastSeenSuggestionInterval
- * @param {string} [policyModificationTime = 0] timestamp for the policy modification date
+ * @param {IComplianceInfo.modifiedTime} policyModificationTime timestamp for the policy modification date
  * @param {number} suggestionModificationTime timestamp for the suggestion modification date
  * @return {boolean}
  */
-const isRecentSuggestion = (policyModificationTime: string = '0', suggestionModificationTime: number) =>
-  !!suggestionModificationTime &&
-  suggestionModificationTime - parseInt(policyModificationTime) >= lastSeenSuggestionInterval;
+const isRecentSuggestion = (
+  policyModificationTime: IComplianceInfo['modifiedTime'],
+  suggestionModificationTime: number
+) =>
+  // policy has not been modified previously or suggestion mod time is greater than or equal to interval
+  !policyModificationTime ||
+  (!!suggestionModificationTime &&
+    suggestionModificationTime - parseInt(policyModificationTime) >= lastSeenSuggestionInterval);
 
 /**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
