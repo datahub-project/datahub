@@ -180,7 +180,7 @@ const getIdTypeDataTypes = (complianceDataTypes: Array<IComplianceDataType> = []
 const isRecentSuggestion = (
   policyModificationTime: IComplianceInfo['modifiedTime'],
   suggestionModificationTime: number
-) =>
+): boolean =>
   // policy has not been modified previously or suggestion mod time is greater than or equal to interval
   !policyModificationTime ||
   (!!suggestionModificationTime &&
