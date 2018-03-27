@@ -1,8 +1,8 @@
 import {
   lastSeenSuggestionInterval,
-  lowQualitySuggestionConfidenceThreshold,
-  formatAsCapitalizedStringWithSpaces
+  lowQualitySuggestionConfidenceThreshold
 } from 'wherehows-web/constants/metadata-acquisition';
+import { formatAsCapitalizedStringWithSpaces } from 'wherehows-web/utils/helpers/string';
 import { module, test } from 'qunit';
 
 module('Unit | Utility | datasets/metadata acquisition');
