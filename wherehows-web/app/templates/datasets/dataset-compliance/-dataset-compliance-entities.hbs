@@ -140,8 +140,18 @@
             {{#if row.suggestion}}
               {{row.suggestion.confidence}}%
               {{#if isEditing}}
-                {{auto-suggest-action type="accept" action=(action row.onSuggestionAction)}}
-                {{auto-suggest-action action=(action row.onSuggestionAction)}}
+                {{auto-suggest-action
+                  type="accept"
+                  field=field
+                  feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                  action=(action row.onSuggestionAction)
+                }}
+
+                {{auto-suggest-action
+                  field=field
+                  feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                  action=(action row.onSuggestionAction)
+                }}
               {{/if}}
             {{else}}
               {{#if row.suggestionResolution}}

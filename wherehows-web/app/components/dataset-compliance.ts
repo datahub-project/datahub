@@ -178,7 +178,6 @@ export default class DatasetCompliance extends Component {
   onSave: <T>() => Promise<T>;
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
-  notifyOnComplianceSuggestionFeedback: (uid: string | null, feedback: SuggestionIntent) => void;
 
   classNames = ['compliance-container'];
 
@@ -645,7 +644,7 @@ export default class DatasetCompliance extends Component {
   mapColumnIdFieldsToCurrentPrivacyPolicy(
     columnFieldProps: Array<{ identifierField: string; dataType: string }>,
     complianceEntities: IComplianceInfo['complianceEntities'],
-    { policyModificationTime }: { policyModificationTime: string }
+    { policyModificationTime }: { policyModificationTime: IComplianceInfo['modifiedTime'] }
   ): ISchemaFieldsToPolicy {
     const getKeysOnField = <K extends keyof IComplianceEntity>(
       keys: Array<K> = [],
@@ -695,7 +694,12 @@ export default class DatasetCompliance extends Component {
   columnIdFieldsToCurrentPrivacyPolicy = computed(
     `{schemaFieldNamesMappedToDataTypes,${policyComplianceEntitiesKey}.[]}`,
     function(this: DatasetCompliance): ISchemaFieldsToPolicy {
-      const { complianceEntities = [], modifiedTime = '0' } = get(this, 'complianceInfo') || {};
+      const {
+        complianceEntities = [],
+        modifiedTime
+      }: Pick<IComplianceInfo, 'complianceEntities' | 'modifiedTime'> = get(this, 'complianceInfo') || {
+        complianceEntities: []
+      };
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
       const columnFieldProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
         ({ fieldName, dataType }) => ({
@@ -1186,10 +1190,7 @@ export default class DatasetCompliance extends Component {
       field: IComplianceChangeSet,
       intent: SuggestionIntent = SuggestionIntent.ignore
     ) {
-      const { uid } = field.suggestion!;
-
       set(field, 'suggestionAuthority', intent);
-      get(this, 'notifyOnComplianceSuggestionFeedback')(uid || null, intent);
     },
 
     /**
