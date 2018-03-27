@@ -79,7 +79,8 @@ export default Route.extend({
   async setupController(controller, model) {
     set(controller, 'model', model);
     setProperties(controller, {
-      isInternal: await get(this, 'configurator').getConfig('isInternal')
+      isInternal: await get(this, 'configurator').getConfig('isInternal'),
+      isJitAclAccessEnabled: await get(this, 'configurator').getConfig('isJitAclAccessEnabled')
     });
   }
 });
