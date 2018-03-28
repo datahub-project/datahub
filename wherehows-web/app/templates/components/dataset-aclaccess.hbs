@@ -1,63 +1,20 @@
 <header class="acl-permission__header">
-  {{#unless lastAccessRequestTask}}
+  {{#if userHasAclAccess}}
+    <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
 
-    {{#if userHasAclAccess}}
-      <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
-
-      <div class="acl-permission__meta">
-        <strong class="acl-permission__success acl-permission__meta__header">
-          You have access to this dataset
-        </strong>
-      </div>
-    {{else}}
-      <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
-
-      <div class="acl-permission__meta">
-        <strong class="acl-permission__reject acl-permission__meta__header">
-          You currently do not have access to this dataset
-        </strong>
-      </div>
-    {{/if}}
-
-  {{/unless}}
-
-  {{#if lastAccessRequestFailedOrDenied}}
-
+    <div class="acl-permission__meta">
+      <strong class="acl-permission__success acl-permission__meta__header">
+        You have access to this dataset
+      </strong>
+    </div>
+  {{else}}
     <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
 
     <div class="acl-permission__meta">
       <strong class="acl-permission__reject acl-permission__meta__header">
-        Sorry, your request has been denied by the system or an error occured with your request.
+        You currently do not have access to this dataset
       </strong>
-      <p>If you feel this is in error, contact ask_acl@linkedin.</p>
     </div>
-
-  {{/if}}
-
-  {{#if lastAccessRequestTask}}
-    {{#if userHasAclAccess}}
-
-      <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
-
-      <div class="acl-permission__meta">
-        <strong class="acl-permission__success acl-permission__meta__header">
-          Congrats, your request has been approved.
-        </strong>
-        <p>You now have access to this dataset</p>
-      </div>
-
-    {{else}}
-
-      <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
-
-      <div class="acl-permission__meta">
-        <strong class="acl-permission__reject acl-permission__meta__header">
-          Your access has been removed
-        </strong>
-        <p>You no longer have access to this dataset</p>
-      </div>
-
-    {{/if}}
   {{/if}}
 
   {{#if userHasAclAccess}}
