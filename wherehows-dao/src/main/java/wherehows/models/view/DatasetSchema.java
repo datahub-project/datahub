@@ -31,4 +31,6 @@ public class DatasetSchema {
   private String keySchema;
 
   private List<DatasetColumn> columns;
+
+  private Long lastModified;
 }
