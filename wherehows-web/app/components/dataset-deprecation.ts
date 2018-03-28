@@ -10,6 +10,34 @@ export default class DatasetDeprecation extends Component {
   classNames = ['dataset-deprecation-toggle'];
 
   /**
+   * Currently selected date
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  selectedDate: Date = new Date();
+
+  /**
+   * Date around which the calendar is centered
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  centeredDate: Date = this.selectedDate;
+
+  /**
+   * Date the dataset should be decommissioned
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  decommissionDate: Date;
+
+  /**
+   * The earliest date a user can select as a decommission date
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  minSelectableDecommissionDate: Date = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  /**
    * Flag indicating that the dataset is deprecated or otherwise
    * @type {(null | boolean)}
    * @memberof DatasetDeprecation
@@ -62,10 +90,14 @@ export default class DatasetDeprecation extends Component {
 
   /**
    * The external action to be completed when a save is initiated
-   * @type {(isDeprecated: boolean, updateDeprecationNode: string) => Promise<void>}
+   * @type {(isDeprecated: boolean, updateDeprecationNode: string, decommissionDate: Date) => Promise<void>}
    * @memberof DatasetDeprecation
    */
-  onUpdateDeprecation: (isDeprecated: boolean, updateDeprecationNode: string) => Promise<void> | void;
+  onUpdateDeprecation: (
+    isDeprecated: boolean,
+    updateDeprecationNode: string,
+    decommissionDate: Date
+  ) => Promise<void> | void;
 
   editorOptions = {
     ...baseCommentEditorOptions,
@@ -83,19 +115,32 @@ export default class DatasetDeprecation extends Component {
   }
 
   /**
+   * Handles updates to the decommissionDate attribute
+   * @param {Date} decommissionDate date dataset should be decommissioned
+   */
+  @action
+  onDecommissionDateChange(this: DatasetDeprecation, decommissionDate: Date) {
+    set(this, 'decommissionDate', decommissionDate);
+  }
+
+  /**
    * Invokes the save action with the updated values for
-   * deprecated and deprecationNote
+   * deprecated decommissionDate, and deprecationNote
    * @return {Promise<void>}
    */
   @action
   async onSave(this: DatasetDeprecation) {
-    const { deprecatedAlias, deprecationNoteAlias } = getProperties(this, ['deprecatedAlias', 'deprecationNoteAlias']);
+    const { deprecatedAlias, deprecationNoteAlias, decommissionDate } = getProperties(this, [
+      'deprecatedAlias',
+      'deprecationNoteAlias',
+      'decommissionDate'
+    ]);
     const { onUpdateDeprecation } = this;
 
     if (onUpdateDeprecation) {
       const noteValue = deprecatedAlias ? deprecationNoteAlias : '';
 
-      await onUpdateDeprecation(!!deprecatedAlias, noteValue || '');
+      await onUpdateDeprecation(!!deprecatedAlias, noteValue || '', decommissionDate);
       set(this, 'deprecationNoteAlias', noteValue);
     }
   }

@@ -28,6 +28,38 @@
 
   {{/if}}
 
+  <h4 class="dataset-deprecation-header">When should this dataset be decommissioned?</h4>
+
+  {{#power-calendar
+    selected=selectedDate
+    center=centeredDate
+    class="dataset-deprecation-toggle__decommission-calendar"
+    onSelect=(action "onDecommissionDateChange" value="date")
+    onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
+
+    <nav class="ember-power-calendar-nav">
+
+      <button
+        type="button"
+        class="ember-power-calendar-nav-control"
+        onclick={{action calendar.actions.moveCenter -1 'month'}}>
+        &lt;
+      </button>
+      <div class="ember-power-calendar-nav-title">
+        {{moment-format calendar.center 'MMMM YYYY'}}
+      </div>
+      <button
+        type="button"
+        class="ember-power-calendar-nav-control"
+        onclick={{action calendar.actions.moveCenter 1 'month'}}>
+        &gt;
+      </button>
+    </nav>
+
+    {{calendar.days minDate=minSelectableDecommissionDate}}
+
+  {{/power-calendar}}
+
   <div class="dataset-deprecation-toggle__actions">
     {{#if isDirty}}
       <button
