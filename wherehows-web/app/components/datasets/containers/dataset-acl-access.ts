@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty, { equal, alias } from '@ember/object/computed';
+import ComputedProperty, { equal } from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { get, set, getProperties, computed } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
@@ -19,6 +19,7 @@ import {
   getDefaultRequestAccessControlEntry
 } from 'wherehows-web/utils/datasets/acl-access';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 export default class DatasetAclAccessContainer extends Component {
   /**
@@ -27,6 +28,13 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   currentUser: ComputedProperty<CurrentUser> = inject();
+
+  /**
+   * App notifications service
+   * @type {ComputedProperty<Notifications>}
+   * @memberof DatasetAclAccessContainer
+   */
+  notifications: ComputedProperty<Notifications> = inject();
 
   /**
    * The currently logged in user
@@ -79,15 +87,6 @@ export default class DatasetAclAccessContainer extends Component {
    */
   urn: string;
 
-  /**
-   * Reference to the last requestAccessAndCheckAccessTask task
-   * @type {ComputedProperty<TaskInstance<DatasetAclAccessContainer.requestAccessAndCheckAccessTask>>}
-   * @memberof DatasetAclAccessContainer
-   */
-  lastAccessRequestTask: ComputedProperty<
-    TaskInstance<DatasetAclAccessContainer['requestAccessAndCheckAccessTask']>
-  > = alias('requestAccessAndCheckAccessTask.last');
-
   didInsertElement() {
     get(this, 'getContainerDataTask').perform();
   }
@@ -107,6 +106,22 @@ export default class DatasetAclAccessContainer extends Component {
     const userAclRequest = get(this, 'userAclRequest');
     return hasEnumerableKeys(userAclRequest) && !!userAclRequest.businessJustification;
   });
+
+  /**
+   * Notifies user of changes to acl access
+   * @param {(string | Error)} param notification message string or error object
+   * @returns {void}
+   * @memberof DatasetAclAccessContainer
+   */
+  notifyStatus(this: DatasetAclAccessContainer, param: string | Error) {
+    const { notify } = get(this, 'notifications');
+
+    if (typeof param === 'string') {
+      return notify(NotificationEvent.success, { content: param });
+    }
+
+    notify(NotificationEvent.error, { content: param.message });
+  }
 
   /**
    * Parent container task to get all data for the container component
@@ -173,9 +188,15 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   requestAccessAndCheckAccessTask = task(function*(this: DatasetAclAccessContainer): IterableIterator<any> {
-    yield get(this, 'requestAccessTask').perform();
-    yield get(this, 'getDatasetAclsTask').perform();
-    yield get(this, 'checkUserAccessTask').perform();
+    try {
+      yield get(this, 'requestAccessTask').perform();
+      yield get(this, 'getDatasetAclsTask').perform();
+      yield get(this, 'checkUserAccessTask').perform();
+
+      get(this, 'userHasAclAccess') && this.notifyStatus('Congrats, your request has been approved!');
+    } catch (e) {
+      this.notifyStatus(e);
+    }
   }).drop();
 
   /**
@@ -187,9 +208,15 @@ export default class DatasetAclAccessContainer extends Component {
   ): IterableIterator<
     Promise<void> | TaskInstance<Array<IAccessControlEntry>> | TaskInstance<Promise<IAccessControlEntry[]>>
   > {
-    yield removeAclAccess(get(this, 'urn'));
-    yield get(this, 'getDatasetAclsTask').perform();
-    yield get(this, 'checkUserAccessTask').perform();
+    try {
+      yield removeAclAccess(get(this, 'urn'));
+      yield get(this, 'getDatasetAclsTask').perform();
+      yield get(this, 'checkUserAccessTask').perform();
+
+      !get(this, 'userHasAclAccess') && this.notifyStatus('Your access has been removed');
+    } catch (e) {
+      this.notifyStatus(e);
+    }
   }).drop();
 
   /**
