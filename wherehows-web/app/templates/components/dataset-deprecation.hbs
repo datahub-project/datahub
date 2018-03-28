@@ -73,7 +73,7 @@
   <div class="dataset-deprecation-toggle__actions">
     <button
       type="submit"
-      disabled={{not (and isDirty decommissionDate)}}
+      disabled={{and deprecatedAlias (not decommissionDate)}}
       class="nacho-button--large nacho-button--secondary">
       Update Deprecation Status
     </button>
