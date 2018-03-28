@@ -79,8 +79,7 @@ export default Route.extend(ApplicationRouteMixin, {
     this._super(...arguments);
     this._loadCurrentUser().then(() => {
       // Will go to the route before the redirect to authenticate
-      // this.transitionTo(this.controllerFor('application').get('previousRouteName'));
-      this.transitionTo(undefined);
+      this.transitionTo(this.controllerFor('application').get('previousRouteName'));
     });
   },
 
