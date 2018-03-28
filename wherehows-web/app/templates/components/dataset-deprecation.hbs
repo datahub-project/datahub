@@ -26,47 +26,56 @@
       options=editorOptions
       class="comment-new__content"}}
 
+    <h4 class="dataset-deprecation-header">When should this dataset be decommissioned?</h4>
+
+    {{#power-calendar
+      selected=selectedDate
+      center=centeredDate
+      class="dataset-deprecation-toggle__decommission-calendar"
+      onSelect=(action "onDecommissionDateChange" value="date")
+      onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
+
+      <nav class="ember-power-calendar-nav">
+
+        <button
+          type="button"
+          class="ember-power-calendar-nav-control"
+          onclick={{action calendar.actions.moveCenter -1 'month'}}>
+          &lt;
+        </button>
+        <div class="ember-power-calendar-nav-title">
+          {{moment-format calendar.center 'MMMM YYYY'}}
+        </div>
+        <button
+          type="button"
+          class="ember-power-calendar-nav-control"
+          onclick={{action calendar.actions.moveCenter 1 'month'}}>
+          &gt;
+        </button>
+      </nav>
+
+      {{calendar.days minDate=minSelectableDecommissionDate}}
+
+    {{/power-calendar}}
+
+    <p class="decommission-date {{unless decommissionDate 'decommission-date--required'}}">
+      {{#unless decommissionDate}}
+          Please specify a date when this dataset will be decommissioned
+      {{/unless}}
+
+      <strong>
+        {{if decommissionDate (concat 'Will be decommissioned on ' (moment-format decommissionDate 'MMMM DD YYYY')) ''}}
+      </strong>
+    </p>
+
   {{/if}}
 
-  <h4 class="dataset-deprecation-header">When should this dataset be decommissioned?</h4>
-
-  {{#power-calendar
-    selected=selectedDate
-    center=centeredDate
-    class="dataset-deprecation-toggle__decommission-calendar"
-    onSelect=(action "onDecommissionDateChange" value="date")
-    onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
-
-    <nav class="ember-power-calendar-nav">
-
-      <button
-        type="button"
-        class="ember-power-calendar-nav-control"
-        onclick={{action calendar.actions.moveCenter -1 'month'}}>
-        &lt;
-      </button>
-      <div class="ember-power-calendar-nav-title">
-        {{moment-format calendar.center 'MMMM YYYY'}}
-      </div>
-      <button
-        type="button"
-        class="ember-power-calendar-nav-control"
-        onclick={{action calendar.actions.moveCenter 1 'month'}}>
-        &gt;
-      </button>
-    </nav>
-
-    {{calendar.days minDate=minSelectableDecommissionDate}}
-
-  {{/power-calendar}}
-
   <div class="dataset-deprecation-toggle__actions">
-    {{#if isDirty}}
-      <button
-        type="submit"
-        class="nacho-button--large nacho-button--secondary">
-        Update Deprecation Status
-      </button>
-    {{/if}}
+    <button
+      type="submit"
+      disabled={{not (and isDirty decommissionDate)}}
+      class="nacho-button--large nacho-button--secondary">
+      Update Deprecation Status
+    </button>
   </div>
 </form>
