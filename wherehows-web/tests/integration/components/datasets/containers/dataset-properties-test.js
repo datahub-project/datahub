@@ -32,5 +32,5 @@ test('it renders', function(assert) {
 
   this.render(hbs`{{datasets/containers/dataset-properties urn=urn}}`);
 
-  assert.equal(find(labelClass).textContent.trim(), 'Is this dataset deprecated?', 'renders presentation component');
+  assert.ok(find(labelClass), 'renders presentation component');
 });

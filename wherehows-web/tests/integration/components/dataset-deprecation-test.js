@@ -13,12 +13,9 @@ test('it renders', function(assert) {
 
   this.render(hbs`{{dataset-deprecation}}`);
 
-  assert.equal(
-    this.$()
-      .text()
-      .trim(),
-    'Is this dataset deprecated?',
-    'shows the question asking if the dataset is deprecated'
+  assert.ok(
+    document.querySelector('.dataset-deprecation-toggle__toggle-header__label'),
+    'it shows the dataset is deprecation label element'
   );
   assert.equal(this.$('#dataset-is-deprecated').length, 1, 'has one input checkbox with known selector');
   assert.equal(
