@@ -69,18 +69,25 @@ export default class DatasetPropertiesContainer extends Component {
    * Persists the changes to the dataset deprecation properties upstream
    * @param {boolean} isDeprecated
    * @param {string} updatedDeprecationNote
+   * @param {Date} decommissionDate dataset decommission date
    * @return {Promise<void>}
    */
   @action
   async updateDeprecation(
     this: DatasetPropertiesContainer,
     isDeprecated: boolean,
-    updatedDeprecationNote: string
+    updatedDeprecationNote: string,
+    decommissionDate: Date
   ): Promise<void> {
     const { notify } = get(this, 'notifications');
 
     try {
-      await updateDatasetDeprecationByUrn(get(this, 'urn'), isDeprecated, updatedDeprecationNote || '');
+      await updateDatasetDeprecationByUrn(
+        get(this, 'urn'),
+        isDeprecated,
+        updatedDeprecationNote || '',
+        decommissionDate
+      );
 
       notify(NotificationEvent.success, {
         content: 'Successfully updated deprecation status'
