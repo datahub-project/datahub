@@ -27,4 +27,14 @@
       margin: item-spacing(0 2 0 0);
     }
   }
+
+  &__decommission-calendar {
+    @include ember-power-calendar($cell-size: item-spacing(7), $primary-color: get-color(blue7));
+  }
+}
+
+.dataset-deprecation-header {
+  margin-top: item-spacing(6);
+  font-size: 18px;
+  font-weight: 500;
 }
