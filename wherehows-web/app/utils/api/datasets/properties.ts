@@ -201,7 +201,7 @@ const updateDatasetDeprecationByUrn = (
     data: {
       deprecated,
       deprecationNote,
-      decommissionDate
+      decommissionTime: decommissionDate
     }
   });
 
