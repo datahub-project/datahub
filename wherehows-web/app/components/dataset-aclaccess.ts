@@ -1,9 +1,7 @@
 import Component from '@ember/component';
-import { get, set, getProperties, computed } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
+import { get, set } from '@ember/object';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
-import DatasetAclAccessContainer from 'wherehows-web/components/datasets/containers/dataset-acl-access';
 import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datasets/aclaccess';
 import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
 
@@ -53,30 +51,6 @@ export default class DatasetAclAccess extends Component {
    * @memberof DatasetAclAccess
    */
   removeAccessTask: TaskProperty<Promise<void>> & { perform: (a?: {} | undefined) => TaskInstance<Promise<void>> };
-
-  /**
-   * External task reference to the last request for acl entry aliases `requestAccessAndCheckAccessTask`, if exists
-   * @type {ComputedProperty<TaskInstance<DatasetAclAccessContainer.requestAccessAndCheckAccessTask>>}
-   * @memberof DatasetAclAccess
-   */
-  lastAccessRequestTask: ComputedProperty<TaskInstance<DatasetAclAccessContainer['requestAccessAndCheckAccessTask']>>;
-
-  /**
-   * Resolves to true if the last request for access results in an error and the logged in user,
-   * does not have access. Used to indicate that the request may have been denied
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetAclAccess
-   */
-  lastAccessRequestFailedOrDenied = computed('lastAccessRequestTask.isError', 'userHasAclAccess', function(
-    this: DatasetAclAccess
-  ): boolean {
-    const { lastAccessRequestTask, userHasAclAccess } = getProperties(this, [
-      'lastAccessRequestTask',
-      'userHasAclAccess'
-    ]);
-    const lastRequestErrored = lastAccessRequestTask && lastAccessRequestTask.isError;
-    return !!lastRequestErrored && !userHasAclAccess;
-  });
 
   /**
    * Action to reset the request form
