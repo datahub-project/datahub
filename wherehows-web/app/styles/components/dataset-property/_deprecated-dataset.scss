@@ -38,3 +38,11 @@
   font-size: 18px;
   font-weight: 500;
 }
+
+.decommission-date {
+  margin-top: item-spacing(4);
+
+  &--required {
+    color: get-color(red5);
+  }
+}
