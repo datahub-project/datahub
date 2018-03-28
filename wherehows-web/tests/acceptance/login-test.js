@@ -6,7 +6,9 @@ import {
   authenticationUrl,
   invalidCredentials,
   testUser,
-  testPasswordInvalid
+  testPassword,
+  testPasswordInvalid,
+  protectedRoute
 } from 'wherehows-web/tests/helpers/login/constants';
 import {
   loginUserInput,
@@ -64,4 +66,18 @@ test('should display invalid password message with invalid password entered', as
     'Invalid Password',
     'displays invalid password message in error message container'
   );
+});
+
+test('should return to previous url after login', async function(assert) {
+  assert.expect(3);
+  assert.equal(currentURL(), authenticationUrl, `the current url is ${authenticationUrl}`);
+  await visit(protectedRoute);
+
+  assert.equal(currentURL(), authenticationUrl, 'Redirects to auth url when reaching protected route');
+  // Expected to be a successful login
+  await fillIn(loginUserInput, testUser);
+  await fillIn(loginPasswordInput, testPassword);
+  await click(loginSubmitButton);
+
+  assert.equal(currentURL(), protectedRoute, 'After login will redirect to previous route');
 });
