@@ -20,6 +20,12 @@ export default class DatasetSchemaContainer extends Component {
   json: string;
 
   /**
+   * Stores the last modified date on the dataset schema as an utc time string
+   * @type {string}
+   */
+  lastModified: string;
+
+  /**
    * List of schema properties for the dataset
    * @type {IDatasetColumnWithHtmlComments | IDatasetColumn}
    */
@@ -39,10 +45,13 @@ export default class DatasetSchemaContainer extends Component {
    */
   getDatasetSchemaTask = task(function*(this: DatasetSchemaContainer): IterableIterator<Promise<IDatasetSchema>> {
     let schemas,
-      { columns, rawSchema: json }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
+      { columns, rawSchema: json, lastModified }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
+
+    let lastModifiedString = new Date(lastModified).toLocaleString();
+
     schemas = augmentObjectsWithHtmlComments(columns);
     json || (json = '{}');
 
-    setProperties(this, { schemas, json });
+    setProperties(this, { schemas, json, lastModified: lastModifiedString });
   });
 }
