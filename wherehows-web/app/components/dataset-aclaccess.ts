@@ -1,9 +1,17 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
+import { gte } from '@ember/object/computed';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
 import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datasets/aclaccess';
 import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
+
+/**
+ * Date object with the minimum selectable date for acl request expiration,
+ * at least 1 day from now
+ * @type {Date}
+ */
+const minSelectableExpirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
 export default class DatasetAclAccess extends Component {
   /**
@@ -32,7 +40,7 @@ export default class DatasetAclAccess extends Component {
    * @type {Date}
    * @memberof DatasetAclAccess
    */
-  minSelectableExpirationDate: Date = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  minSelectableExpirationDate: Date = minSelectableExpirationDate;
 
   /**
    * External action invoked on change to access request access type
@@ -45,6 +53,13 @@ export default class DatasetAclAccess extends Component {
    * @type {(date: Date) => void}
    */
   expiresAtDidChange: (date: Date) => void;
+
+  /**
+   * Checks if the expiration date is greater than the min allowed
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetAclAccess
+   */
+  hasValidExpiration = gte('selectedDate', minSelectableExpirationDate.getTime());
 
   /**
    * External task to remove the logged in user from the related dataset's acl
