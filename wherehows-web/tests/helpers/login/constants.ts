@@ -28,5 +28,10 @@ const testPassword = 'validPassword';
  * @type {string}
  */
 const testPasswordInvalid = 'invalidPassword';
+/**
+ * Example of a protected route to test whether we are redirected to the authentication route
+ * @type {string}
+ */
+const protectedRoute = '/schemas/page/1';
 
-export { loginContainer, authenticationUrl, invalidCredentials, testUser, testPassword, testPasswordInvalid };
+export { loginContainer, authenticationUrl, invalidCredentials, testUser, testPassword, testPasswordInvalid, protectedRoute };
