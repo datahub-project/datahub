@@ -82,7 +82,11 @@
           </button>
           <div class="ember-power-calendar-nav-title">
             {{moment-format calendar.center 'MMMM YYYY'}}
-            <p>Expires in {{moment-from-now calendar.selected}}</p>
+
+            <p>
+              {{if hasValidExpiration (concat "Expires in " (moment-from-now calendar.selected)) ""}}
+            </p>
+
           </div>
           <button
             type="button"
