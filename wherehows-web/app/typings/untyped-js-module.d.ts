@@ -5,6 +5,15 @@ declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   export default Mixin;
 }
 
+declare module 'ivy-tabs/components/ivy-tabs-tablist' {
+  import Component from '@ember/component';
+  export default class IvyTabsTablistComponent extends Component {
+    focusSelectedTab: () => void;
+    selectPreviousTab: () => void;
+    selectNextTab: () => void;
+  }
+}
+
 declare module 'ember-simple-auth/authenticators/base' {
   import EmberObject from '@ember/object';
   export default EmberObject;
