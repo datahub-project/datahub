@@ -8,6 +8,7 @@ interface IDatasetSchema {
   schemaless: boolean;
   rawSchema: null | string;
   keySchema: null | string;
+  lastModified: number;
   columns: Array<IDatasetColumn>;
 }
 
