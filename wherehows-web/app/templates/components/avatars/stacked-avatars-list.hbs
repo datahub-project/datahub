@@ -1,0 +1,23 @@
+{{#if hasBlock}}
+
+    {{yield
+            (hash
+                    avatars=avatars
+                    avatarRollup=avatarRollup
+            )
+    }}
+
+{{else}}
+
+    {{#each avatars as |avatar|}}
+        {{avatars/avatar-item
+                avatar=avatar
+                avatarClass="stacked-avatar"
+        }}
+    {{/each}}
+
+    {{#if avatarRollup}}
+        <span class="avatar-rollup">{{avatartRollup.length}}+</span>
+    {{/if}}
+
+{{/if}}
