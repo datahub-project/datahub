@@ -39,6 +39,7 @@ $avatar-size: 18px;
       position: absolute;
       left: 0;
       opacity: 0;
+      z-index: z(dropdown);
     }
 
     &:hover {

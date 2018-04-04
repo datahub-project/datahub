@@ -14,9 +14,11 @@ import {
   updateOwner,
   minRequiredConfirmedOwners,
   validConfirmedOwners,
-  isRequiredMinOwnersNotConfirmed
+  isRequiredMinOwnersNotConfirmed,
+  isConfirmedOwner,
+  isSystemGeneratedOwner
 } from 'wherehows-web/constants/datasets/owner';
-import { OwnerIdType, OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
 /**
@@ -101,7 +103,7 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', ({ source }) => source === OwnerSource.Ui);
+  confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isConfirmedOwner);
 
   /**
    * Intersection of confirmed owners and suggested owners
@@ -129,9 +131,7 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', function({ source, idType }: IOwner) {
-    return source !== OwnerSource.Ui && idType === OwnerIdType.User;
-  });
+  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isSystemGeneratedOwner);
 
   /**
    * Invokes the external action as a dropping task
