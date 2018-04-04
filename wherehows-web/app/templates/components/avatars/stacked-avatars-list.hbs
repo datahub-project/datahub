@@ -1,23 +1,40 @@
 {{#if hasBlock}}
 
-    {{yield
-            (hash
-                    avatars=avatars
-                    avatarRollup=avatarRollup
-            )
-    }}
+  {{yield
+      (hash
+          image=(component "avatars/avatar-image")
+          meta=(component "avatars/avatar-metadata")
+          maxAvatars=maxAvatars
+          rollupAvatars=rollupAvatars
+      )
+  }}
 
 {{else}}
 
-    {{#each avatars as |avatar|}}
-        {{avatars/avatar-item
-                avatar=avatar
-                avatarClass="stacked-avatar"
-        }}
-    {{/each}}
+  <ul class="avatar-container__list">
+    {{#each maxAvatars as |avatar|}}
+      <li class="avatar-item avatar-item--stacked">
 
-    {{#if avatarRollup}}
-        <span class="avatar-rollup">{{avatartRollup.length}}+</span>
-    {{/if}}
+        {{avatars/avatar-image avatar=avatar class="avatar--stacked"}}
+
+        {{#avatars/avatar-metadata class="avatar-item--stacked__meta" avatar=avatar as |aviMeta|}}
+          {{#if aviMeta.email}}
+            <button {{action meta.emailAvatar}} class="avatar-meta-action">@ {{meta.email}}</button>
+          {{/if}}
+
+          {{#if aviMeta.userName}}
+            <button {{action meta.slackAvatar}} class="avatar-meta-action"># {{meta.userName}}</button>
+          {{/if}}
+        {{/avatars/avatar-metadata}}
+
+      </li>
+    {{/each}}
+  </ul>
+
+  {{#if rollupAvatars}}
+    {{#avatars/rollup-avatars avatars=avatars}}
+      {{rollupAvatars.length}}+
+    {{/avatars/rollup-avatars}}
+  {{/if}}
 
 {{/if}}
