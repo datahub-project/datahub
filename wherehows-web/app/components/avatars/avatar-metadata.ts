@@ -1,6 +1,5 @@
 import Component from '@ember/component';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
-import { action } from 'ember-decorators/object';
 
 export default class extends Component {
   tagName: 'span';
@@ -14,14 +13,8 @@ export default class extends Component {
   avatar: IAvatar;
 
   /**
-   * Sends email to avatar
+   * Slack team ID
+   * @type {string}
    */
-  @action
-  emailAvatar() {}
-
-  /**
-   * Slacks avatar
-   */
-  @action
-  slackAvatar() {}
+  team = 'T06BYN8F7';
 }

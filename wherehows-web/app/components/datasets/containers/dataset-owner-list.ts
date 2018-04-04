@@ -7,6 +7,7 @@ import { task } from 'ember-concurrency';
 import { readDatasetOwnersByUrn } from 'wherehows-web/utils/api/datasets/owners';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import { confirmedOwners } from 'wherehows-web/constants/datasets/owner';
 
 export default class DatasetOwnerListContainer extends Component {
   constructor() {
@@ -53,6 +54,6 @@ export default class DatasetOwnerListContainer extends Component {
   getOwnersTask = task(function*(this: DatasetOwnerListContainer): IterableIterator<Promise<IOwnerResponse>> {
     const { owners = [] }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
 
-    set(this, 'owners', owners);
+    set(this, 'owners', confirmedOwners(owners));
   }).restartable();
 }
