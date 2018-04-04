@@ -37,7 +37,7 @@ $avatar-size: 18px;
 
     &__meta {
       position: absolute;
-      left: 0;
+      right: 0;
       opacity: 0;
       z-index: z(dropdown);
     }
@@ -93,12 +93,12 @@ $avatar-size: 18px;
   box-sizing: border-box;
   color: get-color(black, 0.7);
   cursor: pointer;
-  max-width: 100%;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: item-spacing(0 2);
-  text-align: center;
+  display: block;
   text-decoration: none;
   vertical-align: middle;
 
