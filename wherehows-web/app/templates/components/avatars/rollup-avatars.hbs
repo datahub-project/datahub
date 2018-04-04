@@ -1,0 +1,27 @@
+{{yield}}
+
+{{#if isShowingAvatars}}
+  {{#avatars/avatars-detail
+      header=header
+      onClose=(action "dismissAvatars")}}
+
+    <ul class="avatar-detail-container">
+      {{#each avatars as |avatar|}}
+        <li class="avatar-detail">
+
+          <div class="avatar-detail__entity">
+            <img src="{{avatar.imageUrl}}" alt="{{avatar.name}}" class="avatar">
+          </div>
+
+          <div class="avatar-detail__meta">
+            <h4>{{avatar.name}}</h4>
+            <p>@email{{avatar.email}}</p>
+            <p>#slack{{avatar.userName}}</p>
+          </div>
+
+        </li>
+      {{/each}}
+    </ul>
+
+  {{/avatars/avatars-detail}}
+{{/if}}
