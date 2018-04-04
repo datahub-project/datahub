@@ -13,11 +13,21 @@
             <img src="{{avatar.imageUrl}}" alt="{{avatar.name}}" class="avatar">
           </div>
 
-          <div class="avatar-detail__meta">
-            <h4>{{avatar.name}}</h4>
-            <p>@email{{avatar.email}}</p>
-            <p>#slack{{avatar.userName}}</p>
-          </div>
+          {{#avatars/avatar-metadata class="avatar-detail__meta" avatar=avatar as |aviMeta|}}
+            <h4>{{aviMeta.name}}</h4>
+
+            {{#if aviMeta.email}}
+              <a href="mailto:{{aviMeta.email}}" class="avatar-meta-action" target="_blank">
+                <strong><i class="fa fa-at"></i></strong> {{aviMeta.email}}
+              </a>
+            {{/if}}
+
+            {{#if aviMeta.userName}}
+              <a href="slack://user?team={{aviMeta.team}}&id={{aviMeta.userName}}" class="avatar-meta-action">
+                <i class="fa fa-slack"></i> {{aviMeta.userName}}
+              </a>
+            {{/if}}
+          {{/avatars/avatar-metadata}}
 
         </li>
       {{/each}}
