@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    {{dataset-owner-list owners=owners datasetName=model.nativeName}}
+    {{datasets/containers/dataset-owner-list urn=encodedUrn}}
   </div>
 
   {{#ivy-tabs selection=tabSelected as |tabs|}}
