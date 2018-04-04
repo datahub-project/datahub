@@ -4,10 +4,10 @@
  */
 interface IAvatar {
   imageUrl: string;
-  email: null | string;
+  email?: null | string;
   // Handle for the avatar
-  userName: string;
-  name: string;
+  userName?: string;
+  name?: string;
 }
 
 export { IAvatar };
