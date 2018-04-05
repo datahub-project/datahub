@@ -60,6 +60,7 @@
     "ember-export-application-global": "^2.0.0",
     "ember-fetch": "^3.4.4",
     "ember-font-awesome": "^4.0.0-rc.2",
+    "ember-inflector": "^2.2.0",
     "ember-load-initializers": "^1.0.0",
     "ember-math-helpers": "^2.4.0",
     "ember-metrics": "^0.12.1",

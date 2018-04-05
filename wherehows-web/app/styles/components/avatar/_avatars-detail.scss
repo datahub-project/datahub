@@ -6,12 +6,16 @@
   max-height: calc(100vh - 64px);
   min-height: item-spacing(7);
   width: 520px;
-  overflow-y: scroll;
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+
+  &__header,
+  &__content {
+    display: flex;
+  }
 
   &__header {
     padding: item-spacing(4 4);
-    display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid rgba(0, 0, 0, 0.15);
@@ -52,6 +56,8 @@
   margin: 0;
   padding: item-spacing(0 0 0 3);
   width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .avatar-detail {
