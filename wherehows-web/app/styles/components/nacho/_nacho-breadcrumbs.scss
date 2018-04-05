@@ -26,7 +26,9 @@ $secondary-border-color: set-color(white, base);
   text-overflow: ellipsis,
   white-space: nowrap,
   display: block
-)) @include restyle-define(grain, (
+));
+
+@include restyle-define(grain, (
   restyle-var(primary-border-color): $primary-border-color,
   restyle-var(secondary-border-color): $secondary-border-color,
   float: left,
@@ -59,7 +61,9 @@ $secondary-border-color: set-color(white, base);
     margin-top: -50px,
     left: 100%,
   )
-)) .nacho-breadcrumbs {
+));
+
+.nacho-breadcrumbs {
   @include restyle(breadcrumbs);
 
   &__crumb {

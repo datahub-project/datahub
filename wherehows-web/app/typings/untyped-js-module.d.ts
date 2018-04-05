@@ -33,6 +33,12 @@ declare module 'ember-simple-auth/services/session' {
   }
 }
 
+declare module 'ember-inflector' {
+  const singularize: (arg: string) => string;
+  const pluralize: (arg: string) => string;
+  export { singularize, pluralize };
+}
+
 declare module 'wherehows-web/utils/datasets/compliance-policy' {
   export const isPolicyExpectedShape: (policy: object) => boolean;
 }
