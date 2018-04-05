@@ -14,6 +14,8 @@ body {
   padding-top: $nav-min-height;
   padding-bottom: $nav-min-height;
   background-color: set-color(white, base);
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 /**
@@ -22,7 +24,9 @@ body {
  * making all elements inheriting from the root box-sizing value
  * See: https://css-tricks.com/inheriting-box-sizing-probably-slightly-better-best-practice/
  */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: inherit;
 }
 

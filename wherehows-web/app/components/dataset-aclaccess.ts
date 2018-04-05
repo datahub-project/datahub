@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
-import { gte } from '@ember/object/computed';
+import ComputedProperty, { gte } from '@ember/object/computed';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
 import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datasets/aclaccess';
@@ -59,7 +59,7 @@ export default class DatasetAclAccess extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAclAccess
    */
-  hasValidExpiration = gte('selectedDate', minSelectableExpirationDate.getTime());
+  hasValidExpiration: ComputedProperty<boolean> = gte('selectedDate', minSelectableExpirationDate.getTime());
 
   /**
    * External task to remove the logged in user from the related dataset's acl
