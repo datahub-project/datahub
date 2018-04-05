@@ -80,7 +80,7 @@ export default Route.extend({
     set(controller, 'model', model);
     setProperties(controller, {
       isInternal: await get(this, 'configurator').getConfig('isInternal'),
-      isJitAclAccessEnabled: await get(this, 'configurator').getConfig('isJitAclAccessEnabled')
+      jitAclAccessWhitelist: await get(this, 'configurator').getConfig('JitAclAccessWhitelist')
     });
   }
 });

@@ -119,6 +119,12 @@ export default class extends Controller.extend({
   compliancePolicyHasDrift;
 
   /**
+   * Contains a list of whitelisted dataset platforms for JIT ACL access
+   * @type {Array<DatasetPlatform>}
+   */
+  jitAclAccessWhitelist;
+
+  /**
    * Flag indicating the dataset policy is derived from an upstream source
    * @type {boolean}
    */
@@ -143,6 +149,17 @@ export default class extends Controller.extend({
   encodedUrn = computed('model', function() {
     const { uri = '' } = get(this, 'model');
     return encodeUrn(uri);
+  });
+
+  /**
+   * Checks if the current platform exists in the supported list of JIT ACL whitelisted platforms
+   * @type {ComputedProperty<boolean>}
+   */
+  isJitAclAccessEnabled = computed('jitAclAccessWhitelist', function() {
+    const jitAclAccessWhitelist = getWithDefault(this, 'jitAclAccessWhitelist', []);
+    const { platform } = get(this, 'model');
+
+    return jitAclAccessWhitelist.includes(platform);
   });
 
   constructor() {
