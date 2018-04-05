@@ -3,6 +3,7 @@ import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { set, get, computed } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { action } from 'ember-decorators/object';
+import { singularize, pluralize } from 'ember-inflector';
 
 export default class extends Component {
   tagName = 'span';
@@ -13,6 +14,7 @@ export default class extends Component {
     super(...arguments);
 
     this.avatars || (this.avatars = []);
+    this.avatarType || (this.avatarType = 'entity');
   }
 
   /**
@@ -28,11 +30,20 @@ export default class extends Component {
   isShowingAvatars = false;
 
   /**
+   * The type of avatars being shown
+   * @type {string}
+   */
+  avatarType: string;
+
+  /**
    * Returns the text to be shown in the avatar detail page header
    * @type {ComputedProperty<string>}
    */
   header: ComputedProperty<string> = computed('avatars.length', function(): string {
-    return `${get(this, 'avatars').length} users`;
+    const count = get(this, 'avatars').length;
+    const suffix = get(this, 'avatarType');
+
+    return `${count} ${count > 1 ? pluralize(suffix) : singularize(suffix)}`;
   });
 
   /**
