@@ -19,6 +19,7 @@ import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FailedMetadataLineageEvent;
+import com.linkedin.events.metadata.JobStatus;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
 import com.typesafe.config.Config;
@@ -84,6 +85,10 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     String actorUrn = getActorUrn(event);
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
+    }
+
+    if (event.jobExecution.status != JobStatus.SUCCEEDED) {
+      throw new UnsupportedOperationException("MLE only supports SUCCEEDED job status");
     }
 
     List<DatasetLineage> lineages = event.lineage;
