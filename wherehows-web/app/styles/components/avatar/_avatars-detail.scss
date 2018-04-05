@@ -4,7 +4,7 @@
   border-radius: 2px;
   background-color: white;
   max-height: calc(100vh - 64px);
-  min-height: item-spacing(7);
+  min-height: item-spacing(9) * 2;
   width: 520px;
   display: flex;
   flex-direction: column;
@@ -65,7 +65,8 @@
   align-items: center;
 
   &__entity {
-    flex-grow: 1;
+    margin-right: item-spacing(2);
+    width: 48px;
   }
 
   &__meta {
@@ -74,9 +75,11 @@
     flex-grow: 10;
     border-bottom: 1px solid rgba(0, 0, 0, 0.15);
     max-width: 100%;
+    padding: item-spacing(1 0);
   }
 
   &:last-of-type {
+    padding-bottom: item-spacing(5);
     .avatar-detail__meta {
       border: 0;
     }
