@@ -24,8 +24,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
-import java.util.Collections;
-import java.util.List;
 import javax.persistence.EntityManagerFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
@@ -54,8 +52,8 @@ public class Application extends Controller {
   private static final String PIWIK_SITE_ID = Play.application().configuration().getString("tracking.piwik.siteid");
   private static final String PIWIK_URL = Play.application().configuration().getString("tracking.piwik.url");
   private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
-  private static final List<String> JIT_ACL_WHITELIST =
-      Play.application().configuration().getStringList("linkedin.jit.acl.whitelist", Collections.emptyList());
+  private static final String JIT_ACL_WHITELIST =
+      Play.application().configuration().getString("linkedin.jit.acl.whitelist", "");
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -159,7 +157,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
-    config.set("JitAclAccessWhitelist", Json.toJson(JIT_ACL_WHITELIST));
+    config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
     response.put("status", "ok");
     response.set("config", config);
