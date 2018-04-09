@@ -268,7 +268,7 @@ POST          /api/v1/tracking                                                  
 
 GET           /api/v2/list/platforms                                            controllers.api.v2.Dataset.getDataPlatforms
 
-GET           /api/v2/list/compliance-data-types                                  controllers.api.v2.Dataset.getComplianceDataTypes
+GET           /api/v2/list/compliance-data-types                                controllers.api.v2.Dataset.getComplianceDataTypes
 
 GET           /api/v2/platforms/:platform/prefix/:prefix                        controllers.api.v2.Dataset.listSegments(platform: String, prefix: String)
 
@@ -299,6 +299,8 @@ GET           /api/v2/datasets/:urn/schema                                      
 GET           /api/v2/datasets/:urn/owners                                      controllers.api.v2.Dataset.getDatasetOwners(urn: String)
 
 POST          /api/v2/datasets/:urn/owners                                      controllers.api.v2.Dataset.updateDatasetOwners(urn: String)
+
+GET           /api/v2/datasets/:urn/owners/suggestion                           controllers.api.v2.Dataset.getDatasetSuggestedOwners(urn: String)
 
 GET           /api/v2/datasets/:urn/compliance                                  controllers.api.v2.Dataset.getDatasetCompliance(urn: String)
 
