@@ -94,12 +94,6 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Comments}}
-      {{dataset-comments
-        comments=datasetComments
-        updateDatasetComment=(action "updateDatasetComment")
-        deleteDatasetComment=(action "destroyDatasetComment")
-        addDatasetComment=(action "createDatasetComment")
-      }}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Schema}}

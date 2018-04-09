@@ -25,19 +25,19 @@ const readDatasetByUrn = async (urn: string = ''): Promise<IDatasetView> => {
 
 /**
  * Constructs a url to get a dataset urn given a dataset id
- * @param {number} id
+ * @param {number | string} id
  * @return {string}
  */
-const datasetUrnTranslationUrlByUrn = (id: number): string => `${datasetsUrlRoot('v2')}/idtourn/${id}`;
+const datasetUrnTranslationUrlByUrn = (id: number | string): string => `${datasetsUrlRoot('v2')}/idtourn/${id}`;
 
 /**
  * Translates a dataset id to a dataset urn, using the endpoint at datasetIdTranslationUrlByUrn()
- * @param {number} id
+ * @param {number | string} id
  * @return {Promise<string>}
  */
-const datasetIdToUrn = async (id: number) => {
+const datasetIdToUrn = async (id: number | string): Promise<string> => {
   const headers = await getHeaders({ url: datasetUrnTranslationUrlByUrn(id) });
-  return headers.get('whUrn');
+  return headers.get('whUrn') || '';
 };
 
 /**
