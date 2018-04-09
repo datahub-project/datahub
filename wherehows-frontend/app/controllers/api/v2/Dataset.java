@@ -230,9 +230,20 @@ public class Dataset extends Controller {
       Logger.error("Fetch owners fail", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
+    return Promise.promise(() -> ok(Json.toJson(ownership)));
+  }
 
-    if (ownership == null) {
-      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+  public static Promise<Result> getDatasetSuggestedOwners(String datasetUrn) {
+    final DatasetOwnership ownership;
+    try {
+      ownership = OWNER_VIEW_DAO.getDatasetSuggestedOwners(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
+      Logger.error("Fetch owners fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
     return Promise.promise(() -> ok(Json.toJson(ownership)));
   }
