@@ -1,5 +1,5 @@
-import { IDropDownOption } from 'wherehows-web/constants/dataset-compliance';
 import { AccessControlAccessType } from 'wherehows-web/utils/datasets/acl-access';
+import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Describes the interface for an AccessControlEntry object

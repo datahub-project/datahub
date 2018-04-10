@@ -1,9 +1,9 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { computed, getProperties } from '@ember/object';
-import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import noop from 'wherehows-web/utils/noop';
 import { SuggestionIntent } from 'wherehows-web/constants';
+import { IComplianceChangeSet } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Describes the interface for the auto-suggest-action component

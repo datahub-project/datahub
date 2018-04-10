@@ -1,6 +1,6 @@
-import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import { lowQualitySuggestionConfidenceThreshold } from 'wherehows-web/constants';
 import { arrayMap } from 'wherehows-web/utils/array';
+import { IComplianceChangeSet } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Takes a list of suggestions with confidence values, and if the confidence is greater than
