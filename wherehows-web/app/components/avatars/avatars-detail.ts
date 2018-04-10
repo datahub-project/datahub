@@ -1,10 +1,7 @@
 import Component from '@ember/component';
 import { get } from '@ember/object';
 import { action } from 'ember-decorators/object';
-
-enum Key {
-  Escape = 27
-}
+import { Keyboard } from 'wherehows-web/constants/keyboard';
 
 export default class extends Component {
   containerClassNames = ['avatars-detail-modal'];
@@ -21,7 +18,7 @@ export default class extends Component {
   @action
   onKeyUp({ key, which }: KeyboardEvent) {
     // if escape key, close modal
-    if (which === Key.Escape || key === 'Escape') {
+    if (which === Keyboard.Escape || key === Keyboard[27]) {
       get(this, 'onClose')();
     }
   }
