@@ -28,12 +28,12 @@ import {
   isFieldIdType,
   idTypeFieldsHaveLogicalType,
   changeSetFieldsRequiringReview,
-  changeSetReviewableAttributeTriggers
+  changeSetReviewableAttributeTriggers,
+  mapSchemaColumnPropsToCurrentPrivacyPolicy
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import scrollMonitor from 'scrollmonitor';
 import { getFieldsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
-import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { compact, isListUnique } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -573,64 +573,10 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * @param {Array<{identifierField: string, dataType: string}>} columnFieldProps
-   * @param {IComplianceInfo.complianceEntities} complianceEntities
-   * @param {(policyModificationTime: string)} { policyModificationTime }
-   * @returns {ISchemaFieldsToPolicy}
-   * @memberof DatasetCompliance
-   * TODO: Move to separate module
-   */
-  mapColumnIdFieldsToCurrentPrivacyPolicy(
-    columnFieldProps: Array<{ identifierField: string; dataType: string }>,
-    complianceEntities: IComplianceInfo['complianceEntities'],
-    { policyModificationTime }: { policyModificationTime: IComplianceInfo['modifiedTime'] }
-  ): ISchemaFieldsToPolicy {
-    const getKeysOnField = <K extends keyof IComplianceEntity>(
-      keys: Array<K> = [],
-      fieldName: string,
-      source: IComplianceInfo['complianceEntities'] = []
-    ): { [V in K]: IComplianceEntity[V] } | {} => {
-      const sourceField: IComplianceEntity | void = source.find(({ identifierField }) => identifierField === fieldName);
-      let ret = {};
-
-      if (sourceField) {
-        for (const [key, value] of <Array<[K, IComplianceEntity[K]]>>Object.entries(sourceField)) {
-          if (keys.includes(key)) {
-            ret = { ...ret, [key]: value };
-          }
-        }
-      }
-
-      return ret;
-    };
-
-    return columnFieldProps.reduce((acc, { identifierField, dataType }) => {
-      const currentPrivacyAttrs = getKeysOnField(
-        ['identifierType', 'logicalType', 'securityClassification', 'nonOwner', 'readonly'],
-        identifierField,
-        complianceEntities
-      );
-
-      return {
-        ...acc,
-        [identifierField]: {
-          identifierField,
-          dataType,
-          readonly: false, // default value overridden by value in currentPrivacyAttrs below
-          ...currentPrivacyAttrs,
-          policyModificationTime,
-          privacyPolicyExists: hasEnumerableKeys(currentPrivacyAttrs),
-          isDirty: false
-        }
-      };
-    }, {});
-  }
-
-  /**
    * Computed prop over the current Id fields in the Privacy Policy
    * @type {ComputedProperty<ISchemaFieldsToPolicy>}
    */
-  columnIdFieldsToCurrentPrivacyPolicy = computed(
+  columnIdFieldsToCurrentPrivacyPolicy: ComputedProperty<ISchemaFieldsToPolicy> = computed(
     `{schemaFieldNamesMappedToDataTypes,${policyComplianceEntitiesKey}.[]}`,
     function(this: DatasetCompliance): ISchemaFieldsToPolicy {
       const {
@@ -640,14 +586,16 @@ export default class DatasetCompliance extends Component {
         complianceEntities: []
       };
       // Truncated list of Dataset field names and data types currently returned from the column endpoint
-      const columnFieldProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
+      const columnProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
         ({ fieldName, dataType }) => ({
           identifierField: fieldName,
           dataType
         })
       );
 
-      return this.mapColumnIdFieldsToCurrentPrivacyPolicy(columnFieldProps, complianceEntities, {
+      return mapSchemaColumnPropsToCurrentPrivacyPolicy({
+        columnProps,
+        complianceEntities,
         policyModificationTime: modifiedTime
       });
     }
