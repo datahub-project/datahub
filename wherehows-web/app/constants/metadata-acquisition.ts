@@ -1,8 +1,7 @@
-import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
-import { ISecurityClassificationOption } from 'wherehows-web/constants/dataset-compliance';
 import { Classification, ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { formatAsCapitalizedStringWithSpaces } from 'wherehows-web/utils/helpers/string';
+import { IComplianceChangeSet, ISecurityClassificationOption } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Length of time between suggestion modification time and last modified time for the compliance policy

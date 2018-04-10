@@ -1,6 +1,7 @@
 import Component from '@ember/component';
 import { get, computed } from '@ember/object';
-import { getSecurityClassificationDropDownOptions, ISecurityClassificationOption } from 'wherehows-web/constants';
+import { ISecurityClassificationOption } from 'wherehows-web/typings/app/dataset-compliance';
+import { getSecurityClassificationDropDownOptions } from 'wherehows-web/constants';
 
 export default class SchemalessTagging extends Component {
   classNames = ['schemaless-tagging'];
