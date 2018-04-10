@@ -1,6 +1,5 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias } from '@ember/object/computed';
-import { computed, get } from '@ember/object';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 
 export default class AvatarImage extends Component {
@@ -8,7 +7,7 @@ export default class AvatarImage extends Component {
 
   classNames = ['avatar'];
 
-  attributeBindings = ['src', 'alt:name'];
+  attributeBindings = ['src', 'name:alt'];
 
   /**
    * The avatar object to render
@@ -18,12 +17,9 @@ export default class AvatarImage extends Component {
 
   /**
    * Returns the image url for the avatar
-   * @type {ComputedProperty<string>}
+   * @type {ComputedProperty<IAvatar['imageUrl']>}
    */
-  src: ComputedProperty<string | void> = computed('avatar.imageUrl', function(this: AvatarImage): string | void {
-    //@ts-ignore dot notation property access
-    return get(this, 'avatar.imageUrl');
-  });
+  src: ComputedProperty<IAvatar['imageUrl']> = alias('avatar.imageUrl');
 
   /**
    * Aliases the name property on the related avatar
