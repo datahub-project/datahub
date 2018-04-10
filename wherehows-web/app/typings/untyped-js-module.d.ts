@@ -19,6 +19,19 @@ declare module 'ember-simple-auth/authenticators/base' {
   export default EmberObject;
 }
 
+/**
+ * Augments the Transition interface in the Ember namespace
+ */
+declare module 'ember' {
+  export namespace Ember {
+    interface Transition {
+      params: {
+        [key: string]: any;
+      };
+    }
+  }
+}
+
 declare module 'ember-simple-auth/services/session' {
   import Ember from 'ember';
   import Service from '@ember/service';
@@ -41,15 +54,6 @@ declare module 'ember-inflector' {
 
 declare module 'wherehows-web/utils/datasets/compliance-policy' {
   export const isPolicyExpectedShape: (policy: object) => boolean;
-}
-
-declare module 'wherehows-web/controllers/datasets/dataset' {
-  import Controller from '@ember/controller';
-  import { Tabs } from 'wherehows-web/constants/datasets/shared';
-
-  export default class extends Controller {
-    tabSelected: Tabs;
-  }
 }
 
 declare module 'ember-cli-mirage';
