@@ -1,5 +1,5 @@
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { OwnerSource, OwnerIdType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
+import { OwnerSource, OwnerIdType, OwnerUrnNamespace, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 
 export default <Array<IOwner>>[
   {
@@ -14,7 +14,7 @@ export default <Array<IOwner>>[
     namespace: OwnerUrnNamespace.corpUser,
     source: OwnerSource.Ui,
     subType: null,
-    type: 'Owner'
+    type: OwnerType.Owner
   },
   {
     confirmedBy: '',
@@ -28,6 +28,6 @@ export default <Array<IOwner>>[
     namespace: OwnerUrnNamespace.corpUser,
     source: OwnerSource.Nuage,
     subType: null,
-    type: 'Owner'
+    type: OwnerType.Owner
   }
 ];
