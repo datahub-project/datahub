@@ -14,7 +14,7 @@ export default <Array<IOwner>>[
     namespace: OwnerUrnNamespace.corpUser,
     source: OwnerSource.Ui,
     subType: null,
-    type: 'Owner'
+    type: 'DataOwner'
   },
   {
     confirmedBy: '',
@@ -28,6 +28,6 @@ export default <Array<IOwner>>[
     namespace: OwnerUrnNamespace.corpUser,
     source: OwnerSource.Nuage,
     subType: null,
-    type: 'Owner'
+    type: 'DataOwner'
   }
 ];

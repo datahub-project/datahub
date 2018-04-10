@@ -25,7 +25,7 @@ enum OwnerIdType {
  * @type {string}
  */
 enum OwnerType {
-  Owner = 'Owner',
+  Owner = 'DataOwner',
   Consumer = 'Consumer',
   Delegate = 'Delegate',
   Producer = 'Producer',
