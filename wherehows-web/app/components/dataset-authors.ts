@@ -83,7 +83,7 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthors
    */
-  requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.length', function(
+  requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.@each.type', function(
     this: DatasetAuthors
   ) {
     return isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
