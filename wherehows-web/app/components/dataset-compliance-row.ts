@@ -1,5 +1,4 @@
 import { action } from 'ember-decorators/object';
-import { IComplianceChangeSet } from 'wherehows-web/components/dataset-compliance';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import ComputedProperty, { alias, bool } from '@ember/object/computed';
 import { computed, get, getProperties, getWithDefault } from '@ember/object';
@@ -8,9 +7,6 @@ import {
   ComplianceFieldIdValue,
   SuggestionIntent,
   getDefaultSecurityClassification,
-  IComplianceFieldFormatOption,
-  IComplianceFieldIdentifierOption,
-  IDropDownOption,
   fieldChangeSetRequiresReview,
   isFieldIdType,
   changeSetReviewableAttributeTriggers,
@@ -21,6 +17,12 @@ import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-sug
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
+import {
+  IComplianceChangeSet,
+  IComplianceFieldFormatOption,
+  IComplianceFieldIdentifierOption,
+  IDropDownOption
+} from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Constant definition for an unselected field format

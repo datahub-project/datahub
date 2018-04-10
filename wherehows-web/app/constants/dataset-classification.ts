@@ -1,5 +1,4 @@
-import { IDropDownOption } from 'wherehows-web/constants';
-
+import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
 /**
  * List of string values for every dataset classifier
  * @enum {string}
