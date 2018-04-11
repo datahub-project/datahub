@@ -1,8 +1,8 @@
 import { PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { arrayEvery, arrayFilter, arrayMap } from 'wherehows-web/utils/array';
-import { fleece } from 'wherehows-web/utils/object';
+import { arrayEvery, arrayFilter, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
+import { fleece, hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 import { pick } from 'lodash';
 import { decodeUrn } from 'wherehows-web/utils/validators/urn';
@@ -12,6 +12,11 @@ import {
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested
 } from 'wherehows-web/typings/app/dataset-compliance';
+import {
+  IColumnFieldProps,
+  ICompliancePolicyReducerFactory,
+  ISchemaColumnMappingProps
+} from 'wherehows-web/typings/app/dataset-columns';
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -264,6 +269,81 @@ const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => {
   };
 };
 
+/**
+ * Extracts the values on a compliance Entity for a given list of keys
+ * @template K IComplianceEntity instance attribute
+ * @param {Array<K>} [keys=[]]
+ * @param {string} fieldName
+ * @param {IComplianceInfo.complianceEntities} [source=[]]
+ * @returns {({ [V in K]: IComplianceEntity[V] } | {})}
+ */
+const getKeysOnComplianceEntity = <K extends keyof IComplianceEntity>(
+  keys: Array<K> = [],
+  fieldName: string,
+  source: IComplianceInfo['complianceEntities'] = []
+): { [V in K]: IComplianceEntity[V] } | {} => {
+  const sourceField: IComplianceEntity | void = source.find(({ identifierField }) => identifierField === fieldName);
+  let result = {};
+
+  if (sourceField) {
+    for (const [key, value] of <Array<[K, IComplianceEntity[K]]>>Object.entries(sourceField)) {
+      if (keys.includes(key)) {
+        result = { ...result, [key]: value };
+      }
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Maps the fields found in the column property on the schema api to the values returned in the current privacy policy
+ * @param {ISchemaColumnMappingProps} {
+ *   columnProps,
+ *   complianceEntities,
+ *   policyModificationTime
+ * }
+ * @returns {ISchemaFieldsToPolicy}
+ */
+const mapSchemaColumnPropsToCurrentPrivacyPolicy = ({
+  columnProps,
+  complianceEntities,
+  policyModificationTime
+}: ISchemaColumnMappingProps): ISchemaFieldsToPolicy =>
+  arrayReduce(columnToPolicyReducingFn(complianceEntities, policyModificationTime), {})(columnProps);
+
+/**
+ * Takes the current compliance entities, and mod time and returns a reducer that consumes a list of IColumnFieldProps
+ * instances and maps each entry to a compliance entity on the current compliance policy
+ * @param {IComplianceInfo.complianceEntities} currentEntities
+ * @param {IComplianceInfo.modifiedTime} policyModificationTime
+ * @type ICompliancePolicyReducerFactory
+ */
+const columnToPolicyReducingFn: ICompliancePolicyReducerFactory = (
+  currentEntities: IComplianceInfo['complianceEntities'],
+  policyModificationTime: IComplianceInfo['modifiedTime']
+) => (acc: ISchemaFieldsToPolicy, { identifierField, dataType }: IColumnFieldProps) => {
+  const currentPrivacyAttrs = getKeysOnComplianceEntity(
+    ['identifierType', 'logicalType', 'securityClassification', 'nonOwner', 'readonly'],
+    identifierField,
+    currentEntities
+  );
+
+  // assertion required due to TS spread object limitation, not present with Object#assign, but this reads cleaner
+  return <ISchemaFieldsToPolicy>{
+    ...acc,
+    [identifierField]: {
+      identifierField,
+      dataType,
+      readonly: false, // default value overridden by value in currentPrivacyAttrs below
+      ...currentPrivacyAttrs,
+      policyModificationTime,
+      privacyPolicyExists: hasEnumerableKeys(currentPrivacyAttrs),
+      isDirty: false
+    }
+  };
+};
+
 export {
   compliancePolicyStrings,
   getFieldIdentifierOption,
@@ -283,5 +363,6 @@ export {
   idTypeFieldHasLogicalType,
   idTypeFieldsHaveLogicalType,
   changeSetFieldsRequiringReview,
-  changeSetReviewableAttributeTriggers
+  changeSetReviewableAttributeTriggers,
+  mapSchemaColumnPropsToCurrentPrivacyPolicy
 };
