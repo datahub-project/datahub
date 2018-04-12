@@ -158,6 +158,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    config.put("showOwnership", WHZ_DS_OWNERSHIP_TAB);
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
     response.put("status", "ok");
