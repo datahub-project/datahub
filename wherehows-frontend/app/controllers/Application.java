@@ -54,6 +54,7 @@ public class Application extends Controller {
   private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
   private static final String JIT_ACL_WHITELIST =
       Play.application().configuration().getString("linkedin.jit.acl.whitelist", "");
+  private static final String WHZ_DS_OWNERSHIP_TAB = System.getenv("WHZ_DS_OWNERSHIP_TAB");
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
