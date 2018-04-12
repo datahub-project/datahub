@@ -8,6 +8,7 @@ import { DatasetPlatform } from 'wherehows-web/constants';
 interface IAppConfig {
   isInternal: boolean | void;
   jitAclAccessWhitelist: Array<DatasetPlatform> | void;
+  showOwnership: string;
   [key: string]: any;
 }
 
