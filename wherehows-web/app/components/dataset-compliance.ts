@@ -29,7 +29,8 @@ import {
   idTypeFieldsHaveLogicalType,
   changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
-  mapSchemaColumnPropsToCurrentPrivacyPolicy
+  mapSchemaColumnPropsToCurrentPrivacyPolicy,
+  foldComplianceChangeSets
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import scrollMonitor from 'scrollmonitor';
@@ -49,6 +50,7 @@ import {
   IComplianceChangeSet,
   IComplianceFieldIdentifierOption,
   IDatasetComplianceActions,
+  IdentifierFieldWithFieldChangeSetTuple,
   IDropDownOption,
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested,
@@ -686,6 +688,18 @@ export default class DatasetCompliance extends Component {
       return get(this, 'fieldReviewOption') === 'showReview'
         ? changeSetFieldsRequiringReview(complianceDataTypes)(changeSet)
         : changeSet;
+    }
+  );
+
+  /**
+   * Reduces the current filtered changeSet to a list of IdentifierFieldWithFieldChangeSetTuple
+   * @type {ComputedProperty<Array<IdentifierFieldWithFieldChangeSetTuple>>}
+   * @memberof DatasetCompliance
+   */
+  foldedChangeSet: ComputedProperty<Array<IdentifierFieldWithFieldChangeSetTuple>> = computed(
+    'filteredChangeSet',
+    function(this: DatasetCompliance): Array<IdentifierFieldWithFieldChangeSetTuple> {
+      return foldComplianceChangeSets(get(this, 'filteredChangeSet'));
     }
   );
 

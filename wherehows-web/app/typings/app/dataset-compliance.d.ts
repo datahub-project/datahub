@@ -71,6 +71,19 @@ type IComplianceChangeSet = {
 } & SchemaFieldToPolicyValue;
 
 /**
+ * Describes the mapping of an identifier field to it's compliance changeset list
+ * @interface IIdentifierFieldWithFieldChangeSetObject
+ */
+interface IIdentifierFieldWithFieldChangeSetObject {
+  [identifierField: string]: Array<IComplianceChangeSet>;
+}
+
+/**
+ * Defines a type for identifierField with it's changeSet tuple
+ */
+type IdentifierFieldWithFieldChangeSetTuple = [string, Array<IComplianceChangeSet>];
+
+/**
  * Defines the generic interface field identifier drop downs
  * @interface IDropDownOption
  * @template T
@@ -120,5 +133,7 @@ export {
   IDropDownOption,
   IComplianceFieldIdentifierOption,
   IComplianceFieldFormatOption,
-  ISecurityClassificationOption
+  ISecurityClassificationOption,
+  IIdentifierFieldWithFieldChangeSetObject,
+  IdentifierFieldWithFieldChangeSetTuple
 };
