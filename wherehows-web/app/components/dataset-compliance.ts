@@ -57,6 +57,7 @@ import {
   ISecurityClassificationOption,
   ShowAllShowReview
 } from 'wherehows-web/typings/app/dataset-compliance';
+import { uniqBy } from 'lodash';
 
 const {
   complianceDataException,
@@ -535,11 +536,14 @@ export default class DatasetCompliance extends Component {
    * to what is available on the dataset schema
    * @return {boolean}
    */
-  isSchemaFieldLengthGreaterThanComplianceEntities(this: DatasetCompliance): boolean {
+  isSchemaFieldLengthGreaterThanUniqComplianceEntities(this: DatasetCompliance): boolean {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
       const { length: columnFieldsLength } = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []);
-      const { length: complianceListLength } = get(complianceInfo, 'complianceEntities') || [];
+      const { length: complianceListLength } = uniqBy(
+        get(complianceInfo, 'complianceEntities') || [],
+        'identifierField'
+      );
 
       return columnFieldsLength >= complianceListLength;
     }
@@ -825,7 +829,7 @@ export default class DatasetCompliance extends Component {
 
       // Create confirmation dialog
       get(this, 'notifications').notify(NotificationEvent.confirm, {
-        header: 'Confirm fields marked as `none`',
+        header: 'Confirm fields to tagged as `none` field type',
         content: `There are ${unformatted.length} non-ID fields. `,
         dialogActions: dialogActions
       });
@@ -856,15 +860,9 @@ export default class DatasetCompliance extends Component {
 
     // Validation operations
     const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
-    const fieldIdentifiersAreUnique: boolean = isListUnique(complianceEntities.mapBy('identifierField'));
-    const schemaFieldLengthGreaterThanComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanComplianceEntities();
+    const isSchemaFieldLengthGreaterThanUniqComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanUniqComplianceEntities();
 
-    if (!fieldIdentifiersAreUnique) {
-      notify(NotificationEvent.error, { content: complianceFieldNotUnique });
-      return Promise.reject(new Error(complianceFieldNotUnique));
-    }
-
-    if (!schemaFieldLengthGreaterThanComplianceEntities) {
+    if (!isSchemaFieldLengthGreaterThanUniqComplianceEntities) {
       notify(NotificationEvent.error, { content: complianceDataException });
       return Promise.reject(new Error(complianceFieldNotUnique));
     }
