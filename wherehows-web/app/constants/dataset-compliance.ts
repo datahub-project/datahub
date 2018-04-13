@@ -9,6 +9,8 @@ import { decodeUrn } from 'wherehows-web/utils/validators/urn';
 import {
   IComplianceChangeSet,
   IComplianceFieldIdentifierOption,
+  IdentifierFieldWithFieldChangeSetTuple,
+  IIdentifierFieldWithFieldChangeSetObject,
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested
 } from 'wherehows-web/typings/app/dataset-compliance';
@@ -251,6 +253,31 @@ const mergeMappedColumnFieldsWithSuggestions = (
   });
 
 /**
+ * Creates a map of compliance changeSet identifier field to compliance change sets
+ * @param {IIdentifierFieldWithFieldChangeSetObject} identifierFieldMap
+ * @param {IComplianceChangeSet} changeSet
+ * @returns {IIdentifierFieldWithFieldChangeSetObject}
+ */
+const foldComplianceChangeSetToField = (
+  identifierFieldMap: IIdentifierFieldWithFieldChangeSetObject,
+  changeSet: IComplianceChangeSet
+): IIdentifierFieldWithFieldChangeSetObject => ({
+  ...identifierFieldMap,
+  [changeSet.identifierField]: [...identifierFieldMap[changeSet.identifierField], changeSet]
+});
+
+/**
+ * Reduces a list of IComplianceChangeSet to a list of tuples with a complianceChangeSet identifierField
+ * and a changeSet list
+ * @param {Array<IComplianceChangeSet>} changeSet
+ * @returns {Array<IdentifierFieldWithFieldChangeSetTuple>}
+ */
+const foldComplianceChangeSets = (
+  changeSet: Array<IComplianceChangeSet>
+): Array<IdentifierFieldWithFieldChangeSetTuple> =>
+  Object.entries<Array<IComplianceChangeSet>>(arrayReduce(foldComplianceChangeSetToField, {})(changeSet));
+
+/**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
  *   for non null properties as per Avro schema
  * @param {string} datasetId identifier for the dataset that this privacy object applies to
@@ -364,5 +391,6 @@ export {
   idTypeFieldsHaveLogicalType,
   changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
-  mapSchemaColumnPropsToCurrentPrivacyPolicy
+  mapSchemaColumnPropsToCurrentPrivacyPolicy,
+  foldComplianceChangeSets
 };
