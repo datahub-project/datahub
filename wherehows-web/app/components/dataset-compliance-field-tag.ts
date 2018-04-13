@@ -44,6 +44,21 @@ export default class DatasetComplianceFieldTag extends Component {
   onTagIdentifierTypeChange: (tag: IComplianceChangeSet, option: { value: ComplianceFieldIdValue | null }) => void;
 
   /**
+   * Describes the parent action interface for `onTagLogicalTypeChange`
+   */
+  onTagLogicalTypeChange: (tag: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
+
+  /**
+   * Describes the parent action interface for `onTagClassificationChange`
+   */
+  onTagClassificationChange: (tag: IComplianceChangeSet, option: { value: '' | Classification }) => void;
+
+  /**
+   * Describes the parent action interface for `onTagOwnerChange`
+   */
+  onTagOwnerChange: (tag: IComplianceChangeSet, nonOwner: boolean) => void;
+
+  /**
    * References the change set item / tag to be added to the parent field
    * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceFieldTag
@@ -176,7 +191,11 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   @action
   tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, { value }: { value: IComplianceChangeSet['logicalType'] }) {
-    console.log(value);
+    const onTagLogicalTypeChange = get(this, 'onTagLogicalTypeChange');
+
+    if (typeof onTagLogicalTypeChange === 'function') {
+      onTagLogicalTypeChange(get(this, 'tag'), value);
+    }
   }
 
   /**
@@ -185,11 +204,10 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   @action
   tagClassificationDidChange(this: DatasetComplianceFieldTag, { value }: { value: '' | Classification }) {
-    // const onFieldClassificationChange = get(this, 'onFieldClassificationChange');
-    // if (typeof onFieldClassificationChange === 'function') {
-    //   onFieldClassificationChange(get(this, 'tag'), { value });
-    // }
-    console.log(value);
+    const onTagClassificationChange = get(this, 'onTagClassificationChange');
+    if (typeof onTagClassificationChange === 'function') {
+      onTagClassificationChange(get(this, 'tag'), { value });
+    }
   }
 
   /**
@@ -198,8 +216,8 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   @action
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
-    // get(this, 'onFieldOwnerChange')(get(this, 'field'), nonOwner);
-    console.log(nonOwner);
+    // inverts the value of nonOwner, toggle is shown in the UI as `Owner` i.e. not nonOwner
+    get(this, 'onTagOwnerChange')(get(this, 'tag'), !nonOwner);
   }
 
   /**

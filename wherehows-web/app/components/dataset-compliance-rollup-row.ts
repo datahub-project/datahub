@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias } from '@ember/object/computed';
-import { get, set, getProperties, computed } from '@ember/object';
+import { get, getProperties, computed } from '@ember/object';
 import { action } from 'ember-decorators/object';
 import {
   IComplianceChangeSet,
@@ -15,6 +15,11 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * References the parent external action to add a tag to the list of change sets
    */
   onFieldTagAdded: (tag: IComplianceChangeSet) => IComplianceChangeSet;
+
+  /**
+   * References the parent external action to add a tag to the list of change sets
+   */
+  onFieldTagRemoved: (tag: IComplianceChangeSet) => IComplianceChangeSet;
 
   /**
    * Flag indicating if the row is expanded or collapsed
@@ -95,7 +100,23 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 
     if (typeof onFieldTagAdded === 'function') {
       onFieldTagAdded(complianceFieldTagFactory({ identifierField, dataType }));
-      set(this, 'isRowExpanded', true);
+    }
+  }
+
+  /**
+   * Handles the removal of a field tag from the list of change set items
+   * @param {IComplianceChangeSet} tag
+   * @memberof DatasetComplianceRollupRow
+   */
+  @action
+  onRemoveFieldTag(this: DatasetComplianceRollupRow, tag: IComplianceChangeSet) {
+    const onFieldTagRemoved = get(this, 'onFieldTagRemoved');
+    //@ts-ignore dot notation access is ts limitation with ember object model
+    const isSoleTag = get(this, 'fieldChangeSet.length') === 1;
+    ``;
+
+    if (typeof onFieldTagRemoved === 'function' && !isSoleTag) {
+      onFieldTagRemoved(tag);
     }
   }
 }
