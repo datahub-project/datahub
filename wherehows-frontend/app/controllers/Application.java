@@ -54,6 +54,8 @@ public class Application extends Controller {
   private static final Boolean IS_INTERNAL = Play.application().configuration().getBoolean("linkedin.internal", false);
   private static final String JIT_ACL_WHITELIST =
       Play.application().configuration().getString("linkedin.jit.acl.whitelist", "");
+  private static final String WHZ_DS_OWNERSHIP_TAB =
+      Play.application().configuration().getString("ui.show.ownership.revamp", "hide");
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -157,6 +159,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    config.put("showOwnership", WHZ_DS_OWNERSHIP_TAB);
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
     response.put("status", "ok");
