@@ -30,7 +30,7 @@ type SchemaFieldToPolicyValue = Pick<
   privacyPolicyExists: boolean;
   // flag indicating the field changeSet has been modified on the client
   isDirty: boolean;
-  policyModificationTime: IComplianceInfo['modifiedTime'];
+  policyModificationTime?: IComplianceInfo['modifiedTime'];
   dataType: string;
 };
 
