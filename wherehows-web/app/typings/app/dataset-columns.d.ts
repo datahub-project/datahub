@@ -1,5 +1,5 @@
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
-import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
+import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { ISchemaFieldsToPolicy } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
@@ -9,6 +9,8 @@ import { ISchemaFieldsToPolicy } from 'wherehows-web/typings/app/dataset-complia
 interface IColumnFieldProps {
   identifierField: IDatasetColumn['fullFieldPath'];
   dataType: IDatasetColumn['dataType'];
+  identifierType?: IComplianceEntity['identifierType'];
+  logicalType?: IComplianceEntity['logicalType'];
 }
 
 /**
@@ -23,7 +25,7 @@ interface ISchemaColumnMappingProps {
 
 /**
  * Describes the function interface for the mapping reducer function that takes current entities and modification time
- * and returns a function that accummulates and instance of ISchemaFieldsToPolicy
+ * and returns a function that accumulates and instance of ISchemaFieldsToPolicy
  * @interface ICompliancePolicyReducerFactory
  */
 interface ICompliancePolicyReducerFactory {

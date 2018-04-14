@@ -179,14 +179,15 @@ const fieldChangeSetRequiresReview = (complianceDataTypes: Array<IComplianceData
    * @return {boolean}
    */
   (changeSet: IComplianceChangeSet): boolean => {
-    const { isDirty, suggestion, privacyPolicyExists, suggestionAuthority, readonly } = changeSet;
+    const { isDirty, suggestion, privacyPolicyExists, suggestionAuthority, readonly, identifierType } = changeSet;
     let isReviewRequired = false;
 
     if (readonly) {
       return false;
     }
 
-    if (suggestion) {
+    // Check that suggestion exists and the identifierType does not match the change set item
+    if (suggestion && suggestion.identifierType !== identifierType) {
       isReviewRequired = isReviewRequired || !suggestionAuthority;
     }
 
@@ -197,12 +198,38 @@ const fieldChangeSetRequiresReview = (complianceDataTypes: Array<IComplianceData
     return isReviewRequired || !(privacyPolicyExists || isDirty);
   };
 
+/**
+ * Asserts that a tag / change set item has an identifier type that is in the list of compliance data types
+ * @param {Array<IComplianceDataType>} [complianceDataTypes=[]]
+ */
 const isFieldIdType = (complianceDataTypes: Array<IComplianceDataType> = []) => ({
   identifierType
 }: IComplianceChangeSet): boolean => getIdTypeDataTypes(complianceDataTypes).includes(<string>identifierType);
 
+/**
+ * Asserts that a tag has a value for it's identifierType property
+ * @param {IComplianceChangeSet} {identifierType}
+ * @returns {boolean}
+ */
+const tagHasIdentifierType = ({ identifierType }: IComplianceChangeSet): boolean => !!identifierType;
+
+/**
+ * Takes an array of compliance change sets and checks that each item has an identifierType
+ * @type {(array: IComplianceChangeSet[]) => boolean}
+ */
+const isFieldTagged = arrayEvery(tagHasIdentifierType);
+
+/**
+ * Asserts that a compliance entity has a logical type
+ * @param {IComplianceEntity} { logicalType }
+ * @returns {boolean}
+ */
 const idTypeFieldHasLogicalType = ({ logicalType }: IComplianceEntity): boolean => !!logicalType;
 
+/**
+ * Asserts that a list of compliance entities each have a logicalType attribute value
+ * @type {(array: IComplianceEntity[]) => boolean}
+ */
 const idTypeFieldsHaveLogicalType = arrayEvery(idTypeFieldHasLogicalType);
 /**
  * Gets the fields requiring review
@@ -345,11 +372,16 @@ const mapSchemaColumnPropsToCurrentPrivacyPolicy = ({
  * @param {IColumnFieldProps} { identifierField, dataType } the runtime properties to apply to the created instance
  * @returns {SchemaFieldToPolicyValue}
  */
-const complianceFieldTagFactory = ({ identifierField, dataType }: IColumnFieldProps): SchemaFieldToPolicyValue => ({
+const complianceFieldTagFactory = ({
   identifierField,
   dataType,
-  identifierType: null,
-  logicalType: null,
+  identifierType,
+  logicalType
+}: IColumnFieldProps): SchemaFieldToPolicyValue => ({
+  identifierField,
+  dataType,
+  identifierType: identifierType || null,
+  logicalType: logicalType || null,
   securityClassification: null,
   nonOwner: null,
   readonly: false,
@@ -405,6 +437,7 @@ export {
   getFieldsRequiringReview,
   createInitialComplianceInfo,
   getIdTypeDataTypes,
+  isFieldTagged,
   idTypeFieldHasLogicalType,
   idTypeFieldsHaveLogicalType,
   changeSetFieldsRequiringReview,
