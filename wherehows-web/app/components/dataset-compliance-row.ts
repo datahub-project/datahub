@@ -1,3 +1,4 @@
+// TODO: deprecate in favour of compliance rollup row
 import { action } from 'ember-decorators/object';
 import DatasetTableRow from 'wherehows-web/components/dataset-table-row';
 import ComputedProperty, { alias, bool } from '@ember/object/computed';
@@ -13,7 +14,7 @@ import {
   idTypeFieldHasLogicalType
 } from 'wherehows-web/constants';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import noop from 'wherehows-web/utils/noop';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
@@ -21,7 +22,8 @@ import {
   IComplianceChangeSet,
   IComplianceFieldFormatOption,
   IComplianceFieldIdentifierOption,
-  IDropDownOption
+  IDropDownOption,
+  ISuggestedFieldTypeValues
 } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
@@ -349,12 +351,8 @@ export default class DatasetComplianceRow extends DatasetTableRow {
    */
   prediction = computed('field.suggestion', 'field.suggestionAuthority', function(
     this: DatasetComplianceRow
-  ): {
-    identifierType: IComplianceChangeSet['identifierType'];
-    logicalType: IComplianceChangeSet['logicalType'];
-    confidence: number;
-  } | void {
-    return getFieldSuggestions(getWithDefault(this, 'field', <IComplianceChangeSet>{}));
+  ): ISuggestedFieldTypeValues | void {
+    return getTagSuggestions(getWithDefault(this, 'field', <IComplianceChangeSet>{}));
   });
 
   /**

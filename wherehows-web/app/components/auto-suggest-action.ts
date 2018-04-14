@@ -1,59 +1,70 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { computed, getProperties } from '@ember/object';
-import noop from 'wherehows-web/utils/noop';
 import { SuggestionIntent } from 'wherehows-web/constants';
 import { IComplianceChangeSet } from 'wherehows-web/typings/app/dataset-compliance';
 
-/**
- * Describes the interface for the auto-suggest-action component
- * @interface IAutoSuggestAction
- */
-interface IAutoSuggestAction {
+export default class AutoSuggestAction extends Component {
+  tagName = 'button';
+
+  classNames = ['compliance-auto-suggester-action'];
+
+  classNameBindings = ['isAffirmative:compliance-auto-suggester-action--accept'];
+
+  /**
+   * Value of the user's action / reaction to suggested value
+   * @type {SuggestionIntent}
+   * @memberof AutoSuggestAction
+   */
   type: SuggestionIntent;
-  action: Function;
-  isAffirmative: ComputedProperty<boolean>;
+
+  /**
+   * Describes the interface for the external action `onSuggestionClick`
+   * @memberof AutoSuggestAction
+   */
+  onSuggestionClick: (intent: SuggestionIntent) => void;
+
+  /**
+   * Describes the interface for the external action `feedbackAction`
+   * @memberof AutoSuggestAction
+   */
+  feedbackAction: (uid: string | null, intent: SuggestionIntent) => void;
+
+  /**
+   * References the tag / field for which this suggestion should apply
+   * @type {IComplianceChangeSet}
+   * @memberof AutoSuggestAction
+   */
   field: IComplianceChangeSet;
-  feedbackAction: (uid: string | null, feedback: SuggestionIntent) => void;
-}
 
-export default Component.extend(<IAutoSuggestAction>{
-  tagName: 'button',
+  constructor() {
+    super(...arguments);
 
-  classNames: ['compliance-auto-suggester-action'],
-
-  classNameBindings: ['isAffirmative:compliance-auto-suggester-action--accept'],
-
-  type: SuggestionIntent.ignore,
-
-  action: noop,
-
-  feedbackAction: noop,
-
-  field: <IComplianceChangeSet>{},
+    this.type || (this.type = SuggestionIntent.ignore);
+  }
 
   /**
    * Determines the type of suggestion action this is
    * if type property is passed in
    */
-  isAffirmative: computed.equal('type', 'accept'),
+  isAffirmative: ComputedProperty<boolean> = computed.equal('type', 'accept');
 
   /**
    * Action handler for click event, invokes closure action with type as argument
    */
-  click() {
-    const { type: intent, action, field, feedbackAction } = getProperties(
+  click(): void {
+    const { type: intent, onSuggestionClick, field, feedbackAction } = getProperties(
       this,
       'type',
-      'action',
+      'onSuggestionClick',
       'field',
       'feedbackAction'
     );
     const { uid } = field.suggestion!;
 
-    if (typeof action === 'function') {
+    if (typeof onSuggestionClick === 'function') {
       feedbackAction(uid || null, intent);
-      return action(intent);
+      return onSuggestionClick(intent);
     }
   }
-});
+}

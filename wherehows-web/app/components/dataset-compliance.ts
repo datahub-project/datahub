@@ -34,7 +34,7 @@ import {
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import scrollMonitor from 'scrollmonitor';
-import { getFieldsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { compact, isListUnique } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -617,7 +617,7 @@ export default class DatasetCompliance extends Component {
   identifierFieldToSuggestion = computed('complianceSuggestion', function(
     this: DatasetCompliance
   ): ISchemaFieldsToSuggested {
-    const identifierFieldToSuggestion: ISchemaFieldsToSuggested = {};
+    const fieldSuggestions: ISchemaFieldsToSuggested = {};
     const complianceSuggestion = get(this, 'complianceSuggestion') || {
       lastModified: 0,
       suggestedFieldClassification: <Array<ISuggestedFieldClassification>>[]
@@ -629,10 +629,10 @@ export default class DatasetCompliance extends Component {
     if (suggestedFieldClassification.length) {
       return suggestedFieldClassification.reduce(
         (
-          identifierFieldToSuggestion: ISchemaFieldsToSuggested,
+          fieldSuggestions: ISchemaFieldsToSuggested,
           { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel, uid }
         ) => ({
-          ...identifierFieldToSuggestion,
+          ...fieldSuggestions,
           [identifierField]: {
             identifierType,
             logicalType,
@@ -642,11 +642,11 @@ export default class DatasetCompliance extends Component {
             suggestionsModificationTime
           }
         }),
-        identifierFieldToSuggestion
+        fieldSuggestions
       );
     }
 
-    return identifierFieldToSuggestion;
+    return fieldSuggestions;
   });
 
   /**
@@ -712,7 +712,7 @@ export default class DatasetCompliance extends Component {
    * @param {Array<IComplianceChangeSet>} changeSet
    */
   notifyHandlerOfSuggestions = (changeSet: Array<IComplianceChangeSet>): void => {
-    const hasChangeSetSuggestions = !!compact(getFieldsSuggestions(changeSet)).length;
+    const hasChangeSetSuggestions = !!compact(getTagsSuggestions(changeSet)).length;
     this.notifyOnChangeSetSuggestions(hasChangeSetSuggestions);
   };
 
@@ -829,8 +829,8 @@ export default class DatasetCompliance extends Component {
 
       // Create confirmation dialog
       get(this, 'notifications').notify(NotificationEvent.confirm, {
-        header: 'Confirm fields to tagged as `none` field type',
-        content: `There are ${unformatted.length} non-ID fields. `,
+        header: `Fields will be tagged with \`${ComplianceFieldIdValue.None}\` field type`,
+        content: `There are ${unformatted.length} non-ID fields`,
         dialogActions: dialogActions
       });
 
@@ -1161,17 +1161,17 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Augments the field props with w a suggestionAuthority indicating that the field
+     * Augments the tag props with a suggestionAuthority indicating that the tag
      * suggestion has either been accepted or ignored, and assigns the value of that change to the prop
-     * @param {IComplianceChangeSet} field field for which this suggestion intent should apply
+     * @param {IComplianceChangeSet} tag tag for which this suggestion intent should apply
      * @param {SuggestionIntent} [intent=SuggestionIntent.ignore] user's intended action for suggestion, Defaults to `ignore`
      */
     onFieldSuggestionIntentChange(
       this: DatasetCompliance,
-      field: IComplianceChangeSet,
+      tag: IComplianceChangeSet,
       intent: SuggestionIntent = SuggestionIntent.ignore
     ) {
-      set(field, 'suggestionAuthority', intent);
+      set(tag, 'suggestionAuthority', intent);
     },
 
     /**

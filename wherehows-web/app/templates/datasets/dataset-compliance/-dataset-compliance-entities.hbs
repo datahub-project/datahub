@@ -28,38 +28,36 @@
   {{/if}}
 </section>
 
-{{#if filteredChangeSet.length}}
+{{#if foldedChangeSet.length}}
   {{#dataset-table
-    class="nacho-table--stripped dataset-compliance-fields"
-    fields=filteredChangeSet
+    class="dataset-compliance-fields"
+    fields=foldedChangeSet
     sortColumnWithName=sortColumnWithName
     filterBy=filterBy
     sortDirection=sortDirection
-    tableRowComponent='dataset-compliance-row'
+    tableRowComponent='dataset-compliance-rollup-row'
     searchTerm=searchTerm as |table|
   }}
 
     {{#table.head as |head|}}
       {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
-      {{#head.column columnName="identifierField"}}
-
+      {{#head.column class="dataset-compliance-fields__identifier-column"}}
         Field
 
         {{more-info
           link="http://go/tms-schema"
           tooltip="more information on Schema"
         }}
-
       {{/head.column}}
-      {{#head.column columnName="dataType"}}Data Type{{/head.column}}
-      {{#head.column class="nacho-table-cell-wrapped" columnName="confidence"}}
-        System Suggestion Confidence
+      {{#head.column class="nacho-table-cell-wrapped"}}
+        System Suggestion & Confidence
       {{/head.column}}
       {{#head.column class="nacho-table-cell-wrapped"}}Compliance Information{{/head.column}}
+      {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
     {{/table.head}}
 
     <tr>
-      <th></th>
+      <th>{{!--spacer--}}</th>
       <th colspan="4">
         {{disable-bubble-input
           title="Search field names"
@@ -75,180 +73,277 @@
         {{#body.row
           field=field
           isNewComplianceInfo=isNewComplianceInfo
-          complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
           complianceDataTypes=complianceDataTypes
-          class=(if field.suggestion "dataset-compliance-fields__has-suggestions")
-          onFieldLogicalTypeChange=(action 'onFieldLogicalTypeChange')
-          onFieldClassificationChange=(action 'onFieldClassificationChange')
-          onSuggestionIntent=(action 'onFieldSuggestionIntentChange')
-          onFieldOwnerChange=(action 'onFieldOwnerChange')
-          onFieldIdentifierTypeChange=(action 'onFieldIdentifierTypeChange') as |row|
+          onFieldTagAdded=(action "onFieldTagAdded")
+          onFieldTagRemoved=(action "onFieldTagRemoved")
+          onTagIdentifierTypeChange=(action "tagIdentifierChanged")
+          onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
         }}
+          <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}">
+            {{#row.cell}}
+              {{#if row.isReadonly}}
 
-          {{#row.cell}}
-            {{#if row.isReadonly}}
-
-              <i class="fa fa-lock dataset-compliance-fields--readonly__icon" title="Readonly">
-                {{tooltip-on-element
-                  text="Readonly"
-                }}
-              </i>
-
-            {{else}}
-              {{#if (and row.suggestion (not row.suggestionResolution))}}
-
-                <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon" title="Compliance field has suggested values">
+                <i class="fa fa-lock dataset-compliance-fields--readonly__icon" title="Readonly">
                   {{tooltip-on-element
-                    text="Has suggestions"
+                    text="Readonly"
                   }}
                 </i>
 
               {{else}}
+                {{#if
+                  (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
 
-                {{#if row.isReviewRequested}}
-
-                  <i class="fa fa-question dataset-compliance-fields--review-required__icon" title="Compliance policy information needs review">
+                  <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
+                     title="Compliance field has suggested values">
                     {{tooltip-on-element
-                      text="Please review"
+                      text="Has suggestions"
                     }}
                   </i>
 
                 {{else}}
 
-                  <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!">
-                    {{tooltip-on-element
-                      text="All good!"
-                    }}
-                  </i>
+                  {{#if row.isReviewRequested}}
 
+                    <i class="fa fa-question dataset-compliance-fields--review-required__icon"
+                       title="Compliance policy information needs review">
+                      {{tooltip-on-element
+                        text="Please review"
+                      }}
+                    </i>
+
+                  {{else}}
+
+                    <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!">
+                      {{tooltip-on-element
+                        text="All good!"
+                      }}
+                    </i>
+
+
+                  {{/if}}
 
                 {{/if}}
-
               {{/if}}
-            {{/if}}
-          {{/row.cell}}
+            {{/row.cell}}
 
-          {{#row.cell}}
-            {{row.identifierField}}
-          {{/row.cell}}
-
-          {{#row.cell}}
-            {{row.dataType}}
-          {{/row.cell}}
-
-          {{#row.cell}}
-            {{#if row.suggestion}}
-              {{row.suggestion.confidence}}%
-              {{#if isEditing}}
-                {{auto-suggest-action
-                  type="accept"
-                  field=field
-                  feedbackAction=(action notifyOnComplianceSuggestionFeedback)
-                  action=(action row.onSuggestionAction)
-                }}
-
-                {{auto-suggest-action
-                  field=field
-                  feedbackAction=(action notifyOnComplianceSuggestionFeedback)
-                  action=(action row.onSuggestionAction)
-                }}
-              {{/if}}
-            {{else}}
-              {{#if row.suggestionResolution}}
-                {{row.suggestionResolution}}
-              {{else}}
-                &mdash;
-              {{/if}}
-            {{/if}}
-          {{/row.cell}}
-
-          {{#row.cell}}
-            <section class="compliance-depends compliance-depends--visible">
-              <div class="dataset-compliance-fields__form-input">
-                Field Type
-
-                {{more-info
-                  link="http://go/metadata_acquisition#ProjectOverview-compliance"
-                  tooltip="more information on various IDs"
-                }}
+            {{#row.cell}}
+              <div>
+                <strong>
+                  {{row.identifierField}}
+                </strong>
               </div>
 
-              {{ember-selector
-                disabled=(or (not isEditing) row.isReadonly)
-                values=complianceFieldIdDropdownOptions
-                selected=(readonly row.identifierType)
-                selectionDidChange=(action row.fieldIdentifierTypeDidChange)
-              }}
-
-              {{#if row.identifierTypeBeforeSuggestion}}
-                <p class="dataset-compliance-fields__current-value">Current: {{row.identifierTypeBeforeSuggestion}}</p>
-              {{/if}}
-            </section>
-
-            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
-              <div class="dataset-compliance-fields__form-input">
-                Field Format
-
-                {{more-info
-                  link="http://go/metadata_acquisition#ProjectOverview-compliance"
-                  tooltip="more information on Field Format"
-                }}
+              <div>
+                {{row.dataType}}
               </div>
+            {{/row.cell}}
 
-              {{ember-selector
-                disabled=(or (not isEditing) row.isReadonly)
-                values=row.fieldFormats
-                selected=(readonly row.logicalType)
-                selectionDidChange=(action row.fieldLogicalTypeDidChange)
-                class=(if row.isFieldFormatMissing "dataset-compliance-fields--missing-selection")
-              }}
-
-              {{#if row.logicalTypeBeforeSuggestion}}
-                <p class="dataset-compliance-fields__current-value">Current: {{row.logicalTypeBeforeSuggestion}}</p>
-              {{/if}}
-            </section>
-
-            <section class="compliance-depends {{if row.isIdType 'compliance-depends--visible'}}">
-              <div class="dataset-compliance-fields__form-input">
-                Not an Owner
-              </div>
-
-              {{input
-                id=(concat row.rowId '-compliance-field-owner-toggle')
-                type="checkbox"
-                class="toggle-switch toggle-switch--light"
-                disabled=(or (not isEditing) row.isReadonly)
-                checked=(readonly row.nonOwner)
-                change=(action row.onOwnerChange value="target.checked")
-              }}
-              <label for="{{concat row.rowId '-compliance-field-owner-toggle'}}" class="toggle-button"></label>
-            </section>
-
-            <section class="compliance-depends {{if (or row.isPiiType row.isIdType) 'compliance-depends--visible'}}">
-              <div class="dataset-compliance-fields__form-input">
-                Security Classification
-                <sup>
-                  <span
-                    class="glyphicon glyphicon-question-sign"
-                    title={{helpText.classification}}>
-                    {{tooltip-on-element
-                      event="click"
-                      hideOn="click"
-                      text=helpText.classification
-                    }}
+            {{#row.cell}}
+              <div class="dataset-compliance-fields__suggested-values">
+                {{#if row.suggestion}}
+                  <span class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
+                                                                                   'dataset-compliance-fields__suggested-value--no-res'}}">
+                    {{row.suggestion.identifierType}}
                   </span>
-                </sup>
-              </div>
 
-              {{ember-selector
-                class="nacho-select--hidden-state"
-                disabled=(or (not isEditing) row.isReadonly)
-                values=classifiers
-                selected=row.classification
-                selectionDidChange=(action row.fieldClassificationDidChange)
+                  <span class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
+                                                                                   'dataset-compliance-fields__suggested-value--no-res'}}">
+                    {{row.suggestion.logicalType}}
+                  </span>
+
+                  {{row.suggestion.confidence}}%
+                  &nbsp;
+                  {{#if isEditing}}
+
+                    {{#if row.suggestionResolution}}
+                      <div class="dataset-compliance-fields__resolution {{if (eq row.suggestionResolution 'Accepted')
+                                                                             'dataset-compliance-fields__resolution--ok'}}">
+                        {{row.suggestionResolution}}
+                      </div>
+                    {{else}}
+
+                      {{auto-suggest-action
+                        type="accept"
+                        field=row.fieldProps
+                        feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                        onSuggestionClick=(action row.onSuggestionClick)
+                      }}
+
+                      {{auto-suggest-action
+                        field=row.fieldProps
+                        feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                        onSuggestionClick=(action row.onSuggestionClick)
+                      }}
+
+                    {{/if}}
+                  {{/if}}
+                {{else}}
+                  &mdash;
+                {{/if}}
+              </div>
+            {{/row.cell}}
+
+            {{#row.cell}}
+              {{#if isEditing}}
+                <button
+                  class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
+                  onclick={{action row.onAddFieldTag}}>
+                  + Add Field type
+                </button>
+              {{else}}
+                {{#each row.fieldChangeSet as |tag|}}
+                  <div>
+                    {{tag.identifierType}}
+                  </div>
+                {{/each}}
+              {{/if}}
+            {{/row.cell}}
+
+            {{#row.cell}}
+              <button
+                class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
+                onclick={{action row.onToggleRowExpansion}}>
+
+                {{#if row.isRowExpanded}}
+                  <i class="glyphicon glyphicon-menu-up" aria-label="Expand field row"></i>
+                {{else}}
+                  <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field row"></i>
+                {{/if}}
+
+              </button>
+            {{/row.cell}}
+          </tr>
+
+          {{#if row.isRowExpanded}}
+            {{#each row.fieldChangeSet as |tag|}}
+              {{#dataset-compliance-field-tag
+                class="dataset-compliance-fields__tag-row"
+                tag=tag
+                onTagIdentifierTypeChange=(action "tagIdentifierChanged")
+                onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
+                onTagOwnerChange=(action "tagOwnerChanged")
+                onTagClassificationChange=(action "tagClassificationChanged")
+                complianceDataTypes=complianceDataTypes as |tagRowComponent|
               }}
-            </section>
-          {{/row.cell}}
+
+                {{#row.cell}}
+                {{!--spacer--}}
+                {{/row.cell}}
+
+                {{#row.cell class="dataset-compliance-fields__identifier-cell"}}
+                  <div class="dataset-compliance-fields__identifier-select">
+                    {{ember-selector
+                      disabled=(or (not isEditing) row.isReadonly)
+                      values=complianceFieldIdDropdownOptions
+                      selected=(readonly tag.identifierType)
+                      selectionDidChange=(action tagRowComponent.tagIdentifierTypeDidChange)
+                    }}
+                  </div>
+                {{/row.cell}}
+
+                <td colspan="2">
+                  <div class="dataset-compliance-fields__tag-options">
+                    {{#if tagRowComponent.isIdType}}
+                      <label for="{{concat tagRowComponent.rowId '-compliance-field-logical-type'}}"
+                             class="dataset-compliance-fields__tag-label">
+                        Field Format:
+                      </label>
+
+                      <div class="dataset-compliance-fields__select-wrapper">
+                        {{ember-selector
+                          id=(concat tagRowComponent.rowId "-compliance-field-logical-type")
+                          disabled=(or (not isEditing) row.isReadonly)
+                          values=tagRowComponent.fieldFormats
+                          selected=(readonly tag.logicalType)
+                          selectionDidChange=(action tagRowComponent.tagLogicalTypeDidChange)
+                          class=(if tagRowComponent.isTagFormatMissing "dataset-compliance-fields--missing-selection")
+                        }}
+                      </div>
+
+                      {{#unless tagRowComponent.isTagFormatMissing}}
+                        <span class="dataset-compliance-fields__tag-label">
+                          Owner:
+                        </span>
+
+                        {{input
+                          id=(concat tagRowComponent.rowId "-compliance-field-owner-toggle")
+                          type="checkbox"
+                          class="toggle-switch toggle-switch--light"
+                          disabled=(or (not isEditing) row.isReadonly)
+                          checked=(readonly (eq tag.nonOwner false))
+                          change=(action tagRowComponent.tagOwnerDidChange value="target.checked")
+                        }}
+                        <label for="{{concat tagRowComponent.rowId '-compliance-field-owner-toggle'}}"
+                               class="toggle-button"></label>
+
+                        {{!--TODO: Duplicated code move to component or partial--}}
+                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
+                               class="dataset-compliance-fields__tag-label">
+                          Security Classification:
+                          <sup>
+                          <span
+                            class="glyphicon glyphicon-question-sign"
+                            title={{helpText.classification}}>
+                            {{tooltip-on-element text=helpText.classification
+                            }}
+                          </span>
+                          </sup>
+                        </label>
+
+                        <div class="dataset-compliance-fields__select-wrapper">
+                          {{ember-selector
+                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
+                            class="nacho-select--hidden-state"
+                            disabled=(or (not isEditing) row.isReadonly)
+                            values=classifiers
+                            selected=tagRowComponent.tagClassification
+                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
+                          }}
+                        </div>
+                      {{/unless}}
+                    {{else}}
+                      {{#if tagRowComponent.isPiiType}}
+                      {{!--TODO: Duplicated code move to component or partial--}}
+                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
+                               class="dataset-compliance-fields__tag-label">
+                          Security Classification:
+                          <sup>
+                          <span
+                            class="glyphicon glyphicon-question-sign"
+                            title={{helpText.classification}}>
+                            {{tooltip-on-element text=helpText.classification
+                            }}
+                          </span>
+                          </sup>
+                        </label>
+
+                        <div class="dataset-compliance-fields__select-wrapper">
+                          {{ember-selector
+                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
+                            class="nacho-select--hidden-state"
+                            disabled=(or (not isEditing) row.isReadonly)
+                            values=classifiers
+                            selected=tagRowComponent.tagClassification
+                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
+                          }}
+                        </div>
+                      {{/if}}
+                    {{/if}}
+                  </div>
+                </td>
+
+                {{#row.cell}}
+                  {{#if isEditing}}
+                    <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
+                            onclick={{action row.onRemoveFieldTag tag}}>
+                      &times;
+                    </button>
+                  {{/if}}
+                {{/row.cell}}
+              {{/dataset-compliance-field-tag}}
+            {{/each}}
+          {{/if}}
+
         {{/body.row}}
       {{/each}}
     {{/table.body}}
