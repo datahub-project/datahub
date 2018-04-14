@@ -3,6 +3,10 @@
   $compliance-readonly-color: get-color(red7);
   $compliance-review-required-color: get-color(blue5);
   $compliance-ok-color: get-color(green5);
+  @mixin select-wrapper {
+    max-width: item-spacing(9) * 2;
+    display: inline-flex;
+  }
 
   &__has-suggestions {
     color: $compliance-suggestion-color;
@@ -15,6 +19,14 @@
 
   &__notification-column {
     width: 5%;
+  }
+
+  &__identifier-column {
+    width: 20%;
+  }
+
+  &__identifier-cell {
+    text-align: right;
   }
 
   &__classification-column {
@@ -74,6 +86,77 @@
       &::after {
         content: '?';
         color: get-color(white);
+      }
+    }
+  }
+
+  &__add-field {
+    &#{&} {
+      font-weight: fw(normal, 4);
+    }
+  }
+
+  &__rollup-toggle {
+    &#{&} {
+      color: get-color(gray7);
+    }
+  }
+
+  &__remove-tag {
+    &#{&} {
+      font-weight: fw(normal, 2);
+      font-size: item-spacing(6);
+      background-color: transparent;
+      text-align: center;
+      text-decoration: none;
+      vertical-align: middle;
+      cursor: pointer;
+      box-sizing: border-box;
+      color: get-color(black, 0.7);
+      border: 0;
+    }
+  }
+
+  &__select-wrapper {
+    @include select-wrapper;
+  }
+
+  &__identifier-select {
+    $border: 1px solid get-color(black, 0.7);
+
+    @include select-wrapper;
+    position: relative;
+
+    &:before {
+      content: ' ';
+      display: block;
+      position: absolute;
+      width: item-spacing(2);
+      height: 50%;
+      border-bottom: $border;
+      border-left: $border;
+      top: 2px;
+      left: -(item-spacing(3));
+    }
+  }
+
+  &__tag-options {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  &__tag-label {
+    margin: item-spacing(0 2);
+    font-weight: fw(normal, 2);
+  }
+
+  &__tag-row {
+    background-color: get-color(gray0);
+
+    &#{&} {
+      td {
+        border-bottom: 0;
       }
     }
   }
