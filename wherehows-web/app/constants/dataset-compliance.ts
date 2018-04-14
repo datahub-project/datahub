@@ -12,7 +12,8 @@ import {
   IdentifierFieldWithFieldChangeSetTuple,
   IIdentifierFieldWithFieldChangeSetObject,
   ISchemaFieldsToPolicy,
-  ISchemaFieldsToSuggested
+  ISchemaFieldsToSuggested,
+  SchemaFieldToPolicyValue
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
   IColumnFieldProps,
@@ -228,7 +229,7 @@ const mergeMappedColumnFieldsWithSuggestions = (
   fieldSuggestionMap: ISchemaFieldsToSuggested = {}
 ): Array<IComplianceChangeSet> =>
   Object.keys(mappedColumnFields).map(fieldName => {
-    const field = pick(mappedColumnFields[fieldName], [
+    const field: IComplianceChangeSet = pick(mappedColumnFields[fieldName], [
       'identifierField',
       'dataType',
       'identifierType',
@@ -263,7 +264,7 @@ const foldComplianceChangeSetToField = (
   changeSet: IComplianceChangeSet
 ): IIdentifierFieldWithFieldChangeSetObject => ({
   ...identifierFieldMap,
-  [changeSet.identifierField]: [...identifierFieldMap[changeSet.identifierField], changeSet]
+  [changeSet.identifierField]: [...(identifierFieldMap[changeSet.identifierField] || []), changeSet]
 });
 
 /**
@@ -340,6 +341,23 @@ const mapSchemaColumnPropsToCurrentPrivacyPolicy = ({
   arrayReduce(columnToPolicyReducingFn(complianceEntities, policyModificationTime), {})(columnProps);
 
 /**
+ * Creates a new tag / change set item for a compliance entity / field with default properties
+ * @param {IColumnFieldProps} { identifierField, dataType } the runtime properties to apply to the created instance
+ * @returns {SchemaFieldToPolicyValue}
+ */
+const complianceFieldTagFactory = ({ identifierField, dataType }: IColumnFieldProps): SchemaFieldToPolicyValue => ({
+  identifierField,
+  dataType,
+  identifierType: null,
+  logicalType: null,
+  securityClassification: null,
+  nonOwner: null,
+  readonly: false,
+  privacyPolicyExists: false,
+  isDirty: true
+});
+
+/**
  * Takes the current compliance entities, and mod time and returns a reducer that consumes a list of IColumnFieldProps
  * instances and maps each entry to a compliance entity on the current compliance policy
  * @param {IComplianceInfo.complianceEntities} currentEntities
@@ -392,5 +410,6 @@ export {
   changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   mapSchemaColumnPropsToCurrentPrivacyPolicy,
-  foldComplianceChangeSets
+  foldComplianceChangeSets,
+  complianceFieldTagFactory
 };

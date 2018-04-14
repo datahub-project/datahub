@@ -57,6 +57,7 @@ import {
   ISecurityClassificationOption,
   ShowAllShowReview
 } from 'wherehows-web/typings/app/dataset-compliance';
+import { uniqBy } from 'lodash';
 
 const {
   complianceDataException,
@@ -535,11 +536,14 @@ export default class DatasetCompliance extends Component {
    * to what is available on the dataset schema
    * @return {boolean}
    */
-  isSchemaFieldLengthGreaterThanComplianceEntities(this: DatasetCompliance): boolean {
+  isSchemaFieldLengthGreaterThanUniqComplianceEntities(this: DatasetCompliance): boolean {
     const complianceInfo = get(this, 'complianceInfo');
     if (complianceInfo) {
       const { length: columnFieldsLength } = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []);
-      const { length: complianceListLength } = get(complianceInfo, 'complianceEntities') || [];
+      const { length: complianceListLength } = uniqBy(
+        get(complianceInfo, 'complianceEntities') || [],
+        'identifierField'
+      );
 
       return columnFieldsLength >= complianceListLength;
     }
@@ -746,8 +750,8 @@ export default class DatasetCompliance extends Component {
   );
 
   /**
-   * Sets the default classification for the given identifier field
-   * Using the identifierType, determine the field's default security classification based on a values
+   * Sets the default classification for the given identifier field's tag
+   * Using the identifierType, determine the tag's default security classification based on a values
    * supplied by complianceDataTypes endpoint
    * @param {string} identifierField the field for which the default classification should apply
    * @param {ComplianceFieldIdValue} identifierType the value of the field's identifier type
@@ -759,7 +763,7 @@ export default class DatasetCompliance extends Component {
     const complianceDataTypes = get(this, 'complianceDataTypes');
     const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
 
-    this.actions.onFieldClassificationChange.call(this, { identifierField }, { value: defaultSecurityClassification });
+    this.actions.tagClassificationChanged.call(this, { identifierField }, { value: defaultSecurityClassification });
   }
 
   /**
@@ -825,7 +829,7 @@ export default class DatasetCompliance extends Component {
 
       // Create confirmation dialog
       get(this, 'notifications').notify(NotificationEvent.confirm, {
-        header: 'Confirm fields marked as `none`',
+        header: 'Confirm fields to tagged as `none` field type',
         content: `There are ${unformatted.length} non-ID fields. `,
         dialogActions: dialogActions
       });
@@ -856,15 +860,9 @@ export default class DatasetCompliance extends Component {
 
     // Validation operations
     const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
-    const fieldIdentifiersAreUnique: boolean = isListUnique(complianceEntities.mapBy('identifierField'));
-    const schemaFieldLengthGreaterThanComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanComplianceEntities();
+    const isSchemaFieldLengthGreaterThanUniqComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanUniqComplianceEntities();
 
-    if (!fieldIdentifiersAreUnique) {
-      notify(NotificationEvent.error, { content: complianceFieldNotUnique });
-      return Promise.reject(new Error(complianceFieldNotUnique));
-    }
-
-    if (!schemaFieldLengthGreaterThanComplianceEntities) {
+    if (!isSchemaFieldLengthGreaterThanUniqComplianceEntities) {
       notify(NotificationEvent.error, { content: complianceDataException });
       return Promise.reject(new Error(complianceFieldNotUnique));
     }
@@ -932,6 +930,88 @@ export default class DatasetCompliance extends Component {
   }
 
   actions: IDatasetComplianceActions = {
+    /**
+     * Adds a new field tag to the list of compliance change set items
+     * @param {IComplianceChangeSet} tag properties for new field tag
+     * @return {IComplianceChangeSet}
+     */
+    onFieldTagAdded(this: DatasetCompliance, tag: IComplianceChangeSet): IComplianceChangeSet {
+      return get(this, 'compliancePolicyChangeSet').addObject(tag);
+    },
+
+    /**
+     * Removes a field tag from the list of compliance change set items
+     * @param {IComplianceChangeSet} tag
+     * @return {IComplianceChangeSet}
+     */
+    onFieldTagRemoved(this: DatasetCompliance, tag: IComplianceChangeSet): IComplianceChangeSet {
+      return get(this, 'compliancePolicyChangeSet').removeObject(tag);
+    },
+
+    /**
+     * When a user updates the identifierFieldType, update working copy
+     * @param {IComplianceChangeSet} tag
+     * @param {ComplianceFieldIdValue} identifierType
+     */
+    tagIdentifierChanged(
+      this: DatasetCompliance,
+      tag: IComplianceChangeSet,
+      { value: identifierType }: { value: ComplianceFieldIdValue }
+    ) {
+      const { identifierField } = tag;
+      if (tag) {
+        setProperties(tag, {
+          identifierType,
+          logicalType: null,
+          nonOwner: null,
+          isDirty: true
+        });
+      }
+
+      this.setDefaultClassification({ identifierField, identifierType });
+    },
+
+    /**
+     * Updates the logical type for a tag
+     * @param {IComplianceChangeSet} tag the tag to be updated
+     * @param {IComplianceChangeSet.logicalType} logicalType the updated logical type
+     */
+    tagLogicalTypeChanged(
+      this: DatasetCompliance,
+      tag: IComplianceChangeSet,
+      logicalType: IComplianceChangeSet['logicalType']
+    ) {
+      setProperties(tag, { logicalType, isDirty: true });
+    },
+
+    /**
+     * Updates the security classification on a  field tag
+     * @param {IComplianceChangeSet} tag the tag to be updated
+     * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
+     */
+    tagClassificationChanged(
+      this: DatasetCompliance,
+      tag: IComplianceChangeSet,
+      { value: securityClassification = null }: { value: IComplianceChangeSet['securityClassification'] }
+    ) {
+      setProperties(tag, {
+        securityClassification,
+        isDirty: true
+      });
+    },
+
+    /**
+     * Updates the nonOwner property on the tag
+     * @param {IComplianceChangeSet} tag the field tag to be updated
+     * @param {IComplianceChangeSet.nonOwner} nonOwner flag indicating the field property is a nonOwner
+     */
+    tagOwnerChanged(this: DatasetCompliance, tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']) {
+      setProperties(tag, {
+        nonOwner,
+        isDirty: true
+      });
+    },
+
     /**
      * Sets each datasetClassification value as false
      * @returns {Promise<DatasetClassification>}
@@ -1168,92 +1248,6 @@ export default class DatasetCompliance extends Component {
       anchorParent.appendChild(anchor);
 
       anchor.click();
-    },
-
-    /**
-     * When a user updates the identifierFieldType in the DOM, update the backing store
-     * @param {String} identifierField
-     * @param {String} logicalType
-     * @param {String} identifierType
-     */
-    onFieldIdentifierTypeChange(
-      this: DatasetCompliance,
-      { identifierField }: IComplianceChangeSet,
-      { value: identifierType }: { value: ComplianceFieldIdValue }
-    ) {
-      const complianceEntitiesChangeSet = get(this, 'compliancePolicyChangeSet');
-      // A reference to the current field in the compliance list, it should exist even for empty complianceEntities
-      // since this is a reference created in the working copy: compliancePolicyChangeSet
-      const changeSetComplianceField = complianceEntitiesChangeSet.findBy('identifierField', identifierField);
-
-      // Reset field attributes on change to field in change set
-      if (changeSetComplianceField) {
-        setProperties(changeSetComplianceField, <IComplianceChangeSet>{
-          identifierType,
-          logicalType: null,
-          nonOwner: false,
-          isDirty: true
-        });
-      }
-
-      // Set the defaultClassification for the identifierField,
-      this.setDefaultClassification({ identifierField, identifierType });
-    },
-
-    /**
-     * Updates the logical type for the given identifierField
-     * @param {IComplianceChangeSet} field
-     * @param {IComplianceChangeSet.logicalType} logicalType
-     */
-    onFieldLogicalTypeChange(
-      this: DatasetCompliance,
-      field: IComplianceChangeSet,
-      logicalType: IComplianceChangeSet['logicalType']
-    ) {
-      setProperties(field, <IComplianceChangeSet>{ logicalType, isDirty: true });
-    },
-
-    /**
-     * Updates the field security classification
-     * @param {IComplianceChangeSet} { identifierField } the identifier field to update the classification for
-     * @param {{value: IComplianceChangeSet.classification}} { value: classification = null }
-     */
-    onFieldClassificationChange(
-      this: DatasetCompliance,
-      { identifierField }: IComplianceChangeSet,
-      { value: securityClassification = null }: { value: IComplianceChangeSet['securityClassification'] }
-    ) {
-      const currentFieldInComplianceList = get(this, 'compliancePolicyChangeSet').findBy(
-        'identifierField',
-        identifierField
-      );
-
-      // Apply the updated classification value to the current instance of the field in working copy
-      if (currentFieldInComplianceList) {
-        setProperties(currentFieldInComplianceList, <IComplianceChangeSet>{
-          securityClassification,
-          isDirty: true
-        });
-      }
-    },
-
-    /**
-     * Updates the field non owner flag
-     * @param {IComplianceChangeSet} { identifierField }
-     * @param {IComplianceChangeSet.nonOwner} nonOwner
-     */
-    onFieldOwnerChange(
-      this: DatasetCompliance,
-      { identifierField }: IComplianceChangeSet,
-      nonOwner: IComplianceChangeSet['nonOwner']
-    ) {
-      const currentFieldInComplianceList = get(this, 'compliancePolicyChangeSet').findBy(
-        'identifierField',
-        identifierField
-      );
-      if (currentFieldInComplianceList) {
-        setProperties(currentFieldInComplianceList, <IComplianceChangeSet>{ nonOwner, isDirty: true });
-      }
     },
 
     /**
