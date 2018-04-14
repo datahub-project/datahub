@@ -84,6 +84,16 @@ interface IIdentifierFieldWithFieldChangeSetObject {
 type IdentifierFieldWithFieldChangeSetTuple = [string, Array<IComplianceChangeSet>];
 
 /**
+ * Defines the interface for compliance suggestion values extracted from ISuggestedFieldClassification
+ * @interface ISuggestedFieldTypeValues
+ */
+interface ISuggestedFieldTypeValues {
+  identifierType: IComplianceChangeSet['identifierType'];
+  logicalType: IComplianceChangeSet['logicalType'];
+  confidence: number;
+}
+
+/**
  * Defines the generic interface field identifier drop downs
  * @interface IDropDownOption
  * @template T
@@ -135,5 +145,6 @@ export {
   IComplianceFieldFormatOption,
   ISecurityClassificationOption,
   IIdentifierFieldWithFieldChangeSetObject,
-  IdentifierFieldWithFieldChangeSetTuple
+  IdentifierFieldWithFieldChangeSetTuple,
+  ISuggestedFieldTypeValues
 };

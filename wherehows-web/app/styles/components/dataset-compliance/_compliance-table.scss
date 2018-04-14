@@ -153,11 +153,36 @@
 
   &__tag-row {
     background-color: get-color(gray0);
+    font-size: item-spacing(3) * 1.083333;
 
     &#{&} {
       td {
         border-bottom: 0;
       }
+    }
+  }
+
+  &__suggested-values {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &__resolution {
+    color: get-color(red5);
+
+    &--ok {
+      color: $compliance-ok-color;
+    }
+  }
+
+  &__suggested-value {
+    width: item-spacing(9);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &--no-res {
+      color: $compliance-suggestion-color;
     }
   }
 }

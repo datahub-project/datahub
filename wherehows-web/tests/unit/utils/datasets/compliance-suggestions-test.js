@@ -30,7 +30,7 @@ test('isHighConfidenceSuggestion correctly determines the confidence of a sugges
   );
 });
 
-test('getFieldSuggestions correctly extracts suggestions from a compliance field', function(assert) {
+test('getTagSuggestions correctly extracts suggestions from a compliance field', function(assert) {
   let changeSetField = {
     suggestion: {
       identifierType: '',
