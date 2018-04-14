@@ -1,13 +1,12 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
-import { get, getProperties, computed, getWithDefault } from '@ember/object';
+import { get, getProperties, computed } from '@ember/object';
 import {
   Classification,
   ComplianceFieldIdValue,
   getDefaultSecurityClassification,
   idTypeFieldHasLogicalType,
-  isFieldIdType,
-  SuggestionIntent
+  isFieldIdType
 } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
@@ -16,7 +15,6 @@ import {
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { action } from 'ember-decorators/object';
-import { getFieldSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 
 /**
  * Constant definition for an unselected field format
@@ -30,12 +28,6 @@ const unSelectedFieldFormatValue: IDropDownOption<null> = {
 
 export default class DatasetComplianceFieldTag extends Component {
   tagName = 'tr';
-
-  /**
-   * Describes action interface for `onSuggestionIntent` action
-   * @memberof DatasetComplianceFieldTag
-   */
-  onSuggestionIntent: (tag: IComplianceChangeSet, intent?: SuggestionIntent) => void;
 
   /**
    * Describes action interface for `onTagIdentifierTypeChange` action
@@ -152,21 +144,6 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
-   * Extracts the tag suggestions into a cached computed property, if a suggestion exists
-   * @type {(ComputedProperty<{ identifierType: ComplianceFieldIdValue; logicalType: string; confidence: number } | void>)}
-   * @memberof DatasetComplianceFieldTag
-   */
-  prediction = computed('tag.suggestion', 'tag.suggestionAuthority', function(
-    this: DatasetComplianceFieldTag
-  ): {
-    identifierType: IComplianceChangeSet['identifierType'];
-    logicalType: IComplianceChangeSet['logicalType'];
-    confidence: number;
-  } | void {
-    return getFieldSuggestions(getWithDefault(this, 'tag', <IComplianceChangeSet>{}));
-  });
-
-  /**
    * Handles UI changes to the tag identifierType
    * @param {{ value: ComplianceFieldIdValue }} { value }
    */
@@ -175,12 +152,6 @@ export default class DatasetComplianceFieldTag extends Component {
     const onTagIdentifierTypeChange = get(this, 'onTagIdentifierTypeChange');
 
     if (typeof onTagIdentifierTypeChange === 'function') {
-      // if the field has a predicted value, but the user changes the identifier type,
-      // ignore the suggestion
-      if (get(this, 'prediction')) {
-        this.onSuggestionAction(SuggestionIntent.ignore);
-      }
-
       onTagIdentifierTypeChange(get(this, 'tag'), { value });
     }
   }
@@ -218,36 +189,5 @@ export default class DatasetComplianceFieldTag extends Component {
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
     // inverts the value of nonOwner, toggle is shown in the UI as `Owner` i.e. not nonOwner
     get(this, 'onTagOwnerChange')(get(this, 'tag'), !nonOwner);
-  }
-
-  /**
-   * Handler for user interactions with a suggested value. Applies / ignores the suggestion
-   * Then invokes the parent supplied suggestion handler
-   * @param {SuggestionIntent} intent a binary indicator to accept or ignore suggestion
-   */
-  @action
-  onSuggestionAction(this: DatasetComplianceFieldTag, intent: SuggestionIntent = SuggestionIntent.ignore) {
-    const onSuggestionIntent = get(this, 'onSuggestionIntent');
-
-    // Accept the suggestion for either identifierType and/or logicalType
-    if (intent === SuggestionIntent.accept) {
-      const { identifierType, logicalType } = get(this, 'prediction') || {
-        identifierType: void 0,
-        logicalType: void 0
-      };
-
-      if (identifierType) {
-        this.actions.tagIdentifierTypeDidChange.call(this, { value: identifierType });
-      }
-
-      if (logicalType) {
-        this.actions.tagLogicalTypeDidChange.call(this, logicalType);
-      }
-    }
-
-    // Invokes parent handle to  runtime ignore future suggesting this suggestion
-    if (typeof onSuggestionIntent === 'function') {
-      onSuggestionIntent(get(this, 'tag'), intent);
-    }
   }
 }

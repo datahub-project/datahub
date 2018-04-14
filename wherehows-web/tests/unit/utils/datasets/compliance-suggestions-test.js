@@ -1,5 +1,5 @@
 import { module, test } from 'qunit';
-import { getFieldSuggestions, isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { getTagSuggestions, isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { lowQualitySuggestionConfidenceThreshold, SuggestionIntent } from 'wherehows-web/constants';
 
 module('Unit | Utility | datasets/compliance suggestions');
@@ -30,7 +30,7 @@ test('isHighConfidenceSuggestion correctly determines the confidence of a sugges
   );
 });
 
-test('getFieldSuggestions correctly extracts suggestions from a compliance field', function(assert) {
+test('getTagSuggestions correctly extracts suggestions from a compliance field', function(assert) {
   let changeSetField = {
     suggestion: {
       identifierType: '',
@@ -42,15 +42,15 @@ test('getFieldSuggestions correctly extracts suggestions from a compliance field
     suggestionAuthority: SuggestionIntent.accept
   };
 
-  let result = getFieldSuggestions({});
+  let result = getTagSuggestions({});
 
   assert.ok(typeof result === 'undefined', 'expected undefined return when the argument is an empty object');
 
-  result = getFieldSuggestions();
+  result = getTagSuggestions();
 
   assert.ok(typeof result === 'undefined', 'expected undefined return when no argument is supplied');
 
-  result = getFieldSuggestions({ suggestion: changeSetField.suggestion });
+  result = getTagSuggestions({ suggestion: changeSetField.suggestion });
 
   assert.deepEqual(
     result,
@@ -62,7 +62,7 @@ test('getFieldSuggestions correctly extracts suggestions from a compliance field
     'expected suggestions to match changeSetField properties'
   );
 
-  result = getFieldSuggestions(changeSetField);
+  result = getTagSuggestions(changeSetField);
 
   assert.expect(
     typeof result === 'undefined',
