@@ -75,14 +75,14 @@
 
           <button
             {{action "nextStep"}}
-            class="nacho-button--large nacho-button--secondary secondary-actions__action">
+            class="nacho-button nacho-button--large secondary-actions__action">
             Edit
           </button>
 
           {{#unless isNewComplianceInfo}}
             <button
               {{action "onComplianceDownloadJson"}}
-              class="nacho-button nacho-button--large-inverse secondary-actions__action">
+              class="nacho-button nacho-button--large nacho-button--secondary secondary-actions__action">
               Download compliance metadata
             </button>
           {{/unless}}
