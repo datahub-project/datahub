@@ -83,8 +83,9 @@
               {{moment-from-now complianceInfo.modifiedTime}}
             </span>
             by
-            <span class="policy-last-saved__saved">
-              {{complianceInfo.modifiedBy}}
+            <span class="policy-last-saved__saved" title="{{complianceInfo.modifiedBy}}">
+              {{tooltip-on-element text=complianceInfo.modifiedBy}}
+              {{split-text complianceInfo.modifiedBy 30}}
             </span>
           {{/if}}
         </div>

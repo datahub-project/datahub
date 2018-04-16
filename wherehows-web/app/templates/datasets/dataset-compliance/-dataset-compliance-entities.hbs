@@ -32,9 +32,7 @@
   {{#dataset-table
     class="dataset-compliance-fields"
     fields=foldedChangeSet
-    sortColumnWithName=sortColumnWithName
     filterBy=filterBy
-    sortDirection=sortDirection
     tableRowComponent='dataset-compliance-rollup-row'
     searchTerm=searchTerm as |table|
   }}
@@ -71,7 +69,7 @@
     </tr>
 
     {{#table.body as |body|}}
-      {{#each (sort-by table.sortBy table.data) as |field|}}
+      {{#each table.data as |field|}}
         {{#body.row
           field=field
           isNewComplianceInfo=isNewComplianceInfo
@@ -335,7 +333,7 @@
                 </td>
 
                 {{#row.cell}}
-                  {{#if isEditing}}
+                  {{#if (and isEditing (not row.hasSingleTag))}}
                     <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
                             onclick={{action row.onRemoveFieldTag tag}}>
                       &times;
