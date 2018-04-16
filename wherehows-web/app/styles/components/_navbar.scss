@@ -1,5 +1,5 @@
-@import "../abstracts/functions";
-@import "../abstracts/mixins";
+@import '../abstracts/functions';
+@import '../abstracts/mixins';
 
 $item-spacing: 10px;
 
@@ -61,7 +61,7 @@ $item-spacing: 10px;
  */
 .secondary-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   align-items: center;
 
   &__action + &__action {
