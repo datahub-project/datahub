@@ -7,7 +7,6 @@
 
   {{#if isOwnerInActive}}
 
-    <br>
     <span class="nacho-button nacho-button--small dataset-author-record__indicator--inactive">
       Inactive
     </span>
@@ -31,20 +30,6 @@
   </td>
 
 {{/unless}}
-
-<td>
-  {{#if owner.modifiedTime}}
-    {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
-  {{else}}
-
-    <span
-      class="nacho-button nacho-button--small dataset-author-record__indicator--disabled">
-      Not Saved
-    </span>
-
-  {{/if}}
-</td>
-
 
 <td>
   {{ember-selector
