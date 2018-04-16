@@ -49,7 +49,8 @@ const compliancePolicyStrings = {
  * without a logicalType as requiring review
  * @type {string}
  */
-const changeSetReviewableAttributeTriggers = 'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType';
+const changeSetReviewableAttributeTriggers =
+  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType';
 
 /**
  * Takes a compliance data type and transforms it into a compliance field identifier option
@@ -240,7 +241,7 @@ const getFieldsRequiringReview = (complianceDataTypes: Array<IComplianceDataType
 
 /**
  * Returns a list of changeSet fields that requires user attention
- * @type {function({}): Array<{ isDirty, suggestion, privacyPolicyExists, suggestionAuthority }>}
+ * @type {function({}): Array<{ isDirty, suggestion, privacyPolicyExists, suggestionAuthority, identifierType }>}
  */
 const changeSetFieldsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>) =>
   arrayFilter<IComplianceChangeSet>(fieldChangeSetRequiresReview(complianceDataTypes));

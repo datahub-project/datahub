@@ -198,7 +198,7 @@ export default class DatasetCompliance extends Component {
     //sets default values for class fields
     this.editStepIndex = initialStepIndex;
     this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
-    this.filterBy || set(this, 'filterBy', 'identifierField');
+    this.filterBy || set(this, 'filterBy', '0'); // first element in field type is identifierField
     this.sortDirection || set(this, 'sortDirection', 'asc');
     this.searchTerm || set(this, 'searchTerm', '');
     this.schemaFieldNamesMappedToDataTypes || (this.schemaFieldNamesMappedToDataTypes = []);
