@@ -186,7 +186,7 @@
             {{/row.cell}}
 
             {{#row.cell}}
-              {{#if isEditing}}
+              {{#if (and isEditing (not row.isReadonly))}}
                 <button
                   class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
                   onclick={{action row.onAddFieldTag}}>
