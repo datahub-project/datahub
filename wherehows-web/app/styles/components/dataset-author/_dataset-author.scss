@@ -29,8 +29,9 @@
     }
 
     &--inactive {
-      background-color: set-color(red, maroonflush);
+      background-color: set-color(red, red5);
       pointer-events: none;
+      margin-left: 8px;
     }
   }
 }
