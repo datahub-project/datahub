@@ -15,10 +15,10 @@
       We found {{owners.length}} {{if (gt owners.length 1) "people" "person"}} who would be great owner(s)
       for this dataset, based on scanning different systems
     </div>
-    <div class="dataset-authors-suggested__info__trigger" {{action (mut isExpanded) (if isExpanded false true)}}>
+    <button class="dataset-authors-suggested__info__trigger" {{action (mut isExpanded) (if isExpanded false true)}}>
       <span class="dataset-authors-suggested__info__trigger__action">View Suggestions</span>
       {{fa-icon (if isExpanded "chevron-up" "chevron-down")}}
-    </div>
+    </button>
   </section>
 {{/if}}
 

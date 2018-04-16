@@ -57,6 +57,9 @@
 
     &__trigger {
       float: right;
+      border: none;
+      background-color: transparent;
+      margin-top: -10px;
       cursor: pointer;
 
       &__action {
