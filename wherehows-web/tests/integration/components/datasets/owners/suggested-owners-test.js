@@ -6,7 +6,7 @@ moduleForComponent('datasets/owners/suggested-owners', 'Integration | Component 
 });
 
 const descriptionClass = '.dataset-authors-suggested__info__description';
-const suggestedCardClass = '.dataset-authors-suggested__card';
+const suggestedCardClass = '.suggested-owner-card';
 
 test('it renders properly for null case and empty states', function(assert) {
   const descriptionText = 'We found no suggested owner(s) for this dataset, based on scanning different systems';
