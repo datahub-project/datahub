@@ -84,59 +84,71 @@
 
 {{#if systemGeneratedOwners}}
 
-  <section class="dataset-author">
-    <header>
-      <h2 class="dataset-author__header">
-        System Suggested Owners
-      </h2>
-
-      <p class="dataset-author__byline">
-        These are dataset ownership records, suggested based on information derived from the source metadata.
-      </p>
-    </header>
-
-    <table class="nacho-table nacho-table--bordered dataset-owner-table">
-      <thead>
-      <tr>
-        <th class="dataset-author-column--wide">LDAP Username</th>
-        <th>Full Name</th>
-        <th class="dataset-author-column--narrow">ID Type</th>
-        <th>Source</th>
-        <th>Last Modified</th>
-        <th>
-          Ownership Type
-
-          <!--TODO: DSS-6716-->
-          <!-- DRY out with wrapper component that takes the link as an attribute-->
-          <a
-            target="_blank"
-            href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
-            <sup>
-        <span class="glyphicon glyphicon-question-sign"
-              title="Link to more information"></span>
-            </sup>
-          </a>
-        </th>
-        <th class="dataset-owner-table--wrap">Add Suggested Owner</th>
-      </tr>
-      </thead>
-
-      <tbody>
-      {{#each systemGeneratedOwners as |systemGeneratedOwner|}}
-        {{dataset-author
-          owner=systemGeneratedOwner
+  {{#if (eq showOwnership "show")}}
+      <section class="dataset-author">
+        {{datasets/owners/suggested-owners
+          owners=systemGeneratedOwners
           ownerTypes=ownerTypes
           commonOwners=commonOwners
           removeOwner=(action "removeOwner")
-          confirmSuggestedOwner=(action "confirmSuggestedOwner")
-          updateOwnerType=(action "updateOwnerType")
-        }}
-      {{/each}}
-      </tbody>
+          confirmSuggestedOwner=(action  "confirmSuggestedOwner")
+          updateOwnerType=(action "updateOwnerType")}}
+      </section>
+  {{else}}
 
-    </table>
-  </section>
+    <section class="dataset-author">
+      <header>
+        <h2 class="dataset-author__header">
+          System Suggested Owners
+        </h2>
 
+        <p class="dataset-author__byline">
+          These are dataset ownership records, suggested based on information derived from the source metadata.
+        </p>
+      </header>
+
+      <table class="nacho-table nacho-table--bordered dataset-owner-table">
+        <thead>
+        <tr>
+          <th class="dataset-author-column--wide">LDAP Username</th>
+          <th>Full Name</th>
+          <th class="dataset-author-column--narrow">ID Type</th>
+          <th>Source</th>
+          <th>Last Modified</th>
+          <th>
+            Ownership Type
+
+            <!--TODO: DSS-6716-->
+            <!-- DRY out with wrapper component that takes the link as an attribute-->
+            <a
+              target="_blank"
+              href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
+              <sup>
+          <span class="glyphicon glyphicon-question-sign"
+                title="Link to more information"></span>
+              </sup>
+            </a>
+          </th>
+          <th class="dataset-owner-table--wrap">Add Suggested Owner</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        {{#each systemGeneratedOwners as |systemGeneratedOwner|}}
+          {{dataset-author
+            owner=systemGeneratedOwner
+            ownerTypes=ownerTypes
+            commonOwners=commonOwners
+            removeOwner=(action "removeOwner")
+            confirmSuggestedOwner=(action "confirmSuggestedOwner")
+            updateOwnerType=(action "updateOwnerType")
+          }}
+        {{/each}}
+        </tbody>
+
+      </table>
+    </section>
+  {{/if}}
 {{/if}}
 
 <section class="action-bar">

@@ -91,19 +91,22 @@ export default class DatasetRoute extends Route {
   }
 
   async setupController(this: DatasetRoute, controller: DatasetController, model: IDatasetView) {
+    const configuratorService = get(this, 'configurator');
     set(controller, 'model', model);
+
     // TODO: refactor getConfig with conditional types after TS2.8 upgrade to reduce verbosity of annotations below
-    const isInternal = <IAppConfig['isInternal']>get(this, 'configurator').getConfig<IAppConfig['isInternal']>(
-      'isInternal'
+    const isInternal = <IAppConfig['isInternal']>configuratorService.getConfig<IAppConfig['isInternal']>('isInternal');
+    const jitAclAccessWhitelist: IAppConfig['jitAclAccessWhitelist'] = <IAppConfig['jitAclAccessWhitelist']>configuratorService.getConfig<
+      IAppConfig['jitAclAccessWhitelist']
+    >('JitAclAccessWhitelist');
+    const showOwnership = <IAppConfig['showOwnership']>configuratorService.getConfig<IAppConfig['showOwnership']>(
+      'showOwnership'
     );
-    const jitAclAccessWhitelist: IAppConfig['jitAclAccessWhitelist'] = <IAppConfig['jitAclAccessWhitelist']>get(
-      this,
-      'configurator'
-    ).getConfig<IAppConfig['jitAclAccessWhitelist']>('JitAclAccessWhitelist');
 
     setProperties(controller, {
       isInternal: !!isInternal,
-      jitAclAccessWhitelist: jitAclAccessWhitelist || []
+      jitAclAccessWhitelist: jitAclAccessWhitelist || [],
+      showOwnership
     });
   }
 
