@@ -59,12 +59,14 @@
     <tr>
       <th>{{!--spacer--}}</th>
       <th colspan="4">
-        {{disable-bubble-input
-          title="Search field names"
-          placeholder="Search field names"
-          value=table.searchTerm
-          on-input=(action table.filterDidChange value="target.value")
-        }}
+        <div class="dataset-compliance-fields__actions">
+          {{disable-bubble-input
+            title="Search field names"
+            placeholder="Search field names"
+            value=table.searchTerm
+            on-input=(action table.filterDidChange value="target.value")
+          }}
+        </div>
       </th>
     </tr>
 
@@ -127,14 +129,14 @@
             {{/row.cell}}
 
             {{#row.cell}}
-              <div>
+              <div title="{{row.identifierField}}">
                 <strong>
-                  {{row.identifierField}}
+                  {{split-text row.identifierField 23}}
                 </strong>
               </div>
 
-              <div>
-                {{row.dataType}}
+              <div title="{{row.dataType}}">
+                {{split-text row.dataType 23}}
               </div>
             {{/row.cell}}
 
@@ -188,7 +190,7 @@
                 <button
                   class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
                   onclick={{action row.onAddFieldTag}}>
-                  + Add Field type
+                  + Add Field Tag
                 </button>
               {{else}}
                 {{#each row.fieldChangeSet as |tag|}}
