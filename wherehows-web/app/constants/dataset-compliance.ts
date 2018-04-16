@@ -12,8 +12,7 @@ import {
   IdentifierFieldWithFieldChangeSetTuple,
   IIdentifierFieldWithFieldChangeSetObject,
   ISchemaFieldsToPolicy,
-  ISchemaFieldsToSuggested,
-  SchemaFieldToPolicyValue
+  ISchemaFieldsToSuggested
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
   IColumnFieldProps,
@@ -377,18 +376,25 @@ const complianceFieldTagFactory = ({
   identifierField,
   dataType,
   identifierType,
-  logicalType
-}: IColumnFieldProps): SchemaFieldToPolicyValue => ({
-  identifierField,
-  dataType,
-  identifierType: identifierType || null,
-  logicalType: logicalType || null,
-  securityClassification: null,
-  nonOwner: null,
-  readonly: false,
-  privacyPolicyExists: false,
-  isDirty: true
-});
+  logicalType,
+  suggestion,
+  suggestionAuthority
+}: IColumnFieldProps): IComplianceChangeSet =>
+  Object.assign(
+    {
+      identifierField,
+      dataType,
+      identifierType: identifierType || null,
+      logicalType: logicalType || null,
+      securityClassification: null,
+      nonOwner: null,
+      readonly: false,
+      privacyPolicyExists: false,
+      isDirty: true
+    },
+    suggestion ? { suggestion } : void 0,
+    suggestionAuthority ? { suggestionAuthority } : void 0
+  );
 
 /**
  * Takes the current compliance entities, and mod time and returns a reducer that consumes a list of IColumnFieldProps
@@ -422,6 +428,22 @@ const columnToPolicyReducingFn: ICompliancePolicyReducerFactory = (
   };
 };
 
+/**
+ * Sorts a list of change set tuples by identifierField
+ * @param {Array<IdentifierFieldWithFieldChangeSetTuple>} tuples
+ * @return {Array<IdentifierFieldWithFieldChangeSetTuple>}
+ */
+const sortFoldedChangeSetTuples = (
+  tuples: Array<IdentifierFieldWithFieldChangeSetTuple>
+): Array<IdentifierFieldWithFieldChangeSetTuple> => {
+  const tupleSortFn = (
+    [fieldNameA]: IdentifierFieldWithFieldChangeSetTuple,
+    [fieldNameB]: IdentifierFieldWithFieldChangeSetTuple
+  ): number => fieldNameA.localeCompare(fieldNameB);
+
+  return tuples.sort(tupleSortFn);
+};
+
 export {
   compliancePolicyStrings,
   getFieldIdentifierOption,
@@ -445,5 +467,6 @@ export {
   changeSetReviewableAttributeTriggers,
   mapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
-  complianceFieldTagFactory
+  complianceFieldTagFactory,
+  sortFoldedChangeSetTuples
 };
