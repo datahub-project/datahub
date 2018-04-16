@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias, equal, bool } from '@ember/object/computed';
-import { get, getWithDefault, getProperties, computed } from '@ember/object';
+import { get, set, getWithDefault, getProperties, computed } from '@ember/object';
 import { action } from 'ember-decorators/object';
 import {
   IComplianceChangeSet,
@@ -243,6 +243,9 @@ export default class DatasetComplianceRollupRow extends Component.extend({
     if (isFieldTagged(fieldChangeSet)) {
       onFieldTagAdded(complianceFieldTagFactory({ identifierField, dataType, identifierType, logicalType }));
     }
+
+    // expand row on click
+    set(this, 'isRowExpanded', true);
   }
 
   /**
