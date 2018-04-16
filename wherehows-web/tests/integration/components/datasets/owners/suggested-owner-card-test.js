@@ -18,11 +18,11 @@ const [confirmedOwner, suggestedOwner] = owners;
 const ownerTypes = Object.values(OwnerType);
 const commonOwners = [confirmedOwner];
 
-const fullNameClass = '.dataset-authors-suggested__card__owner-info__profile__name__full';
-const usernameClass = '.dataset-authors-suggested__card__owner-info__profile__name__username';
-const addedClass = '.dataset-authors-suggested__card__owner-info__add--disabled';
+const fullNameClass = '.suggested-owner-card__owner-info__profile__name__full';
+const usernameClass = '.suggested-owner-card__owner-info__profile__name__username';
+const addedClass = '.suggested-owner-card__owner-info__add--disabled';
 const addButtonClass = '.nacho-button--secondary.nacho-button--medium';
-const sourceClass = '.dataset-authors-suggested__card__source-info';
+const sourceClass = '.suggested-owner-card__source-info';
 
 test('it renders for base and empty cases', function(assert) {
   this.setProperties({
