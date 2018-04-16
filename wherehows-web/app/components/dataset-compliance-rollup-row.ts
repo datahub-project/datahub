@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias, equal, bool } from '@ember/object/computed';
-import { get, getWithDefault, getProperties, computed } from '@ember/object';
+import { get, set, getWithDefault, getProperties, computed } from '@ember/object';
 import { action } from 'ember-decorators/object';
 import {
   IComplianceChangeSet,
@@ -24,11 +24,13 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 }) {
   /**
    * References the parent external action to add a tag to the list of change sets
+   * @memberof DatasetComplianceRollupRow
    */
   onFieldTagAdded: (tag: IComplianceChangeSet) => IComplianceChangeSet;
 
   /**
    * References the parent external action to add a tag to the list of change sets
+   * @memberof DatasetComplianceRollupRow
    */
   onFieldTagRemoved: (tag: IComplianceChangeSet) => IComplianceChangeSet;
 
@@ -233,16 +235,29 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    */
   @action
   onAddFieldTag(this: DatasetComplianceRollupRow, { identifierType, logicalType }: Partial<IColumnFieldProps>) {
-    const { identifierField, dataType, onFieldTagAdded, fieldChangeSet } = getProperties(this, [
+    const { identifierField, dataType, onFieldTagAdded, fieldChangeSet, fieldProps } = getProperties(this, [
       'identifierField',
       'dataType',
       'onFieldTagAdded',
-      'fieldChangeSet'
+      'fieldChangeSet',
+      'fieldProps'
     ]);
 
     if (isFieldTagged(fieldChangeSet)) {
-      onFieldTagAdded(complianceFieldTagFactory({ identifierField, dataType, identifierType, logicalType }));
+      onFieldTagAdded(
+        complianceFieldTagFactory({
+          identifierField,
+          dataType,
+          identifierType,
+          logicalType,
+          suggestion: fieldProps.suggestion,
+          suggestionAuthority: fieldProps.suggestionAuthority
+        })
+      );
     }
+
+    // expand row on click
+    set(this, 'isRowExpanded', true);
   }
 
   /**

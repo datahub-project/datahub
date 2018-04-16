@@ -30,7 +30,8 @@ import {
   changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   mapSchemaColumnPropsToCurrentPrivacyPolicy,
-  foldComplianceChangeSets
+  foldComplianceChangeSets,
+  sortFoldedChangeSetTuples
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import scrollMonitor from 'scrollmonitor';
@@ -703,7 +704,7 @@ export default class DatasetCompliance extends Component {
   foldedChangeSet: ComputedProperty<Array<IdentifierFieldWithFieldChangeSetTuple>> = computed(
     'filteredChangeSet',
     function(this: DatasetCompliance): Array<IdentifierFieldWithFieldChangeSetTuple> {
-      return foldComplianceChangeSets(get(this, 'filteredChangeSet'));
+      return sortFoldedChangeSetTuples(foldComplianceChangeSets(get(this, 'filteredChangeSet')));
     }
   );
 

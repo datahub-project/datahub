@@ -1,6 +1,6 @@
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
-import { ISchemaFieldsToPolicy } from 'wherehows-web/typings/app/dataset-compliance';
+import { IComplianceChangeSet, ISchemaFieldsToPolicy } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Defines the interface for keys extracted from the columns property on an response of IDatasetSchemaGetResponse
@@ -11,6 +11,8 @@ interface IColumnFieldProps {
   dataType: IDatasetColumn['dataType'];
   identifierType?: IComplianceEntity['identifierType'];
   logicalType?: IComplianceEntity['logicalType'];
+  suggestion?: IComplianceChangeSet['suggestion'];
+  suggestionAuthority?: IComplianceChangeSet['suggestionAuthority'];
 }
 
 /**
