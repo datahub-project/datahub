@@ -1,21 +1,21 @@
-<section class="dataset-authors-suggested__card__owner-info">
-  <div class="dataset-authors-suggested__card__owner-info__profile">
+<section class="suggested-owner-card__owner-info">
+  <div class="suggested-owner-card__owner-info__profile">
     {{user-avatar
-      class="dataset-authors-suggested__card__owner-info__profile__pic"
+      class="suggested-owner-card__owner-info__profile__pic"
       userName=owner.userName}}
-    <div class="dataset-authors-suggested__card__owner-info__profile__name">
-      <h5 class="dataset-authors-suggested__card__owner-info__profile__name__full">
+    <div class="suggested-owner-card__owner-info__profile__name">
+      <h5 class="suggested-owner-card__owner-info__profile__name__full">
         {{owner.name}}
       </h5>
-      <p class="dataset-authors-suggested__card__owner-info__profile__name__username">
+      <p class="suggested-owner-card__owner-info__profile__name__username">
         {{owner.userName}}
       </p>
     </div>
   </div>
-  <div class="dataset-authors-suggested__card__owner-info__add">
+  <div class="suggested-owner-card__owner-info__add">
     {{#if isConfirmedSuggestedOwner}}
       {{fa-icon "check-circle-o" title="Added Owner" size="2"}}
-      <span class="dataset-authors-suggested__card__owner-info__add--disabled">Added</span>
+      <span class="suggested-owner-card__owner-info__add--disabled">Added</span>
     {{else}}
       <button class="nacho-button--secondary nacho-button--medium"
         {{action "confirmOwner"}}>
@@ -24,6 +24,6 @@
     {{/if}}
   </div>
 </section>
-<section class="dataset-authors-suggested__card__source-info">
+<section class="suggested-owner-card__source-info">
   Source: {{owner.source}}
 </section>
