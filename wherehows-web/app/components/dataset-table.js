@@ -1,5 +1,6 @@
 import Component from '@ember/component';
-import { setProperties, computed, get, set } from '@ember/object';
+import { setProperties, getProperties, computed, get, set } from '@ember/object';
+import buildSaneRegExp from 'wherehows-web/utils/validators/regexp';
 
 // A default static list of page lengths
 const defaultPageLengths = [10, 50, 100];
@@ -28,14 +29,26 @@ export default Component.extend({
   }),
 
   /**
-   * Check if the searchTerm occurs anywhere in the field name
-   * TODO: Cache regex outside computed prop so it's not recalculated each time props change
+   * Builds the regular expression filter based on the search term if provided, otherwise null
+   * @type {ComputedProperty<null|RegExp>}
    */
-  data: computed('fields', 'searchTerm', function() {
+  fieldFilter: computed('searchTerm', function() {
     const searchTerm = get(this, 'searchTerm');
-    const fieldRegex = new RegExp(`.*${searchTerm}.*`, 'i');
+    if (searchTerm) {
+      return buildSaneRegExp(searchTerm, 'i');
+    }
 
-    return get(this, 'fields').filter(field => fieldRegex.test(String(field[get(this, 'filterBy')])));
+    return null;
+  }),
+
+  /**
+   * Check if the searchTerm occurs anywhere in the field name
+   * @type {DatasetTable.fields}
+   */
+  data: computed('fields', 'fieldFilter', function() {
+    const { fieldFilter, fields = [] } = getProperties(this, ['fieldFilter', 'fields']);
+
+    return fieldFilter ? fields.filter(field => fieldFilter.test(String(field[get(this, 'filterBy')]))) : fields;
   }),
 
   sortBy: computed('sortColumnWithName', 'sortDirection', function() {
