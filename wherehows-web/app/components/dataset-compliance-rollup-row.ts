@@ -8,10 +8,10 @@ import {
   ISuggestedFieldTypeValues
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
+  changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   ComplianceFieldIdValue,
   complianceFieldTagFactory,
-  fieldChangeSetRequiresReview,
   SuggestionIntent
 } from 'wherehows-web/constants';
 import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
@@ -69,11 +69,13 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetComplianceRollupRow
    */
-  isReviewRequested = computed(`field.{${changeSetReviewableAttributeTriggers}}`, 'complianceDataTypes', function(
-    this: DatasetComplianceRollupRow
-  ): boolean {
-    return fieldChangeSetRequiresReview(get(this, 'complianceDataTypes'))(get(this, 'fieldProps'));
-  });
+  isReviewRequested = computed(
+    `fieldChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
+    'complianceDataTypes',
+    function(this: DatasetComplianceRollupRow): boolean {
+      return !!changeSetFieldsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'fieldChangeSet')).length;
+    }
+  );
 
   /**
    * References the compliance field tuple containing the field name and the field change set properties
@@ -182,7 +184,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @memberof DatasetComplianceRollupRow
    * TODO: multi valued suggestions
    */
-  suggestedValuesInChangeSet = computed('fieldChangeSet', 'suggestion', function(
+  suggestedValuesInChangeSet = computed('fieldChangeSet.@each.identifierType', 'suggestion', function(
     this: DatasetComplianceRollupRow
   ): Array<string> {
     const { fieldChangeSet, suggestion } = getProperties(this, ['fieldChangeSet', 'suggestion']);
