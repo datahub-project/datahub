@@ -265,7 +265,7 @@ public class Dataset extends Controller {
       }).readValue(content.get("owners"));
 
       long confirmedOwnerUserCount = owners.stream()
-          .filter(s -> "owner".equalsIgnoreCase(s.getType()) && "user".equalsIgnoreCase(s.getIdType())
+          .filter(s -> "DataOwner".equalsIgnoreCase(s.getType()) && "user".equalsIgnoreCase(s.getIdType())
               && "UI".equalsIgnoreCase(s.getSource()))
           .count();
 
