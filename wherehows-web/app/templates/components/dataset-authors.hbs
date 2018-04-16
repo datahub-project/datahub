@@ -84,7 +84,7 @@
 
 {{#if systemGeneratedOwners}}
 
-  {{#if true}}
+  {{#if (eq showOwnership "show")}}
       <section class="dataset-author">
         {{datasets/owners/suggested-owners
           owners=systemGeneratedOwners
