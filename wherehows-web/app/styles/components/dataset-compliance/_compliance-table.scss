@@ -149,6 +149,25 @@
   &__tag-label {
     margin: item-spacing(0 2);
     font-weight: fw(normal, 2);
+    height: item-spacing(6);
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+
+    &:before {
+      content: ' ';
+      display: block;
+      position: absolute;
+      width: 1px;
+      height: 100%;
+      border-left: 1px solid get-color(black, 0.3);
+      top: 0;
+      left: -(item-spacing(3));
+    }
+
+    & ~ & {
+      margin-left: item-spacing(6);
+    }
   }
 
   &__tag-row {
@@ -183,6 +202,18 @@
 
     &--no-res {
       color: $compliance-suggestion-color;
+    }
+  }
+
+  &__search {
+    padding: item-spacing(1);
+  }
+
+  &__id-field-wrap {
+    display: flex;
+
+    &__edit {
+      display: flex;
     }
   }
 }

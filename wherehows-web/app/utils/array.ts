@@ -15,7 +15,7 @@ const arrayFilter = <T>(filtrationFunction: (param: T) => boolean): ((array: Arr
   array.filter(filtrationFunction);
 
 /**
- * Typesafe utility `iterate-first data-last` function for array every
+ * Type safe utility `iterate-first data-last` function for array every
  * @template T
  * @param {(param: T) => boolean} filter
  * @returns {((array: Array<T>) => boolean)}
