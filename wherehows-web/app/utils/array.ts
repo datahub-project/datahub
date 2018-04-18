@@ -24,6 +24,15 @@ const arrayEvery = <T>(filter: (param: T) => boolean): ((array: Array<T>) => boo
   array.every(filter);
 
 /**
+ * Type safe utility `iterate-first data-last` function for array some
+ * @template T
+ * @param {(param: T) => boolean} filter
+ * @return {(array: Array<T>) => boolean}
+ */
+const arraySome = <T>(filter: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
+  array.some(filter);
+
+/**
  * Composable reducer abstraction, curries a reducing iteratee and returns a reducing function that takes a list
  * @template U
  * @param {(acc: U) => U} iteratee
@@ -51,4 +60,4 @@ const isListUnique = <T>(list: Array<T> = []): boolean => new Set(list).size ===
  */
 const compact = <T>(list: Array<T> = []): Array<T> => list.filter(item => item);
 
-export { arrayMap, arrayFilter, arrayReduce, isListUnique, compact, arrayEvery };
+export { arrayMap, arrayFilter, arrayReduce, isListUnique, compact, arrayEvery, arraySome };

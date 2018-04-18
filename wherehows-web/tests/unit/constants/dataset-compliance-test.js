@@ -8,7 +8,7 @@ import {
   PurgePolicy,
   createInitialComplianceInfo,
   isRecentSuggestion,
-  fieldChangeSetRequiresReview
+  tagNeedsReview
 } from 'wherehows-web/constants';
 import complianceDataTypes from 'wherehows-web/mirage/fixtures/compliance-data-types';
 import { mockTimeStamps } from 'wherehows-web/tests/helpers/datasets/compliance-policy/recent-suggestions-constants';
@@ -46,23 +46,17 @@ test('isRecentSuggestion correctly determines if a suggestion is recent or not',
   });
 });
 
-test('fieldChangeSetRequiresReview exists', function(assert) {
-  assert.ok(typeof fieldChangeSetRequiresReview === 'function', 'fieldChangeSetRequiresReview is a function');
+test('tagNeedsReview exists', function(assert) {
+  assert.ok(typeof tagNeedsReview === 'function', 'tagNeedsReview is a function');
 
-  assert.ok(
-    typeof fieldChangeSetRequiresReview([])({}) === 'boolean',
-    'fieldChangeSetRequiresReview returns a boolean'
-  );
+  assert.ok(typeof tagNeedsReview([])({}) === 'boolean', 'tagNeedsReview returns a boolean');
 });
 
-test('fieldChangeSetRequiresReview correctly determines if a fieldChangeSet requires review', function(assert) {
+test('tagNeedsReview correctly determines if a fieldChangeSet requires review', function(assert) {
   assert.expect(mockFieldChangeSets.length);
 
   mockFieldChangeSets.forEach(changeSet =>
-    assert.ok(
-      fieldChangeSetRequiresReview(complianceDataTypes)(changeSet) === changeSet.__requiresReview__,
-      changeSet.__msg__
-    )
+    assert.ok(tagNeedsReview(complianceDataTypes)(changeSet) === changeSet.__requiresReview__, changeSet.__msg__)
   );
 });
 

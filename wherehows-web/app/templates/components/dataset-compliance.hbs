@@ -42,13 +42,19 @@
 
               {{#if (has-previous editStep editSteps)}}
                 <button
-                  class="nacho-button--large nacho-button--secondary action-bar__item"
+                  class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
                   title="Back"
                   {{action "previousStep"}}>
                   Back
                 </button>
 
               {{/if}}
+
+              <button
+                class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+                onclick={{action "onCancel"}}>
+                Cancel
+              </button>
             </div>
 
           {{/if}}
