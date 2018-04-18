@@ -11,7 +11,7 @@ import {
   changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   ComplianceFieldIdValue,
-  complianceFieldTagFactory,
+  complianceFieldChangeSetItemFactory,
   SuggestionIntent
 } from 'wherehows-web/constants';
 import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
@@ -245,7 +245,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 
     if (isFieldTagged(fieldChangeSet)) {
       onFieldTagAdded(
-        complianceFieldTagFactory({
+        complianceFieldChangeSetItemFactory({
           identifierField,
           dataType,
           identifierType,
