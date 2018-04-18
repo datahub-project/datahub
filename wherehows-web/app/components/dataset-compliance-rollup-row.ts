@@ -57,7 +57,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {boolean}
    * @memberof DatasetComplianceRollupRow
    */
-  isRowExpanded: boolean;
+  isRowExpanded: boolean | void;
 
   /**
    * Flag indicating the field has a readonly attribute
@@ -89,9 +89,10 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   constructor() {
     super(...arguments);
     const isDirty: boolean = !!get(this, 'isRowDirty');
+    const isReviewable: boolean = !!get(this, 'isReviewRequested');
 
     // if any tag is dirty, then expand the parent row on instantiation
-    this.isRowExpanded || (this.isRowExpanded = isDirty);
+    this.isRowExpanded || (this.isRowExpanded = isDirty || isReviewable);
   }
 
   /**
