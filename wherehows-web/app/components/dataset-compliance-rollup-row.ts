@@ -8,15 +8,17 @@ import {
   ISuggestedFieldTypeValues
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
-  changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   ComplianceFieldIdValue,
   complianceFieldChangeSetItemFactory,
-  SuggestionIntent
+  SuggestionIntent,
+  fieldTagsRequiringReview,
+  tagsHaveNoneAndNotNoneType,
+  tagsHaveNoneType
 } from 'wherehows-web/constants';
 import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
-import { isFieldTagged } from 'wherehows-web/constants/dataset-compliance';
+import { fieldTagsHaveIdentifierType } from 'wherehows-web/constants/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 
 export default class DatasetComplianceRollupRow extends Component.extend({
@@ -75,7 +77,10 @@ export default class DatasetComplianceRollupRow extends Component.extend({
     `fieldChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
     'complianceDataTypes',
     function(this: DatasetComplianceRollupRow): boolean {
-      return !!changeSetFieldsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'fieldChangeSet')).length;
+      const tags = get(this, 'fieldChangeSet');
+      const { length } = fieldTagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'identifierField'))(tags);
+
+      return !!length || tagsHaveNoneAndNotNoneType(tags);
     }
   );
 
@@ -132,6 +137,16 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @memberof DatasetComplianceRollupRow
    */
   hasSingleTag: ComputedProperty<boolean> = equal('fieldChangeSet.length', 1);
+
+  /**
+   * Checks if any of the tags on this field have a ComplianceFieldIdValue.None identifierType
+   * @type {ComputedProperty<boolean>}
+   */
+  hasNoneTag: ComputedProperty<boolean> = computed('fieldChangeSet', function(
+    this: DatasetComplianceRollupRow
+  ): boolean {
+    return tagsHaveNoneType(get(this, 'fieldChangeSet'));
+  });
 
   /**
    * Checks if any of the field tags for this row are dirty
@@ -244,7 +259,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
       'fieldProps'
     ]);
 
-    if (isFieldTagged(fieldChangeSet)) {
+    if (fieldTagsHaveIdentifierType(fieldChangeSet)) {
       onFieldTagAdded(
         complianceFieldChangeSetItemFactory({
           identifierField,
@@ -293,7 +308,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
     // Accept the suggestion for either identifierType and/or logicalType
     if (suggestion && intent === SuggestionIntent.accept) {
       const { identifierType, logicalType } = suggestion;
-      const updateDefault = hasSingleTag && !isFieldTagged(get(this, 'fieldChangeSet'));
+      const updateDefault = hasSingleTag && !fieldTagsHaveIdentifierType(get(this, 'fieldChangeSet'));
 
       if (identifierType && !suggestedValuesInChangeSet.includes(identifierType)) {
         if (updateDefault) {

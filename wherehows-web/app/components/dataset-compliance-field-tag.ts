@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { get, getProperties, computed } from '@ember/object';
-import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isFieldIdType } from 'wherehows-web/constants';
+import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isTagIdType } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
   IComplianceFieldFormatOption,
@@ -61,7 +61,7 @@ export default class DatasetComplianceFieldTag extends Component {
     this: DatasetComplianceFieldTag
   ): boolean {
     const { tag, complianceDataTypes } = getProperties(this, ['tag', 'complianceDataTypes']);
-    return isFieldIdType(complianceDataTypes)(tag);
+    return isTagIdType(complianceDataTypes)(tag);
   });
 
   /**
@@ -69,27 +69,25 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type ComputedProperty<Array<IComplianceFieldFormatOption>>
    * @memberof DatasetComplianceFieldTag
    */
-  fieldFormats: ComputedProperty<Array<IComplianceFieldFormatOption>> = computed(
-    'isIdType',
-    'complianceDataTypes',
-    function(this: DatasetComplianceFieldTag): Array<IComplianceFieldFormatOption> {
-      const identifierType = get(this, 'tag')['identifierType'] || '';
-      const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
-      const complianceDataType = complianceDataTypes.findBy('id', identifierType);
-      let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
+  fieldFormats: ComputedProperty<Array<IComplianceFieldFormatOption>> = computed('isIdType', function(
+    this: DatasetComplianceFieldTag
+  ): Array<IComplianceFieldFormatOption> {
+    const identifierType = get(this, 'tag')['identifierType'] || '';
+    const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
+    const complianceDataType = complianceDataTypes.findBy('id', identifierType);
+    let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
 
-      if (complianceDataType && isIdType) {
-        const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
-        const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
+    if (complianceDataType && isIdType) {
+      const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
+      const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
 
-        return supportedFormatOptions.length
-          ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
-          : supportedFormatOptions;
-      }
-
-      return fieldFormatOptions;
+      return supportedFormatOptions.length
+        ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
+        : supportedFormatOptions;
     }
-  );
+
+    return fieldFormatOptions;
+  });
 
   /**
    * Checks if the field format / logical type for this tag is missing, if the field is of ID type
