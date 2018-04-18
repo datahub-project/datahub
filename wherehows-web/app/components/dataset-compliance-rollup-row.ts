@@ -93,11 +93,14 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 
   constructor() {
     super(...arguments);
-    const isDirty: boolean = !!get(this, 'isRowDirty');
-    const isReviewable: boolean = !!get(this, 'isReviewRequested');
 
-    // if any tag is dirty, then expand the parent row on instantiation
-    this.isRowExpanded || (this.isRowExpanded = isDirty || isReviewable);
+    const { isRowDirty, isReviewRequested } = getProperties<
+      { isRowDirty: boolean; isReviewRequested: boolean },
+      'isRowDirty' | 'isReviewRequested'
+    >(this, ['isRowDirty', 'isReviewRequested']);
+
+    // if any tag is dirty or requires review, then expand the parent row on instantiation
+    this.isRowExpanded || (this.isRowExpanded = isRowDirty || isReviewRequested);
   }
 
   /**
@@ -243,6 +246,17 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   @action
   onToggleRowExpansion() {
     this.toggleProperty('isRowExpanded');
+  }
+
+  /**
+   * Invokes the external action to edit the compliance policy and expands the clicked row
+   * for editing
+   * @param {() => void} externalEditAction
+   */
+  @action
+  onEditPolicy(this: DatasetComplianceRollupRow, externalEditAction: () => void) {
+    externalEditAction();
+    set(this, 'isRowExpanded', true);
   }
 
   /**
