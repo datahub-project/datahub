@@ -62,6 +62,7 @@
             title="Search field names"
             placeholder="Search field names"
             value=table.searchTerm
+            class="dataset-compliance-fields__search"
             on-input=(action table.filterDidChange value="target.value")
           }}
         </div>
@@ -127,14 +128,33 @@
             {{/row.cell}}
 
             {{#row.cell}}
-              <div title="{{row.identifierField}}">
-                <strong>
-                  {{split-text row.identifierField 23}}
-                </strong>
-              </div>
+              <div class="dataset-compliance-fields__id-field-wrap">
+                {{#if isReadOnly}}
+                  <div class="dataset-compliance-fields__id-field-wrap__edit">
 
-              <div title="{{row.dataType}}">
-                {{split-text row.dataType 23}}
+                    <button
+                      class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
+                      onclick={{action row.onEditPolicy (action "nextStep")}}>
+
+                      {{tooltip-on-element text="Edit Policy"}}
+                      <i class="fa fa-pencil" aria-label="Edit Policy"></i>
+
+                    </button>
+
+                  </div>
+                {{/if}}
+
+                <div>
+                  <div title="{{row.identifierField}}">
+                    <strong>
+                      {{split-text row.identifierField 23}}
+                    </strong>
+                  </div>
+
+                  <div title="{{row.dataType}}">
+                    {{split-text row.dataType 23}}
+                  </div>
+                </div>
               </div>
             {{/row.cell}}
 
