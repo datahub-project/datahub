@@ -23,11 +23,10 @@ import {
   SuggestionIntent,
   PurgePolicy,
   getSupportedPurgePolicies,
-  mergeMappedColumnFieldsWithSuggestions,
-  getFieldsRequiringReview,
-  isFieldIdType,
+  mergeComplianceEntitiesWithSuggestions,
+  tagsRequiringReview,
+  isTagIdType,
   idTypeFieldsHaveLogicalType,
-  changeSetFieldsRequiringReview,
   changeSetReviewableAttributeTriggers,
   mapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
@@ -109,6 +108,12 @@ export default class DatasetCompliance extends Component {
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: void | IComplianceInfo;
+
+  /**
+   * References the ComplianceFieldIdValue enum
+   * @type {ComplianceFieldIdValue}
+   */
+  ComplianceFieldIdValue = ComplianceFieldIdValue;
 
   /**
    * Suggested values for compliance types e.g. identifier type and/or logical type
@@ -661,7 +666,7 @@ export default class DatasetCompliance extends Component {
     'identifierFieldToSuggestion',
     function(this: DatasetCompliance): Array<IComplianceChangeSet> {
       // schemaFieldNamesMappedToDataTypes is a dependency for CP columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
-      const changeSet = mergeMappedColumnFieldsWithSuggestions(
+      const changeSet = mergeComplianceEntitiesWithSuggestions(
         get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
         get(this, 'identifierFieldToSuggestion')
       );
@@ -691,7 +696,7 @@ export default class DatasetCompliance extends Component {
       ]);
 
       return get(this, 'fieldReviewOption') === 'showReview'
-        ? changeSetFieldsRequiringReview(complianceDataTypes)(changeSet)
+        ? tagsRequiringReview(complianceDataTypes)(changeSet)
         : changeSet;
     }
   );
@@ -718,21 +723,20 @@ export default class DatasetCompliance extends Component {
   };
 
   /**
-   * Invokes external action with flag indicating that a field in the changeSet requires user review
+   * Invokes external action with flag indicating that a field in the tags requires user review
    * @param {Array<IComplianceDataType>} complianceDataTypes
-   * @param {Array<IComplianceChangeSet>} changeSet
+   * @param {Array<IComplianceChangeSet>} tags
    */
   notifyHandlerOfFieldsRequiringReview = (
     complianceDataTypes: Array<IComplianceDataType>,
-    changeSet: Array<IComplianceChangeSet>
+    tags: Array<IComplianceChangeSet>
   ) => {
     // adding assertions for run-loop callback invocation, because static type checks are bypassed
     assert('expected complianceDataTypes to be of type `array`', Array.isArray(complianceDataTypes));
-    assert('expected changeSet to be of type `array`', Array.isArray(changeSet));
+    assert('expected tags to be of type `array`', Array.isArray(tags));
 
-    const hasChangeSetDrift = getFieldsRequiringReview(complianceDataTypes)(changeSet).some(
-      (isReviewRequired: boolean) => isReviewRequired
-    );
+    const hasChangeSetDrift = !!tagsRequiringReview(complianceDataTypes)(tags).length;
+
     this.notifyOnChangeSetRequiresReview(hasChangeSetDrift);
   };
 
@@ -745,8 +749,7 @@ export default class DatasetCompliance extends Component {
     `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
     'complianceDataTypes',
     function(this: DatasetCompliance): number {
-      return changeSetFieldsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet'))
-        .length;
+      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet')).length;
     }
   );
 
@@ -857,7 +860,7 @@ export default class DatasetCompliance extends Component {
   validateFields(this: DatasetCompliance) {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
-    const idTypeComplianceEntities = complianceEntities.filter(isFieldIdType(get(this, 'complianceDataTypes')));
+    const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
 
     // Validation operations
     const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
@@ -931,6 +934,13 @@ export default class DatasetCompliance extends Component {
   }
 
   actions: IDatasetComplianceActions = {
+    /**
+     * Action handles wizard step cancellation
+     */
+    onCancel(this: DatasetCompliance) {
+      this.updateStep(initialStepIndex);
+    },
+
     /**
      * Adds a new field tag to the list of compliance change set items
      * @param {IComplianceChangeSet} tag properties for new field tag

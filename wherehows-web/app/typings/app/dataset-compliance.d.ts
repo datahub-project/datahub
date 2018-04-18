@@ -22,7 +22,7 @@ interface IDatasetComplianceActions {
  * Alias for the properties defined on an object indicating the values for a compliance entity object in
  * addition to related component metadata using in processing ui interactions / rendering for the field
  */
-type SchemaFieldToPolicyValue = Pick<
+type IComplianceEntityWithMetadata = Pick<
   IComplianceEntity,
   'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner' | 'readonly'
 > & {
@@ -35,11 +35,11 @@ type SchemaFieldToPolicyValue = Pick<
 };
 
 /**
- * Describes the interface for a mapping of field names to type, SchemaFieldToPolicyValue
+ * Describes the interface for a mapping of field names to type, IComplianceEntityWithMetadata
  * @interface ISchemaFieldsToPolicy
  */
 interface ISchemaFieldsToPolicy {
-  [fieldName: string]: SchemaFieldToPolicyValue;
+  [fieldName: string]: Array<IComplianceEntityWithMetadata>;
 }
 
 /**
@@ -68,7 +68,7 @@ interface ISchemaFieldsToSuggested {
 type IComplianceChangeSet = {
   suggestion?: SchemaFieldToSuggestedValue;
   suggestionAuthority?: SuggestionIntent;
-} & SchemaFieldToPolicyValue;
+} & IComplianceEntityWithMetadata;
 
 /**
  * Describes the mapping of an identifier field to it's compliance changeset list
@@ -136,7 +136,7 @@ export {
   IComplianceChangeSet,
   ShowAllShowReview,
   IDatasetComplianceActions,
-  SchemaFieldToPolicyValue,
+  IComplianceEntityWithMetadata,
   ISchemaFieldsToPolicy,
   SchemaFieldToSuggestedValue,
   ISchemaFieldsToSuggested,

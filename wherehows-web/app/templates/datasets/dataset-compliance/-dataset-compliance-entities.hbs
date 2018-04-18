@@ -154,7 +154,6 @@
                   {{row.suggestion.confidence}}%
                   &nbsp;
                   {{#if isEditing}}
-
                     {{#if row.suggestionResolution}}
                       <div class="dataset-compliance-fields__resolution {{if (eq row.suggestionResolution 'Accepted')
                                                                              'dataset-compliance-fields__resolution--ok'}}">
@@ -184,7 +183,7 @@
             {{/row.cell}}
 
             {{#row.cell}}
-              {{#if (and isEditing (not row.isReadonly))}}
+              {{#if (and isEditing (and (not row.isReadonly) (not row.hasNoneTag)))}}
                 <button
                   class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
                   onclick={{action row.onAddFieldTag}}>
@@ -222,7 +221,6 @@
                 onTagIdentifierTypeChange=(action "tagIdentifierChanged")
                 onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
                 onTagOwnerChange=(action "tagOwnerChanged")
-                onTagClassificationChange=(action "tagClassificationChanged")
                 complianceDataTypes=complianceDataTypes as |tagRowComponent|
               }}
 
@@ -237,6 +235,7 @@
                       values=complianceFieldIdDropdownOptions
                       selected=(readonly tag.identifierType)
                       selectionDidChange=(action tagRowComponent.tagIdentifierTypeDidChange)
+                      class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
                     }}
                   </div>
                 {{/row.cell}}
@@ -276,58 +275,9 @@
                         <label for="{{concat tagRowComponent.rowId '-compliance-field-owner-toggle'}}"
                                class="toggle-button"></label>
 
-                        {{!--TODO: Duplicated code move to component or partial--}}
-                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
-                               class="dataset-compliance-fields__tag-label">
-                          Security Classification:
-                          <sup>
-                          <span
-                            class="glyphicon glyphicon-question-sign"
-                            title={{helpText.classification}}>
-                            {{tooltip-on-element text=helpText.classification
-                            }}
-                          </span>
-                          </sup>
-                        </label>
-
-                        <div class="dataset-compliance-fields__select-wrapper">
-                          {{ember-selector
-                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
-                            class="nacho-select--hidden-state"
-                            disabled=(or (not isEditing) row.isReadonly)
-                            values=classifiers
-                            selected=tagRowComponent.tagClassification
-                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
-                          }}
-                        </div>
                       {{/unless}}
                     {{else}}
-                      {{#if tagRowComponent.isPiiType}}
-                      {{!--TODO: Duplicated code move to component or partial--}}
-                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
-                               class="dataset-compliance-fields__tag-label">
-                          Security Classification:
-                          <sup>
-                          <span
-                            class="glyphicon glyphicon-question-sign"
-                            title={{helpText.classification}}>
-                            {{tooltip-on-element text=helpText.classification
-                            }}
-                          </span>
-                          </sup>
-                        </label>
 
-                        <div class="dataset-compliance-fields__select-wrapper">
-                          {{ember-selector
-                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
-                            class="nacho-select--hidden-state"
-                            disabled=(or (not isEditing) row.isReadonly)
-                            values=classifiers
-                            selected=tagRowComponent.tagClassification
-                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
-                          }}
-                        </div>
-                      {{/if}}
                     {{/if}}
                   </div>
                 </td>

@@ -27,14 +27,14 @@ interface ISchemaColumnMappingProps {
 
 /**
  * Describes the function interface for the mapping reducer function that takes current entities and modification time
- * and returns a function that accumulates and instance of ISchemaFieldsToPolicy
- * @interface ICompliancePolicyReducerFactory
+ * and returns a function that accumulates an instance of ISchemaFieldsToPolicy
+ * @interface ISchemaWithPolicyTagsReducingFn
  */
-interface ICompliancePolicyReducerFactory {
+interface ISchemaWithPolicyTagsReducingFn {
   (currentEntities: IComplianceInfo['complianceEntities'], policyModificationTime: IComplianceInfo['modifiedTime']): (
-    acc: ISchemaFieldsToPolicy,
+    schemaFieldsToPolicy: ISchemaFieldsToPolicy,
     props: IColumnFieldProps
   ) => ISchemaFieldsToPolicy;
 }
 
-export { IColumnFieldProps, ISchemaColumnMappingProps, ICompliancePolicyReducerFactory };
+export { IColumnFieldProps, ISchemaColumnMappingProps, ISchemaWithPolicyTagsReducingFn };

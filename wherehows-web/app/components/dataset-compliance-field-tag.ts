@@ -1,13 +1,7 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { get, getProperties, computed } from '@ember/object';
-import {
-  Classification,
-  ComplianceFieldIdValue,
-  getDefaultSecurityClassification,
-  idTypeFieldHasLogicalType,
-  isFieldIdType
-} from 'wherehows-web/constants';
+import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isTagIdType } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
   IComplianceFieldFormatOption,
@@ -41,11 +35,6 @@ export default class DatasetComplianceFieldTag extends Component {
   onTagLogicalTypeChange: (tag: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
 
   /**
-   * Describes the parent action interface for `onTagClassificationChange`
-   */
-  onTagClassificationChange: (tag: IComplianceChangeSet, option: { value: '' | Classification }) => void;
-
-  /**
    * Describes the parent action interface for `onTagOwnerChange`
    */
   onTagOwnerChange: (tag: IComplianceChangeSet, nonOwner: boolean) => void;
@@ -72,7 +61,7 @@ export default class DatasetComplianceFieldTag extends Component {
     this: DatasetComplianceFieldTag
   ): boolean {
     const { tag, complianceDataTypes } = getProperties(this, ['tag', 'complianceDataTypes']);
-    return isFieldIdType(complianceDataTypes)(tag);
+    return isTagIdType(complianceDataTypes)(tag);
   });
 
   /**
@@ -80,27 +69,25 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type ComputedProperty<Array<IComplianceFieldFormatOption>>
    * @memberof DatasetComplianceFieldTag
    */
-  fieldFormats: ComputedProperty<Array<IComplianceFieldFormatOption>> = computed(
-    'isIdType',
-    'complianceDataTypes',
-    function(this: DatasetComplianceFieldTag): Array<IComplianceFieldFormatOption> {
-      const identifierType = get(this, 'tag')['identifierType'] || '';
-      const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
-      const complianceDataType = complianceDataTypes.findBy('id', identifierType);
-      let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
+  fieldFormats: ComputedProperty<Array<IComplianceFieldFormatOption>> = computed('isIdType', function(
+    this: DatasetComplianceFieldTag
+  ): Array<IComplianceFieldFormatOption> {
+    const identifierType = get(this, 'tag')['identifierType'] || '';
+    const { isIdType, complianceDataTypes } = getProperties(this, ['isIdType', 'complianceDataTypes']);
+    const complianceDataType = complianceDataTypes.findBy('id', identifierType);
+    let fieldFormatOptions: Array<IComplianceFieldFormatOption> = [];
 
-      if (complianceDataType && isIdType) {
-        const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
-        const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
+    if (complianceDataType && isIdType) {
+      const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
+      const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
 
-        return supportedFormatOptions.length
-          ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
-          : supportedFormatOptions;
-      }
-
-      return fieldFormatOptions;
+      return supportedFormatOptions.length
+        ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
+        : supportedFormatOptions;
     }
-  );
+
+    return fieldFormatOptions;
+  });
 
   /**
    * Checks if the field format / logical type for this tag is missing, if the field is of ID type
@@ -109,38 +96,6 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   isTagFormatMissing = computed('isIdType', 'tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
     return get(this, 'isIdType') && !idTypeFieldHasLogicalType(get(this, 'tag'));
-  });
-
-  /**
-   * The tag's security classification
-   * Retrieves the tag security classification from the compliance tag if it exists, otherwise
-   * defaults to the default security classification for the identifier type
-   * in other words, the field must have a security classification if it has an identifier type
-   * @type {ComputedProperty<Classification | null>}
-   * @memberof DatasetComplianceFieldTag
-   */
-  tagClassification = computed('tag.classification', 'tag.identifierType', 'complianceDataTypes', function(
-    this: DatasetComplianceFieldTag
-  ): IComplianceChangeSet['securityClassification'] {
-    const { tag: { identifierType, securityClassification }, complianceDataTypes } = getProperties(this, [
-      'tag',
-      'complianceDataTypes'
-    ]);
-
-    return securityClassification || getDefaultSecurityClassification(complianceDataTypes, identifierType);
-  });
-
-  /**
-   * Flag indicating that this tag has an identifier type that is of pii type
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetComplianceFieldTag
-   */
-  isPiiType = computed('tag.identifierType', function(this: DatasetComplianceFieldTag): boolean {
-    const { identifierType } = get(this, 'tag');
-    const isDefinedIdentifierType = identifierType !== null || identifierType !== ComplianceFieldIdValue.None;
-
-    // If identifierType exists, and tag is not idType or None or null
-    return !!identifierType && !get(this, 'isIdType') && isDefinedIdentifierType;
   });
 
   /**
@@ -166,18 +121,6 @@ export default class DatasetComplianceFieldTag extends Component {
 
     if (typeof onTagLogicalTypeChange === 'function') {
       onTagLogicalTypeChange(get(this, 'tag'), value);
-    }
-  }
-
-  /**
-   * Handles UI change to field security classification
-   * @param {({ value: '' | Classification })} { value } contains the changed classification value
-   */
-  @action
-  tagClassificationDidChange(this: DatasetComplianceFieldTag, { value }: { value: '' | Classification }) {
-    const onTagClassificationChange = get(this, 'onTagClassificationChange');
-    if (typeof onTagClassificationChange === 'function') {
-      onTagClassificationChange(get(this, 'tag'), { value });
     }
   }
 
