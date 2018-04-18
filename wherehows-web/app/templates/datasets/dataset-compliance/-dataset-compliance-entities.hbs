@@ -222,7 +222,6 @@
                 onTagIdentifierTypeChange=(action "tagIdentifierChanged")
                 onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
                 onTagOwnerChange=(action "tagOwnerChanged")
-                onTagClassificationChange=(action "tagClassificationChanged")
                 complianceDataTypes=complianceDataTypes as |tagRowComponent|
               }}
 
@@ -276,58 +275,9 @@
                         <label for="{{concat tagRowComponent.rowId '-compliance-field-owner-toggle'}}"
                                class="toggle-button"></label>
 
-                        {{!--TODO: Duplicated code move to component or partial--}}
-                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
-                               class="dataset-compliance-fields__tag-label">
-                          Security Classification:
-                          <sup>
-                          <span
-                            class="glyphicon glyphicon-question-sign"
-                            title={{helpText.classification}}>
-                            {{tooltip-on-element text=helpText.classification
-                            }}
-                          </span>
-                          </sup>
-                        </label>
-
-                        <div class="dataset-compliance-fields__select-wrapper">
-                          {{ember-selector
-                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
-                            class="nacho-select--hidden-state"
-                            disabled=(or (not isEditing) row.isReadonly)
-                            values=classifiers
-                            selected=tagRowComponent.tagClassification
-                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
-                          }}
-                        </div>
                       {{/unless}}
                     {{else}}
-                      {{#if tagRowComponent.isPiiType}}
-                      {{!--TODO: Duplicated code move to component or partial--}}
-                        <label for="{{concat tagRowComponent.rowId '-compliance-field-classification'}}"
-                               class="dataset-compliance-fields__tag-label">
-                          Security Classification:
-                          <sup>
-                          <span
-                            class="glyphicon glyphicon-question-sign"
-                            title={{helpText.classification}}>
-                            {{tooltip-on-element text=helpText.classification
-                            }}
-                          </span>
-                          </sup>
-                        </label>
 
-                        <div class="dataset-compliance-fields__select-wrapper">
-                          {{ember-selector
-                            id=(concat tagRowComponent.rowId "-compliance-field-classification")
-                            class="nacho-select--hidden-state"
-                            disabled=(or (not isEditing) row.isReadonly)
-                            values=classifiers
-                            selected=tagRowComponent.tagClassification
-                            selectionDidChange=(action tagRowComponent.tagClassificationDidChange)
-                          }}
-                        </div>
-                      {{/if}}
                     {{/if}}
                   </div>
                 </td>
