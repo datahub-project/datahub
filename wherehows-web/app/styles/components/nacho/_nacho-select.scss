@@ -19,8 +19,6 @@ $default-border: (1px solid shade($color, 20%));
   padding: 0 14px;
 
   select {
-    @include prefix(appearance, none, ('webkit', 'moz'));
-
     &::-ms-expand {
       display: none;
     }
@@ -40,14 +38,6 @@ $default-border: (1px solid shade($color, 20%));
         visibility: hidden;
       }
     }
-  }
-
-  &:after {
-    color: shade($color, 20%);
-    content: '\e259';
-    font-weight: normal;
-    pointer-events: none;
-    font-family: $glyphicons-stack;
   }
 
   /// Hides the styling for a select element unless hovered over
