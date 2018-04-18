@@ -8,8 +8,8 @@ import {
   ComplianceFieldIdValue,
   SuggestionIntent,
   getDefaultSecurityClassification,
-  fieldChangeSetRequiresReview,
-  isFieldIdType,
+  tagNeedsReview,
+  isTagIdType,
   changeSetReviewableAttributeTriggers,
   idTypeFieldHasLogicalType
 } from 'wherehows-web/constants';
@@ -151,7 +151,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
   isReviewRequested = computed(`field.{${changeSetReviewableAttributeTriggers}}`, 'complianceDataTypes', function(
     this: DatasetComplianceRow
   ): boolean {
-    return fieldChangeSetRequiresReview(get(this, 'complianceDataTypes'))(get(this, 'field'));
+    return tagNeedsReview(get(this, 'complianceDataTypes'))(get(this, 'field'));
   });
 
   /**
@@ -292,7 +292,7 @@ export default class DatasetComplianceRow extends DatasetTableRow {
     this: DatasetComplianceRow
   ): boolean {
     const { field, complianceDataTypes } = getProperties(this, ['field', 'complianceDataTypes']);
-    return isFieldIdType(complianceDataTypes)(field);
+    return isTagIdType(complianceDataTypes)(field);
   });
 
   /**

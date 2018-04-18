@@ -154,7 +154,6 @@
                   {{row.suggestion.confidence}}%
                   &nbsp;
                   {{#if isEditing}}
-
                     {{#if row.suggestionResolution}}
                       <div class="dataset-compliance-fields__resolution {{if (eq row.suggestionResolution 'Accepted')
                                                                              'dataset-compliance-fields__resolution--ok'}}">
@@ -184,7 +183,7 @@
             {{/row.cell}}
 
             {{#row.cell}}
-              {{#if (and isEditing (not row.isReadonly))}}
+              {{#if (and isEditing (and (not row.isReadonly) (not row.hasNoneTag)))}}
                 <button
                   class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
                   onclick={{action row.onAddFieldTag}}>
@@ -236,6 +235,7 @@
                       values=complianceFieldIdDropdownOptions
                       selected=(readonly tag.identifierType)
                       selectionDidChange=(action tagRowComponent.tagIdentifierTypeDidChange)
+                      class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
                     }}
                   </div>
                 {{/row.cell}}
