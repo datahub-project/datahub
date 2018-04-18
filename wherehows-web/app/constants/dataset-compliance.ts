@@ -4,7 +4,6 @@ import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-d
 import { arrayEvery, arrayFilter, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
 import { fleece, hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
-import { pick } from 'lodash';
 import { decodeUrn } from 'wherehows-web/utils/validators/urn';
 import {
   IComplianceChangeSet,
@@ -12,13 +11,15 @@ import {
   IdentifierFieldWithFieldChangeSetTuple,
   IIdentifierFieldWithFieldChangeSetObject,
   ISchemaFieldsToPolicy,
-  ISchemaFieldsToSuggested
+  ISchemaFieldsToSuggested,
+  IComplianceEntityWithMetadata
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
   IColumnFieldProps,
-  ICompliancePolicyReducerFactory,
-  ISchemaColumnMappingProps
+  ISchemaColumnMappingProps,
+  ISchemaWithPolicyTagsReducingFn
 } from 'wherehows-web/typings/app/dataset-columns';
+import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -246,39 +247,35 @@ const changeSetFieldsRequiringReview = (complianceDataTypes: Array<IComplianceDa
   arrayFilter<IComplianceChangeSet>(fieldChangeSetRequiresReview(complianceDataTypes));
 
 /**
- * Merges the column fields with the suggestion for the field if available
- * @param {object} mappedColumnFields a map of column fields to compliance entity properties
- * @param {object} fieldSuggestionMap a map of field suggestion properties keyed by field name
- * @return {Array<object>} mapped column field augmented with suggestion if available
+ * Extracts a suggestion for a field from a suggestion map and merges a compliance entity with the suggestion
+ * @param {ISchemaFieldsToSuggested} suggestionMap a hash of compliance fields to suggested values
+ * @return {(entity: IComplianceEntityWithMetadata) => IComplianceChangeSet}
  */
-const mergeMappedColumnFieldsWithSuggestions = (
-  mappedColumnFields: ISchemaFieldsToPolicy = {},
-  fieldSuggestionMap: ISchemaFieldsToSuggested = {}
+const complianceEntityWithSuggestions = (suggestionMap: ISchemaFieldsToSuggested) => (
+  entity: IComplianceEntityWithMetadata
+): IComplianceChangeSet => {
+  const { identifierField, policyModificationTime } = entity;
+  const suggestion = suggestionMap[identifierField];
+
+  return suggestion && isRecentSuggestion(policyModificationTime, suggestion.suggestionsModificationTime)
+    ? { ...entity, suggestion }
+    : entity;
+};
+
+/**
+ * Creates a list of IComplianceChangeSet instances by merging compliance entities with the related suggestions for
+ * the identifier field
+ * @param {ISchemaFieldsToPolicy} [schemaEntityMap={}] a map of fields on the dataset schema to the current compliance
+ * entities found on the policy
+ * @param {ISchemaFieldsToSuggested} [suggestionMap={}] map of fields on the dataset schema to suggested compliance
+ * values
+ * @returns {Array<IComplianceChangeSet>}
+ */
+const mergeComplianceEntitiesWithSuggestions = (
+  schemaEntityMap: ISchemaFieldsToPolicy = {},
+  suggestionMap: ISchemaFieldsToSuggested = {}
 ): Array<IComplianceChangeSet> =>
-  Object.keys(mappedColumnFields).map(fieldName => {
-    const field: IComplianceChangeSet = pick(mappedColumnFields[fieldName], [
-      'identifierField',
-      'dataType',
-      'identifierType',
-      'logicalType',
-      'securityClassification',
-      'policyModificationTime',
-      'privacyPolicyExists',
-      'isDirty',
-      'nonOwner',
-      'readonly'
-    ]);
-    const { identifierField, policyModificationTime } = field;
-    const suggestion = fieldSuggestionMap[identifierField];
-
-    // If a suggestion exists for this field add the suggestion attribute to the field properties / changeSet
-    // Check if suggestion isRecent before augmenting, otherwise, suggestion will not be considered on changeSet
-    if (suggestion && isRecentSuggestion(policyModificationTime, suggestion.suggestionsModificationTime)) {
-      return { ...field, suggestion };
-    }
-
-    return field;
-  });
+  arrayMap(complianceEntityWithSuggestions(suggestionMap))([].concat.apply([], Object.values(schemaEntityMap)));
 
 /**
  * Creates a map of compliance changeSet identifier field to compliance change sets
@@ -325,33 +322,6 @@ const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => {
 };
 
 /**
- * Extracts the values on a compliance Entity for a given list of keys
- * @template K IComplianceEntity instance attribute
- * @param {Array<K>} [keys=[]]
- * @param {string} fieldName
- * @param {IComplianceInfo.complianceEntities} [source=[]]
- * @returns {({ [V in K]: IComplianceEntity[V] } | {})}
- */
-const getKeysOnComplianceEntity = <K extends keyof IComplianceEntity>(
-  keys: Array<K> = [],
-  fieldName: string,
-  source: IComplianceInfo['complianceEntities'] = []
-): { [V in K]: IComplianceEntity[V] } | {} => {
-  const sourceField: IComplianceEntity | void = source.find(({ identifierField }) => identifierField === fieldName);
-  let result = {};
-
-  if (sourceField) {
-    for (const [key, value] of <Array<[K, IComplianceEntity[K]]>>Object.entries(sourceField)) {
-      if (keys.includes(key)) {
-        result = { ...result, [key]: value };
-      }
-    }
-  }
-
-  return result;
-};
-
-/**
  * Maps the fields found in the column property on the schema api to the values returned in the current privacy policy
  * @param {ISchemaColumnMappingProps} {
  *   columnProps,
@@ -365,14 +335,14 @@ const mapSchemaColumnPropsToCurrentPrivacyPolicy = ({
   complianceEntities,
   policyModificationTime
 }: ISchemaColumnMappingProps): ISchemaFieldsToPolicy =>
-  arrayReduce(columnToPolicyReducingFn(complianceEntities, policyModificationTime), {})(columnProps);
+  arrayReduce(schemaFieldsWithPolicyTagsReducingFn(complianceEntities, policyModificationTime), {})(columnProps);
 
 /**
  * Creates a new tag / change set item for a compliance entity / field with default properties
  * @param {IColumnFieldProps} { identifierField, dataType } the runtime properties to apply to the created instance
- * @returns {SchemaFieldToPolicyValue}
+ * @returns {IComplianceEntityWithMetadata}
  */
-const complianceFieldTagFactory = ({
+const complianceFieldChangeSetItemFactory = ({
   identifierField,
   dataType,
   identifierType,
@@ -397,36 +367,70 @@ const complianceFieldTagFactory = ({
   );
 
 /**
+ * Asserts that a schema field name matches the compliance entity supplied later
+ * @param {string} identifierFieldMatch the field name to match to the IComplianceEntity
+ * @return {({ identifierField }: IComplianceEntity) => boolean}
+ */
+const isSchemaFieldTag = (identifierFieldMatch: string) => ({ identifierField }: IComplianceEntity): boolean =>
+  identifierFieldMatch === identifierField;
+
+/**
+ * Creates an instance of a compliance entity with client side metadata about the entity
+ * @param {IComplianceInfo.modifiedTime} policyLastModified time the compliance policy was last modified
+ * @param {IDatasetColumn.dataType} dataType the field data type
+ * @return {(arg: IComplianceEntity) => IComplianceEntityWithMetadata}
+ */
+const complianceEntityWithMetadata = (
+  policyLastModified: IComplianceInfo['modifiedTime'],
+  dataType: IDatasetColumn['dataType']
+): ((arg: IComplianceEntity) => IComplianceEntityWithMetadata) => (
+  tag: IComplianceEntity
+): IComplianceEntityWithMetadata => ({
+  ...tag,
+  policyModificationTime: policyLastModified,
+  dataType,
+  privacyPolicyExists: hasEnumerableKeys(tag),
+  isDirty: false
+});
+
+/**
  * Takes the current compliance entities, and mod time and returns a reducer that consumes a list of IColumnFieldProps
  * instances and maps each entry to a compliance entity on the current compliance policy
  * @param {IComplianceInfo.complianceEntities} currentEntities
  * @param {IComplianceInfo.modifiedTime} policyModificationTime
- * @type ICompliancePolicyReducerFactory
+ * @return {(schemaFieldsToPolicy: ISchemaFieldsToPolicy, { identifierField, dataType}: IColumnFieldProps) => ISchemaFieldsToPolicy}
  */
-const columnToPolicyReducingFn: ICompliancePolicyReducerFactory = (
+const schemaFieldsWithPolicyTagsReducingFn: ISchemaWithPolicyTagsReducingFn = (
   currentEntities: IComplianceInfo['complianceEntities'],
   policyModificationTime: IComplianceInfo['modifiedTime']
-) => (acc: ISchemaFieldsToPolicy, { identifierField, dataType }: IColumnFieldProps) => {
-  const currentPrivacyAttrs = getKeysOnComplianceEntity(
-    ['identifierType', 'logicalType', 'securityClassification', 'nonOwner', 'readonly'],
-    identifierField,
-    currentEntities
+) => (
+  schemaFieldsToPolicy: ISchemaFieldsToPolicy,
+  { identifierField, dataType }: IColumnFieldProps
+): ISchemaFieldsToPolicy => {
+  let complianceEntitiesWithMetadata: Array<IComplianceEntityWithMetadata>;
+  let schemaFieldTags = arrayFilter(isSchemaFieldTag(identifierField))(currentEntities);
+
+  schemaFieldTags = schemaFieldTags.length ? schemaFieldTags : [complianceFieldTagFactory(identifierField)];
+  complianceEntitiesWithMetadata = arrayMap(complianceEntityWithMetadata(policyModificationTime, dataType))(
+    schemaFieldTags
   );
 
-  // assertion required due to TS spread object limitation, not present with Object#assign, but this reads cleaner
-  return <ISchemaFieldsToPolicy>{
-    ...acc,
-    [identifierField]: {
-      identifierField,
-      dataType,
-      readonly: false, // default value overridden by value in currentPrivacyAttrs below
-      ...currentPrivacyAttrs,
-      policyModificationTime,
-      privacyPolicyExists: hasEnumerableKeys(currentPrivacyAttrs),
-      isDirty: false
-    }
-  };
+  return { ...schemaFieldsToPolicy, [identifierField]: complianceEntitiesWithMetadata };
 };
+
+/**
+ * Constructs an instance of IComplianceEntity with default values, and an identifierField
+ * @param {IComplianceEntity.identifierField} identifierField
+ * @return {IComplianceEntity}
+ */
+const complianceFieldTagFactory = (identifierField: IComplianceEntity['identifierField']): IComplianceEntity => ({
+  identifierField,
+  identifierType: null,
+  logicalType: null,
+  securityClassification: null,
+  nonOwner: null,
+  readonly: false
+});
 
 /**
  * Sorts a list of change set tuples by identifierField
@@ -455,7 +459,7 @@ export {
   removeReadonlyAttr,
   fieldChangeSetRequiresReview,
   isFieldIdType,
-  mergeMappedColumnFieldsWithSuggestions,
+  mergeComplianceEntitiesWithSuggestions,
   isRecentSuggestion,
   getFieldsRequiringReview,
   createInitialComplianceInfo,
@@ -467,6 +471,6 @@ export {
   changeSetReviewableAttributeTriggers,
   mapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
-  complianceFieldTagFactory,
+  complianceFieldChangeSetItemFactory,
   sortFoldedChangeSetTuples
 };

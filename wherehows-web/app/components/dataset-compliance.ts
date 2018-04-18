@@ -23,7 +23,7 @@ import {
   SuggestionIntent,
   PurgePolicy,
   getSupportedPurgePolicies,
-  mergeMappedColumnFieldsWithSuggestions,
+  mergeComplianceEntitiesWithSuggestions,
   getFieldsRequiringReview,
   isFieldIdType,
   idTypeFieldsHaveLogicalType,
@@ -661,7 +661,7 @@ export default class DatasetCompliance extends Component {
     'identifierFieldToSuggestion',
     function(this: DatasetCompliance): Array<IComplianceChangeSet> {
       // schemaFieldNamesMappedToDataTypes is a dependency for CP columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
-      const changeSet = mergeMappedColumnFieldsWithSuggestions(
+      const changeSet = mergeComplianceEntitiesWithSuggestions(
         get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
         get(this, 'identifierFieldToSuggestion')
       );
