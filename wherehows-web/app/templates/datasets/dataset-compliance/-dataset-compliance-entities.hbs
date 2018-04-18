@@ -222,11 +222,12 @@
               <button
                 class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
                 onclick={{action row.onToggleRowExpansion}}>
+                {{tooltip-on-element text=(if row.isRowExpanded "Collapse field" "Expand field")}}
 
                 {{#if row.isRowExpanded}}
-                  <i class="glyphicon glyphicon-menu-up" aria-label="Expand field row"></i>
+                  <i class="glyphicon glyphicon-menu-up" aria-label="Expand field"></i>
                 {{else}}
-                  <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field row"></i>
+                  <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field"></i>
                 {{/if}}
 
               </button>
