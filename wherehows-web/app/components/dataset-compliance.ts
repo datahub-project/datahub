@@ -932,6 +932,13 @@ export default class DatasetCompliance extends Component {
 
   actions: IDatasetComplianceActions = {
     /**
+     * Action handles wizard step cancellation
+     */
+    onCancel(this: DatasetCompliance) {
+      this.updateStep(initialStepIndex);
+    },
+
+    /**
      * Adds a new field tag to the list of compliance change set items
      * @param {IComplianceChangeSet} tag properties for new field tag
      * @return {IComplianceChangeSet}
