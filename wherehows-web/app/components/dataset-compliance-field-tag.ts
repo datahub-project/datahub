@@ -10,6 +10,8 @@ import {
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { action } from 'ember-decorators/object';
+import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
+import { arrayFilter } from 'wherehows-web/utils/array';
 
 /**
  * Constant definition for an unselected field format
@@ -20,6 +22,16 @@ const unSelectedFieldFormatValue: IDropDownOption<null> = {
   label: 'Select Field Format...',
   isDisabled: true
 };
+
+/**
+ * Creates a filter function that excludes options that are already included in other field tags
+ * @param {IComplianceEntity.identifierType} currentTagId
+ * @return {(fieldIdTypeTags: Array<IComplianceEntity["identifierType"]>) => ({ value }: IComplianceFieldIdentifierOption) => boolean}
+ */
+const resolvedOptionsFilterFn = (currentTagId: IComplianceEntity['identifierType']) => (
+  fieldIdTypeTags: Array<IComplianceEntity['identifierType']>
+) => ({ value }: IComplianceFieldIdentifierOption): boolean =>
+  !fieldIdTypeTags.includes(value) || value === currentTagId;
 
 export default class DatasetComplianceFieldTag extends Component {
   tagName = 'tr';
@@ -55,6 +67,13 @@ export default class DatasetComplianceFieldTag extends Component {
   parentHasSingleTag: boolean;
 
   /**
+   * List of identifierTypes for the parent field
+   * @type {Array<IComplianceEntity['identifierType']>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  fieldIdentifiers: Array<IComplianceEntity['identifierType']>;
+
+  /**
    * Reference to the compliance data types
    * @type {Array<IComplianceDataType>}
    */
@@ -67,25 +86,28 @@ export default class DatasetComplianceFieldTag extends Component {
   complianceFieldIdDropdownOptions: Array<IComplianceFieldIdentifierOption>;
 
   /**
-   * Build the dropdown options available for this tag by filtering out options that are not applicable /available for this tag
+   * Build the drop down options available for this tag by filtering out options that are not applicable /available for this tag
    * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption>>}
    * @memberof DatasetComplianceFieldTag
    */
-  fieldIdDropDownOptions = computed('hasSingleTag', function(
+  fieldIdDropDownOptions = computed('hasSingleTag', 'fieldIdentifiers', function(
     this: DatasetComplianceFieldTag
   ): Array<IComplianceFieldIdentifierOption> {
-    const { parentHasSingleTag, complianceFieldIdDropdownOptions: dropDownOptions } = getProperties(this, [
-      'parentHasSingleTag',
-      'complianceFieldIdDropdownOptions'
-    ]);
+    const { parentHasSingleTag, fieldIdentifiers, complianceFieldIdDropdownOptions: allOptions, tag } = getProperties(
+      this,
+      ['parentHasSingleTag', 'fieldIdentifiers', 'complianceFieldIdDropdownOptions', 'tag']
+    );
 
-    // if the parent field does not have a single tag, then no field can be tagged as ComplianceFieldIdValue.None
     if (!parentHasSingleTag) {
-      const NoneOption = dropDownOptions.findBy('value', ComplianceFieldIdValue.None);
-      return dropDownOptions.without(NoneOption!);
+      const thisTagIdentifierType = get(tag, 'identifierType');
+      const noneOption = allOptions.findBy('value', ComplianceFieldIdValue.None);
+      // if the parent field does not have a single tag, then no field can be tagged as ComplianceFieldIdValue.None
+      const options = allOptions.without(noneOption!);
+
+      return arrayFilter(resolvedOptionsFilterFn(thisTagIdentifierType)(fieldIdentifiers))(options);
     }
 
-    return dropDownOptions;
+    return allOptions;
   });
 
   /**
