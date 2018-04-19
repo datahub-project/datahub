@@ -239,9 +239,11 @@
               {{#dataset-compliance-field-tag
                 class="dataset-compliance-fields__tag-row"
                 tag=tag
+                parentHasSingleTag=row.hasSingleTag
                 onTagIdentifierTypeChange=(action "tagIdentifierChanged")
                 onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
                 onTagOwnerChange=(action "tagOwnerChanged")
+                complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
                 complianceDataTypes=complianceDataTypes as |tagRowComponent|
               }}
 
@@ -253,7 +255,7 @@
                   <div class="dataset-compliance-fields__identifier-select">
                     {{ember-selector
                       disabled=(or (not isEditing) row.isReadonly)
-                      values=complianceFieldIdDropdownOptions
+                      values=tagRowComponent.fieldIdDropDownOptions
                       selected=(readonly tag.identifierType)
                       selectionDidChange=(action tagRowComponent.tagIdentifierTypeDidChange)
                       class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
