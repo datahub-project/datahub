@@ -1,4 +1,4 @@
-import { moduleForComponent, test, skip } from 'ember-qunit';
+import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 
 import { Classification } from 'wherehows-web/constants';
@@ -28,25 +28,6 @@ test('it correctly indicates if the dataset has pii', function(assert) {
   this.set('containsPersonalData', false);
 
   assert.notOk(document.querySelector('.toggle-switch').checked, 'checkbox is unchecked when false');
-});
-
-test('it invokes the onClassificationChange external action when change is triggered', function(assert) {
-  assert.expect(2);
-  let onClassificationChangeCallCount = 0;
-
-  this.set('isEditable', true);
-  this.set('classification', Classification.LimitedDistribution);
-  this.set('onClassificationChange', () => {
-    assert.equal(++onClassificationChangeCallCount, 1, 'successfully invokes the external action');
-  });
-
-  this.render(
-    hbs`{{datasets/schemaless-tagging isEditable=isEditable onClassificationChange=onClassificationChange classification=classification}}`
-  );
-
-  assert.equal(onClassificationChangeCallCount, 0, 'external action is not invoked on instantiation');
-
-  triggerEvent('select', 'change');
 });
 
 test('it invokes the onPersonalDataChange external action on when toggled', function(assert) {
