@@ -24,23 +24,3 @@
     </label>
   </div>
 </div>
-
-<div class="schemaless-tagging__tag">
-  <h4 class="schemaless-tagging__prompt">
-    Dataset security classification
-
-    {{more-info
-      link="http://go/dht"
-      tooltip="information dataset security classification"
-    }}
-  </h4>
-
-  <div class="schemaless-tagging__input">
-    {{ember-selector
-      values=classifiers
-      selected=classification
-      disabled=(not isEditable)
-      selectionDidChange=(action "onSecurityClassificationChange")
-    }}
-  </div>
-</div>
