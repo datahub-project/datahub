@@ -1,4 +1,4 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { moduleForComponent, test, skip } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 
 import { Classification } from 'wherehows-web/constants';
@@ -9,36 +9,12 @@ moduleForComponent('datasets/schemaless-tagging', 'Integration | Component | dat
 });
 
 test('it renders', function(assert) {
-  assert.expect(2);
+  assert.expect(1);
   const elementId = 'test-schemaless-component-1337';
   this.set('elementId', elementId);
   this.render(hbs`{{datasets/schemaless-tagging elementId=elementId}}`);
 
   assert.ok(document.querySelector(`#${elementId}-schemaless-checkbox`), 'it renders a checkbox component');
-  assert.ok(document.querySelector(`#${elementId} select`), 'it renders a select drop down');
-});
-
-test('it shows the current classification', function(assert) {
-  assert.expect(3);
-  this.render(hbs`{{datasets/schemaless-tagging classification=classification}}`);
-
-  assert.equal(document.querySelector(`select`).value, 'Unspecified', "displays 'Unspecified' when not set");
-
-  this.set('classification', Classification.LimitedDistribution);
-
-  assert.equal(
-    document.querySelector(`select`).value,
-    Classification.LimitedDistribution,
-    `displays ${Classification.LimitedDistribution} when set`
-  );
-
-  this.set('classification', Classification.Confidential);
-
-  assert.equal(
-    document.querySelector('select').value,
-    Classification.Confidential,
-    `displays ${Classification.Confidential} when changed`
-  );
 });
 
 test('it correctly indicates if the dataset has pii', function(assert) {
