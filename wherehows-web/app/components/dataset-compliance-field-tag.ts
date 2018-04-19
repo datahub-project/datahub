@@ -5,6 +5,7 @@ import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isTagIdType } from '
 import {
   IComplianceChangeSet,
   IComplianceFieldFormatOption,
+  IComplianceFieldIdentifierOption,
   IDropDownOption
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -47,10 +48,45 @@ export default class DatasetComplianceFieldTag extends Component {
   tag: IComplianceChangeSet;
 
   /**
+   * Flag indicating that the parent field has a single tag associated
+   * @type {boolean}
+   * @memberof DatasetComplianceFieldTag
+   */
+  parentHasSingleTag: boolean;
+
+  /**
    * Reference to the compliance data types
    * @type {Array<IComplianceDataType>}
    */
   complianceDataTypes: Array<IComplianceDataType>;
+
+  /**
+   * Reference to the full list of options for the identifierType tag property IComplianceFieldIdentifierOption
+   * @type {Array<IComplianceFieldIdentifierOption>}
+   */
+  complianceFieldIdDropdownOptions: Array<IComplianceFieldIdentifierOption>;
+
+  /**
+   * Build the dropdown options available for this tag by filtering out options that are not applicable /available for this tag
+   * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption>>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  fieldIdDropDownOptions = computed('hasSingleTag', function(
+    this: DatasetComplianceFieldTag
+  ): Array<IComplianceFieldIdentifierOption> {
+    const { parentHasSingleTag, complianceFieldIdDropdownOptions: dropDownOptions } = getProperties(this, [
+      'parentHasSingleTag',
+      'complianceFieldIdDropdownOptions'
+    ]);
+
+    // if the parent field does not have a single tag, then no field can be tagged as ComplianceFieldIdValue.None
+    if (!parentHasSingleTag) {
+      const NoneOption = dropDownOptions.findBy('value', ComplianceFieldIdValue.None);
+      return dropDownOptions.without(NoneOption!);
+    }
+
+    return dropDownOptions;
+  });
 
   /**
    * Flag indicating that this tag has an identifier type of idType that is true
