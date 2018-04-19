@@ -9,36 +9,12 @@ moduleForComponent('datasets/schemaless-tagging', 'Integration | Component | dat
 });
 
 test('it renders', function(assert) {
-  assert.expect(2);
+  assert.expect(1);
   const elementId = 'test-schemaless-component-1337';
   this.set('elementId', elementId);
   this.render(hbs`{{datasets/schemaless-tagging elementId=elementId}}`);
 
   assert.ok(document.querySelector(`#${elementId}-schemaless-checkbox`), 'it renders a checkbox component');
-  assert.ok(document.querySelector(`#${elementId} select`), 'it renders a select drop down');
-});
-
-test('it shows the current classification', function(assert) {
-  assert.expect(3);
-  this.render(hbs`{{datasets/schemaless-tagging classification=classification}}`);
-
-  assert.equal(document.querySelector(`select`).value, 'Unspecified', "displays 'Unspecified' when not set");
-
-  this.set('classification', Classification.LimitedDistribution);
-
-  assert.equal(
-    document.querySelector(`select`).value,
-    Classification.LimitedDistribution,
-    `displays ${Classification.LimitedDistribution} when set`
-  );
-
-  this.set('classification', Classification.Confidential);
-
-  assert.equal(
-    document.querySelector('select').value,
-    Classification.Confidential,
-    `displays ${Classification.Confidential} when changed`
-  );
 });
 
 test('it correctly indicates if the dataset has pii', function(assert) {
@@ -52,25 +28,6 @@ test('it correctly indicates if the dataset has pii', function(assert) {
   this.set('containsPersonalData', false);
 
   assert.notOk(document.querySelector('.toggle-switch').checked, 'checkbox is unchecked when false');
-});
-
-test('it invokes the onClassificationChange external action when change is triggered', function(assert) {
-  assert.expect(2);
-  let onClassificationChangeCallCount = 0;
-
-  this.set('isEditable', true);
-  this.set('classification', Classification.LimitedDistribution);
-  this.set('onClassificationChange', () => {
-    assert.equal(++onClassificationChangeCallCount, 1, 'successfully invokes the external action');
-  });
-
-  this.render(
-    hbs`{{datasets/schemaless-tagging isEditable=isEditable onClassificationChange=onClassificationChange classification=classification}}`
-  );
-
-  assert.equal(onClassificationChangeCallCount, 0, 'external action is not invoked on instantiation');
-
-  triggerEvent('select', 'change');
 });
 
 test('it invokes the onPersonalDataChange external action on when toggled', function(assert) {
