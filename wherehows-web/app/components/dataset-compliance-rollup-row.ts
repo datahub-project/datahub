@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty, { alias, equal, bool } from '@ember/object/computed';
+import ComputedProperty, { alias, equal, bool, mapBy } from '@ember/object/computed';
 import { get, set, getWithDefault, getProperties, computed } from '@ember/object';
 import { action } from 'ember-decorators/object';
 import {
@@ -14,12 +14,15 @@ import {
   SuggestionIntent,
   fieldTagsRequiringReview,
   tagsHaveNoneAndNotNoneType,
-  tagsHaveNoneType
+  tagsHaveNoneType,
+  suggestedIdentifierTypesInList
 } from 'wherehows-web/constants';
 import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { fieldTagsHaveIdentifierType } from 'wherehows-web/constants/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
+import { arrayReduce } from 'wherehows-web/utils/array';
+import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 
 export default class DatasetComplianceRollupRow extends Component.extend({
   tagName: ''
@@ -200,22 +203,27 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   });
 
   /**
+   * Lists the ComplianceFieldIdValue values this field is currently tagged with
+   * @type {ComputedProperty<Array<ComplianceFieldIdValue>>}
+   * @memberof DatasetComplianceRollupRow
+   */
+  taggedIdentifiers: ComputedProperty<Array<IComplianceEntity['identifierType']>> = mapBy(
+    'fieldChangeSet',
+    'identifierType'
+  );
+
+  /**
    * Lists the identifierTypes that are suggested values but are currently in the fields tags
    * @type {ComputedProperty<Array<string>>}
    * @memberof DatasetComplianceRollupRow
    * TODO: multi valued suggestions
    */
-  suggestedValuesInChangeSet = computed('fieldChangeSet.@each.identifierType', 'suggestion', function(
+  suggestedValuesInChangeSet = computed('taggedIdentifiers', 'suggestion', function(
     this: DatasetComplianceRollupRow
-  ): Array<string> {
-    const { fieldChangeSet, suggestion } = getProperties(this, ['fieldChangeSet', 'suggestion']);
-    return fieldChangeSet.mapBy('identifierType').reduce((list, identifierType) => {
-      if (suggestion && suggestion.identifierType === identifierType) {
-        return [...list, identifierType];
-      }
+  ): Array<IComplianceEntity['identifierType']> {
+    const { taggedIdentifiers, suggestion } = getProperties(this, ['taggedIdentifiers', 'suggestion']);
 
-      return list;
-    }, []);
+    return arrayReduce(suggestedIdentifierTypesInList(suggestion), [])(taggedIdentifiers);
   });
 
   /**
