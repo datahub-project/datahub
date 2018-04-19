@@ -12,7 +12,8 @@ import {
   IIdentifierFieldWithFieldChangeSetObject,
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested,
-  IComplianceEntityWithMetadata
+  IComplianceEntityWithMetadata,
+  ISuggestedFieldTypeValues
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
   IColumnFieldProps,
@@ -161,6 +162,17 @@ const isRecentSuggestion = (
   !policyModificationTime ||
   (!!suggestionModificationTime &&
     suggestionModificationTime - parseInt(policyModificationTime) >= lastSeenSuggestionInterval);
+
+/**
+ * Takes a suggestion and populates a list of ComplianceFieldIdValues if the suggestion matches the identifier
+ * @param {ISuggestedFieldTypeValues | void} suggestion
+ * @return {(list: Array<ComplianceFieldIdValue>, identifierType: ComplianceFieldIdValue) => Array<ComplianceFieldIdValue>}
+ */
+const suggestedIdentifierTypesInList = (suggestion: ISuggestedFieldTypeValues | void) => (
+  list: Array<IComplianceEntity['identifierType']>,
+  identifierType: IComplianceEntity['identifierType']
+): Array<IComplianceEntity['identifierType']> =>
+  suggestion && suggestion.identifierType === identifierType ? [...list, identifierType] : list;
 
 /**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
@@ -494,6 +506,7 @@ const sortFoldedChangeSetTuples = (
 };
 
 export {
+  suggestedIdentifierTypesInList,
   compliancePolicyStrings,
   getFieldIdentifierOption,
   getFieldIdentifierOptions,
