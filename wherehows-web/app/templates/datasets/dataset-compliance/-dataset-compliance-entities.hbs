@@ -75,12 +75,13 @@
           field=field
           isNewComplianceInfo=isNewComplianceInfo
           complianceDataTypes=complianceDataTypes
+          onFieldDblClick=(action "onFieldDblClick")
           onFieldTagAdded=(action "onFieldTagAdded")
           onFieldTagRemoved=(action "onFieldTagRemoved")
           onTagIdentifierTypeChange=(action "tagIdentifierChanged")
           onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
         }}
-          <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}">
+          <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action row.onFragmentDblClick}}>
             {{#row.cell}}
               {{#if row.isReadonly}}
 
@@ -147,12 +148,12 @@
                 <div>
                   <div title="{{row.identifierField}}">
                     <strong>
-                      {{split-text row.identifierField 23}}
+                      {{if isShowingFullFieldNames row.identifierField (split-text row.identifierField 23)}}
                     </strong>
                   </div>
 
                   <div title="{{row.dataType}}">
-                    {{split-text row.dataType 23}}
+                    {{if isShowingFullFieldNames row.dataType (split-text row.dataType 23)}}
                   </div>
                 </div>
               </div>

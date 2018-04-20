@@ -28,6 +28,11 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   tagName: ''
 }) {
   /**
+   * References the parent external action to handle double click events on the field name
+   * @memberof DatasetComplianceRollupRow
+   */
+  onFieldDblClick: () => void;
+  /**
    * References the parent external action to add a tag to the list of change sets
    * @memberof DatasetComplianceRollupRow
    */
@@ -246,6 +251,15 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 
     return false;
   });
+
+  /**
+   * Mouse double click event handler invokes parent action
+   * @memberof DatasetComplianceRollupRow
+   */
+  @action
+  onFragmentDblClick() {
+    get(this, 'onFieldDblClick')();
+  }
 
   /**
    * Toggles the expansion / collapse of the row expansion flag
