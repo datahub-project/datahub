@@ -195,6 +195,10 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
       return false;
     }
 
+    if (!identifierType) {
+      return true;
+    }
+
     // Check that suggestion exists and the identifierType does not match the change set item
     if (suggestion && suggestion.identifierType !== identifierType) {
       isReviewRequired = isReviewRequired || !suggestionAuthority;
