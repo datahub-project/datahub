@@ -211,9 +211,15 @@
 
   &__id-field-wrap {
     display: flex;
+    max-width: 100%;
 
     &__edit {
       display: flex;
+    }
+
+    &__prop {
+      width: 100%;
+      overflow: hidden;
     }
   }
 }
