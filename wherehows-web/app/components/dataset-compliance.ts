@@ -138,6 +138,12 @@ export default class DatasetCompliance extends Component {
   notifications: ComputedProperty<Notifications> = inject();
 
   /**
+   * Flag indicating that the field names in each compliance row is truncated or rendered in full
+   * @type {boolean}
+   */
+  isShowingFullFieldNames = true;
+
+  /**
    * Flag indicating that the related dataset is schemaless or has a schema
    * @type {boolean}
    * @memberof DatasetCompliance
@@ -939,6 +945,13 @@ export default class DatasetCompliance extends Component {
      */
     onCancel(this: DatasetCompliance) {
       this.updateStep(initialStepIndex);
+    },
+
+    /**
+     * Toggles the flag isShowingFullFieldNames when invoked
+     */
+    onFieldDblClick() {
+      this.toggleProperty('isShowingFullFieldNames');
     },
 
     /**
