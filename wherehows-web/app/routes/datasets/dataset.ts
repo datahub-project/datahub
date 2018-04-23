@@ -6,7 +6,13 @@ import ComputedProperty from '@ember/object/computed';
 import Configurator from 'wherehows-web/services/configurator';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
-import isUrn, { convertWhUrnToLiUrn, decodeUrn, isLiUrn, isWhUrn } from 'wherehows-web/utils/validators/urn';
+import isUrn, {
+  convertWhUrnToLiUrn,
+  decodeUrn,
+  isLiUrn,
+  isWhUrn,
+  encodeWildcard
+} from 'wherehows-web/utils/validators/urn';
 import { datasetIdToUrn, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import DatasetController from 'wherehows-web/controllers/datasets/dataset';
@@ -57,7 +63,7 @@ export default class DatasetRoute extends Route {
       }
 
       if (isLiUrn(decodeUrn(resolvedUrn))) {
-        return await readDatasetByUrn(resolvedUrn);
+        return await readDatasetByUrn(encodeWildcard(resolvedUrn));
       }
 
       get(this, 'notifications').notify(NotificationEvent.error, {
