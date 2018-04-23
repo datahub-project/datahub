@@ -12,14 +12,16 @@
   </section>
 {{/if}}
 
-<p class="dataset-author__required-count">
-  {{#if requiredMinNotConfirmed}}
+{{#if (eq showOwnership "hide")}}
+  <p class="dataset-author__required-count">
+    {{#if requiredMinNotConfirmed}}
 
-    Add <strong>{{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
-    , Ownership Type - <code>Data Owner</code>, and who is also <code>Active</code>
+      Add <strong>{{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
+      , Ownership Type - <code>Data Owner</code>, and who is also <code>Active</code>
 
-  {{/if}}
-</p>
+    {{/if}}
+  </p>
+{{/if}}
 
 {{#if (eq showOwnership "show")}}
 
@@ -226,9 +228,25 @@
 
     {{#if requiredMinNotConfirmed}}
       <div class="dataset-authors-save-error">
-        {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
-        Add at least 2 owners.
+        <p>
+          {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
+          {{#if (eq ownersRequiredCount 2)}}
+            Add at least 2 owners.
+          {{else}}
+            Add at least {{ownersRequiredCount}} more owner(s).
+          {{/if}}
+        </p>
       </div>
     {{/if}}
   </div>
 </section>
+
+
+  <p class="dataset-author__required-count">
+    {{#if requiredMinNotConfirmed}}
+
+      Add <strong>{{ownersRequiredCount}}</strong> owner(s) with ID Type - <code>USER</code>
+      , Ownership Type - <code>Data Owner</code>, and who is also <code>Active</code>
+
+    {{/if}}
+  </p>
