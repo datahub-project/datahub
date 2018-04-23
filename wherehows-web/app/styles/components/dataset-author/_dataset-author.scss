@@ -54,3 +54,17 @@
     margin-left: item-spacing(4);
   }
 }
+
+.dataset-authors-save {
+  float: right;
+}
+
+.dataset-authors-save-error {
+  float: right;
+  padding-top: 10px;
+  margin-right: 64px;
+
+  &__icon {
+    color: set-color(red, red5);
+  }
+}

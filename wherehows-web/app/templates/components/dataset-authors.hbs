@@ -26,11 +26,11 @@
   <section class="dataset-author">
     <header>
       <h2 class="dataset-author__header">
-        Owners Confirmed
+        Owners
       </h2>
 
       <p class="dataset-author__byline">
-        These are dataset ownership records that have been manually entered / confirmed by a human
+        Please add at least <strong>2</strong> owners.
       </p>
     </header>
 
@@ -211,7 +211,6 @@
 
 <section class="action-bar">
   <div class="container action-bar__content">
-
     <button
       class="nacho-button nacho-button--large-inverse action-bar__item dataset-authors-save"
       disabled={{requiredMinNotConfirmed}}
@@ -225,5 +224,11 @@
 
     </button>
 
+    {{#if requiredMinNotConfirmed}}
+      <div class="dataset-authors-save-error">
+        {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
+        Add at least 2 owners.
+      </div>
+    {{/if}}
   </div>
 </section>
