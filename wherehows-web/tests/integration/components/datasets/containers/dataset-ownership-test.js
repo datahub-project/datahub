@@ -22,7 +22,7 @@ moduleForComponent(
 );
 
 test('it renders', async function(assert) {
-  const lookupClass = '.dataset-author-user-lookup';
+  const lookupClass = '.dataset-owner-table__add-owner';
   this.set('urn', urn);
   this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
     200,
@@ -35,12 +35,12 @@ test('it renders', async function(assert) {
     JSON.stringify([])
   ]);
 
-  this.render(hbs`{{datasets/containers/dataset-ownership urn=urn}}`);
+  this.render(hbs`{{datasets/containers/dataset-ownership urn=urn showOwnership="show"}}`);
 
   await waitUntil(() => find(lookupClass));
   assert.equal(
     document.querySelector(lookupClass).textContent.trim(),
-    'Add an Owner',
+    'Add an owner',
     'shows dataset authors component'
   );
 });
