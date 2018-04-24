@@ -39,3 +39,15 @@ export default (baseUrl: string, queryParam: string, queryValue: string): string
 
   return `${baseUrl}${separator}${queryParam}=${queryValue}`;
 };
+
+/**
+ * Sets the href on a location object if the protocol is not https
+ * @param {Location} { protocol, href }
+ */
+export const redirectToHttps = ({ protocol, href, hostname }: Location): void => {
+  const secureProtocol = 'https:';
+
+  if (protocol !== secureProtocol && hostname !== 'localhost') {
+    window.location.replace(`${secureProtocol}${href.substring(protocol.length)}`);
+  }
+};
