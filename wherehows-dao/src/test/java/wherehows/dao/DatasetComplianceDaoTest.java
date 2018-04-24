@@ -55,7 +55,7 @@ public class DatasetComplianceDaoTest {
         + "enterpriseProduct: false, accountStatus: false, addressBookImports: false, microsoftData: false, "
         + "subsidiaryData: false, otherThirdPartyIntegrations: false, device: false, searchHistory: false, "
         + "courseViewingHistory: false, whoViewedMyProfile: false, profileViewsByMe: false, advertising: false, "
-        + "usageOrErrorOrConnectivity: false, otherClickstreamOrBrowsingData: false}";
+        + "usageOrErrorOrConnectivity: false, otherClickstreamOrBrowsingData: false, employeeData: null}";
 
     assertEquals(dsCompliance.getCompliancePurgeType(), purgeType.toString());
     assertEquals(dsCompliance.getCompliancePurgeNote(), purgeNote);

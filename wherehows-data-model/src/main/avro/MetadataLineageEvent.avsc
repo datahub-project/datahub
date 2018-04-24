@@ -59,7 +59,7 @@
           "UNUSED": "Always use this value as the field is now deprecated"
         }
       },
-      "doc": "Deprecated. New clients should set this to UNUSED and use actor field in changeAuditStamp instead."
+      "doc": "[Deprecated] New clients should set this to UNUSED and use actor field in changeAuditStamp instead."
     },
     {
       "name": "name",
