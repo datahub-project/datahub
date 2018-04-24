@@ -57,6 +57,10 @@ $user-name-width: 170px;
   &--narrow {
     width: 9%;
   }
+
+  &--extra-wide {
+    width: 28%;
+  }
 }
 
 .dataset-owner-table {
@@ -75,6 +79,35 @@ $user-name-width: 170px;
 
   &#{&} &--wrap {
     white-space: normal;
+  }
+
+  &__add-owner {
+    height: 84px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+
+    .twitter-typeahead {
+      width: 142px;
+    }
+  }
+
+  &__trigger {
+    color: get-color(blue6);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .remove-dataset-author {
+    color: set-color(grey, mid);
+    background-color: transparent;
+    float: right;
+
+    &:hover {
+      background-color: transparent;
+      color: set-color(grey, dark);
+    }
   }
 }
 

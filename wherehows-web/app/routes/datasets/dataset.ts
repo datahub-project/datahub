@@ -106,7 +106,7 @@ export default class DatasetRoute extends Route {
     setProperties(controller, {
       isInternal: !!isInternal,
       jitAclAccessWhitelist: jitAclAccessWhitelist || [],
-      showOwnership
+      showOwnership: showOwnership || 'hide'
     });
   }
 

@@ -3,11 +3,12 @@
   position: relative;
 
   &::after {
-    content: '\e003';
+    content: '\2b';
     position: absolute;
     top: item-spacing(3);
-    right: item-spacing(2);
+    left: item-spacing(2);
     z-index: z(default);
+    color: rgba(0, 0, 0, 0.5);
     display: inline-block;
     font-family: 'Glyphicons Halflings';
     font-style: normal;
@@ -21,7 +22,7 @@
     outline: none;
     border-radius: 0;
     border: 1px solid set-color(grey, light);
-    padding: item-spacing(2 5 2 3);
+    padding: item-spacing(2 5 2 6);
     box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
     transition: box-shadow ease-in-out 0.15s;
     line-height: 1.428;

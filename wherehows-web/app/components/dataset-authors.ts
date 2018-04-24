@@ -106,6 +106,16 @@ export default class DatasetAuthors extends Component {
   confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isConfirmedOwner);
 
   /**
+   * Boolean that determines whether the user is currently using the typeahead box to add an
+   * owner. This is triggered to true when the user clicks on Add an Owner in the table and
+   * returns to false at the end of the addOwner action
+   * @type {boolean}
+   * @default false
+   * @memberof DatasetAuthors
+   */
+  isAddingOwner = false;
+
+  /**
    * Intersection of confirmed owners and suggested owners
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
