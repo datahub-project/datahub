@@ -120,6 +120,33 @@ const encodeForwardSlash = (urn: string): string => urn.replace(/\//g, encodeURI
 const decodeForwardSlash = (urn: string): string => urn.replace(encodedSlashRegExp, decodeURIComponent('/'));
 
 /**
+ * Stores the encoded URL for the asterisk/wildcard symbol since encodeURIComponent doesn't catch these
+ * as a reserved symbol
+ * @type {string}
+ */
+const encodedWildcard = '%2A';
+
+/**
+ * Cached RegExp object for a global search of /
+ * @type {RegExp}
+ */
+const encodedWildcardRegExp = new RegExp(encodedWildcard, 'g');
+
+/**
+ * Replaces any occurence of * with the encoded equivalent
+ * @param {string} urn
+ * @return {string}
+ */
+const encodeWildcard = (urn: string): string => urn.replace(/\*/g, encodedWildcard);
+
+/**
+ * Replaces encoded slashes with /
+ * @param {string} urn
+ * @return {string}
+ */
+const decodeWildcard = (urn: string): string => urn.replace(encodedWildcardRegExp, decodeURIComponent('*'));
+
+/**
  * Replaces occurrences of / with the encoded counterpart in a urn string
  * @param {string} urn
  * @return {string}
@@ -146,6 +173,8 @@ export {
   convertWhUrnToLiUrn,
   convertWhDatasetPathToLiPath,
   encodeForwardSlash,
+  encodeWildcard,
+  decodeWildcard,
   encodeUrn,
   decodeUrn
 };
