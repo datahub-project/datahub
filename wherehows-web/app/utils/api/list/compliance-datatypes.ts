@@ -13,9 +13,15 @@ const complianceDataTypesUrl = `${getListUrlRoot('v2')}/compliance-data-types`;
  * @returns {Promise<Array<IComplianceDataType>>}
  */
 const readComplianceDataTypes = async (): Promise<Array<IComplianceDataType>> => {
-  const { complianceDataTypes = [] } = await getJSON<IComplianceDataTypeResponse>({
-    url: complianceDataTypesUrl
-  });
+  let complianceDataTypes: Array<IComplianceDataType> = [];
+
+  try {
+    ({ complianceDataTypes = [] } = await getJSON<IComplianceDataTypeResponse>({
+      url: complianceDataTypesUrl
+    }));
+  } catch {
+    //no-op
+  }
 
   return complianceDataTypes;
 };
