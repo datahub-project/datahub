@@ -1,8 +1,8 @@
 import Component from '@ember/component';
-import { get, set, setProperties, getProperties } from '@ember/object';
+import { get, set, setProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { inject } from '@ember/service';
-import { task, TaskInstance } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { action } from 'ember-decorators/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
@@ -27,6 +27,29 @@ import {
   filterEditableEntities,
   SuggestionIntent
 } from 'wherehows-web/constants';
+
+/**
+ * Type alias for the response when container data items are batched
+ */
+type BatchComplianceResponse = [
+  IReadComplianceResult,
+  Array<IComplianceDataType>,
+  IComplianceSuggestion,
+  IDatasetSchema
+];
+
+/**
+ * Type alias for the result of invoking the batch operation, properties are set on container
+ */
+type BatchContainerDataResult = Pick<
+  DatasetComplianceContainer,
+  | 'isNewComplianceInfo'
+  | 'complianceInfo'
+  | 'complianceDataTypes'
+  | 'complianceSuggestion'
+  | 'schemaFieldNamesMappedToDataTypes'
+  | 'schemaless'
+>;
 
 const { successUpdating, failedUpdating } = compliancePolicyStrings;
 
@@ -120,24 +143,46 @@ export default class DatasetComplianceContainer extends Component {
    */
   getContainerDataTask = task(function*(
     this: DatasetComplianceContainer
-  ): IterableIterator<TaskInstance<Promise<any>>> {
+  ): IterableIterator<Promise<BatchContainerDataResult>> {
     const { notify } = get(this, 'notifications');
 
-    const tasks = Object.values(
-      getProperties(this, [
-        'getComplianceTask',
-        'getComplianceDataTypesTask',
-        'getComplianceSuggestionsTask',
-        'getDatasetSchemaTask'
-      ])
-    );
-
     try {
-      yield* tasks.map(task => task.perform());
+      yield this.batchContainerData();
     } catch (e) {
       notify(NotificationEvent.info, { content: e });
     }
   }).drop();
+
+  /**
+   * Sets dataset properties in batch after waiting for all data requests to resolve
+   * @return {Promise<Pick<DatasetComplianceContainer, "isNewComplianceInfo" | "complianceInfo" | "complianceDataTypes" | "complianceSuggestion" | "schemaFieldNamesMappedToDataTypes" | "schemaless">>}
+   */
+  async batchContainerData(this: DatasetComplianceContainer): Promise<BatchContainerDataResult> {
+    const urn: string = get(this, 'urn');
+    const [
+      { isNewComplianceInfo, complianceInfo },
+      complianceDataTypes,
+      complianceSuggestion,
+      { columns, schemaless }
+    ]: BatchComplianceResponse = await Promise.all([
+      readDatasetComplianceByUrn(urn),
+      readComplianceDataTypes(),
+      readDatasetComplianceSuggestionByUrn(urn),
+      readDatasetSchemaByUrn(urn)
+    ]);
+    const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
+
+    this.onCompliancePolicyStateChange.call(this, { isNewComplianceInfo, fromUpstream: !!complianceInfo.fromUpstream });
+
+    return setProperties(this, {
+      isNewComplianceInfo,
+      complianceInfo,
+      complianceDataTypes,
+      complianceSuggestion,
+      schemaFieldNamesMappedToDataTypes,
+      schemaless
+    });
+  }
 
   /**
    * Reads the compliance properties for the dataset

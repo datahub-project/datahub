@@ -15,7 +15,19 @@ const datasetSchemaUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/
  * @return {Promise<IDatasetSchema>}
  */
 const readDatasetSchemaByUrn = async (urn: string): Promise<IDatasetSchema> => {
-  const { schema } = await getJSON<IDatasetSchemaGetResponse>({ url: datasetSchemaUrlByUrn(urn) });
+  let schema: IDatasetSchema;
+
+  try {
+    ({ schema } = await getJSON<IDatasetSchemaGetResponse>({ url: datasetSchemaUrlByUrn(urn) }));
+  } catch {
+    return {
+      schemaless: false,
+      rawSchema: null,
+      keySchema: null,
+      columns: []
+    };
+  }
+
   return schema;
 };
 
