@@ -65,7 +65,7 @@
   margin-right: 64px;
 
   &__icon {
-    color: set-color(red, red5);
+    color: get-color(red5);
     margin-right: 8px;
   }
 }
