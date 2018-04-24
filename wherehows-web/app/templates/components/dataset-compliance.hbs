@@ -25,7 +25,8 @@
                 <button
                   class="nacho-button nacho-button--large-inverse action-bar__item"
                   title="Next"
-                  {{action "nextStep"}}>
+                  {{action "nextStep"}}
+                  disabled={{gt changeSetReviewCount 0}}>
                   Next
                 </button>
               {{else}}
