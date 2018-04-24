@@ -94,7 +94,7 @@ $user-name-width: 170px;
   }
 
   &__trigger {
-    color: rgba(0, 132, 191, 1);
+    color: get-color(blue6);
     font-weight: 600;
     cursor: pointer;
   }
