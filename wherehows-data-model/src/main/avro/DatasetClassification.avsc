@@ -108,6 +108,12 @@
       "name": "otherClickstreamOrBrowsingData",
       "type": "boolean",
       "doc": "Dataset contains other click-related data that doesn't fit into a bucket above."
+    },
+    {
+      "name": "employeeData",
+      "type": ["null", "boolean"],
+      "default": null,
+      "doc": "Dataset contains only employee data."
     }
   ]
 }
