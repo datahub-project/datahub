@@ -33,7 +33,6 @@ import {
   sortFoldedChangeSetTuples
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
-import scrollMonitor from 'scrollmonitor';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { compact, isListUnique } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
@@ -382,16 +381,6 @@ export default class DatasetCompliance extends Component {
   }
 
   /**
-   * @override
-   */
-  didRender() {
-    this._super(...arguments);
-    // Hides DOM elements that are not currently visible in the UI and unhides them once the user scrolls the
-    // elements into view
-    this.enableDomCloaking();
-  }
-
-  /**
    * Parent task to determine if a compliance policy can be created or updated for the dataset
    * @type {Task<TaskInstance<Promise<Array<IDataPlatform>>>, () => TaskInstance<TaskInstance<Promise<Array<IDataPlatform>>>>>}
    * @memberof DatasetCompliance
@@ -417,69 +406,6 @@ export default class DatasetCompliance extends Component {
       set(this, 'supportedPurgePolicies', getSupportedPurgePolicies(platform, yield readPlatforms()));
     }
   }).restartable();
-
-  /**
-   * A `lite` / intermediary step to occlusion culling, this helps to improve the rendering of
-   * elements that are currently rendered in the viewport by hiding that aren't.
-   * Setting them to visibility hidden doesn't remove them from the document flow, but the browser
-   * doesn't have to deal with layout for the affected elements since they are off-screen
-   * @memberof DatasetCompliance
-   */
-  enableDomCloaking() {
-    const dom = this.element.querySelector('.dataset-compliance-fields');
-    const triggerThreshold = 100;
-
-    if (dom) {
-      const rows = dom.querySelectorAll('tbody tr');
-
-      // if we already have watchers for elements, or if the elements previously cached are no longer valid,
-      // e.g. those elements were destroyed when new data was received, pagination etc
-      if (rows.length > triggerThreshold && (!this.complianceWatchers || !this.complianceWatchers.has(rows[0]))) {
-        /**
-         * If an item is not in the viewport add a class to occlude it
-         */
-        const cloaker = function(this: any) {
-          return !this.isInViewport
-            ? this.watchItem.classList.add('compliance-row--off-screen')
-            : this.watchItem.classList.remove('compliance-row--off-screen');
-        };
-        this.watchers = [];
-
-        const entries = <Array<[Element, object]>>[...rows].map(row => {
-          const watcher: { stateChange: (fn: () => void) => void; watchItem: Element } = scrollMonitor.create(row);
-          watcher['stateChange'](cloaker);
-          cloaker.call(watcher);
-          this.watchers = [...this.watchers, watcher];
-
-          return [watcher.watchItem, watcher];
-        });
-
-        // Retain a weak reference to DOM nodes
-        this.complianceWatchers = new WeakMap<Element, {}>(entries);
-      }
-    }
-  }
-
-  /**
-   * Cleans up the artifacts from the dom cloaking operation, drops references held by scroll monitor
-   * @returns void
-   * @memberof DatasetCompliance
-   */
-  disableDomCloaking() {
-    if (!this.watchers || !Array.isArray(this.watchers)) {
-      return;
-    }
-
-    this.watchers.forEach(watcher => watcher.destroy && watcher.destroy());
-  }
-
-  /**
-   * @override
-   * @memberof DatasetCompliance
-   */
-  willDestroyElement() {
-    this.disableDomCloaking();
-  }
 
   /**
    * Ensure that props received from on this component

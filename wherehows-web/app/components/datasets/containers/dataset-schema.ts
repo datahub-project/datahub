@@ -23,7 +23,7 @@ export default class DatasetSchemaContainer extends Component {
    * Stores the last modified date on the dataset schema as an utc time string
    * @type {string}
    */
-  lastModifiedString: string;
+  lastModifiedString: string = '';
 
   /**
    * List of schema properties for the dataset
@@ -47,7 +47,7 @@ export default class DatasetSchemaContainer extends Component {
     let schemas,
       { columns, rawSchema: json, lastModified }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
 
-    let lastModifiedString = new Date(lastModified).toLocaleString();
+    let lastModifiedString = lastModified ? new Date(lastModified).toLocaleString() : '';
 
     schemas = augmentObjectsWithHtmlComments(columns);
     json || (json = '{}');
