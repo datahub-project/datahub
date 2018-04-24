@@ -29,8 +29,9 @@
     }
 
     &--inactive {
-      background-color: set-color(red, maroonflush);
+      background-color: set-color(red, red5);
       pointer-events: none;
+      margin-left: 8px;
     }
   }
 }
@@ -51,5 +52,20 @@
   &__container {
     width: 300px;
     margin-left: item-spacing(4);
+  }
+}
+
+.dataset-authors-save {
+  float: right;
+}
+
+.dataset-authors-save-error {
+  float: right;
+  padding-top: 10px;
+  margin-right: 64px;
+
+  &__icon {
+    color: get-color(red5);
+    margin-right: 8px;
   }
 }
