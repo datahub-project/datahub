@@ -306,6 +306,10 @@ GET           /api/v2/datasets/:urn/compliance                                  
 
 POST          /api/v2/datasets/:urn/compliance                                  controllers.api.v2.Dataset.updateDatasetCompliance(urn: String)
 
+GET           /api/v2/datasets/:urn/retention                                   controllers.api.v2.Dataset.getDatasetRetention(urn: String)
+
+POST          /api/v2/datasets/:urn/retention                                   controllers.api.v2.Dataset.updateDatasetRetention(urn: String)
+
 GET           /api/v2/datasets/:urn/compliance/suggestion                       controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
 
 POST          /api/v2/datasets/:urn/compliance/suggestion/feedback              controllers.api.v2.Dataset.sendDatasetSuggestedComplianceFeedback(urn: String)
