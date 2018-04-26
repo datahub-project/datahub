@@ -31,6 +31,7 @@ import wherehows.models.table.DictDataset;
 import wherehows.models.table.DsCompliance;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetFieldEntity;
+import wherehows.models.view.DatasetRetention;
 import wherehows.models.view.DsComplianceSuggestion;
 
 import static wherehows.util.JsonUtil.*;
@@ -161,6 +162,15 @@ public class DatasetComplianceDao extends BaseDao {
 
   public void sendSuggestedComplianceFeedback(@Nonnull String datasetUrn, @Nonnull String uid, @Nonnull String feedback)
       throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  @Nullable
+  public DatasetRetention getDatasetRetention(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  public void updateDatasetRetention(@Nonnull DatasetRetention record, @Nonnull String user) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
