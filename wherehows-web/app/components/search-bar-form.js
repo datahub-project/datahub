@@ -47,11 +47,23 @@ export default Component.extend({
     /**
      * When a search action is performed, invoke the parent search action with
      *   the user entered search value as keyword and the currentFilter
-     *   as category
+     *   as category. Triggered by clicking the search button
      */
     search() {
       get(this, 'didSearch')({
         keyword: get(this, 'search'),
+        category: get(this, 'currentFilter')
+      });
+    },
+
+    /**
+     * Triggers a search action by the user pressing enter on a typeahead suggestion
+     * @param {string} suggestion - suggestion text passed in from aupac-typeahead
+     */
+    selectedSuggestion(suggestion) {
+      set(this, 'search', suggestion);
+      get(this, 'didSearch')({
+        keyword: suggestion,
         category: get(this, 'currentFilter')
       });
     },
