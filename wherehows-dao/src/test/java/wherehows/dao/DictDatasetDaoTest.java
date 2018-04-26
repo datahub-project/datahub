@@ -107,9 +107,9 @@ public class DictDatasetDaoTest {
     String propertyStr = "{nativeType: TABLE, storageType: TABLE, uri: oracle:///abc/test, caseSensitivity: "
         + "{datasetName: false, fieldName: false, dataContent: true}, refresh: null, extras: {foo: bar}}";
 
-    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
-        + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "
-        + "fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
+    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, partitionPattern: null, "
+        + "hasTimePartition: null, hasHashPartition: true, partitions: null, partitionKeys: [{partitionLevel: 1, "
+        + "partitionType: HASH, timeFormat: null, fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
 
     assertEquals(properties.get("property").toString().replaceAll("\"", ""), propertyStr);
     assertEquals(properties.get("tag"), Arrays.asList("tag1", "tag2"));
@@ -176,9 +176,9 @@ public class DictDatasetDaoTest {
     String propertyStr =
         "{nativeType: TABLE, storageType: TABLE, uri: null, caseSensitivity: null, refresh: {lastRefresh: 10000}, extras: null}";
 
-    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, hasTimePartition: null, "
-        + "hasHashPartition: true, partitionKeys: [{partitionLevel: 1, partitionType: HASH, timeFormat: null, "
-        + "fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
+    String partitionStr = "{totalPartitionLevel: 1, partitionSpecText: null, partitionPattern: null, "
+        + "hasTimePartition: null, hasHashPartition: true, partitions: null, partitionKeys: [{partitionLevel: 1, "
+        + "partitionType: HASH, timeFormat: null, fieldNames: [Partition], partitionValues: null, numberOfHashBuckets: null}]}";
 
     assertEquals(properties.get("property").toString().replaceAll("\"", ""), propertyStr);
     assertEquals(properties.get("tag"), Arrays.asList("tag1", "tag3"));

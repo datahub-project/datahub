@@ -6,28 +6,63 @@
   "fields": [
     {
       "name": "totalPartitionLevel",
-      "type": [ "null", "int" ],
+      "type": [
+        "null",
+        "int"
+      ],
       "doc": "What is the deepest partition level, start at level 1. See Composite partitioning in https://en.wikipedia.org/wiki/Partition_(database)"
     },
     {
       "name": "partitionSpecText",
-      "type": [ "null", "string" ],
+      "type": [
+        "null",
+        "string"
+      ],
       "doc": "Original partition spec or DDL"
     },
     {
+      "name": "partitionPattern",
+      "default": null,
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "Regex for partition pattern. See go/hdfs-ds-pattern for more details."
+    },
+    {
       "name": "hasTimePartition",
-      "type": [ "null", "boolean" ],
+      "type": [
+        "null",
+        "boolean"
+      ],
       "doc": "Does the dataset contain time partition?"
     },
     {
       "name": "hasHashPartition",
-      "type": [ "null", "boolean" ],
+      "type": [
+        "null",
+        "boolean"
+      ],
       "doc": "Does the dataset contain hash/shard partition?"
     },
     {
+      "name": "partitions",
+      "default": null,
+      "type": [
+        "null",
+        {
+          "type": "array",
+          "items": "string"
+        }
+      ],
+      "doc": "A list of partitions, e.g. 2017-10-01, daily/2018/01/01 etc."
+    },
+    {
       "name": "partitionKeys",
-      "doc": "Array of partition keys/fields",
-      "type": [ "null", {
+      "doc": "[Deprecated] Use 'partitions' field instead",
+      "type": [
+        "null",
+        {
           "type": "array",
           "items": {
             "type": "record",
@@ -44,7 +79,13 @@
                 "type": {
                   "type": "enum",
                   "name": "PartitionType",
-                  "symbols": [ "RANGE", "HASH", "LIST", "CASE", "ROUND_ROBIN" ],
+                  "symbols": [
+                    "RANGE",
+                    "HASH",
+                    "LIST",
+                    "CASE",
+                    "ROUND_ROBIN"
+                  ],
                   "symbolDocs": {
                     "RANGE": "range partition which is defined by [min, max] or [min, next_partition_min) boundaries",
                     "HASH": "hash partition based on the hash value of the partition key. Hive bucekt is a hash partition",
@@ -56,7 +97,10 @@
               },
               {
                 "name": "timeFormat",
-                "type": [ "null", "string" ],
+                "type": [
+                  "null",
+                  "string"
+                ],
                 "doc": "yyyyMMdd, yyyy-MM-dd or Epoch. https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html"
               },
               {
@@ -79,7 +123,10 @@
               },
               {
                 "name": "numberOfHashBuckets",
-                "type": [ "null", "int" ],
+                "type": [
+                  "null",
+                  "int"
+                ],
                 "doc": "2,4,8,16..."
               }
             ]
