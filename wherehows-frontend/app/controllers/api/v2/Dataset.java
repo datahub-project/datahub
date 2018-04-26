@@ -39,6 +39,7 @@ import wherehows.models.table.AccessControlEntry;
 import wherehows.models.view.DatasetCompliance;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DatasetOwnership;
+import wherehows.models.view.DatasetRetention;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
@@ -316,7 +317,6 @@ public class Dataset extends Controller {
       Logger.error("Update Compliance Info fail", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
-
     return Promise.promise(() -> ok(_EMPTY_RESPONSE));
   }
 
@@ -351,6 +351,46 @@ public class Dataset extends Controller {
       COMPLIANCE_DAO.sendSuggestedComplianceFeedback(datasetUrn, uid, feedback);
     } catch (Exception e) {
       Logger.error("Send compliance suggestion feedback fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+  }
+
+  public static Promise<Result> getDatasetRetention(@Nonnull String datasetUrn) {
+    final DatasetRetention record;
+    try {
+      record = COMPLIANCE_DAO.getDatasetRetention(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
+      Logger.error("Fetch compliance fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+
+    if (record == null) {
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+    }
+    return Promise.promise(() -> ok(Json.newObject().set("complianceInfo", Json.toJson(record))));
+  }
+
+  public static Promise<Result> updateDatasetRetention(@Nonnull String datasetUrn) {
+    final String username = session("user");
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
+    }
+
+    try {
+      DatasetRetention record = Json.mapper().convertValue(request().body().asJson(), DatasetRetention.class);
+
+      if (record.getDatasetUrn() == null || !record.getDatasetUrn().equals(datasetUrn)) {
+        throw new IllegalArgumentException("Dataset Urn not exist or doesn't match.");
+      }
+
+      COMPLIANCE_DAO.updateDatasetRetention(record, username);
+    } catch (Exception e) {
+      Logger.error("Update Retention Policy fail", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
     return Promise.promise(() -> ok(_EMPTY_RESPONSE));

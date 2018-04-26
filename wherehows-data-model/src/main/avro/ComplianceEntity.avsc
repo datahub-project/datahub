@@ -106,13 +106,19 @@
             "NUMERIC",
             "URN",
             "REVERSED_URN",
-            "COMPOSITE_URN"
+            "COMPOSITE_URN",
+            "CUSTOM",
+            "ENCODED",
+            "HASHED"
           ],
           "symbolDocs": {
-            "NUMERIC": "Numerical format",
-            "URN": "URN format",
-            "REVERSED_URN": "Reversed URN format",
-            "COMPOSITE_URN": "Composite URN format"
+            "NUMERIC": "Numerical format, 12345",
+            "URN": "URN format, urn:li:member:12345",
+            "REVERSED_URN": "Reversed URN format, 12345:member:li:urn",
+            "COMPOSITE_URN": "[Deprecated] Use CUSTOM format + pattern instead",
+            "CUSTOM": "Any other non-standard format. A pattern for the value is expected to be provided",
+            "ENCODED": "Data is stored in reversible encoded/serialized/encrypted format",
+            "HASHED": "Data is stored in irreversible hashed format"
           },
           "doc": "The field format"
         }
@@ -122,6 +128,15 @@
       "name": "securityClassification",
       "type": "SecurityClassification",
       "doc": "Field security classification that governs data handling."
+    },
+    {
+      "name": "valuePattern",
+      "default": null,
+      "doc": "Optional pattern for the value. Required for CUSTOM fieldFormat",
+      "type": [
+        "null",
+        "string"
+      ]
     }
   ]
 }
