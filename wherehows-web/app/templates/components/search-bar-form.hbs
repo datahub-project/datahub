@@ -3,7 +3,7 @@
     <label for="search-input" class="sr-only">Search</label>
 
     {{aupac-typeahead
-      action=(action "selectedSuggestion")
+      action=(action "onSelectedSuggestion")
       autoFocus=true
       allowFreeInput=true
       source=(action "onInput")
