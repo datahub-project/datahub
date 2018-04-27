@@ -60,12 +60,9 @@ export default Component.extend({
      * Triggers a search action by the user pressing enter on a typeahead suggestion
      * @param {string} suggestion - suggestion text passed in from aupac-typeahead
      */
-    selectedSuggestion(suggestion) {
+    onSelectedSuggestion(suggestion) {
       set(this, 'search', suggestion);
-      get(this, 'didSearch')({
-        keyword: suggestion,
-        category: get(this, 'currentFilter')
-      });
+      this.actions.search.call(this);
     },
 
     /**
