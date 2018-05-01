@@ -1,5 +1,6 @@
 import Component from '@ember/component';
 import { get, computed } from '@ember/object';
+import { action } from 'ember-decorators/object';
 import { ISecurityClassificationOption } from 'wherehows-web/typings/app/dataset-compliance';
 import { getSecurityClassificationDropDownOptions } from 'wherehows-web/constants';
 
@@ -52,31 +53,31 @@ export default class SchemalessTagging extends Component {
    */
   classification: ISecurityClassificationOption['value'];
 
-  actions = {
-    /**
-     * Invokes the closure action onPersonaDataChange when the flag is toggled
-     * @param {boolean} containsPersonalDataTag flag indicating that the dataset contains personal data
-     * @returns boolean
-     */
-    onPersonalDataToggle(this: SchemalessTagging, containsPersonalDataTag: boolean) {
-      if (containsPersonalDataTag) {
-        this.actions.onSecurityClassificationChange.call(this, { value: null });
-      }
-
-      return get(this, 'onPersonalDataChange')(containsPersonalDataTag);
-    },
-
-    /**
-     * Updates the dataset security classification via the closure action onClassificationChange
-     * @param {ISecurityClassificationOption} { value } security Classification value for the dataset
-     * @returns null | Classification
-     */
-    onSecurityClassificationChange(
-      this: SchemalessTagging,
-      { value }: { value: ISecurityClassificationOption['value'] }
-    ) {
-      const securityClassification = value || null;
-      return get(this, 'onClassificationChange')(securityClassification);
+  /**
+   * Invokes the closure action onPersonaDataChange when the flag is toggled
+   * @param {boolean} containsPersonalDataTag flag indicating that the dataset contains personal data
+   * @returns boolean
+   */
+  @action
+  onPersonalDataToggle(this: SchemalessTagging, containsPersonalDataTag: boolean) {
+    if (containsPersonalDataTag) {
+      this.actions.onSecurityClassificationChange.call(this, { value: null });
     }
-  };
+
+    return get(this, 'onPersonalDataChange')(containsPersonalDataTag);
+  }
+
+  /**
+   * Updates the dataset security classification via the closure action onClassificationChange
+   * @param {ISecurityClassificationOption} { value } security Classification value for the dataset
+   * @returns null | Classification
+   */
+  @action
+  onSecurityClassificationChange(
+    this: SchemalessTagging,
+    { value }: { value: ISecurityClassificationOption['value'] }
+  ) {
+    const securityClassification = value || null;
+    return get(this, 'onClassificationChange')(securityClassification);
+  }
 }
