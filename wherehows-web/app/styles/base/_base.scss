@@ -11,11 +11,19 @@ html {
  * Apply padding to top and bottom to account for navigation and footer
  */
 body {
-  padding-top: $nav-min-height;
-  padding-bottom: $nav-min-height;
   background-color: set-color(white, base);
   overflow-y: scroll;
   overflow-x: hidden;
+}
+
+.app-container {
+  margin-top: $nav-min-height;
+  margin-bottom: $nav-min-height;
+  transition: margin 0.7s ease;
+
+  &.banner-alert-offset {
+    margin-top: $nav-min-height + 52px;
+  }
 }
 
 /**
