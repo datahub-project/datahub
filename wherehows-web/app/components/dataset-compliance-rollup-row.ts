@@ -352,7 +352,10 @@ export default class DatasetComplianceRollupRow extends Component.extend({
             value: <ComplianceFieldIdValue>identifierType
           });
         } else {
-          this.actions.onAddFieldTag.call(this, { identifierType, logicalType });
+          // If suggested value is ComplianceFieldIdValue.None then do not add
+          if (identifierType !== ComplianceFieldIdValue.None) {
+            this.actions.onAddFieldTag.call(this, { identifierType, logicalType });
+          }
         }
       }
     }
