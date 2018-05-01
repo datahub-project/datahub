@@ -1,0 +1,13 @@
+{{#each banners.banners as |banner|}}
+  <div class="banner-alert {{if banner.isExiting "banner-alert--exiting" "banner-alert--active"}} banner-alert--{{banner.type}}">
+    {{fa-icon banner.iconName class="banner-alert__icon"}}
+    <div class="banner-alert__content">
+      {{banner.content}}
+    </div>
+    {{#if banner.isDismissable}}
+      <button {{action "onDismissBanner" banner}} class="banner-alert__dismiss">
+        {{fa-icon "close"}}
+      </button>
+    {{/if}}
+  </div>
+{{/each}}

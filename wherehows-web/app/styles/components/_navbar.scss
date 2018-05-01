@@ -11,6 +11,7 @@ $item-spacing: 10px;
    * Explicitly sets the .navbar min-height to a shared value
    */
   min-height: $nav-min-height;
+  transition: top 0.7s ease;
 
   &-inverse {
     /**
@@ -31,6 +32,10 @@ $item-spacing: 10px;
         }
       }
     }
+  }
+
+  &.navbar-top-offset {
+    top: 52px;
   }
 }
 
