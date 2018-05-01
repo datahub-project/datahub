@@ -155,7 +155,9 @@
         {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
           {{datasets/schemaless-tagging
             isEditable=(not isReadOnly)
+            classification=(readonly complianceInfo.confidentiality)
             containsPersonalData=(readonly complianceInfo.containingPersonalData)
+            onClassificationChange=(action "onDatasetSecurityClassificationChange")
             onPersonalDataChange=(action "onDatasetLevelPolicyChange")
           }}
         {{/if}}

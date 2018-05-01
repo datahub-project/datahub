@@ -1244,6 +1244,20 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
+     * Updates the confidentiality flag on the dataset compliance
+     * @param {IComplianceInfo.confidentiality} [securityClassification=null]
+     * @returns {IComplianceInfo.confidentiality}
+     */
+    onDatasetSecurityClassificationChange(
+      this: DatasetCompliance,
+      securityClassification: IComplianceInfo['confidentiality'] = null
+    ): IComplianceInfo['confidentiality'] {
+      const complianceInfo = get(this, 'complianceInfo');
+
+      return complianceInfo ? set(complianceInfo, 'confidentiality', securityClassification) : null;
+    },
+
+    /**
      * If all validity checks are passed, invoke onSave action on controller
      */
     async saveCompliance(this: DatasetCompliance): Promise<void> {
