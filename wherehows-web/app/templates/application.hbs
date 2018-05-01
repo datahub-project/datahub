@@ -1,18 +1,22 @@
 {{#if session.isAuthenticated}}
+  {{application/banner-alerts}}
+
   {{partial "navbar"}}
 
-  {{#hero-container}}
-    <header class="nacho-hero__header">
-      Search for datasets, metrics and flows
-    </header>
-    <section class="nacho-hero__content">
-      {{search-bar-form didSearch=(action "didSearch")}}
-    </section>
-  {{/hero-container}}
+  <div class="app-container {{if banners.isShowingBanners "banner-alert-offset"}}">
+    {{#hero-container}}
+      <header class="nacho-hero__header">
+        Search for datasets, metrics and flows
+      </header>
+      <section class="nacho-hero__content">
+        {{search-bar-form didSearch=(action "didSearch")}}
+      </section>
+    {{/hero-container}}
 
-  <section class="container-fluid">
-    {{partial "main"}}
-  </section>
+    <section class="container-fluid">
+      {{partial "main"}}
+    </section>
+  </div>
 
   {{notifications-service service=notifications}}
 {{else}}
