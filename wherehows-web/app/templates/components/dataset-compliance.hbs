@@ -26,7 +26,7 @@
                   class="nacho-button nacho-button--large-inverse action-bar__item"
                   title="Next"
                   {{action "nextStep"}}
-                  disabled={{gt changeSetReviewCount 0}}>
+                  disabled={{and (gt changeSetReviewCount 0) (eq editStep.name editSteps.0.name)}}>
                   Next
                 </button>
               {{else}}
@@ -155,7 +155,9 @@
         {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
           {{datasets/schemaless-tagging
             isEditable=(not isReadOnly)
+            classification=(readonly complianceInfo.confidentiality)
             containsPersonalData=(readonly complianceInfo.containingPersonalData)
+            onClassificationChange=(action "onDatasetSecurityClassificationChange")
             onPersonalDataChange=(action "onDatasetLevelPolicyChange")
           }}
         {{/if}}
