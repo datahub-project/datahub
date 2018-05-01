@@ -65,8 +65,7 @@ const {
   helpText,
   successUploading,
   invalidPolicyData,
-  missingPurgePolicy,
-  missingDatasetSecurityClassification
+  missingPurgePolicy
 } = compliancePolicyStrings;
 
 /**
@@ -1051,7 +1050,6 @@ export default class DatasetCompliance extends Component {
             window.scrollTo(0, 0);
           }
 
-          // return;
           throw e;
         }
 
@@ -1075,19 +1073,11 @@ export default class DatasetCompliance extends Component {
       const complianceInfo = get(this, 'complianceInfo');
 
       if (complianceInfo) {
-        const { confidentiality, containingPersonalData } = complianceInfo;
+        const { containingPersonalData } = complianceInfo;
 
         // defaults the containing personal data flag to false if undefined
         if (typeof containingPersonalData === 'undefined') {
           set(complianceInfo, 'containingPersonalData', false);
-        }
-
-        if (!confidentiality) {
-          get(this, 'notifications').notify(NotificationEvent.error, {
-            content: missingDatasetSecurityClassification
-          });
-
-          return Promise.reject(new Error(missingDatasetSecurityClassification));
         }
       }
     },
