@@ -56,6 +56,10 @@ public class Application extends Controller {
       Play.application().configuration().getString("linkedin.jit.acl.whitelist", "");
   private static final String WHZ_DS_OWNERSHIP_TAB =
       Play.application().configuration().getString("ui.show.ownership.revamp", "hide");
+  private static final Boolean WHZ_STG_BANNER =
+      Play.application().configuration().getBoolean("ui.show.staging.banner", false);
+  private static final Boolean WHZ_STALE_SEARCH_ALERT =
+      Play.application().configuration().getBoolean("ui.show.stale.search", false);
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -159,9 +163,16 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    // Ownership tab is currently in a UX revamp, this flag will determine whether to show it or not
+    // under certain environments
     config.put("showOwnership", WHZ_DS_OWNERSHIP_TAB);
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
+    // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
+    // such config and alert users that their changes will not affect production data
+    config.put("isStagingBanner", WHZ_STG_BANNER);
+    // Flag set in order to warn users that search is experiencing issues
+    config.put("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
     response.put("status", "ok");
     response.set("config", config);
 
