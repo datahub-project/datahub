@@ -22,6 +22,12 @@ export default Controller.extend({
 
   notifications: service(),
 
+  /**
+   * Adds the service for banners in order to trigger the application to render the banners when
+   * they are triggered
+   */
+  banners: service(),
+
   init() {
     this._super(...arguments);
 
