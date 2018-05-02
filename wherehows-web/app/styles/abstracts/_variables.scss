@@ -75,3 +75,8 @@ $z-indexes: ('toast': 6000, 'modal': 5000, 'dropdown': 4000, 'default': 0, 'belo
 /// Absolute URL where all assets are served from
 /// @type String
 $base-url: '/assets/assets/' !default;
+
+/// For animations related to banner alerts. This corresponds to a constant value in the js files at
+/// constants/notifications.js
+$banner-animation-speed: 0.6s;
+$banner-alerts-height: 52px;

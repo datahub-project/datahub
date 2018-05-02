@@ -2,11 +2,11 @@
   position: fixed;
   top: 0;
   width: 100vw;
-  transition: height 0.6s ease;
+  transition: height $banner-animation-speed ease;
   overflow: hidden;
 
   &--show {
-    height: 52px;
+    height: $banner-alerts-height;
   }
 
   &--hide {
@@ -14,7 +14,7 @@
   }
 
   .banner-alert {
-    transition: height 0.6s ease;
+    transition: height $banner-animation-speed ease;
     position: fixed;
     top: 0;
     left: 0;
@@ -29,7 +29,7 @@
     min-height: 0;
 
     &--active {
-      height: 52px;
+      height: $banner-alerts-height;
     }
 
     &--exiting {
