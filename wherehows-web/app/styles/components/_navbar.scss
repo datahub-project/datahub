@@ -2,6 +2,7 @@
 @import '../abstracts/mixins';
 
 $item-spacing: 10px;
+$navbar-transition-speed: $banner-animation-speed;
 
 /**
  * Override Bootstrap navigation class, .navbar, ruleset
@@ -11,6 +12,7 @@ $item-spacing: 10px;
    * Explicitly sets the .navbar min-height to a shared value
    */
   min-height: $nav-min-height;
+  transition: top $navbar-transition-speed ease;
 
   &-inverse {
     /**
@@ -31,6 +33,11 @@ $item-spacing: 10px;
         }
       }
     }
+  }
+  /// Offset is meant to accomodate for the animation that slides everything in the app-view down for the
+  /// sake of the banner alerts
+  &.navbar-top-offset {
+    top: $banner-alerts-height;
   }
 }
 

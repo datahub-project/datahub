@@ -1,18 +1,22 @@
 {{#if session.isAuthenticated}}
+  {{notifications/banner-alerts}}
+
   {{partial "navbar"}}
+  {{!-- banner-alert-offset pushes the app view down to show the banner at the top above the navbar --}}
+  <div class="app-container {{if banners.isShowingBanners "banner-alert-offset"}}">
+    {{#hero-container}}
+      <header class="nacho-hero__header">
+        Search for datasets, metrics and flows
+      </header>
+      <section class="nacho-hero__content">
+        {{search-bar-form didSearch=(action "didSearch")}}
+      </section>
+    {{/hero-container}}
 
-  {{#hero-container}}
-    <header class="nacho-hero__header">
-      Search for datasets, metrics and flows
-    </header>
-    <section class="nacho-hero__content">
-      {{search-bar-form didSearch=(action "didSearch")}}
+    <section class="container-fluid">
+      {{partial "main"}}
     </section>
-  {{/hero-container}}
-
-  <section class="container-fluid">
-    {{partial "main"}}
-  </section>
+  </div>
 
   {{notifications-service service=notifications}}
 {{else}}
