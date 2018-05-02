@@ -170,9 +170,9 @@ public class Application extends Controller {
     config.set("tracking", trackingInfo());
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
     // such config and alert users that their changes will not affect production data
-    config.set("isStagingBanner", WHZ_STG_BANNER);
+    config.put("isStagingBanner", WHZ_STG_BANNER);
     // Flag set in order to warn users that search is experiencing issues
-    config.set("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
+    config.put("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
     response.put("status", "ok");
     response.set("config", config);
 
