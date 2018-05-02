@@ -1,7 +1,7 @@
 import { PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome } from 'wherehows-web/utils/array';
+import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome, reduceArrayAsync } from 'wherehows-web/utils/array';
 import { fleece, hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 import { decodeUrn } from 'wherehows-web/utils/validators/urn';
@@ -357,10 +357,12 @@ const foldComplianceChangeSetToField = (
  * @param {Array<IComplianceChangeSet>} changeSet
  * @returns {Array<IdentifierFieldWithFieldChangeSetTuple>}
  */
-const foldComplianceChangeSets = (
+const foldComplianceChangeSets = async (
   changeSet: Array<IComplianceChangeSet>
-): Array<IdentifierFieldWithFieldChangeSetTuple> =>
-  Object.entries<Array<IComplianceChangeSet>>(arrayReduce(foldComplianceChangeSetToField, {})(changeSet));
+): Promise<Array<IdentifierFieldWithFieldChangeSetTuple>> =>
+  Object.entries<Array<IComplianceChangeSet>>(
+    await reduceArrayAsync(arrayReduce(foldComplianceChangeSetToField, {}))(changeSet)
+  );
 
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
@@ -390,12 +392,14 @@ const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => {
  * }
  * @returns {ISchemaFieldsToPolicy}
  */
-const mapSchemaColumnPropsToCurrentPrivacyPolicy = ({
+const asyncMapSchemaColumnPropsToCurrentPrivacyPolicy = ({
   columnProps,
   complianceEntities,
   policyModificationTime
-}: ISchemaColumnMappingProps): ISchemaFieldsToPolicy =>
-  arrayReduce(schemaFieldsWithPolicyTagsReducingFn(complianceEntities, policyModificationTime), {})(columnProps);
+}: ISchemaColumnMappingProps): Promise<ISchemaFieldsToPolicy> =>
+  reduceArrayAsync(arrayReduce(schemaFieldsWithPolicyTagsReducingFn(complianceEntities, policyModificationTime), {}))(
+    columnProps
+  );
 
 /**
  * Creates a new tag / change set item for a compliance entity / field with default properties
@@ -420,7 +424,8 @@ const complianceFieldChangeSetItemFactory = ({
       nonOwner: null,
       readonly: false,
       privacyPolicyExists: false,
-      isDirty: true
+      isDirty: true,
+      valuePattern: void 0
     },
     suggestion ? { suggestion } : void 0,
     suggestionAuthority ? { suggestionAuthority } : void 0
@@ -490,7 +495,8 @@ const complianceFieldTagFactory = (identifierField: IComplianceEntity['identifie
   logicalType: null,
   securityClassification: null,
   nonOwner: null,
-  readonly: false
+  readonly: false,
+  valuePattern: void 0
 });
 
 /**
@@ -533,7 +539,7 @@ export {
   idTypeFieldHasLogicalType,
   idTypeFieldsHaveLogicalType,
   changeSetReviewableAttributeTriggers,
-  mapSchemaColumnPropsToCurrentPrivacyPolicy,
+  asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
   complianceFieldChangeSetItemFactory,
   sortFoldedChangeSetTuples

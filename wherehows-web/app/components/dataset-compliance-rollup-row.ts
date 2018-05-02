@@ -36,13 +36,13 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * References the parent external action to add a tag to the list of change sets
    * @memberof DatasetComplianceRollupRow
    */
-  onFieldTagAdded: (tag: IComplianceChangeSet) => IComplianceChangeSet;
+  onFieldTagAdded: (tag: IComplianceChangeSet) => void;
 
   /**
    * References the parent external action to add a tag to the list of change sets
    * @memberof DatasetComplianceRollupRow
    */
-  onFieldTagRemoved: (tag: IComplianceChangeSet) => IComplianceChangeSet;
+  onFieldTagRemoved: (tag: IComplianceChangeSet) => void;
 
   /**
    * Describes action interface for `onSuggestionIntent` action
@@ -153,7 +153,7 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * Checks if any of the tags on this field have a ComplianceFieldIdValue.None identifierType
    * @type {ComputedProperty<boolean>}
    */
-  hasNoneTag: ComputedProperty<boolean> = computed('fieldChangeSet', function(
+  hasNoneTag: ComputedProperty<boolean> = computed('fieldChangeSet.@each.identifierType', function(
     this: DatasetComplianceRollupRow
   ): boolean {
     return tagsHaveNoneType(get(this, 'fieldChangeSet'));
@@ -344,8 +344,10 @@ export default class DatasetComplianceRollupRow extends Component.extend({
     // Accept the suggestion for either identifierType and/or logicalType
     if (suggestion && intent === SuggestionIntent.accept) {
       const { identifierType, logicalType } = suggestion;
+      // Field has only one tag, that tag does not currently have an identifierType
       const updateDefault = hasSingleTag && !fieldTagsHaveIdentifierType(get(this, 'fieldChangeSet'));
 
+      // Identifier type and changeSet does not already have suggested type
       if (identifierType && !suggestedValuesInChangeSet.includes(identifierType)) {
         if (updateDefault) {
           get(this, 'onTagIdentifierTypeChange')(get(this, 'fieldProps'), {

@@ -177,6 +177,7 @@
     &#{&} {
       td {
         border-bottom: 0;
+        height: item-spacing(8);
       }
     }
   }
@@ -207,6 +208,43 @@
 
   &__search {
     padding: item-spacing(1);
+  }
+
+  &__text-pattern-wrap {
+    $error-font-size: 12px;
+    $wrap-width: 280px;
+
+    width: $wrap-width;
+    margin-left: item-spacing(2);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+    &--input {
+      &:before,
+      &:after {
+        content: '/';
+        color: get-color(blue5);
+        font-size: large;
+        font-weight: bold;
+      }
+    }
+
+    &--error {
+      font-size: $error-font-size;
+      position: absolute;
+      bottom: -18px;
+      color: get-color(red7);
+    }
+  }
+
+  &__text-pattern {
+    $input-width: 260px;
+    padding: (item-spacing(3) / 2) item-spacing(2);
+    white-space: pre;
+    font-family: monospace;
+    width: $input-width;
+    outline: none;
   }
 
   &__id-field-wrap {

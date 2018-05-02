@@ -25,7 +25,8 @@ enum IdLogicalType {
   Numeric = 'NUMERIC',
   Urn = 'URN',
   ReversedUrn = 'REVERSED_URN',
-  CompositeUrn = 'COMPOSITE_URN'
+  CompositeUrn = 'COMPOSITE_URN',
+  Custom = 'CUSTOM'
 }
 
 /**
