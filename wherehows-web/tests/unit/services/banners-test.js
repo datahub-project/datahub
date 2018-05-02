@@ -7,7 +7,7 @@ test('it exists', function(assert) {
   assert.ok(service, 'Existence is a good start');
 });
 
-test('it operates correctly', function(assert) {
+test('it operates correctly', async function(assert) {
   const service = this.subject();
   const message = 'Ash Ketchum from Pallet Town';
 
@@ -17,7 +17,7 @@ test('it operates correctly', function(assert) {
   assert.equal(service.banners[0].content, message, 'Creates a banner with the right message');
   assert.equal(service.banners[0].isDismissable, true, 'Creates a banner with the right dismiss');
 
-  service.dequeue().then(() => {
+  await service.dequeue().then(() => {
     assert.equal(service.banners.length, 0, 'Removes a banner correctly');
   });
 });
