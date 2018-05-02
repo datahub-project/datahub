@@ -1,5 +1,6 @@
 import Service from '@ember/service';
 import { computed, get } from '@ember/object';
+import { bannerAnimationSpeed } from 'wherehows-web/constants/notifications';
 import { NotificationEvent } from 'wherehows-web/services/notifications';
 import { delay } from 'wherehows-web/utils/promise-delay';
 
@@ -59,9 +60,9 @@ export default class BannerService extends Service {
    */
   async dequeue(): Promise<void> {
     // Note: Since dequeuing the banner will remove it from the DOM, we don't want to actually dequeue
-    // until the removal animation, which takes 0.7 seconds, is completed.
-    const animationSpeed = 0.8;
-    const dismissDelay = delay(animationSpeed);
+    // until the removal animation, which takes 0.6 seconds, is completed.
+    const animationOffset = bannerAnimationSpeed + 0.2;
+    const dismissDelay = delay(animationOffset);
     const banners = get(this, 'banners');
 
     await dismissDelay;

@@ -3,6 +3,7 @@ import { inject as service } from '@ember/service';
 import { computed, get, set } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import BannerService, { IBanner } from 'wherehows-web/services/banners';
+import { bannerAnimationSpeed } from 'wherehows-web/constants/notifications';
 
 export default class BannerAlerts extends Component {
   /**
@@ -21,6 +22,12 @@ export default class BannerAlerts extends Component {
    * Sets the classnames to attach to the html element rendered by this component
    */
   classNames = ['banner-alerts'];
+
+  /**
+   * Keeps the base banner animation speed as a property to attach as a data attribute to the rendered
+   * banner-alert elements in the template
+   */
+  bannerAnimationSpeed = bannerAnimationSpeed;
 
   /**
    * Binds classnames to specific truthy values of properties on this component

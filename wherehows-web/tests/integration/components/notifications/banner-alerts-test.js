@@ -27,7 +27,7 @@ const bannersStub = Service.extend({
   }
 });
 
-moduleForComponent('application/banner-alerts', 'Integration | Component | application/banner alerts', {
+moduleForComponent('notifications/banner-alerts', 'Integration | Component | notifications/banner alerts', {
   integration: true,
   beforeEach() {
     this.register('service:banners', bannersStub);
@@ -38,12 +38,12 @@ moduleForComponent('application/banner-alerts', 'Integration | Component | appli
 const bannerAlertClass = '.banner-alert';
 
 test('it renders', function(assert) {
-  this.render(hbs`{{application/banner-alerts}}`);
+  this.render(hbs`{{notifications/banner-alerts}}`);
   assert.ok(this.$(), 'Renders without errors');
 });
 
 test('it renders the correct information', function(assert) {
-  this.render(hbs`{{application/banner-alerts}}`);
+  this.render(hbs`{{notifications/banner-alerts}}`);
   assert.equal(this.$(bannerAlertClass).length, 2, 'Renders the correct amount of banners');
   assert.equal(
     this.$(`${bannerAlertClass}__content:eq(0)`)
