@@ -88,7 +88,7 @@ const chunkArrayAsync = <T, U>(
 ) => (list: Array<T>) =>
   new Promise<U>(function(resolve) {
     const queue = list.slice(0); // creates a shallow copy of the original list
-    const delay = 25;
+    const delay = 15; // give enough of a margin for timer resolution issues, this should suffice for modern browsers
     let result: U;
 
     setTimeout(function chunk() {
