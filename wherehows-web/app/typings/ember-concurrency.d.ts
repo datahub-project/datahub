@@ -1,7 +1,21 @@
 declare module 'ember-concurrency' {
-  export function timeout(delay: number): Promise<void>;
   import ComputedProperty from '@ember/object/computed';
   import RSVP from 'rsvp';
+
+  type ComputedProperties<T> = { [K in keyof T]: ComputedProperty<T[K]> | T[K] };
+
+  export function timeout(delay: number): Promise<void>;
+
+  export function waitForProperty<T, K extends keyof T>(
+    object: ComputedProperties<T>,
+    key: K,
+    predicateCallback: (arg: T[K]) => boolean | T[K]
+  ): IterableIterator<T[K]>;
+  export function waitForProperty<T, K extends keyof T>(
+    object: T,
+    key: K,
+    predicateCallback: (arg: T[K]) => boolean | T[K]
+  ): IterableIterator<T[K]>;
 
   export enum TaskInstanceState {
     Dropped = 'dropped',

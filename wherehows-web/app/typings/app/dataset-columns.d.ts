@@ -16,7 +16,7 @@ interface IColumnFieldProps {
 }
 
 /**
- * Defines the interface for properties passed into the mapping function mapSchemaColumnPropsToCurrentPrivacyPolicy
+ * Defines the interface for properties passed into the mapping function asyncMapSchemaColumnPropsToCurrentPrivacyPolicy
  * @interface ISchemaColumnMappingProps
  */
 interface ISchemaColumnMappingProps {

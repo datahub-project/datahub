@@ -60,4 +60,84 @@ const isListUnique = <T>(list: Array<T> = []): boolean => new Set(list).size ===
  */
 const compact = <T>(list: Array<T> = []): Array<T> => list.filter(item => item);
 
-export { arrayMap, arrayFilter, arrayReduce, isListUnique, compact, arrayEvery, arraySome };
+/**
+ * Defines the interface for options that may be passed into the chunk function
+ * @interface {IChunkArrayOptions}
+ */
+interface IChunkArrayOptions {
+  chunkSize?: 50 | 100;
+  context?: null | object;
+}
+
+/**
+ * Asynchronously traverses a list in small chunks ensuring that a list can be iterated over without
+ * blocking the browser main thread.
+ * @template T type of values in list to be iterated over
+ * @template U the type of the value that is produced by an iteration of the list
+ * @param {(arr?: Array<T>) => U} iterateeSync an iteratee that consumes an list and returns a value of type U
+ * @param {(res: U) => U} accumulator a function that combines the result of successive iterations of the original list
+ * @param {IChunkArrayOptions} [{chunkSize = 50, context = null}={chunkSize: 50, context: null}]
+ * @param {50 | 100} chunkSize the maximum size to chunk at a time
+ * @param {object | null} [context] the optional execution context for the iteratee invocation
+ * @return {(list: Array<T>) => Promise<U>}
+ */
+const chunkArrayAsync = <T, U>(
+  iterateeSync: (arr?: Array<T>) => U,
+  accumulator: (res: U) => U,
+  { chunkSize = 50, context = null }: IChunkArrayOptions = { chunkSize: 50, context: null }
+) => (list: Array<T>) =>
+  new Promise<U>(function(resolve) {
+    const queue = list.slice(0); // creates a shallow copy of the original list
+    const delay = 25;
+    let result: U;
+
+    setTimeout(function chunk() {
+      const startTime = +new Date();
+
+      do {
+        result = accumulator(iterateeSync.call(context, queue.splice(0, chunkSize)));
+      } while (queue.length && +new Date() + startTime < 50);
+
+      // recurse through list if there are more items left
+      return queue.length ? setTimeout(chunk, delay) : resolve(result);
+    }, delay);
+  });
+
+/**
+ * Asynchronously traverse a list and accumulate another list based on the iteratee
+ * @template T the type of values in the original list
+ * @template U the type of values in the transformed list
+ * @param {(arr?: Array<T>) => Array<U>} iteratee consumes a list and returns a new list of values
+ * @return {(list: Array<T>, context?: any) => Promise<Array<U>>}
+ */
+const iterateArrayAsync = <T, U = T>(iteratee: (arr?: Array<T>) => Array<U>) => (
+  list: Array<T>,
+  context = null
+): Promise<Array<U>> => {
+  const accumulator = (base: Array<U>) => (arr: Array<U>) => [...base, ...arr];
+  return chunkArrayAsync(iteratee, accumulator([]), { chunkSize: 50, context })(list);
+};
+
+/**
+ * Asynchronously traverse a list and accumulate a value of type U, applies to cases of reduction or accumulation
+ * @template T the type of values in the original list
+ * @template U the type of value to be produced by reducing the list
+ * @param {(arr?: Array<T>) => U} reducer consumes a list and produces a single value
+ * @return {(list: Array<T>, context?: any) => Promise<U>}
+ */
+const reduceArrayAsync = <T, U>(reducer: (arr?: Array<T>) => U) => (list: Array<T>, context = null): Promise<U> => {
+  const accumulator = (base: U) => (int: U) => Object.assign(base, int);
+  return chunkArrayAsync(reducer, accumulator(reducer.call(context)))(list);
+};
+
+export {
+  arrayMap,
+  arrayFilter,
+  arrayReduce,
+  isListUnique,
+  compact,
+  arrayEvery,
+  arraySome,
+  iterateArrayAsync,
+  reduceArrayAsync
+};

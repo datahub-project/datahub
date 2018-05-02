@@ -8,7 +8,7 @@ import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
-import { task, TaskInstance } from 'ember-concurrency';
+import { task, waitForProperty, TaskInstance } from 'ember-concurrency';
 import {
   getSecurityClassificationDropDownOptions,
   DatasetClassifiers,
@@ -28,13 +28,13 @@ import {
   isTagIdType,
   idTypeFieldsHaveLogicalType,
   changeSetReviewableAttributeTriggers,
-  mapSchemaColumnPropsToCurrentPrivacyPolicy,
+  asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
   sortFoldedChangeSetTuples
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
-import { compact, isListUnique } from 'wherehows-web/utils/array';
+import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent, IConfirmOptions } from 'wherehows-web/services/notifications';
@@ -57,6 +57,9 @@ import {
   ShowAllShowReview
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { uniqBy } from 'lodash';
+import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
+import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
+import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 
 const {
   complianceDataException,
@@ -79,12 +82,6 @@ const datasetClassificationKey = 'complianceInfo.datasetClassification';
  * @type {Array<keyof typeof DatasetClassifiers>}
  */
 const datasetClassifiersKeys = <Array<keyof typeof DatasetClassifiers>>Object.keys(DatasetClassifiers);
-
-/**
- * A reference to the compliance policy entities on the complianceInfo map
- * @type {string}
- */
-const policyComplianceEntitiesKey = 'complianceInfo.complianceEntities';
 
 /**
  * The initial state of the compliance step for a zero based array
@@ -202,6 +199,12 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   supportedPurgePolicies: Array<PurgePolicy> = [];
+
+  /**
+   * Computed prop over the current Id fields in the Privacy Policy
+   * @type {ISchemaFieldsToPolicy}
+   */
+  columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy = {};
 
   constructor() {
     super(...arguments);
@@ -378,6 +381,13 @@ export default class DatasetCompliance extends Component {
 
   didInsertElement(this: DatasetCompliance) {
     get(this, 'complianceAvailabilityTask').perform();
+    get(this, 'columnFieldsToCompliancePolicyTask').perform();
+    get(this, 'foldChangeSetTask').perform();
+  }
+
+  didUpdateAttrs() {
+    get(this, 'columnFieldsToCompliancePolicyTask').perform();
+    get(this, 'foldChangeSetTask').perform();
   }
 
   /**
@@ -517,33 +527,46 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Computed prop over the current Id fields in the Privacy Policy
-   * @type {ComputedProperty<ISchemaFieldsToPolicy>}
+   * Task to retrieve column fields async and set values on Component
+   * @type {Task<Promise<any>, () => TaskInstance<Promise<any>>>}
+   * @memberof DatasetCompliance
    */
-  columnIdFieldsToCurrentPrivacyPolicy: ComputedProperty<ISchemaFieldsToPolicy> = computed(
-    `{schemaFieldNamesMappedToDataTypes,${policyComplianceEntitiesKey}.[]}`,
-    function(this: DatasetCompliance): ISchemaFieldsToPolicy {
-      const {
-        complianceEntities = [],
-        modifiedTime
-      }: Pick<IComplianceInfo, 'complianceEntities' | 'modifiedTime'> = get(this, 'complianceInfo') || {
-        complianceEntities: []
-      };
-      // Truncated list of Dataset field names and data types currently returned from the column endpoint
-      const columnProps = getWithDefault(this, 'schemaFieldNamesMappedToDataTypes', []).map(
-        ({ fieldName, dataType }) => ({
-          identifierField: fieldName,
-          dataType
-        })
-      );
+  columnFieldsToCompliancePolicyTask = task(function*(this: DatasetCompliance): IterableIterator<any> {
+    // Truncated list of Dataset field names and data types currently returned from the column endpoint
+    const schemaFieldNamesMappedToDataTypes: DatasetCompliance['schemaFieldNamesMappedToDataTypes'] = yield waitForProperty(
+      this,
+      'schemaFieldNamesMappedToDataTypes',
+      ({ length }) => !!length
+    );
 
-      return mapSchemaColumnPropsToCurrentPrivacyPolicy({
+    const { complianceEntities = [], modifiedTime }: Pick<IComplianceInfo, 'complianceEntities' | 'modifiedTime'> = get(
+      this,
+      'complianceInfo'
+    )!;
+    const renameFieldNameAttr = ({
+      fieldName,
+      dataType
+    }: Pick<IDatasetColumn, 'dataType' | 'fieldName'>): {
+      identifierField: IDatasetColumn['fieldName'];
+      dataType: IDatasetColumn['dataType'];
+    } => ({
+      identifierField: fieldName,
+      dataType
+    });
+    const columnProps: Array<IColumnFieldProps> = yield iterateArrayAsync(arrayMap(renameFieldNameAttr))(
+      schemaFieldNamesMappedToDataTypes
+    );
+
+    const columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy = yield asyncMapSchemaColumnPropsToCurrentPrivacyPolicy(
+      {
         columnProps,
         complianceEntities,
         policyModificationTime: modifiedTime
-      });
-    }
-  );
+      }
+    );
+
+    set(this, 'columnIdFieldsToCurrentPrivacyPolicy', columnIdFieldsToCurrentPrivacyPolicy);
+  }).enqueue();
 
   /**
    * Creates a mapping of compliance suggestions to identifierField
@@ -635,15 +658,26 @@ export default class DatasetCompliance extends Component {
 
   /**
    * Reduces the current filtered changeSet to a list of IdentifierFieldWithFieldChangeSetTuple
-   * @type {ComputedProperty<Array<IdentifierFieldWithFieldChangeSetTuple>>}
+   * @type {Array<IdentifierFieldWithFieldChangeSetTuple>}
    * @memberof DatasetCompliance
    */
-  foldedChangeSet: ComputedProperty<Array<IdentifierFieldWithFieldChangeSetTuple>> = computed(
-    'filteredChangeSet',
-    function(this: DatasetCompliance): Array<IdentifierFieldWithFieldChangeSetTuple> {
-      return sortFoldedChangeSetTuples(foldComplianceChangeSets(get(this, 'filteredChangeSet')));
-    }
-  );
+  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple>;
+
+  /**
+   * Task to retrieve platform policies and set supported policies for the current platform
+   * @type {Task<Promise<any>, () => TaskInstance<Promise<any>>>}
+   * @memberof DatasetCompliance
+   */
+  foldChangeSetTask = task(function*(this: DatasetCompliance): IterableIterator<any> {
+    //@ts-ignore dot notation for property access
+    yield waitForProperty(this, 'columnFieldsToCompliancePolicyTask.isIdle');
+    const filteredChangeSet = get(this, 'filteredChangeSet');
+    const foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> = yield foldComplianceChangeSets(
+      filteredChangeSet
+    );
+
+    set(this, 'foldedChangeSet', sortFoldedChangeSetTuples(foldedChangeSet));
+  }).enqueue();
 
   /**
    * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
@@ -716,13 +750,22 @@ export default class DatasetCompliance extends Component {
     const formattedAndUnformattedEntities: FormattedAndUnformattedEntities = { formatted: [], unformatted: [] };
     // All candidate fields that can be on policy, excluding tracking type fields
     const changeSetEntities: Array<IComplianceEntity> = get(this, 'compliancePolicyChangeSet').map(
-      ({ identifierField, identifierType = null, logicalType, nonOwner, securityClassification, readonly }) => ({
+      ({
+        identifierField,
+        identifierType = null,
+        logicalType,
+        nonOwner,
+        securityClassification,
+        readonly,
+        valuePattern
+      }) => ({
         identifierField,
         identifierType,
         logicalType,
         nonOwner,
         securityClassification,
-        readonly
+        readonly,
+        valuePattern
       })
     );
 
@@ -885,8 +928,9 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag properties for new field tag
      * @return {IComplianceChangeSet}
      */
-    onFieldTagAdded(this: DatasetCompliance, tag: IComplianceChangeSet): IComplianceChangeSet {
-      return get(this, 'compliancePolicyChangeSet').addObject(tag);
+    onFieldTagAdded(this: DatasetCompliance, tag: IComplianceChangeSet): void {
+      get(this, 'compliancePolicyChangeSet').addObject(tag);
+      get(this, 'foldChangeSetTask').perform();
     },
 
     /**
@@ -894,8 +938,9 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag
      * @return {IComplianceChangeSet}
      */
-    onFieldTagRemoved(this: DatasetCompliance, tag: IComplianceChangeSet): IComplianceChangeSet {
-      return get(this, 'compliancePolicyChangeSet').removeObject(tag);
+    onFieldTagRemoved(this: DatasetCompliance, tag: IComplianceChangeSet): void {
+      get(this, 'compliancePolicyChangeSet').removeObject(tag);
+      get(this, 'foldChangeSetTask').perform();
     },
 
     /**
@@ -914,7 +959,8 @@ export default class DatasetCompliance extends Component {
           identifierType,
           logicalType: null,
           nonOwner: null,
-          isDirty: true
+          isDirty: true,
+          valuePattern: void 0
         });
       }
 
@@ -926,12 +972,26 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag the tag to be updated
      * @param {IComplianceChangeSet.logicalType} logicalType the updated logical type
      */
-    tagLogicalTypeChanged(
-      this: DatasetCompliance,
-      tag: IComplianceChangeSet,
-      logicalType: IComplianceChangeSet['logicalType']
-    ) {
+    tagLogicalTypeChanged(tag: IComplianceChangeSet, logicalType: IComplianceChangeSet['logicalType']) {
       setProperties(tag, { logicalType, isDirty: true });
+    },
+
+    /**
+     * Handles changes to the valuePattern attribute on a tag
+     * @param {IComplianceChangeSet} tag
+     * @param {string} pattern
+     * @return {string | void}
+     * @throws {SyntaxError}
+     */
+    tagValuePatternChanged(tag: IComplianceChangeSet, pattern: string): string | void {
+      const isValidRegex = new RegExp(pattern); // Will throw if invalid
+      const isValidValuePattern = isValidCustomValuePattern(pattern);
+
+      if (isValidRegex.source !== emptyRegexSource && isValidRegex && isValidValuePattern) {
+        return set(tag, 'valuePattern', isValidRegex.source);
+      }
+
+      throw new Error('Pattern not valid');
     },
 
     /**
@@ -940,7 +1000,6 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
      */
     tagClassificationChanged(
-      this: DatasetCompliance,
       tag: IComplianceChangeSet,
       { value: securityClassification = null }: { value: IComplianceChangeSet['securityClassification'] }
     ) {
@@ -955,7 +1014,7 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag the field tag to be updated
      * @param {IComplianceChangeSet.nonOwner} nonOwner flag indicating the field property is a nonOwner
      */
-    tagOwnerChanged(this: DatasetCompliance, tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']) {
+    tagOwnerChanged(tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']) {
       setProperties(tag, {
         nonOwner,
         isDirty: true
@@ -1011,7 +1070,10 @@ export default class DatasetCompliance extends Component {
      * @returns {ShowAllShowReview}
      */
     onFieldReviewChange(this: DatasetCompliance, { value }: { value: ShowAllShowReview }): ShowAllShowReview {
-      return set(this, 'fieldReviewOption', value);
+      const option = set(this, 'fieldReviewOption', value);
+      get(this, 'foldChangeSetTask').perform();
+
+      return option;
     },
 
     /**

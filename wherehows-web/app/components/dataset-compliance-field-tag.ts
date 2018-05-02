@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
-import { get, getProperties, computed } from '@ember/object';
+import { set, get, getProperties, computed } from '@ember/object';
 import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isTagIdType } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
@@ -12,6 +12,7 @@ import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-d
 import { action } from 'ember-decorators/object';
 import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 import { arrayFilter } from 'wherehows-web/utils/array';
+import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 
 /**
  * Constant definition for an unselected field format
@@ -48,6 +49,11 @@ export default class DatasetComplianceFieldTag extends Component {
   onTagLogicalTypeChange: (tag: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
 
   /**
+   * Describes the interface for the parent action `onTagValuePatternChange`
+   */
+  onTagValuePatternChange: (tag: IComplianceChangeSet, pattern: string) => string | void;
+
+  /**
    * Describes the parent action interface for `onTagOwnerChange`
    */
   onTagOwnerChange: (tag: IComplianceChangeSet, nonOwner: boolean) => void;
@@ -65,6 +71,12 @@ export default class DatasetComplianceFieldTag extends Component {
    * @memberof DatasetComplianceFieldTag
    */
   parentHasSingleTag: boolean;
+
+  /**
+   * Stores the value of error result if the valuePattern is invalid
+   * @type {string}
+   */
+  valuePatternError: string = '';
 
   /**
    * List of identifierTypes for the parent field
@@ -148,6 +160,15 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
+   * Determines if the CUSTOM input field should be shown for this row's tag
+   * @type {ComputedProperty<boolean>}
+   */
+  showCustomInput = computed('tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
+    const { logicalType } = get(this, 'tag');
+    return logicalType === IdLogicalType.Custom;
+  });
+
+  /**
    * Checks if the field format / logical type for this tag is missing, if the field is of ID type
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetComplianceFieldTag
@@ -155,6 +176,14 @@ export default class DatasetComplianceFieldTag extends Component {
   isTagFormatMissing = computed('isIdType', 'tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
     return get(this, 'isIdType') && !idTypeFieldHasLogicalType(get(this, 'tag'));
   });
+
+  /**
+   * Sets the value of the pattern error string after p
+   * @param {string} errorString
+   */
+  setPatternErrorString(errorString: string = '') {
+    set(this, 'valuePatternError', errorString.replace('SyntaxError: ', ''));
+  }
 
   /**
    * Handles UI changes to the tag identifierType
@@ -190,5 +219,24 @@ export default class DatasetComplianceFieldTag extends Component {
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
     // inverts the value of nonOwner, toggle is shown in the UI as `Owner` i.e. not nonOwner
     get(this, 'onTagOwnerChange')(get(this, 'tag'), !nonOwner);
+  }
+
+  /**
+   * Invokes the parent action on user input for value pattern
+   * If an exception is thrown, valuePatternError is updated with string value
+   * @param {string} pattern user input string
+   */
+  @action
+  tagValuePatternDidChange(this: DatasetComplianceFieldTag, pattern: string) {
+    try {
+      const valuePattern = get(this, 'onTagValuePatternChange')(get(this, 'tag'), pattern);
+
+      if (valuePattern) {
+        //clear pattern error
+        this.setPatternErrorString();
+      }
+    } catch (e) {
+      this.setPatternErrorString(e.toString());
+    }
   }
 }
