@@ -1,4 +1,10 @@
 /**
+ * Constant value for an empty regex source string
+ * @type {string}
+ */
+const emptyRegexSource = '(?:)';
+
+/**
  * Sanitizes a string to be used in creating a runtime regular expression pattern by escaping special characters
  * @param {string} pattern the string intended to be used to new a RegExp object
  * @returns {string}
@@ -15,4 +21,4 @@ const buildSaneRegExp = (pattern: string, flags?: string): RegExp => new RegExp(
 
 export default buildSaneRegExp;
 
-export { sanitizeRegExp, buildSaneRegExp };
+export { sanitizeRegExp, buildSaneRegExp, emptyRegexSource };

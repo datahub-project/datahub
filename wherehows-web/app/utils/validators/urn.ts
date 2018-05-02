@@ -42,6 +42,13 @@ const isWhUrn = (candidateUrn: string): boolean => datasetUrnRegexWH.test(String
 const isLiUrn = (candidateUrn: string): boolean => datasetUrnRegexLI.test(String(candidateUrn));
 
 /**
+ * Checks that a string matches the expected valuePatternRegex
+ * @param {string} candidate the supplied pattern string
+ * @return {boolean}
+ */
+const isValidCustomValuePattern = (candidate: string): boolean => !!candidate; // TODO:
+
+/**
  * Asserts that a provided string matches the urn pattern above
  * @param {string} candidateUrn the string to test on
  */
@@ -165,6 +172,7 @@ export default isUrn;
 export {
   datasetUrnRegexWH,
   datasetUrnRegexLI,
+  isValidCustomValuePattern,
   isWhUrn,
   isLiUrn,
   buildLiUrn,
