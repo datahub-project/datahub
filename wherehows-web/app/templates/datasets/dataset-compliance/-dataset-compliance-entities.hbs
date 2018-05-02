@@ -81,7 +81,8 @@
           onTagIdentifierTypeChange=(action "tagIdentifierChanged")
           onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
         }}
-          <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action row.onFragmentDblClick}}>
+          <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
+            row.onFragmentDblClick}}>
             {{#row.cell}}
               {{#if row.isReadonly}}
 
@@ -94,7 +95,8 @@
                   (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
 
                   <span class="nacho-tooltip" title="Has suggestions">
-                    <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon" title="Compliance field has suggested values"></i>
+                    <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
+                       title="Compliance field has suggested values"></i>
                   </span>
 
                 {{else}}
@@ -102,7 +104,8 @@
                   {{#if row.isReviewRequested}}
 
                     <span class="nacho-tooltip" title="Please review">
-                      <i class="fa fa-question dataset-compliance-fields--review-required__icon" title="Compliance policy information needs review"></i>
+                      <i class="fa fa-question dataset-compliance-fields--review-required__icon"
+                         title="Compliance policy information needs review"></i>
                     </span>
 
                   {{else}}
@@ -237,6 +240,7 @@
                 fieldIdentifiers=row.taggedIdentifiers
                 onTagIdentifierTypeChange=(action "tagIdentifierChanged")
                 onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
+                onTagValuePatternChange=(action "tagValuePatternChanged")
                 onTagOwnerChange=(action "tagOwnerChanged")
                 complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
                 complianceDataTypes=complianceDataTypes as |tagRowComponent|
@@ -276,6 +280,30 @@
                           class=(if tagRowComponent.isTagFormatMissing "dataset-compliance-fields--missing-selection")
                         }}
                       </div>
+
+                      {{#if tagRowComponent.showCustomInput}}
+                        <div class="dataset-compliance-fields__text-pattern-wrap">
+                          {{#if (or (not isEditing) row.isReadonly)}}
+                            {{tag.valuePattern}}
+                          {{else}}
+                            <div class="dataset-compliance-fields__text-pattern-wrap--input">
+                              <input
+                                placeholder="Enter regex"
+                                value="{{readonly tag.valuePattern}}"
+                                class="dataset-compliance-fields__text-pattern {{if tagRowComponent.valuePatternError
+                                                                                    'dataset-compliance-fields--missing-selection'}}"
+                                oninput={{action tagRowComponent.tagValuePatternDidChange value="target.value"}}
+                              >
+                            </div>
+
+                            {{#if tagRowComponent.valuePatternError}}
+                              <div class="dataset-compliance-fields__text-pattern-wrap--error">
+                                {{tagRowComponent.valuePatternError}}
+                              </div>
+                            {{/if}}
+                          {{/if}}
+                        </div>
+                      {{/if}}
 
                       {{#unless tagRowComponent.isTagFormatMissing}}
                         <span class="dataset-compliance-fields__tag-label">

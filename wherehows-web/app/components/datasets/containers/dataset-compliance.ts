@@ -27,6 +27,7 @@ import {
   filterEditableEntities,
   SuggestionIntent
 } from 'wherehows-web/constants';
+import { iterateArrayAsync } from 'wherehows-web/utils/array';
 
 /**
  * Type alias for the response when container data items are batched
@@ -170,7 +171,7 @@ export default class DatasetComplianceContainer extends Component {
       readDatasetComplianceSuggestionByUrn(urn),
       readDatasetSchemaByUrn(urn)
     ]);
-    const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
+    const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
 
     this.onCompliancePolicyStateChange.call(this, { isNewComplianceInfo, fromUpstream: !!complianceInfo.fromUpstream });
 
@@ -227,10 +228,12 @@ export default class DatasetComplianceContainer extends Component {
    * Reads the schema properties for the dataset
    * @type {Task<Promise<IDatasetSchema>, (a?: any) => TaskInstance<Promise<IDatasetSchema>>>}
    */
-  getDatasetSchemaTask = task(function*(this: DatasetComplianceContainer): IterableIterator<Promise<IDatasetSchema>> {
+  getDatasetSchemaTask = task(function*(
+    this: DatasetComplianceContainer
+  ): IterableIterator<Promise<IDatasetSchema | Pick<IDatasetColumn, 'dataType' | 'fieldName'>[]>> {
     try {
       const { columns, schemaless }: IDatasetSchema = yield readDatasetSchemaByUrn(get(this, 'urn'));
-      const schemaFieldNamesMappedToDataTypes = columnDataTypesAndFieldNames(columns);
+      const schemaFieldNamesMappedToDataTypes = yield iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
       setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
     } catch (e) {
       // If this schema is missing, silence exception, otherwise propagate

@@ -24,7 +24,13 @@ interface IDatasetComplianceActions {
  */
 type IComplianceEntityWithMetadata = Pick<
   IComplianceEntity,
-  'identifierField' | 'identifierType' | 'logicalType' | 'securityClassification' | 'nonOwner' | 'readonly'
+  | 'identifierField'
+  | 'identifierType'
+  | 'logicalType'
+  | 'securityClassification'
+  | 'nonOwner'
+  | 'readonly'
+  | 'valuePattern'
 > & {
   // flag indicating that the field has a current policy upstream
   privacyPolicyExists: boolean;
