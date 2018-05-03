@@ -1,5 +1,6 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
+import { alias } from '@ember/object/computed';
 import { task } from 'ember-concurrency';
 import { DatasetPlatform, nodeToQueryParams } from 'wherehows-web/constants';
 import { IBrowserRouteParams } from 'wherehows-web/routes/browse/entity';
@@ -66,6 +67,12 @@ export default class BrowserRail extends Component {
   params: IBrowserRouteParams;
 
   /**
+   * Text to be displayed at the top of the rail
+   * @type {string}
+   */
+  header = alias('params.platform');
+
+  /**
    * Maintains a list the nodes platforms or prefixes available in the selected entity
    * @type {Array<IRailNode>}
    * @memberof BrowserRail
@@ -87,12 +94,14 @@ export default class BrowserRail extends Component {
    * @type {TaskProperty<Promise<string[]>> & {perform: (a?: {} | undefined) => TaskInstance<Promise<string[]>>}}
    * @memberof BrowserRail
    */
-  getNodesTask = task(function*(this: BrowserRail): IterableIterator<Promise<Array<string>>> {
+  getNodesTask = task(function*(
+    this: BrowserRail
+  ): IterableIterator<Promise<Array<string>> | Promise<Array<IRailNode>>> {
     const { prefix, platform, entity } = get(this, 'params');
     const nodes: Array<IRailNode> = mapNodeToRoute(<DatasetPlatform>platform, entity)(
       yield readPlatforms({ platform, prefix })
     );
 
     set(this, 'nodes', nodes);
-  }).drop();
+  }).restartable();
 }
