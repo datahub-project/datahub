@@ -220,6 +220,21 @@ const isTagNoneType = ({ identifierType }: IComplianceChangeSet): boolean =>
   identifierType === ComplianceFieldIdValue.None;
 
 /**
+ * Checks if a tag has an identifier type
+ * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+ * @return {boolean}
+ */
+const isTagWithoutIdentifierType = ({ identifierType }: IComplianceChangeSet): boolean => !identifierType;
+
+/**
+ * Filters a list of tags without an identifier type value
+ * @param {Array<IComplianceChangeSet>} tags
+ * @return {Array<IComplianceChangeSet>}
+ */
+const tagsWithoutIdentifierType = (tags: Array<IComplianceChangeSet>): Array<IComplianceChangeSet> =>
+  arrayFilter(isTagWithoutIdentifierType)(tags);
+
+/**
  * Asserts the inverse of isTagNoneType
  * @param {IComplianceChangeSet} tag
  * @return {boolean}
@@ -542,5 +557,6 @@ export {
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
   complianceFieldChangeSetItemFactory,
-  sortFoldedChangeSetTuples
+  sortFoldedChangeSetTuples,
+  tagsWithoutIdentifierType
 };
