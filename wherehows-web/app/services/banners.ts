@@ -13,6 +13,7 @@ export interface IBanner {
   isExiting: boolean;
   isDismissable: boolean;
   iconName: string;
+  usePartial: boolean;
 }
 
 /**
@@ -75,10 +76,13 @@ export default class BannerService extends Service {
    * @param message - the message to put in the banner's content box
    * @param {NotificationEvent} type - what type of banner notification we are going for (which will
    *  determine the appearance and interaction properties)
+   * @param usePartial - in some situations, we want to use a partial component to render in the banner instead
+   *  of a simple string. This flag will allow that
    */
-  addBanner(message: string, type: NotificationEvent = NotificationEvent['info']): void {
+  addBanner(message: string, type: NotificationEvent = NotificationEvent['info'], usePartial = false): void {
     get(this, 'banners').addObject({
       type,
+      usePartial,
       content: message,
       isExiting: false,
       isDismissable: isDismissableMap[type],

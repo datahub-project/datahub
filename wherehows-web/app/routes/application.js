@@ -25,6 +25,12 @@ export default Route.extend(ApplicationRouteMixin, {
   metrics: service(),
 
   /**
+   * Banner alert service
+   * @type {Ember.Service}
+   */
+  banners: service(),
+
+  /**
    * Attempt to load the current user and application configuration options
    * @returns {Promise}
    */
@@ -40,7 +46,14 @@ export default Route.extend(ApplicationRouteMixin, {
    * @override
    */
   async model() {
-    const isInternal = await get(this, 'configurator.getConfig')('isInternal');
+    const getConfig = get(this, 'configurator.getConfig');
+
+    const [isInternal, showStagingBanner, showStaleSearchBanner] = await Promise.all([
+      getConfig('isInternal'),
+      getConfig('isStagingBanner'),
+      getConfig('isStaleSearch')
+    ]);
+
     const { userName } = get(this, 'sessionUser.currentUser') || {};
 
     /**
@@ -58,7 +71,7 @@ export default Route.extend(ApplicationRouteMixin, {
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
 
-    return { feedbackMail, brand };
+    return { feedbackMail, brand, showStagingBanner, showStaleSearchBanner };
   },
 
   /**
@@ -148,6 +161,36 @@ export default Route.extend(ApplicationRouteMixin, {
   init() {
     this._super(...arguments);
     run.scheduleOnce('afterRender', this, 'processLegacyDomOperations');
+  },
+
+  /**
+   * We are NOT using the renderTemplate hook to implement any custom rendering logic. Since we don't have a didTransition
+   * hook for the application route, this hook is being used instead to schedule a banner after initial render in order to
+   * let users see the animation for banner entrance
+   */
+  renderTemplate() {
+    this._super(...arguments);
+    run.scheduleOnce('afterRender', this, 'initializeBanners');
+  },
+
+  /**
+   * Looks for the existence of any banners that may/should exist at app initialization and displays to the user
+   */
+  initializeBanners() {
+    const model = get(this, 'controller').get('model');
+    const { showStagingBanner, showStaleSearchBanner } = model;
+    const banners = get(this, 'banners');
+
+    if (showStagingBanner) {
+      banners.addBanner(
+        'You are viewing/editing in the staging environment. Changes made here will not reflect in production',
+        'info'
+      );
+    }
+
+    if (showStaleSearchBanner) {
+      banners.addBanner('components/notifications/partials/stale-search-alert', 'info', true);
+    }
   },
 
   processLegacyDomOperations() {
