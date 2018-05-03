@@ -123,18 +123,17 @@
 
             {{#row.cell}}
               <div class="dataset-compliance-fields__id-field-wrap">
-                {{#if isReadOnly}}
+                {{#if (and isReadOnly (not row.isReadonly))}}
                   <div class="dataset-compliance-fields__id-field-wrap__edit">
+                    <span class="nacho-tooltip" title="Edit Fields">
+                      <button
+                        class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
+                        onclick={{action row.onEditPolicy (action "nextStep")}}>
 
-                    <button
-                      class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
-                      onclick={{action row.onEditPolicy (action "nextStep")}}>
+                        <i class="fa fa-pencil" aria-label="Edit Fields"></i>
 
-                      <span class="nacho-tooltip" title="Edit Policy">
-                        <i class="fa fa-pencil" aria-label="Edit Policy"></i>
-                      </span>
-
-                    </button>
+                      </button>
+                    </span>
 
                   </div>
                 {{/if}}
@@ -214,20 +213,18 @@
             {{/row.cell}}
 
             {{#row.cell}}
+              <span class="nacho-tooltip" title="{{if row.isRowExpanded 'Collapse field' 'Expand field'}}">
               <button
                 class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
                 onclick={{action row.onToggleRowExpansion}}>
-                <span class="nacho-tooltip" text="{{if row.isRowExpanded 'Collapse field' 'Expand field'}}">
 
-                  {{#if row.isRowExpanded}}
-                    <i class="glyphicon glyphicon-menu-up" aria-label="Expand field"></i>
-                  {{else}}
-                    <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field"></i>
-                  {{/if}}
-
-                </span>
-
+                {{#if row.isRowExpanded}}
+                  <i class="glyphicon glyphicon-menu-up" aria-label="Expand field"></i>
+                {{else}}
+                  <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field"></i>
+                {{/if}}
               </button>
+              </span>
             {{/row.cell}}
           </tr>
 
