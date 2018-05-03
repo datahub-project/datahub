@@ -88,19 +88,18 @@ const chunkArrayAsync = <T, U>(
 ) => (list: Array<T>) =>
   new Promise<U>(function(resolve) {
     const queue = list.slice(0); // creates a shallow copy of the original list
-    const delay = 25;
     let result: U;
 
-    setTimeout(function chunk() {
+    requestAnimationFrame(function chunk() {
       const startTime = +new Date();
 
       do {
         result = accumulator(iterateeSync.call(context, queue.splice(0, chunkSize)));
-      } while (queue.length && +new Date() + startTime < 50);
+      } while (queue.length && +new Date() + startTime < 18);
 
       // recurse through list if there are more items left
-      return queue.length ? setTimeout(chunk, delay) : resolve(result);
-    }, delay);
+      return queue.length ? requestAnimationFrame(chunk) : resolve(result);
+    });
   });
 
 /**
@@ -114,7 +113,7 @@ const iterateArrayAsync = <T, U = T>(iteratee: (arr?: Array<T>) => Array<U>) => 
   list: Array<T>,
   context = null
 ): Promise<Array<U>> => {
-  const accumulator = (base: Array<U>) => (arr: Array<U>) => [...base, ...arr];
+  const accumulator = (base: Array<U>) => (arr: Array<U>) => (base = [...base, ...arr]);
   return chunkArrayAsync(iteratee, accumulator([]), { chunkSize: 50, context })(list);
 };
 
