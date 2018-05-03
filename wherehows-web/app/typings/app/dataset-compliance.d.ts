@@ -12,7 +12,7 @@ import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows
  * access to actions using `did${editStepName}` accessors
  */
 interface IDatasetComplianceActions {
-  didEditCompliancePolicy: () => Promise<boolean>;
+  didEditCompliancePolicy: () => Promise<void>;
   didEditPurgePolicy: () => Promise<{} | void>;
   didEditDatasetLevelCompliancePolicy: () => Promise<void>;
   [K: string]: (...args: Array<any>) => any;

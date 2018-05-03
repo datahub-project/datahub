@@ -26,6 +26,18 @@
           {{changeSetReviewCount}} fields to be reviewed
     </span>
   {{/if}}
+
+  {{#if (and isEditing unspecifiedTags)}}
+    <div class="compliance-entities-meta__secondary">
+      <p class="set-fields-to-none-text">Set all unspecified field types to {{ComplianceFieldIdValue.None}}</p>
+
+      <button
+        class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+        onclick={{action "onSetUnspecifiedTagsAsNone"}}>
+        Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
+      </button>
+    </div>
+  {{/if}}
 </section>
 
 {{#if foldedChangeSet.length}}
