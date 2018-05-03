@@ -1,3 +1,10 @@
+<div>
+  {{more-info
+    link="http://go/jitaclfaq"
+    tooltip="Click for more information on ACL Access"
+  }}
+</div>
+
 <header class="acl-permission__header">
   {{#if userHasAclAccess}}
     <i class="fa fa-check-circle-o fa-lg acl-permission__success" title="You are in this dataset's ACL"></i>
@@ -7,17 +14,6 @@
         You have access to this dataset
       </strong>
     </div>
-  {{else}}
-    <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
-
-    <div class="acl-permission__meta">
-      <strong class="acl-permission__reject acl-permission__meta__header">
-        You currently do not have access to this dataset
-      </strong>
-    </div>
-  {{/if}}
-
-  {{#if userHasAclAccess}}
 
     <button
       class="nacho-button--large nacho-button--inverse remove-acl-access-button"
@@ -30,8 +26,16 @@
         Remove My Access
       {{/if}}
     </button>
+  {{else}}
+    <i class="fa fa-ban fa-lg acl-permission__reject" title="You are not in this dataset's ACL"></i>
 
+    <div class="acl-permission__meta">
+      <strong class="acl-permission__reject acl-permission__meta__header">
+        You currently do not have access to this dataset
+      </strong>
+    </div>
   {{/if}}
+
 </header>
 
 
