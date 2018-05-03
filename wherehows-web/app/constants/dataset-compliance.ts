@@ -297,12 +297,44 @@ const idTypeFieldHasLogicalType = ({ logicalType }: IComplianceEntity): boolean 
 const idTypeFieldsHaveLogicalType = arrayEvery(idTypeFieldHasLogicalType);
 
 /**
+ * Describes the function interface for tagsForIdentifierField
+ * @interface TagsForIdentifierFieldFn
+ */
+interface TagsForIdentifierFieldFn {
+  (identifierField: string): (tags: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>;
+}
+/**
  * Gets the tags for a specific identifier field
  * @param {string} identifierField
- * @return {(array: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>}
+ * @return {TagsForIdentifierFieldFn}
  */
-const tagsForIdentifierField = (identifierField: string) =>
+const tagsForIdentifierField: TagsForIdentifierFieldFn = (identifierField: string) =>
   arrayFilter(isSchemaFieldTag<IComplianceChangeSet>(identifierField));
+
+/**
+ * Lists tags that occur for only one identifier type in the list of tags
+ * @param {Array<IComplianceChangeSet>} tags the full list of tags to iterate through
+ * @param {TagsForIdentifierFieldFn} tagsForIdentifierFieldFn
+ * @return {(singleTags: Array<IComplianceChangeSet>, { identifierField }: IComplianceChangeSet) => (any)[] | Array<IComplianceChangeSet>}
+ */
+const singleTagsIn = (tags: Array<IComplianceChangeSet>, tagsForIdentifierFieldFn: TagsForIdentifierFieldFn) => (
+  singleTags: Array<IComplianceChangeSet>,
+  { identifierField }: IComplianceChangeSet
+): Array<IComplianceChangeSet> => {
+  const tagsForIdentifier = tagsForIdentifierFieldFn(identifierField)(tags);
+  return tagsForIdentifier.length === 1 ? [...singleTags, ...tagsForIdentifier] : singleTags;
+};
+
+/**
+ * Lists the tags in a list of tags that occur for only one identifier type
+ * @param {Array<IComplianceChangeSet>} tags
+ * @param {TagsForIdentifierFieldFn} tagsForIdentifierFieldFn
+ * @return {Array<IComplianceChangeSet>}
+ */
+const singleTagsInChangeSet = (
+  tags: Array<IComplianceChangeSet>,
+  tagsForIdentifierFieldFn: TagsForIdentifierFieldFn
+): Array<IComplianceChangeSet> => arrayReduce(singleTagsIn(tags, tagsForIdentifierFieldFn), [])(tags);
 
 /**
  * Returns a list of changeSet tags that requires user attention
@@ -558,5 +590,7 @@ export {
   foldComplianceChangeSets,
   complianceFieldChangeSetItemFactory,
   sortFoldedChangeSetTuples,
-  tagsWithoutIdentifierType
+  tagsWithoutIdentifierType,
+  tagsForIdentifierField,
+  singleTagsInChangeSet
 };

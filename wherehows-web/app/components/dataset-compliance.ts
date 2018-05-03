@@ -31,7 +31,9 @@ import {
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
   sortFoldedChangeSetTuples,
-  tagsWithoutIdentifierType
+  tagsWithoutIdentifierType,
+  singleTagsInChangeSet,
+  tagsForIdentifierField
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
@@ -691,8 +693,24 @@ export default class DatasetCompliance extends Component {
     this: DatasetCompliance
   ): Array<IComplianceChangeSet> {
     const tags = get(this, 'compliancePolicyChangeSet');
-    return tagsWithoutIdentifierType(tags);
+    const singleTags = singleTagsInChangeSet(tags, tagsForIdentifierField);
+
+    return tagsWithoutIdentifierType(singleTags);
   });
+
+  /**
+   * Sets the identifierType attribute on IComplianceChangeSetFields without an identifierType to ComplianceFieldIdValue.None
+   * @returns {Promise<Array<IComplianceChangeSet>>}
+   */
+  setUnspecifiedTagsAsNoneTask = task(function*(
+    this: DatasetCompliance
+  ): IterableIterator<Promise<Array<ComplianceFieldIdValue | NonIdLogicalType>>> {
+    const unspecifiedTags = get(this, 'unspecifiedTags');
+    const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
+      set(tag, 'identifierType', value);
+
+    yield iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
+  }).drop();
 
   /**
    * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
@@ -1008,20 +1026,6 @@ export default class DatasetCompliance extends Component {
           )
         );
       }
-    },
-
-    /**
-     * Sets the identifierType attribute on IComplianceChangeSetFields without an identifierType to ComplianceFieldIdValue.None
-     * @returns {Promise<Array<IComplianceChangeSet>>}
-     */
-    async onSetUnspecifiedTagsAsNone(this: DatasetCompliance): Promise<Array<IComplianceChangeSet>> {
-      const unspecifiedTags = get(this, 'unspecifiedTags');
-      const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
-        set(tag, 'identifierType', value);
-
-      await iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
-
-      return unspecifiedTags; // Now specified as ComplianceFieldIdValue.None
     },
 
     /**

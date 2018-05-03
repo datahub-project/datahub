@@ -33,8 +33,14 @@
 
       <button
         class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
-        onclick={{action "onSetUnspecifiedTagsAsNone"}}>
-        Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
+        onclick={{perform setUnspecifiedTagsAsNoneTask}}>
+
+        {{#if setUnspecifiedTagsAsNoneTask.isRunning}}
+          {{pendulum-ellipsis-animation}}
+        {{else}}
+          Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
+        {{/if}}
+
       </button>
     </div>
   {{/if}}
