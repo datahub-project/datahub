@@ -2,7 +2,8 @@ import Router from '@ember/routing/router';
 import { get, getWithDefault } from '@ember/object';
 import { inject as service } from '@ember/service';
 import { scheduleOnce } from '@ember/runloop';
-import config from './config/environment';
+import config from 'wherehows-web/config/environment';
+import { redirectToHttps } from 'wherehows-web/utils/build-url';
 
 const AppRouter = Router.extend({
   location: config.locationType,
@@ -10,6 +11,15 @@ const AppRouter = Router.extend({
   rootURL: config.rootURL,
 
   metrics: service(),
+
+  willTransition() {
+    const { APP: { useSecureRedirect } } = config;
+    this._super(...arguments);
+
+    if (useSecureRedirect) {
+      redirectToHttps(window.location);
+    }
+  },
 
   didTransition() {
     this._super(...arguments);
