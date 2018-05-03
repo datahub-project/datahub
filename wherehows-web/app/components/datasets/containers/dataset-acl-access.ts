@@ -171,7 +171,7 @@ export default class DatasetAclAccessContainer extends Component {
     const userAcl: Array<IAccessControlEntry> = yield isUserInAcl(userName)(acls);
 
     return get(this, 'userAcl').setObjects(userAcl);
-  }).drop();
+  }).restartable();
 
   /**
    * Requests the current user be added to the acl
