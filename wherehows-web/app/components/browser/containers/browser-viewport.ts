@@ -97,7 +97,7 @@ export default class BrowserViewport extends Component {
     });
 
     return response;
-  }).drop();
+  }).restartable();
 
   /**
    * Async requests for the list of entities and sets the value on class
@@ -113,7 +113,7 @@ export default class BrowserViewport extends Component {
     yield (<IGetEntityTaskStrategy>{
       datasets: get(this, 'getDatasetsTask').perform('set', offset)
     })[entity];
-  });
+  }).restartable();
 
   /**
    * The max possible entities that can currently be requested up to this.count
