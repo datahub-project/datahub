@@ -60,7 +60,18 @@
 }
 
 .compliance-entities-meta {
+  display: flex;
+  align-items: center;
   padding: item-spacing(2 0 2);
   color: #777777;
   text-align: left;
+
+  &__secondary {
+    margin-left: auto;
+  }
+}
+
+.set-fields-to-none-text {
+  margin-right: item-spacing(2);
+  display: inline;
 }

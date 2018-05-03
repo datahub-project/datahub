@@ -30,7 +30,8 @@ import {
   changeSetReviewableAttributeTriggers,
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
-  sortFoldedChangeSetTuples
+  sortFoldedChangeSetTuples,
+  tagsWithoutIdentifierType
 } from 'wherehows-web/constants';
 import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
@@ -60,6 +61,8 @@ import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
+import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { pick } from 'lodash';
 
 const {
   complianceDataException,
@@ -436,7 +439,7 @@ export default class DatasetCompliance extends Component {
   }
 
   /**
-   * Checks that all tags/ dataset content types have a boolean value
+   * Checks that dataset content types have a boolean value
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
@@ -680,6 +683,18 @@ export default class DatasetCompliance extends Component {
   }).enqueue();
 
   /**
+   * Lists the IComplianceChangeSet / tags without an identifierType value
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  unspecifiedTags = computed(`compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`, function(
+    this: DatasetCompliance
+  ): Array<IComplianceChangeSet> {
+    const tags = get(this, 'compliancePolicyChangeSet');
+    return tagsWithoutIdentifierType(tags);
+  });
+
+  /**
    * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
    * @param {Array<IComplianceChangeSet>} changeSet
    */
@@ -737,92 +752,31 @@ export default class DatasetCompliance extends Component {
   }
 
   /**
-   * Requires that the user confirm that any non-id fields are ok to be saved without a field format specified
-   * @returns {Promise<boolean>}
+   * Maps attributes from the working copy to the compliance entities to be persisted remotely
+   * @returns {Promise<Array<IComplianceEntity>>}
    */
-  async confirmUnformattedFields(this: DatasetCompliance): Promise<boolean> {
-    type FormattedAndUnformattedEntities = {
-      formatted: Array<IComplianceEntity>;
-      unformatted: Array<IComplianceEntity>;
-    };
+  async applyWorkingCopy(this: DatasetCompliance): Promise<Array<IComplianceEntity>> {
     // Current list of compliance entities on policy
-    const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
-    const formattedAndUnformattedEntities: FormattedAndUnformattedEntities = { formatted: [], unformatted: [] };
-    // All candidate fields that can be on policy, excluding tracking type fields
-    const changeSetEntities: Array<IComplianceEntity> = get(this, 'compliancePolicyChangeSet').map(
-      ({
-        identifierField,
-        identifierType = null,
-        logicalType,
-        nonOwner,
-        securityClassification,
-        readonly,
-        valuePattern
-      }) => ({
-        identifierField,
-        identifierType,
-        logicalType,
-        nonOwner,
-        securityClassification,
-        readonly,
-        valuePattern
-      })
-    );
+    const { complianceInfo, compliancePolicyChangeSet: workingCopy } = getProperties(this, [
+      'complianceInfo',
+      'compliancePolicyChangeSet'
+    ]);
+    const { complianceEntities } = complianceInfo!;
+    // All changeSet attrs that can be on policy, excluding changeSet metadata
+    const entityAttrs = [
+      'identifierField',
+      'identifierType',
+      'logicalType',
+      'nonOwner',
+      'securityClassification',
+      'readonly',
+      'valuePattern'
+    ];
+    const updatingComplianceEntities = arrayMap(
+      (tag: IComplianceChangeSet) => <IComplianceEntity>pick(tag, entityAttrs)
+    )(workingCopy);
 
-    // Fields that do not have a logicalType, and no identifierType or identifierType is ComplianceFieldIdValue.None
-    const { formatted, unformatted }: FormattedAndUnformattedEntities = changeSetEntities.reduce(
-      ({ formatted, unformatted }, field) => {
-        const { identifierType, logicalType } = getProperties(field, ['identifierType', 'logicalType']);
-
-        if (!logicalType && (ComplianceFieldIdValue.None === identifierType || !identifierType)) {
-          unformatted = [...unformatted, field];
-        } else {
-          formatted = [...formatted, field];
-        }
-
-        return { formatted, unformatted };
-      },
-      formattedAndUnformattedEntities
-    );
-
-    const dialogActions = <IConfirmOptions['dialogActions']>{};
-    let isConfirmed = true;
-    let unformattedChangeSetEntities: Array<IComplianceEntity> = [];
-
-    // If there are unformatted fields, require confirmation from user
-    if (unformatted.length) {
-      unformattedChangeSetEntities = unformatted.map(({ identifierField }) => ({
-        identifierField,
-        identifierType: ComplianceFieldIdValue.None,
-        logicalType: null,
-        securityClassification: null,
-        nonOwner: null
-      }));
-
-      const confirmHandler = (function() {
-        return new Promise((resolve, reject) => {
-          dialogActions['didConfirm'] = () => resolve();
-          dialogActions['didDismiss'] = () => reject();
-        });
-      })();
-
-      // Create confirmation dialog
-      get(this, 'notifications').notify(NotificationEvent.confirm, {
-        header: `Fields will be tagged with \`${ComplianceFieldIdValue.None}\` field type`,
-        content: `There are ${unformatted.length} non-ID fields`,
-        dialogActions: dialogActions
-      });
-
-      try {
-        await confirmHandler;
-      } catch (e) {
-        isConfirmed = false;
-      }
-    }
-
-    isConfirmed && complianceEntities.setObjects([...formatted, ...unformattedChangeSetEntities]);
-
-    return isConfirmed;
+    return complianceEntities.setObjects(updatingComplianceEntities);
   }
 
   /**
@@ -1057,6 +1011,20 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
+     * Sets the identifierType attribute on IComplianceChangeSetFields without an identifierType to ComplianceFieldIdValue.None
+     * @returns {Promise<Array<IComplianceChangeSet>>}
+     */
+    async onSetUnspecifiedTagsAsNone(this: DatasetCompliance): Promise<Array<IComplianceChangeSet>> {
+      const unspecifiedTags = get(this, 'unspecifiedTags');
+      const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
+        set(tag, 'identifierType', value);
+
+      await iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
+
+      return unspecifiedTags; // Now specified as ComplianceFieldIdValue.None
+    },
+
+    /**
      * Toggles the flag to show all member potential member data fields that may be contained in this dataset
      * @returns {boolean}
      */
@@ -1095,37 +1063,24 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Handler for setting the dataset classification into edit mode and rendering into DOM
-     * @returns {Promise<boolean>}
+     * Handler applies fields changeSet working copy to compliance policy to be persisted amd validates fields
+     * @returns {Promise<void>}
      */
-    async didEditCompliancePolicy(this: DatasetCompliance): Promise<boolean> {
-      const isConfirmed = await this.confirmUnformattedFields();
-
-      if (isConfirmed) {
-        // Ensure that the fields on the policy meet the validation criteria before proceeding
-        // Otherwise exit early
-        try {
-          await this.validateFields();
-        } catch (e) {
-          // Flag this dataset's data as problematic
-          if (e instanceof Error && [complianceDataException, complianceFieldNotUnique].includes(e.message)) {
-            set(this, '_hasBadData', true);
-            window.scrollTo(0, 0);
-          }
-
-          // return;
-          throw e;
+    async didEditCompliancePolicy(this: DatasetCompliance): Promise<void> {
+      // Ensure that the fields on the policy meet the validation criteria before proceeding
+      // Otherwise exit early
+      try {
+        await this.applyWorkingCopy();
+        await this.validateFields();
+      } catch (e) {
+        // Flag this dataset's data as problematic
+        if (e instanceof Error && [complianceDataException, complianceFieldNotUnique].includes(e.message)) {
+          set(this, '_hasBadData', true);
+          window.scrollTo(0, 0);
         }
 
-        // If user provides confirmation for unformatted fields or there are none,
-        // then validate fields against expectations
-        // otherwise inform user of validation exception
-        // setProperties(this, { isEditingCompliancePolicy: false, isEditingDatasetClassification: true });
-      } else {
-        throw new Error('unConfirmedUnformattedFields');
+        throw e;
       }
-
-      return isConfirmed;
     },
 
     /**
