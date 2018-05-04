@@ -164,33 +164,19 @@ export default Route.extend(ApplicationRouteMixin, {
   },
 
   /**
-   * We are NOT using the renderTemplate hook to implement any custom rendering logic. Since we don't have a didTransition
-   * hook for the application route, this hook is being used instead to schedule a banner after initial render in order to
-   * let users see the animation for banner entrance
+   * At a more granular level, initializing the banner before the render loop of the entire page ends will results in the
+   * render loop of the application breaking the css transition animation for our initial banners. This hook is being used
+   * to schedule banners only after initial render has taken place in order to allow users see the banner animation
+   * on entry
    */
   renderTemplate() {
     this._super(...arguments);
-    run.scheduleOnce('afterRender', this, 'initializeBanners');
-  },
-
-  /**
-   * Looks for the existence of any banners that may/should exist at app initialization and displays to the user
-   */
-  initializeBanners() {
-    const model = get(this, 'controller').get('model');
-    const { showStagingBanner, showStaleSearchBanner } = model;
+    const { showStagingBanner, showStaleSearchBanner } = get(this, 'controller').get('model');
     const banners = get(this, 'banners');
-
-    if (showStagingBanner) {
-      banners.addBanner(
-        'You are viewing/editing in the staging environment. Changes made here will not reflect in production',
-        'info'
-      );
-    }
-
-    if (showStaleSearchBanner) {
-      banners.addBanner('components/notifications/partials/stale-search-alert', 'info', true);
-    }
+    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [
+      showStagingBanner,
+      showStaleSearchBanner
+    ]);
   },
 
   processLegacyDomOperations() {
