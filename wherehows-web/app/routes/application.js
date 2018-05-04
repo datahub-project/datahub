@@ -25,6 +25,12 @@ export default Route.extend(ApplicationRouteMixin, {
   metrics: service(),
 
   /**
+   * Banner alert service
+   * @type {Ember.Service}
+   */
+  banners: service(),
+
+  /**
    * Attempt to load the current user and application configuration options
    * @returns {Promise}
    */
@@ -40,7 +46,14 @@ export default Route.extend(ApplicationRouteMixin, {
    * @override
    */
   async model() {
-    const isInternal = await get(this, 'configurator.getConfig')('isInternal');
+    const getConfig = get(this, 'configurator.getConfig');
+
+    const [isInternal, showStagingBanner, showStaleSearchBanner] = await Promise.all([
+      getConfig('isInternal'),
+      getConfig('isStagingBanner'),
+      getConfig('isStaleSearch')
+    ]);
+
     const { userName } = get(this, 'sessionUser.currentUser') || {};
 
     /**
@@ -58,7 +71,7 @@ export default Route.extend(ApplicationRouteMixin, {
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
 
-    return { feedbackMail, brand };
+    return { feedbackMail, brand, showStagingBanner, showStaleSearchBanner };
   },
 
   /**
@@ -148,6 +161,22 @@ export default Route.extend(ApplicationRouteMixin, {
   init() {
     this._super(...arguments);
     run.scheduleOnce('afterRender', this, 'processLegacyDomOperations');
+  },
+
+  /**
+   * At a more granular level, initializing the banner before the render loop of the entire page ends will results in the
+   * render loop of the application breaking the css transition animation for our initial banners. This hook is being used
+   * to schedule banners only after initial render has taken place in order to allow users see the banner animation
+   * on entry
+   */
+  renderTemplate() {
+    this._super(...arguments);
+    const { showStagingBanner, showStaleSearchBanner } = get(this, 'controller').get('model');
+    const banners = get(this, 'banners');
+    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [
+      showStagingBanner,
+      showStaleSearchBanner
+    ]);
   },
 
   processLegacyDomOperations() {
