@@ -5,7 +5,7 @@ import { DatasetPlatform, Fabric } from 'wherehows-web/constants';
  * Path segment in a urn. common btw WH and LI formats
  * @type {RegExp}
  */
-const urnPath = /[\w.\-\/{}+()\s]+/;
+const urnPath = /[\w.\-\/{}+()\s\*]+/;
 /**
  * Matches a url string with a `urn` query. urn query with letters or underscore segment of any length greater
  *   than 1 followed by colon and 3 forward slashes and a segment containing letters, {, }, _ or /, or none
