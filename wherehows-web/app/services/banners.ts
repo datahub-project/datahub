@@ -56,6 +56,19 @@ export default class BannerService extends Service {
     return banners.length > 0 && (banners.length > 1 || !banners[0].isExiting);
   });
 
+  appInitialBanners([showStagingBanner, showStaleSearchBanner]: Array<boolean>): void {
+    if (showStagingBanner) {
+      this.addBanner(
+        'You are viewing/editing in the staging environment. Changes made here will not reflect in production',
+        NotificationEvent['info']
+      );
+    }
+
+    if (showStaleSearchBanner) {
+      this.addBanner('components/notifications/partials/stale-search-alert', NotificationEvent['info'], true);
+    }
+  }
+
   /**
    * Method to actually take care of removing the first banner from our queue.
    */
