@@ -79,7 +79,7 @@
         <tr>
           <div class="dataset-owner-table__add-owner">
             {{#if isAddingOwner}}
-              {{user-lookup didFindUser=(action "addOwner")}}
+              {{pwr-user-lookup didFindUser=(action "addOwner")}}
             {{else}}
               <span class="dataset-owner-table__trigger" {{action (mut isAddingOwner) true}}>
                 {{fa-icon "plus"}} Add an owner
@@ -142,19 +142,21 @@
 
 {{/if}}
 
+{{#if (eq showOwnership "show")}}
+  <section class="dataset-author">
+    {{datasets/owners/suggested-owners
+      owners=systemGeneratedOwners
+      ownerTypes=ownerTypes
+      commonOwners=commonOwners
+      removeOwner=(action "removeOwner")
+      confirmSuggestedOwner=(action  "confirmSuggestedOwner")
+      updateOwnerType=(action "updateOwnerType")}}
+  </section>
+{{/if}}
+
 {{#if systemGeneratedOwners}}
 
-  {{#if (eq showOwnership "show")}}
-      <section class="dataset-author">
-        {{datasets/owners/suggested-owners
-          owners=systemGeneratedOwners
-          ownerTypes=ownerTypes
-          commonOwners=commonOwners
-          removeOwner=(action "removeOwner")
-          confirmSuggestedOwner=(action  "confirmSuggestedOwner")
-          updateOwnerType=(action "updateOwnerType")}}
-      </section>
-  {{else}}
+  {{#unless (eq showOwnership "show")}}
 
     <section class="dataset-author">
       <header>
@@ -208,7 +210,8 @@
 
       </table>
     </section>
-  {{/if}}
+
+  {{/unless}}
 {{/if}}
 
 <section class="action-bar">
