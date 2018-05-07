@@ -2,42 +2,27 @@ module.exports = {
   root: true,
   globals: {
     server: true,
-    define: true,
+    define: true
   },
-  "extends": [
-    "prettier",
-    'plugin:ember/recommended'
-  ],
-  "parser": "babel-eslint",
+  extends: ['prettier', 'plugin:ember/recommended'],
+  parser: 'typescript-eslint-parser',
   parserOptions: {
-    "ecmaVersion": 2017,
-    "sourceType": "module",
-    "ecmaFeatures": {
-      "experimentalObjectRestSpread": true
-    }
+    ecmaVersion: 2018,
+    sourceType: 'module'
   },
-  "env": {
-    "browser": true,
-    "node": true
+  env: {
+    browser: true,
+    node: true
   },
-  "rules": {
-    "no-implicit-globals": [
-      1
-    ],
-    "prettier/prettier": ["error", { "singleQuote": true, "printWidth": 120 }]
+  rules: {
+    'no-implicit-globals': [1],
+    'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }]
   },
-  "plugins": [
-    "prettier",
-    'ember'
-  ],
+  plugins: ['prettier', 'ember', 'typescript'],
   overrides: [
     // node files
     {
-      files: [
-        'testem.js',
-        'ember-cli-build.js',
-        'config/**/*.js'
-      ],
+      files: ['testem.js', 'ember-cli-build.js', 'config/**/*.js'],
       parserOptions: {
         sourceType: 'script',
         ecmaVersion: 2015
