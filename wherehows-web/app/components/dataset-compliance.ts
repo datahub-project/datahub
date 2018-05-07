@@ -867,7 +867,7 @@ export default class DatasetCompliance extends Component {
    * Notifies the user to provide a missing purge policy
    * @return {Promise<never>}
    */
-  needsPurgePolicyType(this: DatasetCompliance) {
+  needsPurgePolicyType(this: DatasetCompliance): Promise<never> {
     return Promise.reject(get(this, 'notifications').notify(NotificationEvent.error, { content: missingPurgePolicy }));
   }
 
