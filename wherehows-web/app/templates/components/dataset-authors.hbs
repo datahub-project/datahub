@@ -233,11 +233,15 @@
       <div class="dataset-authors-save-error">
         <p>
           {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
-          {{#if (eq ownersRequiredCount 2)}}
-            Add at least 2 DataOwners.
+          {{#unless hasChanged}}
+            Please make changes to save.
           {{else}}
-            Add at least {{ownersRequiredCount}} more DataOwner(s).
-          {{/if}}
+            {{#if (eq ownersRequiredCount 2)}}
+              Add at least 2 DataOwners.
+            {{else}}
+              Add at least {{ownersRequiredCount}} more DataOwner(s).
+            {{/if}}
+          {{/unless}}
         </p>
       </div>
     {{/if}}
