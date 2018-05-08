@@ -21,6 +21,8 @@ import {
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 
+type Comparator = -1 | 0 | 1;
+
 /**
  * Defines properties for the component that renders a list of owners and provides functionality for
  * interacting with the list items or the list as whole
@@ -65,6 +67,20 @@ export default class DatasetAuthors extends Component {
   userLookup: ComputedProperty<UserLookup> = inject();
 
   /**
+   * If there are no changes to the ownership tab, we want to keep the save button disabled. Rather than
+   * try to compare two sets of prev vs new data, we just have a flag here that short stops the validation
+   * function.
+   * Note: changedState has 3 states:
+   * -1   Component hasn't completed initialization yet, and no changes have been made. When
+   *      requiredMinNotConfirmed is run on init/render, this gets incremented to its neutral state at 0
+   * 0    No changes have been made yet
+   * 1    At least one change has been made
+   * @type {number}
+   * @memberof DatasetAuthors
+   */
+  changedState: Comparator = -1;
+
+  /**
    * Reference to the userNamesResolver function to asynchronously match userNames
    * @type {UserLookup.userNamesResolver}
    * @memberof DatasetAuthors
@@ -86,7 +102,14 @@ export default class DatasetAuthors extends Component {
   requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.@each.type', function(
     this: DatasetAuthors
   ) {
-    return isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+    const changedState = get(this, 'changedState');
+
+    if (changedState < 1) {
+      set(this, 'changedState', <Comparator>(changedState + 1));
+    }
+    // If there have been no changes, then we want to automatically set true in order to disable save button
+    // when no changes have been made
+    return changedState === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
   });
 
   /**
@@ -94,7 +117,9 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<number>}
    * @memberof DatasetAuthors
    */
-  ownersRequiredCount: ComputedProperty<number> = computed('confirmedOwners.[]', function(this: DatasetAuthors) {
+  ownersRequiredCount: ComputedProperty<number> = computed('confirmedOwners.@each.type', function(
+    this: DatasetAuthors
+  ) {
     return minRequiredConfirmedOwners - validConfirmedOwners(get(this, 'confirmedOwners')).length;
   });
 
@@ -180,7 +205,7 @@ export default class DatasetAuthors extends Component {
       }
 
       const { userName } = get(get(this, 'currentUser'), 'currentUser');
-      const updatedOwners = [newOwner, ...owners];
+      const updatedOwners = [...owners, newOwner];
       confirmOwner(newOwner, userName);
 
       return owners.setObjects(updatedOwners);
