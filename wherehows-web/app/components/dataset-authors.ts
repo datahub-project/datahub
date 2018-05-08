@@ -70,7 +70,7 @@ export default class DatasetAuthors extends Component {
    * If there are no changes to the ownership tab, we want to keep the save button disabled. Rather than
    * try to compare two sets of prev vs new data, we just have a flag here that short stops the validation
    * function.
-   * Note: hasChanged has 3 states:
+   * Note: changedState has 3 states:
    * -1   Component hasn't completed initialization yet, and no changes have been made. When
    *      requiredMinNotConfirmed is run on init/render, this gets incremented to its neutral state at 0
    * 0    No changes have been made yet
@@ -78,7 +78,7 @@ export default class DatasetAuthors extends Component {
    * @type {number}
    * @memberof DatasetAuthors
    */
-  hasChanged: Comparator = -1;
+  changedState: Comparator = -1;
 
   /**
    * Reference to the userNamesResolver function to asynchronously match userNames
@@ -102,14 +102,14 @@ export default class DatasetAuthors extends Component {
   requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.@each.type', function(
     this: DatasetAuthors
   ) {
-    const hasChanged = get(this, 'hasChanged');
+    const changedState = get(this, 'changedState');
 
-    if (hasChanged < 1) {
-      set(this, 'hasChanged', <Comparator>(hasChanged + 1));
+    if (changedState < 1) {
+      set(this, 'changedState', <Comparator>(changedState + 1));
     }
     // If there have been no changes, then we want to automatically set true in order to disable save button
     // when no changes have been made
-    return hasChanged === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+    return changedState === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
   });
 
   /**
