@@ -44,6 +44,8 @@ public class DatasetView {
 
   private String deprecationNote;
 
+  private Long decommissionTime;
+
   private Long createdTime;
 
   private Long modifiedTime;

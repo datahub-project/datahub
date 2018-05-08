@@ -189,7 +189,10 @@ public class Dataset extends Controller {
 
       boolean deprecated = record.get("deprecated").asBoolean();
       String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : "";
-      Long decommissionTime = record.hasNonNull("decommissionTime") ? record.get("decommissionTime").asLong() : null;
+      long decommissionTime = record.hasNonNull("decommissionTime") ? record.get("decommissionTime").asLong() : 0;
+      if (decommissionTime <= 0) {
+        throw new IllegalArgumentException("Invalid decommission time");
+      }
 
       DICT_DATASET_DAO.setDatasetDeprecation(datasetUrn, deprecated, deprecationNote, decommissionTime, username);
     } catch (Exception e) {
@@ -372,7 +375,7 @@ public class Dataset extends Controller {
     if (record == null) {
       return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
     }
-    return Promise.promise(() -> ok(Json.newObject().set("complianceInfo", Json.toJson(record))));
+    return Promise.promise(() -> ok(Json.newObject().set("retentionPolicy", Json.toJson(record))));
   }
 
   public static Promise<Result> updateDatasetRetention(@Nonnull String datasetUrn) {
