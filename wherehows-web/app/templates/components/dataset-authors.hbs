@@ -233,7 +233,7 @@
       <div class="dataset-authors-save-error">
         <p>
           {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
-          {{#unless hasChanged}}
+          {{#unless (eq changedState 1)}}
             Please make changes to save.
           {{else}}
             {{#if (eq ownersRequiredCount 2)}}
