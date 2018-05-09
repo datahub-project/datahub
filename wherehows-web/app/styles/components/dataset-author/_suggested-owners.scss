@@ -32,6 +32,7 @@
       width: 128px;
       display: flex;
       flex-wrap: wrap;
+      margin-right: 16px;
 
       &__avatar {
         box-sizing: border-box;
@@ -52,7 +53,10 @@
     &__description {
       width: 560px;
       word-wrap: wrap;
-      padding-left: 16px;
+
+      &--empty {
+        margin-bottom: 16px;
+      }
     }
 
     &__trigger {

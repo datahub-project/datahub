@@ -72,6 +72,15 @@
     &__content {
       width: 90vw;
       min-width: 1056px;
+
+      &__link {
+        color: get-color(white, 0.9);
+        text-decoration: underline;
+
+        &:hover {
+          color: get-color(black, 0.75);
+        }
+      }
     }
 
     &__dismiss {

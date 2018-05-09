@@ -64,7 +64,7 @@ export default class PowerUserLookup extends UserLookup {
   focusOut() {
     setProperties(this, {
       suggestedText: '',
-      showPlaceholder: true
+      showPlaceholder: get(this, 'selectedEntity') ? false : true
     });
   }
 
