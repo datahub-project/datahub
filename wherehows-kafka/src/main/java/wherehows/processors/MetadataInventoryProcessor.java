@@ -78,7 +78,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     }
   }
 
-  private void processEvent(MetadataInventoryEvent event) throws Exception {
+  public void processEvent(MetadataInventoryEvent event) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {

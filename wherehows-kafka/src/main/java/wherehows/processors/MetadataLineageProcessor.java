@@ -13,7 +13,6 @@
  */
 package wherehows.processors;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetLineage;
@@ -56,7 +55,6 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
   /**
    * Process a MetadataLineageEvent record
    * @param indexedRecord IndexedRecord
-   * @throws Exception
    */
   public void process(IndexedRecord indexedRecord) {
     if (indexedRecord == null || indexedRecord.getClass() != MetadataLineageEvent.class) {
@@ -75,8 +73,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
   }
 
-  @VisibleForTesting
-  void processEvent(MetadataLineageEvent event) throws Exception {
+  public void processEvent(MetadataLineageEvent event) throws Exception {
     if (event.lineage == null || event.lineage.size() == 0) {
       throw new IllegalArgumentException("No Lineage info in record");
     }
