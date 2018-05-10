@@ -17,7 +17,6 @@ module.exports = {
   rules: {
     'no-implicit-globals': [1],
     'typescript/class-name-casing': 'error',
-    'typescript/explicit-function-return-type': 'error',
     'typescript/interface-name-prefix': ['error', 'always'],
     'typescript/member-delimiter-style': 'error',
     'typescript/no-empty-interface': 'error',

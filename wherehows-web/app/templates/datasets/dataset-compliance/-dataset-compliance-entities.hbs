@@ -31,17 +31,20 @@
     <div class="compliance-entities-meta__secondary">
       <p class="set-fields-to-none-text">Set all unspecified field types to {{ComplianceFieldIdValue.None}}</p>
 
-      <button
-        class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
-        onclick={{perform setUnspecifiedTagsAsNoneTask}}>
+      {{#track-ui-event category=trackableCategory.Compliance
+                        action=trackableEvent.Compliance.SetUnspecifiedAsNone as |metrics|}}
+        <button
+          class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+          onclick={{action metrics.trackOnAction (perform setUnspecifiedTagsAsNoneTask)}}>
 
-        {{#if setUnspecifiedTagsAsNoneTask.isRunning}}
-          {{pendulum-ellipsis-animation}}
-        {{else}}
-          Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
-        {{/if}}
+          {{#if setUnspecifiedTagsAsNoneTask.isRunning}}
+            {{pendulum-ellipsis-animation}}
+          {{else}}
+            Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
+          {{/if}}
 
-      </button>
+        </button>
+      {{/track-ui-event}}
     </div>
   {{/if}}
 </section>
@@ -267,13 +270,17 @@
 
                 {{#row.cell class="dataset-compliance-fields__identifier-cell"}}
                   <div class="dataset-compliance-fields__identifier-select">
-                    {{ember-selector
-                      disabled=(or (not isEditing) row.isReadonly)
-                      values=tagRowComponent.fieldIdDropDownOptions
-                      selected=(readonly tag.identifierType)
-                      selectionDidChange=(action tagRowComponent.tagIdentifierTypeDidChange)
-                      class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
-                    }}
+                    {{#track-ui-event category=trackableCategory.Compliance
+                                      action=trackableEvent.Compliance.FieldIndentifier
+                                      name=tag.identifierType as |metrics|}}
+                      {{ember-selector
+                        disabled=(or (not isEditing) row.isReadonly)
+                        values=tagRowComponent.fieldIdDropDownOptions
+                        selected=(readonly tag.identifierType)
+                        selectionDidChange=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))
+                        class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
+                      }}
+                    {{/track-ui-event}}
                   </div>
                 {{/row.cell}}
 
@@ -286,14 +293,18 @@
                       </label>
 
                       <div class="dataset-compliance-fields__select-wrapper">
-                        {{ember-selector
-                          id=(concat tagRowComponent.rowId "-compliance-field-logical-type")
-                          disabled=(or (not isEditing) row.isReadonly)
-                          values=tagRowComponent.fieldFormats
-                          selected=(readonly tag.logicalType)
-                          selectionDidChange=(action tagRowComponent.tagLogicalTypeDidChange)
-                          class=(if tagRowComponent.isTagFormatMissing "dataset-compliance-fields--missing-selection")
-                        }}
+                        {{#track-ui-event category=trackableCategory.Compliance
+                                          action=trackableEvent.Compliance.FieldFormat
+                                          name=tag.logicalType as |metrics|}}
+                          {{ember-selector
+                            id=(concat tagRowComponent.rowId "-compliance-field-logical-type")
+                            disabled=(or (not isEditing) row.isReadonly)
+                            values=tagRowComponent.fieldFormats
+                            selected=(readonly tag.logicalType)
+                            selectionDidChange=(action metrics.trackOnAction (action tagRowComponent.tagLogicalTypeDidChange))
+                            class=(if tagRowComponent.isTagFormatMissing "dataset-compliance-fields--missing-selection")
+                          }}
+                        {{/track-ui-event}}
                       </div>
 
                       {{#if tagRowComponent.showCustomInput}}
