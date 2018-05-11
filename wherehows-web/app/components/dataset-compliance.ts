@@ -65,6 +65,7 @@ import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
+import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 
 const {
   complianceDataException,
@@ -211,6 +212,18 @@ export default class DatasetCompliance extends Component {
    */
   columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy = {};
 
+  /**
+   * Enum of categories that can be tracked for this component
+   * @type {TrackableEventCategory}
+   */
+  trackableCategory = TrackableEventCategory;
+
+  /**
+   * Map of events that can be tracked
+   * @type {ITrackableEventCategoryEvent}
+   */
+  trackableEvent = trackableEvent;
+
   constructor() {
     super(...arguments);
 
@@ -235,7 +248,7 @@ export default class DatasetCompliance extends Component {
     // Ensure correct step ordering
     return Object.keys(steps)
       .sort()
-      .map((key: string) => steps[+key]);
+      .map((key: string): { name: string } => steps[+key]);
   });
 
   /**
@@ -258,7 +271,7 @@ export default class DatasetCompliance extends Component {
     // the items in the list, Array#sort is not stable, so for items that equal on the primary comparator
     // break the tie based on position in original list
     const indexedDataTypes: Array<IndexedComplianceDataType> = (get(this, 'complianceDataTypes') || []).map(
-      (type, index) => ({
+      (type, index): IndexedComplianceDataType => ({
         ...type,
         index
       })
@@ -289,7 +302,7 @@ export default class DatasetCompliance extends Component {
     const insertDivider = (types: Array<IComplianceFieldIdentifierOption>): Array<IComplianceFieldIdentifierOption> => {
       const isId = ({ isId }: IComplianceFieldIdentifierOption): boolean => isId;
       const ids = types.filter(isId);
-      const nonIds = types.filter(type => !isId(type));
+      const nonIds = types.filter((type): boolean => !isId(type));
       const divider = {
         value: '',
         label: '---------',
@@ -346,7 +359,7 @@ export default class DatasetCompliance extends Component {
           // invoking the previousStep action to go back in the sequence
           // batch previousStep invocation in a afterRender queue due to editStepIndex update
           previousAction = noop;
-          run(() => {
+          run((): void => {
             if (this.isDestroyed || this.isDestroying) {
               return;
             }
@@ -373,8 +386,7 @@ export default class DatasetCompliance extends Component {
     { value: 'showReview', label: 'Showing only fields to review' }
   ];
 
-  didReceiveAttrs(this: DatasetCompliance) {
-    this._super(...arguments);
+  didReceiveAttrs(): void {
     // Perform validation step on the received component attributes
     this.validateAttrs();
 
@@ -384,13 +396,13 @@ export default class DatasetCompliance extends Component {
     }
   }
 
-  didInsertElement(this: DatasetCompliance) {
+  didInsertElement(): void {
     get(this, 'complianceAvailabilityTask').perform();
     get(this, 'columnFieldsToCompliancePolicyTask').perform();
     get(this, 'foldChangeSetTask').perform();
   }
 
-  didUpdateAttrs() {
+  didUpdateAttrs(): void {
     get(this, 'columnFieldsToCompliancePolicyTask').perform();
     get(this, 'foldChangeSetTask').perform();
   }
@@ -729,7 +741,7 @@ export default class DatasetCompliance extends Component {
   notifyHandlerOfFieldsRequiringReview = (
     complianceDataTypes: Array<IComplianceDataType>,
     tags: Array<IComplianceChangeSet>
-  ) => {
+  ): void => {
     // adding assertions for run-loop callback invocation, because static type checks are bypassed
     assert('expected complianceDataTypes to be of type `array`', Array.isArray(complianceDataTypes));
     assert('expected tags to be of type `array`', Array.isArray(tags));
@@ -762,7 +774,7 @@ export default class DatasetCompliance extends Component {
   setDefaultClassification(
     this: DatasetCompliance,
     { identifierField, identifierType }: Pick<IComplianceEntity, 'identifierField' | 'identifierType'>
-  ) {
+  ): void {
     const complianceDataTypes = get(this, 'complianceDataTypes');
     const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
 
@@ -791,7 +803,7 @@ export default class DatasetCompliance extends Component {
       'valuePattern'
     ];
     const updatingComplianceEntities = arrayMap(
-      (tag: IComplianceChangeSet) => <IComplianceEntity>pick(tag, entityAttrs)
+      (tag: IComplianceChangeSet): IComplianceEntity => <IComplianceEntity>pick(tag, entityAttrs)
     )(workingCopy);
 
     return complianceEntities.setObjects(updatingComplianceEntities);
@@ -802,9 +814,9 @@ export default class DatasetCompliance extends Component {
    * checked in the function. If criteria is not met, an the returned promise is settled
    * in a rejected state, otherwise fulfilled
    * @method
-   * @return {any | Promise<any>}
+   * @return {Promise<never> | void}
    */
-  validateFields(this: DatasetCompliance) {
+  validateFields(this: DatasetCompliance): Promise<never> | void {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
     const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
@@ -847,7 +859,7 @@ export default class DatasetCompliance extends Component {
    * Display a modal dialog requesting that the user check affirm that the purge type is exempt
    * @return {Promise<void>}
    */
-  showPurgeExemptionWarning(this: DatasetCompliance) {
+  showPurgeExemptionWarning(this: DatasetCompliance): Promise<void> {
     const dialogActions = <IConfirmOptions['dialogActions']>{};
 
     get(this, 'notifications').notify(NotificationEvent.confirm, {
@@ -857,9 +869,9 @@ export default class DatasetCompliance extends Component {
       dialogActions
     });
 
-    return new Promise((resolve, reject) => {
-      dialogActions['didConfirm'] = () => resolve();
-      dialogActions['didDismiss'] = () => reject();
+    return new Promise((resolve, reject): void => {
+      dialogActions['didConfirm'] = (): void => resolve();
+      dialogActions['didDismiss'] = (): void => reject();
     });
   }
 
@@ -875,7 +887,7 @@ export default class DatasetCompliance extends Component {
    * Updates the currently active step in the edit sequence
    * @param {number} step
    */
-  updateStep(this: DatasetCompliance, step: number) {
+  updateStep(this: DatasetCompliance, step: number): void {
     set(this, 'editStepIndex', step);
     get(this, 'updateEditStepTask').perform();
   }
@@ -884,14 +896,14 @@ export default class DatasetCompliance extends Component {
     /**
      * Action handles wizard step cancellation
      */
-    onCancel(this: DatasetCompliance) {
+    onCancel(this: DatasetCompliance): void {
       this.updateStep(initialStepIndex);
     },
 
     /**
      * Toggles the flag isShowingFullFieldNames when invoked
      */
-    onFieldDblClick() {
+    onFieldDblClick(): void {
       this.toggleProperty('isShowingFullFieldNames');
     },
 
@@ -924,7 +936,7 @@ export default class DatasetCompliance extends Component {
       this: DatasetCompliance,
       tag: IComplianceChangeSet,
       { value: identifierType }: { value: ComplianceFieldIdValue }
-    ) {
+    ): void {
       const { identifierField } = tag;
       if (tag) {
         setProperties(tag, {
@@ -944,7 +956,7 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag the tag to be updated
      * @param {IComplianceChangeSet.logicalType} logicalType the updated logical type
      */
-    tagLogicalTypeChanged(tag: IComplianceChangeSet, logicalType: IComplianceChangeSet['logicalType']) {
+    tagLogicalTypeChanged(tag: IComplianceChangeSet, logicalType: IComplianceChangeSet['logicalType']): void {
       setProperties(tag, { logicalType, isDirty: true });
     },
 
@@ -974,7 +986,7 @@ export default class DatasetCompliance extends Component {
     tagClassificationChanged(
       tag: IComplianceChangeSet,
       { value: securityClassification = null }: { value: IComplianceChangeSet['securityClassification'] }
-    ) {
+    ): void {
       setProperties(tag, {
         securityClassification,
         isDirty: true
@@ -986,7 +998,7 @@ export default class DatasetCompliance extends Component {
      * @param {IComplianceChangeSet} tag the field tag to be updated
      * @param {IComplianceChangeSet.nonOwner} nonOwner flag indicating the field property is a nonOwner
      */
-    tagOwnerChanged(tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']) {
+    tagOwnerChanged(tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']): void {
       setProperties(tag, {
         nonOwner,
         isDirty: true
@@ -999,9 +1011,9 @@ export default class DatasetCompliance extends Component {
      */
     async markDatasetAsNotContainingMemberData(this: DatasetCompliance): Promise<DatasetClassification | void> {
       const dialogActions = <IConfirmOptions['dialogActions']>{};
-      const confirmMarkAllHandler = new Promise((resolve, reject) => {
-        dialogActions.didDismiss = () => reject();
-        dialogActions.didConfirm = () => resolve();
+      const confirmMarkAllHandler = new Promise((resolve, reject): void => {
+        dialogActions.didDismiss = (): void => reject();
+        dialogActions.didConfirm = (): void => resolve();
       });
       let willMarkAllAsNo = true;
 
@@ -1021,7 +1033,7 @@ export default class DatasetCompliance extends Component {
         return <DatasetClassification>setProperties(
           this.getDatasetClassificationRef(),
           datasetClassifiersKeys.reduce(
-            (classification, classifier) => ({ ...classification, ...{ [classifier]: false } }),
+            (classification, classifier): {} => ({ ...classification, ...{ [classifier]: false } }),
             {}
           )
         );
@@ -1051,7 +1063,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Progresses 1 step backward in the edit sequence
      */
-    previousStep(this: DatasetCompliance) {
+    previousStep(this: DatasetCompliance): void {
       const editStepIndex = get(this, 'editStepIndex');
       const previousIndex = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
       this.updateStep(previousIndex);
@@ -1060,7 +1072,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Progresses 1 step forward in the edit sequence
      */
-    nextStep(this: DatasetCompliance) {
+    nextStep(this: DatasetCompliance): void {
       const { editStepIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
       const nextIndex = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
       this.updateStep(nextIndex);
@@ -1141,7 +1153,7 @@ export default class DatasetCompliance extends Component {
       this: DatasetCompliance,
       tag: IComplianceChangeSet,
       intent: SuggestionIntent = SuggestionIntent.ignore
-    ) {
+    ): void {
       set(tag, 'suggestionAuthority', intent);
     },
 
@@ -1189,7 +1201,7 @@ export default class DatasetCompliance extends Component {
     /**
      * Handles the compliance policy download action
      */
-    onComplianceDownloadJson(this: DatasetCompliance) {
+    onComplianceDownloadJson(this: DatasetCompliance): void {
       const currentPolicy = get(this, 'complianceInfo');
 
       if (!currentPolicy) {
@@ -1207,7 +1219,7 @@ export default class DatasetCompliance extends Component {
       /**
        *  Post download housekeeping
        */
-      const cleanupPostDownload = () => {
+      const cleanupPostDownload = (): void => {
         anchor.removeEventListener('click', cleanupPostDownload);
         anchorParent.removeChild(anchor);
       };
@@ -1231,7 +1243,7 @@ export default class DatasetCompliance extends Component {
       this: DatasetCompliance,
       classifier: K,
       value: DatasetClassification[K]
-    ) {
+    ): DatasetClassification[K] {
       return set(this.getDatasetClassificationRef(), classifier, value);
     },
 
@@ -1282,7 +1294,7 @@ export default class DatasetCompliance extends Component {
      * If all validity checks are passed, invoke onSave action on controller
      */
     async saveCompliance(this: DatasetCompliance): Promise<void> {
-      const setSaveFlag = (flag = false) => set(this, 'isSaving', flag);
+      const setSaveFlag = (flag = false): boolean => set(this, 'isSaving', flag);
 
       try {
         const isSaving = true;
@@ -1298,7 +1310,7 @@ export default class DatasetCompliance extends Component {
 
     // Rolls back changes made to the compliance spec to current
     // server state
-    resetCompliance(this: DatasetCompliance) {
+    resetCompliance(): void {
       get(this, 'onReset')();
     }
   };

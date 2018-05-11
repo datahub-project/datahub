@@ -29,6 +29,12 @@ export default class DatasetPropertiesContainer extends Component {
   deprecationNote: IDatasetView['deprecationNote'];
 
   /**
+   * Time when the dataset will be decommissioned
+   * @type {IDatasetView.decommissionTime}
+   */
+  decommissionTime: IDatasetView['decommissionTime'];
+
+  /**
    * THe list of properties for the dataset, currently unavailable for v2
    * @type {any[]}
    */
@@ -61,15 +67,15 @@ export default class DatasetPropertiesContainer extends Component {
   getDeprecationPropertiesTask = task(function*(
     this: DatasetPropertiesContainer
   ): IterableIterator<Promise<IDatasetView>> {
-    const { deprecated, deprecationNote }: IDatasetView = yield readDatasetByUrn(get(this, 'urn'));
-    setProperties(this, { deprecated, deprecationNote });
+    const { deprecated, deprecationNote, decommissionTime }: IDatasetView = yield readDatasetByUrn(get(this, 'urn'));
+    setProperties(this, { deprecated, deprecationNote, decommissionTime });
   });
 
   /**
    * Persists the changes to the dataset deprecation properties upstream
    * @param {boolean} isDeprecated
    * @param {string} updatedDeprecationNote
-   * @param {Date} decommissionDate dataset decommission date
+   * @param {Date} decommissionTime dataset decommission date
    * @return {Promise<void>}
    */
   @action
@@ -77,7 +83,7 @@ export default class DatasetPropertiesContainer extends Component {
     this: DatasetPropertiesContainer,
     isDeprecated: boolean,
     updatedDeprecationNote: string,
-    decommissionDate: Date
+    decommissionTime: Date | null
   ): Promise<void> {
     const { notify } = get(this, 'notifications');
 
@@ -86,7 +92,7 @@ export default class DatasetPropertiesContainer extends Component {
         get(this, 'urn'),
         isDeprecated,
         updatedDeprecationNote || '',
-        decommissionDate
+        isDeprecated && decommissionTime ? decommissionTime.getTime() : null
       );
 
       notify(NotificationEvent.success, {

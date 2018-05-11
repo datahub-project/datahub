@@ -7,11 +7,24 @@ import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datase
 import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
 
 /**
+ * Returns the number of days in milliseconds, default is 1 day
+ * @param {number} [day=1] the number of days to scale
+ */
+const millisecondDays = (day = 1) => day * 24 * 60 * 60 * 1000;
+
+/**
  * Date object with the minimum selectable date for acl request expiration,
  * at least 1 day from now
  * @type {Date}
  */
-const minSelectableExpirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+const minSelectableExpirationDate = new Date(Date.now() + millisecondDays());
+
+/**
+ * Date object with the maximum selectable date for acl request expiration,
+ * up to 7 days from now
+ * @type {Date}
+ */
+const maxSelectableExpirationDate = new Date(Date.now() + millisecondDays(7));
 
 export default class DatasetAclAccess extends Component {
   /**
@@ -41,6 +54,13 @@ export default class DatasetAclAccess extends Component {
    * @memberof DatasetAclAccess
    */
   minSelectableExpirationDate: Date = minSelectableExpirationDate;
+
+  /**
+   * The furthest date a user can select as an expiration date
+   * @type {Date}
+   * @memberof DatasetAclAccess
+   */
+  maxSelectableExpirationDate: Date = maxSelectableExpirationDate;
 
   /**
    * External action invoked on change to access request access type
