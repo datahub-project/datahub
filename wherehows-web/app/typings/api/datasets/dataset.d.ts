@@ -44,6 +44,7 @@ interface IDatasetView {
   deprecationNote: string;
   createdTime: number;
   modifiedTime: number;
+  decommissionTime: number | null;
 }
 
 /**
