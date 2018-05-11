@@ -22,40 +22,54 @@
 
             <div class="container action-bar__content">
               {{#if (has-next editStep editSteps)}}
-                <button
-                  class="nacho-button nacho-button--large-inverse action-bar__item"
-                  title="Next"
-                  {{action "nextStep"}}
-                  disabled={{and (gt changeSetReviewCount 0) (eq editStep.name editSteps.0.name)}}>
-                  Next
-                </button>
+                {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.Next
+                                  name=editStep.name as |metrics|}}
+                  <button
+                    class="nacho-button nacho-button--large-inverse action-bar__item"
+                    title="Next"
+                    onclick={{action metrics.trackOnAction (action "nextStep")}}
+                    disabled={{and (gt changeSetReviewCount 0) (eq editStep.name editSteps.0.name)}}>
+                    Next
+                  </button>
+                {{/track-ui-event}}
               {{else}}
-                <button
-                  class="nacho-button nacho-button--large-inverse action-bar__item"
-                  title={{unless isDatasetFullyClassified
-                                 "Ensure you have provided a yes/no value for all dataset tags"
-                                 "Save"}}
-                    disabled={{isSavingDisabled}}
-                  {{action "saveCompliance"}}>
-                  Save
-                </button>
+
+                {{#track-ui-event category=trackableCategory.Compliance
+                                  action=trackableEvent.Compliance.Save as |metrics|}}
+                  <button
+                    class="nacho-button nacho-button--large-inverse action-bar__item"
+                    title="{{unless isDatasetFullyClassified
+                                    'Ensure you have provided a yes/no value for all dataset tags'
+                                    'Save'}}"
+                    onclick={{action "saveCompliance"}} disabled={{isSavingDisabled}}>
+                    Save
+                  </button>
+                {{/track-ui-event}}
+
               {{/if}}
 
               {{#if (has-previous editStep editSteps)}}
-                <button
-                  class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
-                  title="Back"
-                  {{action "previousStep"}}>
-                  Back
-                </button>
+                {{#track-ui-event category=trackableCategory.Compliance
+                                  action=trackableEvent.Compliance.Previous
+                                  name=editStep.name as |metrics|}}
+                  <button
+                    class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+                    title="Back"
+                    onclick={{action metrics.trackOnAction (action "previousStep")}}>
+                    Back
+                  </button>
+                {{/track-ui-event}}
 
               {{/if}}
 
-              <button
-                class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
-                onclick={{action "onCancel"}}>
-                Cancel
-              </button>
+              {{#track-ui-event category=trackableCategory.Compliance
+                                action=trackableEvent.Compliance.Cancel as |metrics|}}
+                <button
+                  class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+                  onclick={{action metrics.trackOnAction (action "onCancel")}}>
+                  Cancel
+                </button>
+              {{/track-ui-event}}
             </div>
 
           {{/if}}
@@ -65,18 +79,24 @@
       <div class="secondary-actions">
         {{#unless isEditing}}
 
-          <button
-            {{action "nextStep"}}
-            class="nacho-button nacho-button--large secondary-actions__action">
-            Edit
-          </button>
+          {{#track-ui-event category=trackableCategory.Compliance
+                            action=trackableEvent.Compliance.Edit as |metrics|}}
+            <button
+              class="nacho-button nacho-button--large secondary-actions__action"
+              onclick={{action metrics.trackOnAction (action "nextStep")}}>
+              Edit
+            </button>
+          {{/track-ui-event}}
 
           {{#unless isNewComplianceInfo}}
-            <button
-              {{action "onComplianceDownloadJson"}}
-              class="nacho-button nacho-button--large nacho-button--secondary secondary-actions__action">
-              Download compliance metadata
-            </button>
+            {{#track-ui-event category=trackableCategory.Compliance
+                              action=trackableEvent.Compliance.Download as |metrics|}}
+              <button
+                class="nacho-button nacho-button--large nacho-button--secondary secondary-actions__action"
+                onclick={{action metrics.trackOnAction (action "onComplianceDownloadJson")}}>
+                Download compliance metadata
+              </button>
+            {{/track-ui-event}}
           {{/unless}}
 
         {{/unless}}
@@ -106,7 +126,14 @@
 
       {{#unless schemaless}}
         {{#if (and (eq editStep.name editSteps.0.name) (not _hasBadData))}}
-          {{json-upload receiveJsonFile=(action "onComplianceJsonUpload") class="secondary-actions__action"}}
+          {{#track-ui-event category=trackableCategory.Compliance
+                            action=trackableEvent.Compliance.Upload as |metrics|}}
+
+            {{json-upload
+              receiveJsonFile=(action metrics.trackOnAction (action "onComplianceJsonUpload"))
+              class="secondary-actions__action"}}
+
+          {{/track-ui-event}}
         {{/if}}
       {{/unless}}
 

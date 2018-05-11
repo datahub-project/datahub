@@ -58,6 +58,7 @@ const AppRouter = Router.extend({
       }
 
       metrics.trackPage({ page, title });
+      metrics.invoke('enableHeartBeatTimer', 'Piwik');
     });
   }
 });

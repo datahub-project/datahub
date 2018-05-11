@@ -86,6 +86,15 @@ $gray-color: rgb(234, 234, 234);
       outline: none;
     }
   }
+
+  &__cal-dropdown {
+    box-shadow: rgba(0, 0, 0, 0.172549) 0 6px 12px 0;
+    border: 1px solid get-color(black, 0.3);
+  }
+
+  &__cal-input-trigger {
+    padding: item-spacing(1);
+  }
 }
 
 .acl-table {

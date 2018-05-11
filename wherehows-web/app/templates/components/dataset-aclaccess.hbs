@@ -69,40 +69,52 @@
       <h4 class="acl-form__meta__header">When should your access expire?</h4>
       <p class="acl-form__meta__content ">If not specified, defaults to 2 days from now</p>
 
-      {{#power-calendar
-        selected=selectedDate
-        center=centeredDate
-        class="acl-expiration-calendar"
-        onSelect=(action "onExpirationDateChange" value="date")
-        onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
+      {{#basic-dropdown as |dropdown|}}
+        <input type="text"
+               placeholder="Enter Date"
+               data-ebd-id="{{dropdown.uniqueId}}-trigger"
+               class="acl-form__cal-input-trigger"
+               value={{if userAclRequest.expiresAt (moment-format (mult userAclRequest.expiresAt 1000) 'DD-MMM-YYYY')}}
+               onclick={{dropdown.actions.toggle}}
+               readonly>
 
-        <nav class="ember-power-calendar-nav">
+        {{#dropdown.content class="acl-form__cal-dropdown"}}
+          {{#power-calendar
+            selected=selectedDate
+            center=centeredDate
+            class="acl-expiration-calendar"
+            onSelect=(action "onExpirationDateChange" value="date")
+            onCenterChange=(action (mut centeredDate) value="date") as |calendar|}}
 
-          <button
-            type="button"
-            class="ember-power-calendar-nav-control"
-            onclick={{action calendar.actions.moveCenter -1 'month'}}>
-            &lt;
-          </button>
-          <div class="ember-power-calendar-nav-title">
-            {{moment-format calendar.center 'MMMM YYYY'}}
+            <nav class="ember-power-calendar-nav">
 
-            <p>
-              {{if hasValidExpiration (concat "Expires in " (moment-from-now calendar.selected))}}
-            </p>
+              <button
+                type="button"
+                class="ember-power-calendar-nav-control"
+                onclick={{action calendar.actions.moveCenter -1 'month'}}>
+                &lt;
+              </button>
+              <div class="ember-power-calendar-nav-title">
+                {{moment-format calendar.center 'MMMM YYYY'}}
 
-          </div>
-          <button
-            type="button"
-            class="ember-power-calendar-nav-control"
-            onclick={{action calendar.actions.moveCenter 1 'month'}}>
-            &gt;
-          </button>
-        </nav>
+                <p>
+                  {{if hasValidExpiration (concat "Expires in " (moment-from-now calendar.selected))}}
+                </p>
 
-        {{calendar.days minDate=minSelectableExpirationDate}}
+              </div>
+              <button
+                type="button"
+                class="ember-power-calendar-nav-control"
+                onclick={{action calendar.actions.moveCenter 1 'month'}}>
+                &gt;
+              </button>
+            </nav>
 
-      {{/power-calendar}}
+            {{calendar.days minDate=minSelectableExpirationDate maxDate=maxSelectableExpirationDate}}
+
+          {{/power-calendar}}
+        {{/dropdown.content}}
+      {{/basic-dropdown}}
     </div>
 
     <div class="comment-new__actions">

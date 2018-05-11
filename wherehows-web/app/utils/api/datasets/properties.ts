@@ -187,21 +187,21 @@ const readPinotProperties = async (id: number) => {
  * @param {string} urn
  * @param {boolean} deprecated
  * @param {string} deprecationNote
- * @param {Date} decommissionDate
+ * @param {Date | null} decommissionTime
  * @return {Promise<void>}
  */
 const updateDatasetDeprecationByUrn = (
   urn: string,
   deprecated: boolean,
   deprecationNote: string = '',
-  decommissionDate: Date
+  decommissionTime: number | null
 ): Promise<void> =>
   putJSON<void>({
     url: datasetDeprecationUrlByUrn(urn),
     data: {
       deprecated,
       deprecationNote,
-      decommissionTime: decommissionDate
+      decommissionTime
     }
   });
 
