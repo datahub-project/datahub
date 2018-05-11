@@ -3,6 +3,7 @@ import { getProperties, computed, set } from '@ember/object';
 import ComputedProperty, { oneWay } from '@ember/object/computed';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
 import { action } from 'ember-decorators/object';
+import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 
 export default class DatasetDeprecation extends Component {
   tagName = 'div';
@@ -25,10 +26,10 @@ export default class DatasetDeprecation extends Component {
 
   /**
    * Date the dataset should be decommissioned
-   * @type {Date}
+   * @type {IDatasetView.decommissionTime}
    * @memberof DatasetAclAccess
    */
-  decommissionDate: Date;
+  decommissionTime: IDatasetView['decommissionTime'];
 
   /**
    * The earliest date a user can select as a decommission date
@@ -90,13 +91,13 @@ export default class DatasetDeprecation extends Component {
 
   /**
    * The external action to be completed when a save is initiated
-   * @type {(isDeprecated: boolean, updateDeprecationNode: string, decommissionDate: Date) => Promise<void>}
+   * @type {(isDeprecated: boolean, updateDeprecationNode: string, decommissionTime: Date | null) => Promise<void>}
    * @memberof DatasetDeprecation
    */
   onUpdateDeprecation: (
     isDeprecated: boolean,
     updateDeprecationNode: string,
-    decommissionDate: Date
+    decommissionTime: Date | null
   ) => Promise<void> | void;
 
   editorOptions = {
@@ -115,32 +116,33 @@ export default class DatasetDeprecation extends Component {
   }
 
   /**
-   * Handles updates to the decommissionDate attribute
-   * @param {Date} decommissionDate date dataset should be decommissioned
+   * Handles updates to the decommissionTime attribute
+   * @param {Date} decommissionTime date dataset should be decommissioned
    */
   @action
-  onDecommissionDateChange(this: DatasetDeprecation, decommissionDate: Date) {
-    set(this, 'decommissionDate', decommissionDate);
+  onDecommissionDateChange(this: DatasetDeprecation, decommissionTime: Date) {
+    set(this, 'decommissionTime', new Date(decommissionTime).getTime());
   }
 
   /**
    * Invokes the save action with the updated values for
-   * deprecated decommissionDate, and deprecationNote
+   * deprecated decommissionTime, and deprecationNote
    * @return {Promise<void>}
    */
   @action
   async onSave(this: DatasetDeprecation) {
-    const { deprecatedAlias, deprecationNoteAlias, decommissionDate } = getProperties(this, [
+    const { deprecatedAlias, deprecationNoteAlias, decommissionTime } = getProperties(this, [
       'deprecatedAlias',
       'deprecationNoteAlias',
-      'decommissionDate'
+      'decommissionTime'
     ]);
     const { onUpdateDeprecation } = this;
 
     if (onUpdateDeprecation) {
       const noteValue = deprecatedAlias ? deprecationNoteAlias : '';
+      const time = decommissionTime ? new Date(decommissionTime) : null;
 
-      await onUpdateDeprecation(!!deprecatedAlias, noteValue || '', decommissionDate);
+      await onUpdateDeprecation(!!deprecatedAlias, noteValue || '', time);
       set(this, 'deprecationNoteAlias', noteValue);
     }
   }
