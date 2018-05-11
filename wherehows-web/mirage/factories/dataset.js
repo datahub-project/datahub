@@ -1,4 +1,5 @@
-import { Factory, faker } from 'ember-cli-mirage';
+import { Factory, faker, trait } from 'ember-cli-mirage';
+import { testSchemaA } from '../data/schema';
 
 export default Factory.extend({
   id: faker.random.number({ min: 10000, max: 20000 }),
@@ -30,5 +31,14 @@ export default Factory.extend({
   source: 'Hive',
   urn: faker.internet.url(),
   watchId: 0,
-  owners: () => []
+  owners: () => [],
+
+  forUnitTests: trait({
+    id(id) {
+      return id;
+    },
+    schema(id) {
+      return id === 0 ? testSchemaA : 'abcd';
+    }
+  })
 });

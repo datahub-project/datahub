@@ -375,29 +375,6 @@ function updateActiveTab() {
 var scrollToTreeNode = function () {
   $("#tabSplitter").scrollTo($('.fancytree-focused'), 800)
 }
-function highlightResults(result, index, keyword) {
-  var content = result[index].schema;
-  if (keyword)
-    keyword = keyword.replace("+", "").replace("-", "");
-  var query = new RegExp("(" + keyword + ")", "gim");
-  var i = content.indexOf(keyword);
-  var len = content.length;
-  if (len > 500) {
-    if ((len - i) < 500) {
-      content = content.substring((len - 500), len);
-    }
-    else {
-      content = content.substring(i, 500 + i);
-    }
-  }
-  var newContent = content.replace(query, "<b>$1</b>");
-  result[index].schema = newContent;
-  var urn = result[index].urn;
-  if (urn) {
-    var newUrn = urn.replace(query, "<b>$1</b>");
-    result[index].urn = newUrn;
-  }
-};
 
 var genBreadcrumbs = function(urn) {
   var breadcrumbs = []
