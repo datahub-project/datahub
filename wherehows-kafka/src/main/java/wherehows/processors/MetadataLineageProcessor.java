@@ -29,10 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.dao.DaoFactory;
-import wherehows.dao.table.LineageDao;
 import wherehows.common.exceptions.SelfLineageException;
 import wherehows.common.exceptions.UnauthorizedException;
+import wherehows.dao.DaoFactory;
+import wherehows.dao.table.LineageDao;
 import wherehows.utils.ProcessorUtil;
 
 
@@ -66,10 +66,14 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     MetadataLineageEvent event = (MetadataLineageEvent) indexedRecord;
     try {
       processEvent(event);
-    } catch (Exception exception) {
-      log.error("MLE Processor Error:", exception);
-      log.error("Message content: {}", event.toString());
-      sendMessage(newFailedEvent(event, exception));
+    } catch (Exception ex) {
+      if (ex instanceof SelfLineageException || ex.toString().contains("Response status 404")) {
+        log.warn(ex.toString());
+      } else {
+        log.error("MLE Processor Error:", ex);
+        log.error("Message content: {}", event.toString());
+      }
+      sendMessage(newFailedEvent(event, ex));
     }
   }
 
