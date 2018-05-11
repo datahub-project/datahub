@@ -3,7 +3,7 @@ import { isBlank } from '@ember/utils';
 import $ from 'jquery';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import buildUrl from 'wherehows-web/utils/build-url';
-import highlightResults from 'wherehows-web/utils/api/datasets/highlight-results';
+import createSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
 
 const queryParams = ['keyword', 'category', 'page', 'source'];
 // TODO: DSS-6581 Create URL retrieval module
@@ -50,7 +50,7 @@ export default Route.extend(AuthenticatedRouteMixin, {
       if (status === 'ok') {
         const { keywords, data } = result;
 
-        highlightResults(data, keywords);
+        createSearchEntries(data, keywords);
 
         return result;
       }
