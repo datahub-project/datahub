@@ -190,7 +190,7 @@ public class Dataset extends Controller {
       boolean deprecated = record.get("deprecated").asBoolean();
       String deprecationNote = record.hasNonNull("deprecationNote") ? record.get("deprecationNote").asText() : "";
       long decommissionTime = record.hasNonNull("decommissionTime") ? record.get("decommissionTime").asLong() : 0;
-      if (decommissionTime <= 0) {
+      if (deprecated && decommissionTime <= 0) {
         throw new IllegalArgumentException("Invalid decommission time");
       }
 
