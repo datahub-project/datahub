@@ -39,19 +39,19 @@ test('setting the deprecated property should toggle the checkbox', function(asse
   assert.notOk(this.$('#dataset-is-deprecated').is(':checked'), 'checkbox is unchecked when property is set false');
 });
 
-test('decommissionDate', async function(assert) {
+test('decommissionTime', async function(assert) {
   let isDisabled;
   assert.expect(2);
 
-  this.set('decommissionDate', void 0);
+  this.set('decommissionTime', void 0);
   this.set('deprecated', true);
 
-  this.render(hbs`{{dataset-deprecation deprecated=deprecated decommissionDate=decommissionDate}}`);
+  this.render(hbs`{{dataset-deprecation deprecated=deprecated decommissionTime=decommissionTime}}`);
   isDisabled = this.$('.dataset-deprecation-toggle__actions [type=submit]').is(':disabled');
   assert.ok(isDisabled, 'submit button is disabled');
 
-  this.setProperties({ decommissionDate: new Date(), isDirty: true });
-  this.render(hbs`{{dataset-deprecation deprecated=deprecated decommissionDate=decommissionDate}}`);
+  this.setProperties({ decommissionTime: new Date(), isDirty: true });
+  this.render(hbs`{{dataset-deprecation deprecated=deprecated decommissionTime=decommissionTime}}`);
   await fillIn('.comment-new__content', 'text');
 
   isDisabled = this.$('.dataset-deprecation-toggle__actions [type=submit]').is(':disabled');
@@ -66,9 +66,9 @@ test('triggers the onUpdateDeprecation action when submitted', async function(as
     assert.equal(deprecated, true, 'action is called with deprecation value of true');
     assert.equal(note, '', 'action is called with an empty deprecation note');
   });
-  this.set('decommissionDate', new Date());
+  this.set('decommissionTime', new Date());
 
-  this.render(hbs`{{dataset-deprecation onUpdateDeprecation=(action submit) decommissionDate=decommissionDate}}`);
+  this.render(hbs`{{dataset-deprecation onUpdateDeprecation=(action submit) decommissionTime=decommissionTime}}`);
 
   assert.equal(submitActionCallCount, 0, 'action is not called on render');
   assert.equal(this.$('#dataset-is-deprecated').is(':checked'), false, 'deprecation checkbox is unchecked');
