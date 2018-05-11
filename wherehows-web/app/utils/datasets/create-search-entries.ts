@@ -13,7 +13,7 @@ interface ISearchDataset extends IDataset {
  * @param {Array<IDataset>} datum - given dataset data
  * @param keyword - keyword
  */
-const highlightResult = (datum: ISearchDataset, keyword: string): void => {
+const createSearchEntry = (datum: ISearchDataset, keyword: string): void => {
   const content = datum.schema;
 
   if (content === undefined) {
@@ -50,6 +50,6 @@ const highlightResult = (datum: ISearchDataset, keyword: string): void => {
  * @param {Array<IDataset>} data - given dataset data
  * @param {string} keyword - keyword
  */
-export default function apiDatasetsHighlightResults(data: Array<ISearchDataset>, keyword: string) {
-  data.forEach(datum => highlightResult(datum, keyword));
+export default function datasetsCreateSearchEntries(data: Array<ISearchDataset>, keyword: string) {
+  data.forEach(datum => createSearchEntry(datum, keyword));
 }
