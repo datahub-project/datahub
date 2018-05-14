@@ -1,6 +1,6 @@
-{{#if session.isAuthenticated}}
-  {{notifications/banner-alerts}}
+{{notifications/banner-alerts}}
 
+{{#if session.isAuthenticated}}
   {{partial "navbar"}}
   {{!-- banner-alert-offset pushes the app view down to show the banner at the top above the navbar --}}
   <div class="app-container {{if banners.isShowingBanners "banner-alert-offset"}}">

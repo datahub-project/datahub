@@ -9,6 +9,7 @@
     </p>
     {{login-form username=username
                  password=password
+                 isInternal=model.isInternal
                  errorMessage=errorMessage
                  onSubmit=(action "authenticateUser")}}
   </section>
