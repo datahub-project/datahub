@@ -22,11 +22,14 @@ import lombok.Builder;
 
 @Builder
 public class ConnectionPoolProperties {
-  private final String providerClass;
   private final String dataSourceClassName;
   private final String dataSourceURL;
   private final String dataSourceUser;
   private final String dataSourcePassword;
+  @Builder.Default
+  private final String providerClass = "com.zaxxer.hikari.hibernate.HikariConnectionProvider";
+  @Builder.Default
+  private final String dialect = "org.hibernate.dialect.MySQL5InnoDBDialect";
   @Builder.Default
   private final String minimumIdle = "10";
   @Builder.Default
@@ -35,7 +38,6 @@ public class ConnectionPoolProperties {
   private final String idleTimeout = "30000";
   @Builder.Default
   private final String showSQL = "false";
-  private final String dialect;
   @Builder.Default
   private final String jdbcBatchSize = "100";
   @Builder.Default
