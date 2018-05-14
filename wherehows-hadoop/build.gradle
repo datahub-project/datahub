@@ -7,9 +7,6 @@ configurations {
 }
 
 dependencies {
-  extraLibs project(":wherehows-common")
-  //extraLibs files("extralibs/linkedin-pig-0.11.1.49.jar")
-  //extraLibs files("extralibs/voldemort-0.91.li1.jar")
   extraLibs externalDependency.avro_mapred
   extraLibs externalDependency.hive_exec
   extraLibs externalDependency.pig
@@ -26,6 +23,8 @@ dependencies {
   compile externalDependency.http_core
   compile externalDependency.logback
   compile externalDependency.parquet_avro
+
+  compileOnly externalDependency.lombok
 
   testCompile externalDependency.testng
   testCompile externalDependency.hadoop_client

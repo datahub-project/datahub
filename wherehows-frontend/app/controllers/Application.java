@@ -26,7 +26,6 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
 import org.apache.commons.lang3.StringUtils;
-import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import play.Logger;
 import play.Play;
 import play.data.DynamicForm;
@@ -37,6 +36,7 @@ import play.mvc.Result;
 import play.mvc.Security;
 import security.AuthenticationManager;
 import utils.Tree;
+import wherehows.common.Constant;
 import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
@@ -60,6 +60,7 @@ public class Application extends Controller {
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
+
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -73,7 +74,7 @@ public class Application extends Controller {
       Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
 
   private static final EntityManagerFactory ENTITY_MANAGER_FACTORY = ConnectionPoolProperties.builder()
-      .providerClass(HikariCPConnectionProvider.class.getName())
+      .providerClass(Constant.WH_DB_CONNECTION_PROVIDER_CLASS)
       .dataSourceClassName(WHZ_DB_DSCLASSNAME)
       .dataSourceURL(DB_WHEREHOWS_URL)
       .dataSourceUser(DB_WHEREHOWS_USERNAME)
