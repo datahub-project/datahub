@@ -1,7 +1,7 @@
 import Controller from '@ember/controller';
 import { computed, set, get } from '@ember/object';
 import { capitalize } from '@ember/string';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 
 // gradual refactor into es class, hence extends EmberObject instance
 export default class Search extends Controller.extend({

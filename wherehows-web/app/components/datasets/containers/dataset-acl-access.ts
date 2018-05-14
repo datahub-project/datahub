@@ -3,7 +3,7 @@ import ComputedProperty, { equal } from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { get, set, getProperties, computed } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { isUserInAcl } from 'wherehows-web/constants/dataset-aclaccess';
 import CurrentUser from 'wherehows-web/services/current-user';
 import { IUser } from 'wherehows-web/typings/api/authentication/user';
@@ -167,7 +167,10 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   checkUserAccessTask = task(function*(this: DatasetAclAccessContainer): IterableIterator<Array<IAccessControlEntry>> {
-    const { user: { userName }, acls } = getProperties(this, ['user', 'acls']);
+    const {
+      user: { userName },
+      acls
+    } = getProperties(this, ['user', 'acls']);
     const userAcl: Array<IAccessControlEntry> = yield isUserInAcl(userName)(acls);
 
     return get(this, 'userAcl').setObjects(userAcl);

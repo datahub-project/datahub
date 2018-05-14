@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { get, set } from '@ember/object';
 import ComputedProperty, { gte } from '@ember/object/computed';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { IAccessControlAccessTypeOption } from 'wherehows-web/typings/api/datasets/aclaccess';
 import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
 

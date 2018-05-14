@@ -3,7 +3,7 @@ import { get, set, getProperties, setProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { task, TaskInstance } from 'ember-concurrency';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
 import { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';

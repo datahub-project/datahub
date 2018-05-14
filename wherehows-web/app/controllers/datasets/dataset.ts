@@ -4,7 +4,7 @@ import ComputedProperty from '@ember/object/computed';
 import { or } from '@ember/object/computed';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 
