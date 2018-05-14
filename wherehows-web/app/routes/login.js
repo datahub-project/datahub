@@ -2,7 +2,7 @@ import Route from '@ember/routing/route';
 import { get } from '@ember/object';
 import { run } from '@ember/runloop';
 import { inject as service } from '@ember/service';
-import { showTwoFABannerMessage } from 'wherehows-web/constants/notifications';
+import { twoFABannerMessage } from 'wherehows-web/constants/notifications';
 
 export default Route.extend({
   session: service(),
@@ -59,6 +59,6 @@ export default Route.extend({
    */
   showTwoFABanner() {
     const banners = get(this, 'banners');
-    banners.addBanner(showTwoFABannerMessage, 'info');
+    banners.addBanner(twoFABannerMessage, 'info');
   }
 });
