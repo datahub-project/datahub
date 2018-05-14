@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { get, getProperties } from '@ember/object';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import Metrics from 'ember-metrics';
 import { TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { IPiwikEvent, TrackableEvent } from 'wherehows-web/typings/app/analytics/event-tracking';

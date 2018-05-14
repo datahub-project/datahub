@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { inject } from '@ember/service';
 import ComputedProperty from '@ember/object/computed';
 import { get, set } from '@ember/object';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 
 import UserLookupService from 'wherehows-web/services/user-lookup';
 import { OwnerIdType } from 'wherehows-web/utils/api/datasets/owners';
