@@ -6,9 +6,6 @@ dependencies {
     compile project(':wherehows-common')
     compile project(':wherehows-dao')
     compile externalDependency.jackson_databind
-    compile externalDependency.jackson_core
-    compile externalDependency.jackson_annotations
-    compile externalDependency.lombok
     compile externalDependency.akka
     compile externalDependency.mysql
     compile externalDependency.guava
@@ -17,6 +14,8 @@ dependencies {
 
     compile externalDependency.kafka_clients
     compile externalDependency.confluent_avro_serde
+
+    compileOnly externalDependency.lombok
 
     testCompile externalDependency.testng
     testCompile externalDependency.mockito

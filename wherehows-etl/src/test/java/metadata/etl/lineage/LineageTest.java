@@ -14,17 +14,15 @@
 package metadata.etl.lineage;
 
 import java.util.Properties;
-import lombok.extern.slf4j.Slf4j;
 import org.testng.annotations.Test;
 
 
 /**
  * Created by zsun on 8/28/15.
  */
-@Slf4j
 public class LineageTest {
   public Properties properties;
-  AzLineageMetadataEtl lm;
+  private AzLineageMetadataEtl lm;
 
   public LineageTest() {
     lm = new AzLineageMetadataEtl(0L, properties);
@@ -32,13 +30,7 @@ public class LineageTest {
   }
 
   @Test(groups = {"needConfig"})
-  public void testLineage()
-    throws Exception {
+  public void testLineage() throws Exception {
     lm.run();
-  }
-
-  @Test(groups = {"needConfig"})
-  public void logTest() {
-    log.debug("asfsd");
   }
 }
