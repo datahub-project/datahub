@@ -80,7 +80,7 @@ export default class BannerService extends Service {
     const banners = get(this, 'banners');
 
     await dismissDelay;
-    banners.removeAt(0, 1);
+    banners.shiftObject();
   }
 
   /**
@@ -93,7 +93,7 @@ export default class BannerService extends Service {
    *  of a simple string. This flag will allow that
    */
   addBanner(message: string, type: NotificationEvent = NotificationEvent['info'], usePartial = false): void {
-    get(this, 'banners').addObject({
+    get(this, 'banners').unshiftObject({
       type,
       usePartial,
       content: message,
@@ -101,5 +101,24 @@ export default class BannerService extends Service {
       isDismissable: isDismissableMap[type],
       iconName: iconNameMap[type]
     });
+  }
+
+  /**
+   * Allows us to target a specific banner for removal by giving the content and type and then searching the
+   * list for a specific match to remove at the found index. If nothing is matched, function does nothing
+   * @param content - banner content to match for removal
+   * @param type    = banner type to match for removal
+   */
+  removeBanner(content: string, type: NotificationEvent): void {
+    const banners = get(this, 'banners');
+
+    const removalIndex = banners.reduce(
+      (index, banner, currIndex) => (banner.content === content && banner.type === type ? currIndex : index),
+      -1
+    );
+
+    if (removalIndex > -1) {
+      banners.removeAt(removalIndex, 1);
+    }
   }
 }
