@@ -37,6 +37,9 @@ const AppRouter = Router.extend({
       const page = get(this, 'location').getURL();
       const title = getWithDefault(this, 'currentRouteName', 'unknown.page.title');
       const metrics = get(this, 'metrics');
+      // Reference to the _paq queue
+      //   check if we are in a browser env
+      const paq = window && window._paq ? window._paq : [];
 
       /**
        * Manually track Piwik siteSearch using the `trackSiteSearch` api
@@ -45,9 +48,6 @@ const AppRouter = Router.extend({
        * @link https://developer.piwik.org/guides/tracking-javascript-guide#internal-search-tracking
        */
       if (title.includes('search')) {
-        // Reference to the _paq queue
-        //   check if we are in a browser env
-        const paq = window && window._paq ? window._paq : [];
         const routerJs = get(this, 'router');
         const queryParams = routerJs ? get(routerJs, 'state.queryParams') : {};
         const { keyword, category = 'datasets', page = 1 } = queryParams;
@@ -58,7 +58,7 @@ const AppRouter = Router.extend({
       }
 
       metrics.trackPage({ page, title });
-      metrics.invoke('enableHeartBeatTimer', 'Piwik');
+      paq.push(['enableHeartBeatTimer']);
     });
   }
 });
