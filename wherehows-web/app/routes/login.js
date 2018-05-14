@@ -55,7 +55,7 @@ export default Route.extend({
 
   /**
    * After the login route has finished rendering, we can trigger the service to add a banner for the two
-   * factor authentication
+   * factor authentication.
    */
   showTwoFABanner() {
     const banners = get(this, 'banners');
