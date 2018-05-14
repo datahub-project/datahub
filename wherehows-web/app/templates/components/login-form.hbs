@@ -10,7 +10,7 @@
   {{input
     value=password
     class="nacho-login-form__input"
-    placeholder="Password"
+    placeholder=(if isInternal "Password + VIP Token" "Password")
     id="login-password"
     type="password"}}
 
