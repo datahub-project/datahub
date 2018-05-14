@@ -1,9 +1,23 @@
 import Route from '@ember/routing/route';
 import { get } from '@ember/object';
-import { inject } from '@ember/service';
+import { run } from '@ember/runloop';
+import { inject as service } from '@ember/service';
+import { twoFABannerMessage } from 'wherehows-web/constants/notifications';
 
 export default Route.extend({
-  session: inject(),
+  session: service(),
+
+  /**
+   * Runtime application configuration options
+   * @type {Ember.Service}
+   */
+  configurator: service(),
+
+  /**
+   * Banner alert service
+   * @type {Ember.Service}
+   */
+  banners: service(),
 
   /**
    * Check is the user is currently authenticated when attempting to access
@@ -15,6 +29,13 @@ export default Route.extend({
     }
   },
 
+  async model() {
+    const getConfig = get(this, 'configurator.getConfig');
+    const isInternal = await getConfig('isInternal');
+
+    return { isInternal };
+  },
+
   /**
    * Overrides the default method with a custom op
    * renders the default template into the login outlet
@@ -24,5 +45,20 @@ export default Route.extend({
     this.render({
       outlet: 'login'
     });
+
+    const { isInternal } = get(this, 'controller').get('model');
+
+    if (isInternal) {
+      run.scheduleOnce('afterRender', this, 'showTwoFABanner');
+    }
+  },
+
+  /**
+   * After the login route has finished rendering, we can trigger the service to add a banner for the two
+   * factor authentication.
+   */
+  showTwoFABanner() {
+    const banners = get(this, 'banners');
+    banners.addBanner(twoFABannerMessage, 'info');
   }
 });
