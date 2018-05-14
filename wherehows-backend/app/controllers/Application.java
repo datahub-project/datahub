@@ -19,12 +19,11 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
-
-import org.hibernate.hikaricp.internal.HikariCPConnectionProvider;
 import play.Logger;
 import play.Play;
 import play.mvc.Controller;
 import play.mvc.Result;
+import wherehows.common.Constant;
 import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
@@ -32,6 +31,7 @@ import wherehows.dao.DaoFactory;
 public class Application extends Controller {
 
   private static final String WHZ_APP_ENV = System.getenv("WHZ_APP_HOME");
+
   private static final String DB_WHEREHOWS_URL = Play.application().configuration().getString("db.wherehows.url");
   private static final String WHZ_DB_DSCLASSNAME =
       Play.application().configuration().getString("hikaricp.dataSourceClassName");
@@ -44,7 +44,7 @@ public class Application extends Controller {
       Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
 
   private static final EntityManagerFactory ENTITY_MANAGER_FACTORY = ConnectionPoolProperties.builder()
-      .providerClass(HikariCPConnectionProvider.class.getName())
+      .providerClass(Constant.WH_DB_CONNECTION_PROVIDER_CLASS)
       .dataSourceClassName(WHZ_DB_DSCLASSNAME)
       .dataSourceURL(DB_WHEREHOWS_URL)
       .dataSourceUser(DB_WHEREHOWS_USERNAME)

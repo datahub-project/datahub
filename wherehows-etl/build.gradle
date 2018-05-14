@@ -13,11 +13,8 @@ dependencies {
   compile externalDependency.http_client
   compile externalDependency.http_core
   compile externalDependency.jackson_databind
-  compile externalDependency.jackson_core
-  compile externalDependency.jackson_annotations
   compile externalDependency.json_path
   compile externalDependency.akka
-  compile externalDependency.lombok
   compile externalDependency.logback
   compile externalDependency.hive_exec
   compile externalDependency.hadoop_hdfs
@@ -26,6 +23,8 @@ dependencies {
   compile externalDependency.htrace
   compile fileTree(dir: 'extralibs', include: ['*.jar']) // externalDependency.oracle/teradata/gsp
   provided project(":wherehows-hadoop")
+
+  compileOnly externalDependency.lombok
   testCompile externalDependency.testng
 }
 
