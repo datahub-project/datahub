@@ -1,8 +1,11 @@
 import Controller from '@ember/controller';
 import { computed, get, setProperties, getProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
+import { inject as service } from '@ember/service';
 import Session from 'ember-simple-auth/services/session';
+import { twoFABannerMessage } from 'wherehows-web/constants/notifications';
+import BannerService from 'wherehows-web/services/banners';
+import { NotificationEvent } from 'wherehows-web/services/notifications';
 
 export default class Login extends Controller {
   /**
@@ -10,7 +13,13 @@ export default class Login extends Controller {
    * @type {ComputedProperty<Session>}
    * @memberof Login
    */
-  session: ComputedProperty<Session> = inject();
+  session: ComputedProperty<Session> = service();
+
+  /**
+   * Banner alert service
+   * @type {Ember.Service}
+   */
+  banners: ComputedProperty<BannerService> = service();
 
   /**
    * Aliases the name property on the component
@@ -39,7 +48,11 @@ export default class Login extends Controller {
      * @return {void}
      */
     authenticateUser(this: Login): void {
-      const { username, password } = getProperties(this, ['username', 'password']);
+      const { username, password, banners } = getProperties(this, ['username', 'password', 'banners']);
+
+      // Once user has chosen to authenticate, then we remove the login banner (if it exists) since it will
+      // no longer be relevant
+      banners.removeBanner(twoFABannerMessage, NotificationEvent['info']);
 
       get(this, 'session')
         .authenticate('authenticator:custom-ldap', username, password)
