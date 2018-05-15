@@ -24,6 +24,8 @@
 
     .ivy-tabs-tabpanel[role='tabpanel'] {
       display: block;
+      outline: none;
+
       &[aria-hidden='true'] {
         display: none;
       }
