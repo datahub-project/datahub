@@ -102,7 +102,7 @@
     "ember-lodash": "^4.18.0",
     "ember-modal-dialog": "^2.4.1",
     "ember-moment": "^7.5.0",
-    "ember-power-select": "^2.0.1",
+    "ember-power-select": "2.0.0",
     "ember-radio-button": "^1.2.1",
     "ember-redux": "^2.10.1",
     "ember-redux-actions": "^0.3.0",
