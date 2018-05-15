@@ -97,7 +97,7 @@
   "dependencies": {
     "dynamic-link": "^0.2.3",
     "ember-aupac-typeahead": "2.1.2",
-    "ember-cli-mirage": "^0.4.1",
+    "ember-cli-mirage": "0.4.1",
     "ember-cli-string-helpers": "^1.4.0",
     "ember-lodash": "^4.18.0",
     "ember-modal-dialog": "^2.4.1",
