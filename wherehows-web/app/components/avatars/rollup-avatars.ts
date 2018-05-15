@@ -5,7 +5,7 @@ import ComputedProperty from '@ember/object/computed';
 import { action } from '@ember-decorators/object';
 import { singularize, pluralize } from 'ember-inflector';
 
-export default class extends Component {
+export default class RollupAvatars extends Component {
   tagName = 'span';
 
   classNames = ['avatar-rollup'];

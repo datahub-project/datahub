@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 
-export default class extends Component {
+export default class AvatarMetadata extends Component {
   tagName: 'span';
 
   classNames = ['avatar-metadata'];
