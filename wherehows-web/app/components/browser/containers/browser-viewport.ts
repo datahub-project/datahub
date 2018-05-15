@@ -4,7 +4,7 @@ import { task, TaskInstance } from 'ember-concurrency';
 import { IBrowserRouteParams } from 'wherehows-web/routes/browse/entity';
 import { IDatasetsGetResponse, IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { readDatasets } from 'wherehows-web/utils/api/datasets/dataset';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import ComputedProperty from '@ember/object/computed';
 
 // Describes the index signature for strategy pattern in the getEntityDataTask
@@ -121,7 +121,11 @@ export default class BrowserViewport extends Component {
    * @memberof BrowserViewport
    */
   nextCountSize: ComputedProperty<number> = computed('entities.length', function(this: BrowserViewport): number {
-    const { entities: { length }, total, count } = getProperties(this, ['entities', 'total', 'count']);
+    const {
+      entities: { length },
+      total,
+      count
+    } = getProperties(this, ['entities', 'total', 'count']);
     return Math.min(count, total - length);
   });
 
@@ -131,7 +135,10 @@ export default class BrowserViewport extends Component {
    * @memberof BrowserViewport
    */
   remainingEntityCount: ComputedProperty<number> = computed('entities.length', function(this: BrowserViewport): number {
-    const { entities: { length }, total } = getProperties(this, ['entities', 'total']);
+    const {
+      entities: { length },
+      total
+    } = getProperties(this, ['entities', 'total']);
     return total >= length ? total - length : 0;
   });
 

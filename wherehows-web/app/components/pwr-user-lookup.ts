@@ -1,6 +1,6 @@
 import { get, set, setProperties } from '@ember/object';
 import { typeOf } from '@ember/utils';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import UserLookup from 'wherehows-web/components/user-lookup';
 import { Keyboard } from 'wherehows-web/constants/keyboard';
 import { suggestionLimit } from 'wherehows-web/constants/typeahead';

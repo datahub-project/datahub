@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { set, get, setProperties, getProperties } from '@ember/object';
 import { warn } from '@ember/debug';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { IDatasetColumn, IDatasetColumnWithHtmlComments } from 'wherehows-web/typings/api/datasets/columns';
 
 /**
@@ -91,7 +91,7 @@ export default class DatasetSchema extends Component {
     }
   }
 
-  didReceiveAttrs(this: DatasetSchema) {
+  didReceiveAttrs() {
     this.buildView();
   }
 
@@ -106,11 +106,11 @@ export default class DatasetSchema extends Component {
     });
   }
 
-  @action
   /**
    * Handles the toggling of table vs. json view of dataset schema information
    * @param {"table" | "json"} view
    */
+  @action
   showView(this: DatasetSchema, view: 'table' | 'json' = 'table') {
     const isTable = set(this, 'isTable', view === 'table');
     const { jsonViewer, jsonTable } = getProperties(this, ['jsonTable', 'jsonViewer']);
