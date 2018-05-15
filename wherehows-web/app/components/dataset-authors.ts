@@ -200,8 +200,6 @@ export default class DatasetAuthors extends Component {
       const owners = get(this, 'owners') || [];
       const { notify } = get(this, 'notifications');
 
-      debugger;
-
       if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
         return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });
       }
