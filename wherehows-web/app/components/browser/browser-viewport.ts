@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { action } from '@ember-decorators/object';
 
-export default class extends Component {
+export default class BrowserViewport extends Component {
   /**
    * Closure action to request more entities
    */

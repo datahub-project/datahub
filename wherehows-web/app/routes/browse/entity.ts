@@ -19,7 +19,7 @@ export interface IBrowserRouteParams {
   prefix: string;
 }
 
-export default class extends Route.extend(AuthenticatedRouteMixin) {
+export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin) {
   queryParams = refreshModelQueryParams(queryParamsKeys);
 
   setupController(controller: EntityController, model: IBrowserRouteParams) {

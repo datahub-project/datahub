@@ -7,9 +7,10 @@ export default config;
  * For now these need to be managed by the developer
  * since different ember addons can materialize new entries.
  */
-declare namespace config {
-  export const environment: any;
-  export const modulePrefix: string;
-  export const podModulePrefix: string;
-  export const locationType: string;
-}
+declare const config: {
+  environment: any;
+  modulePrefix: string;
+  podModulePrefix: string;
+  locationType: string;
+  rootURL: string;
+};

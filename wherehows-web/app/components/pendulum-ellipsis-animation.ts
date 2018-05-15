@@ -1,5 +1,5 @@
 import Component from '@ember/component';
 
-export default class extends Component {
+export default class PendulumEllipsisAnimation extends Component {
   classNames = ['ellipsis-loader'];
 }

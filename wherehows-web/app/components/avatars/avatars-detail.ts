@@ -3,7 +3,7 @@ import { get } from '@ember/object';
 import { action } from '@ember-decorators/object';
 import { Keyboard } from 'wherehows-web/constants/keyboard';
 
-export default class extends Component {
+export default class AvatarsDetail extends Component {
   containerClassNames = ['avatars-detail-modal'];
 
   /**
