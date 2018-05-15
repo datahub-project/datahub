@@ -48,7 +48,6 @@ public class Constant {
   public static final String WH_DB_USERNAME_KEY = "wherehows.db.username";
   public static final String WH_DB_PASSWORD_KEY = "wherehows.db.password";
   public static final String WH_DB_DRIVER_KEY = "wherehows.db.driver";
-  public static final String WH_DB_CONNECTION_PROVIDER_CLASS = "com.zaxxer.hikari.hibernate.HikariConnectionProvider";
 
   /** Location of the folder that store interim csv file. */
   public static final String WH_APP_FOLDER_KEY = "wherehows.app_folder";

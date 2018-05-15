@@ -141,7 +141,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     }
   }
 
-  private FailedMetadataChangeEvent newFailedEvent(MetadataChangeEvent event, Throwable throwable) {
+  public FailedMetadataChangeEvent newFailedEvent(MetadataChangeEvent event, Throwable throwable) {
     FailedMetadataChangeEvent failedEvent = new FailedMetadataChangeEvent();
     failedEvent.time = System.currentTimeMillis();
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);

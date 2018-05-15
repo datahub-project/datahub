@@ -119,7 +119,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     }
   }
 
-  private FailedMetadataInventoryEvent newFailedEvent(MetadataInventoryEvent event, Throwable throwable) {
+  public FailedMetadataInventoryEvent newFailedEvent(MetadataInventoryEvent event, Throwable throwable) {
     FailedMetadataInventoryEvent failedEvent = new FailedMetadataInventoryEvent();
     failedEvent.time = System.currentTimeMillis();
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);

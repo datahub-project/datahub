@@ -36,7 +36,6 @@ import play.mvc.Result;
 import play.mvc.Security;
 import security.AuthenticationManager;
 import utils.Tree;
-import wherehows.common.Constant;
 import wherehows.dao.ConnectionPoolProperties;
 import wherehows.dao.DaoFactory;
 
@@ -74,7 +73,6 @@ public class Application extends Controller {
       Play.application().configuration().getString("dao.factory.class", DaoFactory.class.getCanonicalName());
 
   private static final EntityManagerFactory ENTITY_MANAGER_FACTORY = ConnectionPoolProperties.builder()
-      .providerClass(Constant.WH_DB_CONNECTION_PROVIDER_CLASS)
       .dataSourceClassName(WHZ_DB_DSCLASSNAME)
       .dataSourceURL(DB_WHEREHOWS_URL)
       .dataSourceUser(DB_WHEREHOWS_USERNAME)
