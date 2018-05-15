@@ -3276,7 +3276,7 @@ ember-concurrency@^0.8.12:
     ember-cli-babel "^6.8.2"
     ember-maybe-import-regenerator "^0.1.5"
 
-ember-concurrency@^0.8.15, ember-concurrency@^0.8.18, ember-concurrency@^0.8.19:
+ember-concurrency@^0.8.15, ember-concurrency@^0.8.18:
   version "0.8.19"
   resolved "https://registry.yarnpkg.com/ember-concurrency/-/ember-concurrency-0.8.19.tgz#71b9c175ba077865310029cb4bdb880e17d5155e"
   dependencies:
@@ -3497,7 +3497,7 @@ ember-power-select-typeahead@^0.7.0:
     ember-cli-htmlbars "^2.0.1"
     ember-power-select "^2.0.0-beta.5"
 
-ember-power-select@^2.0.0-beta.5:
+ember-power-select@2.0.0, ember-power-select@^2.0.0-beta.5:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/ember-power-select/-/ember-power-select-2.0.0.tgz#f36e113f77006a939a62a2c6e4bcff83aebfe6c3"
   dependencies:
@@ -3505,17 +3505,6 @@ ember-power-select@^2.0.0-beta.5:
     ember-cli-babel "^6.11.0"
     ember-cli-htmlbars "^2.0.1"
     ember-concurrency "^0.8.18"
-    ember-text-measurer "^0.4.0"
-    ember-truth-helpers "^2.0.0"
-
-ember-power-select@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/ember-power-select/-/ember-power-select-2.0.1.tgz#6c74f9ca0131a8e03badd8cc12d1758b7e8a092a"
-  dependencies:
-    ember-basic-dropdown "^1.0.0"
-    ember-cli-babel "^6.11.0"
-    ember-cli-htmlbars "^2.0.1"
-    ember-concurrency "^0.8.19"
     ember-text-measurer "^0.4.0"
     ember-truth-helpers "^2.0.0"
 
