@@ -118,7 +118,7 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     return auditStamp.actorUrn.toString();
   }
 
-  private FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {
+  public FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {
     FailedMetadataLineageEvent failedEvent = new FailedMetadataLineageEvent();
     failedEvent.time = System.currentTimeMillis();
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);
