@@ -57,7 +57,7 @@
     "ember-cli-qunit": "^4.1.1",
     "ember-cli-shims": "^1.1.0",
     "ember-cli-sri": "^2.1.0",
-    "ember-cli-typescript": "^1.1.5",
+    "ember-cli-typescript": "1.1.5",
     "ember-cli-uglify": "^2.0.0",
     "ember-composable-helpers": "^2.1.0",
     "ember-concurrency": "^0.8.15",
