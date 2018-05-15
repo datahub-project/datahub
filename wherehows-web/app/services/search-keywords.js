@@ -3,7 +3,9 @@ import buildUrl from 'wherehows-web/utils/build-url';
 import { isEmpty } from '@ember/utils';
 import Service from '@ember/service';
 
-const { $: { getJSON } } = Ember;
+const {
+  $: { getJSON }
+} = Ember;
 
 /**
  * Runtime cache of recently seen typeahead results

@@ -1,37 +1,34 @@
-import datasetsCreateSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
 import { module, test } from 'qunit';
-import startMirage from 'wherehows-web/tests/helpers/setup-mirage';
+import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
+import datasetsCreateSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
 import { testSchemaA } from 'wherehows-web/mirage/data/schema';
 
 module('Unit | Utility | datasets/create search entries', {
   beforeEach() {
-    startMirage(this.container);
+    this.server = startMirage();
   },
   afterEach() {
-    window.server.shutdown();
+    this.server.shutdown();
   }
 });
 
 test('it works base case', function(assert) {
-  const server = window.server;
-  const model = server.createList('dataset', 1, 'forUnitTests');
-  const dataset = model[0];
+  const { server } = this;
+  const dataset = server.create('dataset', 'forUnitTests');
 
-  let result = datasetsCreateSearchEntries([]);
+  const result = datasetsCreateSearchEntries([]);
   assert.ok(!result, 'Returns without error for nothing case');
 
-  result = datasetsCreateSearchEntries(model);
+  datasetsCreateSearchEntries([dataset]);
   assert.equal(dataset.id, 0, 'Sanity check: Created model successfully');
-  assert.equal(dataset.originalSchema, testSchemaA, 'Preserves original schema properly');
   assert.equal(dataset.schema, testSchemaA.slice(0, 499), 'Partial schema from beginning if no keyword found');
 });
 
 test('it works for keyword cases', function(assert) {
-  const server = window.server;
-  const model = server.createList('dataset', 1, 'forUnitTests');
-  const dataset = model[0];
+  const { server } = this;
+  const dataset = server.create('dataset', 'forUnitTests');
 
-  let result = datasetsCreateSearchEntries(model, 'Rebel');
+  datasetsCreateSearchEntries([dataset], 'Rebel');
   assert.equal(dataset.id, 0, 'Sanity check: Created model successfully again');
   assert.equal(dataset.schema, testSchemaA.slice(29, 529), 'Partial schema starts from keyword index');
 });

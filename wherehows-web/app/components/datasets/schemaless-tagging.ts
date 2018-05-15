@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, computed } from '@ember/object';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { ISecurityClassificationOption } from 'wherehows-web/typings/app/dataset-compliance';
 import { getSecurityClassificationDropDownOptions } from 'wherehows-web/constants';
 

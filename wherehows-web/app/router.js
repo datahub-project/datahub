@@ -13,7 +13,9 @@ const AppRouter = Router.extend({
   metrics: service(),
 
   willTransition() {
-    const { APP: { useSecureRedirect } } = config;
+    const {
+      APP: { useSecureRedirect }
+    } = config;
     this._super(...arguments);
 
     if (useSecureRedirect) {

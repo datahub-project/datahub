@@ -9,7 +9,7 @@ import {
   IDropDownOption
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 import { arrayFilter } from 'wherehows-web/utils/array';
 import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';

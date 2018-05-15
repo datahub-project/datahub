@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { set, get, computed } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import { singularize, pluralize } from 'ember-inflector';
 
 export default class extends Component {

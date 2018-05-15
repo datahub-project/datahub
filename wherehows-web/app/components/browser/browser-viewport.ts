@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 
 export default class extends Component {
   /**

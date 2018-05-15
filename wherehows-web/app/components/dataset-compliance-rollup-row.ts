@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias, equal, bool, mapBy } from '@ember/object/computed';
 import { get, set, getWithDefault, getProperties, computed } from '@ember/object';
-import { action } from 'ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import {
   IComplianceChangeSet,
   IdentifierFieldWithFieldChangeSetTuple,
