@@ -32,6 +32,7 @@ import wherehows.dao.table.AclDao;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
+import wherehows.dao.table.LineageDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
@@ -61,6 +62,8 @@ public class Dataset extends Controller {
   private static final DatasetOwnerDao OWNER_DAO = Application.DAO_FACTORY.getDatasteOwnerDao();
 
   private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
+
+  private static final LineageDao LINEAGE_DAO = Application.DAO_FACTORY.getLineageDao();
 
   private static final AclDao ACL_DAO = initAclDao();
 
@@ -456,6 +459,28 @@ public class Dataset extends Controller {
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
     return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+  }
+
+  public static Promise<Result> getDatasetUpstreams(@Nonnull String datasetUrn) {
+    final List<DatasetView> upstreams;
+    try {
+      upstreams = LINEAGE_DAO.getUpstreamDatasets(datasetUrn);
+    } catch (Exception e) {
+      Logger.error("Fetch Dataset upstreams error", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(Json.toJson(upstreams)));
+  }
+
+  public static Promise<Result> getDatasetDownstreams(@Nonnull String datasetUrn) {
+    final List<DatasetView> downstreams;
+    try {
+      downstreams = LINEAGE_DAO.getDownstreamDatasets(datasetUrn);
+    } catch (Exception e) {
+      Logger.error("Fetch Dataset upstreams error", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+    return Promise.promise(() -> ok(Json.toJson(downstreams)));
   }
 
   private static <E extends Throwable> JsonNode errorResponse(E e) {
