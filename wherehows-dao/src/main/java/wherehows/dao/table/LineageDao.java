@@ -18,11 +18,28 @@ import com.linkedin.events.metadata.DeploymentDetail;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.extern.slf4j.Slf4j;
+import wherehows.models.view.DatasetView;
 
 
-@Slf4j
 public class LineageDao {
+
+  /**
+   * Get upstream datasets of a certain dataset
+   * @param datasetUrn String
+   * @return List of DatasetView
+   */
+  public List<DatasetView> getUpstreamDatasets(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Lineage not implemented yet.");
+  }
+
+  /**
+   * Get downstream datasets of a certain dataset
+   * @param datasetUrn String
+   * @return List of DatasetView
+   */
+  public List<DatasetView> getDownstreamDatasets(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Lineage not implemented yet.");
+  }
 
   /**
    * Create lineage dataset that requested the lineage via Kafka lineage event.
