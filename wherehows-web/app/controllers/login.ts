@@ -3,9 +3,8 @@ import { computed, get, setProperties, getProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { inject as service } from '@ember/service';
 import Session from 'ember-simple-auth/services/session';
-import { twoFABannerMessage } from 'wherehows-web/constants/notifications';
+import { twoFABannerMessage, twoFABannerType } from 'wherehows-web/constants/notifications';
 import BannerService from 'wherehows-web/services/banners';
-import { NotificationEvent } from 'wherehows-web/services/notifications';
 
 export default class Login extends Controller {
   /**
@@ -52,7 +51,7 @@ export default class Login extends Controller {
 
       // Once user has chosen to authenticate, then we remove the login banner (if it exists) since it will
       // no longer be relevant
-      banners.removeBanner(twoFABannerMessage, NotificationEvent['info']);
+      banners.removeBanner(twoFABannerMessage, twoFABannerType);
 
       get(this, 'session')
         .authenticate('authenticator:custom-ldap', username, password)
