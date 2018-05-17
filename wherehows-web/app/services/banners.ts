@@ -65,7 +65,7 @@ export default class BannerService extends Service {
     }
 
     if (showStaleSearchBanner) {
-      this.addBanner('components/notifications/partials/stale-search-alert', NotificationEvent['info'], true);
+      this.addBanner('components/notifications/partials/stale-search-alert', NotificationEvent['confirm'], true);
     }
   }
 
