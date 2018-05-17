@@ -26,13 +26,15 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import javax.persistence.EntityManagerFactory;
 import org.apache.commons.lang3.StringUtils;
-import play.Logger;
-import play.Play;
 import play.data.DynamicForm;
 import play.libs.Json;
+import play.Logger;
+import play.Play;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
+import play.mvc.Http.Request;
 import play.mvc.Result;
+import play.mvc.Results;
 import play.mvc.Security;
 import security.AuthenticationManager;
 import utils.Tree;
@@ -59,6 +61,8 @@ public class Application extends Controller {
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
+  private static final Boolean HTTPS_REDIRECT =
+      Play.application().configuration().getBoolean("https.redirect", false);
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
@@ -102,6 +106,11 @@ public class Application extends Controller {
    * @return {Result} build output index.html resource
    */
   private static Result serveAsset(String path) {
+    Result redirect = redirectToHttpsIfNeeded();
+    if (redirect != null) {
+      return redirect;
+    }
+
     InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
     response().setHeader("Cache-Control", "no-cache");
 
@@ -148,6 +157,11 @@ public class Application extends Controller {
    * @return {Result} response from serveAsset method
    */
   public static Result index(String path) {
+    Result redirect = redirectToHttpsIfNeeded();
+    if (redirect != null) {
+      return redirect;
+    }
+
     return serveAsset("");
   }
 
@@ -176,6 +190,17 @@ public class Application extends Controller {
     response.set("config", config);
 
     return ok(response);
+  }
+
+  private static Result redirectToHttpsIfNeeded() {
+    Request request = request();
+    if (!HTTPS_REDIRECT || request.secure()) {
+      return null;
+    }
+
+    String url = "https://" + request.host() + request.uri();
+    Logger.info("Redirecting to " + url);
+    return redirect(url);
   }
 
   /**
