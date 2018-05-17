@@ -32,7 +32,7 @@ apply from: 'gradle/scripts/ide.gradle'
 apply from: 'gradle/scripts/license.gradle'
 
 task wrapper(type: Wrapper) {
-  gradleVersion = '2.14'
+  gradleVersion = '4.7'
 }
 
 if (project.hasProperty('overrideBuildEnvironment')) {
