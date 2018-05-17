@@ -12,15 +12,18 @@ import Session from 'ember-simple-auth/services/session';
  */
 let _hasUserBeenTracked = false;
 
-export default class extends Service.extend({
+export default class CurrentUser extends Service {
   /**
    * Reference to the application session service, implemented with Ember Simple Auth
    * @type {ComputedProperty<Session>}
-   * @return {Service}
    */
-  session: <ComputedProperty<Session>>inject(),
+  session: ComputedProperty<Session> = inject();
 
-  currentUser: <IUser>{},
+  /**
+   * Current user properties
+   * @type {IUser}
+   */
+  currentUser = <IUser>{};
 
   /**
    * Attempt to load the currently logged in user.
@@ -29,24 +32,26 @@ export default class extends Service.extend({
    *   to service.
    * @returns {Promise}
    */
-  async load(): Promise<void> {
+  async load(this: CurrentUser): Promise<void> {
+    const session = get(this, 'session');
     // If we have a valid session, get the currently logged in user, and set the currentUser attribute,
     // otherwise raise an exception
-    if (get(this, 'session').get('isAuthenticated')) {
+    if (session.isAuthenticated) {
       const user: IUser = await currentUser();
       set(this, 'currentUser', user);
     }
-  },
+  }
 
   /**
    * Invalidates the current session if the session is currently valid
    * useful if, for example, the server is no able to provide the currently logged in user
-   * @return {any | Promise<void>}
+   * @return {Promise<void>}
    */
-  invalidateSession() {
-    const sessionService = get(this, 'session');
-    return get(sessionService, 'isAuthenticated') && sessionService.invalidate();
-  },
+  invalidateSession(this: CurrentUser): Promise<void> {
+    const session = get(this, 'session');
+
+    return session.isAuthenticated ? session.invalidate() : Promise.resolve();
+  }
 
   /**
    * Uses the provided tracking function to track the currently logged in user's userId
@@ -66,4 +71,4 @@ export default class extends Service.extend({
       _hasUserBeenTracked = true;
     }
   }
-}) {}
+}

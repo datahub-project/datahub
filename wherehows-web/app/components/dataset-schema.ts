@@ -28,7 +28,7 @@ export default class DatasetSchema extends Component {
    * List of schema properties for the dataset
    * @type {IDatasetColumnWithHtmlComments | IDatasetColumn}
    */
-  schemas: Array<IDatasetColumnWithHtmlComments | IDatasetColumn>;
+  schemas: Array<IDatasetColumnWithHtmlComments | IDatasetColumn> = [];
 
   /**
    * Reference to the jsonViewer dom element
@@ -65,7 +65,7 @@ export default class DatasetSchema extends Component {
   /**
    * Builds or rebuild the dataset schema / json view based on a flag to toggle this behaviour
    */
-  buildView() {
+  buildView(this: DatasetSchema) {
     if (get(this, 'isTable')) {
       const jsonTable = get(this, 'jsonTable');
       jsonTable && this.buildTableView(jsonTable);

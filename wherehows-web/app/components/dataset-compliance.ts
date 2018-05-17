@@ -109,7 +109,7 @@ export default class DatasetCompliance extends Component {
   platform: IDatasetView['platform'];
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
-  complianceInfo: void | IComplianceInfo;
+  complianceInfo: undefined | IComplianceInfo;
 
   /**
    * References the ComplianceFieldIdValue enum

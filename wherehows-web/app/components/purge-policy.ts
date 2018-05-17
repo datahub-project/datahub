@@ -85,7 +85,7 @@ export default class PurgePolicyComponent extends Component {
     this.requestExemptionReason || (this.requestExemptionReason = false);
   }
 
-  didReceiveAttrs(this: PurgePolicyComponent) {
+  didReceiveAttrs() {
     this._super(...arguments);
     this.checkExemption(get(this, 'purgePolicy'));
   }
