@@ -1,14 +1,16 @@
 {
   "compilerOptions": {
-    "target": "es2015",
+    "target": "es2017",
     "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
     "listEmittedFiles": true,
     "moduleResolution": "node",
     "allowJs": true,
     "baseUrl": ".",
-    "sourceMap": true,
+    "inlineSourceMap": true,
+    "inlineSources": true,
     "module": "es6",
     "allowSyntheticDefaultImports": true,
+    "noFallthroughCasesInSwitch": true,
     "noEmit": true,
     "noEmitOnError": true,
     "noImplicitThis": true,

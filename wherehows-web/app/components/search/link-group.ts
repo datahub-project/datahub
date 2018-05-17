@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 
-export default class extends Component {
+export default class LinkGroup extends Component {
   tagName = 'li';
 
   classNames = ['nacho-filter-card'];

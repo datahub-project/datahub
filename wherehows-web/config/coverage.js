@@ -7,7 +7,6 @@ module.exports = {
     'babel-plugin-transform-object-rest-spread',
     'babel-plugin-transform-class-properties'
   ],
-  includeTranspiledSources: ['ts'],
   reporters: ['lcov', 'html', 'json'],
   excludes: ['*/mirage/**/*', '*/tests/**/*', '*/config/**/*', '*/public/**/*', '*/vendor/**/*', '*/app/actions/**']
 };
