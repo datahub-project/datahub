@@ -82,10 +82,4 @@ const exemptPolicy = PurgePolicy.PurgeExempt;
  */
 const isExempt = (policy: PurgePolicy) => policy === PurgePolicy.PurgeExempt;
 
-/**
- * User informational text for datasets without a purge policy
- * @type {string}
- */
-const missingPolicyText = 'This dataset does not have a current compliance purge policy.';
-
-export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy, missingPolicyText, getSupportedPurgePolicies };
+export { PurgePolicy, purgePolicyProps, isExempt, exemptPolicy, getSupportedPurgePolicies };
