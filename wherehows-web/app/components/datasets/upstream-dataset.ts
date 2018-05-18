@@ -5,7 +5,7 @@ import { action } from '@ember-decorators/object';
 export default class UpstreamDataset extends Component {
   tagName = 'section';
 
-  classNames = ['upstream-dataset-banner'];
+  classNames = ['upstream-downstream-retention'];
 
   /**
    * Flag indicating the component is in view only mode and not editable

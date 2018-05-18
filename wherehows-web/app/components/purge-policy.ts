@@ -23,7 +23,7 @@ export default class PurgePolicyComponent extends Component {
    * Reference to the informational text if the dataset does not have a saved purge policy
    * @type {string}
    */
-  missingPolicyText: string = '';
+  missingPolicyText: string;
 
   /**
    * Reference to client options for each purge policy
