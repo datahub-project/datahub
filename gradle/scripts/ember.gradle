@@ -2,7 +2,7 @@ apply plugin: "com.moowork.node"
 
 node {
   // Version of node to use.
-  version = '8.9.4'
+  version = '8.11.2'
 
   // Base URL for fetching node distributions (change if you have a mirror).
   distBaseUrl = 'https://nodejs.org/dist'
