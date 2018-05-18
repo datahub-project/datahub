@@ -1,13 +1,17 @@
-{{#if getUpstreamPropertiesTask.isRunning}}
+{{#if getUpstreamMetadataTask.isRunning}}
 
   {{pendulum-ellipsis-animation}}
 
 {{else}}
 
   {{datasets/upstream-dataset
-    nativeName=nativeName
-    description=description
-    upstreamUrn=upstreamUrn
+    upstreamsMetadata=upstreamsMetadata
+    platform=platform
+    retention=retention
+    hasIncompleteUpstream=hasIncompleteUpstream
+    supportedPurgePolicies=supportedPurgePolicies
+    saveRetentionTask=saveRetentionTask
+    onChange=(action "onRetentionPolicyChange")
   }}
 
 {{/if}}
