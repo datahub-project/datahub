@@ -3,13 +3,7 @@ import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
 import sinon from 'sinon';
 
-import {
-  missingPolicyText,
-  purgePolicyProps,
-  exemptPolicy,
-  PurgePolicy,
-  getSupportedPurgePolicies
-} from 'wherehows-web/constants';
+import { purgePolicyProps, exemptPolicy, PurgePolicy, getSupportedPurgePolicies } from 'wherehows-web/constants';
 import { DatasetPlatform } from 'wherehows-web/constants/datasets/platform';
 import platforms from 'wherehows-web/mirage/fixtures/list-platforms';
 import { ApiStatus } from 'wherehows-web/utils/api';
@@ -28,6 +22,7 @@ moduleForComponent('purge-policy', 'Integration | Component | purge policy', {
 
 const policyList = '.purge-policy-list';
 const policyTypes = Object.keys(purgePolicyProps);
+const missingPolicyText = 'No policy';
 
 test('it renders', function(assert) {
   assert.expect(1);
@@ -70,9 +65,11 @@ test('it triggers the onPolicyChange action', function(assert) {
 test('it renders a user message if the purge policy is not set and is in readonly mode', function(assert) {
   assert.expect(1);
 
-  this.render(hbs`{{purge-policy}}`);
+  this.set('missingPolicyText', missingPolicyText);
+  this.set('isEditable', false);
+  this.render(hbs`{{purge-policy missingPolicyText=missingPolicyText isEditable=isEditable}}`);
   assert.equal(
-    document.querySelector(`${policyList} p`).textContent,
+    document.querySelector(`${policyList}`).textContent.trim(),
     missingPolicyText,
     `${missingPolicyText} is rendered`
   );

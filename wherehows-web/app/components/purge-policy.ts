@@ -7,7 +7,6 @@ import {
   DatasetPlatform,
   exemptPolicy,
   isExempt,
-  missingPolicyText,
   PurgePolicy,
   purgePolicyProps
 } from 'wherehows-web/constants';
@@ -24,7 +23,7 @@ export default class PurgePolicyComponent extends Component {
    * Reference to the informational text if the dataset does not have a saved purge policy
    * @type {string}
    */
-  missingPolicyText = missingPolicyText;
+  missingPolicyText: string;
 
   /**
    * Reference to client options for each purge policy

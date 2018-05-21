@@ -12,7 +12,10 @@
 
   {{#if complianceInfo.fromUpstream}}
 
-    {{datasets/containers/upstream-dataset upstreamUrn=complianceInfo.datasetUrn}}
+    {{datasets/containers/upstream-dataset
+      urn=urn
+      platform=platform
+    }}
 
   {{else}}
 
