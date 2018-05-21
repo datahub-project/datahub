@@ -66,6 +66,7 @@ import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
+import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
 const {
   complianceDataException,
@@ -860,7 +861,7 @@ export default class DatasetCompliance extends Component {
    * @return {Promise<void>}
    */
   showPurgeExemptionWarning(this: DatasetCompliance): Promise<void> {
-    const dialogActions = <IConfirmOptions['dialogActions']>{};
+    const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
 
     get(this, 'notifications').notify(NotificationEvent.confirm, {
       header: 'Confirm purge exemption',
@@ -869,10 +870,7 @@ export default class DatasetCompliance extends Component {
       dialogActions
     });
 
-    return new Promise((resolve, reject): void => {
-      dialogActions['didConfirm'] = (): void => resolve();
-      dialogActions['didDismiss'] = (): void => reject();
-    });
+    return dismissedOrConfirmed;
   }
 
   /**
@@ -1127,9 +1125,9 @@ export default class DatasetCompliance extends Component {
 
     /**
      * Handles post processing tasks after the purge policy step has been completed
-     * @returns {(Promise<void | {}>)}
+     * @returns {(Promise<void>)}
      */
-    didEditPurgePolicy(this: DatasetCompliance): Promise<void | {}> {
+    didEditPurgePolicy(this: DatasetCompliance): Promise<void> {
       const { complianceType = null } = get(this, 'complianceInfo') || {};
 
       if (!complianceType) {
