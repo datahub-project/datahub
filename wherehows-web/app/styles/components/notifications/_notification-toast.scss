@@ -2,6 +2,9 @@
 /// Contains the states --info, --success, --error
 /// Also includes a __dismiss element when applicable i.e.shown
 .notification-toast {
+  $right-index: 7;
+  $right-region-width: item-spacing($right-index);
+
   position: fixed;
   text-align: left;
   border-radius: 2px;
@@ -13,14 +16,14 @@
   background: set-color(white, base);
   padding: 0;
   overflow: hidden;
-  height: 96px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 6px 9px rgba(0, 0, 0, .2);
+  height: item-spacing(5) * 5;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 6px 9px rgba(0, 0, 0, 0.2);
   margin-top: item-spacing(3);
 
   &__content {
     overflow: hidden;
     height: 100%;
-    padding: item-spacing(4 7 4 8);
+    padding: item-spacing(5 $right-index 5 8);
 
     &::before {
       content: '';
@@ -30,6 +33,12 @@
       left: 0;
       top: 0;
       z-index: 2;
+    }
+
+    &__msg {
+      overflow: hidden;
+      height: 100%;
+      margin: 0;
     }
 
     &--info {
@@ -61,12 +70,20 @@
     top: 0;
     padding: 0;
     z-index: 1;
-    width: item-spacing(7);
+    width: $right-region-width;
     font-size: item-spacing(6);
     cursor: pointer;
 
     &:hover {
       background-color: set-color(grey, light);
+    }
+  }
+
+  &__content-detail {
+    &#{&} {
+      position: absolute;
+      bottom: item-spacing(1);
+      right: $right-region-width;
     }
   }
 }

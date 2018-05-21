@@ -13,7 +13,7 @@ import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows
  */
 interface IDatasetComplianceActions {
   didEditCompliancePolicy: () => Promise<void>;
-  didEditPurgePolicy: () => Promise<{} | void>;
+  didEditPurgePolicy: () => Promise<void>;
   didEditDatasetLevelCompliancePolicy: () => Promise<void>;
   [K: string]: (...args: Array<any>) => any;
 }

@@ -19,12 +19,16 @@
   </section>
 
   <footer class="notification-confirm-modal__footer">
-    <button class="nacho-button--large nacho-button--secondary" {{action "onClose"}}>
-      {{dismissButtonText}}
-    </button>
+    {{#unless (eq dismissButtonText false)}}
+      <button class="nacho-button--large nacho-button--secondary" {{action "onClose"}}>
+        {{dismissButtonText}}
+      </button>
+    {{/unless}}
 
-    <button class="nacho-button nacho-button--large-inverse" {{action "onConfirm"}}>
-      {{confirmButtonText}}
-    </button>
+    {{#unless (eq confirmButtonText false)}}
+      <button class="nacho-button nacho-button--large-inverse" {{action "onConfirm"}}>
+        {{confirmButtonText}}
+      </button>
+    {{/unless}}
   </footer>
 {{/modal-dialog}}
