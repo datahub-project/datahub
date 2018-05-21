@@ -1,10 +1,8 @@
 import { IFunctionRouteHandler } from 'wherehows-web/typings/ember-cli-mirage';
-import { ApiStatus } from 'wherehows-web/utils/api/shared';
 
-const getDatasetPlatforms = function(this: IFunctionRouteHandler) {
+const getDatasetPlatforms = function(this: IFunctionRouteHandler, { platforms }: { platforms: any }) {
   return {
-    platforms: [],
-    status: ApiStatus.OK
+    platforms: this.serialize(platforms.all())
   };
 };
 
