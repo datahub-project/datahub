@@ -1,4 +1,6 @@
 import { Factory, faker } from 'ember-cli-mirage';
+import { DatasetPlatform } from 'wherehows-web/constants';
+import { hdfsUrn, nonHdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
 export default Factory.extend({
   createdTime: faker.date.past(2),
@@ -9,9 +11,14 @@ export default Factory.extend({
   modifiedTime: faker.date.recent(),
   nativeName: 'abook.default-public-container',
   nativeType: null,
-  platform: 'ambry',
+  platform: faker.list.random(...Object.values(DatasetPlatform)),
   properties: '{}',
   removed: faker.random.boolean(),
   tags: null,
-  uri: 'ambry:///abook.default-public-container'
+  uri() {
+    const { platform } = this;
+    return platform === DatasetPlatform.HDFS
+      ? hdfsUrn
+      : nonHdfsUrn.replace(/li:dataPlatform:db/, `li:dataPlatform:${platform}`);
+  }
 });

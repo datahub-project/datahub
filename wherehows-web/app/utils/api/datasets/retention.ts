@@ -30,7 +30,7 @@ const readDatasetRetentionByUrn = async (urn: string): Promise<IGetDatasetRetent
 /**
  * Persists the dataset retention policy remotely
  * @param {string} urn the urn of the dataset to save
- * @param {IDatasetRetention} retention the dataset retention policy to updae
+ * @param {IDatasetRetention} retention the dataset retention policy to update
  * @return {Promise<IDatasetRetention>}
  */
 const saveDatasetRetentionByUrn = (urn: string, retention: IDatasetRetention): Promise<IDatasetRetention> =>
