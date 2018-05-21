@@ -22,6 +22,8 @@ import { getOwnerTypes } from 'wherehows-web/mirage/helpers/owner-types';
 import { getConfig } from 'wherehows-web/mirage/helpers/config';
 import { getAuth } from 'wherehows-web/mirage/helpers/authenticate';
 import { aclAuth } from 'wherehows-web/mirage/helpers/aclauth';
+import { getDatasetUpstreams } from 'wherehows-web/mirage/helpers/dataset-upstreams';
+import { getDatasetRetention } from 'wherehows-web/mirage/helpers/dataset-retentions';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -45,6 +47,12 @@ export default function(this: IMirageServer) {
   this.get('/list/compliance-data-types', getComplianceDataTypes);
 
   this.get('/list/platforms', getDatasetPlatforms);
+
+  this.get('/datasets/:dataset_id/upstreams', getDatasetUpstreams);
+
+  this.get('/datasets/:dataset_id/retention', getDatasetRetention);
+
+  this.get('/datasets/:dataset_id/compliance', getDatasetCompliance);
 
   this.namespace = '/api/v1';
 
