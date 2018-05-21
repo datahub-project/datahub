@@ -3,6 +3,7 @@ import hbs from 'htmlbars-inline-precompile';
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 import sinon from 'sinon';
 import { waitUntil, find } from 'ember-native-dom-helpers';
+import { DatasetPlatform, PurgePolicy } from 'wherehows-web/constants';
 
 moduleForComponent(
   'datasets/containers/upstream-dataset',
@@ -22,28 +23,72 @@ moduleForComponent(
 );
 
 test('it renders', async function(assert) {
-  assert.expect(2);
-  const titleElementQuery = '.upstream-dataset-banner__title strong';
-  const descriptionElementQuery = '.upstream-dataset-banner__description strong';
+  assert.expect(1);
+  const upstreamElement = '.upstream-dataset';
 
-  this.set('upstreamUrn', hdfsUrn);
-  this.server.respondWith(/\/api\/v2\/datasets.*/, function(xhr) {
+  this.set('urn', hdfsUrn);
+  this.set('platform', DatasetPlatform.HDFS);
+
+  this.server.respondWith(/\/api\/v2\/datasets.*\/upstreams/, function(xhr) {
+    xhr.respond(
+      200,
+      { 'Content-Type': 'application/json' },
+      JSON.stringify([
+        {
+          nativeName: 'A nativeName',
+          platform: DatasetPlatform.HDFS,
+          uri: hdfsUrn
+        }
+      ])
+    );
+  });
+
+  this.server.respondWith(/\/api\/v2\/datasets.*\/compliance/, function(xhr) {
     xhr.respond(
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify({
-        dataset: {
-          nativeName: 'A nativeName',
-          description: 'A dataset description'
-        }
+        datasetUrn: hdfsUrn
       })
     );
   });
 
-  this.render(hbs`{{datasets/containers/upstream-dataset upstreamUrn=upstreamUrn}}`);
+  const retentionPolicy = {
+    datasetUrn: hdfsUrn,
+    purgeType: PurgePolicy.AutoPurge,
+    purgeNote: null
+  };
 
-  await waitUntil(() => find(descriptionElementQuery));
+  this.server.respondWith('GET', /\/api\/v2\/datasets.*\/retention/, [
+    200,
+    { 'Content-Type': 'application/json' },
+    JSON.stringify({ retentionPolicy })
+  ]);
 
-  assert.equal(find(titleElementQuery).textContent.trim(), 'A nativeName');
-  assert.equal(find(descriptionElementQuery).textContent.trim(), 'A dataset description');
+  this.server.respondWith('POST', /\/api\/v2\/datasets.*\/retention/, [
+    200,
+    { 'Content-Type': 'application/json' },
+    JSON.stringify({ retentionPolicy })
+  ]);
+
+  this.server.respondWith(/\/api\/v2\/list.*\/platforms/, function(xhr) {
+    xhr.respond(
+      200,
+      { 'Content-Type': 'application/json' },
+      JSON.stringify({
+        platforms: [
+          {
+            name: DatasetPlatform.HDFS,
+            supportedPurgePolicies: [PurgePolicy.AutoLimitedRetention, PurgePolicy.AutoPurge]
+          }
+        ]
+      })
+    );
+  });
+
+  this.render(hbs`{{datasets/containers/upstream-dataset urn=urn platform=platform}}`);
+
+  await waitUntil(() => find(upstreamElement));
+
+  assert.equal(find(upstreamElement).textContent.trim(), 'A nativeName');
 });

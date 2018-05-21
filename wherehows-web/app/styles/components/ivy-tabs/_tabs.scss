@@ -86,7 +86,8 @@
         padding: 9px $item-spacing-2 11px;
         margin-left: $item-spacing-5;
         &:first-child {
-          margin-left: $item-spacing-4;
+          margin-left: 0;
+          padding-left: 0;
         }
 
         // The underline will exist on all tabs, but be transparent

@@ -5,7 +5,6 @@
   &__item {
     @include nacho-container;
     list-style-type: none;
-    margin-bottom: item-spacing(4);
 
     &--disabled {
       color: set-color(grey, mid);

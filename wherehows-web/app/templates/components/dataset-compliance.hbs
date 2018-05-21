@@ -164,10 +164,23 @@
         {{/if}}
 
         {{#if getPlatformPoliciesTask.last.isSuccessful}}
+          <section class="metadata-prompt">
+            <header class="metadata-prompt__header">
+              <p>
+                Compliance Purge Policy
+
+                {{more-info
+                  link="http://go/gdpr/deletions/purgePolicies"
+                  tooltip="Click for more information Purge Policies"
+                }}
+              </p>
+            </header>
+          </section>
 
           {{purge-policy
             isEditable=(not isReadOnly)
             platform=platform
+            missingPolicyText="This dataset does not have a current compliance purge policy."
             supportedPurgePolicies=supportedPurgePolicies
             purgeNote=complianceInfo.compliancePurgeNote
             purgePolicy=(readonly complianceInfo.complianceType)
