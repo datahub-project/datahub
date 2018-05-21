@@ -32,7 +32,7 @@ export interface IComplianceEntity {
   // field should also be filtered from persisted policy
   readonly readonly?: boolean;
   //Optional attribute for the value of a CUSTOM regex. Required for CUSTOM field format
-  valuePattern?: string;
+  valuePattern?: string | null;
 }
 
 /**

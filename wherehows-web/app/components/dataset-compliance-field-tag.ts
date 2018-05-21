@@ -164,7 +164,10 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {ComputedProperty<boolean>}
    */
   showCustomInput = computed('tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
-    const { logicalType } = get(this, 'tag');
+    const { logicalType, valuePattern = '' } = get(this, 'tag');
+
+    this.actions.tagValuePatternDidChange.call(this, valuePattern);
+
     return logicalType === IdLogicalType.Custom;
   });
 
