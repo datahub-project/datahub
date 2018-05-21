@@ -1,14 +1,13 @@
 import Service from '@ember/service';
 import { setProperties, get, set } from '@ember/object';
 import { delay } from 'wherehows-web/utils/promise-delay';
+import { action } from '@ember-decorators/object';
 
 /**
  * Flag indicating the current notification queue is being processed
  * @type {boolean}
  */
 let isBuffering = false;
-
-// type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
 
 /**
  * String literal of available notifications
@@ -73,7 +72,7 @@ interface INotification {
 
 /**
  * Describes the notification resolver interface used in handling the
- * dequeueing of the notification buffer
+ * de-queueing of the notification buffer
  */
 interface INotificationResolver {
   queueAwaiter: Promise<void>;
@@ -275,7 +274,7 @@ export default class Notifications extends Service {
           await toastDelay;
           // Burn toast
           if (!(this.isDestroying || this.isDestroying)) {
-            this.actions.dismissToast.call(this);
+            this.dismissToast.call(this);
           }
         }
       }
@@ -296,41 +295,50 @@ export default class Notifications extends Service {
     return enqueue(proxiedNotifications[type](...params), notificationsQueue);
   }
 
-  actions = {
-    /**
-     * Removes the current toast from view and invokes the notification resolution resolver
-     */
-    dismissToast(this: Notifications) {
-      const { notificationResolution: { onComplete } }: INotification = get(this, 'toast');
-      set(this, 'isShowingToast', false);
+  /**
+   * Removes the current toast from view and invokes the notification resolution resolver
+   */
+  @action
+  dismissToast(this: Notifications) {
+    const {
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'toast');
+    set(this, 'isShowingToast', false);
+    onComplete && onComplete();
+  }
+
+  /**
+   * Ignores the modal, invokes the user supplied didDismiss callback
+   */
+  @action
+  dismissModal(this: Notifications) {
+    const {
+      props,
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'modal');
+
+    if ((<IConfirmOptions>props).dialogActions) {
+      const { didDismiss } = (<IConfirmOptions>props).dialogActions;
+      set(this, 'isShowingModal', false);
+      didDismiss();
       onComplete && onComplete();
-    },
-
-    /**
-     * Ignores the modal, invokes the user supplied didDismiss callback
-     */
-    dismissModal(this: Notifications) {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didDismiss } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didDismiss();
-        onComplete && onComplete();
-      }
-    },
-
-    /**
-     * Confirms the dialog and invokes the user supplied didConfirm callback
-     */
-    confirmModal(this: Notifications) {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didConfirm } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didConfirm();
-        onComplete && onComplete();
-      }
     }
-  };
+  }
+
+  /**
+   * Confirms the dialog and invokes the user supplied didConfirm callback
+   */
+  @action
+  confirmModal(this: Notifications) {
+    const {
+      props,
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'modal');
+    if ((<IConfirmOptions>props).dialogActions) {
+      const { didConfirm } = (<IConfirmOptions>props).dialogActions;
+      set(this, 'isShowingModal', false);
+      didConfirm();
+      onComplete && onComplete();
+    }
+  }
 }
