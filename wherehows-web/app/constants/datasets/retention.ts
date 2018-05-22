@@ -1,4 +1,5 @@
 import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
+import { decodeUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
  * 'News' a IDatasetRetention instance with the provided dataset urn
@@ -6,7 +7,7 @@ import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention'
  * @returns {IDatasetRetention}
  */
 const retentionObjectFactory = (urn: string): IDatasetRetention => ({
-  datasetUrn: urn,
+  datasetUrn: decodeUrn(urn),
   purgeNote: '',
   purgeType: ''
 });
