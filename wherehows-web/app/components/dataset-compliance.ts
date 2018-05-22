@@ -67,6 +67,7 @@ import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/dataset
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+import { action } from '@ember-decorators/object';
 
 const {
   complianceDataException,
@@ -890,6 +891,39 @@ export default class DatasetCompliance extends Component {
     get(this, 'updateEditStepTask').perform();
   }
 
+  /**
+   * Receives the json representation for compliance and applies each key to the policy
+   * @param {string} textString string representation for the JSON file
+   */
+  @action
+  async onComplianceJsonUpload(this: DatasetCompliance, textString: string): Promise<void> {
+    const {
+      complianceInfo,
+      notifications: { notify }
+    } = getProperties(this, ['complianceInfo', 'notifications']);
+
+    if (complianceInfo) {
+      try {
+        const policy = JSON.parse(textString);
+
+        if (isPolicyExpectedShape(policy)) {
+          setProperties(complianceInfo, {
+            complianceEntities: policy.complianceEntities,
+            datasetClassification: policy.datasetClassification
+          });
+
+          notify(NotificationEvent.info, {
+            content: successUploading
+          });
+        }
+      } catch (e) {
+        notify(NotificationEvent.error, {
+          content: invalidPolicyData
+        });
+      }
+    }
+  }
+
   actions: IDatasetComplianceActions = {
     /**
      * Action handles wizard step cancellation
@@ -1159,47 +1193,6 @@ export default class DatasetCompliance extends Component {
       intent: SuggestionIntent = SuggestionIntent.ignore
     ): void {
       set(tag, 'suggestionAuthority', intent);
-    },
-
-    /**
-     * Receives the json representation for compliance and applies each key to the policy
-     * @param {string} textString string representation for the JSON file
-     */
-    onComplianceJsonUpload(this: DatasetCompliance, textString: string): void {
-      const complianceInfo = get(this, 'complianceInfo');
-      const { notify } = get(this, 'notifications');
-      let policy;
-
-      if (!complianceInfo) {
-        notify(NotificationEvent.error, {
-          content: 'Could not find compliance current compliance policy for this dataset'
-        });
-
-        return;
-      }
-
-      try {
-        policy = JSON.parse(textString);
-      } catch (e) {
-        notify(NotificationEvent.error, {
-          content: invalidPolicyData
-        });
-      }
-
-      if (isPolicyExpectedShape(policy)) {
-        setProperties(complianceInfo, {
-          complianceEntities: policy.complianceEntities,
-          datasetClassification: policy.datasetClassification
-        });
-
-        notify(NotificationEvent.info, {
-          content: successUploading
-        });
-      }
-
-      notify(NotificationEvent.error, {
-        content: invalidPolicyData
-      });
     },
 
     /**
