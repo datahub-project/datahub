@@ -1,6 +1,9 @@
 import Service from '@ember/service';
 import { setProperties, get, set } from '@ember/object';
 import { delay } from 'wherehows-web/utils/promise-delay';
+import { action } from '@ember-decorators/object';
+import { fleece } from 'wherehows-web/utils/object';
+import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
 /**
  * Flag indicating the current notification queue is being processed
@@ -8,10 +11,8 @@ import { delay } from 'wherehows-web/utils/promise-delay';
  */
 let isBuffering = false;
 
-// type NotificationEvent = 'success' | 'error' | 'info' | 'confirm';
-
 /**
- * String literal of available notifications
+ * String enum of available notifications
  */
 export enum NotificationEvent {
   success = 'success',
@@ -21,9 +22,12 @@ export enum NotificationEvent {
 }
 
 /**
- * String literal for notification types
+ * String enum of notification types
  */
-type NotificationType = 'modal' | 'toast';
+enum NotificationType {
+  Modal = 'modal',
+  Toast = 'toast'
+}
 
 /**
  * Describes the proxy handler for INotifications
@@ -38,10 +42,15 @@ interface INotificationHandlerTrap<T, K extends keyof T> {
  * @interface IConfirmOptions
  */
 export interface IConfirmOptions {
+  // Header text for the confirmation dialog
   header: string;
+  // Content to be displayed in the confirmation dialog
   content: string;
-  dismissButtonText?: string;
-  confirmButtonText?: string;
+  // Text for button to dismiss dialog action, if false, button will not be rendered
+  dismissButtonText?: string | false;
+  // Text for button to confirm dialog action, if false, button will not be rendered
+  confirmButtonText?: string | false;
+  // Action handlers for dialog button on dismissal or otherwise
   dialogActions: {
     didConfirm: () => any;
     didDismiss: () => any;
@@ -65,7 +74,7 @@ interface IToast {
 interface INotification {
   // The properties for the notification
   props: IConfirmOptions | IToast;
-  // The type if the notification
+  // The type of the notification
   type: NotificationType;
   // Object holding the queue state for the notification
   notificationResolution: INotificationResolver;
@@ -73,7 +82,7 @@ interface INotification {
 
 /**
  * Describes the notification resolver interface used in handling the
- * dequeueing of the notification buffer
+ * de-queueing of the notification buffer
  */
 interface INotificationResolver {
   queueAwaiter: Promise<void>;
@@ -120,7 +129,7 @@ const makeToast = (props: IToast): INotification => {
 
   return {
     props,
-    type: 'toast',
+    type: NotificationType.Toast,
     notificationResolution
   };
 };
@@ -132,18 +141,27 @@ const notificationHandlers: INotificationHandler = {
    * @return {INotification}
    */
   confirm(props: IConfirmOptions): INotification {
-    let notificationResolution: INotificationResolver = {
+    const notificationResolution: INotificationResolver = {
       get queueAwaiter() {
         return createNotificationAwaiter(this);
       }
     };
-
     // Set default values for button text if none are provided by consumer
     props = { dismissButtonText: 'No', confirmButtonText: 'Yes', ...props };
+    const { dismissButtonText, confirmButtonText } = props;
+    // Removes dismiss or confirm buttons if set to false
+    let resolvedProps: IConfirmOptions =
+      dismissButtonText === false
+        ? <IConfirmOptions>fleece<IConfirmOptions, 'dismissButtonText'>(['dismissButtonText'])(props)
+        : props;
+    resolvedProps =
+      confirmButtonText === false
+        ? <IConfirmOptions>fleece<IConfirmOptions, 'confirmButtonText'>(['confirmButtonText'])(props)
+        : props;
 
     return {
-      props,
-      type: 'modal',
+      props: resolvedProps,
+      type: NotificationType.Modal,
       notificationResolution
     };
   },
@@ -224,7 +242,7 @@ const asyncDequeue = function(notificationsQueue: Array<INotification>) {
  * @param {INotification} notification
  * @param {Array<INotification>} notificationsQueue
  */
-const enqueue = (notification: INotification, notificationsQueue: Array<INotification>) => {
+const enqueue = (notification: INotification, notificationsQueue: Array<INotification>): void => {
   notificationsQueue.unshift(notification);
   asyncDequeue(notificationsQueue);
 };
@@ -264,18 +282,20 @@ export default class Notifications extends Service {
      * @param {INotification} notification
      */
     setCurrentNotification = async (notification: INotification) => {
-      if (notification.type === 'modal') {
-        setProperties<Notifications, 'modal' | 'isShowingModal'>(this, { modal: notification, isShowingModal: true });
+      const { type, props } = notification;
+
+      if (type === NotificationType.Modal) {
+        setProperties(this, { modal: notification, isShowingModal: true });
       } else {
-        const { props } = notification;
         const toastDelay = delay((<IToast>props).duration);
-        setProperties<Notifications, 'toast' | 'isShowingToast'>(this, { toast: notification, isShowingToast: true });
+
+        setProperties(this, { toast: notification, isShowingToast: true });
 
         if (!(<IToast>props).isSticky) {
           await toastDelay;
           // Burn toast
           if (!(this.isDestroying || this.isDestroying)) {
-            this.actions.dismissToast.call(this);
+            this.dismissToast.call(this);
           }
         }
       }
@@ -296,41 +316,78 @@ export default class Notifications extends Service {
     return enqueue(proxiedNotifications[type](...params), notificationsQueue);
   }
 
-  actions = {
-    /**
-     * Removes the current toast from view and invokes the notification resolution resolver
-     */
-    dismissToast(this: Notifications) {
-      const { notificationResolution: { onComplete } }: INotification = get(this, 'toast');
-      set(this, 'isShowingToast', false);
+  /**
+   * Removes the current toast from view and invokes the notification resolution resolver
+   * @memberof Notifications
+   */
+  @action
+  dismissToast() {
+    const {
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'toast');
+
+    set(this, 'isShowingToast', false);
+    onComplete && onComplete();
+  }
+
+  /**
+   * Ignores the modal, invokes the user supplied didDismiss callback
+   * @memberof Notifications
+   */
+  @action
+  dismissModal() {
+    const {
+      props,
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'modal');
+
+    if ((<IConfirmOptions>props).dialogActions) {
+      const { didDismiss } = (<IConfirmOptions>props).dialogActions;
+      set(this, 'isShowingModal', false);
+      didDismiss();
       onComplete && onComplete();
-    },
-
-    /**
-     * Ignores the modal, invokes the user supplied didDismiss callback
-     */
-    dismissModal(this: Notifications) {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didDismiss } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didDismiss();
-        onComplete && onComplete();
-      }
-    },
-
-    /**
-     * Confirms the dialog and invokes the user supplied didConfirm callback
-     */
-    confirmModal(this: Notifications) {
-      const { props, notificationResolution: { onComplete } }: INotification = get(this, 'modal');
-      if ((<IConfirmOptions>props).dialogActions) {
-        const { didConfirm } = (<IConfirmOptions>props).dialogActions;
-        set(this, 'isShowingModal', false);
-        didConfirm();
-        onComplete && onComplete();
-      }
     }
-  };
+  }
+
+  /**
+   * Confirms the dialog and invokes the user supplied didConfirm callback
+   * @memberof Notifications
+   */
+  @action
+  confirmModal() {
+    const {
+      props,
+      notificationResolution: { onComplete }
+    }: INotification = get(this, 'modal');
+
+    if ((<IConfirmOptions>props).dialogActions) {
+      const { didConfirm } = (<IConfirmOptions>props).dialogActions;
+      set(this, 'isShowingModal', false);
+      didConfirm();
+      onComplete && onComplete();
+    }
+  }
+
+  /**
+   * Renders a dialog with the full text of the last IToast instance content,
+   * with the option to dismiss the modal
+   * @memberof Notifications
+   */
+  @action
+  async showContentDetail() {
+    const { dialogActions } = notificationDialogActionFactory();
+    const {
+      props: { content }
+    } = get(this, 'toast');
+
+    this.notify(NotificationEvent.confirm, {
+      header: 'Notification Detail',
+      content,
+      dialogActions,
+      dismissButtonText: false,
+      confirmButtonText: 'Dismiss'
+    });
+
+    this.dismissToast.call(this);
+  }
 }
