@@ -414,10 +414,11 @@ const foldComplianceChangeSets = async (
 /**
  * Builds a default shape for securitySpecification & privacyCompliancePolicy with default / unset values
  *   for non null properties as per Avro schema
- * @param {string} datasetId identifier for the dataset that this privacy object applies to
+ * @param {string} datasetUrn identifier for the dataset that this privacy object applies to
+ * @return {IComplianceInfo}
  */
-const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => ({
-  datasetUrn: decodeUrn(datasetId),
+const initialComplianceObjectFactory = (datasetUrn: string): IComplianceInfo => ({
+  datasetUrn: decodeUrn(datasetUrn),
   datasetId: null,
   confidentiality: null,
   complianceType: '',
@@ -576,7 +577,7 @@ export {
   tagsHaveNoneType,
   fieldTagsRequiringReview,
   tagsHaveNoneAndNotNoneType,
-  createInitialComplianceInfo,
+  initialComplianceObjectFactory,
   getIdTypeDataTypes,
   fieldTagsHaveIdentifierType,
   idTypeFieldHasLogicalType,
