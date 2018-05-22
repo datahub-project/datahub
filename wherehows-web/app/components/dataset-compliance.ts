@@ -40,7 +40,7 @@ import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-sugg
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import Notifications, { NotificationEvent, IConfirmOptions } from 'wherehows-web/services/notifications';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import {
   IComplianceInfo,
@@ -1008,11 +1008,7 @@ export default class DatasetCompliance extends Component {
      * @returns {Promise<DatasetClassification>}
      */
     async markDatasetAsNotContainingMemberData(this: DatasetCompliance): Promise<DatasetClassification | void> {
-      const dialogActions = <IConfirmOptions['dialogActions']>{};
-      const confirmMarkAllHandler = new Promise((resolve, reject): void => {
-        dialogActions.didDismiss = (): void => reject();
-        dialogActions.didConfirm = (): void => resolve();
-      });
+      const { dialogActions, dismissedOrConfirmed: confirmMarkAllSettler } = notificationDialogActionFactory();
       let willMarkAllAsNo = true;
 
       get(this, 'notifications').notify(NotificationEvent.confirm, {
@@ -1022,7 +1018,7 @@ export default class DatasetCompliance extends Component {
       });
 
       try {
-        await confirmMarkAllHandler;
+        await confirmMarkAllSettler;
       } catch (e) {
         willMarkAllAsNo = false;
       }
