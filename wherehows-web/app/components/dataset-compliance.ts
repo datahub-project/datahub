@@ -1165,7 +1165,7 @@ export default class DatasetCompliance extends Component {
      * Receives the json representation for compliance and applies each key to the policy
      * @param {string} textString string representation for the JSON file
      */
-    onComplianceJsonUpload(this: DatasetCompliance, textString: string) {
+    onComplianceJsonUpload(this: DatasetCompliance, textString: string): void {
       const complianceInfo = get(this, 'complianceInfo');
       const { notify } = get(this, 'notifications');
       let policy;
