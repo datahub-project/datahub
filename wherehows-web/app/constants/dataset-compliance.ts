@@ -106,7 +106,7 @@ const getComplianceSteps = (hasSchema: boolean = true): { [x: number]: { name: s
  * @param {IComplianceEntity} { readonly }
  * @returns {boolean}
  */
-const isEditableComplianceEntity = ({ readonly }: IComplianceEntity): boolean => readonly !== true;
+const isEditableComplianceEntity = ({ readonly }: IComplianceEntity): boolean => readonly !== true; // do not simplify, readonly may be undefined
 
 /**
  * Filters out from a list of compliance entities, entities that are editable
@@ -298,26 +298,26 @@ const idTypeFieldsHaveLogicalType = arrayEvery(idTypeFieldHasLogicalType);
 
 /**
  * Describes the function interface for tagsForIdentifierField
- * @interface TagsForIdentifierFieldFn
+ * @interface ITagsForIdentifierFieldFn
  */
-interface TagsForIdentifierFieldFn {
+interface ITagsForIdentifierFieldFn {
   (identifierField: string): (tags: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>;
 }
 /**
  * Gets the tags for a specific identifier field
  * @param {string} identifierField
- * @return {TagsForIdentifierFieldFn}
+ * @return {ITagsForIdentifierFieldFn}
  */
-const tagsForIdentifierField: TagsForIdentifierFieldFn = (identifierField: string) =>
+const tagsForIdentifierField: ITagsForIdentifierFieldFn = (identifierField: string) =>
   arrayFilter(isSchemaFieldTag<IComplianceChangeSet>(identifierField));
 
 /**
  * Lists tags that occur for only one identifier type in the list of tags
  * @param {Array<IComplianceChangeSet>} tags the full list of tags to iterate through
- * @param {TagsForIdentifierFieldFn} tagsForIdentifierFieldFn
+ * @param {ITagsForIdentifierFieldFn} tagsForIdentifierFieldFn
  * @return {(singleTags: Array<IComplianceChangeSet>, { identifierField }: IComplianceChangeSet) => (any)[] | Array<IComplianceChangeSet>}
  */
-const singleTagsIn = (tags: Array<IComplianceChangeSet>, tagsForIdentifierFieldFn: TagsForIdentifierFieldFn) => (
+const singleTagsIn = (tags: Array<IComplianceChangeSet>, tagsForIdentifierFieldFn: ITagsForIdentifierFieldFn) => (
   singleTags: Array<IComplianceChangeSet>,
   { identifierField }: IComplianceChangeSet
 ): Array<IComplianceChangeSet> => {
@@ -328,12 +328,12 @@ const singleTagsIn = (tags: Array<IComplianceChangeSet>, tagsForIdentifierFieldF
 /**
  * Lists the tags in a list of tags that occur for only one identifier type
  * @param {Array<IComplianceChangeSet>} tags
- * @param {TagsForIdentifierFieldFn} tagsForIdentifierFieldFn
+ * @param {ITagsForIdentifierFieldFn} tagsForIdentifierFieldFn
  * @return {Array<IComplianceChangeSet>}
  */
 const singleTagsInChangeSet = (
   tags: Array<IComplianceChangeSet>,
-  tagsForIdentifierFieldFn: TagsForIdentifierFieldFn
+  tagsForIdentifierFieldFn: ITagsForIdentifierFieldFn
 ): Array<IComplianceChangeSet> => arrayReduce(singleTagsIn(tags, tagsForIdentifierFieldFn), [])(tags);
 
 /**
@@ -416,19 +416,15 @@ const foldComplianceChangeSets = async (
  *   for non null properties as per Avro schema
  * @param {string} datasetId identifier for the dataset that this privacy object applies to
  */
-const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => {
-  const identifier = typeof datasetId === 'string' ? { datasetUrn: decodeUrn(datasetId) } : { datasetId };
-
-  return {
-    ...identifier,
-    datasetId: null,
-    confidentiality: null,
-    complianceType: '',
-    compliancePurgeNote: '',
-    complianceEntities: [],
-    datasetClassification: null
-  };
-};
+const createInitialComplianceInfo = (datasetId: string): IComplianceInfo => ({
+  datasetUrn: decodeUrn(datasetId),
+  datasetId: null,
+  confidentiality: null,
+  complianceType: '',
+  compliancePurgeNote: '',
+  complianceEntities: [],
+  datasetClassification: null
+});
 
 /**
  * Maps the fields found in the column property on the schema api to the values returned in the current privacy policy
