@@ -21,7 +21,17 @@
     <i class="notification-toast__icon"></i>
 
     <div class="notification-toast__content notification-toast__content--{{service.toast.props.type}}">
-      <p>{{service.toast.props.content}}</p>
+      <p class="notification-toast__content__msg">
+        {{split-text service.toast.props.content 140}}
+      </p>
+
+      {{#if (gt service.toast.props.content.length 140)}}
+        <button
+          class="nacho-button nacho-button--tertiary notification-toast__content-detail"
+          onclick={{action "showContentDetail" target=service}}>
+          See Detail
+        </button>
+      {{/if}}
     </div>
 
     <button class="notification-toast__dismiss" onclick={{action "dismissToast" target=service}}>

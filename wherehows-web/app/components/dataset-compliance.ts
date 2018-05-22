@@ -40,7 +40,7 @@ import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-sugg
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import Notifications, { NotificationEvent, IConfirmOptions } from 'wherehows-web/services/notifications';
+import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import {
   IComplianceInfo,
@@ -66,6 +66,7 @@ import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
+import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
 const {
   complianceDataException,
@@ -860,7 +861,7 @@ export default class DatasetCompliance extends Component {
    * @return {Promise<void>}
    */
   showPurgeExemptionWarning(this: DatasetCompliance): Promise<void> {
-    const dialogActions = <IConfirmOptions['dialogActions']>{};
+    const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
 
     get(this, 'notifications').notify(NotificationEvent.confirm, {
       header: 'Confirm purge exemption',
@@ -869,10 +870,7 @@ export default class DatasetCompliance extends Component {
       dialogActions
     });
 
-    return new Promise((resolve, reject): void => {
-      dialogActions['didConfirm'] = (): void => resolve();
-      dialogActions['didDismiss'] = (): void => reject();
-    });
+    return dismissedOrConfirmed;
   }
 
   /**
@@ -1020,11 +1018,7 @@ export default class DatasetCompliance extends Component {
      * @returns {Promise<DatasetClassification>}
      */
     async markDatasetAsNotContainingMemberData(this: DatasetCompliance): Promise<DatasetClassification | void> {
-      const dialogActions = <IConfirmOptions['dialogActions']>{};
-      const confirmMarkAllHandler = new Promise((resolve, reject): void => {
-        dialogActions.didDismiss = (): void => reject();
-        dialogActions.didConfirm = (): void => resolve();
-      });
+      const { dialogActions, dismissedOrConfirmed: confirmMarkAllSettler } = notificationDialogActionFactory();
       let willMarkAllAsNo = true;
 
       get(this, 'notifications').notify(NotificationEvent.confirm, {
@@ -1034,7 +1028,7 @@ export default class DatasetCompliance extends Component {
       });
 
       try {
-        await confirmMarkAllHandler;
+        await confirmMarkAllSettler;
       } catch (e) {
         willMarkAllAsNo = false;
       }
@@ -1137,9 +1131,9 @@ export default class DatasetCompliance extends Component {
 
     /**
      * Handles post processing tasks after the purge policy step has been completed
-     * @returns {(Promise<void | {}>)}
+     * @returns {(Promise<void>)}
      */
-    didEditPurgePolicy(this: DatasetCompliance): Promise<void | {}> {
+    didEditPurgePolicy(this: DatasetCompliance): Promise<void> {
       const { complianceType = null } = get(this, 'complianceInfo') || {};
 
       if (!complianceType) {
