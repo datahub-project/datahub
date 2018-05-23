@@ -342,7 +342,8 @@ public class Application extends Controller {
     try {
       AuthenticationManager.authenticateUser(username, password);
     } catch (Exception e) {
-      return badRequest("Invalid credentials");
+      Logger.warn("Authentication error!", e);
+      return badRequest(e.getMessage());
     }
 
     // Adds the username to the session cookie
