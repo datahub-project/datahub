@@ -35,7 +35,6 @@ import {
   singleTagsInChangeSet,
   tagsForIdentifierField
 } from 'wherehows-web/constants';
-import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
@@ -67,15 +66,12 @@ import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/dataset
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
-import { action } from '@ember-decorators/object';
 
 const {
   complianceDataException,
   complianceFieldNotUnique,
   missingTypes,
   helpText,
-  successUploading,
-  invalidPolicyData,
   missingPurgePolicy,
   missingDatasetSecurityClassification
 } = compliancePolicyStrings;
@@ -128,6 +124,9 @@ export default class DatasetCompliance extends Component {
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
   onReset: <T>() => Promise<T>;
   onSave: <T>() => Promise<T>;
+
+  onComplianceUpload: (jsonString: string) => void;
+
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
@@ -816,9 +815,9 @@ export default class DatasetCompliance extends Component {
    * checked in the function. If criteria is not met, an the returned promise is settled
    * in a rejected state, otherwise fulfilled
    * @method
-   * @return {Promise<never> | void}
+   * @return {Promise<never | void>}
    */
-  validateFields(this: DatasetCompliance): Promise<never> | void {
+  async validateFields(this: DatasetCompliance): Promise<never | void> {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
     const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
@@ -889,39 +888,6 @@ export default class DatasetCompliance extends Component {
   updateStep(this: DatasetCompliance, step: number): void {
     set(this, 'editStepIndex', step);
     get(this, 'updateEditStepTask').perform();
-  }
-
-  /**
-   * Receives the json representation for compliance and applies each key to the policy
-   * @param {string} textString string representation for the JSON file
-   */
-  @action
-  async onComplianceJsonUpload(this: DatasetCompliance, textString: string): Promise<void> {
-    const {
-      complianceInfo,
-      notifications: { notify }
-    } = getProperties(this, ['complianceInfo', 'notifications']);
-
-    if (complianceInfo) {
-      try {
-        const policy = JSON.parse(textString);
-
-        if (isPolicyExpectedShape(policy)) {
-          setProperties(complianceInfo, {
-            complianceEntities: policy.complianceEntities,
-            datasetClassification: policy.datasetClassification
-          });
-
-          notify(NotificationEvent.info, {
-            content: successUploading
-          });
-        }
-      } catch (e) {
-        notify(NotificationEvent.error, {
-          content: invalidPolicyData
-        });
-      }
-    }
   }
 
   actions: IDatasetComplianceActions = {
@@ -1228,6 +1194,14 @@ export default class DatasetCompliance extends Component {
       anchorParent.appendChild(anchor);
 
       anchor.click();
+    },
+
+    /**
+     * Receives the json representation for compliance and applies each key to the policy
+     * @param {string} jsonString string representation for the JSON file
+     */
+    onComplianceJsonUpload(this: DatasetCompliance, jsonString: string): void {
+      get(this, 'onComplianceUpload')(jsonString);
     },
 
     /**
