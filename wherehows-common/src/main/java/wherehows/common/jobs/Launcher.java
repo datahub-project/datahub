@@ -74,7 +74,7 @@ public class Launcher {
     try {
       job = JobFactory.getJob(jobClassName, whEtlExecId, props);
     } catch (Exception e) {
-      log.error("Failed to create ETL job {}: {}", jobClassName, e.getMessage());
+      log.error("Failed to create ETL job {}", jobClassName, e);
       System.exit(1);
     }
 
