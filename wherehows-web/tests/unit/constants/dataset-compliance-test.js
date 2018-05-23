@@ -13,7 +13,7 @@ import {
 import complianceDataTypes from 'wherehows-web/mirage/fixtures/compliance-data-types';
 import { mockTimeStamps } from 'wherehows-web/tests/helpers/datasets/compliance-policy/recent-suggestions-constants';
 import { mockFieldChangeSets } from 'wherehows-web/tests/helpers/datasets/compliance-policy/field-changeset-constants';
-import { hdfsUrn, urn } from 'wherehows-web/mirage/fixtures/urn';
+import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
 module('Unit | Constants | dataset compliance');
 
@@ -21,7 +21,7 @@ test('initialComplianceObjectFactory', function(assert) {
   assert.expect(2);
   const mockUrn = hdfsUrn;
   const initialComplianceInfo = {
-    datasetUrn: urn,
+    datasetUrn: mockUrn,
     datasetId: null,
     complianceType: '',
     compliancePurgeNote: '',
