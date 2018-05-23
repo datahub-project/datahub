@@ -1,8 +1,8 @@
+const suggestion = { identifierType: 'same', confidenceLevel: 0.6 };
 /**
  * A list of mock field change sets depicting the different scenarios
  * @type {Array<{isDirty: boolean; privacyPolicyExists: boolean; suggestionAuthority: boolean; suggestion?: {}; __requiresReview__: boolean; __msg__: string}>
  */
-const suggestion = { identifierType: 'same' };
 const mockFieldChangeSets = [
   {
     isDirty: true,
