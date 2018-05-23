@@ -22,6 +22,7 @@ import {
 } from 'wherehows-web/typings/app/dataset-columns';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
+import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -199,8 +200,8 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
       return true;
     }
 
-    // Check that suggestion exists and the identifierType does not match the change set item
-    if (suggestion && suggestion.identifierType !== identifierType) {
+    // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
+    if (suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)) {
       isReviewRequired = isReviewRequired || !suggestionAuthority;
     }
 
