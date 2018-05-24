@@ -35,7 +35,6 @@ import {
   singleTagsInChangeSet,
   tagsForIdentifierField
 } from 'wherehows-web/constants';
-import { isPolicyExpectedShape } from 'wherehows-web/utils/datasets/compliance-policy';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import noop from 'wherehows-web/utils/noop';
@@ -73,8 +72,6 @@ const {
   complianceFieldNotUnique,
   missingTypes,
   helpText,
-  successUploading,
-  invalidPolicyData,
   missingPurgePolicy,
   missingDatasetSecurityClassification
 } = compliancePolicyStrings;
@@ -127,6 +124,9 @@ export default class DatasetCompliance extends Component {
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
   onReset: <T>() => Promise<T>;
   onSave: <T>() => Promise<T>;
+
+  onComplianceUpload: (jsonString: string) => void;
+
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
@@ -815,9 +815,9 @@ export default class DatasetCompliance extends Component {
    * checked in the function. If criteria is not met, an the returned promise is settled
    * in a rejected state, otherwise fulfilled
    * @method
-   * @return {Promise<never> | void}
+   * @return {Promise<never | void>}
    */
-  validateFields(this: DatasetCompliance): Promise<never> | void {
+  async validateFields(this: DatasetCompliance): Promise<never | void> {
     const { notify } = get(this, 'notifications');
     const { complianceEntities = [] } = get(this, 'complianceInfo') || {};
     const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
@@ -1162,47 +1162,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Receives the json representation for compliance and applies each key to the policy
-     * @param {string} textString string representation for the JSON file
-     */
-    onComplianceJsonUpload(this: DatasetCompliance, textString: string): void {
-      const complianceInfo = get(this, 'complianceInfo');
-      const { notify } = get(this, 'notifications');
-      let policy;
-
-      if (!complianceInfo) {
-        notify(NotificationEvent.error, {
-          content: 'Could not find compliance current compliance policy for this dataset'
-        });
-
-        return;
-      }
-
-      try {
-        policy = JSON.parse(textString);
-      } catch (e) {
-        notify(NotificationEvent.error, {
-          content: invalidPolicyData
-        });
-      }
-
-      if (isPolicyExpectedShape(policy)) {
-        setProperties(complianceInfo, {
-          complianceEntities: policy.complianceEntities,
-          datasetClassification: policy.datasetClassification
-        });
-
-        notify(NotificationEvent.info, {
-          content: successUploading
-        });
-      }
-
-      notify(NotificationEvent.error, {
-        content: invalidPolicyData
-      });
-    },
-
-    /**
      * Handles the compliance policy download action
      */
     onComplianceDownloadJson(this: DatasetCompliance): void {
@@ -1235,6 +1194,14 @@ export default class DatasetCompliance extends Component {
       anchorParent.appendChild(anchor);
 
       anchor.click();
+    },
+
+    /**
+     * Receives the json representation for compliance and applies each key to the policy
+     * @param {string} jsonString string representation for the JSON file
+     */
+    onComplianceJsonUpload(this: DatasetCompliance, jsonString: string): void {
+      get(this, 'onComplianceUpload')(jsonString);
     },
 
     /**

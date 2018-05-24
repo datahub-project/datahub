@@ -10,4 +10,12 @@ type StringUnionKeyToValue<U extends string> = { [K in U]: K };
  */
 type StringEnumKeyToEnumValue<T extends string, V> = { [K in T]: V };
 
-export { StringUnionKeyToValue, StringEnumKeyToEnumValue };
+/**
+ * Describes the index signature for a generic object
+ * @interface IObject
+ */
+interface IObject<T> {
+  [K: string]: T;
+}
+
+export { StringUnionKeyToValue, StringEnumKeyToEnumValue, IObject };
