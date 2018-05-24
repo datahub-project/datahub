@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get, set, setProperties } from '@ember/object';
+import { get, set, setProperties, getProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 import { inject } from '@ember/service';
 import { task } from 'ember-concurrency';
@@ -28,6 +28,10 @@ import {
   SuggestionIntent
 } from 'wherehows-web/constants';
 import { iterateArrayAsync } from 'wherehows-web/utils/array';
+import validateMetadataObject, {
+  datasetComplianceMetadataTaxonomy
+} from 'wherehows-web/utils/datasets/compliance/metadata-schema';
+import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
 /**
  * Type alias for the response when container data items are batched
@@ -52,7 +56,7 @@ type BatchContainerDataResult = Pick<
   | 'schemaless'
 >;
 
-const { successUpdating, failedUpdating } = compliancePolicyStrings;
+const { successUpdating, failedUpdating, successUploading, invalidPolicyData } = compliancePolicyStrings;
 
 export default class DatasetComplianceContainer extends Component {
   /**
@@ -335,5 +339,44 @@ export default class DatasetComplianceContainer extends Component {
   @action
   onSuggestionsComplianceFeedback(uid: string | null = null, feedback: SuggestionIntent) {
     saveDatasetComplianceSuggestionFeedbackByUrn(get(this, 'urn'), uid, feedback);
+  }
+
+  /**
+   * Reapplies the uploaded compliance policy to the container property
+   * @param {string} jsonString string representation for the JSON file
+   * @memberof DatasetComplianceContainer
+   */
+  @action
+  onComplianceUpload(this: DatasetComplianceContainer, jsonString: string): void {
+    const {
+      complianceInfo,
+      notifications: { notify }
+    } = getProperties(this, ['complianceInfo', 'notifications']);
+
+    if (complianceInfo) {
+      try {
+        const policy = JSON.parse(jsonString);
+
+        if (validateMetadataObject(policy, datasetComplianceMetadataTaxonomy)) {
+          const { complianceEntities, datasetClassification } = policy;
+          const resolvedComplianceInfo = { ...complianceInfo, complianceEntities, datasetClassification };
+          const { dialogActions } = notificationDialogActionFactory();
+
+          set(this, 'complianceInfo', resolvedComplianceInfo);
+
+          notify(NotificationEvent.confirm, {
+            header: 'Successfully applied uploaded metadata',
+            content: successUploading,
+            dialogActions,
+            dismissButtonText: false,
+            confirmButtonText: 'Dismiss'
+          });
+        }
+      } catch (e) {
+        notify(NotificationEvent.error, {
+          content: invalidPolicyData
+        });
+      }
+    }
   }
 }
