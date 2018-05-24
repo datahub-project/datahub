@@ -24,6 +24,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
+import javax.naming.AuthenticationException;
+import javax.naming.NamingException;
 import javax.persistence.EntityManagerFactory;
 import org.apache.commons.lang3.StringUtils;
 import play.data.DynamicForm;
@@ -315,7 +317,7 @@ public class Application extends Controller {
   }
 
   @BodyParser.Of(BodyParser.Json.class)
-  public static Result authenticate() {
+  public static Result authenticate() throws NamingException {
     JsonNode json = request().body().asJson();
     // Extract username and password as String from JsonNode,
     //   null if they are not strings
@@ -341,9 +343,9 @@ public class Application extends Controller {
 
     try {
       AuthenticationManager.authenticateUser(username, password);
-    } catch (Exception e) {
+    } catch (AuthenticationException e) {
       Logger.warn("Authentication error!", e);
-      return badRequest(e.getMessage());
+      return badRequest("Invalid Credential");
     }
 
     // Adds the username to the session cookie

@@ -14,6 +14,7 @@
 package security;
 
 import dao.UserDAO;
+import javax.naming.directory.SearchControls;
 import wherehows.models.table.User;
 import org.apache.commons.lang3.StringUtils;
 import play.Logger;
@@ -30,9 +31,6 @@ import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.naming.NamingEnumeration;
 import javax.naming.directory.Attribute;
-import javax.naming.directory.Attributes;
-import javax.naming.directory.BasicAttribute;
-import javax.naming.directory.BasicAttributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
 import javax.naming.directory.SearchResult;
@@ -49,6 +47,8 @@ public class AuthenticationManager {
   private static final String LDAP_MAIL_KEY = "mail";
   private static final String LDAP_DEPARTMENT_NUMBER_KEY = "departmentNumber";
 
+  private static final String LDAP_USER_ATTR_FILTER_EXPRESSION = "(&(objectClass=user)(sAMAccountName={0}))";
+
   private static final String contextFactories =
       Play.application().configuration().getString(LDAP_CONTEXT_FACTORY_CLASS_KEY);
   /*  three LDAP properties, each is a '|' separated string of same number of tokens. e.g.
@@ -62,7 +62,6 @@ public class AuthenticationManager {
       Play.application().configuration().getString(MASTER_PRINCIPAL_DOMAIN_KEY).split("\\s*\\|\\s*");
   private static final String[] ldapSearchBase =
       Play.application().configuration().getString(LDAP_SEARCH_BASE_KEY).split("\\s*\\|\\s*");
-
 
   public static void authenticateUser(String userName, String password) throws NamingException {
     if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
@@ -125,7 +124,7 @@ public class AuthenticationManager {
   }
 
   private static Map<String, String> getUserAttributes(DirContext ctx, String searchBase, String userName,
-      String principalDomain, String... attributeNames) throws NamingException {
+      String... attributeNames) throws NamingException {
     if (StringUtils.isBlank(userName)) {
       throw new IllegalArgumentException("Username and password can not be blank.");
     }
@@ -134,11 +133,12 @@ public class AuthenticationManager {
       return Collections.emptyMap();
     }
 
-    Attributes matchAttr = new BasicAttributes(true);
-    BasicAttribute basicAttr = new BasicAttribute("userPrincipalName", userName + principalDomain);
-    matchAttr.put(basicAttr);
+    SearchControls searchControls = new SearchControls();
+    searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+    searchControls.setReturningAttributes(attributeNames);
 
-    NamingEnumeration<? extends SearchResult> searchResult = ctx.search(searchBase, matchAttr, attributeNames);
+    NamingEnumeration<? extends SearchResult> searchResult =
+        ctx.search(searchBase, LDAP_USER_ATTR_FILTER_EXPRESSION, new Object[]{userName}, searchControls);
 
     Map<String, String> result = new HashMap<>();
     if (searchResult.hasMore()) {
@@ -158,8 +158,8 @@ public class AuthenticationManager {
   private static User getAttributes(DirContext ctx, String searchBase, String userName, String principalDomain)
       throws NamingException {
     Map<String, String> userDetailMap =
-        getUserAttributes(ctx, searchBase, userName, principalDomain, LDAP_DISPLAY_NAME_KEY, LDAP_MAIL_KEY,
-            LDAP_DEPARTMENT_NUMBER_KEY);
+        getUserAttributes(ctx, searchBase, userName, LDAP_DISPLAY_NAME_KEY, LDAP_MAIL_KEY, LDAP_DEPARTMENT_NUMBER_KEY);
+    Logger.info("userDetailMap: " + userDetailMap);
 
     String displayName = userDetailMap.get(LDAP_DISPLAY_NAME_KEY);
     String[] displayNameTokens = displayName.trim().replaceAll(" +", " ").split(" ");
