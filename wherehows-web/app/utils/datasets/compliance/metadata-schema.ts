@@ -3,6 +3,7 @@ import { DatasetClassifiers } from 'wherehows-web/constants';
 import { arrayEvery, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
 import { Classification } from 'wherehows-web/constants/datasets/compliance';
 import { IObject } from 'wherehows-web/typings/generic';
+import { isObject } from 'wherehows-web/utils/object';
 
 /**
  * Defines the interface for an IDL that specifies the data types for properties on
@@ -102,11 +103,11 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
   const rootValueEquiv = object.hasOwnProperty(name) && valueEquiv(value, type);
   const innerType = metadataType['@props'];
 
-  if (type === 'object') {
+  if (type.includes('object') && isObject(value)) {
     return rootValueEquiv && keysEquiv(value, innerType!);
   }
 
-  if (type === 'array') {
+  if (type.includes('array') && Array.isArray(value)) {
     return (
       rootValueEquiv &&
       arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
