@@ -1,116 +1,140 @@
 import { typeOf } from '@ember/utils';
 import { DatasetClassifiers } from 'wherehows-web/constants';
-import { arrayEvery, arrayReduce } from 'wherehows-web/utils/array';
+import { arrayEvery, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
 import { Classification } from 'wherehows-web/constants/datasets/compliance';
 import { IObject } from 'wherehows-web/typings/generic';
+import { isObject } from 'wherehows-web/utils/object';
 
 /**
- * Describes the interface for schemas that are used for compliance metadata objects
- * @interface IMetadataTaxonomy
+ * Defines the interface for an IDL that specifies the data types for properties on
+ * a compliance metadata object
+ * @interface IMetadataType
  */
-interface IMetadataTaxonomy {
-  readonly '@props': Array<string>;
-  readonly '@type': string;
-
-  readonly [K: string]: IMetadataTaxonomy | any;
+interface IMetadataType {
+  // the expected type or types for the property with @name
+  '@type': string | Array<string>;
+  // the name of the property that should be on the metadata object
+  '@name': string;
+  // optional list of properties that are expected on the metadata object
+  '@props'?: Array<IMetadataType>;
+  // optional list of expected string values for an enum type (not implemented)
+  '@symbols'?: Array<string>;
 }
 
 /**
- * Defines the shape of the dataset compliance metadata json object using the IMetadataTaxonomy interface
- * @type {({'@type': string; '@props': string[]} | {'@type': string; '@props': string[]; securityClassification: {'@type': string; '@props': any[]}})[]}
+ * Maps a datasetClassification property to the expected type of boolean
+ * @param {string} prop
+ * @returns {IMetadataType}
  */
-const datasetComplianceMetadataTaxonomy: Array<IMetadataTaxonomy> = [
+const datasetClassificationPropType = (prop: string): IMetadataType => ({
+  '@type': 'boolean',
+  '@name': prop
+});
+
+/**
+ * Defines the shape of the dataset compliance metadata json object using the IMetadataType interface
+ * @type {({'@type': string; '@name': string; '@props': Array<IMetadataType>} | {'@type': string; '@name': string; '@props': ({'@name': string; '@type': string} | {'@name': string; '@type': string[]} | {'@name': string; '@type': string[]; '@symbols': any[]} | {'@type': string[]; '@name': string})[]})[]}
+ */
+const complianceMetadataTaxonomy: Array<IMetadataType> = [
   {
-    '@type': 'datasetClassification:object',
-    '@props': Object.keys(DatasetClassifiers).map(key => `${key}:boolean`)
+    '@type': 'object',
+    '@name': 'datasetClassification',
+    '@props': arrayMap(datasetClassificationPropType)(Object.keys(DatasetClassifiers))
   },
   {
-    '@type': 'complianceEntities:array',
+    '@type': 'array',
+    '@name': 'complianceEntities',
     '@props': [
-      'identifierField:string',
-      'identifierType:string|null',
-      'securityClassification:string|null',
-      'logicalType:string|null',
-      'nonOwner:boolean|null',
-      'valuePattern:string|null'
-    ],
-    securityClassification: {
-      '@type': 'securityClassification:string',
-      '@props': Object.values(Classification)
-    }
+      {
+        '@name': 'identifierField',
+        '@type': 'string'
+      },
+      {
+        '@name': 'identifierType',
+        '@type': ['string', 'null']
+      },
+      {
+        '@name': 'securityClassification',
+        '@type': ['string', 'null'], // TODO: enum
+        '@symbols': Object.values(Classification)
+      },
+      {
+        '@type': ['string', 'null'],
+        '@name': 'logicalType'
+      },
+      {
+        '@name': 'nonOwner',
+        '@type': ['boolean', 'null']
+      },
+      {
+        '@name': 'valuePattern',
+        '@type': ['string', 'null']
+      }
+    ]
   }
 ];
 
 /**
  * Checks that a value type matches an expected pattern string
  * @param {*} value the value to check
- * @param {string} expectedTypePattern the pattern string to match against
+ * @param {string | Array<string>} expectedType the pattern string to match against
  * @returns {boolean}
  */
-const valueEquiv = (value: any, expectedTypePattern: string): boolean => expectedTypePattern.includes(typeOf(value));
+const valueEquiv = (value: any, expectedType: string | Array<string>): boolean => expectedType.includes(typeOf(value));
 
 /**
  * Extracts the type key and the pattern string from the string mapping into a tuple pair
- * @param {string} objectKeyTypePattern string value consisting of a pair of key/property name and allowed types separated by a colon ":"
- * @returns {[string, string]}
+ * @param {IMetadataType} metadataType
+ * @return {[string , (string | Array<string>)]}
  */
-const typePatternMap = (objectKeyTypePattern: string): [string, string] =>
-  <[string, string]>objectKeyTypePattern.split(':');
+const typePatternMap = (metadataType: IMetadataType): [string, string | Array<string>] => [
+  metadataType['@name'],
+  metadataType['@type']
+];
 
 /**
  * Returns a iteratee bound to an object that checks that a key matches the expected value in the typeMap
  * @param {IObject<any>} object the object with keys to check
- * @return {(typeMap: string) => boolean}
+ * @return {(metadataType: IMetadataType) => boolean}
  */
-const keyValueHasMatch = (object: IObject<any>) => (typeMap: string) => {
-  const [key, typeString] = typePatternMap(typeMap);
-  return valueEquiv(object[key], typeString);
+const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType): boolean => {
+  const [name, type] = typePatternMap(metadataType);
+  const value = object[name];
+  const rootValueEquiv = object.hasOwnProperty(name) && valueEquiv(value, type);
+  const innerType = metadataType['@props'];
+
+  if (type.includes('object') && isObject(value)) {
+    return rootValueEquiv && keysEquiv(value, innerType!);
+  }
+
+  if (type.includes('array') && Array.isArray(value)) {
+    return (
+      rootValueEquiv &&
+      arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
+    );
+  }
+
+  return rootValueEquiv;
 };
 
 /**
  * Checks each key on an object matches the expected types in the typeMap
  * @param {IObject<any>} object the object with keys to check
- * @param {Array<string>} typeMaps the colon delimited type string
+ * @param {Array<IMetadataType>} typeMaps the colon delimited type string
  * @returns {boolean}
  */
-const keysEquiv = (object: IObject<any>, typeMaps: Array<string>): boolean =>
+const keysEquiv = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean =>
   arrayEvery(keyValueHasMatch(object))(typeMaps);
 
 /**
  * Checks that a compliance metadata object has a schema that matches the taxonomy / schema provided
  * @param {IObject<any>} object an instance of a compliance metadata object
- * @param {Array<IMetadataTaxonomy>} taxonomy schema shape to check against
+ * @param {Array<IMetadataType>} taxonomy schema shape to check against
  * @return {boolean}
  */
-const validateMetadataObject = (object: IObject<any>, taxonomy: Array<IMetadataTaxonomy>): boolean => {
-  const rootTypeMaps = taxonomy.map(category => category['@type']);
-  let isValid = keysEquiv(object, rootTypeMaps);
-
-  if (isValid) {
-    const downlevelAccumulator = (validity: boolean, typeMap: string): boolean => {
-      const [key, pattern]: [string, string] = typePatternMap(typeMap);
-
-      if (pattern.includes('object')) {
-        validity = keysEquiv(object[key], taxonomy.findBy('@type', typeMap)!['@props']);
-      }
-
-      if (pattern.includes('array') && Array.isArray(object[key])) {
-        validity = arrayReduce(
-          (validity: boolean, value: IObject<string>) =>
-            validity && keysEquiv(value, taxonomy.findBy('@type', typeMap)!['@props']),
-          validity
-        )(object[key]);
-      }
-
-      return validity;
-    };
-
-    return arrayReduce(downlevelAccumulator, isValid)(rootTypeMaps);
-  }
-
-  return isValid;
-};
+const validateMetadataObject = (object: IObject<any>, taxonomy: Array<IMetadataType>): boolean =>
+  keysEquiv(object, taxonomy);
 
 export default validateMetadataObject;
 
-export { datasetComplianceMetadataTaxonomy };
+export { complianceMetadataTaxonomy };
