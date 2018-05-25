@@ -76,7 +76,7 @@ const complianceMetadataTaxonomy: Array<IMetadataType> = [
 /**
  * Checks that a value type matches an expected pattern string
  * @param {*} value the value to check
- * @param {string} expectedType the pattern string to match against
+ * @param {string | Array<string>} expectedType the pattern string to match against
  * @returns {boolean}
  */
 const valueEquiv = (value: any, expectedType: string | Array<string>): boolean => expectedType.includes(typeOf(value));
@@ -99,23 +99,21 @@ const typePatternMap = (metadataType: IMetadataType): [string, string | Array<st
 const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType): boolean => {
   const [name, type] = typePatternMap(metadataType);
   const value = object[name];
-  const rootValueMatch = object.hasOwnProperty(name) && valueEquiv(value, type);
+  const rootValueEquiv = object.hasOwnProperty(name) && valueEquiv(value, type);
   const innerType = metadataType['@props'];
 
   if (type === 'object') {
-    return rootValueMatch && keysEquiv(value, innerType!);
+    return rootValueEquiv && keysEquiv(value, innerType!);
   }
 
-  if (type === 'array' && Array.isArray(value)) {
-    const innerType = metadataType['@props']!;
-
+  if (type === 'array') {
     return (
-      rootValueMatch &&
-      arrayReduce((validity: boolean, value: any) => validity && keysEquiv(value, innerType), rootValueMatch)(value)
+      rootValueEquiv &&
+      arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
     );
   }
 
-  return rootValueMatch;
+  return rootValueEquiv;
 };
 
 /**
