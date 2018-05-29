@@ -29,7 +29,7 @@ import {
 } from 'wherehows-web/constants';
 import { iterateArrayAsync } from 'wherehows-web/utils/array';
 import validateMetadataObject, {
-  complianceMetadataTaxonomy
+  datasetComplianceMetadataTaxonomy
 } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
@@ -353,27 +353,18 @@ export default class DatasetComplianceContainer extends Component {
       notifications: { notify }
     } = getProperties(this, ['complianceInfo', 'notifications']);
 
-    /**
-     * Inner function to wrap call to notify method of notification service
-     * @return {void}
-     */
-    const metadataInvalid = (): void =>
-      notify(NotificationEvent.error, {
-        content: invalidPolicyData
-      });
-
     if (complianceInfo) {
       try {
         const policy = JSON.parse(jsonString);
 
-        if (validateMetadataObject(policy, complianceMetadataTaxonomy)) {
+        if (validateMetadataObject(policy, datasetComplianceMetadataTaxonomy)) {
           const { complianceEntities, datasetClassification } = policy;
           const resolvedComplianceInfo = { ...complianceInfo, complianceEntities, datasetClassification };
           const { dialogActions } = notificationDialogActionFactory();
 
           set(this, 'complianceInfo', resolvedComplianceInfo);
 
-          return notify(NotificationEvent.confirm, {
+          notify(NotificationEvent.confirm, {
             header: 'Successfully applied uploaded metadata',
             content: successUploading,
             dialogActions,
@@ -381,10 +372,10 @@ export default class DatasetComplianceContainer extends Component {
             confirmButtonText: 'Dismiss'
           });
         }
-
-        metadataInvalid();
       } catch (e) {
-        metadataInvalid();
+        notify(NotificationEvent.error, {
+          content: invalidPolicyData
+        });
       }
     }
   }
