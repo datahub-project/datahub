@@ -15,8 +15,7 @@ import {
   minRequiredConfirmedOwners,
   validConfirmedOwners,
   isRequiredMinOwnersNotConfirmed,
-  isConfirmedOwner,
-  isSystemGeneratedOwner
+  isConfirmedOwner
 } from 'wherehows-web/constants/datasets/owner';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -44,6 +43,13 @@ export default class DatasetAuthors extends Component {
    * @memberof DatasetAuthors
    */
   owners: Array<IOwner>;
+
+  /**
+   * The list of suggested owners, used to populate the suggestions window below the owners table
+   * @type {Array<IOwner>}
+   * @memberof DatasetAuthors
+   */
+  suggestedOwners: Array<IOwner>;
 
   /**
    * Current user service
@@ -166,7 +172,11 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isSystemGeneratedOwner);
+  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = computed('suggestedOwners', function() {
+    // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
+    // same render" error
+    return (get(this, 'suggestedOwners') || []).slice(0);
+  });
 
   /**
    * Invokes the external action as a dropping task

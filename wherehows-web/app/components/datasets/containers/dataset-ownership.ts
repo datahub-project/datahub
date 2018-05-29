@@ -10,6 +10,7 @@ import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owner
 import {
   OwnerType,
   readDatasetOwnersByUrn,
+  readDatasetSuggestedOwnersByUrn,
   readDatasetOwnerTypesWithoutConsumer,
   updateDatasetOwnersByUrn
 } from 'wherehows-web/utils/api/datasets/owners';
@@ -26,6 +27,12 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Array<IOwner>}
    */
   owners: Array<IOwner>;
+
+  /**
+   * List of suggested owners for the dataset
+   * @type {Array<IOwner>}
+   */
+  suggestedOwners: Array<IOwner>;
 
   /**
    * List of types available for a dataset owner
@@ -64,7 +71,9 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<TaskInstance<Promise<any>>> {
-    const tasks = Object.values(getProperties(this, ['getDatasetOwnersTask', 'getDatasetOwnerTypesTask']));
+    const tasks = Object.values(
+      getProperties(this, ['getDatasetOwnersTask', 'getSuggestedOwnersTask', 'getDatasetOwnerTypesTask'])
+    );
 
     yield* tasks.map(task => task.perform());
   });
@@ -77,6 +86,18 @@ export default class DatasetOwnershipContainer extends Component {
     const { owners = [], fromUpstream, datasetUrn }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
 
     setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
+  });
+
+  /**
+   * Fetches the suggested owners for this dataset
+   * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
+   */
+  getSuggestedOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
+    const { owners = [], fromUpstream, datasetUrn }: IOwnerResponse = yield readDatasetSuggestedOwnersByUrn(
+      get(this, 'urn')
+    );
+
+    setProperties(this, { suggestedOwners: owners, fromUpstream, upstreamUrn: datasetUrn });
   });
 
   /**
