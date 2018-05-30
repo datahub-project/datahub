@@ -46,6 +46,13 @@ export default class DatasetAuthors extends Component {
   owners: Array<IOwner>;
 
   /**
+   * The list of suggested owners, used to populate the suggestions window below the owners table
+   * @type {Array<IOwner>}
+   * @memberof DatasetAuthors
+   */
+  suggestedOwners: Array<IOwner>;
+
+  /**
    * Current user service
    * @type {ComputedProperty<CurrentUser>}
    * @memberof DatasetAuthors
@@ -166,7 +173,14 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isSystemGeneratedOwner);
+  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = computed('suggestedOwners', function() {
+    const showOwnership = get(this, 'showOwnership');
+    // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
+    // same render" error
+    return showOwnership === 'show'
+      ? (get(this, 'suggestedOwners') || []).slice(0)
+      : get(this, 'owners').filter(isSystemGeneratedOwner);
+  });
 
   /**
    * Invokes the external action as a dropping task

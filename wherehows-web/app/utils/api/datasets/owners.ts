@@ -62,6 +62,12 @@ enum OwnerSource {
 const datasetOwnersUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/owners`;
 
 /**
+ * Returns the url to fetch the suggested dataset owners by urn
+ * @param urn
+ */
+const datasetSuggestedOwnersUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/owners/suggestion`;
+
+/**
  * Returns the party entities url
  * @type {string}
  */
@@ -101,6 +107,30 @@ const readDatasetOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
 
   try {
     ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlByUrn(urn) }));
+    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
+  } catch (e) {
+    if (notFoundApiError(e)) {
+      return { owners, fromUpstream, datasetUrn };
+    } else {
+      throw e;
+    }
+  }
+};
+
+/**
+ * For the specific dataset, fetches the system suggested owners for that dataset
+ * @param urn - unique identifier for the dataset
+ * @return {Promise<Array<IOwner>>}
+ */
+const readDatasetSuggestedOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
+  let owners: Array<IOwner> = [],
+    fromUpstream = false,
+    datasetUrn = '';
+
+  try {
+    ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({
+      url: datasetSuggestedOwnersUrlByUrn(urn)
+    }));
     return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
   } catch (e) {
     if (notFoundApiError(e)) {
@@ -228,6 +258,7 @@ const readPartyEntitiesMap = (partyEntities: Array<IPartyEntity>): IUserEntityMa
 
 export {
   readDatasetOwnersByUrn,
+  readDatasetSuggestedOwnersByUrn,
   updateDatasetOwnersByUrn,
   readDatasetOwnerTypesWithoutConsumer,
   readPartyEntities,
