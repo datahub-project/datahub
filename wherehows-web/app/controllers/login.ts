@@ -49,12 +49,14 @@ export default class Login extends Controller {
     authenticateUser(this: Login): void {
       const { username, password, banners } = getProperties(this, ['username', 'password', 'banners']);
 
-      // Once user has chosen to authenticate, then we remove the login banner (if it exists) since it will
-      // no longer be relevant
-      banners.removeBanner(twoFABannerMessage, twoFABannerType);
-
       get(this, 'session')
         .authenticate('authenticator:custom-ldap', username, password)
+        .then(results => {
+          // Once user has chosen to authenticate, then we remove the login banner (if it exists) since it will
+          // no longer be relevant
+          banners.removeBanner(twoFABannerMessage, twoFABannerType);
+          return results;
+        })
         .catch(({ responseText = 'Bad Credentials' }) => setProperties(this, { errorMessage: responseText }));
     }
   };
