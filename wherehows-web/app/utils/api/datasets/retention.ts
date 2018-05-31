@@ -10,7 +10,7 @@ import { encodeUrn } from 'wherehows-web/utils/validators/urn';
  * @param {string} urn the urn for the dataset
  * @return {string}
  */
-const datasetRetentionUrlByUrn = (urn: string): string => `${encodeUrn(datasetUrlByUrn(urn))}/retention`;
+const datasetRetentionUrlByUrn = (urn: string): string => `${datasetUrlByUrn(encodeUrn(urn))}/retention`;
 
 /**
  * Fetches the list of retention policy for a dataset by urn
