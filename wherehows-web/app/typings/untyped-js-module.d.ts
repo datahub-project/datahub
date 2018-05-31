@@ -24,6 +24,7 @@ declare module 'ember-simple-auth/authenticators/base' {
  */
 declare module 'ember' {
   export namespace Ember {
+    // eslint-disable-next-line typescript/interface-name-prefix
     interface Transition {
       params: {
         [key: string]: any;
@@ -52,10 +53,6 @@ declare module 'ember-inflector' {
   export { singularize, pluralize };
 }
 
-declare module 'wherehows-web/utils/datasets/compliance-policy' {
-  export const isPolicyExpectedShape: (policy: object) => boolean;
-}
-
 declare module 'ember-cli-mirage';
 
 // https://github.com/ember-cli/ember-fetch/issues/72
@@ -74,6 +71,7 @@ declare module 'scrollmonitor';
  * Merges global type defs for global modules on the window namespace.
  * These should be refactored into imported modules if available or shimmed as such
  */
+// eslint-disable-next-line typescript/interface-name-prefix
 interface Window {
   marked(param: string): { htmlSafe: () => string };
 
@@ -98,6 +96,7 @@ interface Window {
 /**
  * Merges the JSONView plugin into the jquery interface
  */
+// eslint-disable-next-line typescript/interface-name-prefix
 interface JQuery {
   JSONView(json: object): this;
   treegrid(): this;
