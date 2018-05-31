@@ -33,7 +33,7 @@ const datasetClassificationPropType = (prop: string): IMetadataType => ({
 
 /**
  * Defines the shape of the dataset compliance metadata json object using the IMetadataType interface
- * @type {({'@type': string; '@name': string; '@props': Array<IMetadataType>} | {'@type': string; '@name': string; '@props': ({'@name': string; '@type': string} | {'@name': string; '@type': string[]} | {'@name': string; '@type': string[]; '@symbols': any[]} | {'@type': string[]; '@name': string})[]})[]}
+ * @type {Array<IMetadataType>}
  */
 const complianceMetadataTaxonomy: Array<IMetadataType> = [
   {
@@ -71,6 +71,18 @@ const complianceMetadataTaxonomy: Array<IMetadataType> = [
         '@type': ['string', 'null']
       }
     ]
+  },
+  {
+    '@type': ['string', 'null'],
+    '@name': 'compliancePurgeNote'
+  },
+  {
+    '@type': 'string',
+    '@name': 'complianceType'
+  },
+  {
+    '@type': ['string', 'null'],
+    '@name': 'confidentiality'
   }
 ];
 
@@ -104,11 +116,13 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
   const innerType = metadataType['@props'];
 
   if (type.includes('object') && isObject(value)) {
+    // recurse on object properties
     return rootValueEquiv && keysEquiv(value, innerType!);
   }
 
   if (type.includes('array') && Array.isArray(value)) {
     return (
+      // recursively reduce on array elements
       rootValueEquiv &&
       arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
     );
