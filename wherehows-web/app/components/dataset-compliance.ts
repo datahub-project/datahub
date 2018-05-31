@@ -1173,8 +1173,7 @@ export default class DatasetCompliance extends Component {
         });
       }
 
-      const policy = Object.assign(
-        {},
+      const metadataJson = JSON.stringify(
         getProperties(currentPolicy, [
           'datasetClassification',
           'complianceEntities',
@@ -1183,7 +1182,7 @@ export default class DatasetCompliance extends Component {
           'confidentiality'
         ])
       );
-      const href = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(policy))}`;
+      const href = `data:text/json;charset=utf-8,${encodeURIComponent(metadataJson)}`;
       const download = `${get(this, 'datasetName')}_policy.json`;
       const anchor = document.createElement('a');
       const anchorParent = document.body;
