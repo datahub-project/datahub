@@ -63,18 +63,26 @@ public class Application extends Controller {
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
-  private static final Boolean HTTPS_REDIRECT =
-      Play.application().configuration().getBoolean("https.redirect", false);
+  private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
 
-  private static final String WHZ_WIKI_LINKS__GDRP_PII = Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "")
-  private static final String WHZ_WIKI_LINKS__TMS_SCHEMA = Play.application().configuration().getString("linkedin.links.wiki.tmsSchema", "")
-  private static final String WHZ_WIKI_LINKS__GDPR_TAXONOMY = Play.application().configuration().getString("linkedin.links.wiki.gdprTaxonomy", "")
-  private static final String WHZ_WIKI_LINKS__STALE_SEARCH_INDEX = Play.application().configuration().getString("linkedin.links.wiki.staleSearchIndex", "")
-  private static final String WHZ_WIKI_LINKS__DHT = Play.application().configuration().getString("linkedin.links.wiki.dht", "")
-  private static final String WHZ_WIKI_LINKS__PURGE_POLICIES = Play.application().configuration().getString("linkedin.links.wiki.purgePolicies", "")
-  private static final String WHZ_WIKI_LINKS__JIT_ACL_FAQ = Play.application().configuration().getString("linkedin.links.wiki.jitAcl", "")
-  private static final String WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX = Play.application().configuration().getString("linkedin.links.wiki.metadataCustomRegex", "")
-  private static final String WHZ_WIKI_LINKS__COMPLIANCE_OWNER  = Play.application().configuration().getString("linkedin.links.wiki.complianceOwner", "")
+  private static final String WHZ_WIKI_LINKS__GDRP_PII =
+      Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "");
+  private static final String WHZ_WIKI_LINKS__TMS_SCHEMA =
+      Play.application().configuration().getString("linkedin.links.wiki.tmsSchema", "");
+  private static final String WHZ_WIKI_LINKS__GDPR_TAXONOMY =
+      Play.application().configuration().getString("linkedin.links.wiki.gdprTaxonomy", "");
+  private static final String WHZ_WIKI_LINKS__STALE_SEARCH_INDEX =
+      Play.application().configuration().getString("linkedin.links.wiki.staleSearchIndex", "");
+  private static final String WHZ_WIKI_LINKS__DHT =
+      Play.application().configuration().getString("linkedin.links.wiki.dht", "");
+  private static final String WHZ_WIKI_LINKS__PURGE_POLICIES =
+      Play.application().configuration().getString("linkedin.links.wiki.purgePolicies", "");
+  private static final String WHZ_WIKI_LINKS__JIT_ACL_FAQ =
+      Play.application().configuration().getString("linkedin.links.wiki.jitAcl", "");
+  private static final String WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX =
+      Play.application().configuration().getString("linkedin.links.wiki.metadataCustomRegex", "");
+  private static final String WHZ_WIKI_LINKS__COMPLIANCE_OWNER =
+      Play.application().configuration().getString("linkedin.links.wiki.complianceOwner", "");
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
