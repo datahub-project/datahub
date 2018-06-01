@@ -4,7 +4,7 @@ RUN apt-get update && \
     apt-get install -y wget curl
 
 # Variables
-ENV ES_PKG_NAME elasticsearch-5.5.1
+ENV ES_PKG_NAME elasticsearch-5.6.8
 ENV ELASTICSEARCH_SERVER_URL "http://localhost:9200"
 ENV PATH /usr/share/elasticsearch/bin:$PATH
 ENV ES_JAVA_OPTS "-Xms1g -Xmx1g"
