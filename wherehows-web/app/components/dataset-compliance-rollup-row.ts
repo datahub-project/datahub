@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import ComputedProperty, { alias, equal, bool, mapBy } from '@ember/object/computed';
-import { get, set, getWithDefault, getProperties, computed } from '@ember/object';
+import { get, getWithDefault, getProperties, computed } from '@ember/object';
 import { action } from '@ember-decorators/object';
 import {
   IComplianceChangeSet,
@@ -63,13 +63,6 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   complianceDataTypes: Array<IComplianceDataType>;
 
   /**
-   * Flag indicating if the row is expanded or collapsed
-   * @type {boolean}
-   * @memberof DatasetComplianceRollupRow
-   */
-  isRowExpanded: boolean | void;
-
-  /**
    * Flag indicating the field has a readonly attribute
    * @type ComputedProperty<boolean>
    * @memberof DatasetComplianceRollupRow
@@ -98,18 +91,6 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @memberof DatasetComplianceRollupRow
    */
   field: IdentifierFieldWithFieldChangeSetTuple;
-
-  constructor() {
-    super(...arguments);
-
-    const { isRowDirty, isReviewRequested } = getProperties<
-      { isRowDirty: boolean; isReviewRequested: boolean },
-      'isRowDirty' | 'isReviewRequested'
-    >(this, ['isRowDirty', 'isReviewRequested']);
-
-    // if any tag is dirty or requires review, then expand the parent row on instantiation
-    this.isRowExpanded || (this.isRowExpanded = isRowDirty || isReviewRequested);
-  }
 
   /**
    * References the first item in the IdentifierFieldWithFieldChangeSetTuple tuple, which is the field name
@@ -262,15 +243,6 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   }
 
   /**
-   * Toggles the expansion / collapse of the row expansion flag
-   * @memberof DatasetComplianceRollupRow
-   */
-  @action
-  onToggleRowExpansion() {
-    this.toggleProperty('isRowExpanded');
-  }
-
-  /**
    * Invokes the external action to edit the compliance policy and expands the clicked row
    * for editing
    * @param {() => void} externalEditAction
@@ -278,7 +250,6 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   @action
   onEditPolicy(this: DatasetComplianceRollupRow, externalEditAction: () => void) {
     externalEditAction();
-    set(this, 'isRowExpanded', true);
   }
 
   /**
@@ -307,9 +278,6 @@ export default class DatasetComplianceRollupRow extends Component.extend({
         })
       );
     }
-
-    // expand row on click
-    set(this, 'isRowExpanded', true);
   }
 
   /**

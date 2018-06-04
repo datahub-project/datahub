@@ -1,6 +1,5 @@
 {{yield (hash
           cell=(component 'dataset-table-cell')
-          isRowExpanded=isRowExpanded
           fieldChangeSet=fieldChangeSet
           identifierField=identifierField
           dataType=dataType
@@ -16,7 +15,6 @@
           suggestionMatchesCurrentValue=suggestionMatchesCurrentValue
           onFragmentDblClick=(action "onFragmentDblClick")
           onSuggestionClick=(action "onSuggestionClick")
-          onToggleRowExpansion=(action "onToggleRowExpansion")
           onAddFieldTag=(action "onAddFieldTag")
           onRemoveFieldTag=(action "onRemoveFieldTag")
           onEditPolicy=(action "onEditPolicy")

@@ -1,30 +1,32 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { set, get, getProperties, computed } from '@ember/object';
-import { ComplianceFieldIdValue, idTypeFieldHasLogicalType, isTagIdType } from 'wherehows-web/constants';
+import {
+  ComplianceFieldIdValue,
+  idTypeFieldHasLogicalType,
+  isTagIdType,
+  NonIdLogicalType
+} from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
   IComplianceFieldFormatOption,
-  IComplianceFieldIdentifierOption,
-  IDropDownOption
+  IComplianceFieldIdentifierOption
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { action } from '@ember-decorators/object';
 import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 
 /**
- * Constant definition for an unselected field format
- * @type {IDropDownOption<null>}
+ * Defines the object properties for instances of IQuickDesc
+ * @interface IQuickDesc
  */
-const unSelectedFieldFormatValue: IDropDownOption<null> = {
-  value: null,
-  label: 'Select Field Format...',
-  isDisabled: true
-};
+interface IQuickDesc {
+  title: string;
+  description?: string;
+}
 
 export default class DatasetComplianceFieldTag extends Component {
-  tagName = 'tr';
-
+  classNames = ['dataset-compliance-fields__field-tag'];
   /**
    * Describes action interface for `onTagIdentifierTypeChange` action
    * @memberof DatasetComplianceFieldTag
@@ -67,6 +69,14 @@ export default class DatasetComplianceFieldTag extends Component {
   valuePatternError: string = '';
 
   /**
+   * References the properties to be shown in the field tag description / help
+   * window when an item that has quickDesc properties is interacted with
+   * @type {IQuickDesc | null}
+   * @memberof DatasetComplianceFieldTag
+   */
+  quickDesc: IQuickDesc | null = null;
+
+  /**
    * Reference to the compliance data types
    * @type {Array<IComplianceDataType>}
    */
@@ -83,7 +93,7 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {ComputedProperty<Array<IComplianceFieldIdentifierOption>>}
    * @memberof DatasetComplianceFieldTag
    */
-  fieldIdDropDownOptions = computed('hasSingleTag', function(
+  tagIdOptions = computed('hasSingleTag', function(
     this: DatasetComplianceFieldTag
   ): Array<IComplianceFieldIdentifierOption> {
     const { parentHasSingleTag, complianceFieldIdDropdownOptions: allOptions } = getProperties(this, [
@@ -127,11 +137,7 @@ export default class DatasetComplianceFieldTag extends Component {
 
     if (complianceDataType && isIdType) {
       const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
-      const supportedFormatOptions = supportedFieldFormats.map(format => ({ value: format, label: format }));
-
-      return supportedFormatOptions.length
-        ? [unSelectedFieldFormatValue, ...supportedFormatOptions]
-        : supportedFormatOptions;
+      return supportedFieldFormats.map(format => ({ value: format, label: format }));
     }
 
     return fieldFormatOptions;
@@ -159,6 +165,16 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
+   * Applies the argument to the quickDesc property or nullifies
+   * it if the argument is not provided
+   * @param {DatasetComplianceFieldTag.quickDesc} quickDesc
+   * @memberof DatasetComplianceFieldTag
+   */
+  setQuickDesc(quickDesc: DatasetComplianceFieldTag['quickDesc'] = null) {
+    set(this, 'quickDesc', quickDesc);
+  }
+
+  /**
    * Sets the value of the pattern error string after p
    * @param {string} errorString
    */
@@ -168,23 +184,24 @@ export default class DatasetComplianceFieldTag extends Component {
 
   /**
    * Handles UI changes to the tag identifierType
-   * @param {{ value: ComplianceFieldIdValue }} { value }
+   * @param {ComplianceFieldIdValue} value
    */
   @action
-  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, { value }: { value: ComplianceFieldIdValue | null }) {
+  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, value: ComplianceFieldIdValue) {
     const onTagIdentifierTypeChange = get(this, 'onTagIdentifierTypeChange');
 
     if (typeof onTagIdentifierTypeChange === 'function') {
+      this.setQuickDesc();
       onTagIdentifierTypeChange(get(this, 'tag'), { value });
     }
   }
 
   /**
    * Handles the updates when the tag's logical type changes on this tag
-   * @param {(IComplianceChangeSet['logicalType'])} value contains the selected drop-down value
+   * @param {IdLogicalType} value contains the selected drop-down value
    */
   @action
-  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, { value }: { value: IComplianceChangeSet['logicalType'] }) {
+  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, value: IdLogicalType) {
     const onTagLogicalTypeChange = get(this, 'onTagLogicalTypeChange');
 
     if (typeof onTagLogicalTypeChange === 'function') {
@@ -198,8 +215,7 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   @action
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
-    // inverts the value of nonOwner, toggle is shown in the UI as `Owner` i.e. not nonOwner
-    get(this, 'onTagOwnerChange')(get(this, 'tag'), !nonOwner);
+    get(this, 'onTagOwnerChange')(get(this, 'tag'), nonOwner);
   }
 
   /**
@@ -219,5 +235,32 @@ export default class DatasetComplianceFieldTag extends Component {
     } catch (e) {
       this.setPatternErrorString(e.toString());
     }
+  }
+
+  /**
+   * Sets the quickDesc property when the onmouseenter event is triggered for a
+   * field tag
+   * @param {ComplianceFieldIdValue | NonIdLogicalType} value
+   */
+  @action
+  onFieldTagIdentifierEnter(
+    this: DatasetComplianceFieldTag,
+    { value }: { value: ComplianceFieldIdValue | NonIdLogicalType }
+  ) {
+    const complianceDataType = get(this, 'complianceDataTypes').findBy('id', value);
+
+    if (complianceDataType) {
+      const { title, description } = complianceDataType;
+      this.setQuickDesc({ title, description });
+    }
+  }
+
+  /**
+   * Clears the quickDesc property when the onmouseeleave event is
+   * triggered for a field tag
+   */
+  @action
+  onFieldTagIdentifierLeave(this: DatasetComplianceFieldTag) {
+    this.setQuickDesc();
   }
 }
