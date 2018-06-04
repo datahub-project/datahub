@@ -3,13 +3,14 @@ import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
 import { notFoundApiError } from 'wherehows-web/utils/api';
 import { fleece } from 'wherehows-web/utils/object';
+import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
  * Constructs the url for a datasets retention policy
  * @param {string} urn the urn for the dataset
  * @return {string}
  */
-const datasetRetentionUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/retention`;
+const datasetRetentionUrlByUrn = (urn: string): string => `${datasetUrlByUrn(encodeUrn(urn))}/retention`;
 
 /**
  * Fetches the list of retention policy for a dataset by urn
