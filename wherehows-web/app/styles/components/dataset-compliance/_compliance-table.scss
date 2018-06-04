@@ -3,9 +3,30 @@
   $compliance-readonly-color: get-color(red7);
   $compliance-review-required-color: get-color(blue5);
   $compliance-ok-color: get-color(green5);
-  @mixin select-wrapper {
-    max-width: item-spacing(9) * 2;
+
+  @mixin mimic-select {
+    $color: set-color(grey, light);
+    $default-border: (1px solid shade($color, 20%));
+    max-width: item-spacing(9) * 3;
     display: inline-flex;
+    align-items: center;
+    height: 34px;
+    width: 100%;
+    border: $default-border;
+    border-radius: 2px;
+    background-color: set-color(white, base);
+    padding: item-spacing(0 4 0);
+    position: relative;
+
+    &:after {
+      color: shade($color, 20%);
+      content: '\e259';
+      font-weight: normal;
+      pointer-events: none;
+      font-family: $glyphicons-stack;
+      position: absolute;
+      right: item-spacing(2);
+    }
   }
 
   &__has-suggestions {
@@ -96,6 +117,92 @@
     }
   }
 
+  &__guided-modal {
+    @include nacho-container;
+    height: item-spacing(8) * 5;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+  }
+
+  &__tag-radio {
+    width: 100%;
+    padding: item-spacing(1 4 0);
+
+    .ember-radio-button {
+      color: get-color(black, 0.6);
+      left: 0;
+
+      &::before,
+      &::after {
+        display: none;
+      }
+    }
+
+    &:hover {
+      background-color: get-color(gray1);
+    }
+
+    &--disabled {
+      &:hover {
+        background-color: transparent;
+      }
+
+      .ember-radio-button {
+        color: black;
+        font-weight: fw(normal, 6);
+      }
+    }
+
+    &--checked {
+      background-color: get-color(blue0);
+
+      .ember-radio-button {
+        color: get-color(blue7);
+      }
+    }
+  }
+
+  &__compliance-info-column {
+    display: flex;
+    flex-direction: column;
+
+    &__title {
+      padding: item-spacing(3);
+      background-color: get-color(slate1);
+      border-right: 1px solid get-color(slate2);
+    }
+
+    &__content {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: item-spacing(4 0);
+      overflow-y: scroll;
+      overflow-x: hidden;
+      border-right: 1px solid get-color(slate2);
+    }
+  }
+
+  &__tag-info {
+    padding: item-spacing(1);
+    margin-bottom: item-spacing(2);
+
+    &--editable {
+      @include mimic-select;
+      padding: item-spacing(0 5 0 4);
+    }
+
+    &__text {
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+    }
+  }
+
   &__rollup-toggle {
     &#{&} {
       color: get-color(slate10);
@@ -104,8 +211,6 @@
 
   &__remove-tag {
     &#{&} {
-      font-weight: fw(normal, 2);
-      font-size: item-spacing(6);
       background-color: transparent;
       text-align: center;
       text-decoration: none;
@@ -117,68 +222,13 @@
     }
   }
 
-  &__select-wrapper {
-    @include select-wrapper;
-  }
-
-  &__identifier-select {
-    $border: 1px solid get-color(black, 0.7);
-
-    @include select-wrapper;
-    position: relative;
-
-    &:before {
-      content: ' ';
-      display: block;
-      position: absolute;
-      width: item-spacing(2);
-      height: 50%;
-      border-bottom: $border;
-      border-left: $border;
-      top: 2px;
-      left: -(item-spacing(3));
-    }
-  }
-
-  &__tag-options {
+  &__field-tag {
+    height: 100%;
     display: flex;
-    align-items: center;
-    white-space: nowrap;
-  }
 
-  &__tag-label {
-    margin: item-spacing(0 2);
-    font-weight: fw(normal, 2);
-    height: item-spacing(6);
-    display: inline-flex;
-    align-items: center;
-    position: relative;
-
-    &:before {
-      content: ' ';
-      display: block;
-      position: absolute;
-      width: 1px;
-      height: 100%;
-      border-left: 1px solid get-color(black, 0.3);
-      top: 0;
-      left: -(item-spacing(3));
-    }
-
-    & ~ & {
-      margin-left: item-spacing(6);
-    }
-  }
-
-  &__tag-row {
-    background-color: get-color(gray0);
-    font-size: item-spacing(3) * 1.083333;
-
-    &#{&} {
-      td {
-        border-bottom: 0;
-        height: item-spacing(8);
-      }
+    &__quick-desc {
+      padding: item-spacing(4);
+      max-width: item-spacing(8) * 4;
     }
   }
 
@@ -212,23 +262,10 @@
 
   &__text-pattern-wrap {
     $error-font-size: 12px;
-    $wrap-width: 280px;
-
-    width: $wrap-width;
-    margin-left: item-spacing(2);
+    padding: item-spacing(0 4);
     position: relative;
     display: flex;
     flex-direction: column;
-
-    &--input {
-      &:before,
-      &:after {
-        content: '/';
-        color: get-color(blue5);
-        font-size: large;
-        font-weight: bold;
-      }
-    }
 
     &--error {
       font-size: $error-font-size;
@@ -239,27 +276,17 @@
   }
 
   &__text-pattern {
-    $input-width: 260px;
     padding: (item-spacing(3) / 2) item-spacing(2);
     white-space: pre;
     font-family: monospace;
-    width: $input-width;
     outline: none;
   }
 
   &__id-field-wrap {
     display: flex;
-    max-width: 100%;
-
-    &__edit {
-      display: flex;
-      align-items: center;
-    }
-
-    &__prop {
-      width: 100%;
-      overflow: hidden;
-    }
+    flex-direction: column;
+    width: 100%;
+    overflow: hidden;
   }
 }
 

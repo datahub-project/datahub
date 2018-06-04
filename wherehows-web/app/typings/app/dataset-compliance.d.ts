@@ -4,7 +4,7 @@ import {
   ISuggestedFieldClassification,
   IComplianceSuggestion
 } from 'wherehows-web/typings/api/datasets/compliance';
-import { SuggestionIntent } from 'wherehows-web/constants';
+import { NonIdLogicalType, SuggestionIntent } from 'wherehows-web/constants';
 import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 
 /**
@@ -115,23 +115,23 @@ interface IDropDownOption<T> {
  * @interface IComplianceFieldIdentifierOption
  * @extends {IDropDownOption<ComplianceFieldIdValue>}
  */
-interface IComplianceFieldIdentifierOption extends IDropDownOption<ComplianceFieldIdValue> {
+interface IComplianceFieldIdentifierOption extends IDropDownOption<ComplianceFieldIdValue | NonIdLogicalType> {
   isId: boolean;
 }
 
 /**
  * Defines the interface for a compliance field format dropdown option
- * @interface IComplianceFieldFormatOption
+ * @alias IComplianceFieldFormatOption
  * @extends {(IDropDownOption<IdLogicalType | null>)}
  */
-interface IComplianceFieldFormatOption extends IDropDownOption<IdLogicalType | null> {}
+type IComplianceFieldFormatOption = IDropDownOption<IdLogicalType | null>;
 
 /**
  * Defines the interface for an each security classification dropdown option
- * @interface ISecurityClassificationOption
+ * @alias ISecurityClassificationOption
  * @extends {(IDropDownOption<Classification | null>)}
  */
-interface ISecurityClassificationOption extends IDropDownOption<Classification | null> {}
+type ISecurityClassificationOption = IDropDownOption<Classification | null>;
 
 /**
  * Defines the applicable string values for compliance fields drop down filter
