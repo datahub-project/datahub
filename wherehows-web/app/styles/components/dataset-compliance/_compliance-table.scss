@@ -79,8 +79,10 @@
     }
 
     &__icon {
-      color: $compliance-readonly-color;
-      opacity: 0.9;
+      &#{&} {
+        color: $compliance-readonly-color;
+        opacity: 0.9;
+      }
     }
   }
 

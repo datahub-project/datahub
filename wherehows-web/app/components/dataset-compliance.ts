@@ -930,6 +930,28 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
+     * Falsifies the readonly attribute on a compliance policy changeSet tag
+     * @param {IComplianceChangeSet} tag the IComplianceChangeSet instance
+     */
+    async overrideReadonlyTag(this: DatasetCompliance, tag: IComplianceChangeSet): Promise<void> {
+      const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
+
+      get(this, 'notifications').notify(NotificationEvent.confirm, {
+        header: 'Are you sure you would like to modify this field?',
+        content:
+          "This field's compliance information is currently readonly, please confirm if you would like to override this value",
+        dialogActions
+      });
+
+      try {
+        await dismissedOrConfirmed;
+        setProperties(tag, { ...tag, readonly: false });
+      } catch (e) {
+        return;
+      }
+    },
+
+    /**
      * When a user updates the identifierFieldType, update working copy
      * @param {IComplianceChangeSet} tag
      * @param {ComplianceFieldIdValue} identifierType

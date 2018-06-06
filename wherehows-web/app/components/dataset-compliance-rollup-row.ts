@@ -45,6 +45,12 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   onFieldTagRemoved: (tag: IComplianceChangeSet) => void;
 
   /**
+   * References the parent external action to remove the readonly property on a tag
+   * @memberof DatasetComplianceRollupRow
+   */
+  onTagReadOnlyDisable: (tag: IComplianceChangeSet) => void;
+
+  /**
    * Describes action interface for `onSuggestionIntent` action
    * @memberof DatasetComplianceRollupRow
    */
@@ -291,6 +297,20 @@ export default class DatasetComplianceRollupRow extends Component.extend({
 
     if (typeof onFieldTagRemoved === 'function' && !get(this, 'hasSingleTag')) {
       onFieldTagRemoved(tag);
+    }
+  }
+
+  /**
+   * Handles the falsifying of a field's readonly attribute
+   * @param {IComplianceChangeSet} tag
+   * @memberof DatasetComplianceRollupRow
+   */
+  @action
+  onEditReadonlyTag(tag: IComplianceChangeSet) {
+    const onTagReadOnlyDisable = get(this, 'onTagReadOnlyDisable');
+
+    if (typeof onTagReadOnlyDisable === 'function') {
+      onTagReadOnlyDisable(tag);
     }
   }
 
