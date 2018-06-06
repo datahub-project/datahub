@@ -126,12 +126,15 @@
   }
 
   &__tag-radio {
+    $hover-state: get-color(gray1);
+
     width: 100%;
-    padding: item-spacing(1 4 0);
+    padding: item-spacing(1 2 0 4);
 
     .ember-radio-button {
       color: get-color(black, 0.6);
       left: 0;
+      width: 100%;
 
       &::before,
       &::after {
@@ -140,7 +143,7 @@
     }
 
     &:hover {
-      background-color: get-color(gray1);
+      background-color: $hover-state;
     }
 
     &--disabled {
@@ -156,6 +159,10 @@
 
     &--checked {
       background-color: get-color(blue0);
+
+      &:hover {
+        background-color: $hover-state;
+      }
 
       .ember-radio-button {
         color: get-color(blue7);

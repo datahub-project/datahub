@@ -210,8 +210,10 @@
                                   value=tagOption.value
                                   name="datasetFieldClassification"
                                   groupValue=(readonly tag.identifierType)
-                                  disabled=tagOption.isDisabled
                                   class="dataset-compliance-fields__tag-radio"
+                                  disabled=tagOption.isDisabled
+                                  disabledClass="dataset-compliance-fields__tag-radio--disabled"
+                                  checkedClass="dataset-compliance-fields__tag-radio--checked"
                                   onMouseEnter=(action tagRowComponent.onFieldTagIdentifierEnter)
                                   onMouseLeave=(action tagRowComponent.onFieldTagIdentifierLeave)
                                   changed=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))}}
@@ -256,6 +258,7 @@
                                       name="datasetFieldFieldFormat"
                                       groupValue=(readonly tag.logicalType)
                                       class="dataset-compliance-fields__tag-radio"
+                                      checkedClass="dataset-compliance-fields__tag-radio--checked"
                                       changed=(action metrics.trackOnAction (action tagRowComponent.tagLogicalTypeDidChange))}}
                                       {{fieldFormat.label}}
                                     {{/radio-button-composer}}
@@ -315,6 +318,7 @@
                                     name="datasetFieldOwnerToggle"
                                     groupValue=(readonly tag.nonOwner)
                                     class="dataset-compliance-fields__tag-radio"
+                                    checkedClass="dataset-compliance-fields__tag-radio--checked"
                                     changed=(action tagRowComponent.tagOwnerDidChange)}}
                                     Yes
                                   {{/radio-button-composer}}
@@ -324,6 +328,7 @@
                                     name="datasetFieldOwnerToggle"
                                     groupValue=(readonly tag.nonOwner)
                                     class="dataset-compliance-fields__tag-radio"
+                                    checkedClass="dataset-compliance-fields__tag-radio--checked"
                                     changed=(action tagRowComponent.tagOwnerDidChange)}}
                                     No
                                   {{/radio-button-composer}}

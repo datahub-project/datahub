@@ -3,7 +3,7 @@ import ComputedProperty from '@ember/object/computed';
 import { set, get, getProperties, computed } from '@ember/object';
 import {
   ComplianceFieldIdValue,
-  idTypeFieldHasLogicalType,
+  idTypeTagHasLogicalType,
   isTagIdType,
   NonIdLogicalType
 } from 'wherehows-web/constants';
@@ -161,7 +161,7 @@ export default class DatasetComplianceFieldTag extends Component {
    * @memberof DatasetComplianceFieldTag
    */
   isTagFormatMissing = computed('isIdType', 'tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
-    return get(this, 'isIdType') && !idTypeFieldHasLogicalType(get(this, 'tag'));
+    return get(this, 'isIdType') && !idTypeTagHasLogicalType(get(this, 'tag'));
   });
 
   /**
