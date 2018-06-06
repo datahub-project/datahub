@@ -369,6 +369,7 @@
                     {{#if row.isReadonly}}
                       <span class="nacho-tooltip" title="Readonly">
                         <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
+                                disabled={{not isEditing}}
                                 onclick={{action row.onEditReadonlyTag tag}}>
                           {{fa-icon "lock"}}
                         </button>
