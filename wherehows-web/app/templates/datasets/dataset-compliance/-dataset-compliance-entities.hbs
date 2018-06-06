@@ -111,46 +111,39 @@
           onFieldDblClick=(action "onFieldDblClick")
           onFieldTagAdded=(action "onFieldTagAdded")
           onFieldTagRemoved=(action "onFieldTagRemoved")
+          onTagReadOnlyDisable=(action "overrideReadonlyTag")
           onTagIdentifierTypeChange=(action "tagIdentifierChanged")
           onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
         }}
           <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
             row.onFragmentDblClick}}>
             {{#row.cell}}
-              {{#if row.isReadonly}}
+              {{#if
+                (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
 
-                <span class="nacho-tooltip" title="Readonly">
-                  <i class="fa fa-lock dataset-compliance-fields--readonly__icon" title="Readonly"></i>
-                </span>
-
-              {{else}}
-                {{#if
-                  (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
-
-                  <span class="nacho-tooltip" title="Has suggestions">
+                <span class="nacho-tooltip" title="Has suggestions">
                     <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
                        title="Compliance field has suggested values"></i>
                   </span>
 
-                {{else}}
+              {{else}}
 
-                  {{#if row.isReviewRequested}}
+                {{#if row.isReviewRequested}}
 
-                    <span class="nacho-tooltip" title="Please review">
+                  <span class="nacho-tooltip" title="Please review">
                       <i class="fa fa-question dataset-compliance-fields--review-required__icon"
                          title="Compliance policy information needs review"></i>
                     </span>
 
-                  {{else}}
+                {{else}}
 
-                    <span class="nacho-tooltip" title="All good!">
+                  <span class="nacho-tooltip" title="All good!">
                       <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!"></i>
                     </span>
 
 
-                  {{/if}}
-
                 {{/if}}
+
               {{/if}}
             {{/row.cell}}
 
@@ -169,7 +162,6 @@
             {{/row.cell}}
 
             {{#row.cell}}
-            {{!--{{#if (and isEditing (and (not row.isReadonly) (not row.hasNoneTag)))}}--}}
               {{#if (and isEditing (not row.isReadonly))}}
                 {{#each row.fieldChangeSet as |tag|}}
 
@@ -373,6 +365,15 @@
 
                   <div class="dataset-compliance-fields__tag-info">
                     {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+
+                    {{#if row.isReadonly}}
+                      <span class="nacho-tooltip" title="Readonly">
+                        <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
+                                onclick={{action row.onEditReadonlyTag tag}}>
+                          {{fa-icon "lock"}}
+                        </button>
+                    </span>
+                    {{/if}}
                   </div>
 
                 {{/each}}
