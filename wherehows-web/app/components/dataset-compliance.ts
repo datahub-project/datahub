@@ -26,7 +26,7 @@ import {
   mergeComplianceEntitiesWithSuggestions,
   tagsRequiringReview,
   isTagIdType,
-  idTypeFieldsHaveLogicalType,
+  idTypeTagsHaveLogicalType,
   changeSetReviewableAttributeTriggers,
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
@@ -827,7 +827,7 @@ export default class DatasetCompliance extends Component {
     const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
 
     // Validation operations
-    const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
+    const idFieldsHaveValidLogicalType: boolean = idTypeTagsHaveLogicalType(idTypeComplianceEntities);
     const isSchemaFieldLengthGreaterThanUniqComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanUniqComplianceEntities();
 
     if (!isSchemaFieldLengthGreaterThanUniqComplianceEntities) {
