@@ -207,6 +207,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
       margin: 0;
+
+      &--obscure {
+        color: get-color(gray4);
+      }
     }
   }
 
