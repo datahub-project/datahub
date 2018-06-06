@@ -178,7 +178,14 @@
                       class="dataset-compliance-fields__tag-info dataset-compliance-fields__tag-info--editable"}}
 
                       <p class="dataset-compliance-fields__tag-info__text">
-                        {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+                        {{#if tag.identifierType}}
+                          {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+                        {{else}}
+                          <span
+                            class="dataset-compliance-fields__tag-info__text dataset-compliance-fields__tag-info__text--obscure">
+                          Select Field Type ...
+                          </span>
+                        {{/if}}
                       </p>
 
                     {{/tagDrop.trigger}}
