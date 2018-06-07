@@ -50,6 +50,10 @@ export interface IConfirmOptions {
   dismissButtonText?: string | false;
   // Text for button to confirm dialog action, if false, button will not be rendered
   confirmButtonText?: string | false;
+  // Text for the dialog toggle switch, only rendered if present
+  toggleText?: string;
+  // Handler for the toggle switch change
+  onDialogToggle?: (checked: boolean) => any;
   // Action handlers for dialog button on dismissal or otherwise
   dialogActions: {
     didConfirm: () => any;

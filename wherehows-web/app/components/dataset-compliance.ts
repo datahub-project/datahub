@@ -33,7 +33,8 @@ import {
   sortFoldedChangeSetTuples,
   tagsWithoutIdentifierType,
   singleTagsInChangeSet,
-  tagsForIdentifierField
+  tagsForIdentifierField,
+  overrideTagReadonly
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -108,6 +109,12 @@ export default class DatasetCompliance extends Component {
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: undefined | IComplianceInfo;
+
+  /**
+   * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
+   * @type {boolean}
+   */
+  doNotShowReadonlyConfirmation: boolean = false;
 
   /**
    * References the ComplianceFieldIdValue enum
@@ -930,22 +937,34 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Falsifies the readonly attribute on a compliance policy changeSet tag
+     * Disables the readonly attribute of a compliance policy changeSet tag,
+     * allowing the user to override properties on the tag
      * @param {IComplianceChangeSet} tag the IComplianceChangeSet instance
      */
-    async overrideReadonlyTag(this: DatasetCompliance, tag: IComplianceChangeSet): Promise<void> {
+    async onTagReadOnlyDisable(this: DatasetCompliance, tag: IComplianceChangeSet): Promise<void> {
       const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
+      const {
+        doNotShowReadonlyConfirmation,
+        notifications: { notify }
+      } = getProperties(this, ['doNotShowReadonlyConfirmation', 'notifications']);
 
-      get(this, 'notifications').notify(NotificationEvent.confirm, {
+      if (doNotShowReadonlyConfirmation) {
+        overrideTagReadonly(tag);
+        return;
+      }
+
+      notify(NotificationEvent.confirm, {
         header: 'Are you sure you would like to modify this field?',
         content:
           "This field's compliance information is currently readonly, please confirm if you would like to override this value",
-        dialogActions
+        dialogActions,
+        toggleText: 'Do not show this again for this dataset',
+        onDialogToggle: (doNotShow: boolean): boolean => set(this, 'doNotShowReadonlyConfirmation', doNotShow)
       });
 
       try {
         await dismissedOrConfirmed;
-        setProperties(tag, { ...tag, readonly: false });
+        overrideTagReadonly(tag);
       } catch (e) {
         return;
       }

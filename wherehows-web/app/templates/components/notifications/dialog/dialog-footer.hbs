@@ -7,6 +7,22 @@
           )}}
 {{else}}
 
+  {{#if (and toggleText onDialogToggle)}}
+    <div class="notification-confirm-modal__footer__secondary">
+      {{input
+        id="confirmation-toggle-input"
+        type="checkbox"
+        title=toggleText
+        class="toggle-switch toggle-switch--light"
+        change=(action onDialogToggle value="target.checked")
+      }}
+      <label for="confirmation-toggle-input" class="toggle-button">
+      </label>
+
+      <span class="confirmation-dialog-toggle-label">{{toggleText}}</span>
+    </div>
+  {{/if}}
+
   {{#unless (eq dismissButtonText false)}}
     <button class="nacho-button--large nacho-button--secondary" {{action onDismiss}}>
       {{dismissButtonText}}
