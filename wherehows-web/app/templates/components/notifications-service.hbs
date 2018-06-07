@@ -1,18 +1,17 @@
 {{#if service.isShowingModal}}
-  {{#confirm-dialog
-    header=service.modal.props.header
+  {{#notifications/dialog/confirm-dialog
     dismissButtonText=service.modal.props.dismissButtonText
     confirmButtonText=service.modal.props.confirmButtonText
+    toggleText=service.modal.props.toggleText
+    onDialogToggle=(action service.modal.props.onDialogToggle target=service)
     onConfirm=(action 'confirmModal' target=service)
-    onClose=(action 'dismissModal' target=service)}}
+    onClose=(action 'dismissModal' target=service) as |dialog|}}
+    {{dialog.header header=service.modal.props.header}}
 
-    {{#if service.modal.props.isHtml}}
-      {{service.modal.props.content}}
-    {{else}}
-      {{service.modal.props.content}}
-    {{/if}}
+    {{dialog.content content=service.modal.props.content}}
 
-  {{/confirm-dialog}}
+    {{dialog.footer}}
+  {{/notifications/dialog/confirm-dialog}}
 {{/if}}
 
 

@@ -47,6 +47,19 @@
       {{/track-ui-event}}
     </div>
   {{/if}}
+
+  {{#if isReadOnly}}
+    <div class="compliance-entities-meta__secondary">
+      <button
+        class="nacho-button nacho-button--tertiary"
+        onclick={{action "nextStep"}}>
+
+        <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
+
+        Edit
+      </button>
+    </div>
+  {{/if}}
 </section>
 
 {{#if foldedChangeSet.length}}
@@ -72,12 +85,11 @@
       {{#head.column class="nacho-table-cell-wrapped"}}
         System Suggestion & Confidence
       {{/head.column}}
-      {{#head.column class="dataset-compliance-fields__notification-column"}}{{/head.column}}
     {{/table.head}}
 
     <tr>
       <th>{{!--spacer--}}</th>
-      <th colspan="4">
+      <th colspan="3">
         <div class="dataset-compliance-fields__actions">
           {{disable-bubble-input
             title="Search field names"
@@ -99,92 +111,272 @@
           onFieldDblClick=(action "onFieldDblClick")
           onFieldTagAdded=(action "onFieldTagAdded")
           onFieldTagRemoved=(action "onFieldTagRemoved")
+          onTagReadOnlyDisable=(action "onTagReadOnlyDisable")
           onTagIdentifierTypeChange=(action "tagIdentifierChanged")
           onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
         }}
           <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
             row.onFragmentDblClick}}>
             {{#row.cell}}
-              {{#if row.isReadonly}}
+              {{#if
+                (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
 
-                <span class="nacho-tooltip" title="Readonly">
-                  <i class="fa fa-lock dataset-compliance-fields--readonly__icon" title="Readonly"></i>
-                </span>
-
-              {{else}}
-                {{#if
-                  (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
-
-                  <span class="nacho-tooltip" title="Has suggestions">
+                <span class="nacho-tooltip" title="Has suggestions">
                     <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
                        title="Compliance field has suggested values"></i>
                   </span>
 
-                {{else}}
+              {{else}}
 
-                  {{#if row.isReviewRequested}}
+                {{#if row.isReviewRequested}}
 
-                    <span class="nacho-tooltip" title="Please review">
+                  <span class="nacho-tooltip" title="Please review">
                       <i class="fa fa-question dataset-compliance-fields--review-required__icon"
                          title="Compliance policy information needs review"></i>
                     </span>
 
-                  {{else}}
+                {{else}}
 
-                    <span class="nacho-tooltip" title="All good!">
+                  <span class="nacho-tooltip" title="All good!">
                       <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!"></i>
                     </span>
 
 
-                  {{/if}}
-
                 {{/if}}
+
               {{/if}}
             {{/row.cell}}
 
             {{#row.cell}}
               <div class="dataset-compliance-fields__id-field-wrap">
-                {{#if (and isReadOnly (not row.isReadonly))}}
-                  <div class="dataset-compliance-fields__id-field-wrap__edit">
-                    <span class="nacho-tooltip" title="Edit Fields">
-                      <button
-                        class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
-                        onclick={{action row.onEditPolicy (action "nextStep")}}>
+                <div title="{{row.identifierField}}">
+                  <strong>
+                    {{if isShowingFullFieldNames row.identifierField (split-text row.identifierField 23)}}
+                  </strong>
+                </div>
 
-                        <i class="fa fa-pencil" aria-label="Edit Fields"></i>
-
-                      </button>
-                    </span>
-
-                  </div>
-                {{/if}}
-
-                <div class="dataset-compliance-fields__id-field-wrap__prop">
-                  <div title="{{row.identifierField}}">
-                    <strong>
-                      {{if isShowingFullFieldNames row.identifierField (split-text row.identifierField 23)}}
-                    </strong>
-                  </div>
-
-                  <div title="{{row.dataType}}">
-                    {{if isShowingFullFieldNames row.dataType (split-text row.dataType 23)}}
-                  </div>
+                <div title="{{row.dataType}}">
+                  {{if isShowingFullFieldNames row.dataType (split-text row.dataType 23)}}
                 </div>
               </div>
             {{/row.cell}}
 
             {{#row.cell}}
-              {{#if (and isEditing (and (not row.isReadonly) (not row.hasNoneTag)))}}
-                <button
-                  class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
-                  onclick={{action row.onAddFieldTag}}>
-                  + Add Field Tag
-                </button>
+              {{#if (and isEditing (not row.isReadonly))}}
+                {{#each row.fieldChangeSet as |tag|}}
+
+                  {{#basic-dropdown as |tagDrop|}}
+                    {{#tagDrop.trigger
+                      class="dataset-compliance-fields__tag-info dataset-compliance-fields__tag-info--editable"}}
+
+                      <p class="dataset-compliance-fields__tag-info__text">
+                        {{#if tag.identifierType}}
+                          {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+                        {{else}}
+                          <span
+                            class="dataset-compliance-fields__tag-info__text dataset-compliance-fields__tag-info__text--obscure">
+                          Select Field Type ...
+                          </span>
+                        {{/if}}
+                      </p>
+
+                    {{/tagDrop.trigger}}
+
+                    {{#tagDrop.content overlay=true class="dataset-compliance-fields__guided-modal"}}
+                      {{#dataset-compliance-field-tag
+                        tag=tag
+                        parentHasSingleTag=row.hasSingleTag
+                        onTagIdentifierTypeChange=(action "tagIdentifierChanged")
+                        onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
+                        onTagValuePatternChange=(action "tagValuePatternChanged")
+                        onTagOwnerChange=(action "tagOwnerChanged")
+                        complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
+                        complianceDataTypes=complianceDataTypes as |tagRowComponent|
+                      }}
+
+                        <section class="dataset-compliance-fields__compliance-info-column">
+                          <header class="dataset-compliance-fields__compliance-info-column__title">
+                            <strong>Select field type</strong>
+                          </header>
+
+                          <div class="dataset-compliance-fields__compliance-info-column__content">
+                            {{#track-ui-event category=trackableCategory.Compliance
+                                              action=trackableEvent.Compliance.FieldIndentifier
+                                              name=tag.identifierType as |metrics|}}
+
+                              {{#each tagRowComponent.tagIdOptions as |tagOption|}}
+                                {{#radio-button-composer
+                                  value=tagOption.value
+                                  name="datasetFieldClassification"
+                                  groupValue=(readonly tag.identifierType)
+                                  class="dataset-compliance-fields__tag-radio"
+                                  disabled=tagOption.isDisabled
+                                  disabledClass="dataset-compliance-fields__tag-radio--disabled"
+                                  checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                  onMouseEnter=(action tagRowComponent.onFieldTagIdentifierEnter)
+                                  onMouseLeave=(action tagRowComponent.onFieldTagIdentifierLeave)
+                                  changed=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))}}
+                                  {{tagOption.label}}
+                                {{/radio-button-composer}}
+                              {{/each}}
+
+                            {{/track-ui-event}}
+                          </div>
+                        </section>
+
+                        {{#if tagRowComponent.quickDesc}}
+
+                          <section class="dataset-compliance-fields__compliance-info-column">
+                            <div class="dataset-compliance-fields__field-tag__quick-desc">
+                              <strong>
+                                {{tagRowComponent.quickDesc.title}}:
+                              </strong>
+
+                              <p>
+                                {{tagRowComponent.quickDesc.description}}
+                              </p>
+                            </div>
+                          </section>
+
+                        {{else}}
+
+                          {{#if tagRowComponent.isIdType}}
+                            <section class="dataset-compliance-fields__compliance-info-column">
+                              <header class="dataset-compliance-fields__compliance-info-column__title">
+                                <strong>Select field format</strong>
+                              </header>
+
+                              <div class="dataset-compliance-fields__compliance-info-column__content">
+                                {{#track-ui-event category=trackableCategory.Compliance
+                                                  action=trackableEvent.Compliance.FieldFormat
+                                                  name=tag.logicalType as |metrics|}}
+
+                                  {{#each tagRowComponent.fieldFormats as |fieldFormat|}}
+                                    {{#radio-button-composer
+                                      value=fieldFormat.value
+                                      name="datasetFieldFieldFormat"
+                                      groupValue=(readonly tag.logicalType)
+                                      class="dataset-compliance-fields__tag-radio"
+                                      checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                      changed=(action metrics.trackOnAction (action tagRowComponent.tagLogicalTypeDidChange))}}
+                                      {{fieldFormat.label}}
+                                    {{/radio-button-composer}}
+                                  {{/each}}
+
+                                {{/track-ui-event}}
+                              </div>
+                            </section>
+
+                            {{#if tagRowComponent.showCustomInput}}
+                              <section class="dataset-compliance-fields__compliance-info-column">
+                                <header class="dataset-compliance-fields__compliance-info-column__title">
+                                  <strong>Custom RegEx</strong>
+                                </header>
+
+                                <div
+                                  class="dataset-compliance-fields__compliance-info-column__content">
+
+                                  <div class="dataset-compliance-fields__text-pattern-wrap">
+                                    <div class="dataset-compliance-fields__text-pattern-wrap--input">
+                                      <input
+                                        placeholder="Enter regex"
+                                        value="{{readonly tag.valuePattern}}"
+                                        disabled={{or (not isEditing) row.isReadonly}}
+                                          class="dataset-compliance-fields__text-pattern {{if
+                                      tagRowComponent.valuePatternError
+                                      'dataset-compliance-fields--missing-selection'}}"
+                                      oninput={{action tagRowComponent.tagValuePatternDidChange value="target.value"}}
+                                      >
+                                    </div>
+
+                                    {{more-info
+                                      link="http://go/metadata-custom-regex"
+                                      tooltip="Click for more information on RegExp format"
+                                    }}
+
+                                    {{#if tagRowComponent.valuePatternError}}
+                                      <div class="dataset-compliance-fields__text-pattern-wrap--error">
+                                        {{tagRowComponent.valuePatternError}}
+                                      </div>
+                                    {{/if}}
+                                  </div>
+                                </div>
+                              </section>
+                            {{/if}}
+
+                            {{#unless tagRowComponent.isTagFormatMissing}}
+                              <section class="dataset-compliance-fields__compliance-info-column">
+                                <header class="dataset-compliance-fields__compliance-info-column__title">
+                                  <strong>Has Ownership?</strong>
+                                </header>
+
+                                <div class="dataset-compliance-fields__compliance-info-column__content">
+
+                                  {{#radio-button-composer
+                                    value=false
+                                    name="datasetFieldOwnerToggle"
+                                    groupValue=(readonly tag.nonOwner)
+                                    class="dataset-compliance-fields__tag-radio"
+                                    checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                    changed=(action tagRowComponent.tagOwnerDidChange)}}
+                                    Yes
+                                  {{/radio-button-composer}}
+
+                                  {{#radio-button-composer
+                                    value=true
+                                    name="datasetFieldOwnerToggle"
+                                    groupValue=(readonly tag.nonOwner)
+                                    class="dataset-compliance-fields__tag-radio"
+                                    checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                    changed=(action tagRowComponent.tagOwnerDidChange)}}
+                                    No
+                                  {{/radio-button-composer}}
+                                </div>
+                              </section>
+                            {{/unless}}
+                          {{/if}}
+                        {{/if}}
+
+                      {{/dataset-compliance-field-tag}}
+                    {{/tagDrop.content}}
+                  {{/basic-dropdown}}
+
+                  {{#if (and isEditing (not row.hasSingleTag))}}
+                    <span class="nacho-tooltip" title="Delete Tag">
+                      <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
+                              onclick={{action row.onRemoveFieldTag tag}}>
+                        {{fa-icon "trash"}}
+                      </button>
+                    </span>
+                  {{/if}}
+                {{/each}}
+
+                {{#unless row.hasNoneTag}}
+                  <br>
+                  <button
+                    class="nacho-button nacho-button--tertiary dataset-compliance-fields__add-field"
+                    onclick={{action row.onAddFieldTag}}>
+                    + Add new
+                  </button>
+                {{/unless}}
+
               {{else}}
                 {{#each row.fieldChangeSet as |tag|}}
-                  <div>
-                    {{tag.identifierType}}
+
+                  <div class="dataset-compliance-fields__tag-info">
+                    {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+
+                    {{#if row.isReadonly}}
+                      <span class="nacho-tooltip" title="Readonly">
+                        <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
+                                disabled={{not isEditing}}
+                                onclick={{action row.onEditReadonlyTag tag}}>
+                          {{fa-icon "lock"}}
+                        </button>
+                    </span>
+                    {{/if}}
                   </div>
+
                 {{/each}}
               {{/if}}
             {{/row.cell}}
@@ -232,148 +424,7 @@
                 {{/if}}
               </div>
             {{/row.cell}}
-
-            {{#row.cell}}
-              <span class="nacho-tooltip" title="{{if row.isRowExpanded 'Collapse field' 'Expand field'}}">
-              <button
-                class="nacho-button nacho-button--tertiary dataset-compliance-fields__rollup-toggle"
-                onclick={{action row.onToggleRowExpansion}}>
-
-                {{#if row.isRowExpanded}}
-                  <i class="glyphicon glyphicon-menu-up" aria-label="Expand field"></i>
-                {{else}}
-                  <i class="glyphicon glyphicon-menu-down" aria-label="Collapse field"></i>
-                {{/if}}
-              </button>
-              </span>
-            {{/row.cell}}
           </tr>
-
-          {{#if row.isRowExpanded}}
-            {{#each row.fieldChangeSet as |tag|}}
-              {{#dataset-compliance-field-tag
-                class="dataset-compliance-fields__tag-row"
-                tag=tag
-                parentHasSingleTag=row.hasSingleTag
-                onTagIdentifierTypeChange=(action "tagIdentifierChanged")
-                onTagLogicalTypeChange=(action "tagLogicalTypeChanged")
-                onTagValuePatternChange=(action "tagValuePatternChanged")
-                onTagOwnerChange=(action "tagOwnerChanged")
-                complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
-                complianceDataTypes=complianceDataTypes as |tagRowComponent|
-              }}
-
-                {{#row.cell}}
-                {{!--spacer--}}
-                {{/row.cell}}
-
-                {{#row.cell class="dataset-compliance-fields__identifier-cell"}}
-                  <div class="dataset-compliance-fields__identifier-select">
-                    {{#track-ui-event category=trackableCategory.Compliance
-                                      action=trackableEvent.Compliance.FieldIndentifier
-                                      name=tag.identifierType as |metrics|}}
-                      {{ember-selector
-                        disabled=(or (not isEditing) row.isReadonly)
-                        values=tagRowComponent.fieldIdDropDownOptions
-                        selected=(readonly tag.identifierType)
-                        selectionDidChange=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))
-                        class=(if (and row.hasNoneTag (not-eq tag.identifierType ComplianceFieldIdValue.None)) "dataset-compliance-fields--missing-selection")
-                      }}
-                    {{/track-ui-event}}
-                  </div>
-                {{/row.cell}}
-
-                <td colspan="2">
-                  <div class="dataset-compliance-fields__tag-options">
-                    {{#if tagRowComponent.isIdType}}
-                      <label for="{{concat tagRowComponent.rowId '-compliance-field-logical-type'}}"
-                             class="dataset-compliance-fields__tag-label">
-                        Field Format:
-                      </label>
-
-                      <div class="dataset-compliance-fields__select-wrapper">
-                        {{#track-ui-event category=trackableCategory.Compliance
-                                          action=trackableEvent.Compliance.FieldFormat
-                                          name=tag.logicalType as |metrics|}}
-                          {{ember-selector
-                            id=(concat tagRowComponent.rowId "-compliance-field-logical-type")
-                            disabled=(or (not isEditing) row.isReadonly)
-                            values=tagRowComponent.fieldFormats
-                            selected=(readonly tag.logicalType)
-                            selectionDidChange=(action metrics.trackOnAction (action tagRowComponent.tagLogicalTypeDidChange))
-                            class=(if tagRowComponent.isTagFormatMissing "dataset-compliance-fields--missing-selection")
-                          }}
-                        {{/track-ui-event}}
-                      </div>
-
-                      {{#if tagRowComponent.showCustomInput}}
-                        <div class="dataset-compliance-fields__text-pattern-wrap">
-                          {{#if (or (not isEditing) row.isReadonly)}}
-                            {{tag.valuePattern}}
-                          {{else}}
-                            <div class="dataset-compliance-fields__text-pattern-wrap--input">
-                              <input
-                                placeholder="Enter regex"
-                                value="{{readonly tag.valuePattern}}"
-                                class="dataset-compliance-fields__text-pattern {{if tagRowComponent.valuePatternError
-                                                                                    'dataset-compliance-fields--missing-selection'}}"
-                                oninput={{action tagRowComponent.tagValuePatternDidChange value="target.value"}}
-                              >
-                            </div>
-
-                            {{#if tagRowComponent.valuePatternError}}
-                              <div class="dataset-compliance-fields__text-pattern-wrap--error">
-                                {{tagRowComponent.valuePatternError}}
-                              </div>
-                            {{/if}}
-                          {{/if}}
-                        </div>
-
-                        {{more-info
-                          link="http://go/metadata-custom-regex"
-                          tooltip="Click for more information on RegExp format"
-                        }}
-                      {{/if}}
-
-                      {{#unless tagRowComponent.isTagFormatMissing}}
-                        <span class="dataset-compliance-fields__tag-label">
-                          Owner:
-
-                          {{more-info
-                            link="http://go/compliance-owner"
-                            tooltip="Click for more information on Compliance owner"
-                          }}
-                        </span>
-
-                        {{input
-                          id=(concat tagRowComponent.rowId "-compliance-field-owner-toggle")
-                          type="checkbox"
-                          class="toggle-switch toggle-switch--light"
-                          disabled=(or (not isEditing) row.isReadonly)
-                          checked=(readonly (eq tag.nonOwner false))
-                          change=(action tagRowComponent.tagOwnerDidChange value="target.checked")
-                        }}
-                        <label for="{{concat tagRowComponent.rowId '-compliance-field-owner-toggle'}}"
-                               class="toggle-button"></label>
-
-                      {{/unless}}
-                    {{else}}
-
-                    {{/if}}
-                  </div>
-                </td>
-
-                {{#row.cell}}
-                  {{#if (and isEditing (not row.hasSingleTag))}}
-                    <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
-                            onclick={{action row.onRemoveFieldTag tag}}>
-                      &times;
-                    </button>
-                  {{/if}}
-                {{/row.cell}}
-              {{/dataset-compliance-field-tag}}
-            {{/each}}
-          {{/if}}
 
         {{/body.row}}
       {{/each}}

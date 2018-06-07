@@ -1,3 +1,4 @@
+import { setProperties } from '@ember/object';
 import { PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -53,7 +54,7 @@ const compliancePolicyStrings = {
  * @type {string}
  */
 const changeSetReviewableAttributeTriggers =
-  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType';
+  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType,nonOwner';
 
 /**
  * Takes a compliance data type and transforms it into a compliance field identifier option
@@ -206,7 +207,7 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
     }
 
     if (isTagIdType(complianceDataTypes)(tag)) {
-      isReviewRequired = isReviewRequired || !idTypeFieldHasLogicalType(tag);
+      isReviewRequired = isReviewRequired || !idTypeTagHasLogicalType(tag) || !tagOwnerIsSet(tag);
     }
     // If either the privacy policy doesn't exists, or user hasn't made changes, then review is required
     return isReviewRequired || !(privacyPolicyExists || isDirty);
@@ -289,13 +290,15 @@ const fieldTagsHaveIdentifierType = arrayEvery(tagHasIdentifierType);
  * @param {IComplianceEntity} { logicalType }
  * @returns {boolean}
  */
-const idTypeFieldHasLogicalType = ({ logicalType }: IComplianceEntity): boolean => !!logicalType;
+const idTypeTagHasLogicalType = ({ logicalType }: Pick<IComplianceEntity, 'logicalType'>): boolean => !!logicalType;
+
+const tagOwnerIsSet = ({ nonOwner }: Pick<IComplianceChangeSet, 'nonOwner'>): boolean => typeof nonOwner === 'boolean';
 
 /**
  * Asserts that a list of compliance entities each have a logicalType attribute value
  * @type {(array: IComplianceEntity[]) => boolean}
  */
-const idTypeFieldsHaveLogicalType = arrayEvery(idTypeFieldHasLogicalType);
+const idTypeTagsHaveLogicalType = arrayEvery(idTypeTagHasLogicalType);
 
 /**
  * Describes the function interface for tagsForIdentifierField
@@ -560,6 +563,14 @@ const sortFoldedChangeSetTuples = (
   return tuples.sort(tupleSortFn);
 };
 
+/**
+ * Sets the readonly attribute on a tag to false
+ * @param {IComplianceChangeSet} tag the readonly IComplianceChangeSet instance
+ * @return {IComplianceChangeSet}
+ */
+const overrideTagReadonly = (tag: IComplianceChangeSet): IComplianceChangeSet =>
+  setProperties(tag, { ...tag, readonly: false });
+
 export {
   suggestedIdentifierTypesInList,
   compliancePolicyStrings,
@@ -581,8 +592,8 @@ export {
   initialComplianceObjectFactory,
   getIdTypeDataTypes,
   fieldTagsHaveIdentifierType,
-  idTypeFieldHasLogicalType,
-  idTypeFieldsHaveLogicalType,
+  idTypeTagHasLogicalType,
+  idTypeTagsHaveLogicalType,
   changeSetReviewableAttributeTriggers,
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
@@ -590,5 +601,6 @@ export {
   sortFoldedChangeSetTuples,
   tagsWithoutIdentifierType,
   tagsForIdentifierField,
-  singleTagsInChangeSet
+  singleTagsInChangeSet,
+  overrideTagReadonly
 };

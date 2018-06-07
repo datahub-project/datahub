@@ -104,11 +104,10 @@ export default class Search extends Controller.extend({
 
   /**
    * Handles the response to changing the source platform to search through
-   * @param _groupName is radioGroup name i.e. binding to Search.source
-   * @param value
+   * @param source
    */
   @action
-  sourceDidChange(_groupName, value) {
-    set(this, 'source', value);
+  sourceDidChange(source) {
+    set(this, 'source', source);
   }
 }

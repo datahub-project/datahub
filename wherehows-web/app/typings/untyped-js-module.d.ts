@@ -1,5 +1,7 @@
 declare module 'ember-modal-dialog/components/modal-dialog';
 
+declare module 'ember-radio-button/components/radio-button';
+
 declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   import Mixin from '@ember/object/mixin';
   export default Mixin;

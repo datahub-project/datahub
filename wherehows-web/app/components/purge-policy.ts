@@ -120,10 +120,9 @@ export default class PurgePolicyComponent extends Component {
   actions = {
     /**
      * Handles the change to the currently selected purge policy
-     * @param {string} _name unused name for the radio group
      * @param {PurgePolicy} purgePolicy the selected purge policy
      */
-    onChange(this: PurgePolicyComponent, _name: string, purgePolicy: PurgePolicy) {
+    onChange(this: PurgePolicyComponent, purgePolicy: PurgePolicy) {
       return get(this, 'onPolicyChange')(purgePolicy);
     }
   };
