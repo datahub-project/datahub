@@ -26,14 +26,15 @@ import {
   mergeComplianceEntitiesWithSuggestions,
   tagsRequiringReview,
   isTagIdType,
-  idTypeFieldsHaveLogicalType,
+  idTypeTagsHaveLogicalType,
   changeSetReviewableAttributeTriggers,
   asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
   foldComplianceChangeSets,
   sortFoldedChangeSetTuples,
   tagsWithoutIdentifierType,
   singleTagsInChangeSet,
-  tagsForIdentifierField
+  tagsForIdentifierField,
+  overrideTagReadonly
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -108,6 +109,12 @@ export default class DatasetCompliance extends Component {
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: undefined | IComplianceInfo;
+
+  /**
+   * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
+   * @type {boolean}
+   */
+  doNotShowReadonlyConfirmation: boolean = false;
 
   /**
    * References the ComplianceFieldIdValue enum
@@ -260,14 +267,13 @@ export default class DatasetCompliance extends Component {
   complianceFieldIdDropdownOptions = computed('complianceDataTypes', function(
     this: DatasetCompliance
   ): Array<IComplianceFieldIdentifierOption | IDropDownOption<null | ComplianceFieldIdValue.None>> {
-    type NoneAndUnspecifiedOptions = Array<IDropDownOption<null | ComplianceFieldIdValue.None>>;
     // object with interface IComplianceDataType and an index number indicative of position
     type IndexedComplianceDataType = IComplianceDataType & { index: number };
 
-    const noneAndUnSpecifiedDropdownOptions: NoneAndUnspecifiedOptions = [
-      { value: null, label: 'Select Field Type...', isDisabled: true },
-      { value: ComplianceFieldIdValue.None, label: 'None' }
-    ];
+    const noneDropDownOption: IDropDownOption<ComplianceFieldIdValue.None> = {
+      value: ComplianceFieldIdValue.None,
+      label: 'None'
+    };
     // Creates a list of IComplianceDataType each with an index. The intent here is to perform a stable sort on
     // the items in the list, Array#sort is not stable, so for items that equal on the primary comparator
     // break the tie based on position in original list
@@ -296,27 +302,32 @@ export default class DatasetCompliance extends Component {
     };
 
     /**
-     * Inserts a divider in the list of compliance field identifier dropdown options
+     * Inserts a divider in the list of compliance field identifier options
      * @param {Array<IComplianceFieldIdentifierOption>} types
      * @returns {Array<IComplianceFieldIdentifierOption>}
      */
-    const insertDivider = (types: Array<IComplianceFieldIdentifierOption>): Array<IComplianceFieldIdentifierOption> => {
+    const insertDividers = (
+      types: Array<IComplianceFieldIdentifierOption>
+    ): Array<IComplianceFieldIdentifierOption> => {
       const isId = ({ isId }: IComplianceFieldIdentifierOption): boolean => isId;
       const ids = types.filter(isId);
       const nonIds = types.filter((type): boolean => !isId(type));
-      const divider = {
-        value: '',
-        label: '---------',
-        isId: false,
-        isDisabled: true
-      };
+      //divider to indicate section for ids
+      const idsDivider = { value: '', label: 'IDs', isDisabled: true };
+      // divider to indicate section for non ids
+      const nonIdsDivider = { value: '', label: 'Non IDs', isDisabled: true };
 
-      return [...ids, <IComplianceFieldIdentifierOption>divider, ...nonIds];
+      return [
+        <IComplianceFieldIdentifierOption>idsDivider,
+        ...ids,
+        <IComplianceFieldIdentifierOption>nonIdsDivider,
+        ...nonIds
+      ];
     };
 
     return [
-      ...noneAndUnSpecifiedDropdownOptions,
-      ...insertDivider(getFieldIdentifierOptions(indexedDataTypes.sort(dataTypeComparator)))
+      noneDropDownOption,
+      ...insertDividers(getFieldIdentifierOptions(indexedDataTypes.sort(dataTypeComparator)))
     ];
   });
 
@@ -823,7 +834,7 @@ export default class DatasetCompliance extends Component {
     const idTypeComplianceEntities = complianceEntities.filter(isTagIdType(get(this, 'complianceDataTypes')));
 
     // Validation operations
-    const idFieldsHaveValidLogicalType: boolean = idTypeFieldsHaveLogicalType(idTypeComplianceEntities);
+    const idFieldsHaveValidLogicalType: boolean = idTypeTagsHaveLogicalType(idTypeComplianceEntities);
     const isSchemaFieldLengthGreaterThanUniqComplianceEntities: boolean = this.isSchemaFieldLengthGreaterThanUniqComplianceEntities();
 
     if (!isSchemaFieldLengthGreaterThanUniqComplianceEntities) {
@@ -923,6 +934,40 @@ export default class DatasetCompliance extends Component {
     onFieldTagRemoved(this: DatasetCompliance, tag: IComplianceChangeSet): void {
       get(this, 'compliancePolicyChangeSet').removeObject(tag);
       get(this, 'foldChangeSetTask').perform();
+    },
+
+    /**
+     * Disables the readonly attribute of a compliance policy changeSet tag,
+     * allowing the user to override properties on the tag
+     * @param {IComplianceChangeSet} tag the IComplianceChangeSet instance
+     */
+    async onTagReadOnlyDisable(this: DatasetCompliance, tag: IComplianceChangeSet): Promise<void> {
+      const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
+      const {
+        doNotShowReadonlyConfirmation,
+        notifications: { notify }
+      } = getProperties(this, ['doNotShowReadonlyConfirmation', 'notifications']);
+
+      if (doNotShowReadonlyConfirmation) {
+        overrideTagReadonly(tag);
+        return;
+      }
+
+      notify(NotificationEvent.confirm, {
+        header: 'Are you sure you would like to modify this field?',
+        content:
+          "This field's compliance information is currently readonly, please confirm if you would like to override this value",
+        dialogActions,
+        toggleText: 'Do not show this again for this dataset',
+        onDialogToggle: (doNotShow: boolean): boolean => set(this, 'doNotShowReadonlyConfirmation', doNotShow)
+      });
+
+      try {
+        await dismissedOrConfirmed;
+        overrideTagReadonly(tag);
+      } catch (e) {
+        return;
+      }
     },
 
     /**

@@ -1,7 +1,7 @@
 /// Defines the styles for the notification confirm modal
 /// Includes 3 structural elements: __header, __content, __footer
 .notification-confirm-modal {
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 12px 18px 1px rgba(0, 0, 0, .2);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 12px 18px 1px rgba(0, 0, 0, 0.2);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -19,20 +19,26 @@
   }
 
   &__header {
-    border-bottom: 1px solid rgba(0, 0, 0, .15);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.15);
   }
 
   &__heading-text {
     margin-top: 0;
-    font-weight:fw(normal, 4);
+    font-weight: fw(normal, 4);
     font-size: 24px;
     color: set-color(grey, dark);
   }
 
   &__footer {
-    border-top: 1px solid rgba(0, 0, 0, .15);
+    border-top: 1px solid rgba(0, 0, 0, 0.15);
     display: flex;
     justify-content: flex-end;
+
+    &__secondary {
+      display: flex;
+      align-items: center;
+      margin-right: auto;
+    }
 
     button + button {
       margin-left: item-spacing(2);
@@ -40,7 +46,13 @@
   }
 }
 
-.notification-confirm-modal-overlay {
+.confirmation-dialog-toggle-label {
+  &#{&} {
+    margin-left: item-spacing(2);
+  }
+}
+
+.notification-overlay {
   position: fixed;
   top: 0;
   left: 0;

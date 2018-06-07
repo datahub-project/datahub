@@ -75,14 +75,14 @@
               value=true
               name=classification.classifier
               groupValue=(readonly classification.value)
-              changed=(action "onChangeDatasetClassification")}}
+              changed=(action "onChangeDatasetClassification" classification.classifier)}}
               Yes
             {{/radio-button-composer}}
             {{#radio-button-composer
               value=false
               name=classification.classifier
               groupValue=(readonly classification.value)
-              changed=(action "onChangeDatasetClassification")}}
+              changed=(action "onChangeDatasetClassification" classification.classifier)}}
               No
             {{/radio-button-composer}}
           </span>{{/row.cell}}

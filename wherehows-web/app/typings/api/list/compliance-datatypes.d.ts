@@ -1,5 +1,4 @@
-import { Classification, ComplianceFieldIdValue, IdLogicalType } from 'wherehows-web/constants';
-import { ApiStatus } from 'wherehows-web/utils/api/shared';
+import { Classification, ComplianceFieldIdValue, IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants';
 
 /**
  * Describes the interface for a complianceDataType
@@ -20,7 +19,9 @@ export interface IComplianceDataType {
   // List of field formats supported for a field with the id, only applicable to fields with idType set to true
   supportedFieldFormats: Array<IdLogicalType>;
   // The id for the field
-  id: ComplianceFieldIdValue;
+  id: ComplianceFieldIdValue | NonIdLogicalType;
+  // A short description for this data type
+  description?: string;
 }
 
 /**
