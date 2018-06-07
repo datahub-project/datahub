@@ -34,9 +34,21 @@
     display: flex;
     justify-content: flex-end;
 
+    &__secondary {
+      display: flex;
+      align-items: center;
+      margin-right: auto;
+    }
+
     button + button {
       margin-left: item-spacing(2);
     }
+  }
+}
+
+.confirmation-dialog-toggle-label {
+  &#{&} {
+    margin-left: item-spacing(2);
   }
 }
 

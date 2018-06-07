@@ -1,3 +1,4 @@
+import { setProperties } from '@ember/object';
 import { PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -562,6 +563,14 @@ const sortFoldedChangeSetTuples = (
   return tuples.sort(tupleSortFn);
 };
 
+/**
+ * Sets the readonly attribute on a tag to false
+ * @param {IComplianceChangeSet} tag the readonly IComplianceChangeSet instance
+ * @return {IComplianceChangeSet}
+ */
+const overrideTagReadonly = (tag: IComplianceChangeSet): IComplianceChangeSet =>
+  setProperties(tag, { ...tag, readonly: false });
+
 export {
   suggestedIdentifierTypesInList,
   compliancePolicyStrings,
@@ -592,5 +601,6 @@ export {
   sortFoldedChangeSetTuples,
   tagsWithoutIdentifierType,
   tagsForIdentifierField,
-  singleTagsInChangeSet
+  singleTagsInChangeSet,
+  overrideTagReadonly
 };
