@@ -14,6 +14,10 @@
 package wherehows.util;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.events.metadata.DataOrigin;
+import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,5 +77,24 @@ public class ProcessorUtilTest {
     Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
 
     assertEquals(actors, null);
+  }
+
+  @Test
+  public void testMceDelete() {
+    String actor = "tester";
+    DatasetIdentifier dataset = makeDataset("test");
+    MetadataChangeEvent mce = ProcessorUtil.mceDelete(dataset, actor);
+
+    assertEquals(mce.datasetIdentifier, dataset);
+    assertEquals(mce.changeAuditStamp.type, ChangeType.DELETE);
+    assertEquals(mce.changeAuditStamp.actorUrn, actor);
+  }
+
+  private DatasetIdentifier makeDataset(String datasetName) {
+    DatasetIdentifier identifier = new DatasetIdentifier();
+    identifier.nativeName = datasetName;
+    identifier.dataPlatformUrn = "urn:li:dataPlatform:hive";
+    identifier.dataOrigin = DataOrigin.DEV;
+    return identifier;
   }
 }

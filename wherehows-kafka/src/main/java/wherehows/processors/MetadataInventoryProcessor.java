@@ -17,6 +17,7 @@ import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DataOrigin;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.FailedMetadataInventoryEvent;
+import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataInventoryEvent;
 import com.typesafe.config.Config;
 import java.util.List;
@@ -27,13 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.dao.DaoFactory;
-import wherehows.dao.table.DictDatasetDao;
-import wherehows.dao.view.DatasetViewDao;
 import wherehows.common.exceptions.UnauthorizedException;
+import wherehows.dao.DaoFactory;
+import wherehows.dao.view.DatasetViewDao;
 import wherehows.utils.ProcessorUtil;
 
 import static wherehows.util.UrnUtil.*;
+import static wherehows.utils.ProcessorUtil.*;
 
 
 @Slf4j
@@ -43,14 +44,11 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
   private final DatasetViewDao _datasetViewDao;
 
-  private final DictDatasetDao _dictDatasetDao;
-
   public MetadataInventoryProcessor(Config config, DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
     super(producerTopic, producer);
 
     _datasetViewDao = daoFactory.getDatasetViewDao();
-    _dictDatasetDao = daoFactory.getDictDatasetDao();
 
     _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mie");
 
@@ -70,27 +68,26 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
     final MetadataInventoryEvent event = (MetadataInventoryEvent) indexedRecord;
     try {
-      processEvent(event);
+      for (MetadataChangeEvent mce : processEvent(event)) {
+        sendMessage(mce);
+        log.info("set " + mce.datasetIdentifier + " removed");
+      }
     } catch (Exception exception) {
       log.error("MIE Processor Error:", exception);
       log.error("Message content: {}", event.toString());
-      sendMessage(newFailedEvent(event, exception));
     }
   }
 
-  public void processEvent(MetadataInventoryEvent event) throws Exception {
+  public List<MetadataChangeEvent> processEvent(MetadataInventoryEvent event) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
-    String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
+    final String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
     }
 
     final String platformUrn = event.dataPlatformUrn.toString();
-
     final String platform = getUrnEntity(platformUrn);
-
     final DataOrigin origin = event.dataOrigin;
-
     final String namespace = event.namespace.toString();
 
     log.info("Processing MIE for " + platform + " " + origin + " " + namespace);
@@ -99,24 +96,21 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
         event.exclusionPatterns.stream().map(s -> Pattern.compile(s.toString())).collect(Collectors.toList());
 
     final List<String> names = event.nativeNames.stream().map(CharSequence::toString).collect(Collectors.toList());
-    log.info("new datasets: " + names);
+    log.debug("new datasets: " + names);
 
     final List<String> existingDatasets = _datasetViewDao.listFullNames(platform, origin.name(), namespace);
-    log.info("existing datasets: " + existingDatasets);
+    log.debug("existing datasets: " + existingDatasets);
 
-    for (String removedDataset : ProcessorUtil.listDiffWithExclusion(existingDatasets, names, exclusions)) {
-      try {
-        DatasetIdentifier identifier = new DatasetIdentifier();
-        identifier.dataPlatformUrn = platformUrn;
-        identifier.dataOrigin = origin;
-        identifier.nativeName = removedDataset;
+    // find removed datasets by diff
+    return ProcessorUtil.listDiffWithExclusion(existingDatasets, names, exclusions).stream().map(datasetName -> {
+      // send MCE to DELETE dataset
+      DatasetIdentifier identifier = new DatasetIdentifier();
+      identifier.dataPlatformUrn = platformUrn;
+      identifier.dataOrigin = origin;
+      identifier.nativeName = datasetName;
 
-        _dictDatasetDao.setDatasetRemoved(identifier, true, changeAuditStamp);
-        log.info("set " + removedDataset + " removed");
-      } catch (Exception e) {
-        log.error("Fail to mark dataset " + removedDataset + " as removed", e);
-      }
-    }
+      return mceDelete(identifier, actorUrn);
+    }).collect(Collectors.toList());
   }
 
   public FailedMetadataInventoryEvent newFailedEvent(MetadataInventoryEvent event, Throwable throwable) {
