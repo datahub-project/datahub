@@ -13,16 +13,16 @@
  */
 package wherehows.processors;
 
-import com.google.common.collect.Sets;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.events.metadata.ChangeAuditStamp;
+import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.DatasetLineage;
-import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.JobStatus;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
 import com.typesafe.config.Config;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +34,8 @@ import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
 import wherehows.utils.ProcessorUtil;
+
+import static wherehows.utils.ProcessorUtil.*;
 
 
 @Slf4j
@@ -93,12 +95,12 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
 
     List<DatasetLineage> lineages = event.lineage;
-    validateLineages(lineages);
-
-    DeploymentDetail deployments = event.deploymentDetail;
+    for (DatasetLineage lineage : lineages) {
+      dedupeAndValidateLineage(lineage);
+    }
 
     // create lineage
-    _lineageDao.createLineages(actorUrn, lineages, deployments);
+    _lineageDao.createLineages(actorUrn, lineages, event.deploymentDetail);
   }
 
   /**
@@ -126,11 +128,16 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     return failedEvent;
   }
 
-  private void validateLineages(List<DatasetLineage> lineages) {
-    for (DatasetLineage lineage : lineages) {
-      if (Sets.intersection(new HashSet(lineage.sourceDataset), new HashSet(lineage.destinationDataset)).size() > 0) {
-        throw new SelfLineageException("Source & destination datasets shouldn't overlap");
-      }
+  @VisibleForTesting
+  void dedupeAndValidateLineage(DatasetLineage lineage) {
+    lineage.sourceDataset = dedupeDatasets(lineage.sourceDataset);
+    lineage.destinationDataset = dedupeDatasets(lineage.destinationDataset);
+
+    // check intersection of source and destination
+    List<DatasetIdentifier> intersection = new ArrayList<>(lineage.sourceDataset);
+    intersection.retainAll(lineage.destinationDataset);
+    if (intersection.size() > 0) {
+      throw new SelfLineageException("Source & destination datasets shouldn't overlap");
     }
   }
 }
