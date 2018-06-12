@@ -42,8 +42,8 @@ ext.externalDependency = [
 
     "parquet_avro"        : "org.apache.parquet:parquet-avro:1.8.1",
 
-    "hibernate_core"      : "org.hibernate:hibernate-core:5.2.5.Final",
-    "hikaricp"            : "com.zaxxer:HikariCP:2.6.3",
+    "hibernate_core"      : "org.hibernate:hibernate-core:5.2.16.Final",
+    "hikaricp"            : "com.zaxxer:HikariCP:2.7.8",
 
     "lombok"              : "org.projectlombok:lombok:1.16.20",
     "guava"               : "com.google.guava:guava:19.0",
