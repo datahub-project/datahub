@@ -13,6 +13,10 @@
  */
 package wherehows.utils;
 
+import com.linkedin.events.metadata.ChangeAuditStamp;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.typesafe.config.Config;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -60,5 +64,21 @@ public class ProcessorUtil {
     }
 
     return new HashSet<>(Arrays.asList(actors.split(";")));
+  }
+
+  /**
+   * Create MCE to DELETE the dataset
+   */
+  public static MetadataChangeEvent mceDelete(@Nonnull DatasetIdentifier dataset, String actor) {
+    MetadataChangeEvent mce = new MetadataChangeEvent();
+    mce.datasetIdentifier = dataset;
+
+    ChangeAuditStamp auditStamp = new ChangeAuditStamp();
+    auditStamp.actorUrn = actor;
+    auditStamp.time = System.currentTimeMillis();
+    auditStamp.type = ChangeType.DELETE;
+    mce.changeAuditStamp = auditStamp;
+
+    return mce;
   }
 }
