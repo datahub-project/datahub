@@ -35,6 +35,17 @@ import static org.testng.Assert.*;
 public class ProcessorUtilTest {
 
   @Test
+  public void testDedupeDatasets() {
+    DatasetIdentifier ds1 = makeDataset("test1");
+    DatasetIdentifier ds2 = makeDataset("test2");
+    DatasetIdentifier ds3 = makeDataset("test1");
+    List<DatasetIdentifier> datasets = Arrays.asList(ds1, ds2, ds3);
+
+    List<DatasetIdentifier> deduped = ProcessorUtil.dedupeDatasets(datasets);
+    assertEquals(deduped, Arrays.asList(ds1, ds2));
+  }
+
+  @Test
   public void testListDiffWithExclusion() {
     List<String> existing = new ArrayList<>(Arrays.asList("a", "b", "c"));
     List<String> updated = new ArrayList<>(Arrays.asList("b", "d"));
@@ -90,7 +101,7 @@ public class ProcessorUtilTest {
     assertEquals(mce.changeAuditStamp.actorUrn, actor);
   }
 
-  private DatasetIdentifier makeDataset(String datasetName) {
+  public static DatasetIdentifier makeDataset(String datasetName) {
     DatasetIdentifier identifier = new DatasetIdentifier();
     identifier.nativeName = datasetName;
     identifier.dataPlatformUrn = "urn:li:dataPlatform:hive";

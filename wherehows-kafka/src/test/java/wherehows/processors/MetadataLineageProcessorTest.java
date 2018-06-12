@@ -13,9 +13,7 @@
  */
 package wherehows.processors;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.events.metadata.ChangeAuditStamp;
-import com.linkedin.events.metadata.DataOrigin;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.DatasetLineage;
 import com.linkedin.events.metadata.JobExecution;
@@ -23,47 +21,58 @@ import com.linkedin.events.metadata.JobStatus;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
 import com.typesafe.config.Config;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+import wherehows.common.exceptions.SelfLineageException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-import wherehows.common.exceptions.SelfLineageException;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
+import static wherehows.util.ProcessorUtilTest.*;
 
 
 public class MetadataLineageProcessorTest {
 
-  private static final String TOPIC = "testTopic";
-  private Config _mockConfig;
-  private DaoFactory _mockDaoFactory;
-  private LineageDao _mockLineageDao;
   private MetadataLineageProcessor _processor;
-  private KafkaProducer<String, IndexedRecord> _mockProducer;
 
   @BeforeTest
   public void setup() {
-    _mockConfig = mock(Config.class);
-    _mockLineageDao = mock(LineageDao.class);
-    _mockDaoFactory = mock(DaoFactory.class);
-    when(_mockDaoFactory.getLineageDao()).thenReturn(_mockLineageDao);
-    _mockProducer = mock(KafkaProducer.class);
+    Config mockConfig = mock(Config.class);
+    when(mockConfig.hasPath("whitelist.mle")).thenReturn(false);
+    DaoFactory mockDaoFactory = mock(DaoFactory.class);
+    when(mockDaoFactory.getLineageDao()).thenReturn(mock(LineageDao.class));
+
+    _processor = new MetadataLineageProcessor(mockConfig, mockDaoFactory, "topic", mock(KafkaProducer.class));
+  }
+
+  @Test
+  public void testDedupeDatasets() {
+    DatasetIdentifier ds1 = makeDataset("foo");
+    DatasetIdentifier ds2 = makeDataset("foo");
+    DatasetIdentifier ds3 = makeDataset("bar");
+    DatasetIdentifier ds4 = makeDataset("bar");
+    DatasetIdentifier ds5 = makeDataset("bar");
+    DatasetLineage lineage = new DatasetLineage();
+    lineage.sourceDataset = Arrays.asList(ds1, ds2);
+    lineage.destinationDataset = Arrays.asList(ds3, ds4, ds5);
+
+    _processor.dedupeAndValidateLineage(lineage);
+    assertEquals(lineage.sourceDataset, Collections.singletonList(ds1));
+    assertEquals(lineage.destinationDataset, Collections.singletonList(ds3));
   }
 
   @Test(expectedExceptions = SelfLineageException.class)
   public void testSelfLineageValid() throws Exception {
-    when(_mockConfig.hasPath("whitelist.mle")).thenReturn(false);
-    _processor = new MetadataLineageProcessor(_mockConfig, _mockDaoFactory, TOPIC, _mockProducer);
-    DatasetIdentifier src1 = newDatasetIdentifier("oracle", "foo", DataOrigin.DEV);
-    DatasetIdentifier src2 = newDatasetIdentifier("oracle", "bar", DataOrigin.DEV);
-    DatasetIdentifier dest = newDatasetIdentifier("oracle", "foo", DataOrigin.DEV);
+    DatasetIdentifier src1 = makeDataset("foo");
+    DatasetIdentifier src2 = makeDataset("bar");
+    DatasetIdentifier dest = makeDataset("foo");
     MetadataLineageEvent mle =
-        newMetadataLineageEvent("foo", ImmutableList.of(src1, src2), ImmutableList.of(dest), JobStatus.SUCCEEDED);
+        newMetadataLineageEvent(Arrays.asList(src1, src2), Arrays.asList(dest), JobStatus.SUCCEEDED);
 
     _processor.processEvent(mle);
   }
@@ -71,28 +80,26 @@ public class MetadataLineageProcessorTest {
   // JobStatus RUNNING invalid MLE event
   @Test
   public void testLineageInvalid() {
-    when(_mockConfig.hasPath("whitelist.mle")).thenReturn(false);
-    _processor = new MetadataLineageProcessor(_mockConfig, _mockDaoFactory, TOPIC, _mockProducer);
-    DatasetIdentifier src1 = newDatasetIdentifier("oracle", "foo", DataOrigin.DEV);
-    DatasetIdentifier src2 = newDatasetIdentifier("oracle", "bar", DataOrigin.DEV);
-    DatasetIdentifier dest = newDatasetIdentifier("oracle", "foo", DataOrigin.DEV);
+    DatasetIdentifier src1 = makeDataset("foo");
+    DatasetIdentifier src2 = makeDataset("bar");
+    DatasetIdentifier dest = makeDataset("foo");
     MetadataLineageEvent mle =
-        newMetadataLineageEvent("foo", ImmutableList.of(src1, src2), ImmutableList.of(dest), JobStatus.RUNNING);
+        newMetadataLineageEvent(Arrays.asList(src1, src2), Arrays.asList(dest), JobStatus.RUNNING);
 
     try {
       _processor.processEvent(mle);
-    } catch(Exception ex) {
+    } catch (Exception ex) {
       assertTrue(ex instanceof UnsupportedOperationException);
     }
   }
 
-  private MetadataLineageEvent newMetadataLineageEvent(String actorUrn, List<DatasetIdentifier> sourceDatasets,
+  private MetadataLineageEvent newMetadataLineageEvent(List<DatasetIdentifier> sourceDatasets,
       List<DatasetIdentifier> destinationDataset, JobStatus jobStatus) {
     MetadataLineageEvent mle = new MetadataLineageEvent();
 
     mle.type = agent.UNUSED;
     mle.changeAuditStamp = new ChangeAuditStamp();
-    mle.changeAuditStamp.actorUrn = actorUrn;
+    mle.changeAuditStamp.actorUrn = "tester";
     mle.jobExecution = new JobExecution();
     mle.jobExecution.status = jobStatus;
 
@@ -102,13 +109,5 @@ public class MetadataLineageProcessorTest {
     mle.lineage = Collections.singletonList(lineage);
 
     return mle;
-  }
-
-  private DatasetIdentifier newDatasetIdentifier(String platform, String name, DataOrigin dataOrigin) {
-    DatasetIdentifier datasetIdentifier = new DatasetIdentifier();
-    datasetIdentifier.dataPlatformUrn = "urn:li:dataPlatform:" + platform;
-    datasetIdentifier.nativeName = name;
-    datasetIdentifier.dataOrigin = dataOrigin;
-    return datasetIdentifier;
   }
 }

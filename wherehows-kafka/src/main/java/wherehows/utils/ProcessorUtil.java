@@ -35,6 +35,16 @@ public class ProcessorUtil {
   }
 
   /**
+   * Remove duplicate datasets in the list
+   * @param datasets List of DatasetIdentifier
+   * @return de-duped list
+   */
+  @Nonnull
+  public static List<DatasetIdentifier> dedupeDatasets(@Nonnull List<DatasetIdentifier> datasets) {
+    return datasets.stream().distinct().collect(Collectors.toList());
+  }
+
+  /**
    * Find the diff from existing list to the updated list, with exclusion patterns.
    * @param existing List<String>
    * @param updated List<String>
