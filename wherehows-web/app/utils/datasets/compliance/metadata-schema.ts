@@ -129,9 +129,13 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
   }
 
   if (type.includes('array') && Array.isArray(value)) {
+    const { length } = value;
+
     return (
       // recursively reduce on array elements
+      // ensure the array contains at least on element
       rootValueEquiv &&
+      length > 0 &&
       arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
     );
   }
