@@ -32,15 +32,10 @@ const datasetClassificationPropType = (prop: string): IMetadataType => ({
 });
 
 /**
- * Defines the shape of the dataset compliance metadata json object using the IMetadataType interface
- * @type {Array<IMetadataType>}
+ * Lists the types for objects or instances in the the compliance metadata entities list
+ * @type Array<IMetadataType>
  */
-const complianceMetadataTaxonomy: Array<IMetadataType> = [
-  {
-    '@type': 'object',
-    '@name': 'datasetClassification',
-    '@props': arrayMap(datasetClassificationPropType)(Object.keys(DatasetClassifiers))
-  },
+const complianceEntitiesTaxonomy: Array<IMetadataType> = [
   {
     '@type': 'array',
     '@name': 'complianceEntities',
@@ -71,7 +66,20 @@ const complianceMetadataTaxonomy: Array<IMetadataType> = [
         '@type': ['string', 'null']
       }
     ]
+  }
+];
+
+/**
+ * Defines the shape of the dataset compliance metadata json object using the IMetadataType interface
+ * @type {Array<IMetadataType>}
+ */
+const complianceMetadataTaxonomy: Array<IMetadataType> = [
+  {
+    '@type': 'object',
+    '@name': 'datasetClassification',
+    '@props': arrayMap(datasetClassificationPropType)(Object.keys(DatasetClassifiers))
   },
+  ...complianceEntitiesTaxonomy,
   {
     '@type': ['string', 'null'],
     '@name': 'compliancePurgeNote'
@@ -132,23 +140,28 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
 };
 
 /**
+ * Ensures that the keys on the supplied object are equivalent to the names in the type definition list
+ * @param {IObject<any>} object
+ * @param {Array<IMetadataType>} typeMaps
+ * @return {boolean}
+ */
+const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean =>
+  Object.keys(object)
+    .sort()
+    .toString() ===
+  arrayMap((typeMap: IMetadataType) => typeMap['@name'])(typeMaps)
+    .sort()
+    .toString();
+
+/**
  * Checks each key on an object matches the expected types in the typeMap
  * @param {IObject<any>} object the object with keys to check
  * @param {Array<IMetadataType>} typeMaps the colon delimited type string
  * @returns {boolean}
  */
 const keysEquiv = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean =>
-  arrayEvery(keyValueHasMatch(object))(typeMaps);
+  arrayEvery(keyValueHasMatch(object))(typeMaps) && keysMatchNames(object, typeMaps);
 
-/**
- * Checks that a compliance metadata object has a schema that matches the taxonomy / schema provided
- * @param {IObject<any>} object an instance of a compliance metadata object
- * @param {Array<IMetadataType>} taxonomy schema shape to check against
- * @return {boolean}
- */
-const validateMetadataObject = (object: IObject<any>, taxonomy: Array<IMetadataType>): boolean =>
-  keysEquiv(object, taxonomy);
+export default keysEquiv;
 
-export default validateMetadataObject;
-
-export { complianceMetadataTaxonomy };
+export { complianceMetadataTaxonomy, complianceEntitiesTaxonomy };

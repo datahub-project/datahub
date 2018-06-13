@@ -4,6 +4,7 @@
 enum ComplianceEvent {
   Cancel = 'CancelEditComplianceMetadata',
   Next = 'NextComplianceMetadataStep',
+  ManualApply = 'AdvancedEditComplianceMetadataStep',
   Previous = 'PreviousComplianceMetadataStep',
   Edit = 'BeginEditComplianceMetadata',
   Download = 'DownloadComplianceMetadata',

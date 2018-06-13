@@ -29,7 +29,7 @@ import {
 } from 'wherehows-web/constants';
 import { iterateArrayAsync } from 'wherehows-web/utils/array';
 import validateMetadataObject, {
-  complianceMetadataTaxonomy
+  complianceEntitiesTaxonomy
 } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 
@@ -347,7 +347,7 @@ export default class DatasetComplianceContainer extends Component {
    * @memberof DatasetComplianceContainer
    */
   @action
-  onComplianceUpload(this: DatasetComplianceContainer, jsonString: string): void {
+  async onComplianceJsonUpdate(this: DatasetComplianceContainer, jsonString: string): Promise<void> {
     const {
       complianceInfo,
       notifications: { notify }
@@ -357,35 +357,38 @@ export default class DatasetComplianceContainer extends Component {
      * Inner function to wrap call to notify method of notification service
      * @return {void}
      */
-    const metadataInvalid = (): void =>
+    const updateError = (error: string): void => {
       notify(NotificationEvent.error, {
-        content: invalidPolicyData
+        content: error
       });
 
+      throw new Error(error);
+    };
+
     if (complianceInfo) {
-      try {
-        const policy = JSON.parse(jsonString);
+      const entityMetadata: Pick<IComplianceInfo, 'complianceEntities'> = JSON.parse(jsonString);
 
-        if (validateMetadataObject(policy, complianceMetadataTaxonomy)) {
-          const { complianceEntities, datasetClassification } = policy;
-          const resolvedComplianceInfo = { ...complianceInfo, complianceEntities, datasetClassification };
-          const { dialogActions } = notificationDialogActionFactory();
+      if (validateMetadataObject(entityMetadata, complianceEntitiesTaxonomy)) {
+        const { complianceEntities } = entityMetadata;
+        const resolvedComplianceInfo = { ...complianceInfo, complianceEntities };
+        const { dialogActions, dismissedOrConfirmed } = notificationDialogActionFactory();
 
-          set(this, 'complianceInfo', resolvedComplianceInfo);
+        set(this, 'complianceInfo', resolvedComplianceInfo);
 
-          return notify(NotificationEvent.confirm, {
-            header: 'Successfully applied uploaded metadata',
-            content: successUploading,
-            dialogActions,
-            dismissButtonText: false,
-            confirmButtonText: 'Dismiss'
-          });
-        }
+        notify(NotificationEvent.confirm, {
+          header: 'Successfully applied compliance entity metadata',
+          content: successUploading,
+          dialogActions,
+          dismissButtonText: false,
+          confirmButtonText: 'Next'
+        });
 
-        metadataInvalid();
-      } catch (e) {
-        metadataInvalid();
+        return await dismissedOrConfirmed;
       }
+
+      return updateError(invalidPolicyData);
     }
+
+    updateError('No Compliance policy found');
   }
 }

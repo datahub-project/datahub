@@ -22,16 +22,35 @@
 
             <div class="container action-bar__content">
               {{#if (has-next editStep editSteps)}}
-                {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.Next
-                                  name=editStep.name as |metrics|}}
+
+                {{#if showAdvancedEditApplyStep}}
+
+                  {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.ManualApply
+                                    name=editStep.name as |metrics|}}
                   <button
                     class="nacho-button nacho-button--large-inverse action-bar__item"
-                    title="Next"
-                    onclick={{action metrics.trackOnAction (action "nextStep")}}
-                    disabled={{and (gt changeSetReviewCount 0) (eq editStep.name editSteps.0.name)}}>
-                    Next
+                    title="Apply JSON"
+                    onclick={{action metrics.trackOnAction (action "onApplyComplianceJson")}}
+                    disabled={{isManualApplyDisabled}}>
+                    Apply
                   </button>
-                {{/track-ui-event}}
+                  {{/track-ui-event}}
+
+                {{else}}
+
+                  {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.Next
+                                    name=editStep.name as |metrics|}}
+                    <button
+                      class="nacho-button nacho-button--large-inverse action-bar__item"
+                      title="Next"
+                      onclick={{action metrics.trackOnAction (action "nextStep")}}
+                        disabled={{and (gt changeSetReviewCount 0) isInitialEditStep}}>
+                      Next
+                    </button>
+                  {{/track-ui-event}}
+
+                {{/if}}
+
               {{else}}
 
                 {{#track-ui-event category=trackableCategory.Compliance
@@ -125,7 +144,7 @@
       {{/if}}
 
       {{#unless schemaless}}
-        {{#if (and (eq editStep.name editSteps.0.name) (not _hasBadData))}}
+        {{#if (and isInitialEditStep (not _hasBadData))}}
           {{#track-ui-event category=trackableCategory.Compliance
                             action=trackableEvent.Compliance.Upload as |metrics|}}
 
@@ -192,7 +211,7 @@
 
       {{#if schemaless}}
 
-        {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
+        {{#if (or isReadOnly isInitialEditStep)}}
           {{datasets/schemaless-tagging
             isEditable=(not isReadOnly)
             classification=(readonly complianceInfo.confidentiality)
@@ -204,7 +223,7 @@
 
       {{else}}
 
-        {{#if (or isReadOnly (eq editStep.name editSteps.0.name))}}
+        {{#if (or isReadOnly isInitialEditStep)}}
           {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
         {{/if}}
 
