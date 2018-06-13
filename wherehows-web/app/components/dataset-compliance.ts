@@ -1324,49 +1324,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Handles the compliance policy download action
-     */
-    onComplianceDownloadJson(this: DatasetCompliance): void {
-      const currentPolicy = get(this, 'complianceInfo');
-
-      if (!currentPolicy) {
-        return get(this, 'notifications').notify(NotificationEvent.error, {
-          content: 'Could not find the current policy to download'
-        });
-      }
-
-      const metadataJson = JSON.stringify(
-        getProperties(currentPolicy, [
-          'datasetClassification',
-          'complianceEntities',
-          'compliancePurgeNote',
-          'complianceType',
-          'confidentiality'
-        ])
-      );
-      const href = `data:text/json;charset=utf-8,${encodeURIComponent(metadataJson)}`;
-      const download = `${get(this, 'datasetName')}_policy.json`;
-      const anchor = document.createElement('a');
-      const anchorParent = document.body;
-
-      /**
-       *  Post download housekeeping
-       */
-      const cleanupPostDownload = (): void => {
-        anchor.removeEventListener('click', cleanupPostDownload);
-        anchorParent.removeChild(anchor);
-      };
-
-      Object.assign(anchor, { download, href });
-      anchor.addEventListener('click', cleanupPostDownload);
-
-      // Element needs to be in DOM to receive event in firefox
-      anchorParent.appendChild(anchor);
-
-      anchor.click();
-    },
-
-    /**
      * Receives the json representation for compliance and applies each key to the policy
      * @param {string} jsonString string representation for the JSON file
      */
