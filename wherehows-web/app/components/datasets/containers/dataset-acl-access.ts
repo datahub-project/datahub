@@ -20,6 +20,16 @@ import {
 } from 'wherehows-web/utils/datasets/acl-access';
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
+import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+
+/**
+ * Enumerates the string value for an acl access request
+ * @type string
+ */
+enum AclRequestType {
+  Removal = 'removed',
+  Approval = 'approved'
+}
 
 export default class DatasetAclAccessContainer extends Component {
   /**
@@ -113,14 +123,41 @@ export default class DatasetAclAccessContainer extends Component {
    * @returns {void}
    * @memberof DatasetAclAccessContainer
    */
-  notifyStatus(this: DatasetAclAccessContainer, param: string | Error) {
+  notifyStatus(this: DatasetAclAccessContainer, param: AclRequestType | Error) {
+    type AclNotificationMessage = { [key in AclRequestType]: string };
     const { notify } = get(this, 'notifications');
+    const isAclRequestType = (value: any): value is AclRequestType => Object.values(AclRequestType).includes(value);
 
-    if (typeof param === 'string') {
-      return notify(NotificationEvent.success, { content: param });
+    if (isAclRequestType(param)) {
+      const notificationMessage = (<AclNotificationMessage>{
+        [AclRequestType.Approval]: 'Congrats, your request has been approved!',
+        [AclRequestType.Removal]: 'Your access has been removed'
+      })[param];
+
+      return param === AclRequestType.Approval
+        ? this.notifyApproval(notificationMessage)
+        : notify(NotificationEvent.success, { content: notificationMessage });
     }
 
     notify(NotificationEvent.error, { content: param.message });
+  }
+
+  /**
+   * Notifies the user that approval was successful but alc access propagation will
+   * take some time
+   * @param {string} message
+   */
+  notifyApproval(this: DatasetAclAccessContainer, message: string) {
+    const { notify } = get(this, 'notifications');
+    const { dialogActions } = notificationDialogActionFactory();
+
+    notify(NotificationEvent.confirm, {
+      header: 'Successfully processed ACL request',
+      content: `${message} Your access should be enabled within 15 minutes. Contact ask_acl@linkedin.com if you're still having issues after that time.`,
+      dialogActions,
+      confirmButtonText: false,
+      dismissButtonText: 'Dismiss'
+    });
   }
 
   /**
@@ -196,7 +233,7 @@ export default class DatasetAclAccessContainer extends Component {
       yield get(this, 'getDatasetAclsTask').perform();
       yield get(this, 'checkUserAccessTask').perform();
 
-      get(this, 'userHasAclAccess') && this.notifyStatus('Congrats, your request has been approved!');
+      get(this, 'userHasAclAccess') && this.notifyStatus(AclRequestType.Approval);
     } catch (e) {
       this.notifyStatus(e);
     }
@@ -216,7 +253,7 @@ export default class DatasetAclAccessContainer extends Component {
       yield get(this, 'getDatasetAclsTask').perform();
       yield get(this, 'checkUserAccessTask').perform();
 
-      !get(this, 'userHasAclAccess') && this.notifyStatus('Your access has been removed');
+      !get(this, 'userHasAclAccess') && this.notifyStatus(AclRequestType.Removal);
     } catch (e) {
       this.notifyStatus(e);
     }
