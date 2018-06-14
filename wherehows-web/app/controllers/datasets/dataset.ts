@@ -88,6 +88,13 @@ export default class DatasetController extends Controller {
   isInternal: boolean;
 
   /**
+   * Flag indicating if the dataset contains personally identifiable information
+   * @type {boolean}
+   * @memberof DatasetController
+   */
+  datasetContainsPersonalData: boolean;
+
+  /**
    * Flag indicating that the compliance policy needs user attention
    * @type {ComputedProperty<boolean>}
    */
@@ -127,6 +134,15 @@ export default class DatasetController extends Controller {
     super(...arguments);
     this.tabSelected || (this.tabSelected = Tabs.Ownership);
     this.jitAclAccessWhitelist || (this.jitAclAccessWhitelist = []);
+  }
+
+  /**
+   * Handler to capture changes in dataset PII status
+   * @param {boolean} containingPersonalData
+   */
+  @action
+  onNotifyPiiStatus(containingPersonalData: boolean): void {
+    set(this, 'datasetContainsPersonalData', containingPersonalData);
   }
 
   /**
