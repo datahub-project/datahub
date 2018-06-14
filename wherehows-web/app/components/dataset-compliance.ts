@@ -139,7 +139,7 @@ export default class DatasetCompliance extends Component {
   jsonComplianceEntities: ComputedProperty<string> = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
     this: DatasetCompliance
   ): string {
-    const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern'];
+    const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern', 'readonly'];
     //@ts-ignore property access path using dot notation limitation
     const entityMap: ISchemaFieldsToPolicy = get(this, 'columnIdFieldsToCurrentPrivacyPolicy');
     const entitiesWithModifiableKeys = arrayMap((tag: IComplianceEntityWithMetadata) => pick(tag, entityAttrs))(
