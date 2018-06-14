@@ -169,6 +169,19 @@
                   tooltip="Click for more information Purge Policies"
                 }}
               </p>
+
+              {{#unless isEditing}}
+                <div class="compliance-entities-meta__secondary">
+                  <button
+                    class="nacho-button nacho-button--tertiary"
+                    onclick={{action "nextStep"}}>
+
+                    <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
+
+                    Edit
+                  </button>
+                </div>
+              {{/unless}}
             </header>
           </section>
 
