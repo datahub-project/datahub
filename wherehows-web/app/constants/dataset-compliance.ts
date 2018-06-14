@@ -36,7 +36,7 @@ const compliancePolicyStrings = {
   missingTypes: 'Looks like you may have forgotten to specify a `Field Format` for all ID fields?',
   successUpdating: 'Changes have been successfully saved!',
   failedUpdating: 'An error occurred while saving.',
-  successUploading: 'Metadata successfully updated! Please confirm and "Save" when ready.',
+  successUploading: 'Metadata successfully updated! Please confirm and complete subsequent metadata information.',
   invalidPolicyData: 'Received policy in an unexpected format! Please check the provided attributes and try again.',
   helpText: {
     classification:
@@ -473,7 +473,7 @@ const complianceFieldChangeSetItemFactory = ({
       readonly: false,
       privacyPolicyExists: false,
       isDirty: true,
-      valuePattern: void 0
+      valuePattern: null
     },
     suggestion ? { suggestion } : void 0,
     suggestionAuthority ? { suggestionAuthority } : void 0
@@ -544,7 +544,7 @@ const complianceFieldTagFactory = (identifierField: IComplianceEntity['identifie
   securityClassification: null,
   nonOwner: null,
   readonly: false,
-  valuePattern: void 0
+  valuePattern: null
 });
 
 /**

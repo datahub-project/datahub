@@ -50,6 +50,7 @@ import {
 } from 'wherehows-web/typings/api/datasets/compliance';
 import {
   IComplianceChangeSet,
+  IComplianceEntityWithMetadata,
   IComplianceFieldIdentifierOption,
   IDatasetComplianceActions,
   IdentifierFieldWithFieldChangeSetTuple,
@@ -67,6 +68,9 @@ import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/dataset
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+import validateMetadataObject, {
+  complianceEntitiesTaxonomy
+} from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 
 const {
   complianceDataException,
@@ -102,13 +106,74 @@ export default class DatasetCompliance extends Component {
   sortDirection: string;
   searchTerm: string;
   helpText = helpText;
-  watchers: Array<{ stateChange: (fn: () => void) => void; watchItem: Element; destroy?: Function }>;
-  complianceWatchers: WeakMap<Element, {}>;
   _hasBadData: boolean;
   platform: IDatasetView['platform'];
   isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: undefined | IComplianceInfo;
+
+  /**
+   * Lists the compliance entities that are entered via the advanced edititing interface
+   * @type {Pick<IComplianceInfo, 'complianceEntities'>}
+   * @memberof DatasetCompliance
+   */
+  manuallyEnteredComplianceEntities: Pick<IComplianceInfo, 'complianceEntities'>;
+
+  /**
+   * Flag enabling or disabling the manual apply button
+   * @type {boolean}
+   * @memberof DatasetCompliance
+   */
+  isManualApplyDisabled: boolean = false;
+
+  /**
+   * Flag indicating the current compliance policy edit-view mode
+   * @type {boolean}
+   */
+  showGuidedComplianceEditMode: boolean = true;
+
+  /**
+   * Formatted JSON string representing the compliance entities for this dataset
+   * @type {ComputedProperty<string>}
+   */
+  jsonComplianceEntities: ComputedProperty<string> = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
+    this: DatasetCompliance
+  ): string {
+    const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern', 'readonly'];
+    //@ts-ignore property access path using dot notation limitation
+    const entityMap: ISchemaFieldsToPolicy = get(this, 'columnIdFieldsToCurrentPrivacyPolicy');
+    const entitiesWithModifiableKeys = arrayMap((tag: IComplianceEntityWithMetadata) => pick(tag, entityAttrs))(
+      (<Array<IComplianceEntityWithMetadata>>[]).concat(...Object.values(entityMap))
+    );
+
+    return JSON.stringify(entitiesWithModifiableKeys, null, '\t');
+  });
+
+  /**
+   * Convenience computed property flag indicates if current edit step is the first step in  the wizard flow
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetCompliance
+   */
+  isInitialEditStep = computed('editStep', 'editSteps.0.name', function(this: DatasetCompliance): boolean {
+    const { editStep, editSteps } = getProperties(this, ['editStep', 'editSteps']);
+    const [initialStep] = editSteps;
+    return editStep.name === initialStep.name;
+  });
+
+  /**
+   * Flag indicating if the Guided vs Advanced mode should be shown for the initial edit step
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetCompliance
+   */
+  showAdvancedEditApplyStep = computed('isInitialEditStep', 'showGuidedComplianceEditMode', function(
+    this: DatasetCompliance
+  ): boolean {
+    const { isInitialEditStep, showGuidedComplianceEditMode } = getProperties(this, [
+      'isInitialEditStep',
+      'showGuidedComplianceEditMode'
+    ]);
+    return isInitialEditStep && !showGuidedComplianceEditMode;
+  });
 
   /**
    * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
@@ -132,7 +197,10 @@ export default class DatasetCompliance extends Component {
   onReset: <T>() => Promise<T>;
   onSave: <T>() => Promise<T>;
 
-  onComplianceUpload: (jsonString: string) => void;
+  /**
+   * External action to handle manual compliance entity metadata entry
+   */
+  onComplianceJsonUpdate: (jsonString: string) => Promise<void>;
 
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
@@ -386,7 +454,7 @@ export default class DatasetCompliance extends Component {
    * Holds a reference to the current step in the compliance edit wizard flow
    * @type {{ name: string }}
    */
-  editStep: { name: string };
+  editStep: { name: string } = { name: '' };
 
   /**
    * A list of ui values and labels for review filter drop-down
@@ -903,6 +971,56 @@ export default class DatasetCompliance extends Component {
 
   actions: IDatasetComplianceActions = {
     /**
+     * Toggle the visibility of the guided compliance edit view vs the advanced edit view modes
+     * @param {boolean} toggle flag ,if true, show guided edit mode, otherwise, advanced
+     */
+    onShowGuidedEditMode(this: DatasetCompliance, toggle: boolean): void {
+      const isShowingGuidedEditMode = set(this, 'showGuidedComplianceEditMode', toggle);
+
+      if (!isShowingGuidedEditMode) {
+        this.actions.onManualComplianceUpdate.call(this, get(this, 'jsonComplianceEntities'));
+      }
+    },
+
+    /**
+     * Handles updating the list of compliance entities when a user manually enters values
+     * for the compliance entity metadata
+     * @param {string} updatedEntities json string of entities
+     */
+    onManualComplianceUpdate(this: DatasetCompliance, updatedEntities: string): void {
+      try {
+        // check if the string is parseable as a JSON object
+        const entities = JSON.parse(updatedEntities);
+        const metadataObject = {
+          complianceEntities: entities
+        };
+        const isValid = validateMetadataObject(metadataObject, complianceEntitiesTaxonomy);
+
+        set(this, 'isManualApplyDisabled', !isValid);
+
+        if (isValid) {
+          set(this, 'manuallyEnteredComplianceEntities', metadataObject);
+        }
+      } catch {
+        set(this, 'isManualApplyDisabled', true);
+      }
+    },
+
+    /**
+     * Handler to apply manually entered compliance entities to the actual list of
+     * compliance metadata entities to be saved
+     */
+    async onApplyComplianceJson(this: DatasetCompliance) {
+      try {
+        await get(this, 'onComplianceJsonUpdate')(JSON.stringify(get(this, 'manuallyEnteredComplianceEntities')));
+        // Proceed to next step if application of entites is successful
+        this.actions.nextStep.call(this);
+      } catch {
+        noop();
+      }
+    },
+
+    /**
      * Action handles wizard step cancellation
      */
     onCancel(this: DatasetCompliance): void {
@@ -987,7 +1105,7 @@ export default class DatasetCompliance extends Component {
           logicalType: null,
           nonOwner: null,
           isDirty: true,
-          valuePattern: void 0
+          valuePattern: null
         });
       }
 
@@ -1207,54 +1325,11 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Handles the compliance policy download action
-     */
-    onComplianceDownloadJson(this: DatasetCompliance): void {
-      const currentPolicy = get(this, 'complianceInfo');
-
-      if (!currentPolicy) {
-        return get(this, 'notifications').notify(NotificationEvent.error, {
-          content: 'Could not find the current policy to download'
-        });
-      }
-
-      const metadataJson = JSON.stringify(
-        getProperties(currentPolicy, [
-          'datasetClassification',
-          'complianceEntities',
-          'compliancePurgeNote',
-          'complianceType',
-          'confidentiality'
-        ])
-      );
-      const href = `data:text/json;charset=utf-8,${encodeURIComponent(metadataJson)}`;
-      const download = `${get(this, 'datasetName')}_policy.json`;
-      const anchor = document.createElement('a');
-      const anchorParent = document.body;
-
-      /**
-       *  Post download housekeeping
-       */
-      const cleanupPostDownload = (): void => {
-        anchor.removeEventListener('click', cleanupPostDownload);
-        anchorParent.removeChild(anchor);
-      };
-
-      Object.assign(anchor, { download, href });
-      anchor.addEventListener('click', cleanupPostDownload);
-
-      // Element needs to be in DOM to receive event in firefox
-      anchorParent.appendChild(anchor);
-
-      anchor.click();
-    },
-
-    /**
      * Receives the json representation for compliance and applies each key to the policy
      * @param {string} jsonString string representation for the JSON file
      */
     onComplianceJsonUpload(this: DatasetCompliance, jsonString: string): void {
-      get(this, 'onComplianceUpload')(jsonString);
+      get(this, 'onComplianceJsonUpdate')(jsonString);
     },
 
     /**
