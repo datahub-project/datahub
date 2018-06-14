@@ -4,6 +4,7 @@ import { delay } from 'wherehows-web/utils/promise-delay';
 import { action } from '@ember-decorators/object';
 import { fleece } from 'wherehows-web/utils/object';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+import noop from 'wherehows-web/utils/noop';
 
 /**
  * Flag indicating the current notification queue is being processed
@@ -152,7 +153,7 @@ const notificationHandlers: INotificationHandler = {
     };
     // Set default values for button text if none are provided by consumer
     props = { dismissButtonText: 'No', confirmButtonText: 'Yes', ...props };
-    const { dismissButtonText, confirmButtonText } = props;
+    const { dismissButtonText, confirmButtonText, onDialogToggle } = props;
     // Removes dismiss or confirm buttons if set to false
     let resolvedProps: IConfirmOptions =
       dismissButtonText === false
@@ -162,6 +163,7 @@ const notificationHandlers: INotificationHandler = {
       confirmButtonText === false
         ? <IConfirmOptions>fleece<IConfirmOptions, 'confirmButtonText'>(['confirmButtonText'])(props)
         : props;
+    resolvedProps = typeof onDialogToggle === 'function' ? props : { ...props, onDialogToggle: noop };
 
     return {
       props: resolvedProps,

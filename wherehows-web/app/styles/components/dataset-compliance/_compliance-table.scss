@@ -303,6 +303,12 @@
   }
 }
 
+.dataset-compliance-editor {
+  pre {
+    border-radius: item-spacing(1) / 2;
+  }
+}
+
 .compliance-depends {
   display: none;
   opacity: 0;

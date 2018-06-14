@@ -31,8 +31,10 @@ export interface IComplianceEntity {
   // Flag indicating that this compliance field is not editable by the end user
   // field should also be filtered from persisted policy
   readonly readonly?: boolean;
-  //Optional attribute for the value of a CUSTOM regex. Required for CUSTOM field format
+  // Optional attribute for the value of a CUSTOM regex. Required for CUSTOM field format
   valuePattern?: string | null;
+  // Flags this entity as containing pii data
+  pii?: boolean;
 }
 
 /**

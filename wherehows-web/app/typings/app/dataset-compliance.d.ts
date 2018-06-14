@@ -31,6 +31,7 @@ type IComplianceEntityWithMetadata = Pick<
   | 'nonOwner'
   | 'readonly'
   | 'valuePattern'
+  | 'pii'
 > & {
   // flag indicating that the field has a current policy upstream
   privacyPolicyExists: boolean;

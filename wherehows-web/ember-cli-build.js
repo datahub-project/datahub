@@ -6,6 +6,12 @@ const MergeTrees = require('broccoli-merge-trees');
 
 module.exports = function(defaults) {
   const app = new EmberApp(defaults, {
+    ace: {
+      modes: ['json'],
+      workers: ['json'],
+      exts: ['searchbox']
+    },
+
     babel: {
       plugins: ['transform-object-rest-spread', 'transform-class-properties'],
       sourceMaps: 'inline'
