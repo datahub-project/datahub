@@ -63,8 +63,26 @@ public class Application extends Controller {
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
-  private static final Boolean HTTPS_REDIRECT =
-      Play.application().configuration().getBoolean("https.redirect", false);
+  private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
+
+  private static final String WHZ_WIKI_LINKS__GDRP_PII =
+      Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "");
+  private static final String WHZ_WIKI_LINKS__TMS_SCHEMA =
+      Play.application().configuration().getString("linkedin.links.wiki.tmsSchema", "");
+  private static final String WHZ_WIKI_LINKS__GDPR_TAXONOMY =
+      Play.application().configuration().getString("linkedin.links.wiki.gdprTaxonomy", "");
+  private static final String WHZ_WIKI_LINKS__STALE_SEARCH_INDEX =
+      Play.application().configuration().getString("linkedin.links.wiki.staleSearchIndex", "");
+  private static final String WHZ_WIKI_LINKS__DHT =
+      Play.application().configuration().getString("linkedin.links.wiki.dht", "");
+  private static final String WHZ_WIKI_LINKS__PURGE_POLICIES =
+      Play.application().configuration().getString("linkedin.links.wiki.purgePolicies", "");
+  private static final String WHZ_WIKI_LINKS__JIT_ACL_FAQ =
+      Play.application().configuration().getString("linkedin.links.wiki.jitAcl", "");
+  private static final String WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX =
+      Play.application().configuration().getString("linkedin.links.wiki.metadataCustomRegex", "");
+  private static final String WHZ_WIKI_LINKS__COMPLIANCE_OWNER =
+      Play.application().configuration().getString("linkedin.links.wiki.complianceOwner", "");
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
@@ -178,6 +196,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    config.set("wikiLinks", wikiLinks());
     // Ownership tab is currently in a UX revamp, this flag will determine whether to show it or not
     // under certain environments
     config.put("showOwnership", WHZ_DS_OWNERSHIP_TAB);
@@ -192,6 +211,24 @@ public class Application extends Controller {
     response.set("config", config);
 
     return ok(response);
+  }
+
+  /**
+   * @return Json object with internal wiki links
+   */
+  private static ObjectNode wikiLinks() {
+    ObjectNode wikiLinks = Json.newObject();
+
+    wikiLinks.put("gdprPii", WHZ_WIKI_LINKS__GDRP_PII);
+    wikiLinks.put("tmsSchema", WHZ_WIKI_LINKS__TMS_SCHEMA);
+    wikiLinks.put("gdprTaxonomy", WHZ_WIKI_LINKS__GDPR_TAXONOMY);
+    wikiLinks.put("staleSearchIndex", WHZ_WIKI_LINKS__STALE_SEARCH_INDEX);
+    wikiLinks.put("dht", WHZ_WIKI_LINKS__DHT);
+    wikiLinks.put("purgePolicies", WHZ_WIKI_LINKS__PURGE_POLICIES);
+    wikiLinks.put("jitAcl", WHZ_WIKI_LINKS__JIT_ACL_FAQ);
+    wikiLinks.put("metadataCustomRegex", WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX);
+
+    return wikiLinks;
   }
 
   private static Result redirectToHttpsIfNeeded() {
