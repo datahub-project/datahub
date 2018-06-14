@@ -1,7 +1,6 @@
 import { typeOf } from '@ember/utils';
 import { DatasetClassifiers } from 'wherehows-web/constants';
 import { arrayEvery, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
-import { Classification } from 'wherehows-web/constants/datasets/compliance';
 import { IObject } from 'wherehows-web/typings/generic';
 import { isObject } from 'wherehows-web/utils/object';
 
@@ -47,11 +46,6 @@ const complianceEntitiesTaxonomy: Array<IMetadataType> = [
       {
         '@name': 'identifierType',
         '@type': ['string', 'null']
-      },
-      {
-        '@name': 'securityClassification',
-        '@type': ['string', 'null'], // TODO: enum
-        '@symbols': Object.values(Classification)
       },
       {
         '@type': ['string', 'null'],

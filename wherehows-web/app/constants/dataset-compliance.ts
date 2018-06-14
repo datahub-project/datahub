@@ -473,7 +473,7 @@ const complianceFieldChangeSetItemFactory = ({
       readonly: false,
       privacyPolicyExists: false,
       isDirty: true,
-      valuePattern: void 0
+      valuePattern: null
     },
     suggestion ? { suggestion } : void 0,
     suggestionAuthority ? { suggestionAuthority } : void 0
@@ -544,7 +544,7 @@ const complianceFieldTagFactory = (identifierField: IComplianceEntity['identifie
   securityClassification: null,
   nonOwner: null,
   readonly: false,
-  valuePattern: void 0
+  valuePattern: null
 });
 
 /**

@@ -50,6 +50,7 @@ import {
 } from 'wherehows-web/typings/api/datasets/compliance';
 import {
   IComplianceChangeSet,
+  IComplianceEntityWithMetadata,
   IComplianceFieldIdentifierOption,
   IDatasetComplianceActions,
   IdentifierFieldWithFieldChangeSetTuple,
@@ -70,7 +71,6 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import validateMetadataObject, {
   complianceEntitiesTaxonomy
 } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
-import { fleece } from 'wherehows-web/utils/object';
 
 const {
   complianceDataException,
@@ -136,13 +136,14 @@ export default class DatasetCompliance extends Component {
    * Formatted JSON string representing the compliance entities for this dataset
    * @type {ComputedProperty<string>}
    */
-  jsonComplianceEntities: ComputedProperty<string> = computed('complianceInfo.complianceEntities.[]', function(
+  jsonComplianceEntities: ComputedProperty<string> = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
     this: DatasetCompliance
   ): string {
+    const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern'];
     //@ts-ignore property access path using dot notation limitation
-    const entities: Array<IComplianceEntity> = get(this, 'complianceInfo.complianceEntities');
-    const entitiesWithModifiableKeys = arrayMap(fleece<IComplianceEntity, 'readonly' | 'pii'>(['readonly', 'pii']))(
-      entities
+    const entityMap: ISchemaFieldsToPolicy = get(this, 'columnIdFieldsToCurrentPrivacyPolicy');
+    const entitiesWithModifiableKeys = arrayMap((tag: IComplianceEntityWithMetadata) => pick(tag, entityAttrs))(
+      (<Array<IComplianceEntityWithMetadata>>[]).concat(...Object.values(entityMap))
     );
 
     return JSON.stringify(entitiesWithModifiableKeys, null, '\t');
@@ -1104,7 +1105,7 @@ export default class DatasetCompliance extends Component {
           logicalType: null,
           nonOwner: null,
           isDirty: true,
-          valuePattern: void 0
+          valuePattern: null
         });
       }
 
