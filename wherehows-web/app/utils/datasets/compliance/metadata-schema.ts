@@ -56,6 +56,10 @@ const complianceEntitiesTaxonomy: Array<IMetadataType> = [
         '@type': ['boolean', 'null']
       },
       {
+        '@name': 'readonly',
+        '@type': 'boolean'
+      },
+      {
         '@name': 'valuePattern',
         '@type': ['string', 'null']
       }
