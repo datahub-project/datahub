@@ -2,6 +2,7 @@ import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { set, get, getProperties, setProperties, computed } from '@ember/object';
 import {
+  changeSetReviewableAttributeTriggers,
   ComplianceFieldIdValue,
   getDefaultSecurityClassification,
   idTypeTagHasLogicalType,
@@ -163,6 +164,24 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   isTagFormatMissing = computed('isIdType', 'tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
     return get(this, 'isIdType') && !idTypeTagHasLogicalType(get(this, 'tag'));
+  });
+
+  /**
+   * Determines if the local copy of the tag has diverged from the source
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  localTagHasDiverged = computed('sourceTag', `tag.{${changeSetReviewableAttributeTriggers}}`, function(
+    this: DatasetComplianceFieldTag
+  ): boolean {
+    const serializedSourceTagValues = Object.values(get(this, 'sourceTag'))
+      .sort()
+      .toString();
+    const serializedLocalTagValues = Object.values(get(this, 'tag'))
+      .sort()
+      .toString();
+
+    return serializedSourceTagValues !== serializedLocalTagValues;
   });
 
   /**
