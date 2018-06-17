@@ -151,6 +151,9 @@
 
     &--disabled {
       background-color: get-color(slate2);
+      position: sticky;
+      top: -1px;
+      z-index: 1;
 
       &:hover {
         background-color: get-color(slate2);
@@ -190,7 +193,7 @@
       display: flex;
       flex-direction: column;
       height: 100%;
-      padding: item-spacing(4 0);
+      padding: item-spacing(0 0 4);
       overflow-y: scroll;
       overflow-x: hidden;
       border-right: 1px solid get-color(slate2);
