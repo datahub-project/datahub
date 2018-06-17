@@ -64,7 +64,7 @@ import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
-import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
@@ -1110,25 +1110,6 @@ export default class DatasetCompliance extends Component {
       }
 
       this.setDefaultClassification({ identifierField, identifierType });
-    },
-
-    /**
-     * Updates the logical type for a tag
-     * @param {IComplianceChangeSet} tag the tag to be updated
-     * @param {IComplianceChangeSet.logicalType} logicalType the updated logical type
-     */
-    tagLogicalTypeChanged(tag: IComplianceChangeSet, logicalType: IComplianceChangeSet['logicalType']): void {
-      let properties: Pick<IComplianceChangeSet, 'logicalType' | 'isDirty' | 'valuePattern'> = {
-        logicalType,
-        isDirty: true
-      };
-
-      // nullifies valuePattern attr if logicalType is not IdLogicalType.Custom
-      if (logicalType === IdLogicalType.Custom) {
-        properties = { ...properties, valuePattern: null };
-      }
-
-      setProperties(tag, properties);
     },
 
     /**
