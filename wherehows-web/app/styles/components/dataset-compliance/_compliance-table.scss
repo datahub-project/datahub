@@ -121,7 +121,7 @@
 
   &__guided-modal {
     @include nacho-container;
-    height: item-spacing(8) * 5;
+    height: 50vh;
     overflow: hidden;
     padding: 0;
     border: 0;
