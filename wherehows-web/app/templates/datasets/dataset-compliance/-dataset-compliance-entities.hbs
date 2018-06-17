@@ -368,7 +368,7 @@
                             {{#if tagRowComponent.localTagHasDiverged}}
                               <button
                                 class="nacho-button nacho-button--large-inverse"
-                                onclick={{action tagRowComponent.onFieldTagUpdate}}
+                                onclick={{action tagRowComponent.onFieldTagUpdate tagDrop.actions.close}}
                                 disabled={{tagRowComponent.isTagReviewRequired}}>
                                 Done
                               </button>
