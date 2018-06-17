@@ -321,6 +321,10 @@
     width: 100%;
     overflow: hidden;
   }
+
+  &__manual-entry-errors {
+    margin-left: item-spacing(2);
+  }
 }
 
 .dataset-compliance-editor {
