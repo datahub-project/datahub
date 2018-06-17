@@ -363,13 +363,15 @@
                           {{/if}}
                           </article>
 
-                          <footer class="dataset-compliance-fields__field-tag__footer">
-                            <button
-                              class="nacho-button nacho-button--large-inverse"
-                              onclick={{action tagRowComponent.onFieldTagUpdate}}>
-                              Done
-                            </button>
-                          </footer>
+                          {{#if tagRowComponent.localTagHasDiverged}}
+                            <footer class="dataset-compliance-fields__field-tag__footer">
+                              <button
+                                class="nacho-button nacho-button--large-inverse"
+                                onclick={{action tagRowComponent.onFieldTagUpdate}}>
+                                Done
+                              </button>
+                            </footer>
+                          {{/if}}
                         {{/dataset-compliance-field-tag}}
                       {{/tagDrop.content}}
                     {{/basic-dropdown}}
