@@ -13,11 +13,11 @@ const emptyRegexSource = '(?:)';
  */
 const validateRegExp = (
   pattern: string,
-  customChecker?: (pattern: string) => boolean
+  customChecker?: (pattern: any) => boolean
 ): { isValid: boolean; regExp: RegExp } => {
   const regExp = new RegExp(pattern);
   const { source } = regExp;
-  const isValid = source !== emptyRegexSource;
+  const isValid = !!pattern && source !== emptyRegexSource;
 
   if (isValid && customChecker && customChecker(pattern)) {
     return { isValid, regExp };
