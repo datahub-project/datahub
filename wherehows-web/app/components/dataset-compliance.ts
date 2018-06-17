@@ -379,9 +379,9 @@ export default class DatasetCompliance extends Component {
       const ids = types.filter(isId);
       const nonIds = types.filter((type): boolean => !isId(type));
       //divider to indicate section for ids
-      const idsDivider = { value: '', label: 'IDs', isDisabled: true };
+      const idsDivider = { value: '', label: 'First Party IDs', isDisabled: true };
       // divider to indicate section for non ids
-      const nonIdsDivider = { value: '', label: 'Non IDs', isDisabled: true };
+      const nonIdsDivider = { value: '', label: 'Non First Party IDs', isDisabled: true };
 
       return [
         <IComplianceFieldIdentifierOption>idsDivider,

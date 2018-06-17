@@ -51,7 +51,7 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceFieldTag
    */
-  // possibly use oneWay macro
+  // ***possibly use oneWay macro***
   tag: ComputedProperty<IComplianceChangeSet> = computed('sourceTag', function(
     this: DatasetComplianceFieldTag
   ): IComplianceChangeSet {
@@ -365,9 +365,14 @@ export default class DatasetComplianceFieldTag extends Component {
 
   /**
    * Invokes the external action to pass on local changes to the source tag
+   * @param {() => void} closeDialog
    */
   @action
-  onFieldTagUpdate(this: DatasetComplianceFieldTag): void {
+  onFieldTagUpdate(this: DatasetComplianceFieldTag, closeDialog?: () => void): void {
     this.tagDidChange(get(this, 'sourceTag'), get(this, 'tag'));
+
+    if (typeof closeDialog === 'function') {
+      closeDialog();
+    }
   }
 }
