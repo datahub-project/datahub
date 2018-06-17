@@ -125,6 +125,7 @@
     overflow: hidden;
     padding: 0;
     border: 0;
+    margin-bottom: item-spacing(8);
   }
 
   &__tag-radio {
@@ -251,8 +252,8 @@
     }
 
     &__footer {
-      display: flex;
-      justify-content: flex-end;
+      text-align: right;
+      height: item-spacing(8);
       padding: item-spacing(3);
       background-color: get-color(slate1);
       border-right: 1px solid get-color(slate2);
