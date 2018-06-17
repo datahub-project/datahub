@@ -214,8 +214,6 @@
                         {{#dataset-compliance-field-tag
                           sourceTag=tag
                           parentHasSingleTag=row.hasSingleTag
-                          onTagValuePatternChange=(action "tagValuePatternChanged")
-                          onTagOwnerChange=(action "tagOwnerChanged")
                           complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
                           complianceDataTypes=complianceDataTypes as |tagRowComponent|
                         }}
@@ -305,7 +303,7 @@
                                     <div class="dataset-compliance-fields__text-pattern-wrap">
                                       <div class="dataset-compliance-fields__text-pattern-wrap--input">
                                         <input
-                                          placeholder="Enter regex"
+                                          placeholder="Enter a RegExp"
                                           value="{{readonly tagRowComponent.tag.valuePattern}}"
                                           disabled={{or (not isEditing) row.isReadonly}}
                                             class="dataset-compliance-fields__text-pattern {{if

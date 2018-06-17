@@ -16,6 +16,8 @@ import {
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { action } from '@ember-decorators/object';
 import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
+import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 
 /**
  * Defines the object properties for instances of IQuickDesc
@@ -28,16 +30,6 @@ interface IQuickDesc {
 
 export default class DatasetComplianceFieldTag extends Component {
   classNames = ['dataset-compliance-fields__field-tag'];
-
-  /**
-   * Describes the interface for the parent action `onTagValuePatternChange`
-   */
-  onTagValuePatternChange: (tag: IComplianceChangeSet, pattern: string) => string | void;
-
-  /**
-   * Describes the parent action interface for `onTagOwnerChange`
-   */
-  onTagOwnerChange: (tag: IComplianceChangeSet, nonOwner: boolean) => void;
 
   /**
    * References the change set item / tag to be added to the parent field
@@ -214,6 +206,24 @@ export default class DatasetComplianceFieldTag extends Component {
   }
 
   /**
+   * Handles changes to the valuePattern attribute on a tag
+   * @param {string} pattern
+   * @return {string | void}
+   * @throws {SyntaxError}
+   */
+  changeTagValuePattern(this: DatasetComplianceFieldTag, pattern: string): string | void {
+    const tag = get(this, 'tag');
+    const isValidRegex = new RegExp(pattern); // Will throw if invalid
+    const isValidValuePattern = isValidCustomValuePattern(pattern);
+
+    if (isValidRegex.source !== emptyRegexSource && isValidRegex && isValidValuePattern) {
+      return set(tag, 'valuePattern', isValidRegex.source);
+    }
+
+    throw new Error('Pattern not valid');
+  }
+
+  /**
    * Handles UI changes to the tag identifierType
    * @param {ComplianceFieldIdValue} identifierType
    */
@@ -257,12 +267,15 @@ export default class DatasetComplianceFieldTag extends Component {
   }
 
   /**
-   * Handles the nonOwner flag update on the tag
+   * Updates the nonOwner property on the tag
    * @param {boolean} nonOwner
    */
   @action
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
-    get(this, 'onTagOwnerChange')(get(this, 'tag'), nonOwner);
+    setProperties(get(this, 'tag'), {
+      nonOwner,
+      isDirty: true
+    });
   }
 
   /**
@@ -273,9 +286,7 @@ export default class DatasetComplianceFieldTag extends Component {
   @action
   tagValuePatternDidChange(this: DatasetComplianceFieldTag, pattern: string) {
     try {
-      const valuePattern = get(this, 'onTagValuePatternChange')(get(this, 'tag'), pattern);
-
-      if (valuePattern) {
+      if (this.changeTagValuePattern(pattern)) {
         //clear pattern error
         this.setPatternErrorString();
       }
