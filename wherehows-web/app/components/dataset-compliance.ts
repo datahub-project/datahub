@@ -125,6 +125,13 @@ export default class DatasetCompliance extends Component {
   isManualApplyDisabled: boolean = false;
 
   /**
+   * String representation of a parse error that may have occurred when validating manually entered compliance entities
+   * @type {string}
+   * @memberof DatasetCompliance
+   */
+  manualParseError: string = '';
+
+  /**
    * Flag indicating the current compliance policy edit-view mode
    * @type {boolean}
    */
@@ -994,13 +1001,13 @@ export default class DatasetCompliance extends Component {
         };
         const isValid = validateMetadataObject(metadataObject, complianceEntitiesTaxonomy);
 
-        set(this, 'isManualApplyDisabled', !isValid);
+        setProperties(this, { isManualApplyDisabled: !isValid, manualParseError: '' });
 
         if (isValid) {
           set(this, 'manuallyEnteredComplianceEntities', metadataObject);
         }
-      } catch {
-        set(this, 'isManualApplyDisabled', true);
+      } catch (e) {
+        setProperties(this, { isManualApplyDisabled: true, manualParseError: e.message });
       }
     },
 

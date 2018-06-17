@@ -93,6 +93,14 @@ $navbar-transition-speed: $banner-animation-speed;
   &__content {
     white-space: nowrap;
     vertical-align: top;
+
+    &__error-messages {
+      display: inline-flex;
+      align-items: center;
+      color: get-color(red5);
+      margin-left: item-spacing(2);
+      padding-right: item-spacing(2);
+    }
   }
 
   &__item + &__item {

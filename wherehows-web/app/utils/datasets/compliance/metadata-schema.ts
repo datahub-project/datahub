@@ -3,6 +3,7 @@ import { DatasetClassifiers } from 'wherehows-web/constants';
 import { arrayEvery, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
 import { IObject } from 'wherehows-web/typings/generic';
 import { isObject } from 'wherehows-web/utils/object';
+import { difference } from 'lodash';
 
 /**
  * Defines the interface for an IDL that specifies the data types for properties on
@@ -146,14 +147,21 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
  * @param {IObject<any>} object
  * @param {Array<IMetadataType>} typeMaps
  * @return {boolean}
+ * @throws {Error} if object keys do not match type @names
  */
-const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean =>
-  Object.keys(object)
-    .sort()
-    .toString() ===
-  arrayMap((typeMap: IMetadataType) => typeMap['@name'])(typeMaps)
-    .sort()
-    .toString();
+const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean => {
+  const objectKeys = Object.keys(object).sort();
+  const typeKeys = arrayMap((typeMap: IMetadataType) => typeMap['@name'])(typeMaps).sort();
+  const objectKeysSerialized = objectKeys.toString();
+  const typeKeysSerialized = typeKeys.toString();
+  const match = objectKeysSerialized === typeKeysSerialized;
+
+  if (!match) {
+    throw new Error(`Extra attributes found: ${difference(objectKeys, typeKeys).join(', ')}`);
+  }
+
+  return match;
+};
 
 /**
  * Checks each key on an object matches the expected types in the typeMap

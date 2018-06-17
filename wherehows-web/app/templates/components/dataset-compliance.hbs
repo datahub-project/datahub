@@ -89,6 +89,16 @@
                   Cancel
                 </button>
               {{/track-ui-event}}
+
+              {{#if (and isInitialEditStep (and manualParseError (not showGuidedComplianceEditMode)))}}
+                <div class="action-bar__content__error-messages">
+                  {{fa-icon "times-circle-o"}}
+
+                  <span class="dataset-compliance-fields__manual-entry-errors">
+                    {{manualParseError}}
+                  </span>
+                </div>
+              {{/if}}
             </div>
 
           {{/if}}
