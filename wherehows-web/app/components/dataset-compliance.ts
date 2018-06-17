@@ -62,8 +62,6 @@ import {
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
-import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
-import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
 import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
@@ -1113,24 +1111,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Handles changes to the valuePattern attribute on a tag
-     * @param {IComplianceChangeSet} tag
-     * @param {string} pattern
-     * @return {string | void}
-     * @throws {SyntaxError}
-     */
-    tagValuePatternChanged(tag: IComplianceChangeSet, pattern: string): string | void {
-      const isValidRegex = new RegExp(pattern); // Will throw if invalid
-      const isValidValuePattern = isValidCustomValuePattern(pattern);
-
-      if (isValidRegex.source !== emptyRegexSource && isValidRegex && isValidValuePattern) {
-        return set(tag, 'valuePattern', isValidRegex.source);
-      }
-
-      throw new Error('Pattern not valid');
-    },
-
-    /**
      * Updates the security classification on a  field tag
      * @param {IComplianceChangeSet} tag the tag to be updated
      * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
@@ -1141,18 +1121,6 @@ export default class DatasetCompliance extends Component {
     ): void {
       setProperties(tag, {
         securityClassification,
-        isDirty: true
-      });
-    },
-
-    /**
-     * Updates the nonOwner property on the tag
-     * @param {IComplianceChangeSet} tag the field tag to be updated
-     * @param {IComplianceChangeSet.nonOwner} nonOwner flag indicating the field property is a nonOwner
-     */
-    tagOwnerChanged(tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']): void {
-      setProperties(tag, {
-        nonOwner,
         isDirty: true
       });
     },
