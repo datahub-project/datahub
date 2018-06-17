@@ -7,7 +7,8 @@ import {
   getDefaultSecurityClassification,
   idTypeTagHasLogicalType,
   isTagIdType,
-  NonIdLogicalType
+  NonIdLogicalType,
+  tagNeedsReview
 } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
@@ -18,7 +19,8 @@ import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-d
 import { action } from '@ember-decorators/object';
 import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
-import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
+import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
+import { omit } from 'lodash';
 
 /**
  * Defines the object properties for instances of IQuickDesc
@@ -185,6 +187,19 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
+   * Determines if the local copy of the tag requires changes before being applied to field tags
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  isTagReviewRequired = computed(`tag.{${changeSetReviewableAttributeTriggers}}`, 'complianceDataTypes', function(
+    this: DatasetComplianceFieldTag
+  ): boolean {
+    const tagWithoutSuggestion = <IComplianceChangeSet>omit<IComplianceChangeSet>(get(this, 'tag'), ['suggestion']);
+
+    return tagNeedsReview(get(this, 'complianceDataTypes'))(tagWithoutSuggestion);
+  });
+
+  /**
    * Applies the argument to the quickDesc property or nullifies
    * it if the argument is not provided
    * @param {DatasetComplianceFieldTag.quickDesc} quickDesc
@@ -232,16 +247,18 @@ export default class DatasetComplianceFieldTag extends Component {
   /**
    * Handles changes to the valuePattern attribute on a tag
    * @param {string} pattern
-   * @return {string | void}
+   * @return {string}
    * @throws {SyntaxError}
    */
-  changeTagValuePattern(this: DatasetComplianceFieldTag, pattern: string): string | void {
+  changeTagValuePattern(this: DatasetComplianceFieldTag, pattern: string): string {
     const tag = get(this, 'tag');
-    const isValidRegex = new RegExp(pattern); // Will throw if invalid
-    const isValidValuePattern = isValidCustomValuePattern(pattern);
+    const {
+      regExp: { source },
+      isValid
+    } = validateRegExp(pattern, isValidCustomValuePattern);
 
-    if (isValidRegex.source !== emptyRegexSource && isValidRegex && isValidValuePattern) {
-      return set(tag, 'valuePattern', isValidRegex.source);
+    if (isValid) {
+      return set(tag, 'valuePattern', source);
     }
 
     throw new Error('Pattern not valid');

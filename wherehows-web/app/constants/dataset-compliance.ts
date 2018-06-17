@@ -1,5 +1,5 @@
 import { setProperties } from '@ember/object';
-import { PurgePolicy } from 'wherehows-web/constants/index';
+import { IdLogicalType, PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome, reduceArrayAsync } from 'wherehows-web/utils/array';
@@ -54,7 +54,7 @@ const compliancePolicyStrings = {
  * @type {string}
  */
 const changeSetReviewableAttributeTriggers =
-  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType,nonOwner';
+  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType,nonOwner,valuePattern';
 
 /**
  * Takes a compliance data type and transforms it into a compliance field identifier option
@@ -190,7 +190,16 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const { isDirty, suggestion, privacyPolicyExists, suggestionAuthority, readonly, identifierType } = tag;
+    const {
+      isDirty,
+      suggestion,
+      privacyPolicyExists,
+      suggestionAuthority,
+      readonly,
+      identifierType,
+      logicalType,
+      valuePattern
+    } = tag;
     let isReviewRequired = false;
 
     if (readonly) {
@@ -209,6 +218,12 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
     if (isTagIdType(complianceDataTypes)(tag)) {
       isReviewRequired = isReviewRequired || !idTypeTagHasLogicalType(tag) || !tagOwnerIsSet(tag);
     }
+
+    // If the tag has a IdLogicalType.Custom logicalType, check that the value pattern is truthy
+    if (logicalType === IdLogicalType.Custom) {
+      isReviewRequired = isReviewRequired || !valuePattern;
+    }
+
     // If either the privacy policy doesn't exists, or user hasn't made changes, then review is required
     return isReviewRequired || !(privacyPolicyExists || isDirty);
   };
