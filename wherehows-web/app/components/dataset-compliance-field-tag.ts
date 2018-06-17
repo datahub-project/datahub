@@ -32,6 +32,11 @@ export default class DatasetComplianceFieldTag extends Component {
   classNames = ['dataset-compliance-fields__field-tag'];
 
   /**
+   * External action to update field tag once user updates are complete
+   */
+  tagDidChange: (sourceTag: IComplianceChangeSet, localTag: IComplianceChangeSet) => void;
+
+  /**
    * References the change set item / tag to be added to the parent field
    * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceFieldTag
@@ -320,5 +325,13 @@ export default class DatasetComplianceFieldTag extends Component {
   @action
   onFieldTagIdentifierLeave(this: DatasetComplianceFieldTag) {
     this.setQuickDesc();
+  }
+
+  /**
+   * Invokes the external action to pass on local changes to the source tag
+   */
+  @action
+  onFieldTagUpdate(this: DatasetComplianceFieldTag): void {
+    this.tagDidChange(get(this, 'sourceTag'), get(this, 'tag'));
   }
 }

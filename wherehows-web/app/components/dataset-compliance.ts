@@ -1087,6 +1087,15 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
+     * Applies wholesale user changes to a field tag's properties
+     * @param {IComplianceChangeSet} tag a reference to the current tag object
+     * @param {IComplianceChangeSet} tagUpdates updated properties to be applied to the current tag
+     */
+    tagPropertiesUpdated(tag: IComplianceChangeSet, tagUpdates: IComplianceChangeSet) {
+      setProperties(tag, tagUpdates);
+    },
+
+    /**
      * When a user updates the identifierFieldType, update working copy
      * @param {IComplianceChangeSet} tag
      * @param {ComplianceFieldIdValue} identifierType

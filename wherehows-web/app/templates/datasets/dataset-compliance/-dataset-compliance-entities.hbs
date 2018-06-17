@@ -214,39 +214,40 @@
                         {{#dataset-compliance-field-tag
                           sourceTag=tag
                           parentHasSingleTag=row.hasSingleTag
+                          tagDidChange=(action "tagPropertiesUpdated")
                           complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
                           complianceDataTypes=complianceDataTypes as |tagRowComponent|
                         }}
+                          <article class="dataset-compliance-fields__field-tag__content">
+                            <section class="dataset-compliance-fields__compliance-info-column">
+                              <header class="dataset-compliance-fields__compliance-info-column__title">
+                                <strong>Select field type</strong>
+                              </header>
 
-                          <section class="dataset-compliance-fields__compliance-info-column">
-                            <header class="dataset-compliance-fields__compliance-info-column__title">
-                              <strong>Select field type</strong>
-                            </header>
+                              <div class="dataset-compliance-fields__compliance-info-column__content">
+                                {{#track-ui-event category=trackableCategory.Compliance
+                                                  action=trackableEvent.Compliance.FieldIndentifier
+                                                  name=tagRowComponent.tag.identifierType as |metrics|}}
 
-                            <div class="dataset-compliance-fields__compliance-info-column__content">
-                              {{#track-ui-event category=trackableCategory.Compliance
-                                                action=trackableEvent.Compliance.FieldIndentifier
-                                                name=tagRowComponent.tag.identifierType as |metrics|}}
+                                  {{#each tagRowComponent.tagIdOptions as |tagOption|}}
+                                    {{#radio-button-composer
+                                      value=tagOption.value
+                                      name="datasetFieldClassification"
+                                      groupValue=(readonly tagRowComponent.tag.identifierType)
+                                      class="dataset-compliance-fields__tag-radio"
+                                      disabled=tagOption.isDisabled
+                                      disabledClass="dataset-compliance-fields__tag-radio--disabled"
+                                      checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                      onMouseEnter=(action tagRowComponent.onFieldTagIdentifierEnter)
+                                      onMouseLeave=(action tagRowComponent.onFieldTagIdentifierLeave)
+                                      changed=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))}}
+                                      {{tagOption.label}}
+                                    {{/radio-button-composer}}
+                                  {{/each}}
 
-                                {{#each tagRowComponent.tagIdOptions as |tagOption|}}
-                                  {{#radio-button-composer
-                                    value=tagOption.value
-                                    name="datasetFieldClassification"
-                                    groupValue=(readonly tagRowComponent.tag.identifierType)
-                                    class="dataset-compliance-fields__tag-radio"
-                                    disabled=tagOption.isDisabled
-                                    disabledClass="dataset-compliance-fields__tag-radio--disabled"
-                                    checkedClass="dataset-compliance-fields__tag-radio--checked"
-                                    onMouseEnter=(action tagRowComponent.onFieldTagIdentifierEnter)
-                                    onMouseLeave=(action tagRowComponent.onFieldTagIdentifierLeave)
-                                    changed=(action metrics.trackOnAction (action tagRowComponent.tagIdentifierTypeDidChange))}}
-                                    {{tagOption.label}}
-                                  {{/radio-button-composer}}
-                                {{/each}}
-
-                              {{/track-ui-event}}
-                            </div>
-                          </section>
+                                {{/track-ui-event}}
+                              </div>
+                            </section>
 
                           {{#if tagRowComponent.quickDesc}}
 
@@ -360,7 +361,15 @@
                               {{/unless}}
                             {{/if}}
                           {{/if}}
+                          </article>
 
+                          <footer class="dataset-compliance-fields__field-tag__footer">
+                            <button
+                              class="nacho-button nacho-button--large-inverse"
+                              onclick={{action tagRowComponent.onFieldTagUpdate}}>
+                              Done
+                            </button>
+                          </footer>
                         {{/dataset-compliance-field-tag}}
                       {{/tagDrop.content}}
                     {{/basic-dropdown}}

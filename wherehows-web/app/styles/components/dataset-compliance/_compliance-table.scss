@@ -238,10 +238,24 @@
   &__field-tag {
     height: 100%;
     display: flex;
+    flex-direction: column;
+
+    &__content {
+      display: flex;
+      height: 100%;
+    }
 
     &__quick-desc {
       padding: item-spacing(4);
       max-width: item-spacing(8) * 4;
+    }
+
+    &__footer {
+      display: flex;
+      justify-content: flex-end;
+      padding: item-spacing(3);
+      background-color: get-color(slate1);
+      border-right: 1px solid get-color(slate2);
     }
   }
 
