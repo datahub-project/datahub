@@ -53,7 +53,20 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceFieldTag
    */
-  tag: IComplianceChangeSet;
+  sourceTag: IComplianceChangeSet;
+
+  /**
+   * Creates a local copy of the external tag for the related field
+   * @type {IComplianceChangeSet}
+   * @memberof DatasetComplianceFieldTag
+   */
+  // possibly use oneWay macro
+  tag: ComputedProperty<IComplianceChangeSet> = computed('sourceTag', function(
+    this: DatasetComplianceFieldTag
+  ): IComplianceChangeSet {
+    const source = get(this, 'sourceTag');
+    return JSON.parse(JSON.stringify(source));
+  });
 
   /**
    * Flag indicating that the parent field has a single tag associated
