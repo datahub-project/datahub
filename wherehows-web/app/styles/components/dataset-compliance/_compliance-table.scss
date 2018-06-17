@@ -150,8 +150,10 @@
     }
 
     &--disabled {
+      background-color: get-color(slate2);
+
       &:hover {
-        background-color: transparent;
+        background-color: get-color(slate2);
       }
 
       .ember-radio-button {
