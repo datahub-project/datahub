@@ -30,11 +30,6 @@ export default class DatasetComplianceFieldTag extends Component {
   classNames = ['dataset-compliance-fields__field-tag'];
 
   /**
-   * Describes the parent action interface for `onTagLogicalTypeChange`
-   */
-  onTagLogicalTypeChange: (tag: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
-
-  /**
    * Describes the interface for the parent action `onTagValuePatternChange`
    */
   onTagValuePatternChange: (tag: IComplianceChangeSet, pattern: string) => string | void;
@@ -240,16 +235,25 @@ export default class DatasetComplianceFieldTag extends Component {
   }
 
   /**
-   * Handles the updates when the tag's logical type changes on this tag
-   * @param {IdLogicalType} value contains the selected drop-down value
+   * Updates the logical type for the related tag
+   * @param {IdLogicalType} logicalType contains the selected drop-down value
    */
   @action
-  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, value: IdLogicalType) {
-    const onTagLogicalTypeChange = get(this, 'onTagLogicalTypeChange');
+  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, logicalType: IdLogicalType) {
+    const tag = get(this, 'tag');
+    let properties: Pick<IComplianceChangeSet, 'logicalType' | 'isDirty' | 'valuePattern' | 'nonOwner'> = {
+      logicalType,
+      isDirty: true,
+      // nullifies nonOwner property on logicalType change
+      nonOwner: null
+    };
 
-    if (typeof onTagLogicalTypeChange === 'function') {
-      onTagLogicalTypeChange(get(this, 'tag'), value);
+    // nullifies valuePattern attr if logicalType is not IdLogicalType.Custom
+    if (logicalType === IdLogicalType.Custom) {
+      properties = { ...properties, valuePattern: null };
     }
+
+    setProperties(tag, properties);
   }
 
   /**
