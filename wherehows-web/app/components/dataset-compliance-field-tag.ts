@@ -1,8 +1,9 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
-import { set, get, getProperties, computed } from '@ember/object';
+import { set, get, getProperties, setProperties, computed } from '@ember/object';
 import {
   ComplianceFieldIdValue,
+  getDefaultSecurityClassification,
   idTypeTagHasLogicalType,
   isTagIdType,
   NonIdLogicalType
@@ -27,11 +28,6 @@ interface IQuickDesc {
 
 export default class DatasetComplianceFieldTag extends Component {
   classNames = ['dataset-compliance-fields__field-tag'];
-  /**
-   * Describes action interface for `onTagIdentifierTypeChange` action
-   * @memberof DatasetComplianceFieldTag
-   */
-  onTagIdentifierTypeChange: (tag: IComplianceChangeSet, option: { value: ComplianceFieldIdValue | null }) => void;
 
   /**
    * Describes the parent action interface for `onTagLogicalTypeChange`
@@ -196,17 +192,51 @@ export default class DatasetComplianceFieldTag extends Component {
   }
 
   /**
+   * Sets the default classification for the related identifier field's tag
+   * Using the identifierType, determine the tag's default security classification based on a values
+   * supplied by complianceDataTypes endpoint
+   * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+   */
+  setDefaultClassification(identifierType: IComplianceChangeSet['identifierType']): void {
+    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
+
+    this.changeTagClassification(defaultSecurityClassification);
+  }
+
+  /**
+   * Updates the security classification on the tag
+   * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
+   */
+  changeTagClassification(
+    this: DatasetComplianceFieldTag,
+    securityClassification: IComplianceChangeSet['securityClassification'] = null
+  ): void {
+    setProperties(get(this, 'tag'), {
+      securityClassification,
+      isDirty: true
+    });
+  }
+
+  /**
    * Handles UI changes to the tag identifierType
-   * @param {ComplianceFieldIdValue} value
+   * @param {ComplianceFieldIdValue} identifierType
    */
   @action
-  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, value: ComplianceFieldIdValue) {
-    const onTagIdentifierTypeChange = get(this, 'onTagIdentifierTypeChange');
+  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, identifierType: ComplianceFieldIdValue) {
+    const tag = get(this, 'tag');
 
-    if (typeof onTagIdentifierTypeChange === 'function') {
-      this.setQuickDesc();
-      onTagIdentifierTypeChange(get(this, 'tag'), { value });
-    }
+    // clear out the quickDesc object to allow rendering fieldFormat options
+    this.setQuickDesc();
+    setProperties(tag, {
+      identifierType,
+      logicalType: null,
+      nonOwner: null,
+      isDirty: true,
+      valuePattern: null
+    });
+
+    this.setDefaultClassification(identifierType);
   }
 
   /**
