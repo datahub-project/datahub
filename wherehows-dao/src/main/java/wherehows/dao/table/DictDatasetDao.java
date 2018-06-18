@@ -204,7 +204,7 @@ public class DictDatasetDao extends BaseDao {
    * @throws Exception
    */
   public void setDatasetRemoved(@Nonnull DatasetIdentifier identifier, boolean isRemoved,
-      @Nonnull ChangeAuditStamp auditStamp) throws Exception {
+      @Nullable List<DeploymentDetail> deployments, @Nonnull ChangeAuditStamp auditStamp) throws Exception {
 
     String urn = toWhDatasetUrn(identifier);
 

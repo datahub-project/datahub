@@ -26,13 +26,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.converters.KafkaLogCompactionConverter;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
-import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.models.table.DictDataset;
 import wherehows.utils.ProcessorUtil;
 
@@ -106,7 +106,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     // if DELETE, mark dataset as removed and return
     if (changeType == ChangeType.DELETE) {
-      _dictDatasetDao.setDatasetRemoved(identifier, true, changeAuditStamp);
+      _dictDatasetDao.setDatasetRemoved(identifier, true, event.deploymentInfo, changeAuditStamp);
       return;
     }
 
