@@ -62,9 +62,7 @@ import {
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
-import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
-import { emptyRegexSource } from 'wherehows-web/utils/validators/regexp';
-import { IdLogicalType, NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
@@ -125,6 +123,13 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   isManualApplyDisabled: boolean = false;
+
+  /**
+   * String representation of a parse error that may have occurred when validating manually entered compliance entities
+   * @type {string}
+   * @memberof DatasetCompliance
+   */
+  manualParseError: string = '';
 
   /**
    * Flag indicating the current compliance policy edit-view mode
@@ -381,9 +386,9 @@ export default class DatasetCompliance extends Component {
       const ids = types.filter(isId);
       const nonIds = types.filter((type): boolean => !isId(type));
       //divider to indicate section for ids
-      const idsDivider = { value: '', label: 'IDs', isDisabled: true };
+      const idsDivider = { value: '', label: 'First Party IDs', isDisabled: true };
       // divider to indicate section for non ids
-      const nonIdsDivider = { value: '', label: 'Non IDs', isDisabled: true };
+      const nonIdsDivider = { value: '', label: 'Non First Party IDs', isDisabled: true };
 
       return [
         <IComplianceFieldIdentifierOption>idsDivider,
@@ -996,13 +1001,13 @@ export default class DatasetCompliance extends Component {
         };
         const isValid = validateMetadataObject(metadataObject, complianceEntitiesTaxonomy);
 
-        set(this, 'isManualApplyDisabled', !isValid);
+        setProperties(this, { isManualApplyDisabled: !isValid, manualParseError: '' });
 
         if (isValid) {
           set(this, 'manuallyEnteredComplianceEntities', metadataObject);
         }
-      } catch {
-        set(this, 'isManualApplyDisabled', true);
+      } catch (e) {
+        setProperties(this, { isManualApplyDisabled: true, manualParseError: e.message });
       }
     },
 
@@ -1089,6 +1094,15 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
+     * Applies wholesale user changes to a field tag's properties
+     * @param {IComplianceChangeSet} tag a reference to the current tag object
+     * @param {IComplianceChangeSet} tagUpdates updated properties to be applied to the current tag
+     */
+    tagPropertiesUpdated(tag: IComplianceChangeSet, tagUpdates: IComplianceChangeSet) {
+      setProperties(tag, tagUpdates);
+    },
+
+    /**
      * When a user updates the identifierFieldType, update working copy
      * @param {IComplianceChangeSet} tag
      * @param {ComplianceFieldIdValue} identifierType
@@ -1113,43 +1127,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Updates the logical type for a tag
-     * @param {IComplianceChangeSet} tag the tag to be updated
-     * @param {IComplianceChangeSet.logicalType} logicalType the updated logical type
-     */
-    tagLogicalTypeChanged(tag: IComplianceChangeSet, logicalType: IComplianceChangeSet['logicalType']): void {
-      let properties: Pick<IComplianceChangeSet, 'logicalType' | 'isDirty' | 'valuePattern'> = {
-        logicalType,
-        isDirty: true
-      };
-
-      // nullifies valuePattern attr if logicalType is not IdLogicalType.Custom
-      if (logicalType === IdLogicalType.Custom) {
-        properties = { ...properties, valuePattern: null };
-      }
-
-      setProperties(tag, properties);
-    },
-
-    /**
-     * Handles changes to the valuePattern attribute on a tag
-     * @param {IComplianceChangeSet} tag
-     * @param {string} pattern
-     * @return {string | void}
-     * @throws {SyntaxError}
-     */
-    tagValuePatternChanged(tag: IComplianceChangeSet, pattern: string): string | void {
-      const isValidRegex = new RegExp(pattern); // Will throw if invalid
-      const isValidValuePattern = isValidCustomValuePattern(pattern);
-
-      if (isValidRegex.source !== emptyRegexSource && isValidRegex && isValidValuePattern) {
-        return set(tag, 'valuePattern', isValidRegex.source);
-      }
-
-      throw new Error('Pattern not valid');
-    },
-
-    /**
      * Updates the security classification on a  field tag
      * @param {IComplianceChangeSet} tag the tag to be updated
      * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
@@ -1160,18 +1137,6 @@ export default class DatasetCompliance extends Component {
     ): void {
       setProperties(tag, {
         securityClassification,
-        isDirty: true
-      });
-    },
-
-    /**
-     * Updates the nonOwner property on the tag
-     * @param {IComplianceChangeSet} tag the field tag to be updated
-     * @param {IComplianceChangeSet.nonOwner} nonOwner flag indicating the field property is a nonOwner
-     */
-    tagOwnerChanged(tag: IComplianceChangeSet, nonOwner: IComplianceChangeSet['nonOwner']): void {
-      setProperties(tag, {
-        nonOwner,
         isDirty: true
       });
     },
