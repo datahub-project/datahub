@@ -332,8 +332,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
     // Accept the suggestion for either identifierType and/or logicalType
     if (suggestion && intent === SuggestionIntent.accept) {
       const { identifierType, logicalType } = suggestion;
-      // Field has only one tag, that tag does not currently have an identifierType
-      const updateDefault = hasSingleTag && !fieldTagsHaveIdentifierType(get(this, 'fieldChangeSet'));
+      // Field has only one tag, that tag has an identifierType
+      const updateDefault = hasSingleTag && fieldTagsHaveIdentifierType(get(this, 'fieldChangeSet'));
 
       // Identifier type and changeSet does not already have suggested type
       if (identifierType && !suggestedValuesInChangeSet.includes(identifierType)) {

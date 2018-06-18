@@ -1,11 +1,14 @@
 import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
-import { set, get, getProperties, computed } from '@ember/object';
+import { set, get, getProperties, setProperties, computed } from '@ember/object';
 import {
+  changeSetReviewableAttributeTriggers,
   ComplianceFieldIdValue,
+  getDefaultSecurityClassification,
   idTypeTagHasLogicalType,
   isTagIdType,
-  NonIdLogicalType
+  NonIdLogicalType,
+  tagNeedsReview
 } from 'wherehows-web/constants';
 import {
   IComplianceChangeSet,
@@ -15,6 +18,9 @@ import {
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { action } from '@ember-decorators/object';
 import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
+import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
+import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
+import { omit } from 'lodash';
 
 /**
  * Defines the object properties for instances of IQuickDesc
@@ -27,33 +33,31 @@ interface IQuickDesc {
 
 export default class DatasetComplianceFieldTag extends Component {
   classNames = ['dataset-compliance-fields__field-tag'];
-  /**
-   * Describes action interface for `onTagIdentifierTypeChange` action
-   * @memberof DatasetComplianceFieldTag
-   */
-  onTagIdentifierTypeChange: (tag: IComplianceChangeSet, option: { value: ComplianceFieldIdValue | null }) => void;
 
   /**
-   * Describes the parent action interface for `onTagLogicalTypeChange`
+   * External action to update field tag once user updates are complete
    */
-  onTagLogicalTypeChange: (tag: IComplianceChangeSet, value: IComplianceChangeSet['logicalType']) => void;
-
-  /**
-   * Describes the interface for the parent action `onTagValuePatternChange`
-   */
-  onTagValuePatternChange: (tag: IComplianceChangeSet, pattern: string) => string | void;
-
-  /**
-   * Describes the parent action interface for `onTagOwnerChange`
-   */
-  onTagOwnerChange: (tag: IComplianceChangeSet, nonOwner: boolean) => void;
+  tagDidChange: (sourceTag: IComplianceChangeSet, localTag: IComplianceChangeSet) => void;
 
   /**
    * References the change set item / tag to be added to the parent field
    * @type {IComplianceChangeSet}
    * @memberof DatasetComplianceFieldTag
    */
-  tag: IComplianceChangeSet;
+  sourceTag: IComplianceChangeSet;
+
+  /**
+   * Creates a local copy of the external tag for the related field
+   * @type {IComplianceChangeSet}
+   * @memberof DatasetComplianceFieldTag
+   */
+  // ***possibly use oneWay macro***
+  tag: ComputedProperty<IComplianceChangeSet> = computed('sourceTag', function(
+    this: DatasetComplianceFieldTag
+  ): IComplianceChangeSet {
+    const source = get(this, 'sourceTag');
+    return JSON.parse(JSON.stringify(source));
+  });
 
   /**
    * Flag indicating that the parent field has a single tag associated
@@ -165,6 +169,37 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
+   * Determines if the local copy of the tag has diverged from the source
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  localTagHasDiverged = computed('sourceTag', `tag.{${changeSetReviewableAttributeTriggers}}`, function(
+    this: DatasetComplianceFieldTag
+  ): boolean {
+    const serializedSourceTagValues = Object.values(get(this, 'sourceTag'))
+      .sort()
+      .toString();
+    const serializedLocalTagValues = Object.values(get(this, 'tag'))
+      .sort()
+      .toString();
+
+    return serializedSourceTagValues !== serializedLocalTagValues;
+  });
+
+  /**
+   * Determines if the local copy of the tag requires changes before being applied to field tags
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetComplianceFieldTag
+   */
+  isTagReviewRequired = computed(`tag.{${changeSetReviewableAttributeTriggers}}`, 'complianceDataTypes', function(
+    this: DatasetComplianceFieldTag
+  ): boolean {
+    const tagWithoutSuggestion = <IComplianceChangeSet>omit<IComplianceChangeSet>(get(this, 'tag'), ['suggestion']);
+
+    return tagNeedsReview(get(this, 'complianceDataTypes'))(tagWithoutSuggestion);
+  });
+
+  /**
    * Applies the argument to the quickDesc property or nullifies
    * it if the argument is not provided
    * @param {DatasetComplianceFieldTag.quickDesc} quickDesc
@@ -183,39 +218,105 @@ export default class DatasetComplianceFieldTag extends Component {
   }
 
   /**
+   * Sets the default classification for the related identifier field's tag
+   * Using the identifierType, determine the tag's default security classification based on a values
+   * supplied by complianceDataTypes endpoint
+   * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+   */
+  setDefaultClassification(identifierType: IComplianceChangeSet['identifierType']): void {
+    const complianceDataTypes = get(this, 'complianceDataTypes');
+    const defaultSecurityClassification = getDefaultSecurityClassification(complianceDataTypes, identifierType);
+
+    this.changeTagClassification(defaultSecurityClassification);
+  }
+
+  /**
+   * Updates the security classification on the tag
+   * @param {IComplianceChangeSet.securityClassification} securityClassification the updated security classification value
+   */
+  changeTagClassification(
+    this: DatasetComplianceFieldTag,
+    securityClassification: IComplianceChangeSet['securityClassification'] = null
+  ): void {
+    setProperties(get(this, 'tag'), {
+      securityClassification,
+      isDirty: true
+    });
+  }
+
+  /**
+   * Handles changes to the valuePattern attribute on a tag
+   * @param {string} pattern
+   * @return {string}
+   * @throws {SyntaxError}
+   */
+  changeTagValuePattern(this: DatasetComplianceFieldTag, pattern: string): string {
+    const tag = get(this, 'tag');
+    const {
+      regExp: { source },
+      isValid
+    } = validateRegExp(pattern, isValidCustomValuePattern);
+
+    if (isValid) {
+      return set(tag, 'valuePattern', source);
+    }
+
+    throw new Error('Pattern not valid');
+  }
+
+  /**
    * Handles UI changes to the tag identifierType
-   * @param {ComplianceFieldIdValue} value
+   * @param {ComplianceFieldIdValue} identifierType
    */
   @action
-  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, value: ComplianceFieldIdValue) {
-    const onTagIdentifierTypeChange = get(this, 'onTagIdentifierTypeChange');
+  tagIdentifierTypeDidChange(this: DatasetComplianceFieldTag, identifierType: ComplianceFieldIdValue) {
+    const tag = get(this, 'tag');
 
-    if (typeof onTagIdentifierTypeChange === 'function') {
-      this.setQuickDesc();
-      onTagIdentifierTypeChange(get(this, 'tag'), { value });
-    }
+    // clear out the quickDesc object to allow rendering fieldFormat options
+    this.setQuickDesc();
+    setProperties(tag, {
+      identifierType,
+      logicalType: null,
+      nonOwner: null,
+      isDirty: true,
+      valuePattern: null
+    });
+
+    this.setDefaultClassification(identifierType);
   }
 
   /**
-   * Handles the updates when the tag's logical type changes on this tag
-   * @param {IdLogicalType} value contains the selected drop-down value
+   * Updates the logical type for the related tag
+   * @param {IdLogicalType} logicalType contains the selected drop-down value
    */
   @action
-  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, value: IdLogicalType) {
-    const onTagLogicalTypeChange = get(this, 'onTagLogicalTypeChange');
+  tagLogicalTypeDidChange(this: DatasetComplianceFieldTag, logicalType: IdLogicalType) {
+    const tag = get(this, 'tag');
+    let properties: Pick<IComplianceChangeSet, 'logicalType' | 'isDirty' | 'valuePattern' | 'nonOwner'> = {
+      logicalType,
+      isDirty: true,
+      // nullifies nonOwner property on logicalType change
+      nonOwner: null
+    };
 
-    if (typeof onTagLogicalTypeChange === 'function') {
-      onTagLogicalTypeChange(get(this, 'tag'), value);
+    // nullifies valuePattern attr if logicalType is not IdLogicalType.Custom
+    if (logicalType === IdLogicalType.Custom) {
+      properties = { ...properties, valuePattern: null };
     }
+
+    setProperties(tag, properties);
   }
 
   /**
-   * Handles the nonOwner flag update on the tag
+   * Updates the nonOwner property on the tag
    * @param {boolean} nonOwner
    */
   @action
   tagOwnerDidChange(this: DatasetComplianceFieldTag, nonOwner: boolean) {
-    get(this, 'onTagOwnerChange')(get(this, 'tag'), nonOwner);
+    setProperties(get(this, 'tag'), {
+      nonOwner,
+      isDirty: true
+    });
   }
 
   /**
@@ -226,9 +327,7 @@ export default class DatasetComplianceFieldTag extends Component {
   @action
   tagValuePatternDidChange(this: DatasetComplianceFieldTag, pattern: string) {
     try {
-      const valuePattern = get(this, 'onTagValuePatternChange')(get(this, 'tag'), pattern);
-
-      if (valuePattern) {
+      if (this.changeTagValuePattern(pattern)) {
         //clear pattern error
         this.setPatternErrorString();
       }
@@ -262,5 +361,18 @@ export default class DatasetComplianceFieldTag extends Component {
   @action
   onFieldTagIdentifierLeave(this: DatasetComplianceFieldTag) {
     this.setQuickDesc();
+  }
+
+  /**
+   * Invokes the external action to pass on local changes to the source tag
+   * @param {() => void} closeDialog
+   */
+  @action
+  onFieldTagUpdate(this: DatasetComplianceFieldTag, closeDialog?: () => void): void {
+    this.tagDidChange(get(this, 'sourceTag'), get(this, 'tag'));
+
+    if (typeof closeDialog === 'function') {
+      closeDialog();
+    }
   }
 }
