@@ -99,7 +99,16 @@ const complianceMetadataTaxonomy: Array<IMetadataType> = [
  * @param {string | Array<string>} expectedType the pattern string to match against
  * @returns {boolean}
  */
-const valueEquiv = (value: any, expectedType: string | Array<string>): boolean => expectedType.includes(typeOf(value));
+const isValueEquiv = (value: any, expectedType: string | Array<string>): true => {
+  const valueType = typeOf(value);
+  const isValueOfExpectedType = expectedType.includes(valueType);
+
+  if (!isValueOfExpectedType) {
+    throw new Error(`Expected ${value} to be of type(s) ${expectedType}, got ${valueType}`);
+  }
+
+  return isValueOfExpectedType;
+};
 
 /**
  * Extracts the type key and the pattern string from the string mapping into a tuple pair
@@ -119,27 +128,35 @@ const typePatternMap = (metadataType: IMetadataType): [string, string | Array<st
 const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType): boolean => {
   const [name, type] = typePatternMap(metadataType);
   const value = object[name];
-  const rootValueEquiv = object.hasOwnProperty(name) && valueEquiv(value, type);
+  const isRootValueEquiv = object.hasOwnProperty(name) && isValueEquiv(value, type);
   const innerType = metadataType['@props'];
+
+  if (!isRootValueEquiv) {
+    throw new Error(`Expected "${name}" to be a key on object`);
+  }
 
   if (type.includes('object') && isObject(value)) {
     // recurse on object properties
-    return rootValueEquiv && keysEquiv(value, innerType!);
+    return isRootValueEquiv && keysEquiv(value, innerType!);
   }
 
   if (type.includes('array') && Array.isArray(value)) {
     const { length } = value;
 
+    if (!length) {
+      throw new Error(`Expected array for ${name} to not be empty`);
+    }
+
     return (
       // recursively reduce on array elements
       // ensure the array contains at least on element
-      rootValueEquiv &&
+      isRootValueEquiv &&
       length > 0 &&
-      arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), rootValueEquiv)(value)
+      arrayReduce((isEquiv: boolean, value: any) => isEquiv && keysEquiv(value, innerType!), isRootValueEquiv)(value)
     );
   }
 
-  return rootValueEquiv;
+  return isRootValueEquiv;
 };
 
 /**
@@ -149,7 +166,7 @@ const keyValueHasMatch = (object: IObject<any>) => (metadataType: IMetadataType)
  * @return {boolean}
  * @throws {Error} if object keys do not match type @names
  */
-const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolean => {
+const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): true => {
   const objectKeys = Object.keys(object).sort();
   const typeKeys = arrayMap((typeMap: IMetadataType) => typeMap['@name'])(typeMaps).sort();
   const objectKeysSerialized = objectKeys.toString();
@@ -157,7 +174,12 @@ const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): b
   const match = objectKeysSerialized === typeKeysSerialized;
 
   if (!match) {
-    throw new Error(`Extra attributes found: ${difference(objectKeys, typeKeys).join(', ')}`);
+    throw new Error(
+      `Expected attributes ${typeKeys.join(', ')} on object. Found additional  attributes ${difference(
+        objectKeys,
+        typeKeys
+      ).join(', ')}`
+    );
   }
 
   return match;
