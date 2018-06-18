@@ -16,9 +16,11 @@ package wherehows.utils;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.typesafe.config.Config;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -79,7 +81,8 @@ public class ProcessorUtil {
   /**
    * Create MCE to DELETE the dataset
    */
-  public static MetadataChangeEvent mceDelete(@Nonnull DatasetIdentifier dataset, String actor) {
+  public static MetadataChangeEvent mceDelete(@Nonnull DatasetIdentifier dataset, @Nonnull DeploymentDetail deployment,
+      String actor) {
     MetadataChangeEvent mce = new MetadataChangeEvent();
     mce.datasetIdentifier = dataset;
 
@@ -88,6 +91,8 @@ public class ProcessorUtil {
     auditStamp.time = System.currentTimeMillis();
     auditStamp.type = ChangeType.DELETE;
     mce.changeAuditStamp = auditStamp;
+
+    mce.deploymentInfo = Collections.singletonList(deployment);
 
     return mce;
   }
