@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DataOrigin;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.typesafe.config.Config;
 import java.util.ArrayList;
@@ -94,9 +95,14 @@ public class ProcessorUtilTest {
   public void testMceDelete() {
     String actor = "tester";
     DatasetIdentifier dataset = makeDataset("test");
-    MetadataChangeEvent mce = ProcessorUtil.mceDelete(dataset, actor);
+
+    DeploymentDetail deployment = new DeploymentDetail();
+    deployment.cluster = "foo";
+
+    MetadataChangeEvent mce = ProcessorUtil.mceDelete(dataset, deployment, actor);
 
     assertEquals(mce.datasetIdentifier, dataset);
+    assertEquals(mce.deploymentInfo, Collections.singletonList(deployment));
     assertEquals(mce.changeAuditStamp.type, ChangeType.DELETE);
     assertEquals(mce.changeAuditStamp.actorUrn, actor);
   }

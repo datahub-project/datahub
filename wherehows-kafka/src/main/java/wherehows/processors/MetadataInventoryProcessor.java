@@ -88,6 +88,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     final String platformUrn = event.dataPlatformUrn.toString();
     final String platform = getUrnEntity(platformUrn);
     final DataOrigin origin = event.dataOrigin;
+    final String cluster = event.deployment.cluster.toString(); // if null cluster, throw exception here
     final String namespace = event.namespace.toString();
 
     log.info("Processing MIE for " + platform + " " + origin + " " + namespace);
@@ -98,7 +99,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     final List<String> names = event.nativeNames.stream().map(CharSequence::toString).collect(Collectors.toList());
     log.debug("new datasets: " + names);
 
-    final List<String> existingDatasets = _datasetViewDao.listFullNames(platform, origin.name(), namespace);
+    final List<String> existingDatasets = _datasetViewDao.listFullNames(platform, origin.name(), cluster, namespace);
     log.debug("existing datasets: " + existingDatasets);
 
     // find removed datasets by diff
@@ -109,7 +110,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
       identifier.dataOrigin = origin;
       identifier.nativeName = datasetName;
 
-      return mceDelete(identifier, actorUrn);
+      return mceDelete(identifier, event.deployment, actorUrn);
     }).collect(Collectors.toList());
   }
 
