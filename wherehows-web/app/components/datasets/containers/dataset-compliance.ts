@@ -65,6 +65,11 @@ export default class DatasetComplianceContainer extends Component {
   setOnChangeSetChange: (hasSuggestions: boolean) => void;
 
   /**
+   * External action to capture changes to dataset pii status
+   */
+  notifyPiiStatus: (containingPersonalData: boolean) => void;
+
+  /**
    * External action on parent
    */
   setOnComplianceType: (args: { isNewComplianceInfo: boolean; fromUpstream: boolean }) => void;
@@ -176,8 +181,10 @@ export default class DatasetComplianceContainer extends Component {
       readDatasetSchemaByUrn(urn)
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
+    const { containingPersonalData, fromUpstream } = complianceInfo;
 
-    this.onCompliancePolicyStateChange.call(this, { isNewComplianceInfo, fromUpstream: !!complianceInfo.fromUpstream });
+    this.notifyPiiStatus(!!containingPersonalData);
+    this.onCompliancePolicyStateChange.call(this, { isNewComplianceInfo, fromUpstream: !!fromUpstream });
 
     return setProperties(this, {
       isNewComplianceInfo,
@@ -199,8 +206,11 @@ export default class DatasetComplianceContainer extends Component {
     const { isNewComplianceInfo, complianceInfo }: IReadComplianceResult = yield readDatasetComplianceByUrn(
       get(this, 'urn')
     );
+    const { containingPersonalData, fromUpstream } = complianceInfo;
 
-    this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!complianceInfo.fromUpstream });
+    this.notifyPiiStatus(!!containingPersonalData);
+
+    this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!fromUpstream });
     setProperties(this, { isNewComplianceInfo, complianceInfo });
   });
 

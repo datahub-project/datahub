@@ -5,9 +5,7 @@
     <div class="row">
       <div class="container">
       {{#if model.removed}}
-        <span class="removed-dataset">
-            REMOVED
-        </span>
+        <span class="removed-dataset">REMOVED</span>
 
         <sup>
               <span
@@ -21,12 +19,25 @@
         </sup>
       {{/if}}
 
+      {{#if datasetContainsPersonalData}}
+        <span class="pii-dataset">PII</span>
+
+        <sup>
+              <span
+                class="glyphicon glyphicon-question-sign"
+                title="This dataset contains personally identifiable information">
+                {{tooltip-on-element
+                  event="hover"
+                  text="This dataset contains personally identifiable information"
+                }}
+              </span>
+        </sup>
+      {{/if}}
+
       {{#if model.deprecated}}
         {{#link-to "datasets.dataset.properties" encodedUrn}}
 
-          <span class="deprecated-dataset">
-              DEPRECATED
-            </span>
+          <span class="deprecated-dataset">DEPRECATED</span>
           <sup>
               <span
                 class="glyphicon glyphicon-question-sign"
@@ -109,9 +120,10 @@
         urn=encodedUrn
         platform=model.platform
         datasetName=model.nativeName
-        setOnChangeSetChange=(action 'setOnChangeSetChange')
-        setOnChangeSetDrift=(action 'setOnChangeSetDrift')
-        setOnComplianceType=(action 'setOnComplianceTypeChange')
+        notifyPiiStatus=(action "onNotifyPiiStatus")
+        setOnChangeSetChange=(action "setOnChangeSetChange")
+        setOnChangeSetDrift=(action "setOnChangeSetDrift")
+        setOnComplianceType=(action "setOnComplianceTypeChange")
       }}
     {{/tabs.tabpanel}}
 
