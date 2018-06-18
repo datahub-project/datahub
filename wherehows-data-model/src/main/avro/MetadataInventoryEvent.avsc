@@ -25,6 +25,15 @@
       "doc": "The common origin/Source tier for the inventory listing"
     },
     {
+      "name": "deployment",
+      "type": [
+        "null",
+        "DeploymentDetail"
+      ],
+      "default": null,
+      "doc": "The specific deployment for the inventory listing"
+    },
+    {
       "name": "namespace",
       "type": "string",
       "doc": "The namespace or common prefix for the inventory listing"
