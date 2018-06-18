@@ -108,12 +108,14 @@ public class DatasetViewDao extends BaseViewDao {
   }
 
   @Nonnull
-  public List<String> listSegments(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
+  public List<String> listSegments(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix)
+      throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
   @Nonnull
-  public List<String> listFullNames(@Nonnull String platform, @Nullable String origin, @Nonnull String prefix) throws Exception {
+  public List<String> listFullNames(@Nonnull String platform, @Nullable String origin, @Nonnull String cluster,
+      @Nonnull String prefix) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
