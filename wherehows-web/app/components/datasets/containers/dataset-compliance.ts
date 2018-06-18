@@ -270,8 +270,8 @@ export default class DatasetComplianceContainer extends Component {
     try {
       await request;
       notify(NotificationEvent.success, { content: successUpdating });
-    } catch (e) {
-      notify(NotificationEvent.error, { content: failedUpdating });
+    } catch ({ message }) {
+      notify(NotificationEvent.error, { content: `${failedUpdating} ${message}` });
     }
 
     return request;
