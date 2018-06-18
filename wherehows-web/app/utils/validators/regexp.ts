@@ -2,7 +2,6 @@
  * Constant value for an empty regex source string
  * @type {string}
  */
-
 const emptyRegexSource = '(?:)';
 
 /**
@@ -10,12 +9,13 @@ const emptyRegexSource = '(?:)';
  * @param {string} pattern the string to validate
  * @param {(pattern: string) => boolean} [customChecker] an optional function to check the pattern against
  * @return {boolean}
+ * @throws SyntaxError
  */
 const validateRegExp = (
-  pattern: string,
+  pattern: string | null | undefined,
   customChecker?: (pattern: any) => boolean
 ): { isValid: boolean; regExp: RegExp } => {
-  const regExp = new RegExp(pattern);
+  const regExp = new RegExp(pattern!);
   const { source } = regExp;
   const isValid = !!pattern && source !== emptyRegexSource;
 

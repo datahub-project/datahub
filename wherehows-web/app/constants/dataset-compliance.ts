@@ -5,7 +5,7 @@ import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-d
 import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome, reduceArrayAsync } from 'wherehows-web/utils/array';
 import { fleece, hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
-import { decodeUrn } from 'wherehows-web/utils/validators/urn';
+import { decodeUrn, isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import {
   IComplianceChangeSet,
   IComplianceFieldIdentifierOption,
@@ -24,6 +24,7 @@ import {
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
 import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
+import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -221,7 +222,13 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
 
     // If the tag has a IdLogicalType.Custom logicalType, check that the value pattern is truthy
     if (logicalType === IdLogicalType.Custom) {
-      isReviewRequired = isReviewRequired || !valuePattern;
+      let isValid = false;
+      try {
+        ({ isValid } = validateRegExp(valuePattern, isValidCustomValuePattern));
+      } catch {
+        isValid = false;
+      }
+      isReviewRequired = isReviewRequired || !isValid;
     }
 
     // If either the privacy policy doesn't exists, or user hasn't made changes, then review is required
