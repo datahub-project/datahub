@@ -15,8 +15,7 @@ import {
   minRequiredConfirmedOwners,
   validConfirmedOwners,
   isRequiredMinOwnersNotConfirmed,
-  isConfirmedOwner,
-  isSystemGeneratedOwner
+  isConfirmedOwner
 } from 'wherehows-web/constants/datasets/owner';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -174,12 +173,9 @@ export default class DatasetAuthors extends Component {
    * @memberof DatasetAuthors
    */
   systemGeneratedOwners: ComputedProperty<Array<IOwner>> = computed('suggestedOwners', function() {
-    const showOwnership = get(this, 'showOwnership');
     // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
     // same render" error
-    return showOwnership === 'show'
-      ? (get(this, 'suggestedOwners') || []).slice(0)
-      : get(this, 'owners').filter(isSystemGeneratedOwner);
+    return (get(this, 'suggestedOwners') || []).slice(0);
   });
 
   /**
