@@ -197,9 +197,6 @@ public class Application extends Controller {
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
     config.set("wikiLinks", wikiLinks());
-    // Ownership tab is currently in a UX revamp, this flag will determine whether to show it or not
-    // under certain environments
-    config.put("showOwnership", WHZ_DS_OWNERSHIP_TAB);
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
