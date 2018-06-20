@@ -23,7 +23,6 @@ import {
 } from 'wherehows-web/typings/app/dataset-columns';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
-import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
 
 /**
@@ -191,31 +190,20 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const {
-      isDirty,
-      suggestion,
-      privacyPolicyExists,
-      suggestionAuthority,
-      readonly,
-      identifierType,
-      logicalType,
-      valuePattern
-    } = tag;
+    const { isDirty, privacyPolicyExists, readonly, identifierType, logicalType, valuePattern } = tag;
     let isReviewRequired = false;
 
+    // Readonly tags are exempt from review
     if (readonly) {
       return false;
     }
 
+    // Ensure that the tag has an identifier type specified
     if (!identifierType) {
       return true;
     }
 
-    // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
-    if (suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)) {
-      isReviewRequired = isReviewRequired || !suggestionAuthority;
-    }
-
+    // Ensure that tag has a logical type and nonOwner flag is set when tag is of id type
     if (isTagIdType(complianceDataTypes)(tag)) {
       isReviewRequired = isReviewRequired || !idTypeTagHasLogicalType(tag) || !tagOwnerIsSet(tag);
     }
