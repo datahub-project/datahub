@@ -54,7 +54,7 @@ export interface IComplianceInfo {
   confidentiality: Classification | null;
   // Flag indicating that the dataset contains pii data, typically for schemaless dataset this is user entered,
   // for datasets with a schema, this derived from the complianceEntities
-  containingPersonalData?: boolean;
+  containingPersonalData?: boolean | null;
   // Tags for a types of data contained in the related dataset
   datasetClassification: DatasetClassification | null;
   // Unique wherehows specific database identifier
