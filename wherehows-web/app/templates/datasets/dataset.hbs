@@ -5,33 +5,26 @@
     <div class="row">
       <div class="container">
       {{#if model.removed}}
-        <span class="removed-dataset">REMOVED</span>
+        <span class="removed-dataset dataset-pill">
+          REMOVED
 
-        <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="This dataset has been removed">
-                {{tooltip-on-element
-                  event="hover"
-                  text="This dataset has been removed"
-                }}
-              </span>
-        </sup>
+          {{tooltip-on-element
+            event="hover"
+            text="This dataset has been removed"
+          }}
+        </span>
       {{/if}}
 
       {{#if datasetContainsPersonalData}}
-        <span class="pii-dataset">PII</span>
+        <span class="pii-dataset dataset-pill">
+          PII
 
-        <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="This dataset contains personally identifiable information">
-                {{tooltip-on-element
-                  event="hover"
-                  text="This dataset contains personally identifiable information"
-                }}
-              </span>
-        </sup>
+          {{tooltip-on-element
+            event="hover"
+            text="This dataset contains personally identifiable information"
+          }}
+        </span>
+
       {{/if}}
 
       {{#if model.deprecated}}
