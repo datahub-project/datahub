@@ -9,6 +9,15 @@ interface IAppConfig {
   isInternal: boolean | void;
   jitAclAccessWhitelist: Array<DatasetPlatform> | void;
   showOwnership: string;
+  tracking: {
+    isEnabled: boolean;
+    trackers: {
+      piwik: {
+        piwikSiteId: number;
+        piwikUrl: string;
+      };
+    };
+  };
   [key: string]: any;
 }
 

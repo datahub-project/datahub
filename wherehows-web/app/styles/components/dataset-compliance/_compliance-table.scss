@@ -126,6 +126,7 @@
     padding: 0;
     border: 0;
     margin-bottom: item-spacing(8);
+    z-index: z(modal);
   }
 
   &__tag-radio {
@@ -154,6 +155,14 @@
       position: sticky;
       top: -1px;
       z-index: 1;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.085);
+
+      &::before {
+        content: '\2014';
+        position: absolute;
+        right: item-spacing(0);
+        color: black;
+      }
 
       &:hover {
         background-color: get-color(slate2);
@@ -162,6 +171,7 @@
       .ember-radio-button {
         color: black;
         font-weight: fw(normal, 6);
+        cursor: default;
       }
     }
 
@@ -181,6 +191,10 @@
   &__compliance-info-column {
     display: flex;
     flex-direction: column;
+
+    &:first-of-type {
+      min-width: 280px;
+    }
 
     &__title {
       padding: item-spacing(3);
@@ -258,8 +272,8 @@
 
     &__footer {
       text-align: right;
-      height: item-spacing(8);
-      padding: item-spacing(3);
+      height: item-spacing(7);
+      padding: item-spacing(1);
       background-color: get-color(slate1);
       border-right: 1px solid get-color(slate2);
     }
@@ -295,7 +309,7 @@
 
   &__text-pattern-wrap {
     $error-font-size: 12px;
-    padding: item-spacing(0 4);
+    padding: item-spacing(1 4);
     position: relative;
     display: flex;
     flex-direction: column;
