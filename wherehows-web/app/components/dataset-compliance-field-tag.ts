@@ -152,9 +152,9 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {ComputedProperty<boolean>}
    */
   showCustomInput = computed('tag.logicalType', function(this: DatasetComplianceFieldTag): boolean {
-    const { logicalType, valuePattern = '' } = get(this, 'tag');
+    const { logicalType, valuePattern } = get(this, 'tag');
 
-    this.actions.tagValuePatternDidChange.call(this, valuePattern);
+    this.actions.tagValuePatternDidChange.call(this, valuePattern || '');
 
     return logicalType === IdLogicalType.Custom;
   });
@@ -252,16 +252,15 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   changeTagValuePattern(this: DatasetComplianceFieldTag, pattern: string): string {
     const tag = get(this, 'tag');
-    const {
-      regExp: { source },
-      isValid
-    } = validateRegExp(pattern, isValidCustomValuePattern);
+    const { isValid } = validateRegExp(pattern, isValidCustomValuePattern);
 
-    if (isValid) {
-      return set(tag, 'valuePattern', source);
+    set(tag, 'valuePattern', pattern);
+
+    if (!isValid) {
+      throw new Error('Pattern not valid');
     }
 
-    throw new Error('Pattern not valid');
+    return pattern;
   }
 
   /**

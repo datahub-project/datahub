@@ -1243,7 +1243,7 @@ export default class DatasetCompliance extends Component {
         const { confidentiality, containingPersonalData } = complianceInfo;
 
         // defaults the containing personal data flag to false if undefined
-        if (typeof containingPersonalData === 'undefined') {
+        if (typeof containingPersonalData !== 'boolean') {
           set(complianceInfo, 'containingPersonalData', false);
         }
 
