@@ -6,6 +6,15 @@ const suggestion = { identifierType: 'same', confidenceLevel: 0.6 };
 const mockFieldChangeSets = [
   {
     isDirty: true,
+    privacyPolicyExists: true,
+    suggestionAuthority: false,
+    suggestion,
+    identifierType: 'other',
+    __requiresReview__: true,
+    __msg__: 'Suggestion exists but user has not affirmed or ignored suggestion (suggestionAuthority)'
+  },
+  {
+    isDirty: true,
     privacyPolicyExists: false,
     suggestionAuthority: true,
     __requiresReview__: true,
