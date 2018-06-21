@@ -67,13 +67,6 @@ export default class DatasetController extends Controller {
   jitAclAccessWhitelist: Array<DatasetPlatform>;
 
   /**
-   * Flag indicating whether or not to show the ownership revamp tab information
-   * @type {string}
-   * @memberof DatasetController
-   */
-  showOwnership: string;
-
-  /**
    * Flag indicating the dataset policy is derived from an upstream source
    * @type {boolean}
    * @memberof DatasetController
