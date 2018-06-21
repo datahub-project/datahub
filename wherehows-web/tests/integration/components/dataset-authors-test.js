@@ -45,20 +45,14 @@ test('it should remove an owner when removeOwner is invoked', function(assert) {
 
 test('it should update a suggested owner to confirmed', function(assert) {
   assert.expect(3);
-  const [owner, suggestedOwner] = owners;
-  const resolvedOwners = [owner];
-  const suggestedOwners = [suggestedOwner];
 
-  const initialLength = resolvedOwners.length;
+  const initialLength = owners.length;
   let userName, confirmedOwner;
 
-  this.set('owners', resolvedOwners);
+  this.set('owners', owners);
   this.set('ownerTypes', ownerTypes);
   this.set('saveOwnerChanges', noop);
-  this.set('suggestedOwners', suggestedOwners);
-  this.render(
-    hbs`{{dataset-authors owners=owners suggestedOwners=suggestedOwners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`
-  );
+  this.render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
 
   assert.equal(
     this.get('owners.length'),
@@ -66,8 +60,7 @@ test('it should update a suggested owner to confirmed', function(assert) {
     `the list of owners is ${initialLength} before adding confirmed owner`
   );
 
-  triggerEvent('.dataset-authors-suggested__info__trigger', 'click');
-  triggerEvent('.suggested-owner-card__owner-info__add button', 'click');
+  triggerEvent('.confirm-suggested-dataset-author', 'click');
 
   userName = this.get('current-user.currentUser.userName');
   confirmedOwner = this.get('owners').findBy('confirmedBy', userName);
