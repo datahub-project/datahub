@@ -21,10 +21,10 @@
 
     <div class="notification-toast__content notification-toast__content--{{service.toast.props.type}}">
       <p class="notification-toast__content__msg">
-        {{split-text service.toast.props.content 140}}
+        {{split-text service.toast.props.content 120}}
       </p>
 
-      {{#if (gt service.toast.props.content.length 140)}}
+      {{#if (gt service.toast.props.content.length 120)}}
         <button
           class="nacho-button nacho-button--tertiary notification-toast__content-detail"
           onclick={{action "showContentDetail" target=service}}>
