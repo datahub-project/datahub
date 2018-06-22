@@ -23,6 +23,7 @@ import {
 } from 'wherehows-web/typings/app/dataset-columns';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
+import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
 
 /**
@@ -54,7 +55,7 @@ const compliancePolicyStrings = {
  * @type {string}
  */
 const changeSetReviewableAttributeTriggers =
-  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType,nonOwner,valuePattern';
+  'isDirty,suggestion,privacyPolicyExists,suggestionAuthority,logicalType,identifierType,nonOwner,valuePattern,readonly';
 
 /**
  * Takes a compliance data type and transforms it into a compliance field identifier option
@@ -110,13 +111,14 @@ const getComplianceSteps = (hasSchema: boolean = true): { [x: number]: { name: s
  */
 const isEditableComplianceEntity = ({ readonly }: IComplianceEntity): boolean => readonly !== true; // do not simplify, readonly may be undefined
 
+const nonReadonlyTags = arrayFilter(isEditableComplianceEntity);
 /**
  * Filters out from a list of compliance entities, entities that are editable
  * @param {Array<IComplianceEntity>} entities
  * @returns {Array<IComplianceEntity>}
  */
 const filterEditableEntities = (entities: Array<IComplianceEntity>): Array<IComplianceEntity> =>
-  arrayFilter(isEditableComplianceEntity)(entities);
+  nonReadonlyTags(entities);
 
 /**
  * Strips out the readonly attribute from a list of compliance entities
@@ -177,6 +179,18 @@ const suggestedIdentifierTypesInList = (suggestion: ISuggestedFieldTypeValues | 
   suggestion && suggestion.identifierType === identifierType ? [...list, identifierType] : list;
 
 /**
+ * Checks if a tag (IComplianceChangeSet) instance should be reviewed for conflict with the suggested value
+ * @param {SchemaFieldToSuggestedValue} suggestion
+ * @param {SuggestionIntent} suggestionAuthority
+ * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+ * @return {boolean}
+ */
+const tagSuggestionNeedsReview = ({ suggestion, suggestionAuthority, identifierType }: IComplianceChangeSet): boolean =>
+  suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)
+    ? !suggestionAuthority
+    : false;
+
+/**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
  * is available  but the user has not indicated intent or a policy for the field does not currently exist remotely
  * and the related field changeSet has not been modified on the client and isn't readonly
@@ -190,18 +204,16 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const { isDirty, privacyPolicyExists, readonly, identifierType, logicalType, valuePattern } = tag;
+    const { isDirty, privacyPolicyExists, identifierType, logicalType, valuePattern } = tag;
     let isReviewRequired = false;
-
-    // Readonly tags are exempt from review
-    if (readonly) {
-      return false;
-    }
 
     // Ensure that the tag has an identifier type specified
     if (!identifierType) {
       return true;
     }
+
+    // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
+    isReviewRequired = isReviewRequired || tagSuggestionNeedsReview(tag);
 
     // Ensure that tag has a logical type and nonOwner flag is set when tag is of id type
     if (isTagIdType(complianceDataTypes)(tag)) {
