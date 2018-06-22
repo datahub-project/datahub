@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
-import ComputedProperty, { not, or } from '@ember/object/computed';
+import ComputedProperty, { not, or, alias } from '@ember/object/computed';
 import { run, schedule, next } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
@@ -34,7 +34,8 @@ import {
   tagsWithoutIdentifierType,
   singleTagsInChangeSet,
   tagsForIdentifierField,
-  overrideTagReadonly
+  overrideTagReadonly,
+  filterEditableEntities
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -163,6 +164,18 @@ export default class DatasetCompliance extends Component {
     const { editStep, editSteps } = getProperties(this, ['editStep', 'editSteps']);
     const [initialStep] = editSteps;
     return editStep.name === initialStep.name;
+  });
+
+  /**
+   * Indicates if the first step does not need further user review to advance
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetCompliance
+   */
+  initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReview', function(this: DatasetCompliance): boolean {
+    const { isInitialEditStep, changeSetReview } = getProperties(this, ['isInitialEditStep', 'changeSetReview']);
+    const { length } = filterEditableEntities(changeSetReview);
+
+    return isInitialEditStep && length > 0;
   });
 
   /**
@@ -837,17 +850,24 @@ export default class DatasetCompliance extends Component {
   };
 
   /**
-   * Returns a count of changeSet fields that require user attention
+   * The changeSet tags that require user attention
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReview = computed(
+    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
+    'complianceDataTypes',
+    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet'));
+    }
+  );
+
+  /**
+   * Returns a count of changeSet tags that require user attention
    * @type {ComputedProperty<number>}
    * @memberof DatasetCompliance
    */
-  changeSetReviewCount = computed(
-    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
-    'complianceDataTypes',
-    function(this: DatasetCompliance): number {
-      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet')).length;
-    }
-  );
+  changeSetReviewCount = alias('changeSetReview.length');
 
   /**
    * Sets the default classification for the given identifier field's tag
