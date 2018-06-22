@@ -18,6 +18,7 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.IdClass;
+import javax.persistence.Transient;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -62,6 +63,9 @@ public class DatasetOwner {
 
   @Column(name = "sort_id")
   private Integer sortId;
+
+  @Transient
+  private String sourceUrl;
 
   @Column(name = "confirmed_by")
   private String confirmedBy;
