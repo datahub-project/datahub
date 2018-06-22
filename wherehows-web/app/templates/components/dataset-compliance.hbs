@@ -44,7 +44,7 @@
                       class="nacho-button nacho-button--large-inverse action-bar__item"
                       title="Next"
                       onclick={{action metrics.trackOnAction (action "nextStep")}}
-                        disabled={{and (gt changeSetReviewCount 0) isInitialEditStep}}>
+                      disabled={{initialStepNeedsReview}}>
                       Next
                     </button>
                   {{/track-ui-event}}

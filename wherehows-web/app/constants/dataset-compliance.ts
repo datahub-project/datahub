@@ -179,6 +179,18 @@ const suggestedIdentifierTypesInList = (suggestion: ISuggestedFieldTypeValues | 
   suggestion && suggestion.identifierType === identifierType ? [...list, identifierType] : list;
 
 /**
+ * Checks if a tag (IComplianceChangeSet) instance should be reviewed for conflict with the suggested value
+ * @param {SchemaFieldToSuggestedValue} suggestion
+ * @param {SuggestionIntent} suggestionAuthority
+ * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+ * @return {boolean}
+ */
+const tagSuggestionNeedsReview = ({ suggestion, suggestionAuthority, identifierType }: IComplianceChangeSet): boolean =>
+  suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)
+    ? !suggestionAuthority
+    : false;
+
+/**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
  * is available  but the user has not indicated intent or a policy for the field does not currently exist remotely
  * and the related field changeSet has not been modified on the client and isn't readonly
@@ -192,15 +204,7 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const {
-      isDirty,
-      privacyPolicyExists,
-      identifierType,
-      logicalType,
-      valuePattern,
-      suggestion,
-      suggestionAuthority
-    } = tag;
+    const { isDirty, privacyPolicyExists, identifierType, logicalType, valuePattern } = tag;
     let isReviewRequired = false;
 
     // Ensure that the tag has an identifier type specified
@@ -209,9 +213,7 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
     }
 
     // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
-    if (suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)) {
-      isReviewRequired = isReviewRequired || !suggestionAuthority;
-    }
+    isReviewRequired = isReviewRequired || tagSuggestionNeedsReview(tag);
 
     // Ensure that tag has a logical type and nonOwner flag is set when tag is of id type
     if (isTagIdType(complianceDataTypes)(tag)) {
