@@ -199,7 +199,7 @@
 
                         <p class="dataset-compliance-fields__tag-info__text">
                           {{#if tag.identifierType}}
-                            {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+                            {{tag.identifierType}}{{if tag.logicalType (concat " (" tag.logicalType ")")}}
                           {{else}}
                             <span
                               class="dataset-compliance-fields__tag-info__text dataset-compliance-fields__tag-info__text--obscure">
@@ -401,7 +401,7 @@
                   {{#each row.fieldChangeSet as |tag|}}
 
                     <div class="dataset-compliance-fields__tag-info">
-                      {{tag.identifierType}}{{if tag.logicalType (concat ", " tag.logicalType)}}
+                      {{tag.identifierType}}{{if tag.logicalType (concat " (" tag.logicalType ")")}}
 
                       {{#if row.isReadonly}}
                         <span class="nacho-tooltip" title="Readonly">
@@ -421,14 +421,10 @@
               {{#row.cell}}
                 <div class="dataset-compliance-fields__suggested-values">
                   {{#if row.suggestion}}
-                    <span class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
+                    <span
+                      class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
                                                                                      'dataset-compliance-fields__suggested-value--no-res'}}">
-                      {{row.suggestion.identifierType}}
-                    </span>
-
-                    <span class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
-                                                                                     'dataset-compliance-fields__suggested-value--no-res'}}">
-                      {{row.suggestion.logicalType}}
+                      {{row.suggestion.identifierType}} {{if row.suggestion.logicalType (concat " (" row.suggestion.logicalType ")")}}
                     </span>
 
                     {{row.suggestion.confidence}}%

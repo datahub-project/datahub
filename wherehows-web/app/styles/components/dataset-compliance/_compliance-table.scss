@@ -293,7 +293,7 @@
   }
 
   &__suggested-value {
-    width: item-spacing(9);
+    width: item-spacing(9) * 3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
