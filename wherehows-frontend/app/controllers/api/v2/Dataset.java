@@ -144,6 +144,16 @@ public class Dataset extends Controller {
     }
   }
 
+  public static Promise<Result> getFieldFormatDocs() {
+    try {
+      return Promise.promise(() -> ok(
+          Json.newObject().set("fieldFormatDocs", Json.toJson(DATA_TYPES_DAO.getDocsForAllFieldFormats()))));
+    } catch (Exception e) {
+      Logger.error("Fail to get docs of field formats", e);
+      return Promise.promise(() -> notFound(errorResponse(e)));
+    }
+  }
+
   public static Promise<Result> getDataPlatforms() {
     try {
       return Promise.promise(
