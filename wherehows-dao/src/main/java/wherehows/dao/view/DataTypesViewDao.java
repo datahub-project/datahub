@@ -37,4 +37,13 @@ public class DataTypesViewDao extends BaseViewDao {
   public List<Map<String, Object>> getAllPlatforms() throws Exception {
     throw new UnsupportedOperationException("Operation not implemented");
   }
+
+  /**
+   * Get docs for all field format types
+   */
+  public Map<String, String> getDocsForAllFieldFormats() throws Exception {
+    throw new UnsupportedOperationException("Operation not implemented");
+  }
+
+
 }
