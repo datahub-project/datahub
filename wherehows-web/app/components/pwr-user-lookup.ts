@@ -5,7 +5,7 @@ import UserLookup from 'wherehows-web/components/user-lookup';
 import { Keyboard } from 'wherehows-web/constants/keyboard';
 import { suggestionLimit } from 'wherehows-web/constants/typeahead';
 import { IPowerSelectAPI } from 'wherehows-web/typings/modules/power-select';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * The stepMap is used for keyboard event translation where up arrows mean we are decreasing our position in

@@ -13,4 +13,9 @@ const not = <T>(fn: (arg: T) => boolean) => (arg: T) => !fn(arg);
  */
 const identity = <T>(x: T): T => x;
 
-export { not, identity };
+/**
+ * Exports a noop that can be used in place of Ember.K which is currently deprecated.
+ */
+const noop: (...args: Array<any>) => any = () => {};
+
+export { not, identity, noop };
