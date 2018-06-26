@@ -4,7 +4,7 @@ import { run, schedule, scheduleOnce } from '@ember/runloop';
 import { assert } from '@ember/debug';
 import { CommentTypeUnion, IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
 import { baseCommentEditorOptions, newCommentEditorOptions } from 'wherehows-web/constants';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Returns initial properties for a new Comment

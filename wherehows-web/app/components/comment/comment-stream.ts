@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { assert } from '@ember/debug';
 import { StreamCommentActionsUnion } from 'wherehows-web/constants';
 import { StringUnionKeyToValue } from 'wherehows-web/typings/generic';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Actions available for comment stream

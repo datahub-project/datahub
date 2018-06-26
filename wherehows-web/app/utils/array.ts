@@ -1,3 +1,5 @@
+import { identity } from 'wherehows-web/utils/helpers/functions';
+
 /**
  * Convenience utility takes a type-safe mapping function, and returns a list mapping function
  * @param {(param: T) => U} mappingFunction maps a single type T to type U
@@ -43,6 +45,56 @@ const arrayReduce = <T, U>(
   iteratee: (accumulator: U, element: T, index: number, collection: Array<T>) => U,
   init: U
 ): ((arr: Array<T>) => U) => (array = []) => array.reduce(iteratee, init);
+
+type Iteratees = Array<(<A, R>(a: A) => R)>;
+
+// arrayCompose overloads
+function arrayCompose<T>(): (x: T) => T;
+function arrayCompose<T, R1>(f1: (a1: T) => R1): (x1: T) => R1;
+function arrayCompose<T, R1, R2>(f1: (a1: T) => R1, f2: (a2: R1) => R2): (x1: T) => R2;
+function arrayCompose<T, R1, R2, R3>(f1: (a1: T) => R1, f2: (a2: R1) => R2, f3: (a3: R2) => R3): (x1: T) => R3;
+function arrayCompose<T, R1, R2, R3, R4>(
+  f1: (a1: T) => R1,
+  f2: (a2: R1) => R2,
+  f3: (a3: R2) => R3,
+  f4: (a4: R3) => R4
+): (x1: T) => R4;
+function arrayCompose<T, R1, R2, R3, R4, R5>(
+  f1: (a1: T) => R1,
+  f2: (a2: R1) => R2,
+  f3: (a3: R2) => R3,
+  f4: (a4: R3) => R4,
+  f5: (a5: R4) => R5
+): (x1: T) => R5;
+function arrayCompose<T, R1, R2, R3, R4, R5, R6>(
+  f1: (a1: T) => R1,
+  f2: (a2: R1) => R2,
+  f3: (a3: R2) => R3,
+  f4: (a4: R3) => R4,
+  f5: (a5: R4) => R5,
+  f6: (a6: R5) => R6
+): (x1: T) => R6;
+function arrayCompose<T, R1, R2, R3, R4, R5, R6, R7>(
+  f1: (a1: T) => R1,
+  f2: (a2: R1) => R2,
+  f3: (a3: R2) => R3,
+  f4: (a4: R3) => R4,
+  f5: (a5: R4) => R5,
+  f6: (a6: R5) => R6,
+  f7: (a7: R6) => R7
+): (x1: T) => R7;
+/**
+ *
+ * @template T
+ * @template R
+ * @param {...Iteratees} fns
+ * @returns {(x: any) => R}
+ */
+function arrayCompose<T, R>(...fns: Iteratees): (x: T) => R {
+  return arrayReduce<(a: T) => any, (x: any) => R>((acc, f) => (x): R => acc(f(x)), identity)(
+    (<Iteratees>[]).concat(...fns)
+  );
+}
 
 /**
  * Duplicate check using every to short-circuit iteration
@@ -133,6 +185,7 @@ export {
   arrayMap,
   arrayFilter,
   arrayReduce,
+  arrayCompose,
   isListUnique,
   compact,
   arrayEvery,

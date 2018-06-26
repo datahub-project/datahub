@@ -4,7 +4,7 @@ import { triggerEvent } from 'ember-native-dom-helpers';
 
 import owners from 'wherehows-web/mirage/fixtures/owners';
 import { OwnerType } from 'wherehows-web/utils/api/datasets/owners';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 moduleForComponent(
   'datasets/owners/suggested-owner-card',
