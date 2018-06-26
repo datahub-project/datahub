@@ -2,7 +2,7 @@ import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
 
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 import owners from 'wherehows-web/mirage/fixtures/owners';
 import { OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 

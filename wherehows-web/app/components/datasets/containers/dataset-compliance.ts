@@ -21,12 +21,7 @@ import {
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
-import {
-  compliancePolicyStrings,
-  removeReadonlyAttr,
-  filterEditableEntities,
-  SuggestionIntent
-} from 'wherehows-web/constants';
+import { compliancePolicyStrings, removeReadonlyAttr, editableTags, SuggestionIntent } from 'wherehows-web/constants';
 import { iterateArrayAsync } from 'wherehows-web/utils/array';
 import validateMetadataObject, {
   complianceEntitiesTaxonomy
@@ -291,7 +286,7 @@ export default class DatasetComplianceContainer extends Component {
         saveDatasetComplianceByUrn(get(this, 'urn'), {
           ...complianceInfo,
           // filter out readonly entities, then fleece readonly attribute from remaining entities before save
-          complianceEntities: removeReadonlyAttr(filterEditableEntities(complianceEntities))
+          complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
         })
       );
 

@@ -3,7 +3,7 @@ import { assert } from '@ember/debug';
 import { CommentTypes } from 'wherehows-web/constants';
 import { StringUnionKeyToValue } from 'wherehows-web/typings/generic';
 import { DatasetStreamActionsUnion } from 'wherehows-web/constants';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 const StreamActions: StringUnionKeyToValue<DatasetStreamActionsUnion> = {
   add: 'add',
