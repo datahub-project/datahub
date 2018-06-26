@@ -171,9 +171,14 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReview', function(this: DatasetCompliance): boolean {
-    const { isInitialEditStep, changeSetReview } = getProperties(this, ['isInitialEditStep', 'changeSetReview']);
-    const { length } = editableTags(changeSetReview);
+  initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReviewWithoutSuggestionCheck', function(
+    this: DatasetCompliance
+  ): boolean {
+    const { isInitialEditStep, changeSetReviewWithoutSuggestionCheck } = getProperties(this, [
+      'isInitialEditStep',
+      'changeSetReviewWithoutSuggestionCheck'
+    ]);
+    const { length } = editableTags(changeSetReviewWithoutSuggestionCheck);
 
     return isInitialEditStep && length > 0;
   });
@@ -772,6 +777,43 @@ export default class DatasetCompliance extends Component {
   );
 
   /**
+   * Filters out the compliance tags requiring review excluding tags that require review,
+   * due to a suggestion mismatch with the current tag identifierType
+   * This drives the initialStep review check and fulfills the use-case,
+   * where the user can proceed with the compliance update, without
+   * being required to resolve a suggestion mismatch
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReviewWithoutSuggestionCheck = computed('changeSetReview', function(
+    this: DatasetCompliance
+  ): Array<IComplianceChangeSet> {
+    return tagsRequiringReview(get(this, 'complianceDataTypes'), { checkSuggestions: false })(
+      get(this, 'changeSetReview')
+    );
+  });
+
+  /**
+   * The changeSet tags that require user attention
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReview = computed(
+    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
+    'complianceDataTypes',
+    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet'));
+    }
+  );
+
+  /**
+   * Returns a count of changeSet tags that require user attention
+   * @type {ComputedProperty<number>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReviewCount = alias('changeSetReview.length');
+
+  /**
    * Reduces the current filtered changeSet to a list of IdentifierFieldWithFieldChangeSetTuple
    * @type {Array<IdentifierFieldWithFieldChangeSetTuple>}
    * @memberof DatasetCompliance
@@ -848,26 +890,6 @@ export default class DatasetCompliance extends Component {
 
     this.notifyOnChangeSetRequiresReview(hasChangeSetDrift);
   };
-
-  /**
-   * The changeSet tags that require user attention
-   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
-   * @memberof DatasetCompliance
-   */
-  changeSetReview = computed(
-    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
-    'complianceDataTypes',
-    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
-      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet'));
-    }
-  );
-
-  /**
-   * Returns a count of changeSet tags that require user attention
-   * @type {ComputedProperty<number>}
-   * @memberof DatasetCompliance
-   */
-  changeSetReviewCount = alias('changeSetReview.length');
 
   /**
    * Sets the default classification for the given identifier field's tag
