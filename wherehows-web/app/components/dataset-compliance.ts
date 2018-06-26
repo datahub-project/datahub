@@ -35,7 +35,7 @@ import {
   singleTagsInChangeSet,
   tagsForIdentifierField,
   overrideTagReadonly,
-  filterEditableEntities
+  editableTags
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -173,7 +173,7 @@ export default class DatasetCompliance extends Component {
    */
   initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReview', function(this: DatasetCompliance): boolean {
     const { isInitialEditStep, changeSetReview } = getProperties(this, ['isInitialEditStep', 'changeSetReview']);
-    const { length } = filterEditableEntities(changeSetReview);
+    const { length } = editableTags(changeSetReview);
 
     return isInitialEditStep && length > 0;
   });
