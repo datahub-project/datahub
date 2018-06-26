@@ -35,7 +35,7 @@ test('it renders', async function(assert) {
     JSON.stringify([])
   ]);
 
-  this.render(hbs`{{datasets/containers/dataset-ownership urn=urn showOwnership="show"}}`);
+  this.render(hbs`{{datasets/containers/dataset-ownership urn=urn}}`);
 
   await waitUntil(() => find(lookupClass));
   assert.equal(
