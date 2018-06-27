@@ -14,7 +14,8 @@ import {
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested,
   IComplianceEntityWithMetadata,
-  ISuggestedFieldTypeValues
+  ISuggestedFieldTypeValues,
+  IComplianceTagReviewOptions
 } from 'wherehows-web/typings/app/dataset-compliance';
 import {
   IColumnFieldProps,
@@ -190,20 +191,47 @@ const tagSuggestionNeedsReview = ({ suggestion, suggestionAuthority, identifierT
     : false;
 
 /**
+ * Checks if a compliance tag's logicalType property is missing or nonOwner flag is set
+ * @param {IComplianceChangeSet} tag the compliance field tag
+ * @return {boolean}
+ */
+const tagLogicalTypeNonOwnerAttributeNeedsReview = (tag: IComplianceChangeSet): boolean =>
+  !idTypeTagHasLogicalType(tag) || !tagOwnerIsSet(tag);
+
+/**
+ * Checks if a compliance tag's valuePattern attribute is valid or otherwise
+ * @param {string | null} valuePattern
+ * @return {boolean}
+ */
+const tagValuePatternNeedsReview = ({ valuePattern }: IComplianceChangeSet): boolean => {
+  let isValid = false;
+  try {
+    ({ isValid } = validateRegExp(valuePattern, isValidCustomValuePattern));
+  } catch {
+    isValid = false;
+  }
+
+  return !isValid;
+};
+
+/**
  * Checks if a compliance policy changeSet field requires user attention: if a suggestion
  * is available  but the user has not indicated intent or a policy for the field does not currently exist remotely
  * and the related field changeSet has not been modified on the client and isn't readonly
  * @param {Array<IComplianceDataType>} complianceDataTypes
+ * @param {IComplianceTagReviewOptions} options an option bag with properties that modify the behaviour of the review
+ * checking steps
  * @return {(tag: IComplianceChangeSet) => boolean}
  */
-const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
+const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>, options?: IComplianceTagReviewOptions) =>
   /**
    * Checks if a compliance tag needs to be reviewed against a set of rules
    * @param {IComplianceChangeSet} tag
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const { isDirty, privacyPolicyExists, identifierType, logicalType, valuePattern } = tag;
+    const { checkSuggestions } = options || { checkSuggestions: true };
+    const { isDirty, privacyPolicyExists, identifierType, logicalType } = tag;
     let isReviewRequired = false;
 
     // Ensure that the tag has an identifier type specified
@@ -212,22 +240,18 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>) =>
     }
 
     // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
-    isReviewRequired = isReviewRequired || tagSuggestionNeedsReview(tag);
+    if (checkSuggestions) {
+      isReviewRequired = isReviewRequired || tagSuggestionNeedsReview(tag);
+    }
 
     // Ensure that tag has a logical type and nonOwner flag is set when tag is of id type
     if (isTagIdType(complianceDataTypes)(tag)) {
-      isReviewRequired = isReviewRequired || !idTypeTagHasLogicalType(tag) || !tagOwnerIsSet(tag);
+      isReviewRequired = isReviewRequired || tagLogicalTypeNonOwnerAttributeNeedsReview(tag);
     }
 
     // If the tag has a IdLogicalType.Custom logicalType, check that the value pattern is truthy
     if (logicalType === IdLogicalType.Custom) {
-      let isValid = false;
-      try {
-        ({ isValid } = validateRegExp(valuePattern, isValidCustomValuePattern));
-      } catch {
-        isValid = false;
-      }
-      isReviewRequired = isReviewRequired || !isValid;
+      isReviewRequired = isReviewRequired || tagValuePatternNeedsReview(tag);
     }
 
     // If either the privacy policy doesn't exists, or user hasn't made changes, then review is required
@@ -364,10 +388,11 @@ const singleTagsInChangeSet = (
 /**
  * Returns a list of changeSet tags that requires user attention
  * @param {Array<IComplianceDataType>} complianceDataTypes
+ * @param {IComplianceTagReviewOptions} options
  * @return {(array: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>}
  */
-const tagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>) =>
-  arrayFilter<IComplianceChangeSet>(tagNeedsReview(complianceDataTypes));
+const tagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>, options?: IComplianceTagReviewOptions) =>
+  arrayFilter<IComplianceChangeSet>(tagNeedsReview(complianceDataTypes, options));
 
 /**
  * Lists the tags for a specific identifier field that need to be reviewed
