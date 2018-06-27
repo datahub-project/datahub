@@ -369,7 +369,7 @@
                               <button
                                 class="nacho-button nacho-button--large-inverse"
                                 onclick={{action tagRowComponent.onFieldTagUpdate tagDrop.actions.close}}
-                                disabled={{tagRowComponent.isTagReviewRequired}}>
+                                  disabled={{tagRowComponent.isTagReviewRequired}}>
                                 Done
                               </button>
                             {{/if}}
@@ -423,34 +423,34 @@
                   {{#if row.suggestion}}
                     <span
                       class="dataset-compliance-fields__suggested-value {{unless row.suggestionResolution
-                                                                                     'dataset-compliance-fields__suggested-value--no-res'}}">
-                      {{row.suggestion.identifierType}} {{if row.suggestion.logicalType (concat " (" row.suggestion.logicalType ")")}}
+                                                                                 'dataset-compliance-fields__suggested-value--no-res'}}"
+                      title="{{row.suggestion.identifierType}} ({{row.suggestion.confidence}}%)">
+                      {{row.suggestion.identifierType}} ({{row.suggestion.confidence}}%)
                     </span>
 
-                    {{row.suggestion.confidence}}%
-                    &nbsp;
                     {{#if isEditing}}
-                      {{#if row.suggestionResolution}}
-                        <div class="dataset-compliance-fields__resolution {{if (eq row.suggestionResolution 'Accepted')
-                                                                               'dataset-compliance-fields__resolution--ok'}}">
-                          {{row.suggestionResolution}}
-                        </div>
-                      {{else}}
+                      <div class="dataset-compliance-fields__suggestion-actions">
+                        {{#if row.suggestionResolution}}
+                          <div
+                            class="dataset-compliance-fields__resolution {{if (eq row.suggestionResolution 'Accepted')
+                                                                              'dataset-compliance-fields__resolution--ok'}}">
+                            {{row.suggestionResolution}}
+                          </div>
+                        {{else}}
+                          {{auto-suggest-action
+                            type="accept"
+                            field=row.fieldProps
+                            feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                            onSuggestionClick=(action row.onSuggestionClick)
+                          }}
 
-                        {{auto-suggest-action
-                          type="accept"
-                          field=row.fieldProps
-                          feedbackAction=(action notifyOnComplianceSuggestionFeedback)
-                          onSuggestionClick=(action row.onSuggestionClick)
-                        }}
-
-                        {{auto-suggest-action
-                          field=row.fieldProps
-                          feedbackAction=(action notifyOnComplianceSuggestionFeedback)
-                          onSuggestionClick=(action row.onSuggestionClick)
-                        }}
-
-                      {{/if}}
+                          {{auto-suggest-action
+                            field=row.fieldProps
+                            feedbackAction=(action notifyOnComplianceSuggestionFeedback)
+                            onSuggestionClick=(action row.onSuggestionClick)
+                          }}
+                        {{/if}}
+                      </div>
                     {{/if}}
                   {{else}}
                     &mdash;
