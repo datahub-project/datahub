@@ -1,6 +1,19 @@
 import { identity } from 'wherehows-web/utils/helpers/functions';
 
 /**
+ * Composable function that will in turn consume an item from a list an emit a result of equal or same type
+ * @type Iteratee
+ */
+type Iteratee<A, R> = (a: A) => R;
+
+/**
+ * Aliases a type T or an array of type T
+ * @template T
+ * @alias
+ */
+type Many<T> = T | Array<T>;
+
+/**
  * Convenience utility takes a type-safe mapping function, and returns a list mapping function
  * @param {(param: T) => U} mappingFunction maps a single type T to type U
  * @return {(array: Array<T>) => Array<U>}
@@ -46,35 +59,33 @@ const arrayReduce = <T, U>(
   init: U
 ): ((arr: Array<T>) => U) => (array = []) => array.reduce(iteratee, init);
 
-type Iteratees = Array<(<A, R>(a: A) => R)>;
-
-// arrayCompose overloads
-function arrayCompose<T>(): (x: T) => T;
-function arrayCompose<T, R1>(f1: (a1: T) => R1): (x1: T) => R1;
-function arrayCompose<T, R1, R2>(f1: (a1: T) => R1, f2: (a2: R1) => R2): (x1: T) => R2;
-function arrayCompose<T, R1, R2, R3>(f1: (a1: T) => R1, f2: (a2: R1) => R2, f3: (a3: R2) => R3): (x1: T) => R3;
-function arrayCompose<T, R1, R2, R3, R4>(
+// arrayPipe overloads
+function arrayPipe<T>(): (x: T) => T;
+function arrayPipe<T, R1>(f1: (a1: T) => R1): (x: T) => R1;
+function arrayPipe<T, R1, R2>(f1: (a1: T) => R1, f2: (a2: R1) => R2): (x: T) => R2;
+function arrayPipe<T, R1, R2, R3>(f1: (a1: T) => R1, f2: (a2: R1) => R2, f3: (a3: R2) => R3): (x: T) => R3;
+function arrayPipe<T, R1, R2, R3, R4>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
   f4: (a4: R3) => R4
-): (x1: T) => R4;
-function arrayCompose<T, R1, R2, R3, R4, R5>(
+): (x: T) => R4;
+function arrayPipe<T, R1, R2, R3, R4, R5>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
   f4: (a4: R3) => R4,
   f5: (a5: R4) => R5
-): (x1: T) => R5;
-function arrayCompose<T, R1, R2, R3, R4, R5, R6>(
+): (x: T) => R5;
+function arrayPipe<T, R1, R2, R3, R4, R5, R6>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
   f4: (a4: R3) => R4,
   f5: (a5: R4) => R5,
   f6: (a6: R5) => R6
-): (x1: T) => R6;
-function arrayCompose<T, R1, R2, R3, R4, R5, R6, R7>(
+): (x: T) => R6;
+function arrayPipe<T, R1, R2, R3, R4, R5, R6, R7>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
@@ -82,17 +93,41 @@ function arrayCompose<T, R1, R2, R3, R4, R5, R6, R7>(
   f5: (a5: R4) => R5,
   f6: (a6: R5) => R6,
   f7: (a7: R6) => R7
-): (x1: T) => R7;
+): (x: T) => R7;
 /**
- *
- * @template T
- * @template R
- * @param {...Iteratees} fns
- * @returns {(x: any) => R}
+ * overload to handle case of too many functions being piped, provides less type safety once args exceeds 7 iteratees
+ * @param {(a1: T) => R1} f1
+ * @param {(a2: R1) => R2} f2
+ * @param {(a3: R2) => R3} f3
+ * @param {(a4: R3) => R4} f4
+ * @param {(a5: R4) => R5} f5
+ * @param {(a6: R5) => R6} f6
+ * @param {(a7: R6) => R7} f7
+ * @param {Many<Iteratee<any, any>>} fns
+ * @return {(arg: T) => any}
  */
-function arrayCompose<T, R>(...fns: Iteratees): (x: T) => R {
+function arrayPipe<T, R1, R2, R3, R4, R5, R6, R7>(
+  f1: (a1: T) => R1,
+  f2: (a2: R1) => R2,
+  f3: (a3: R2) => R3,
+  f4: (a4: R3) => R4,
+  f5: (a5: R4) => R5,
+  f6: (a6: R5) => R6,
+  f7: (a7: R6) => R7,
+  ...fns: Array<Many<Iteratee<any, any>>>
+): (arg: T) => any;
+
+/**
+ * Takes a list (array / separate args) of iteratee functions, with each successive iteratee is
+ * invoked with the result of the previous iteratee invocation
+ * @template T the type of elements in the array
+ * @template R the result of executing the last iteratee
+ * @param {Many<Iteratee<any, any>>} fns
+ * @return {(x: T) => R}
+ */
+function arrayPipe<T, R>(...fns: Array<Many<Iteratee<any, any>>>): (x: T) => R {
   return arrayReduce<(a: T) => any, (x: any) => R>((acc, f) => (x): R => acc(f(x)), identity)(
-    (<Iteratees>[]).concat(...fns)
+    (<Array<Iteratee<any, any>>>[]).concat(...fns) // flatten if arg is of type Array<>
   );
 }
 
@@ -181,11 +216,14 @@ const reduceArrayAsync = <T, U>(reducer: (arr?: Array<T>) => U) => (list: Array<
   return chunkArrayAsync(reducer, accumulator(reducer.call(context)))(list);
 };
 
+// type exports, might need to move to a declaration file*
+export { Many, Iteratee };
+
 export {
   arrayMap,
   arrayFilter,
   arrayReduce,
-  arrayCompose,
+  arrayPipe,
   isListUnique,
   compact,
   arrayEvery,
