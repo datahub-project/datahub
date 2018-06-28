@@ -1,5 +1,10 @@
 .dataset-pill {
   & + & {
+    > a {
+      @include on-event(true) {
+        color: inherit;
+      }
+    }
     margin-left: item-spacing(3);
   }
 }
