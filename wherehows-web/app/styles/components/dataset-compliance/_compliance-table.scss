@@ -43,7 +43,7 @@
   }
 
   &__identifier-column {
-    width: 35%;
+    width: 30%;
   }
 
   &__identifier-cell {
@@ -112,6 +112,7 @@
   &__add-field {
     &#{&} {
       font-weight: fw(normal, 4);
+      display: block;
     }
   }
 
@@ -208,6 +209,11 @@
       overflow-x: hidden;
       border-right: 1px solid get-color(slate2);
     }
+  }
+
+  &__tag-item {
+    display: flex;
+    flex-wrap: nowrap;
   }
 
   &__tag-info {
