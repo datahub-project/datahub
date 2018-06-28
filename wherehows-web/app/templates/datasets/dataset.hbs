@@ -4,47 +4,44 @@
 
     <div class="row">
       <div class="container">
-      {{#if model.removed}}
-        <span class="removed-dataset dataset-pill">
+        {{#if model.removed}}
+          <span class="removed-dataset dataset-pill">
           REMOVED
 
-          {{tooltip-on-element
-            event="hover"
-            text="This dataset has been removed"
-          }}
+            {{tooltip-on-element
+              event="hover"
+              text="This dataset has been removed"
+            }}
         </span>
-      {{/if}}
+        {{/if}}
 
-      {{#if datasetContainsPersonalData}}
-        <span class="pii-dataset dataset-pill">
+        {{#if datasetContainsPersonalData}}
+          <span class="pii-dataset dataset-pill">
           PII
 
-          {{tooltip-on-element
-            event="hover"
-            side="right"
-            text="This dataset contains personally identifiable information"
-          }}
+            {{tooltip-on-element
+              event="hover"
+              side="right"
+              text="This dataset contains personally identifiable information"
+            }}
         </span>
 
-      {{/if}}
+        {{/if}}
 
-      {{#if model.deprecated}}
-        {{#link-to "datasets.dataset.properties" encodedUrn}}
+        {{#if model.deprecated}}
 
-          <span class="deprecated-dataset">DEPRECATED</span>
-          <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="Click to view dataset properties">
-                {{tooltip-on-element
-                  event="hover"
-                  text="Click to view dataset properties"
-                }}
-              </span>
-          </sup>
+          <span class="deprecated-dataset dataset-pill">
+            {{#link-to "datasets.dataset.properties" encodedUrn}}
+              DEPRECATED
 
-        {{/link-to}}
-      {{/if}}
+              {{tooltip-on-element
+                event="hover"
+                text="Click to view dataset properties"
+              }}
+            {{/link-to}}
+          </span>
+
+        {{/if}}
         <h3 class="dataset-name">
           {{model.nativeName}}
         </h3>
