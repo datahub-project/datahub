@@ -85,13 +85,14 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
     log.debug("MLE: " + event.lineage.toString());
 
+    if (event.jobExecution.status != JobStatus.SUCCEEDED) {
+      log.info("Discard: job status " + event.jobExecution.status.name());
+      return; // discard message if job status is not SUCCEEDED
+    }
+
     String actorUrn = getActorUrn(event);
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
-    }
-
-    if (event.jobExecution.status != JobStatus.SUCCEEDED) {
-      throw new UnsupportedOperationException("MLE only supports SUCCEEDED job status");
     }
 
     List<DatasetLineage> lineages = event.lineage;
