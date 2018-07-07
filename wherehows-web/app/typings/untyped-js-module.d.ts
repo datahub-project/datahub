@@ -93,6 +93,9 @@ interface Window {
       }
     ): Element;
   };
+
+  // global array for piwik tracking
+  _paq: Array<any>;
 }
 
 /**
