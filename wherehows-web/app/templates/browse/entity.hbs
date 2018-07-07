@@ -1,14 +1,48 @@
-<div class="row">
-  {{browser/containers/browser-summary params=model}}
-</div>
-
-<div class="row">
-  <div class="col-sm-3 wh-sidebar">
-    {{browser/containers/browser-rail header=header params=model}}
+{{#if shouldShowBrowserRevamp}}
+  <div class="row">
+    {{browser/containers/browser-summary params=model}}
   </div>
 
-  <div class="col-sm-9 wh-main-content">
-    {{browser/containers/browser-viewport params=model}}
+  <div class="row">
+    <div class="col-sm-3 wh-sidebar">
+      {{browser/containers/browser-rail header=header params=model}}
+    </div>
+
+    <div class="col-sm-9 wh-main-content">
+      {{browser/containers/browser-viewport params=model}}
+    </div>
   </div>
-</div>
+{{else}}
+  <div class="row">
+    <div class="container">
+      <div class="row">
+        {{#browser/containers/data-systems params=model as |dataSystemsContainer|}}
+          {{#if dataSystemsContainer.getDataSystemsNodesTask.isRunning}}
+            {{pendulum-ellipsis-animation}}
+          {{else}}
+            {{#if dataSystemsContainer.requestParams.platform}}
+              <section class="col-lg-1 data-systems-container">
+                {{datasets/urn-breadcrumbs urn=dataSystemsContainer.urn}}
+
+                {{browser/data-systems nodes=dataSystemsContainer.nodes}}
+              </section>
+            {{else}}
+              {{#each dataSystemsContainer.nodes as |node|}}
+                <div class="col-md-3">
+                  <div class="data-platform-container">
+                    <div class="data-platform">
+                      {{#browser/containers/data-platform platformParams=node as |platformContainer|}}
+                        {{browser/data-platform platform=platformContainer.platformProps node=node}}
+                      {{/browser/containers/data-platform}}
+                    </div>
+                  </div>
+                </div>
+              {{/each}}
+            {{/if}}
+          {{/if}}
+        {{/browser/containers/data-systems}}
+      </div>
+    </div>
+  </div>
+{{/if}}
 {{outlet}}
