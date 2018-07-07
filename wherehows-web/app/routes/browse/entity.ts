@@ -12,7 +12,7 @@ const queryParamsKeys = ['page', 'prefix', 'platform', 'size'];
  * @interface IBrowserRouteParams
  */
 export interface IBrowserRouteParams {
-  entity: string;
+  entity: string | 'datasets';
   page: number;
   size: number;
   platform: string;
@@ -22,12 +22,12 @@ export interface IBrowserRouteParams {
 export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin) {
   queryParams = refreshModelQueryParams(queryParamsKeys);
 
-  setupController(controller: EntityController, model: IBrowserRouteParams) {
+  static setupController(controller: EntityController, model: IBrowserRouteParams) {
     // sets the entity property on the controller in addition to the model
     setProperties(controller, { entity: model.entity, model });
   }
 
-  model(params: IBrowserRouteParams): IBrowserRouteParams {
+  static model(params: IBrowserRouteParams): IBrowserRouteParams {
     const { entity, platform, page, size, prefix } = params;
     return { entity, platform, page, size, prefix };
   }
