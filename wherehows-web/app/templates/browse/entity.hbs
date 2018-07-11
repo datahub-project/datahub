@@ -1,18 +1,4 @@
-{{#if (not shouldShowBrowserRevamp)}}
-  <div class="row">
-    {{browser/containers/browser-summary params=model}}
-  </div>
-
-  <div class="row">
-    <div class="col-sm-3 wh-sidebar">
-      {{browser/containers/browser-rail header=header params=model}}
-    </div>
-
-    <div class="col-sm-9 wh-main-content">
-      {{browser/containers/browser-viewport params=model}}
-    </div>
-  </div>
-{{else}}
+{{#if shouldShowBrowserRevamp}}
   <div class="row">
     <div class="container">
       <div class="row">
@@ -42,6 +28,20 @@
           {{/if}}
         {{/browser/containers/data-systems}}
       </div>
+    </div>
+  </div>
+{{else}}
+  <div class="row">
+    {{browser/containers/browser-summary params=model}}
+  </div>
+
+  <div class="row">
+    <div class="col-sm-3 wh-sidebar">
+      {{browser/containers/browser-rail header=header params=model}}
+    </div>
+
+    <div class="col-sm-9 wh-main-content">
+      {{browser/containers/browser-viewport params=model}}
     </div>
   </div>
 {{/if}}
