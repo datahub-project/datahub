@@ -4,7 +4,7 @@ import { inject } from '@ember/service';
 import ComputedProperty from '@ember/object/computed';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
-import EntityController from 'wherehows-web/controllers/browse/entity';
+import BrowseEntityController from 'wherehows-web/controllers/browse/entity';
 import Configurator from 'wherehows-web/services/configurator';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
@@ -33,7 +33,7 @@ export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin) 
    */
   configurator: ComputedProperty<Configurator> = inject();
 
-  setupController(this: BrowseEntity, controller: EntityController, model: IBrowserRouteParams) {
+  setupController(this: BrowseEntity, controller: BrowseEntityController, model: IBrowserRouteParams) {
     const configuratorService = get(this, 'configurator');
 
     // sets the entity property on the controller in addition to the model
