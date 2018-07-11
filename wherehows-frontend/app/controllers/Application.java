@@ -64,6 +64,8 @@ public class Application extends Controller {
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
   private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
+  private static final Boolean WHZ_SHOW_BROWSE_REVAMP =
+      Play.application().configuration().getBoolean("linkedin.show.browse.revamp", false);
 
   private static final String WHZ_WIKI_LINKS__GDRP_PII =
       Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "");
@@ -196,6 +198,7 @@ public class Application extends Controller {
 
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
+    config.put("shouldShowBrowserRevamp", WHZ_SHOW_BROWSE_REVAMP);
     config.set("wikiLinks", wikiLinks());
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());

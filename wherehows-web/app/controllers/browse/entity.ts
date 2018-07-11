@@ -16,4 +16,6 @@ export default class BrowseEntity extends Controller implements IBrowserRoutePar
   platform = '';
 
   size = 10;
+
+  shouldShowBrowserRevamp: boolean = false;
 }
