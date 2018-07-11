@@ -23,24 +23,28 @@ export default (urn: string): Array<IDatasetBreadcrumb> => {
   const breadcrumbs: Array<IDatasetBreadcrumb> = [];
 
   if (liDatasetUrn) {
-    const [, platform, segments] = liDatasetUrn;
+    const [, platform, segments = ''] = liDatasetUrn;
     const isHdfs = String(platform).toLowerCase() === DatasetPlatform.HDFS;
     // For HDFS drop leading slash
     const hierarchy = isHdfs ? segments.split('/').slice(1) : segments.split('.');
 
     return [platform, ...hierarchy].reduce((breadcrumbs, crumb, index) => {
-      const previousCrumb = breadcrumbs[index - 1];
-      // if hdfs, precede with slash, otherwise trailing period
-      const prefix = !index ? '' : isHdfs ? `${previousCrumb.prefix}/${crumb}` : `${previousCrumb.prefix}${crumb}.`;
+      if (crumb) {
+        const previousCrumb = breadcrumbs[index - 1];
+        // if hdfs, precede with slash, otherwise trailing period
+        const prefix = !index ? '' : isHdfs ? `${previousCrumb.prefix}/${crumb}` : `${previousCrumb.prefix}${crumb}.`;
 
-      return [
-        ...breadcrumbs,
-        {
-          crumb,
-          prefix,
-          platform: <DatasetPlatform>platform
-        }
-      ];
+        return [
+          ...breadcrumbs,
+          {
+            crumb,
+            prefix,
+            platform: <DatasetPlatform>platform
+          }
+        ];
+      }
+
+      return breadcrumbs;
     }, breadcrumbs);
   }
 

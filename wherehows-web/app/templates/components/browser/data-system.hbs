@@ -1,0 +1,17 @@
+{{#if isDataset}}
+  {{fa-icon "file-text-o" aria-hidden="true"}}
+{{else}}
+  {{fa-icon "folder-open-o" aria-hidden="true"}}
+{{/if}}
+
+{{#dynamic-link params=dataSystem class="data-system__node-name"}}
+  <strong title="{{dataSystem.text}}">
+    {{split-text dataSystem.text 125}}
+  </strong>
+{{/dynamic-link}}
+
+{{#unless isDataset}}
+  {{#dynamic-link params=dataSystem class="data-system__downlink"}}
+    <i class="glyphicon glyphicon-menu-right" aria-label="Navigate into data system"></i>
+  {{/dynamic-link}}
+{{/unless}}
