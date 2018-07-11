@@ -1,0 +1,38 @@
+.data-systems-container {
+  margin-top: item-spacing(5);
+}
+
+.data-systems {
+  padding: 0;
+  margin-top: item-spacing(5);
+}
+
+.data-system {
+  @include nacho-container;
+  padding: item-spacing(2 5);
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  line-height: 17px;
+  height: 44px;
+
+  &:hover {
+    background-color: get-color(blue0);
+  }
+
+  & + & {
+    border-top: 0;
+    border-radius: 0;
+  }
+
+  &__node-name {
+    margin-left: item-spacing(3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__downlink {
+    margin-left: auto;
+  }
+}

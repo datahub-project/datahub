@@ -7,13 +7,13 @@ moduleForComponent('datasets/urn-breadcrumbs', 'Integration | Component | datase
   integration: true
 });
 
-const home = ['datasets'];
+const home = ['Data Systems'];
 
 test('it renders only the home breadcrumb without a valid urn', function(assert) {
   this.render(hbs`{{datasets/urn-breadcrumbs}}`);
   const homeCrumb = document.querySelector('.nacho-breadcrumbs__crumb');
 
-  assert.equal(homeCrumb.textContent.trim(), 'datasets', 'shows the home breadcrumb');
+  assert.equal(homeCrumb.textContent.trim(), 'Data Systems', 'shows the home breadcrumb');
   assert.equal(
     document.querySelectorAll('.nacho-breadcrumbs__crumb').length,
     1,

@@ -9,6 +9,7 @@ interface IAppConfig {
   isInternal: boolean | void;
   jitAclAccessWhitelist: Array<DatasetPlatform> | void;
   showOwnership: string;
+  shouldShowBrowserRevamp: boolean;
   tracking: {
     isEnabled: boolean;
     trackers: {
