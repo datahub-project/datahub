@@ -18,7 +18,11 @@
                   <div class="data-platform-container">
                     <div class="data-platform">
                       {{#browser/containers/data-platform platformParams=node as |platformContainer|}}
-                        {{browser/data-platform platform=platformContainer.platformProps node=node}}
+                        {{browser/data-platform
+                          platform=platformContainer.platformProps
+                          node=node
+                          platformTask=platformContainer.getDataPlatformTask
+                        }}
                       {{/browser/containers/data-platform}}
                     </div>
                   </div>
