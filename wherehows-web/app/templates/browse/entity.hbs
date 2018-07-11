@@ -1,4 +1,4 @@
-{{#if shouldShowBrowserRevamp}}
+{{#if (not shouldShowBrowserRevamp)}}
   <div class="row">
     {{browser/containers/browser-summary params=model}}
   </div>

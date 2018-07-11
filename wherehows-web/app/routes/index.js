@@ -32,10 +32,19 @@ export default Route.extend(AuthenticatedRouteMixin, {
    * Perform post model operations
    * @return {Promise}
    */
-  afterModel() {
+  async beforeModel() {
     this._super(...arguments);
 
-    return this._trackCurrentUser();
+    await this._trackCurrentUser();
+    this.replaceWithBrowseDatasetsRoute();
+  },
+
+  replaceWithBrowseDatasetsRoute() {
+    const shouldShowBrowserRevamp = get(this, 'configurator.getConfig')('shouldShowBrowserRevamp');
+
+    if (shouldShowBrowserRevamp) {
+      this.replaceWith('browse.entity', 'datasets');
+    }
   },
 
   /**
