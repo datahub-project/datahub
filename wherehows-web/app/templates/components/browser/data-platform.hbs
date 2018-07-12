@@ -6,6 +6,10 @@
   </p>
 
   <p class="data-platform__platform-count">
-    {{pluralize platform.count 'dataset'}}
+    {{#if platformTask.isRunning}}
+      {{pendulum-ellipsis-animation}}
+    {{else}}
+      {{pluralize platform.count 'dataset'}}
+    {{/if}}
   </p>
 {{/dynamic-link}}

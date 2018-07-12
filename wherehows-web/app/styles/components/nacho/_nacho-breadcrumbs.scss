@@ -1,7 +1,7 @@
 @import 'restyle';
 
 $primary-border-color: get-color(gray3, 0.8);
-$secondary-border-color: set-color(white, base);
+$secondary-border-color: get-color(slate0);
 
 /// Defines styles for the breadcrumb container
 @include restyle-define(
@@ -66,6 +66,16 @@ $secondary-border-color: set-color(white, base);
 
 .nacho-breadcrumbs {
   @include restyle(breadcrumbs);
+
+  &--white-surface {
+    $secondary-border-color: get-color(white);
+
+    .nacho-breadcrumbs__crumb__grain {
+      &::after {
+        border-left: 30px solid $secondary-border-color;
+      }
+    }
+  }
 
   &__crumb {
     float: left;

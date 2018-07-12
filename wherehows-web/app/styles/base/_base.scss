@@ -13,7 +13,7 @@ html {
  * Apply padding to top and bottom to account for navigation and footer
  */
 body {
-  background-color: set-color(white, base);
+  background-color: get-color(slate0);
   overflow-y: scroll;
   overflow-x: hidden;
 }
