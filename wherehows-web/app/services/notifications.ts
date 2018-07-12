@@ -397,3 +397,10 @@ export default class Notifications extends Service {
     this.dismissToast.call(this);
   }
 }
+
+declare module '@ember/service' {
+  // eslint-disable-next-line typescript/interface-name-prefix
+  interface Registry {
+    notifications: Notifications;
+  }
+}

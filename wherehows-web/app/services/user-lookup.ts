@@ -36,3 +36,10 @@ export default class UserLookup extends Service {
   userNamesResolver = ldapResolver;
   fetchUserNames = getUserEntities;
 }
+
+declare module '@ember/service' {
+  // eslint-disable-next-line typescript/interface-name-prefix
+  interface Registry {
+    'user-lookup': UserLookup;
+  }
+}
