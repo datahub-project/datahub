@@ -3,14 +3,14 @@ import { getOwner } from '@ember/application';
 import { isBlank } from '@ember/utils';
 import { encode } from 'wherehows-web/utils/encode-decode-uri-component-with-space';
 
-export default Service.extend({
+export default class Search extends Service {
   /**
    * Transition to the search route including search keyword as query parameter
    * @param {Object} args = {} a map of query parameters to values, including keyword
    * @prop {String|*} args.keyword the string to search for
    * @returns {void|Transition}
    */
-  showSearchResults(args = {}) {
+  showSearchResults(args: { keyword: string; category: string }) {
     let { keyword, category } = args;
 
     // Transition to search route only if value is not null or void
@@ -24,4 +24,11 @@ export default Service.extend({
       });
     }
   }
-});
+}
+
+declare module '@ember/service' {
+  // eslint-disable-next-line typescript/interface-name-prefix
+  interface Registry {
+    search: Search;
+  }
+}
