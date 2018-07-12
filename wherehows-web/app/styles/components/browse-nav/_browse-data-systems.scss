@@ -11,10 +11,15 @@
   @include nacho-container;
   padding: item-spacing(2 5);
   display: flex;
-  align-items: center;
   font-size: 14px;
   line-height: 17px;
   height: 44px;
+
+  &__link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
 
   &:hover {
     background-color: get-color(blue0);
