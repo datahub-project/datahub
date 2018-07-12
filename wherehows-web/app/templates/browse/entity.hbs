@@ -1,37 +1,35 @@
 {{#if shouldShowBrowserRevamp}}
   <div class="row">
     <div class="container">
-      <div class="row">
-        {{#browser/containers/data-systems params=model as |dataSystemsContainer|}}
-          {{#if dataSystemsContainer.getDataSystemsNodesTask.isRunning}}
-            {{pendulum-ellipsis-animation}}
-          {{else}}
-            {{#if dataSystemsContainer.requestParams.platform}}
-              <section class="data-systems-container">
-                {{datasets/urn-breadcrumbs urn=dataSystemsContainer.urn}}
+      {{#browser/containers/data-systems params=model as |dataSystemsContainer|}}
+        {{#if dataSystemsContainer.getDataSystemsNodesTask.isRunning}}
+          {{pendulum-ellipsis-animation}}
+        {{else}}
+          {{#if dataSystemsContainer.requestParams.platform}}
+            <section class="data-systems-container">
+              {{datasets/urn-breadcrumbs urn=dataSystemsContainer.urn}}
 
-                {{browser/data-systems nodes=dataSystemsContainer.nodes}}
-              </section>
-            {{else}}
-              {{#each dataSystemsContainer.nodes as |node|}}
-                <div class="col-md-3">
-                  <div class="data-platform-container">
-                    <div class="data-platform">
-                      {{#browser/containers/data-platform platformParams=node as |platformContainer|}}
-                        {{browser/data-platform
-                          platform=platformContainer.platformProps
-                          node=node
-                          platformTask=platformContainer.getDataPlatformTask
-                        }}
-                      {{/browser/containers/data-platform}}
-                    </div>
+              {{browser/data-systems nodes=dataSystemsContainer.nodes}}
+            </section>
+          {{else}}
+            {{#each dataSystemsContainer.nodes as |node|}}
+              <div class="col-md-3">
+                <div class="data-platform-container">
+                  <div class="data-platform">
+                    {{#browser/containers/data-platform platformParams=node as |platformContainer|}}
+                      {{browser/data-platform
+                        platform=platformContainer.platformProps
+                        node=node
+                        platformTask=platformContainer.getDataPlatformTask
+                      }}
+                    {{/browser/containers/data-platform}}
                   </div>
                 </div>
-              {{/each}}
-            {{/if}}
+              </div>
+            {{/each}}
           {{/if}}
-        {{/browser/containers/data-systems}}
-      </div>
+        {{/if}}
+      {{/browser/containers/data-systems}}
     </div>
   </div>
 {{else}}
