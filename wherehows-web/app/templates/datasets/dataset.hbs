@@ -1,6 +1,6 @@
-<div class="container data-systems-container">
-  <div id="dataset">
-    {{datasets/urn-breadcrumbs urn=model.uri}}
+<div id="dataset" class="dataset-entity-header">
+  <div class="container">
+    {{datasets/urn-breadcrumbs class="nacho-breadcrumbs nacho-breadcrumbs--white-surface" urn=model.uri}}
 
     <div class="row">
       <div class="container">
@@ -49,44 +49,49 @@
     </div>
 
     {{datasets/containers/dataset-owner-list urn=encodedUrn}}
+
   </div>
+</div>
 
-  {{#ivy-tabs selection=tabSelected as |tabs|}}
+{{#ivy-tabs selection=tabSelected as |tabs|}}
+  <div class="dataset-entity-tabs">
+    <div class="container">
+      {{#tabs.tablist as |tablist|}}
 
-    {{#tabs.tablist as |tablist|}}
+        {{#unless isPinot}}
+          {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
+            Properties
+          {{/tablist.tab}}
+        {{/unless}}
 
-      {{#unless isPinot}}
-        {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
-          Properties
-        {{/tablist.tab}}
-      {{/unless}}
-
-      {{#if isJitAclAccessEnabled}}
-        {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
-      {{/if}}
-
-      {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
-
-      {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
-        Ownership
-
-        {{#if requiredMinNotConfirmed}}
-          <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
+        {{#if isJitAclAccessEnabled}}
+          {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
         {{/if}}
-      {{/tablist.tab}}
 
-      {{#if isInternal}}
-        {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
-          Compliance
+        {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
-          {{#if requiresUserAction}}
+        {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
+          Ownership
+
+          {{#if requiredMinNotConfirmed}}
             <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
           {{/if}}
         {{/tablist.tab}}
-      {{/if}}
 
-    {{/tabs.tablist}}
+        {{#if isInternal}}
+          {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
+            Compliance
 
+            {{#if requiresUserAction}}
+              <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
+            {{/if}}
+          {{/tablist.tab}}
+        {{/if}}
+      {{/tabs.tablist}}
+    </div>
+  </div>
+
+  <div class="container">
     {{#tabs.tabpanel tabIds.Properties}}
       {{datasets/containers/dataset-properties
         urn=encodedUrn
@@ -123,6 +128,5 @@
         {{datasets/containers/dataset-acl-access urn=encodedUrn}}
       {{/tabs.tabpanel}}
     {{/if}}
-
-  {{/ivy-tabs}}
-</div>
+  </div>
+{{/ivy-tabs}}
