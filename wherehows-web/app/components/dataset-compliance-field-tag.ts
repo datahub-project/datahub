@@ -21,6 +21,7 @@ import { IdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
 import { omit } from 'lodash';
+import { arrayMap } from 'wherehows-web/utils/array';
 
 /**
  * Defines the object properties for instances of IQuickDesc
@@ -78,7 +79,15 @@ export default class DatasetComplianceFieldTag extends Component {
    * @type {IQuickDesc | null}
    * @memberof DatasetComplianceFieldTag
    */
-  quickDesc: IQuickDesc | null = null;
+  fieldIdQuickDesc: IQuickDesc | null = null;
+
+  /**
+   * References the field format descriptive properties for the logicalType item,
+   * shown in the help window for field format values
+   * @type {IQuickDesc | null}
+   * @memberof DatasetComplianceFieldTag
+   */
+  fieldFormatQuickDesc: IQuickDesc | null = null;
 
   /**
    * Reference to the compliance data types
@@ -141,7 +150,7 @@ export default class DatasetComplianceFieldTag extends Component {
 
     if (complianceDataType && isIdType) {
       const supportedFieldFormats = complianceDataType.supportedFieldFormats || [];
-      return supportedFieldFormats.map(format => ({ value: format, label: format }));
+      return supportedFieldFormats.map(({ id, description }) => ({ value: id, label: id, description }));
     }
 
     return fieldFormatOptions;
@@ -200,13 +209,17 @@ export default class DatasetComplianceFieldTag extends Component {
   });
 
   /**
-   * Applies the argument to the quickDesc property or nullifies
-   * it if the argument is not provided
-   * @param {DatasetComplianceFieldTag.quickDesc} quickDesc
-   * @memberof DatasetComplianceFieldTag
+   * Applies the argument to the quickDesc property or nullifies if null
+   * @param {IQuickDesc | null} quickDesc
+   * @param {"fieldId" | "fieldFormat"} type
    */
-  setQuickDesc(quickDesc: DatasetComplianceFieldTag['quickDesc'] = null) {
-    set(this, 'quickDesc', quickDesc);
+  setQuickDesc({ quickDesc, type }: { quickDesc: IQuickDesc | null; type: 'fieldId' | 'fieldFormat' }) {
+    const quickType = <'fieldIdQuickDesc' | 'fieldFormatQuickDesc'>{
+      fieldId: 'fieldIdQuickDesc',
+      fieldFormat: 'fieldFormatQuickDesc'
+    }[type];
+
+    set(this, quickType, quickDesc);
   }
 
   /**
@@ -272,7 +285,7 @@ export default class DatasetComplianceFieldTag extends Component {
     const tag = get(this, 'tag');
 
     // clear out the quickDesc object to allow rendering fieldFormat options
-    this.setQuickDesc();
+    this.setQuickDesc({ quickDesc: null, type: 'fieldId' });
     setProperties(tag, {
       identifierType,
       logicalType: null,
@@ -303,6 +316,8 @@ export default class DatasetComplianceFieldTag extends Component {
       properties = { ...properties, valuePattern: null };
     }
 
+    // clear the current quickDesc item for the Field Format
+    this.setQuickDesc({ quickDesc: null, type: 'fieldFormat' });
     setProperties(tag, properties);
   }
 
@@ -349,7 +364,7 @@ export default class DatasetComplianceFieldTag extends Component {
 
     if (complianceDataType) {
       const { title, description } = complianceDataType;
-      this.setQuickDesc({ title, description });
+      this.setQuickDesc({ quickDesc: { title, description }, type: 'fieldId' });
     }
   }
 
@@ -359,7 +374,33 @@ export default class DatasetComplianceFieldTag extends Component {
    */
   @action
   onFieldTagIdentifierLeave(this: DatasetComplianceFieldTag) {
-    this.setQuickDesc();
+    this.setQuickDesc({ quickDesc: null, type: 'fieldId' });
+  }
+
+  /**
+   * Sets the quickDesc object for the field format on hover
+   * @param {IdLogicalType} value the field format entry being hovered over
+   */
+  @action
+  onFieldFormatEnter(this: DatasetComplianceFieldTag, { value }: { value: IdLogicalType }) {
+    const getSupportedFieldFormats = ({ supportedFieldFormats }: IComplianceDataType) => supportedFieldFormats;
+    const supportedFieldFormats = arrayMap(getSupportedFieldFormats)(get(this, 'complianceDataTypes'));
+    const fieldFormat = (<Array<{ id: IdLogicalType; description: string }>>[])
+      .concat(...supportedFieldFormats)
+      .findBy('id', value);
+
+    if (fieldFormat) {
+      const { id, description } = fieldFormat;
+      this.setQuickDesc({ quickDesc: { title: id, description }, type: 'fieldFormat' });
+    }
+  }
+
+  /**
+   * Clears the quickDesc property when the field format entry is exited
+   */
+  @action
+  onFieldFormatLeave(this: DatasetComplianceFieldTag) {
+    this.setQuickDesc({ quickDesc: null, type: 'fieldFormat' });
   }
 
   /**
