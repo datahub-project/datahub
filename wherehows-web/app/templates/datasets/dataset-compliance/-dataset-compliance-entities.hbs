@@ -250,16 +250,16 @@
                                 </div>
                               </section>
 
-                              {{#if tagRowComponent.quickDesc}}
+                              {{#if tagRowComponent.fieldIdQuickDesc}}
 
                                 <section class="dataset-compliance-fields__compliance-info-column">
                                   <div class="dataset-compliance-fields__field-tag__quick-desc">
                                     <strong>
-                                      {{tagRowComponent.quickDesc.title}}:
+                                      {{tagRowComponent.fieldIdQuickDesc.title}}:
                                     </strong>
 
                                     <p>
-                                      {{tagRowComponent.quickDesc.description}}
+                                      {{tagRowComponent.fieldIdQuickDesc.description}}
                                     </p>
                                   </div>
                                 </section>
@@ -284,6 +284,8 @@
                                             groupValue=(readonly tagRowComponent.tag.logicalType)
                                             class="dataset-compliance-fields__tag-radio"
                                             checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                            onMouseEnter=(action tagRowComponent.onFieldFormatEnter)
+                                            onMouseLeave=(action tagRowComponent.onFieldFormatLeave)
                                             changed=(action metrics.trackOnAction (action tagRowComponent.tagLogicalTypeDidChange))}}
                                             {{fieldFormat.label}}
                                           {{/radio-button-composer}}
@@ -292,75 +294,92 @@
                                       {{/track-ui-event}}
                                     </div>
                                   </section>
+                                  {{#if tagRowComponent.fieldFormatQuickDesc}}
 
-                                  {{#if tagRowComponent.showCustomInput}}
                                     <section class="dataset-compliance-fields__compliance-info-column">
-                                      <header class="dataset-compliance-fields__compliance-info-column__title">
-                                        <strong>Custom RegEx</strong>
-                                      </header>
+                                      <div class="dataset-compliance-fields__field-tag__quick-desc">
+                                        <strong>
+                                          {{tagRowComponent.fieldFormatQuickDesc.title}}:
+                                        </strong>
 
-                                      <div
-                                        class="dataset-compliance-fields__compliance-info-column__content">
+                                        <p>
+                                          {{tagRowComponent.fieldFormatQuickDesc.description}}
+                                        </p>
+                                      </div>
+                                    </section>
 
-                                        <div class="dataset-compliance-fields__text-pattern-wrap">
-                                          <div class="dataset-compliance-fields__text-pattern-wrap--input">
-                                            <input
-                                              placeholder="Enter a RegExp"
-                                              value="{{readonly tagRowComponent.tag.valuePattern}}"
-                                              disabled={{or (not isEditing) row.isReadonly}}
-                                                class="dataset-compliance-fields__text-pattern {{if
-                                            tagRowComponent.valuePatternError
-                                            'dataset-compliance-fields--missing-selection'}}"
-                                            oninput={{action tagRowComponent.tagValuePatternDidChange
-                                                             value="target.value"}}
-                                            >
-                                          </div>
+                                  {{else}}
 
-                                          {{more-info
-                                            link="http://go/metadata-custom-regex"
-                                            tooltip="Click for more information on RegExp format"
-                                          }}
+                                    {{#if tagRowComponent.showCustomInput}}
+                                      <section class="dataset-compliance-fields__compliance-info-column">
+                                        <header class="dataset-compliance-fields__compliance-info-column__title">
+                                          <strong>Custom RegEx</strong>
+                                        </header>
 
-                                          {{#if tagRowComponent.valuePatternError}}
-                                            <div class="dataset-compliance-fields__text-pattern-wrap--error">
-                                              {{tagRowComponent.valuePatternError}}
+                                        <div
+                                          class="dataset-compliance-fields__compliance-info-column__content">
+
+                                          <div class="dataset-compliance-fields__text-pattern-wrap">
+                                            <div class="dataset-compliance-fields__text-pattern-wrap--input">
+                                              <input
+                                                placeholder="Enter a RegExp"
+                                                value="{{readonly tagRowComponent.tag.valuePattern}}"
+                                                disabled={{or (not isEditing) row.isReadonly}}
+                                                  class="dataset-compliance-fields__text-pattern {{if
+                                              tagRowComponent.valuePatternError
+                                              'dataset-compliance-fields--missing-selection'}}"
+                                              oninput={{action tagRowComponent.tagValuePatternDidChange
+                                                               value="target.value"}}
+                                              >
                                             </div>
-                                          {{/if}}
+
+                                            {{more-info
+                                              link="http://go/metadata-custom-regex"
+                                              tooltip="Click for more information on RegExp format"
+                                            }}
+
+                                            {{#if tagRowComponent.valuePatternError}}
+                                              <div class="dataset-compliance-fields__text-pattern-wrap--error">
+                                                {{tagRowComponent.valuePatternError}}
+                                              </div>
+                                            {{/if}}
+                                          </div>
                                         </div>
-                                      </div>
-                                    </section>
+                                      </section>
+                                    {{/if}}
+
+                                    {{#unless tagRowComponent.isTagFormatMissing}}
+                                      <section class="dataset-compliance-fields__compliance-info-column">
+                                        <header class="dataset-compliance-fields__compliance-info-column__title">
+                                          <strong>Is purge key?</strong>
+                                        </header>
+
+                                        <div class="dataset-compliance-fields__compliance-info-column__content">
+
+                                          {{#radio-button-composer
+                                            value=false
+                                            name="datasetFieldOwnerToggle"
+                                            groupValue=(readonly tagRowComponent.tag.nonOwner)
+                                            class="dataset-compliance-fields__tag-radio"
+                                            checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                            changed=(action tagRowComponent.tagOwnerDidChange)}}
+                                            Yes
+                                          {{/radio-button-composer}}
+
+                                          {{#radio-button-composer
+                                            value=true
+                                            name="datasetFieldOwnerToggle"
+                                            groupValue=(readonly tagRowComponent.tag.nonOwner)
+                                            class="dataset-compliance-fields__tag-radio"
+                                            checkedClass="dataset-compliance-fields__tag-radio--checked"
+                                            changed=(action tagRowComponent.tagOwnerDidChange)}}
+                                            No
+                                          {{/radio-button-composer}}
+                                        </div>
+                                      </section>
+                                    {{/unless}}
+
                                   {{/if}}
-
-                                  {{#unless tagRowComponent.isTagFormatMissing}}
-                                    <section class="dataset-compliance-fields__compliance-info-column">
-                                      <header class="dataset-compliance-fields__compliance-info-column__title">
-                                        <strong>Is purge key?</strong>
-                                      </header>
-
-                                      <div class="dataset-compliance-fields__compliance-info-column__content">
-
-                                        {{#radio-button-composer
-                                          value=false
-                                          name="datasetFieldOwnerToggle"
-                                          groupValue=(readonly tagRowComponent.tag.nonOwner)
-                                          class="dataset-compliance-fields__tag-radio"
-                                          checkedClass="dataset-compliance-fields__tag-radio--checked"
-                                          changed=(action tagRowComponent.tagOwnerDidChange)}}
-                                          Yes
-                                        {{/radio-button-composer}}
-
-                                        {{#radio-button-composer
-                                          value=true
-                                          name="datasetFieldOwnerToggle"
-                                          groupValue=(readonly tagRowComponent.tag.nonOwner)
-                                          class="dataset-compliance-fields__tag-radio"
-                                          checkedClass="dataset-compliance-fields__tag-radio--checked"
-                                          changed=(action tagRowComponent.tagOwnerDidChange)}}
-                                          No
-                                        {{/radio-button-composer}}
-                                      </div>
-                                    </section>
-                                  {{/unless}}
                                 {{/if}}
                               {{/if}}
                             </article>
