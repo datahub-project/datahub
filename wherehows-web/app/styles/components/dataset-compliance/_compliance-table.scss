@@ -118,11 +118,9 @@
 
   &__guided-modal {
     @include nacho-container;
-    height: 50vh;
     overflow: hidden;
     padding: 0;
     border: 0;
-    margin-bottom: item-spacing(8);
     z-index: z(modal);
   }
 
@@ -257,13 +255,13 @@
   }
 
   &__field-tag {
-    height: 100%;
+    height: 50vh;
     display: flex;
     flex-direction: column;
 
     &__content {
       display: flex;
-      height: 92%;
+      height: calc(50vh - 48px);
     }
 
     &__quick-desc {
@@ -277,6 +275,9 @@
       padding: item-spacing(1);
       background-color: get-color(slate1);
       border-right: 1px solid get-color(slate2);
+      position: absolute;
+      width: 100%;
+      bottom: 0;
     }
   }
 
