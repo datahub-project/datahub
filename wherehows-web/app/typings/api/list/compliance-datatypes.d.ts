@@ -16,8 +16,8 @@ export interface IComplianceDataType {
   title: string;
   // Urn for the id
   $URN: string;
-  // List of field formats supported for a field with the id, only applicable to fields with idType set to true
-  supportedFieldFormats: Array<IdLogicalType>;
+  // List of field formats & description supported for a field with the id, only applicable to fields with idType set to true
+  supportedFieldFormats: Array<{ id: IdLogicalType; description: string }>;
   // The id for the field
   id: ComplianceFieldIdValue | NonIdLogicalType;
   // A short description for this data type
