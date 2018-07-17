@@ -1,6 +1,14 @@
+.dataset-meta-properties {
+  display: flex;
+  align-items: center;
+  margin-top: item-spacing(5);
+  margin-bottom: item-spacing(5);
+}
+
 .dataset-name {
-  width: 100%;
+  max-width: item-spacing(9) * 10;
   padding-right: item-spacing(3);
   overflow: hidden;
   text-overflow: ellipsis;
+  margin: 0;
 }
