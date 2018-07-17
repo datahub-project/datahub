@@ -114,7 +114,7 @@ export default Route.extend(ApplicationRouteMixin, {
   /**
    * Requests app configuration props then if enabled, sets up metrics
    *   tracking using the supported trackers
-   * @return {Promise.<TResult>}
+   * @return {Promise.<T>}
    * @private
    */
   async _setupMetricsTrackers() {
@@ -173,7 +173,15 @@ export default Route.extend(ApplicationRouteMixin, {
   },
 
   processLegacyDomOperations() {
-    // TODO: DSS-6122 Refactor Remove tree legacy operations & references
-    window.legacyMain();
+    const markedRendererOverride = new marked.Renderer();
+
+    markedRendererOverride.link = (href, title, text) =>
+      `<a href='${href}' title=${title || text} target='_blank'>${text}</a>`;
+
+    marked.setOptions({
+      gfm: true,
+      tables: true,
+      renderer: markedRendererOverride
+    });
   }
 });

@@ -104,16 +104,9 @@ module.exports = function(defaults) {
   app.import('bower_components/jsondiffpatch/public/formatters-styles/html.css');
   app.import('bower_components/jsondiffpatch/public/formatters-styles/annotated.css');
   app.import('bower_components/x-editable/dist/bootstrap3-editable/css/bootstrap-editable.css');
-  app.import('vendor/legacy_styles/main.css');
-  app.import('vendor/legacy_styles/comments.css');
   app.import('vendor/legacy_styles/wherehows.css');
   app.import('vendor/legacy_styles/script-finder.css');
-  app.import('vendor/legacy_styles/lineage.css');
-  app.import('vendor/legacy_styles/lineage-search.css');
   app.import('vendor/dagre-d3/css/tipsy.css');
-
-  app.import('vendor/legacy_sources/global_functions.js');
-  app.import('vendor/legacy_sources/main.js');
 
   app.import('bower_components/jquery/dist/jquery.min.js');
   app.import('bower_components/jquery-ui/jquery-ui.min.js');
