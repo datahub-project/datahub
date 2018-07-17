@@ -32,8 +32,8 @@ export default class UserLookup extends Component {
    */
   userNamesResolver: UserLookupService['userNamesResolver'];
 
-  constructor() {
-    super(...arguments);
+  constructor(...args: Array<any>) {
+    super(...args);
 
     // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
     set(this, 'userNamesResolver', get(get(this, 'userLookup'), 'userNamesResolver'));
