@@ -80,83 +80,7 @@ AppRouter.map(function() {
     );
   });
   this.route('search');
-  this.route('metrics', function() {
-    this.route('metricspage', {
-      path: '/page/:page'
-    });
-
-    this.route('metric', {
-      path: '/:metric_id'
-    });
-
-    this.route(
-      'metricname',
-      {
-        path: '/name/:metric_name'
-      },
-      function() {
-        this.route('metricnamepage', {
-          path: '/page/:page'
-        });
-
-        this.route(
-          'metricgroup',
-          {
-            path: '/:metric_group'
-          },
-          function() {
-            this.route('metricnamesubpage', {
-              path: '/page/:page'
-            });
-          }
-        );
-      }
-    );
-  });
-  this.route('flows', function() {
-    this.route('flowspage', {
-      path: '/page/:page'
-    });
-
-    this.route(
-      'flowsname',
-      {
-        path: '/name/:name'
-      },
-      function() {
-        this.route('flowssubpage', {
-          path: '/page/:page'
-        });
-
-        this.route(
-          'flow',
-          {
-            path: '/:flow_id'
-          },
-          function() {
-            this.route('pagedflow', {
-              path: '/page/:page'
-            });
-          }
-        );
-      }
-    );
-
-    this.route('flow', {
-      path: '/:flow_id'
-    });
-  });
   this.route('logout');
-  this.route('metadata', function() {
-    this.route('user', {
-      path: '/:user'
-    });
-  });
-  this.route('idpc', function() {
-    this.route('user', {
-      path: '/:user'
-    });
-  });
   this.route('scripts', function() {
     this.route('page', {
       path: '/page/:page'
@@ -182,11 +106,7 @@ AppRouter.map(function() {
       });
     }
   );
-  this.route('lineage', function() {
-    this.route('dataset', {
-      path: '/dataset/:id'
-    });
-  });
+
   this.route('login');
 
   this.route('browse', function() {
