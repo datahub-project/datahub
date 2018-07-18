@@ -30,9 +30,8 @@ enum DatasetPlatform {
  */
 enum Fabric {
   Prod = 'PROD',
-  EI = 'EI',
   Corp = 'CORP',
-  Dev = 'DEV'
+  EI = 'EI'
 }
 
 /**
