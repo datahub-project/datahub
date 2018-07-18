@@ -129,9 +129,10 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
       _ownerDao.insertUpdateOwnership(identifier, dataset, changeAuditStamp, event.owners);
     }
 
-    // if compliance is not null, insert or update compliance
-    if (event.compliancePolicy != null) {
-      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy);
+    // if retention or compliance is not null, insert or update retention / compliance
+    // if both null, bypass this
+    if (event.compliancePolicy != null || event.retentionPolicy != null) {
+      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy, event.retentionPolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance

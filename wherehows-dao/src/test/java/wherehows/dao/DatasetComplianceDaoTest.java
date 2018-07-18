@@ -18,6 +18,8 @@ import com.linkedin.events.metadata.ComplianceEntity;
 import com.linkedin.events.metadata.CompliancePolicy;
 import com.linkedin.events.metadata.CompliancePurgeType;
 import com.linkedin.events.metadata.DatasetClassification;
+import com.linkedin.events.metadata.PurgeType;
+import com.linkedin.events.metadata.RetentionPolicy;
 import com.linkedin.events.metadata.SecurityClassification;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,7 +50,7 @@ public class DatasetComplianceDaoTest {
     policy.datasetConfidentiality = SecurityClassification.LIMITED_DISTRIBUTION;
     policy.complianceEntities = new ArrayList<>();
 
-    complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn, actor);
+    complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, null, datasetUrn, actor);
 
     String dsClassification = "{connectionsOrFollowersOrFollowing: false, profile: false, messaging: false, "
         + "thirdPartyIntegrationsInUse: false, activity: false, settings: false, jobApplicationFlow: false, "
@@ -80,9 +82,14 @@ public class DatasetComplianceDaoTest {
     String complianceEntityStr = "[{fieldPath: field1, complianceDataType: ADDRESS, complianceDataTypeUrn: null, "
         + "fieldFormat: null, securityClassification: CONFIDENTIAL, valuePattern: null}]";
 
-    complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, datasetUrn2, actor2);
+    RetentionPolicy retention = new RetentionPolicy();
+    retention.purgeType = PurgeType.AUTO_PURGE;
+    retention.purgeNote = "note";
 
-    assertEquals(dsCompliance.getCompliancePurgeType(), purgeType.toString());
+    complianceDao.fillDsComplianceByCompliancePolicy(dsCompliance, policy, retention, datasetUrn2, actor2);
+
+    assertEquals(dsCompliance.getCompliancePurgeType(), "AUTO_PURGE");
+    assertEquals(dsCompliance.getCompliancePurgeNote(), "note");
     assertEquals(dsCompliance.getDatasetClassification().replaceAll("\"", ""), dsClassification);
     assertEquals(dsCompliance.getConfidentiality(), "HIGHLY_CONFIDENTIAL");
     assertEquals(dsCompliance.getComplianceEntities().replaceAll("\"", ""), complianceEntityStr);
