@@ -7,7 +7,19 @@
         {{else}}
           {{#if dataSystemsContainer.requestParams.platform}}
             <section class="data-systems-container">
-              {{datasets/urn-breadcrumbs urn=dataSystemsContainer.urn}}
+              <div class="data-systems-container__navbar">
+                <div class="data-systems-container__navbar__breadcrumbs">
+                  {{datasets/urn-breadcrumbs urn=dataSystemsContainer.urn}}
+                </div>
+
+                <div class="data-systems-container__navbar__count">
+                  {{#datasets/containers/data-systems-count urn=dataSystemsContainer.urn as |countContainer|}}
+                    <span class="data-system-count-pill">
+                      {{pluralize countContainer.count 'dataset'}}
+                    </span>
+                  {{/datasets/containers/data-systems-count}}
+                </div>
+              </div>
 
               {{browser/data-systems nodes=dataSystemsContainer.nodes}}
             </section>

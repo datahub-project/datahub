@@ -87,6 +87,36 @@ const getFabricFromUrn = (urn: string): Fabric | void => {
 };
 
 /**
+ * Extracts the constituent parts of a datasystem / dataset urn
+ * @param {string} urn
+ * @return {({platform: DatasetPlatform | void; prefix: string | void; fabric: Fabric | void})}
+ */
+const getUrnParts = (
+  urn: string
+): { platform: DatasetPlatform | void; prefix: string | void; fabric: Fabric | void } => {
+  const match = datasetUrnRegexLI.exec(urn);
+  const urnParts = {
+    platform: void 0,
+    prefix: void 0,
+    fabric: void 0
+  };
+
+  if (match) {
+    let [, platform, prefix, fabric] = match;
+    fabric = String(fabric).toUpperCase();
+
+    return {
+      ...urnParts,
+      platform: <DatasetPlatform>platform,
+      prefix,
+      fabric: isDatasetFabric(fabric) ? fabric : void 0
+    };
+  }
+
+  return urnParts;
+};
+
+/**
  * Converts a WH URN format to a LI URN format
  * @param {string} whUrn
  * @return {string}
@@ -197,6 +227,7 @@ export {
   specialFlowUrnRegex,
   getPlatformFromUrn,
   getFabricFromUrn,
+  getUrnParts,
   convertWhUrnToLiUrn,
   convertWhDatasetPathToLiPath,
   encodeForwardSlash,

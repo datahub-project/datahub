@@ -1,0 +1,7 @@
+{{#if getDataSystemCountTask.isRunning}}
+  {{pendulum-ellipsis-animation}}
+{{else}}
+  {{yield (hash
+            count=count
+          )}}
+{{/if}}
