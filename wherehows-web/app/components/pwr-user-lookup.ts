@@ -19,7 +19,7 @@ const stepMap: { [key: number]: number } = {
 
 export default class PowerUserLookup extends UserLookup {
   constructor() {
-    super();
+    super(...arguments);
     this.classNames = (this.classNames || []).concat('pwr-user-lookup');
     this.classNameBindings = (this.classNameBindings || []).concat('showPlaceholder:pwr-user-lookup--focused');
   }

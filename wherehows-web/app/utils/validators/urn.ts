@@ -1,5 +1,5 @@
 import { assert } from '@ember/debug';
-import { DatasetPlatform, Fabric } from 'wherehows-web/constants';
+import { DatasetPlatform, Fabric, isDatasetFabric } from 'wherehows-web/constants';
 
 /**
  * Path segment in a urn. common btw WH and LI formats
@@ -65,6 +65,24 @@ const getPlatformFromUrn = (candidateUrn: string) => {
   if (matches) {
     const [, platform] = matches;
     return platform.toUpperCase();
+  }
+};
+
+/**
+ * Extracts the fabric string from a LI (internal) dataset urn
+ * @param {string} urn
+ * @return {Fabric | void}
+ */
+const getFabricFromUrn = (urn: string): Fabric | void => {
+  const matches = datasetUrnRegexLI.exec(urn);
+
+  if (matches) {
+    let [, , , fabric] = matches;
+    fabric = fabric.toUpperCase();
+
+    if (isDatasetFabric(fabric)) {
+      return fabric;
+    }
   }
 };
 
@@ -178,6 +196,7 @@ export {
   buildLiUrn,
   specialFlowUrnRegex,
   getPlatformFromUrn,
+  getFabricFromUrn,
   convertWhUrnToLiUrn,
   convertWhDatasetPathToLiPath,
   encodeForwardSlash,
