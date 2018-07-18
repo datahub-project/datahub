@@ -2,35 +2,47 @@
   "type": "record",
   "name": "RetentionPolicy",
   "namespace": "com.linkedin.events.metadata",
-  "doc" : "Retention policy at the dataset level",
-  "fields" : [
-    { "name" : "retentionType",
-      "type" : {
-        "type" : "enum",
-        "name" : "RetentionType",
-        "doc" : "types of different retention policies",
-        "symbols" : [ "LIMITED", "LEGAL_HOLD", "UNLIMITED" ],
-        "symbolDocs" : {
-          "LIMITED" : "Data is stored for limited time only",
-          "LEGAL_HOLD" : "Data is held for legal compliance or investigation",
-          "UNLIMITED" : "Data can be held indefinitely"
-        }
-      },
-      "doc" : "Retention type on dataset"
-    },
-    { "name" : "retentionWindow",
-      "type" : [ "null", "long" ],
-      "doc" : "Time in (unit) how long data is retained for in case of LIMITED retention",
-      "default" : null
-    },
-    { "name" : "retentionWindowUnit",
-      "type" : [ "null", {
+  "doc": "Retention policy at the dataset level",
+  "fields": [
+    {
+      "name": "purgeType",
+      "type": {
         "type": "enum",
-        "name": "TimePeriodUnit",
-        "doc": "Unit of time period",
-        "symbols": [ "YEAR", "MONTH", "WEEK", "DAY", "HOUR", "MINUTE", "SECOND", "MILLISECOND"]
-      }],
-      "default" : null
+        "name": "PurgeType",
+        "doc": "Purge mechanism type specifies how dataset complies with existing legal requirements for data retention and clean-up policies.",
+        "symbols": [
+          "AUTO_PURGE",
+          "LIMITED_RETENTION",
+          "MANUAL_PURGE",
+          "MANUAL_LIMITED_RETENTION",
+          "PURGE_NOT_APPLICABLE",
+          "PURGE_EXEMPTED"
+        ],
+        "symbolDocs": {
+          "AUTO_PURGE": "Dataset is setup for automatic data purge with existing framework",
+          "LIMITED_RETENTION": "Dataset contains PII but are automatically deleted by the system within a time limit",
+          "MANUAL_PURGE": "Data owners setup a custom data purge flow to accomplish data clean-up",
+          "MANUAL_LIMITED_RETENTION": "Data owners setup a custom system the delete or regenerate the data within a time limit",
+          "PURGE_NOT_APPLICABLE": "Dataset does not contain PII and does not require clean-up",
+          "PURGE_EXEMPTED": "Dataset exempted from purging"
+        }
+      }
+    },
+    {
+      "name": "retentionWindow",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "How long data is retained in seconds for the case of MANUAL_LIMITED_RETENTION"
+    },
+    {
+      "name": "purgeNote",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "The additional information about purging if the purge type is PURGE_EXEMPTED"
     }
   ]
 }

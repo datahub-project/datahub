@@ -5,29 +5,34 @@
   "fields": [
     {
       "name": "compliancePurgeType",
-      "type": {
-        "type": "enum",
-        "name": "CompliancePurgeType",
-        "doc": "Purge mechanism type specifies how dataset complies with existing legal requirements for data retention and clean-up policies.",
-        "symbols": [
-          "AUTO_PURGE",
-          "CUSTOM_PURGE",
-          "LIMITED_RETENTION",
-          "PURGE_NOT_APPLICABLE",
-          "MANUAL_PURGE",
-          "MANUAL_LIMITED_RETENTION",
-          "PURGE_EXEMPTED"
-        ],
-        "symbolDocs": {
-          "AUTO_PURGE": "Dataset is setup for automatic data purge with existing framework",
-          "CUSTOM_PURGE": "This has been replaced by MANUAL_PURGE. Do NOT use it any more.",
-          "MANUAL_PURGE": "Data owners setup a custom data purge flow to accomplish data clean-up",
-          "LIMITED_RETENTION": "Dataset contains PII but are automatically deleted by the system within a time limit",
-          "MANUAL_LIMITED_RETENTION": "Data owners setup a custom system the delete or regenerate the data within a time limit",
-          "PURGE_NOT_APPLICABLE": "Dataset does not contain PII and does not require clean-up",
-          "PURGE_EXEMPTED": "Dataset exempted from purging"
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "CompliancePurgeType",
+          "doc": "Purge mechanism type specifies how dataset complies with existing legal requirements for data retention and clean-up policies.",
+          "symbols": [
+            "AUTO_PURGE",
+            "CUSTOM_PURGE",
+            "LIMITED_RETENTION",
+            "PURGE_NOT_APPLICABLE",
+            "MANUAL_PURGE",
+            "MANUAL_LIMITED_RETENTION",
+            "PURGE_EXEMPTED"
+          ],
+          "symbolDocs": {
+            "AUTO_PURGE": "Dataset is setup for automatic data purge with existing framework",
+            "CUSTOM_PURGE": "This has been replaced by MANUAL_PURGE. Do NOT use it any more.",
+            "MANUAL_PURGE": "Data owners setup a custom data purge flow to accomplish data clean-up",
+            "LIMITED_RETENTION": "Dataset contains PII but are automatically deleted by the system within a time limit",
+            "MANUAL_LIMITED_RETENTION": "Data owners setup a custom system the delete or regenerate the data within a time limit",
+            "PURGE_NOT_APPLICABLE": "Dataset does not contain PII and does not require clean-up",
+            "PURGE_EXEMPTED": "Dataset exempted from purging"
+          }
         }
-      }
+      ],
+      "doc": "[Deprecated] Please use RetentionPolicy to set purge info instead",
+      "default": null
     },
     {
       "name": "retentionWindow",
@@ -35,7 +40,7 @@
         "null",
         "long"
       ],
-      "doc": "How long data is retained in seconds for the case of MANUAL_LIMITED_RETENTION",
+      "doc": "[Deprecated] Please use RetentionPolicy to set purge info instead",
       "default": null
     },
     {
@@ -44,7 +49,7 @@
         "null",
         "string"
       ],
-      "doc": "The additional information about purging if the purge type is PURGE_EXEMPTED",
+      "doc": "[Deprecated] Please use RetentionPolicy to set purge info instead",
       "default": null
     },
     {
