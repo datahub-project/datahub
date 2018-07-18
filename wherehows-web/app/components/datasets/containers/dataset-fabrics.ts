@@ -3,6 +3,7 @@ import { get } from '@ember/object';
 import { task } from 'ember-concurrency';
 import { Fabric } from 'wherehows-web/constants';
 import { readDatasetFabricsByUrn } from 'wherehows-web/utils/api/datasets/fabrics';
+import { isLiUrn } from 'wherehows-web/utils/validators/urn';
 
 export default class DatasetFabricsContainer extends Component {
   /**
@@ -43,10 +44,12 @@ export default class DatasetFabricsContainer extends Component {
    * @type {Task<Promise<Array<Fabric>>, (a?: any) => TaskInstance<Promise<Array<Fabric>>>>}
    */
   getFabricsTask = task(function*(this: DatasetFabricsContainer): IterableIterator<Promise<Array<Fabric>>> {
-    const fabrics: Array<Fabric> = yield readDatasetFabricsByUrn(get(this, 'urn'));
+    if (isLiUrn(get(this, 'urn'))) {
+      const fabrics: Array<Fabric> = yield readDatasetFabricsByUrn(get(this, 'urn'));
 
-    if (Array.isArray(fabrics)) {
-      get(this, 'fabrics').setObjects(fabrics);
+      if (Array.isArray(fabrics)) {
+        get(this, 'fabrics').setObjects(fabrics);
+      }
     }
   });
 }
