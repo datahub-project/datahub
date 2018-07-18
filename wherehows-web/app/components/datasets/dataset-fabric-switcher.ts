@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { computed, get, set, getProperties } from '@ember/object';
 import { DatasetPlatform, Fabric } from 'wherehows-web/constants';
 import { action } from '@ember-decorators/object';
-import { buildLiUrn, datasetUrnRegexLI, getFabricFromUrn } from 'wherehows-web/utils/validators/urn';
+import { buildLiUrn, datasetUrnRegexLI, getUrnParts } from 'wherehows-web/utils/validators/urn';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { task, TaskInstance, timeout } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
@@ -55,7 +55,7 @@ export default class DatasetFabricSwitcher extends Component {
    * @memberof DatasetFabricSwitcher
    */
   fabric: ComputedProperty<Fabric | void> = computed('urn', function(this: DatasetFabricSwitcher): Fabric | void {
-    return getFabricFromUrn(get(this, 'urn'));
+    return getUrnParts(get(this, 'urn')).fabric;
   });
 
   /**

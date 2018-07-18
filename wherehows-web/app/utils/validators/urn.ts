@@ -69,24 +69,6 @@ const getPlatformFromUrn = (candidateUrn: string) => {
 };
 
 /**
- * Extracts the fabric string from a LI (internal) dataset urn
- * @param {string} urn
- * @return {Fabric | void}
- */
-const getFabricFromUrn = (urn: string): Fabric | void => {
-  const matches = datasetUrnRegexLI.exec(urn);
-
-  if (matches) {
-    let [, , , fabric] = matches;
-    fabric = fabric.toUpperCase();
-
-    if (isDatasetFabric(fabric)) {
-      return fabric;
-    }
-  }
-};
-
-/**
  * Extracts the constituent parts of a datasystem / dataset urn
  * @param {string} urn
  * @return {({platform: DatasetPlatform | void; prefix: string | void; fabric: Fabric | void})}
@@ -226,7 +208,6 @@ export {
   buildLiUrn,
   specialFlowUrnRegex,
   getPlatformFromUrn,
-  getFabricFromUrn,
   getUrnParts,
   convertWhUrnToLiUrn,
   convertWhDatasetPathToLiPath,
