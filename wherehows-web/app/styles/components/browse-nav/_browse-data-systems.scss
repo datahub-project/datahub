@@ -4,6 +4,19 @@
   // not an ideal solution
   $breadcrumbs-margin-offset: 5px;
   margin-top: item-spacing(5) + $breadcrumbs-margin-offset;
+
+  &__navbar {
+    display: flex;
+    align-items: center;
+
+    &__breadcrumbs {
+      max-width: 95%;
+    }
+
+    &__count {
+      margin: item-spacing(0 4);
+    }
+  }
 }
 
 .data-systems {
