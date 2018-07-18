@@ -70,7 +70,7 @@ export default class DataSystemsContainer extends Component {
    * @type {ComputedProperty<string>}
    */
   urn = computed('params', function(this: DataSystemsContainer): string {
-    const { platform, prefix } = get(this, 'params');
+    const { platform, prefix = '' } = get(this, 'params');
     return buildLiUrn(<DatasetPlatform>platform, prefix);
   });
 
@@ -89,7 +89,7 @@ export default class DataSystemsContainer extends Component {
    * @type {(Task<Promise<Array<string>>, (a?: any) => TaskInstance<Promise<Array<string>>>>)}
    */
   getDataSystemsNodesTask = task(function*(this: DataSystemsContainer): IterableIterator<Promise<Array<string>>> {
-    const { prefix, platform, entity } = get(this, 'params');
+    const { prefix = '', platform, entity } = get(this, 'params');
     const nodes = mapDataSystemsPathToLinkNode(<DatasetPlatform>platform, entity)(
       yield readPlatforms({ platform, prefix })
     );
