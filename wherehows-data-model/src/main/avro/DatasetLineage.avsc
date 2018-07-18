@@ -39,6 +39,12 @@
         }
       },
       "doc": "The type name for the metadata lineage operation"
+    },
+    {
+      "name": "keepingPreviousLineage",
+      "type": [ "null", "boolean" ],
+      "default": null,
+      "doc": "When set to true, this lineage will not overwrite any previous lineage sharing the same destination dataset. This is useful for cases where multiple producers emit MLEs independently."
     }
   ]
 }
