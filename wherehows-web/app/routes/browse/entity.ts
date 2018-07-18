@@ -20,7 +20,7 @@ export interface IBrowserRouteParams {
   page: number;
   size: number;
   platform: string;
-  prefix: string;
+  prefix: string | void;
 }
 
 export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin) {

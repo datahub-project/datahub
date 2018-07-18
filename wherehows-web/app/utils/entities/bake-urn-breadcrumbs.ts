@@ -8,7 +8,7 @@ import { datasetUrnRegexLI } from 'wherehows-web/utils/validators/urn';
 export interface IDatasetBreadcrumb {
   crumb: string;
   platform: DatasetPlatform;
-  prefix: string;
+  prefix: string | void;
 }
 
 /**
@@ -28,11 +28,17 @@ export default (urn: string): Array<IDatasetBreadcrumb> => {
     // For HDFS drop leading slash
     const hierarchy = isHdfs ? segments.split('/').slice(1) : segments.split('.');
 
-    return [platform, ...hierarchy].reduce((breadcrumbs, crumb, index) => {
+    return [platform, ...hierarchy].reduce((breadcrumbs: Array<IDatasetBreadcrumb>, crumb: string, index) => {
       if (crumb) {
-        const previousCrumb = breadcrumbs[index - 1];
-        // if hdfs, precede with slash, otherwise trailing period
-        const prefix = !index ? '' : isHdfs ? `${previousCrumb.prefix}/${crumb}` : `${previousCrumb.prefix}${crumb}.`;
+        let prefix: void | string;
+
+        // List isn't empty an a previous crumb exists
+        if (index) {
+          const previousCrumb = breadcrumbs[index - 1];
+          const { prefix: previousPrefix = '' } = previousCrumb;
+          // if hdfs, precede with slash, otherwise trailing period
+          prefix = isHdfs ? `${previousPrefix}/${crumb}` : `${previousPrefix}${crumb}.`;
+        }
 
         return [
           ...breadcrumbs,
