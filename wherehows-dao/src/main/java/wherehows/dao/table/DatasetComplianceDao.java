@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.CompliancePolicy;
 import com.linkedin.events.metadata.DatasetIdentifier;
+import com.linkedin.events.metadata.RetentionPolicy;
 import com.linkedin.events.metadata.SuggestedCompliancePolicy;
 import java.io.IOException;
 import java.util.List;
@@ -83,8 +84,8 @@ public class DatasetComplianceDao extends BaseDao {
    * @throws Exception
    */
   public void insertUpdateCompliance(@Nonnull DatasetIdentifier identifier, @Nullable DictDataset dataset,
-      @Nonnull ChangeAuditStamp auditStamp, @Nonnull CompliancePolicy compliance) throws Exception {
-
+      @Nonnull ChangeAuditStamp auditStamp, @Nullable CompliancePolicy compliance, @Nullable RetentionPolicy retention)
+      throws Exception {
     String datasetUrn = toWhDatasetUrn(identifier);
 
     if (dataset == null) {
@@ -107,7 +108,7 @@ public class DatasetComplianceDao extends BaseDao {
 
     String actor = getUrnEntity(toStringOrNull(auditStamp.actorUrn));
 
-    fillDsComplianceByCompliancePolicy(dsCompliance, compliance, datasetUrn, actor);
+    fillDsComplianceByCompliancePolicy(dsCompliance, compliance, retention, datasetUrn, actor);
 
     update(dsCompliance);
   }
@@ -116,21 +117,30 @@ public class DatasetComplianceDao extends BaseDao {
    * Fill in DsCompliance information from MCE CompliancePolicy
    * @param dsCompliance DsCompliance
    * @param compliance CompliancePolicy
+   * @param retention RetentionPolicy
    * @param datasetUrn String
    * @param actor String
    */
   public void fillDsComplianceByCompliancePolicy(@Nonnull DsCompliance dsCompliance,
-      @Nonnull CompliancePolicy compliance, @Nonnull String datasetUrn, @Nonnull String actor) {
-
+      @Nullable CompliancePolicy compliance, @Nullable RetentionPolicy retention, @Nonnull String datasetUrn,
+      @Nonnull String actor) {
     dsCompliance.setDatasetUrn(datasetUrn);
-    dsCompliance.setCompliancePurgeType(compliance.compliancePurgeType.name());
-    if (compliance.compliancePurgeNote != null) {
-      dsCompliance.setCompliancePurgeNote(compliance.compliancePurgeNote.toString());
+
+    // use retention to override compliance
+    // retention and compliance can't both be null
+    String purgeType = retention != null ? retention.purgeType.name() : compliance.compliancePurgeType.name();
+    CharSequence purgeNote = retention != null ? retention.purgeNote : compliance.compliancePurgeNote;
+    dsCompliance.setCompliancePurgeType(purgeType);
+    if (purgeNote != null) {
+      dsCompliance.setCompliancePurgeNote(purgeNote.toString());
     }
-    dsCompliance.setConfidentiality(compliance.datasetConfidentiality.name());
-    dsCompliance.setDatasetClassification(compliance.datasetClassification.toString());
-    if (compliance.complianceEntities != null) {
-      dsCompliance.setComplianceEntities(compliance.complianceEntities.toString());
+
+    if (compliance != null) {
+      dsCompliance.setConfidentiality(compliance.datasetConfidentiality.name());
+      dsCompliance.setDatasetClassification(compliance.datasetClassification.toString());
+      if (compliance.complianceEntities != null) {
+        dsCompliance.setComplianceEntities(compliance.complianceEntities.toString());
+      }
     }
 
     dsCompliance.setModifiedBy(actor);
