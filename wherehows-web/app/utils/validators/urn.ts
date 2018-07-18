@@ -105,7 +105,7 @@ const convertWhUrnToLiUrn = (whUrn: string): string => {
  * @param {Fabric} [fabric=Fabric.Prod]
  * @return {string}
  */
-const buildLiUrn = (platform: DatasetPlatform, path: string, fabric: Fabric = Fabric.Prod): string => {
+const buildLiUrn = (platform: DatasetPlatform, path: string = '', fabric: Fabric = Fabric.Prod): string => {
   const formattedPath = convertWhDatasetPathToLiPath(platform, path);
   return `urn:li:dataset:(urn:li:dataPlatform:${platform},${formattedPath},${fabric})`;
 };
