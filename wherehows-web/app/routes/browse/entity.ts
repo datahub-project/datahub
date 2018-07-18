@@ -8,7 +8,7 @@ import BrowseEntityController from 'wherehows-web/controllers/browse/entity';
 import Configurator from 'wherehows-web/services/configurator';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
-const queryParamsKeys = ['page', 'prefix', 'platform', 'size'];
+const queryParamsKeys: Array<keyof IBrowserRouteParams> = ['page', 'prefix', 'platform', 'size'];
 
 /**
  * Describes the route parameter interface for the browser route
@@ -23,7 +23,14 @@ export interface IBrowserRouteParams {
   prefix: string | void;
 }
 
-export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin) {
+export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin, {
+  resetController(controller: BrowseEntityController, isExiting: boolean) {
+    if (isExiting) {
+      // clear out sticky params
+      setProperties(controller, { prefix: '', platform: '' });
+    }
+  }
+}) {
   queryParams = refreshModelQueryParams(queryParamsKeys);
 
   /**
