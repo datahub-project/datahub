@@ -37,9 +37,7 @@ const platformsUrl = ({ platform, prefix }: IReadDatasetsOptionBag): string => {
  */
 const readPlatforms = async ({ platform, prefix }: IReadDatasetsOptionBag): Promise<Array<string>> => {
   const url = platformsUrl({ platform, prefix });
-  const response = await getJSON<Array<string>>({ url });
-
-  return response || [];
+  return await getJSON<Array<string>>({ url });
 };
 
 export { readPlatforms };
