@@ -5,7 +5,7 @@ import {
   IPartyProps,
   IUserEntityMap
 } from 'wherehows-web/typings/api/datasets/party-entities';
-import { notFoundApiError } from 'wherehows-web/utils/api';
+import { isNotFoundApiError } from 'wherehows-web/utils/api';
 import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
@@ -109,7 +109,7 @@ const readDatasetOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
     ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlByUrn(urn) }));
     return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
   } catch (e) {
-    if (notFoundApiError(e)) {
+    if (isNotFoundApiError(e)) {
       return { owners, fromUpstream, datasetUrn };
     } else {
       throw e;
@@ -133,7 +133,7 @@ const readDatasetSuggestedOwnersByUrn = async (urn: string): Promise<IOwnerRespo
     }));
     return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
   } catch (e) {
-    if (notFoundApiError(e)) {
+    if (isNotFoundApiError(e)) {
       return { owners, fromUpstream, datasetUrn };
     } else {
       throw e;

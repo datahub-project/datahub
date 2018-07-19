@@ -1,7 +1,7 @@
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
-import { notFoundApiError } from 'wherehows-web/utils/api';
+import { isNotFoundApiError } from 'wherehows-web/utils/api';
 import { fleece } from 'wherehows-web/utils/object';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 
@@ -21,7 +21,7 @@ const readDatasetRetentionByUrn = async (urn: string): Promise<IGetDatasetRetent
   try {
     return await getJSON<IGetDatasetRetentionResponse>({ url: datasetRetentionUrlByUrn(urn) });
   } catch (e) {
-    if (notFoundApiError(e)) {
+    if (isNotFoundApiError(e)) {
       return null;
     }
 

@@ -12,7 +12,7 @@ import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import {
   IReadComplianceResult,
-  notFoundApiError,
+  isNotFoundApiError,
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
   saveDatasetComplianceByUrn,
@@ -246,7 +246,7 @@ export default class DatasetComplianceContainer extends Component {
       setProperties(this, { schemaFieldNamesMappedToDataTypes, schemaless });
     } catch (e) {
       // If this schema is missing, silence exception, otherwise propagate
-      if (!notFoundApiError(e)) {
+      if (!isNotFoundApiError(e)) {
         throw e;
       }
     }
