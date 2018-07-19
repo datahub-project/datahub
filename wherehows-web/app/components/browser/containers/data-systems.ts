@@ -90,9 +90,16 @@ export default class DataSystemsContainer extends Component {
    */
   getDataSystemsNodesTask = task(function*(this: DataSystemsContainer): IterableIterator<Promise<Array<string>>> {
     const { prefix = '', platform, entity } = get(this, 'params');
-    const nodes = mapDataSystemsPathToLinkNode(<DatasetPlatform>platform, entity)(
-      yield readPlatforms({ platform, prefix })
-    );
+    let nodes: Array<IDynamicLinkNode> = [];
+
+    try {
+      nodes = mapDataSystemsPathToLinkNode(<DatasetPlatform>platform, entity)(
+        yield readPlatforms({ platform, prefix })
+      );
+    } catch (e) {
+      set(this, 'nodes', nodes);
+      throw e;
+    }
 
     set(this, 'nodes', nodes);
   }).restartable();
