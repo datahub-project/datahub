@@ -1,6 +1,6 @@
 import { initialComplianceObjectFactory } from 'wherehows-web/constants';
 import { SuggestionIntent } from 'wherehows-web/constants/datasets/compliance';
-import { notFoundApiError } from 'wherehows-web/utils/api';
+import { isNotFoundApiError } from 'wherehows-web/utils/api';
 import { datasetUrlById, datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import {
   IComplianceGetResponse,
@@ -70,7 +70,7 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
       url: datasetComplianceUrlByUrn(urn)
     }));
   } catch (e) {
-    if (notFoundApiError(e)) {
+    if (isNotFoundApiError(e)) {
       complianceInfo = initialComplianceObjectFactory(urn);
       isNewComplianceInfo = true;
     } else {
