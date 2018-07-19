@@ -1,9 +1,5 @@
 .data-systems-container {
-  // additional offset to compensate for browser lack of respect for the margin-top value on the breadcrumbs component
-  // margin-top value overlaps container padding
-  // not an ideal solution
-  $breadcrumbs-margin-offset: 5px;
-  margin-top: item-spacing(5) + $breadcrumbs-margin-offset;
+  margin-top: item-spacing(5);
 
   &__navbar {
     display: flex;
@@ -57,4 +53,11 @@
   &__downlink {
     margin-left: auto;
   }
+}
+
+.data-systems-retry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
