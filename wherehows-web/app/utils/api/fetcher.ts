@@ -1,11 +1,12 @@
 import fetch from 'fetch';
 import { apiErrorStatusMessage } from 'wherehows-web/constants/errors/errors';
 import { ApiError, throwIfApiError } from 'wherehows-web/utils/api/errors/errors';
+import { isNotFoundApiError } from 'wherehows-web/utils/api/shared';
 
 /**
  * Describes the attributes on the fetch configuration object
  */
-interface FetchConfig {
+interface IFetchConfig {
   url: string;
   headers?: { [key: string]: string } | Headers;
   data?: object;
@@ -24,9 +25,9 @@ interface IFetchOptions {
 
 /**
  * Augments the user supplied headers with the default accept and content-type headers
- * @param {FetchConfig.headers} headers
+ * @param {IFetchConfig.headers} headers
  */
-const withBaseFetchHeaders = (headers: FetchConfig['headers']): { headers: FetchConfig['headers'] } => ({
+const withBaseFetchHeaders = (headers: IFetchConfig['headers']): { headers: IFetchConfig['headers'] } => ({
   headers: Object.assign(
     {
       Accept: 'application/json',
@@ -49,10 +50,10 @@ const json = <T>(url: string = '', fetchConfig: IFetchOptions = {}): Promise<T> 
 /**
  * Conveniently gets a JSON response using the fetch api
  * @template T
- * @param {FetchConfig} config
+ * @param {IFetchConfig} config
  * @return {Promise<T>}
  */
-const getJSON = <T>(config: FetchConfig): Promise<T> => {
+const getJSON = <T>(config: IFetchConfig): Promise<T> => {
   const fetchConfig = { ...withBaseFetchHeaders(config.headers), method: 'GET' };
 
   return json<T>(config.url, fetchConfig);
@@ -61,10 +62,10 @@ const getJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Initiates a POST request using the Fetch api
  * @template T
- * @param {FetchConfig} config
+ * @param {IFetchConfig} config
  * @returns {Promise<T>}
  */
-const postJSON = <T>(config: FetchConfig): Promise<T> => {
+const postJSON = <T>(config: IFetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
   const fetchConfig = Object.assign(
     requestBody,
@@ -79,10 +80,10 @@ const postJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Initiates a DELETE request using the Fetch api
  * @template T
- * @param {FetchConfig} config
+ * @param {IFetchConfig} config
  * @return {Promise<T>}
  */
-const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
+const deleteJSON = <T>(config: IFetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
   const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'DELETE' });
 
@@ -92,10 +93,10 @@ const deleteJSON = <T>(config: FetchConfig): Promise<T> => {
 /**
  * Initiates a PUT request using the Fetch api
  * @template T
- * @param {FetchConfig} config
+ * @param {IFetchConfig} config
  * @return {Promise<T>}
  */
-const putJSON = <T>(config: FetchConfig): Promise<T> => {
+const putJSON = <T>(config: IFetchConfig): Promise<T> => {
   const requestBody = config.data ? { body: JSON.stringify(config.data) } : {};
 
   const fetchConfig = Object.assign(requestBody, withBaseFetchHeaders(config.headers), { method: 'PUT' });
@@ -105,10 +106,10 @@ const putJSON = <T>(config: FetchConfig): Promise<T> => {
 
 /**
  * Requests the headers from a resource endpoint
- * @param {FetchConfig} config
+ * @param {IFetchConfig} config
  * @return {Promise<Headers>}
  */
-const getHeaders = async (config: FetchConfig): Promise<Headers> => {
+const getHeaders = async (config: IFetchConfig): Promise<Headers> => {
   const fetchConfig = {
     ...withBaseFetchHeaders(config.headers),
     method: 'HEAD'
@@ -123,4 +124,25 @@ const getHeaders = async (config: FetchConfig): Promise<Headers> => {
   throw new ApiError(status, apiErrorStatusMessage(status));
 };
 
-export { getJSON, postJSON, deleteJSON, putJSON, getHeaders };
+/**
+ * Wraps an api request or Promise that resolves a value, if the promise rejects with an
+ * @link ApiError and
+ * @link ApiResponseStatus.NotFound
+ * then the default value is returned then resolve with the default value
+ * @param {Promise<T>} request the request or promise to wrap
+ * @param {T} defaultValue resolved value if request throws ApiResponseStatus.NotFound
+ * @return {Promise<T>}
+ */
+const returnDefaultIfNotFound = async <T>(request: Promise<T>, defaultValue: T): Promise<T> => {
+  try {
+    return await request;
+  } catch (e) {
+    if (isNotFoundApiError(e)) {
+      return defaultValue;
+    }
+
+    throw e;
+  }
+};
+
+export { getJSON, postJSON, deleteJSON, putJSON, getHeaders, returnDefaultIfNotFound };

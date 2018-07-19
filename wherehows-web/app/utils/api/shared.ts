@@ -35,16 +35,30 @@ export enum ApiResponseStatus {
 }
 
 /**
+ * Type guard discriminates an error object as an instance of ApiError
+ * @param {Error} e
+ * @return {boolean}
+ */
+const isApiError = (e: Error): e is ApiError => e instanceof ApiError;
+
+/**
  * Convenience function to ascertain if an api error is a not found code
  * @param {Error} e
  * @return {boolean}
  */
-export const notFoundApiError = (e: Error) => e instanceof ApiError && e.status === ApiResponseStatus.NotFound;
+export const isNotFoundApiError = (e: Error) => isApiError(e) && e.status === ApiResponseStatus.NotFound;
 
 /**
  * Checks that a server response status is a server exception
  * @param {Error} e
  * @return {boolean}
  */
-export const serverExceptionApiError = (e: Error) =>
-  e instanceof ApiError && e.status >= ApiResponseStatus.InternalServerError;
+export const isServerExceptionApiError = (e: Error) =>
+  isApiError(e) && e.status >= ApiResponseStatus.InternalServerError;
+
+/**
+ * Checks that a server response status is an unauthorized error
+ * @param {Error} e
+ * @return {boolean}
+ */
+export const isUnAuthorizedApiError = (e: Error) => isApiError(e) && e.status === ApiResponseStatus.UnAuthorized;

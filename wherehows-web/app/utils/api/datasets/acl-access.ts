@@ -1,4 +1,4 @@
-import { notFoundApiError, serverExceptionApiError } from 'wherehows-web/utils/api';
+import { isNotFoundApiError, isServerExceptionApiError } from 'wherehows-web/utils/api';
 import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { deleteJSON, getJSON, putJSON } from 'wherehows-web/utils/api/fetcher';
 import {
@@ -38,7 +38,7 @@ const requestAclAccess = (urn: string, props: IRequestAccessControlEntry): Promi
   try {
     return putJSON<void>({ url: addDatasetAclUrnByUrn(urn), data: props });
   } catch (e) {
-    if (serverExceptionApiError(e)) {
+    if (isServerExceptionApiError(e)) {
       // TODO: retry with exponential back-off
     }
 
@@ -55,7 +55,7 @@ const removeAclAccess = (urn: string): Promise<void> => {
   try {
     return deleteJSON<void>({ url: deleteDatasetAclUrnByUrn(urn) });
   } catch (e) {
-    if (serverExceptionApiError(e)) {
+    if (isServerExceptionApiError(e)) {
       // TODO: retry with exponential back-off
     }
 
@@ -74,7 +74,7 @@ const readDatasetAcls = async (urn: string): Promise<Array<IAccessControlEntry>>
   try {
     return getJSON<IGetAclsResponse>({ url: datasetAclsUrlByUrn(urn) });
   } catch (e) {
-    if (notFoundApiError(e)) {
+    if (isNotFoundApiError(e)) {
       return acls;
     }
 
