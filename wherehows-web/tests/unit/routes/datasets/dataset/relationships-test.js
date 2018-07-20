@@ -1,6 +1,6 @@
 import { moduleFor, test } from 'ember-qunit';
 
-moduleFor('route:datasets/dataset/relations', 'Unit | Route | datasets/dataset/relations', {
+moduleFor('route:datasets/dataset/relationships', 'Unit | Route | datasets/dataset/relationships', {
   needs: ['service:metrics']
 });
 
