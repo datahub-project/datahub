@@ -1,9 +1,9 @@
 import Component from '@ember/component';
 import { get, set } from '@ember/object';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { task } from 'ember-concurrency';
 import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { assert } from '@ember/debug';
+import { Relationships } from 'wherehows-web/typings/api/datasets/relationships';
 
 export default class DatasetLineageUpstreamsContainer extends Component {
   /**
@@ -15,10 +15,10 @@ export default class DatasetLineageUpstreamsContainer extends Component {
 
   /**
    * List of upstream datasets for this urn
-   * @type {Array<IDatasetView>}
+   * @type {Relationships}
    * @memberof DatasetLineageUpstreamsContainer
    */
-  upstreams: Array<IDatasetView> = [];
+  upstreams: Relationships = [];
 
   /**
    * Creates an instance of DatasetLineageUpstreamsContainer.
@@ -41,13 +41,13 @@ export default class DatasetLineageUpstreamsContainer extends Component {
 
   /**
    * Task to request and set dataset upstreams for this urn
-   * @type {TaskProperty<Promise<IDatasetView[]>> & {perform: (a?: {} | undefined) => TaskInstance<Promise<IDatasetView[]>>}}
+   * @type {TaskProperty<Promise<Relationships>> & {perform: (a?: {} | undefined) => TaskInstance<Promise<Relationships>>}}
    * @memberof DatasetLineageUpstreamsContainer
    */
   getDatasetUpstreamsTask = task(function*(
     this: DatasetLineageUpstreamsContainer
-  ): IterableIterator<Promise<Array<IDatasetView>>> {
-    let upstreams: Array<IDatasetView> = [];
+  ): IterableIterator<Promise<Relationships>> {
+    let upstreams: Relationships = [];
 
     try {
       upstreams = yield readUpstreamDatasetsByUrn(get(this, 'urn'));
