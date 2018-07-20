@@ -1,7 +1,7 @@
 <a {{action "click" preventDefault=false}} target={{target}} href={{link}}>
   <sup>
     {{#if tooltip}}
-      <i class="nacho-tooltip">
+      <i data-title="{{tooltip}}" class="nacho-tooltip">
         More Info
       </i>
     {{else}}
