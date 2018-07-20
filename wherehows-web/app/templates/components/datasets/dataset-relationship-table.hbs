@@ -1,7 +1,16 @@
 {{#dataset-table fields=relationships as |relationTable|}}
   {{#relationTable.head as |head|}}
     {{#head.column}}Dataset{{/head.column}}
-    {{#head.column}}All Types{{/head.column}}
+    {{#head.column}}
+
+      {{#nacho/dropdown/hover-dropdown
+        dropDownItems=relationshipTypes
+        selectedDropDown=selectedRelationshipType
+        onSelect=(action "onTypeSelect") as |dd|}}
+        {{dd.content}}
+      {{/nacho/dropdown/hover-dropdown}}
+
+    {{/head.column}}
     {{#head.column}}Actor{{/head.column}}
     {{#head.column}}Last Modified{{/head.column}}
   {{/relationTable.head}}
