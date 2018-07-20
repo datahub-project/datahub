@@ -23,7 +23,7 @@ const datasetDownstreamUrlByUrn = (urn: string): string => `${datasetUrlByUrn(ur
  * @return {Promise<Array<IDatasetView>>}
  */
 const readUpstreamDatasetsByUrn = (urn: string): Promise<Array<IDatasetView>> =>
-  getJSON<Array<IDatasetView>>({ url: datasetUpstreamUrlByUrn(encodeUrn(urn)) });
+  returnDefaultIfNotFound(getJSON<Array<IDatasetView>>({ url: datasetUpstreamUrlByUrn(encodeUrn(urn)) }), []);
 
 /**
  * Requests the downstream datasets for the dataset identified by urn
