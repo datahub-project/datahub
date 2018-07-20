@@ -1,0 +1,73 @@
+<section class="dataset-relationships-container">
+  <header>
+    <h4>
+      Relationships
+    </h4>
+
+    <p>
+      *Please note that the list below only displays datasets that are directly related to this dataset.
+    </p>
+    <hr>
+  </header>
+
+  <h4 class="dataset-relationships__header">
+    Upstream
+  </h4>
+
+  {{#datasets/containers/dataset-lineage-upstreams urn=urn as |upstreamsContainer|}}
+    {{#if upstreamsContainer.upstreams}}
+    {{else}}
+      <div class="dataset-relationships-not-found">
+        This dataset does not have upstream relationships.
+      </div>
+    {{/if}}
+  {{/datasets/containers/dataset-lineage-upstreams}}
+
+
+  <h4 class="dataset-relationships__header">
+    Downstream
+  </h4>
+
+  {{#datasets/containers/dataset-lineage-downstreams urn=urn as |downstreamsContainer|}}
+    {{#if downstreamsContainer.downstreams}}
+
+      {{#dataset-table fields=downstreamsContainer.downstreams as |downstreamTable|}}
+        {{#downstreamTable.head as |head|}}
+          {{#head.column}}Dataset{{/head.column}}
+          {{#head.column}}All Types{{/head.column}}
+          {{#head.column}}Actor{{/head.column}}
+          {{#head.column}}Last Modified{{/head.column}}
+        {{/downstreamTable.head}}
+
+        {{#downstreamTable.body as |body|}}
+          {{#each downstreamTable.data as |downstreamDataset|}}
+            {{#body.row field=downstreamDataset as |row|}}
+              {{#row.cell}}
+                {{#link-to 'datasets.dataset' 'urn' (query-params urn=downstreamDataset.uri)}}
+                  <strong>
+                    {{downstreamDataset.nativeName}}
+                  </strong>
+                {{/link-to}}
+              {{/row.cell}}
+              {{#row.cell}}
+                {{titleize downstreamDataset.nativeType}}
+              {{/row.cell}}
+              {{#row.cell}}
+                \{{Actor URN}}
+              {{/row.cell}}
+              {{#row.cell}}
+                {{moment-calendar downstreamDataset.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+              {{/row.cell}}
+            {{/body.row}}
+          {{/each}}
+        {{/downstreamTable.body}}
+      {{/dataset-table}}
+
+    {{else}}
+      <div class="dataset-relationships-not-found">
+        This dataset does not have downstream relationships.
+      </div>
+    {{/if}}
+  {{/datasets/containers/dataset-lineage-downstreams}}
+
+</section>

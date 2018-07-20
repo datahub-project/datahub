@@ -145,6 +145,8 @@
       {{/tabs.tabpanel}}
     {{/if}}
 
-    {{#tabs.tabpanel tabIds.Relationships}}{{/tabs.tabpanel}}
+    {{#tabs.tabpanel tabIds.Relationships}}
+      {{datasets/dataset-relationships urn=encodedUrn}}
+    {{/tabs.tabpanel}}
   </div>
 {{/ivy-tabs}}
