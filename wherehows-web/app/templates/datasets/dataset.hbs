@@ -98,6 +98,11 @@
             {{/if}}
           {{/tablist.tab}}
         {{/if}}
+
+        {{#tablist.tab tabIds.Relationships on-select=(action "tabSelectionChanged")}}
+          Relationships
+        {{/tablist.tab}}
+
       {{/tabs.tablist}}
     </div>
   </div>
@@ -139,5 +144,7 @@
         {{datasets/containers/dataset-acl-access urn=encodedUrn}}
       {{/tabs.tabpanel}}
     {{/if}}
+
+    {{#tabs.tabpanel tabIds.Relationships}}{{/tabs.tabpanel}}
   </div>
 {{/ivy-tabs}}
