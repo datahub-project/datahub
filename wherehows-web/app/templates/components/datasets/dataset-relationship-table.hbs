@@ -1,4 +1,4 @@
-{{#dataset-table fields=relationships as |relationTable|}}
+{{#dataset-table fields=filteredRelationships as |relationTable|}}
   {{#relationTable.head as |head|}}
     {{#head.column}}Dataset{{/head.column}}
     {{#head.column}}
@@ -37,4 +37,24 @@
       {{/body.row}}
     {{/each}}
   {{/relationTable.body}}
+
+  {{#if hasMore}}
+    {{#relationTable.foot}}
+      <td colspan="4" class="text-center">
+        <button
+          {{action "onToggleShowMore"}}
+          class="nacho-button--large nacho-button--tertiary">
+          {{#if showAllRelationships}}
+
+            See Less <span class="fa fa-caret-up" aria-label="See less relationships"></span>
+
+          {{else}}
+
+            See More <span class="fa fa-caret-down" aria-label="See more relationships"></span>
+
+          {{/if}}
+        </button>
+      </td>
+    {{/relationTable.foot}}
+  {{/if}}
 {{/dataset-table}}

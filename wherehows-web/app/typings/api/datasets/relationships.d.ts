@@ -1,4 +1,5 @@
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
+import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
  * Alias for a list of IDatasetView instances
@@ -7,4 +8,11 @@ import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
  */
 type Relationships = Array<IDatasetView>;
 
-export { Relationships };
+/**
+ * Alias for a drop-down option based on an IDatasetView nativeType
+ * @alias
+ * @type RelationshipType
+ */
+type RelationshipType = IDropDownOption<string>;
+
+export { Relationships, RelationshipType };
