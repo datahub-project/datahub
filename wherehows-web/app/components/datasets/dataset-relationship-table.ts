@@ -47,7 +47,7 @@ export default class DatasetRelationshipTable extends Component {
 
     // set default values for required props
     this.selectedRelationshipType || set(this, 'selectedRelationshipType', allRelationshipType);
-    this.relationships || set(this, 'relationships', []);
+    Array.isArray(this.relationships) || set(this, 'relationships', []);
   }
 
   /**

@@ -7,7 +7,7 @@ import { arrayFilter, take } from 'wherehows-web/utils/array';
  * to signify all nativeType
  * @type {Readonly<{label: string; value: string}>}
  */
-const allRelationshipType: RelationshipType = Object.freeze({ label: 'All Types', value: '' });
+const allRelationshipType: RelationshipType = { label: 'All Types', value: '' };
 
 /**
  * Creates a filter function, the will filter an instance of an IDatasetView on it's nativeType
