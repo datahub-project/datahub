@@ -74,8 +74,9 @@ AppRouter.map(function() {
         this.route('ownership');
         this.route('compliance');
         this.route('sample');
-        this.route('relations');
+        this.route('relationships');
         this.route('access');
+        this.route('health');
       }
     );
   });

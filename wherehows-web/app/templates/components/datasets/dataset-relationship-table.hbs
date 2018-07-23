@@ -1,0 +1,60 @@
+{{#dataset-table fields=filteredRelationships as |relationTable|}}
+  {{#relationTable.head as |head|}}
+    {{#head.column}}Dataset{{/head.column}}
+    {{#head.column}}
+
+      {{#nacho/dropdown/hover-dropdown
+        dropDownItems=relationshipTypes
+        selectedDropDown=selectedRelationshipType
+        onSelect=(action "onTypeSelect") as |dd|}}
+        {{dd.content}}
+      {{/nacho/dropdown/hover-dropdown}}
+
+    {{/head.column}}
+    {{#head.column}}Actor{{/head.column}}
+    {{#head.column}}Last Modified{{/head.column}}
+  {{/relationTable.head}}
+
+  {{#relationTable.body as |body|}}
+    {{#each relationTable.data as |dataset|}}
+      {{#body.row field=dataset as |row|}}
+        {{#row.cell}}
+          {{#link-to 'datasets.dataset' 'urn' (query-params urn=dataset.uri)}}
+            <strong>
+              {{dataset.nativeName}}
+            </strong>
+          {{/link-to}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{titleize dataset.nativeType}}
+        {{/row.cell}}
+        {{#row.cell}}
+          \{{Actor URN}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{moment-calendar dataset.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+        {{/row.cell}}
+      {{/body.row}}
+    {{/each}}
+  {{/relationTable.body}}
+
+  {{#if hasMore}}
+    {{#relationTable.foot}}
+      <td colspan="4" class="text-center">
+        <button
+          {{action "onToggleShowMore"}}
+          class="nacho-button--large nacho-button--tertiary">
+          {{#if showAllRelationships}}
+
+            See Less <span class="fa fa-caret-up" aria-label="See less relationships"></span>
+
+          {{else}}
+
+            See More <span class="fa fa-caret-down" aria-label="See more relationships"></span>
+
+          {{/if}}
+        </button>
+      </td>
+    {{/relationTable.foot}}
+  {{/if}}
+{{/dataset-table}}
