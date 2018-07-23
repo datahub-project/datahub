@@ -105,10 +105,14 @@ export default class DatasetRoute extends Route {
     const jitAclAccessWhitelist: IAppConfig['jitAclAccessWhitelist'] = <IAppConfig['jitAclAccessWhitelist']>configuratorService.getConfig<
       IAppConfig['jitAclAccessWhitelist']
     >('JitAclAccessWhitelist');
+    const shouldShowDatasetLineage = <boolean>configuratorService.getConfig<IAppConfig['shouldShowDatasetLineage']>(
+      'shouldShowDatasetLineage'
+    );
 
     setProperties(controller, {
       isInternal: !!isInternal,
-      jitAclAccessWhitelist: jitAclAccessWhitelist || []
+      jitAclAccessWhitelist: jitAclAccessWhitelist || [],
+      shouldShowDatasetLineage
     });
   }
 
