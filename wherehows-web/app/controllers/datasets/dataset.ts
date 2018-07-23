@@ -81,6 +81,13 @@ export default class DatasetController extends Controller {
   isInternal: boolean;
 
   /**
+   * Flags the lineage feature for datasets
+   * @type {boolean}
+   * @memberof DatasetController
+   */
+  shouldShowDatasetLineage: boolean;
+
+  /**
    * Flag indicating if the dataset contains personally identifiable information
    * @type {boolean}
    * @memberof DatasetController
