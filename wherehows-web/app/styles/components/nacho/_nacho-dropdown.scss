@@ -30,6 +30,7 @@
       line-height: item-spacing(4) + 4;
       padding: item-spacing(2);
       color: get-color(black, 0.6);
+      cursor: pointer;
 
       &--selected {
         border-left: $option-border-width solid get-color(blue7);

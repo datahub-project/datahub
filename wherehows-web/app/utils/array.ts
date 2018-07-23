@@ -14,6 +14,13 @@ type Iteratee<A, R> = (a: A) => R;
 type Many<T> = T | Array<T>;
 
 /**
+ * Takes a number of elements in the list from the start up to the length of the list
+ * @template T type of elements in array
+ * @param {number} [n=0] number of elements to take from the start of the array
+ */
+const take = <T>(n: number = 0) => (list: Array<T>): Array<T> => Array.prototype.slice.call(list, 0, n < 0 ? 0 : n);
+
+/**
  * Convenience utility takes a type-safe mapping function, and returns a list mapping function
  * @param {(param: T) => U} mappingFunction maps a single type T to type U
  * @return {(array: Array<T>) => Array<U>}
@@ -60,17 +67,16 @@ const arrayReduce = <T, U>(
 ): ((arr: Array<T>) => U) => (array = []) => array.reduce(iteratee, init);
 
 // arrayPipe overloads
-function arrayPipe<T>(): (x: T) => T;
-function arrayPipe<T, R1>(f1: (a1: T) => R1): (x: T) => R1;
-function arrayPipe<T, R1, R2>(f1: (a1: T) => R1, f2: (a2: R1) => R2): (x: T) => R2;
-function arrayPipe<T, R1, R2, R3>(f1: (a1: T) => R1, f2: (a2: R1) => R2, f3: (a3: R2) => R3): (x: T) => R3;
-function arrayPipe<T, R1, R2, R3, R4>(
+function arrayPipe<T, R1 = T>(f1: (a1: T) => R1): (x: T) => R1;
+function arrayPipe<T, R1 = T, R2 = T>(f1: (a1: T) => R1, f2: (a2: R1) => R2): (x: T) => R2;
+function arrayPipe<T, R1 = T, R2 = T, R3 = T>(f1: (a1: T) => R1, f2: (a2: R1) => R2, f3: (a3: R2) => R3): (x: T) => R3;
+function arrayPipe<T, R1 = T, R2 = T, R3 = T, R4 = T>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
   f4: (a4: R3) => R4
 ): (x: T) => R4;
-function arrayPipe<T, R1, R2, R3, R4, R5>(
+function arrayPipe<T, R1 = T, R2 = T, R3 = T, R4 = T, R5 = T>(
   f1: (a1: T) => R1,
   f2: (a2: R1) => R2,
   f3: (a3: R2) => R3,
@@ -127,7 +133,7 @@ function arrayPipe<T, R1, R2, R3, R4, R5, R6, R7>(
  */
 function arrayPipe<T, R>(...fns: Array<Many<Iteratee<any, any>>>): (x: T) => R {
   return arrayReduce<(a: T) => any, (x: any) => R>((acc, f) => (x): R => acc(f(x)), identity)(
-    (<Array<Iteratee<any, any>>>[]).concat(...fns) // flatten if arg is of type Array<>
+    (<Array<Iteratee<any, any>>>[]).concat(...fns.reverse()) // flatten if arg is of type Array<>
   );
 }
 
@@ -220,6 +226,7 @@ const reduceArrayAsync = <T, U>(reducer: (arr?: Array<T>) => U) => (list: Array<
 export { Many, Iteratee };
 
 export {
+  take,
   arrayMap,
   arrayFilter,
   arrayReduce,
