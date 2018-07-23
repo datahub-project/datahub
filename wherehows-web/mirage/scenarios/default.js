@@ -13,7 +13,6 @@ export default function(server) {
   server.createList('owner', 6);
   server.createList('dataset', 10);
   server.createList('datasetView', 2);
-  server.createList('flow', 10);
   server.createList('column', 2);
   server.createList('comment', 2);
   server.createList('compliance', 2);
