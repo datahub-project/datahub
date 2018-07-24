@@ -7,6 +7,12 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 import deepClone from 'wherehows-web/utils/deep-clone';
 
 /**
+ * Conditional type alias for getConfig return type, if T is assignable to a key of
+ * IAppConfig, then return the property value, otherwise returns the  IAppConfig object
+ */
+type IAppConfigOrProperty<T> = T extends keyof IAppConfig ? IAppConfig[T] : IAppConfig;
+
+/**
  * Holds the application configuration object
  * @type {IAppConfig}
  */
@@ -23,7 +29,7 @@ export default class Configurator extends Service {
    * Fetches the application configuration object from the provided endpoint and augments the appConfig object
    * @return {Promise<IAppConfig>}
    */
-  async load(): Promise<IAppConfig> {
+  static async load(): Promise<IAppConfig> {
     try {
       const { status, config } = await getJSON<IConfiguratorGetResponse>({ url: appConfigUrl });
 
@@ -40,18 +46,20 @@ export default class Configurator extends Service {
   }
 
   /**
-   * Returns the last saved configuration object if one was successfully retrieved
-   * @param {String} key if provided, the value is returned with that key on the config hash is returned
-   * @return {any}
+   * Returns a copy of the last saved configuration object if one was successfully retrieved,
+   * or a copy of the property on the IAppConfig object, if specified
+   * @static
+   * @template K
+   * @param {K} [key] if provided, the value is returned with that key on the config hash is returned
+   * @returns {IAppConfigOrProperty<K>}
+   * @memberof Configurator
    */
-  getConfig<T>(key?: string): IAppConfig | T {
+  static getConfig<K extends keyof IAppConfig>(key?: K): IAppConfigOrProperty<K> {
+    // Ensure that the application configuration has been successfully cached
     assert('Please ensure you have invoked the `load` method successfully prior to calling `getConfig`.', configLoaded);
 
-    // Ensure that the application configuration has been successfully cached
-    if (key) {
-      return deepClone<T>(appConfig[key]);
-    }
-
-    return deepClone(appConfig);
+    return typeof key === 'string'
+      ? <IAppConfigOrProperty<K>>deepClone(appConfig[key])
+      : <IAppConfigOrProperty<K>>deepClone(appConfig);
   }
 }

@@ -16,7 +16,6 @@ import isUrn, {
 import { datasetIdToUrn, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import DatasetController from 'wherehows-web/controllers/datasets/dataset';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
 /**
  * Describes the interface for properties passed into the routes's model hook
@@ -28,13 +27,6 @@ interface IDatasetRouteParams {
 }
 
 export default class DatasetRoute extends Route {
-  /**
-   * References the application's Configurator service
-   * @type {ComputedProperty<Configurator>}
-   * @memberof DatasetRoute
-   */
-  configurator: ComputedProperty<Configurator> = inject();
-
   /**
    * References the application's Notifications service
    * @type {ComputedProperty<Notifications>}
@@ -97,22 +89,13 @@ export default class DatasetRoute extends Route {
   }
 
   async setupController(this: DatasetRoute, controller: DatasetController, model: IDatasetView) {
-    const configuratorService = get(this, 'configurator');
+    const { getConfig } = Configurator;
     set(controller, 'model', model);
 
-    // TODO: refactor getConfig with conditional types after TS2.8 upgrade to reduce verbosity of annotations below
-    const isInternal = <IAppConfig['isInternal']>configuratorService.getConfig<IAppConfig['isInternal']>('isInternal');
-    const jitAclAccessWhitelist: IAppConfig['jitAclAccessWhitelist'] = <IAppConfig['jitAclAccessWhitelist']>configuratorService.getConfig<
-      IAppConfig['jitAclAccessWhitelist']
-    >('JitAclAccessWhitelist');
-    const shouldShowDatasetLineage = <boolean>configuratorService.getConfig<IAppConfig['shouldShowDatasetLineage']>(
-      'shouldShowDatasetLineage'
-    );
-
     setProperties(controller, {
-      isInternal: !!isInternal,
-      jitAclAccessWhitelist: jitAclAccessWhitelist || [],
-      shouldShowDatasetLineage
+      isInternal: !!getConfig('isInternal'),
+      jitAclAccessWhitelist: getConfig('JitAclAccessWhitelist') || [],
+      shouldShowDatasetLineage: getConfig('shouldShowDatasetLineage')
     });
   }
 
