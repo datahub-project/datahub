@@ -7,7 +7,7 @@ import { DatasetPlatform } from 'wherehows-web/constants';
  */
 interface IAppConfig {
   isInternal: boolean | void;
-  jitAclAccessWhitelist: Array<DatasetPlatform> | void;
+  JitAclAccessWhitelist: Array<DatasetPlatform> | void;
   shouldShowDatasetLineage: boolean;
   tracking: {
     isEnabled: boolean;
@@ -18,7 +18,6 @@ interface IAppConfig {
       };
     };
   };
-  [key: string]: any;
 }
 
 /**
