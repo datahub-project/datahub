@@ -8,7 +8,6 @@ import { DatasetPlatform } from 'wherehows-web/constants';
 interface IAppConfig {
   isInternal: boolean | void;
   jitAclAccessWhitelist: Array<DatasetPlatform> | void;
-  shouldShowBrowserRevamp: boolean;
   shouldShowDatasetLineage: boolean;
   tracking: {
     isEnabled: boolean;
