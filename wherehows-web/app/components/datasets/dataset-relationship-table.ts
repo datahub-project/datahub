@@ -50,6 +50,18 @@ export default class DatasetRelationshipTable extends Component {
     Array.isArray(this.relationships) || set(this, 'relationships', []);
   }
 
+  filteredRelationshipsByType: ComputedProperty<Relationships> = computed(
+    'selectedRelationshipType',
+    'relationships.[]',
+    function(this: DatasetRelationshipTable): Relationships {
+      const {
+        selectedRelationshipType: { value },
+        relationships
+      } = getProperties(this, ['selectedRelationshipType', 'relationships']);
+      return filterRelationshipsByType(value)(relationships);
+    }
+  );
+
   /**
    * Computes the list of relationships to be rendered based on the currently set props
    * for filter values e.g. relationshipType and show all flag
@@ -57,20 +69,16 @@ export default class DatasetRelationshipTable extends Component {
    * @memberof DatasetRelationshipTable
    */
   filteredRelationships: ComputedProperty<Relationships> = computed(
-    'selectedRelationshipType',
     'showAllRelationships',
+    'filteredRelationshipsByType',
     function(this: DatasetRelationshipTable): Relationships {
-      const {
-        selectedRelationshipType: { value },
-        relationships,
-        showAllRelationships,
-        truncatedLength: n
-      } = getProperties(this, ['selectedRelationshipType', 'relationships', 'showAllRelationships', 'truncatedLength']);
+      const { filteredRelationshipsByType, showAllRelationships, truncatedLength: n } = getProperties(this, [
+        'filteredRelationshipsByType',
+        'showAllRelationships',
+        'truncatedLength'
+      ]);
 
-      return arrayPipe<Relationships>(
-        filterRelationshipsByType(value), // TODO: might need to break out into separate CP, relationshipsOfTypeN for hasMore CP filteredLength parameter
-        takeNRelationships(showAllRelationships, n)
-      )(relationships);
+      return takeNRelationships(showAllRelationships, n)(filteredRelationshipsByType);
     }
   );
 
@@ -84,17 +92,17 @@ export default class DatasetRelationshipTable extends Component {
     'showAllRelationships',
     'relationships.length',
     'truncatedLength',
-    'filteredRelationships.length',
+    'filteredRelationshipsByType.length',
     function(this: DatasetRelationshipTable): boolean {
       const {
         selectedRelationshipType,
         relationships: { length: totalLength },
-        filteredRelationships: { length: filteredLength },
+        filteredRelationshipsByType: { length: filteredLength },
         truncatedLength
       } = getProperties(this, [
         'selectedRelationshipType',
         'relationships',
-        'filteredRelationships',
+        'filteredRelationshipsByType',
         'truncatedLength'
       ]);
       const hasFilter = selectedRelationshipType !== allRelationshipType;

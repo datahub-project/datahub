@@ -99,9 +99,11 @@
           {{/tablist.tab}}
         {{/if}}
 
-        {{#tablist.tab tabIds.Relationships on-select=(action "tabSelectionChanged")}}
-          Relationships
-        {{/tablist.tab}}
+        {{#if shouldShowDatasetLineage}}
+          {{#tablist.tab tabIds.Relationships on-select=(action "tabSelectionChanged")}}
+            Relationships
+          {{/tablist.tab}}
+        {{/if}}
 
       {{/tabs.tablist}}
     </div>
@@ -145,8 +147,10 @@
       {{/tabs.tabpanel}}
     {{/if}}
 
-    {{#tabs.tabpanel tabIds.Relationships}}
-      {{datasets/dataset-relationships urn=encodedUrn}}
-    {{/tabs.tabpanel}}
+    {{#if shouldShowDatasetLineage}}
+      {{#tabs.tabpanel tabIds.Relationships}}
+        {{datasets/dataset-relationships urn=encodedUrn}}
+      {{/tabs.tabpanel}}
+    {{/if}}
   </div>
 {{/ivy-tabs}}
