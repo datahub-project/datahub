@@ -3,15 +3,10 @@ import { get } from '@ember/object';
 import { run } from '@ember/runloop';
 import { inject as service } from '@ember/service';
 import { twoFABannerMessage, twoFABannerType } from 'wherehows-web/constants/notifications';
+import Configurator from 'wherehows-web/services/configurator';
 
 export default Route.extend({
   session: service(),
-
-  /**
-   * Runtime application configuration options
-   * @type {Ember.Service}
-   */
-  configurator: service(),
 
   /**
    * Banner alert service
@@ -30,7 +25,7 @@ export default Route.extend({
   },
 
   async model() {
-    const getConfig = get(this, 'configurator.getConfig');
+    const { getConfig } = Configurator;
     const isInternal = await getConfig('isInternal');
 
     return { isInternal };
