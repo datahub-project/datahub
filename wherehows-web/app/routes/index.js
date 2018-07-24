@@ -40,11 +40,7 @@ export default Route.extend(AuthenticatedRouteMixin, {
   },
 
   replaceWithBrowseDatasetsRoute() {
-    const shouldShowBrowserRevamp = get(this, 'configurator.getConfig')('shouldShowBrowserRevamp');
-
-    if (shouldShowBrowserRevamp) {
-      this.replaceWith('browse.entity', 'datasets');
-    }
+    this.replaceWith('browse.entity', 'datasets');
   },
 
   /**
