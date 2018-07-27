@@ -88,6 +88,14 @@ export default class DatasetController extends Controller {
   shouldShowDatasetLineage: boolean;
 
   /**
+   * Flags the health feature for datasets, which is currently in the development stage so we should not
+   * have it appear in production
+   * @type {boolean}
+   * @memberof DatasetController
+   */
+  shouldShowDatasetHealth: boolean;
+
+  /**
    * Flag indicating if the dataset contains personally identifiable information
    * @type {boolean}
    * @memberof DatasetController

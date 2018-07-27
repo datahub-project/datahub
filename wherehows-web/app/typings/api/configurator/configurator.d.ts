@@ -9,6 +9,7 @@ interface IAppConfig {
   isInternal: boolean | void;
   JitAclAccessWhitelist: Array<DatasetPlatform> | void;
   shouldShowDatasetLineage: boolean;
+  shouldShowDatasetHealth: boolean;
   tracking: {
     isEnabled: boolean;
     trackers: {
