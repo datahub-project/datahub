@@ -27,10 +27,6 @@ export default class DatasetHealthContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<TaskInstance<Promise<any>>> {
-    // Forms the tasks that are needed to fetch the data... to be determined
-    // const tasks = Object.values(
-    //   getProperties(this, ['getDatasetOwnersTask', 'getSuggestedOwnersTask', 'getDatasetOwnerTypesTask'])
-    // );
-    // yield* tasks.map(task => task.perform());
+    // Do something in the future
   });
 }
