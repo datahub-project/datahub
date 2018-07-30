@@ -9,7 +9,7 @@ export default class BannerAlerts extends Component {
   /**
    * Imports the service used to handle actual activation and dismissal of banners. The service also
    * maintains the banners list
-   * @type {Serivce}
+   * @type {ComputedProperty<BannerService>}
    */
   banners: ComputedProperty<BannerService> = service();
 

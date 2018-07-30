@@ -1,9 +1,10 @@
 import Route from '@ember/routing/route';
 import { inject as service } from '@ember/service';
 import { run } from '@ember/runloop';
-import { computed, set, get, setProperties, getProperties, getWithDefault, observer } from '@ember/object';
+import { get } from '@ember/object';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 import { feedback, avatar } from 'wherehows-web/constants';
+import Configurator from 'wherehows-web/services/configurator';
 
 const { mail, subject, title } = feedback;
 const { url: avatarUrl } = avatar;
@@ -11,12 +12,6 @@ const { url: avatarUrl } = avatar;
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
   sessionUser: service('current-user'),
-
-  /**
-   * Runtime application configuration options
-   * @type {Ember.Service}
-   */
-  configurator: service(),
 
   /**
    * Metrics tracking service
@@ -46,13 +41,9 @@ export default Route.extend(ApplicationRouteMixin, {
    * @override
    */
   async model() {
-    const getConfig = get(this, 'configurator.getConfig');
+    const { getConfig } = Configurator;
 
-    const [isInternal, showStagingBanner, showStaleSearchBanner] = await Promise.all([
-      getConfig('isInternal'),
-      getConfig('isStagingBanner'),
-      getConfig('isStaleSearch')
-    ]);
+    const [isInternal, showStagingBanner] = await Promise.all([getConfig('isInternal'), getConfig('isStagingBanner')]);
 
     const { userName } = get(this, 'sessionUser.currentUser') || {};
 
@@ -71,7 +62,7 @@ export default Route.extend(ApplicationRouteMixin, {
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
 
-    return { feedbackMail, brand, showStagingBanner, showStaleSearchBanner };
+    return { feedbackMail, brand, showStagingBanner };
   },
 
   /**
@@ -112,17 +103,17 @@ export default Route.extend(ApplicationRouteMixin, {
    * @private
    */
   _loadConfig() {
-    return get(this, 'configurator.load')();
+    return Configurator.load();
   },
 
   /**
    * Requests app configuration props then if enabled, sets up metrics
    *   tracking using the supported trackers
-   * @return {Promise.<TResult>}
+   * @return {Promise.<T>}
    * @private
    */
   async _setupMetricsTrackers() {
-    const { tracking = {} } = await get(this, 'configurator.getConfig')();
+    const { tracking = {} } = await Configurator.getConfig();
 
     if (tracking.isEnabled) {
       const metrics = get(this, 'metrics');
@@ -148,7 +139,7 @@ export default Route.extend(ApplicationRouteMixin, {
    * @private
    */
   async _trackCurrentUser() {
-    const { tracking = {} } = await get(this, 'configurator.getConfig')();
+    const { tracking = {} } = await Configurator.getConfig();
 
     // Check if tracking is enabled prior to invoking
     // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
@@ -171,16 +162,21 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   renderTemplate() {
     this._super(...arguments);
-    const { showStagingBanner, showStaleSearchBanner } = get(this, 'controller').get('model');
+    const { showStagingBanner } = get(this, 'controller').get('model');
     const banners = get(this, 'banners');
-    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [
-      showStagingBanner,
-      showStaleSearchBanner
-    ]);
+    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [showStagingBanner]);
   },
 
   processLegacyDomOperations() {
-    // TODO: DSS-6122 Refactor Remove tree legacy operations & references
-    window.legacyMain();
+    const markedRendererOverride = new marked.Renderer();
+
+    markedRendererOverride.link = (href, title, text) =>
+      `<a href='${href}' title=${title || text} target='_blank'>${text}</a>`;
+
+    marked.setOptions({
+      gfm: true,
+      tables: true,
+      renderer: markedRendererOverride
+    });
   }
 });

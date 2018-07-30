@@ -38,6 +38,7 @@ $gray-color: rgb(234, 234, 234);
   padding-top: item-spacing(3);
   border: 1px solid $gray-color;
   border-radius: item-spacing(1);
+  background-color: get-color(white);
 
   &__header {
     display: block;
@@ -67,7 +68,7 @@ $gray-color: rgb(234, 234, 234);
   &__content {
     min-height: item-spacing(6) * 3;
     outline: none;
-    width: item-spacing(9)*9;
+    width: item-spacing(9) * 9;
     overflow: auto;
     padding: item-spacing(1);
     background-color: rgb(245, 246, 248);

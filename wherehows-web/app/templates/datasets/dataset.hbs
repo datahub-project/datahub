@@ -1,101 +1,121 @@
-<div class="container">
-  <div id="dataset">
-    {{datasets/urn-breadcrumbs urn=model.uri}}
+<div id="dataset" class="dataset-entity-header">
+  <div class="container">
+    {{datasets/urn-breadcrumbs class="nacho-breadcrumbs nacho-breadcrumbs--white-surface" urn=model.uri}}
 
     <div class="row">
       <div class="container">
-      {{#if model.removed}}
-        <span class="removed-dataset">REMOVED</span>
+        <div class="dataset-meta-properties">
+          <h3 class="dataset-name">
+            {{model.nativeName}}
+          </h3>
 
-        <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="This dataset has been removed">
-                {{tooltip-on-element
-                  event="hover"
-                  text="This dataset has been removed"
-                }}
-              </span>
-        </sup>
-      {{/if}}
+          {{#if model.removed}}
+            <span class="removed-dataset dataset-pill">
+          REMOVED
 
-      {{#if datasetContainsPersonalData}}
-        <span class="pii-dataset">PII</span>
+              {{tooltip-on-element
+                event="hover"
+                text="This dataset has been removed"
+              }}
+        </span>
+          {{/if}}
 
-        <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="This dataset contains personally identifiable information">
-                {{tooltip-on-element
-                  event="hover"
-                  text="This dataset contains personally identifiable information"
-                }}
-              </span>
-        </sup>
-      {{/if}}
+          {{#if datasetContainsPersonalData}}
+            <span class="pii-dataset dataset-pill">
+          PII
 
-      {{#if model.deprecated}}
-        {{#link-to "datasets.dataset.properties" encodedUrn}}
+              {{tooltip-on-element
+                event="hover"
+                side="right"
+                text="This dataset contains personally identifiable information"
+              }}
+        </span>
 
-          <span class="deprecated-dataset">DEPRECATED</span>
-          <sup>
-              <span
-                class="glyphicon glyphicon-question-sign"
-                title="Click to view dataset properties">
+          {{/if}}
+
+          {{#if model.deprecated}}
+
+            <span class="deprecated-dataset dataset-pill">
+              {{#link-to "datasets.dataset.properties" encodedUrn}}
+                DEPRECATED
+
                 {{tooltip-on-element
                   event="hover"
                   text="Click to view dataset properties"
                 }}
-              </span>
-          </sup>
+              {{/link-to}}
+            </span>
 
-        {{/link-to}}
-      {{/if}}
-        <h3 class="dataset-name">
-          {{model.nativeName}}
-        </h3>
+          {{/if}}
+        </div>
+
+        {{#datasets/containers/dataset-fabrics class="dataset-fabric-row-container" urn=model.uri as |fabricsContainer|}}
+          <div class="dataset-fabric-entity-container">
+            <strong>Fabric:</strong> {{datasets/dataset-fabric-switcher
+            urn=fabricsContainer.urn
+          }}
+          </div>
+        {{/datasets/containers/dataset-fabrics}}
       </div>
     </div>
 
     {{datasets/containers/dataset-owner-list urn=encodedUrn}}
+
   </div>
+</div>
 
-  {{#ivy-tabs selection=tabSelected as |tabs|}}
+{{#ivy-tabs selection=tabSelected as |tabs|}}
+  <div class="dataset-entity-tabs">
+    <div class="container">
+      {{#tabs.tablist as |tablist|}}
 
-    {{#tabs.tablist as |tablist|}}
+        {{#unless isPinot}}
+          {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
+            Properties
+          {{/tablist.tab}}
+        {{/unless}}
 
-      {{#unless isPinot}}
-        {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
-          Properties
-        {{/tablist.tab}}
-      {{/unless}}
-
-      {{#if isJitAclAccessEnabled}}
-        {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
-      {{/if}}
-
-      {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
-
-      {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
-        Ownership
-
-        {{#if requiredMinNotConfirmed}}
-          <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
+        {{#if isJitAclAccessEnabled}}
+          {{#tablist.tab tabIds.Access on-select=(action "tabSelectionChanged")}}ACL Access{{/tablist.tab}}
         {{/if}}
-      {{/tablist.tab}}
 
-      {{#if isInternal}}
-        {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
-          Compliance
+        {{#tablist.tab tabIds.Schema on-select=(action "tabSelectionChanged")}}Schema{{/tablist.tab}}
 
-          {{#if requiresUserAction}}
+        {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
+          Ownership
+
+          {{#if requiredMinNotConfirmed}}
             <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
           {{/if}}
         {{/tablist.tab}}
-      {{/if}}
 
-    {{/tabs.tablist}}
+        {{#if isInternal}}
+          {{#tablist.tab tabIds.Compliance on-select=(action "tabSelectionChanged")}}
+            Compliance
 
+            {{#if requiresUserAction}}
+              <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
+            {{/if}}
+          {{/tablist.tab}}
+        {{/if}}
+
+        {{#if shouldShowDatasetLineage}}
+          {{#tablist.tab tabIds.Relationships on-select=(action "tabSelectionChanged")}}
+            Relationships
+          {{/tablist.tab}}
+        {{/if}}
+
+        {{#if shouldShowDatasetHealth}}
+          {{#tablist.tab tabIds.Health on-select=(action "tabSelectionChanged")}}
+            Health
+          {{/tablist.tab}}
+        {{/if}}
+
+      {{/tabs.tablist}}
+    </div>
+  </div>
+
+  <div class="container">
     {{#tabs.tabpanel tabIds.Properties}}
       {{datasets/containers/dataset-properties
         urn=encodedUrn
@@ -112,7 +132,7 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Ownership}}
-      {{datasets/containers/dataset-ownership urn=encodedUrn showOwnership=showOwnership}}
+      {{datasets/containers/dataset-ownership urn=encodedUrn}}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Compliance}}
@@ -133,5 +153,16 @@
       {{/tabs.tabpanel}}
     {{/if}}
 
-  {{/ivy-tabs}}
-</div>
+    {{#if shouldShowDatasetLineage}}
+      {{#tabs.tabpanel tabIds.Relationships}}
+        {{datasets/dataset-relationships urn=encodedUrn}}
+      {{/tabs.tabpanel}}
+    {{/if}}
+
+    {{#if shouldShowDatasetHealth}}
+      {{#tabs.tabpanel tabIds.Health}}
+        {{datasets/containers/dataset-health urn=encodedUrn}}
+      {{/tabs.tabpanel}}
+    {{/if}}
+  </div>
+{{/ivy-tabs}}

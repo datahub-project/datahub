@@ -8,7 +8,7 @@ import { datasetUrnRegexLI } from 'wherehows-web/utils/validators/urn';
 export interface IDatasetBreadcrumb {
   crumb: string;
   platform: DatasetPlatform;
-  prefix: string;
+  prefix: string | void;
 }
 
 /**
@@ -23,24 +23,34 @@ export default (urn: string): Array<IDatasetBreadcrumb> => {
   const breadcrumbs: Array<IDatasetBreadcrumb> = [];
 
   if (liDatasetUrn) {
-    const [, platform, segments] = liDatasetUrn;
+    const [, platform, segments = ''] = liDatasetUrn;
     const isHdfs = String(platform).toLowerCase() === DatasetPlatform.HDFS;
     // For HDFS drop leading slash
     const hierarchy = isHdfs ? segments.split('/').slice(1) : segments.split('.');
 
-    return [platform, ...hierarchy].reduce((breadcrumbs, crumb, index) => {
-      const previousCrumb = breadcrumbs[index - 1];
-      // if hdfs, precede with slash, otherwise trailing period
-      const prefix = !index ? '' : isHdfs ? `${previousCrumb.prefix}/${crumb}` : `${previousCrumb.prefix}${crumb}.`;
+    return [platform, ...hierarchy].reduce((breadcrumbs: Array<IDatasetBreadcrumb>, crumb: string, index) => {
+      if (crumb) {
+        let prefix: void | string;
 
-      return [
-        ...breadcrumbs,
-        {
-          crumb,
-          prefix,
-          platform: <DatasetPlatform>platform
+        // List isn't empty an a previous crumb exists
+        if (index) {
+          const previousCrumb = breadcrumbs[index - 1];
+          const { prefix: previousPrefix = '' } = previousCrumb;
+          // if hdfs, precede with slash, otherwise trailing period
+          prefix = isHdfs ? `${previousPrefix}/${crumb}` : `${previousPrefix}${crumb}.`;
         }
-      ];
+
+        return [
+          ...breadcrumbs,
+          {
+            crumb,
+            prefix,
+            platform: <DatasetPlatform>platform
+          }
+        ];
+      }
+
+      return breadcrumbs;
     }, breadcrumbs);
   }
 

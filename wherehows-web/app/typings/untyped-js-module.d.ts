@@ -49,6 +49,15 @@ declare module 'ember-simple-auth/services/session' {
   }
 }
 
+declare module '@ember/service' {
+  import Session from 'ember-simple-auth/services/session';
+
+  // eslint-disable-next-line typescript/interface-name-prefix
+  interface Registry {
+    session: Session;
+  }
+}
+
 declare module 'ember-inflector' {
   const singularize: (arg: string) => string;
   const pluralize: (arg: string) => string;
@@ -93,6 +102,9 @@ interface Window {
       }
     ): Element;
   };
+
+  // global array for piwik tracking
+  _paq: Array<any>;
 }
 
 /**

@@ -22,6 +22,9 @@
 @import 'upstream-owners/all';
 @import 'dataset-schema/all';
 @import 'tooltips/all';
+@import 'entity-header/all';
+@import 'dataset-fabric/all';
+@import 'dataset-relationships/all';
 
 @import 'nacho/nacho-button';
 @import 'nacho/nacho-global-search';
@@ -33,3 +36,4 @@
 @import 'nacho/nacho-uploader';
 @import 'nacho/nacho-container';
 @import 'nacho/nacho-divider';
+@import 'nacho/nacho-dropdown';

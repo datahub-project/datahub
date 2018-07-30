@@ -32,7 +32,7 @@
     border-radius: item-spacing(1);
     background-color: get-color(black, 0.9);
     color: white;
-    content: attr(title);
+    content: attr(data-title);
     text-align: center;
     line-height: 1.2;
     font-size: item-spacing(3);

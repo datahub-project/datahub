@@ -3,6 +3,7 @@
 }
 
 /// Styles that apply to the layout for a page with two columns sidebar and content style
-.wh-sidebar, .wh-main-content {
-  margin: 30px 0;
+.wh-sidebar,
+.wh-main-content {
+  margin-top: item-spacing(5);
 }

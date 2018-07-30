@@ -143,14 +143,6 @@ const isConfirmedOwner = ({ source }: IOwner): boolean => source === OwnerSource
 const confirmedOwners = arrayFilter(isConfirmedOwner);
 
 /**
- * Checks that an owner is a system generated owner
- * @param {IOwner} { source, idType }
- * @returns {boolean}
- */
-const isSystemGeneratedOwner = ({ source, idType }: IOwner): boolean =>
-  source !== OwnerSource.Ui && idType === OwnerIdType.User;
-
-/**
  * Checks that the required minimum number of confirmed users is met with the type Owner and idType User
  * @param {Array<IOwner>} owners the list of owners to check
  * @return {boolean}
@@ -168,6 +160,5 @@ export {
   updateOwner,
   confirmOwner,
   isConfirmedOwner,
-  confirmedOwners,
-  isSystemGeneratedOwner
+  confirmedOwners
 };

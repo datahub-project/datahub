@@ -31,21 +31,6 @@
 
 {{/unless}}
 
-{{#unless (eq showOwnership "show")}}
-  <td>
-    {{#if owner.modifiedTime}}
-      {{moment-calendar owner.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
-    {{else}}
-
-      <span
-        class="nacho-button nacho-button--small dataset-author-record__indicator--disabled">
-        Not Saved
-      </span>
-
-    {{/if}}
-  </td>
-{{/unless}}
-
 <td>
   {{ember-selector
     class=(unless isOwnerMutable "nacho-select--hidden-state")

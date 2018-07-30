@@ -1,5 +1,5 @@
 import { assert } from '@ember/debug';
-import { DatasetPlatform, Fabric } from 'wherehows-web/constants';
+import { DatasetPlatform, Fabric, isDatasetFabric } from 'wherehows-web/constants';
 
 /**
  * Path segment in a urn. common btw WH and LI formats
@@ -19,7 +19,7 @@ const datasetUrnRegexWH = new RegExp(`([a-z_-]+):\/{3}(${urnPath.source})`, 'i')
  * e.g urn:li:dataset:(urn:li:dataPlatform:PLATFORM,SEGMENT,FABRIC)
  * @type {RegExp}
  */
-const datasetUrnRegexLI = new RegExp(`urn:li:dataset:\\(urn:li:dataPlatform:([\\w-]+),(${urnPath.source}),(\\w+)\\)`);
+const datasetUrnRegexLI = new RegExp(`urn:li:dataset:\\(urn:li:dataPlatform:([\\w-]+),(${urnPath.source})?,(\\w+)\\)`);
 
 /**
  * Matches urn's that occur in flow urls
@@ -69,6 +69,36 @@ const getPlatformFromUrn = (candidateUrn: string) => {
 };
 
 /**
+ * Extracts the constituent parts of a datasystem / dataset urn
+ * @param {string} urn
+ * @return {({platform: DatasetPlatform | void; prefix: string | void; fabric: Fabric | void})}
+ */
+const getUrnParts = (
+  urn: string
+): { platform: DatasetPlatform | void; prefix: string | void; fabric: Fabric | void } => {
+  const match = datasetUrnRegexLI.exec(urn);
+  const urnParts = {
+    platform: void 0,
+    prefix: void 0,
+    fabric: void 0
+  };
+
+  if (match) {
+    let [, platform, prefix, fabric] = match;
+    fabric = String(fabric).toUpperCase();
+
+    return {
+      ...urnParts,
+      platform: <DatasetPlatform>platform,
+      prefix,
+      fabric: isDatasetFabric(fabric) ? fabric : void 0
+    };
+  }
+
+  return urnParts;
+};
+
+/**
  * Converts a WH URN format to a LI URN format
  * @param {string} whUrn
  * @return {string}
@@ -87,7 +117,7 @@ const convertWhUrnToLiUrn = (whUrn: string): string => {
  * @param {Fabric} [fabric=Fabric.Prod]
  * @return {string}
  */
-const buildLiUrn = (platform: DatasetPlatform, path: string, fabric: Fabric = Fabric.Prod): string => {
+const buildLiUrn = (platform: DatasetPlatform, path: string = '', fabric: Fabric = Fabric.Prod): string => {
   const formattedPath = convertWhDatasetPathToLiPath(platform, path);
   return `urn:li:dataset:(urn:li:dataPlatform:${platform},${formattedPath},${fabric})`;
 };
@@ -178,6 +208,7 @@ export {
   buildLiUrn,
   specialFlowUrnRegex,
   getPlatformFromUrn,
+  getUrnParts,
   convertWhUrnToLiUrn,
   convertWhDatasetPathToLiPath,
   encodeForwardSlash,

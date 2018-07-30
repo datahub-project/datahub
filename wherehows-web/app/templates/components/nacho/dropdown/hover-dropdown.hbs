@@ -1,0 +1,27 @@
+{{#basic-dropdown as |bd|}}
+  {{#bd.trigger class="nacho-drop-down__trigger"
+                onMouseDown=(action "prevent")
+                onMouseEnter=(action "showDropDown")
+                onMouseLeave=(action "hideDropDown")}}
+    <strong class="nacho-drop-down__active">
+      {{selectedDropDown.label}}
+    </strong>
+
+    {{#if selectedDropDown}}
+      <span class="nacho-drop-down__active__toggle">
+        {{fa-icon (if isExpanded "caret-up" "caret-down")}}
+      </span>
+    {{/if}}
+  {{/bd.trigger}}
+
+  {{yield (hash
+            content=(component 'nacho/dropdown/dropdown-content'
+              baseComponent=bd.content
+              onMouseEnter=(action "showDropDown")
+              onMouseLeave=(action "hideDropDown")
+              onSelect=(action "onDropDownSelect")
+              selectedOption=selectedDropDown
+              options=dropDownItems
+            )
+          )}}
+{{/basic-dropdown}}

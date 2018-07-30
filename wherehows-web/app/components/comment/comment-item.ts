@@ -6,7 +6,7 @@ import { inject } from '@ember/service';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
 import { IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 export default Component.extend({
   tagName: 'li',
