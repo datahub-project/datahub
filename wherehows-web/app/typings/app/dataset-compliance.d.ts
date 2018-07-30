@@ -23,7 +23,10 @@ interface IDatasetComplianceActions {
  * @interface IComplianceTagReviewOptions
  */
 interface IComplianceTagReviewOptions {
+  // flag determines if suggested values are considered in tag(IComplianceChangeSet) review check
   checkSuggestions: boolean;
+  // confidence threshold for filtering out higher quality suggestions
+  suggestionConfidenceThreshold: number;
 }
 
 /**
