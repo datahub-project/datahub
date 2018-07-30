@@ -31,13 +31,10 @@ public class AuthenticationManager {
       throw new IllegalArgumentException("Username and password can not be blank.");
     }
     LoginContext lc = null;
-    // authenticate using the jaas config
     try {
       lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
     } catch (LoginException le) {
       throw new AuthenticationException(le.toString());
-    } catch (SecurityException se) {
-      throw new SecurityException(se.toString());
     }
 
     try {
