@@ -16,7 +16,8 @@ enum Tabs {
   Ownership = 'ownership',
   Compliance = 'compliance',
   SampleData = 'sample',
-  Relations = 'relations'
+  Relationships = 'relationships',
+  Health = 'health'
 }
 
 /**

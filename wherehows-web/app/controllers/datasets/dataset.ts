@@ -67,13 +67,6 @@ export default class DatasetController extends Controller {
   jitAclAccessWhitelist: Array<DatasetPlatform>;
 
   /**
-   * Flag indicating whether or not to show the ownership revamp tab information
-   * @type {string}
-   * @memberof DatasetController
-   */
-  showOwnership: string;
-
-  /**
    * Flag indicating the dataset policy is derived from an upstream source
    * @type {boolean}
    * @memberof DatasetController
@@ -86,6 +79,21 @@ export default class DatasetController extends Controller {
    * @memberof DatasetController
    */
   isInternal: boolean;
+
+  /**
+   * Flags the lineage feature for datasets
+   * @type {boolean}
+   * @memberof DatasetController
+   */
+  shouldShowDatasetLineage: boolean;
+
+  /**
+   * Flags the health feature for datasets, which is currently in the development stage so we should not
+   * have it appear in production
+   * @type {boolean}
+   * @memberof DatasetController
+   */
+  shouldShowDatasetHealth: boolean;
 
   /**
    * Flag indicating if the dataset contains personally identifiable information

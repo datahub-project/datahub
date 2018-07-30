@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
-import ComputedProperty, { not, or } from '@ember/object/computed';
+import ComputedProperty, { not, or, alias } from '@ember/object/computed';
 import { run, schedule, next } from '@ember/runloop';
 import { inject } from '@ember/service';
 import { classify } from '@ember/string';
@@ -34,11 +34,13 @@ import {
   tagsWithoutIdentifierType,
   singleTagsInChangeSet,
   tagsForIdentifierField,
-  overrideTagReadonly
+  overrideTagReadonly,
+  editableTags,
+  lowQualitySuggestionConfidenceThreshold
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
@@ -69,12 +71,12 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import validateMetadataObject, {
   complianceEntitiesTaxonomy
 } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
+import { typeOf } from '@ember/utils';
 
 const {
   complianceDataException,
   complianceFieldNotUnique,
   missingTypes,
-  helpText,
   missingPurgePolicy,
   missingDatasetSecurityClassification
 } = compliancePolicyStrings;
@@ -103,7 +105,6 @@ export default class DatasetCompliance extends Component {
   filterBy: string;
   sortDirection: string;
   searchTerm: string;
-  helpText = helpText;
   _hasBadData: boolean;
   platform: IDatasetView['platform'];
   isCompliancePolicyAvailable: boolean = false;
@@ -111,7 +112,7 @@ export default class DatasetCompliance extends Component {
   complianceInfo: undefined | IComplianceInfo;
 
   /**
-   * Lists the compliance entities that are entered via the advanced edititing interface
+   * Lists the compliance entities that are entered via the advanced editing interface
    * @type {Pick<IComplianceInfo, 'complianceEntities'>}
    * @memberof DatasetCompliance
    */
@@ -134,8 +135,16 @@ export default class DatasetCompliance extends Component {
   /**
    * Flag indicating the current compliance policy edit-view mode
    * @type {boolean}
+   * @memberof DatasetCompliance
    */
   showGuidedComplianceEditMode: boolean = true;
+
+  /**
+   * Confidence percentage number used to filter high quality suggestions versus lower quality
+   * @type {number}
+   * @memberof DatasetCompliance
+   */
+  suggestionConfidenceThreshold: number;
 
   /**
    * Formatted JSON string representing the compliance entities for this dataset
@@ -145,7 +154,6 @@ export default class DatasetCompliance extends Component {
     this: DatasetCompliance
   ): string {
     const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern', 'readonly'];
-    //@ts-ignore property access path using dot notation limitation
     const entityMap: ISchemaFieldsToPolicy = get(this, 'columnIdFieldsToCurrentPrivacyPolicy');
     const entitiesWithModifiableKeys = arrayMap((tag: IComplianceEntityWithMetadata) => pick(tag, entityAttrs))(
       (<Array<IComplianceEntityWithMetadata>>[]).concat(...Object.values(entityMap))
@@ -163,6 +171,23 @@ export default class DatasetCompliance extends Component {
     const { editStep, editSteps } = getProperties(this, ['editStep', 'editSteps']);
     const [initialStep] = editSteps;
     return editStep.name === initialStep.name;
+  });
+
+  /**
+   * Indicates if the first step does not need further user review to advance
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetCompliance
+   */
+  initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReviewWithoutSuggestionCheck', function(
+    this: DatasetCompliance
+  ): boolean {
+    const { isInitialEditStep, changeSetReviewWithoutSuggestionCheck } = getProperties(this, [
+      'isInitialEditStep',
+      'changeSetReviewWithoutSuggestionCheck'
+    ]);
+    const { length } = editableTags(changeSetReviewWithoutSuggestionCheck);
+
+    return isInitialEditStep && length > 0;
   });
 
   /**
@@ -316,6 +341,8 @@ export default class DatasetCompliance extends Component {
     this.searchTerm || set(this, 'searchTerm', '');
     this.schemaFieldNamesMappedToDataTypes || (this.schemaFieldNamesMappedToDataTypes = []);
     this.complianceDataTypes || (this.complianceDataTypes = []);
+    typeOf(this.suggestionConfidenceThreshold) === 'number' ||
+      set(this, 'suggestionConfidenceThreshold', lowQualitySuggestionConfidenceThreshold);
   }
 
   /**
@@ -721,16 +748,26 @@ export default class DatasetCompliance extends Component {
     'columnIdFieldsToCurrentPrivacyPolicy',
     'complianceDataTypes',
     'identifierFieldToSuggestion',
+    'suggestionConfidenceThreshold',
     function(this: DatasetCompliance): Array<IComplianceChangeSet> {
       // schemaFieldNamesMappedToDataTypes is a dependency for CP columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
       const changeSet = mergeComplianceEntitiesWithSuggestions(
         get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
         get(this, 'identifierFieldToSuggestion')
       );
+      const suggestionThreshold = get(this, 'suggestionConfidenceThreshold');
 
       // pass current changeSet state to parent handlers
-      run(() => next(this, 'notifyHandlerOfSuggestions', changeSet));
-      run(() => next(this, 'notifyHandlerOfFieldsRequiringReview', get(this, 'complianceDataTypes'), changeSet));
+      run(() => next(this, 'notifyHandlerOfSuggestions', suggestionThreshold, changeSet));
+      run(() =>
+        next(
+          this,
+          'notifyHandlerOfFieldsRequiringReview',
+          suggestionThreshold,
+          get(this, 'complianceDataTypes'),
+          changeSet
+        )
+      );
 
       return changeSet;
     }
@@ -746,17 +783,66 @@ export default class DatasetCompliance extends Component {
     'fieldReviewOption',
     'compliancePolicyChangeSet',
     'complianceDataTypes',
+    'suggestionConfidenceThreshold',
     function(this: DatasetCompliance): Array<IComplianceChangeSet> {
-      const { compliancePolicyChangeSet: changeSet, complianceDataTypes } = getProperties(this, [
-        'compliancePolicyChangeSet',
-        'complianceDataTypes'
-      ]);
+      const {
+        compliancePolicyChangeSet: changeSet,
+        complianceDataTypes,
+        suggestionConfidenceThreshold
+      } = getProperties(this, ['compliancePolicyChangeSet', 'complianceDataTypes', 'suggestionConfidenceThreshold']);
 
       return get(this, 'fieldReviewOption') === 'showReview'
-        ? tagsRequiringReview(complianceDataTypes)(changeSet)
+        ? tagsRequiringReview(complianceDataTypes, { checkSuggestions: true, suggestionConfidenceThreshold })(changeSet)
         : changeSet;
     }
   );
+
+  /**
+   * Filters out the compliance tags requiring review excluding tags that require review,
+   * due to a suggestion mismatch with the current tag identifierType
+   * This drives the initialStep review check and fulfills the use-case,
+   * where the user can proceed with the compliance update, without
+   * being required to resolve a suggestion mismatch
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReviewWithoutSuggestionCheck = computed('changeSetReview', function(
+    this: DatasetCompliance
+  ): Array<IComplianceChangeSet> {
+    return tagsRequiringReview(get(this, 'complianceDataTypes'), {
+      checkSuggestions: false,
+      suggestionConfidenceThreshold: 0 // irrelevant value set to 0 since checkSuggestions flag is false above
+    })(get(this, 'changeSetReview'));
+  });
+
+  /**
+   * The changeSet tags that require user attention
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReview = computed(
+    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
+    'complianceDataTypes',
+    'suggestionConfidenceThreshold',
+    function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      const { suggestionConfidenceThreshold, compliancePolicyChangeSet } = getProperties(this, [
+        'suggestionConfidenceThreshold',
+        'compliancePolicyChangeSet'
+      ]);
+
+      return tagsRequiringReview(get(this, 'complianceDataTypes'), {
+        checkSuggestions: true,
+        suggestionConfidenceThreshold
+      })(compliancePolicyChangeSet);
+    }
+  );
+
+  /**
+   * Returns a count of changeSet tags that require user attention
+   * @type {ComputedProperty<number>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReviewCount = alias('changeSetReview.length');
 
   /**
    * Reduces the current filtered changeSet to a list of IdentifierFieldWithFieldChangeSetTuple
@@ -811,19 +897,25 @@ export default class DatasetCompliance extends Component {
 
   /**
    * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
+   * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
    * @param {Array<IComplianceChangeSet>} changeSet
    */
-  notifyHandlerOfSuggestions = (changeSet: Array<IComplianceChangeSet>): void => {
-    const hasChangeSetSuggestions = !!compact(getTagsSuggestions(changeSet)).length;
+  notifyHandlerOfSuggestions = (
+    suggestionConfidenceThreshold: number,
+    changeSet: Array<IComplianceChangeSet>
+  ): void => {
+    const hasChangeSetSuggestions = !!compact(getTagsSuggestions({ suggestionConfidenceThreshold })(changeSet)).length;
     this.notifyOnChangeSetSuggestions(hasChangeSetSuggestions);
   };
 
   /**
    * Invokes external action with flag indicating that a field in the tags requires user review
+   * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
    * @param {Array<IComplianceDataType>} complianceDataTypes
    * @param {Array<IComplianceChangeSet>} tags
    */
   notifyHandlerOfFieldsRequiringReview = (
+    suggestionConfidenceThreshold: number,
     complianceDataTypes: Array<IComplianceDataType>,
     tags: Array<IComplianceChangeSet>
   ): void => {
@@ -831,23 +923,13 @@ export default class DatasetCompliance extends Component {
     assert('expected complianceDataTypes to be of type `array`', Array.isArray(complianceDataTypes));
     assert('expected tags to be of type `array`', Array.isArray(tags));
 
-    const hasChangeSetDrift = !!tagsRequiringReview(complianceDataTypes)(tags).length;
+    const hasChangeSetDrift = !!tagsRequiringReview(complianceDataTypes, {
+      checkSuggestions: true,
+      suggestionConfidenceThreshold
+    })(tags).length;
 
     this.notifyOnChangeSetRequiresReview(hasChangeSetDrift);
   };
-
-  /**
-   * Returns a count of changeSet fields that require user attention
-   * @type {ComputedProperty<number>}
-   * @memberof DatasetCompliance
-   */
-  changeSetReviewCount = computed(
-    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
-    'complianceDataTypes',
-    function(this: DatasetCompliance): number {
-      return tagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'compliancePolicyChangeSet')).length;
-    }
-  );
 
   /**
    * Sets the default classification for the given identifier field's tag
@@ -1243,7 +1325,7 @@ export default class DatasetCompliance extends Component {
         const { confidentiality, containingPersonalData } = complianceInfo;
 
         // defaults the containing personal data flag to false if undefined
-        if (typeof containingPersonalData === 'undefined') {
+        if (typeof containingPersonalData !== 'boolean') {
           set(complianceInfo, 'containingPersonalData', false);
         }
 

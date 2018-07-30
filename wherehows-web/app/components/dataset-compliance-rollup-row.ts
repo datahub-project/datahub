@@ -65,8 +65,16 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   /**
    * Reference to the compliance data types
    * @type {Array<IComplianceDataType>}
+   * @memberof DatasetComplianceRollupRow
    */
   complianceDataTypes: Array<IComplianceDataType>;
+
+  /**
+   * Confidence percentage number used to filter high quality suggestions versus lower quality
+   * @type {number}
+   * @memberof DatasetComplianceRollupRow
+   */
+  suggestionConfidenceThreshold: number;
 
   /**
    * Flag indicating the field has a readonly attribute
@@ -83,9 +91,16 @@ export default class DatasetComplianceRollupRow extends Component.extend({
   isReviewRequested = computed(
     `fieldChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
     'complianceDataTypes',
+    'suggestionConfidenceThreshold',
     function(this: DatasetComplianceRollupRow): boolean {
-      const tags = get(this, 'fieldChangeSet');
-      const { length } = fieldTagsRequiringReview(get(this, 'complianceDataTypes'))(get(this, 'identifierField'))(tags);
+      const { fieldChangeSet: tags, suggestionConfidenceThreshold } = getProperties(this, [
+        'fieldChangeSet',
+        'suggestionConfidenceThreshold'
+      ]);
+      const { length } = fieldTagsRequiringReview(get(this, 'complianceDataTypes'), {
+        checkSuggestions: true,
+        suggestionConfidenceThreshold
+      })(get(this, 'identifierField'))(tags);
 
       return !!length || tagsHaveNoneAndNotNoneType(tags);
     }
@@ -172,10 +187,12 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {(ComputedProperty<{ identifierType: ComplianceFieldIdValue; logicalType: string; confidence: number } | void>)}
    * @memberof DatasetComplianceRollupRow
    */
-  suggestion = computed('fieldProps.suggestion', 'suggestionAuthority', function(
+  suggestion = computed('fieldProps.suggestion', 'suggestionAuthority', 'suggestionConfidenceThreshold', function(
     this: DatasetComplianceRollupRow
   ): ISuggestedFieldTypeValues | void {
-    return getTagSuggestions(getWithDefault(this, 'fieldProps', <IComplianceChangeSet>{}));
+    const fieldProps = getWithDefault(this, 'fieldProps', <IComplianceChangeSet>{});
+
+    return getTagSuggestions({ suggestionConfidenceThreshold: get(this, 'suggestionConfidenceThreshold') })(fieldProps);
   });
 
   /**

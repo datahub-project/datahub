@@ -1,0 +1,17 @@
+.dataset-relationships-container {
+  margin-top: item-spacing(5);
+}
+
+.dataset-relationships {
+  &__note {
+    color: get-color(black, 0.45);
+  }
+
+  &__header {
+    margin-top: item-spacing(5);
+  }
+}
+
+.dataset-relationships-not-found {
+  @include nacho-container;
+}

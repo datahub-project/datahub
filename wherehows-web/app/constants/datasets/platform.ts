@@ -30,10 +30,17 @@ enum DatasetPlatform {
  */
 enum Fabric {
   Prod = 'PROD',
-  EI = 'EI',
   Corp = 'CORP',
-  Dev = 'DEV'
+  EI = 'EI'
 }
+
+/**
+ * Type guard that asserts a string as a dataset fabric
+ * @param {string} candidate
+ * @return {boolean}
+ */
+const isDatasetFabric = (candidate: string): candidate is Fabric =>
+  Object.values(Fabric).includes(candidate.toUpperCase());
 
 /**
  * Given a platform and a new node, composes an object of query parameters to be used in the request for
@@ -66,4 +73,4 @@ const nodeToQueryParams = ({
   return queryParams;
 };
 
-export { DatasetPlatform, Fabric, nodeToQueryParams };
+export { DatasetPlatform, Fabric, nodeToQueryParams, isDatasetFabric };

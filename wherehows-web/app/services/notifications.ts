@@ -4,7 +4,7 @@ import { delay } from 'wherehows-web/utils/promise-delay';
 import { action } from '@ember-decorators/object';
 import { fleece } from 'wherehows-web/utils/object';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Flag indicating the current notification queue is being processed
@@ -395,5 +395,12 @@ export default class Notifications extends Service {
     });
 
     this.dismissToast.call(this);
+  }
+}
+
+declare module '@ember/service' {
+  // eslint-disable-next-line typescript/interface-name-prefix
+  interface Registry {
+    notifications: Notifications;
   }
 }

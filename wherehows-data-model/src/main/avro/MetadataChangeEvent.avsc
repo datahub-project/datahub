@@ -120,6 +120,15 @@
       "doc": "Human-entered compliance metadata"
     },
     {
+      "name": "retentionPolicy",
+      "type": [
+        "null",
+        "RetentionPolicy"
+      ],
+      "default": null,
+      "doc": "Human-entered retention policy metadata"
+    },
+    {
       "name": "suggestedCompliancePolicy",
       "type": [
         "null",

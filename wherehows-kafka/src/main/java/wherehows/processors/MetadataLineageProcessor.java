@@ -85,13 +85,14 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
     }
     log.debug("MLE: " + event.lineage.toString());
 
+    if (event.jobExecution.status != JobStatus.SUCCEEDED) {
+      log.info("Discard: job status " + event.jobExecution.status.name());
+      return; // discard message if job status is not SUCCEEDED
+    }
+
     String actorUrn = getActorUrn(event);
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
       throw new UnauthorizedException("Actor " + actorUrn + " not in whitelist, skip processing");
-    }
-
-    if (event.jobExecution.status != JobStatus.SUCCEEDED) {
-      throw new UnsupportedOperationException("MLE only supports SUCCEEDED job status");
     }
 
     List<DatasetLineage> lineages = event.lineage;
@@ -107,17 +108,17 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
    * Get actor Urn string from app type or change audit stamp
    */
   private String getActorUrn(MetadataLineageEvent event) {
-    // use app type first
+    // use actorUrn in ChangeAuditStamp first
+    ChangeAuditStamp auditStamp = event.changeAuditStamp;
+    if (auditStamp != null && auditStamp.actorUrn != null) {
+      return auditStamp.actorUrn.toString();
+    }
+
+    // use app type as fallback
     if (event.type != agent.UNUSED) {
       return "urn:li:multiProduct:" + event.type.name().toLowerCase();
     }
-
-    // if app type = UNUSED, use actorUrn in ChangeAuditStamp
-    ChangeAuditStamp auditStamp = event.changeAuditStamp;
-    if (auditStamp == null || auditStamp.actorUrn == null) {
-      throw new IllegalArgumentException("Requires ChangeAuditStamp actorUrn if MLE agent is UNUSED");
-    }
-    return auditStamp.actorUrn.toString();
+    throw new IllegalArgumentException("Require ChangeAuditStamp actorUrn");
   }
 
   public FailedMetadataLineageEvent newFailedEvent(MetadataLineageEvent event, Throwable throwable) {

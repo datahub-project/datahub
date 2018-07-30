@@ -19,6 +19,17 @@ interface IDatasetComplianceActions {
 }
 
 /**
+ * Describes the interface for compliance tag review check function, options argument
+ * @interface IComplianceTagReviewOptions
+ */
+interface IComplianceTagReviewOptions {
+  // flag determines if suggested values are considered in tag(IComplianceChangeSet) review check
+  checkSuggestions: boolean;
+  // confidence threshold for filtering out higher quality suggestions
+  suggestionConfidenceThreshold: number;
+}
+
+/**
  * Alias for the properties defined on an object indicating the values for a compliance entity object in
  * addition to related component metadata using in processing ui interactions / rendering for the field
  */
@@ -153,5 +164,6 @@ export {
   ISecurityClassificationOption,
   IIdentifierFieldWithFieldChangeSetObject,
   IdentifierFieldWithFieldChangeSetTuple,
-  ISuggestedFieldTypeValues
+  ISuggestedFieldTypeValues,
+  IComplianceTagReviewOptions
 };

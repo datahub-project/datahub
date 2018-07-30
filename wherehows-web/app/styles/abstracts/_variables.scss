@@ -2,7 +2,12 @@
 
 /// Regular font family
 /// @type List
-$text-font-stack: ('Source Sans Pro', 'Helvetica', 'Arial', sans-serif) !default;
+$text-font-stack: (
+  'Source Sans Pro',
+  'Helvetica',
+  'Arial',
+  sans-serif
+) !default;
 
 /// font family for font-awesome
 ///@type list
@@ -19,8 +24,8 @@ $glyphicons-stack: (
 );
 
 $font-weights: (
-  normal:(2: 200, 3: 300, 4: 400, 6: 600),
-  italic:(2: 200, 3: 300, 4: 400, 6: 600)
+  normal: (2: 200, 3: 300, 4: 400, 6: 600),
+  italic: (2: 200, 3: 300, 4: 400, 6: 600)
 );
 
 //===============
@@ -45,7 +50,7 @@ $text-invert-color: tint($text-color, 90%);
 
 /// Copy link color
 /// @type Color
-$link-color: set-color(blue, curious);
+$link-color: get-color(blue7);
 
 /// Container's maximum width
 /// @type Length
@@ -59,18 +64,23 @@ $nav-min-height: 50px !default;
 /// @prop {String} keys - Keys are identifiers mapped to a given length
 /// @prop {Map} values - Values are actual breakpoints expressed in pixels
 $breakpoints: (
-    'small': (min-width: 320px),
-    'medium': (min-width: 768px),
-    'large': (min-width: 979px),
-    'huge': (min-width: 1024px)
-  )
-  !default;
+  'small': (min-width: 320px),
+  'medium': (min-width: 768px),
+  'large': (min-width: 979px),
+  'huge': (min-width: 1024px)
+) !default;
 
 /// Z-indexes map, gathering all Z layers of the application
 /// @type Map
 /// @prop {String} key - Layer’s name
 /// @prop {Number} value - Z value mapped to the key
-$z-indexes: ('toast': 6000, 'modal': 5000, 'dropdown': 4000, 'default': 0, 'below': -1) !default;
+$z-indexes: (
+  'toast': 6000,
+  'modal': 5000,
+  'dropdown': 4000,
+  'default': 0,
+  'below': -1
+) !default;
 
 /// Absolute URL where all assets are served from
 /// @type String

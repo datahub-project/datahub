@@ -1,15 +1,13 @@
 <a {{action "click" preventDefault=false}} target={{target}} href={{link}}>
   <sup>
     {{#if tooltip}}
-      <i title="{{tooltip}}" class="nacho-tooltip">
+      <i data-title="{{tooltip}}" class="nacho-tooltip">
         More Info
       </i>
     {{else}}
       More Info
     {{/if}}
 
-
-    <span class="glyphicon glyphicon-question-sign"
-          title="Click for {{tooltip}}"></span>
+    <span class="glyphicon glyphicon-question-sign"></span>
   </sup>
 </a>

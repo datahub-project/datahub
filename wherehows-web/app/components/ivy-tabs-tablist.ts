@@ -1,5 +1,5 @@
 import IvyTabsTablistComponent from 'ivy-tabs/components/ivy-tabs-tablist';
-import noop from 'wherehows-web/utils/noop';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 import { scheduleOnce } from '@ember/runloop';
 
 const LEFT_ARROW = 37;

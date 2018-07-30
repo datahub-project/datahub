@@ -43,15 +43,11 @@
   }
 
   &__identifier-column {
-    width: 20%;
+    width: 30%;
   }
 
   &__identifier-cell {
     text-align: right;
-  }
-
-  &__classification-column {
-    width: 20%;
   }
 
   &__tall-cell#{&}__tall-cell {
@@ -116,16 +112,16 @@
   &__add-field {
     &#{&} {
       font-weight: fw(normal, 4);
+      display: block;
     }
   }
 
   &__guided-modal {
     @include nacho-container;
-    height: 50vh;
     overflow: hidden;
     padding: 0;
     border: 0;
-    margin-bottom: item-spacing(8);
+    z-index: z(modal);
   }
 
   &__tag-radio {
@@ -154,6 +150,13 @@
       position: sticky;
       top: -1px;
       z-index: 1;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.085);
+
+      &::before {
+        position: absolute;
+        right: item-spacing(0);
+        color: black;
+      }
 
       &:hover {
         background-color: get-color(slate2);
@@ -162,6 +165,7 @@
       .ember-radio-button {
         color: black;
         font-weight: fw(normal, 6);
+        cursor: default;
       }
     }
 
@@ -182,6 +186,10 @@
     display: flex;
     flex-direction: column;
 
+    &:first-of-type {
+      min-width: 280px;
+    }
+
     &__title {
       padding: item-spacing(3);
       background-color: get-color(slate1);
@@ -198,6 +206,11 @@
       overflow-x: hidden;
       border-right: 1px solid get-color(slate2);
     }
+  }
+
+  &__tag-item {
+    display: flex;
+    flex-wrap: nowrap;
   }
 
   &__tag-info {
@@ -242,13 +255,13 @@
   }
 
   &__field-tag {
-    height: 100%;
+    height: 50vh;
     display: flex;
     flex-direction: column;
 
     &__content {
       display: flex;
-      height: 100%;
+      height: calc(50vh - 48px);
     }
 
     &__quick-desc {
@@ -258,16 +271,26 @@
 
     &__footer {
       text-align: right;
-      height: item-spacing(8);
-      padding: item-spacing(3);
+      height: item-spacing(7);
+      padding: item-spacing(1);
       background-color: get-color(slate1);
       border-right: 1px solid get-color(slate2);
+      position: absolute;
+      width: 100%;
+      bottom: 0;
     }
   }
 
   &__suggested-values {
     display: inline-flex;
     align-items: center;
+    width: 100%;
+  }
+
+  &__suggestion-actions {
+    margin-left: auto;
+    display: flex;
+    flex-wrap: nowrap;
   }
 
   &__resolution {
@@ -279,7 +302,6 @@
   }
 
   &__suggested-value {
-    width: item-spacing(9);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -295,7 +317,7 @@
 
   &__text-pattern-wrap {
     $error-font-size: 12px;
-    padding: item-spacing(0 4);
+    padding: item-spacing(1 4);
     position: relative;
     display: flex;
     flex-direction: column;

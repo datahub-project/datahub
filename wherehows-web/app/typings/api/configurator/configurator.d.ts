@@ -7,9 +7,20 @@ import { DatasetPlatform } from 'wherehows-web/constants';
  */
 interface IAppConfig {
   isInternal: boolean | void;
-  jitAclAccessWhitelist: Array<DatasetPlatform> | void;
-  showOwnership: string;
-  [key: string]: any;
+  JitAclAccessWhitelist: Array<DatasetPlatform> | void;
+  shouldShowDatasetLineage: boolean;
+  shouldShowDatasetHealth: boolean;
+  // confidence threshold for filtering out higher quality suggestions
+  suggestionConfidenceThreshold: number;
+  tracking: {
+    isEnabled: boolean;
+    trackers: {
+      piwik: {
+        piwikSiteId: number;
+        piwikUrl: string;
+      };
+    };
+  };
 }
 
 /**
