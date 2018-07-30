@@ -10,7 +10,7 @@ import { IComplianceChangeSet, ISuggestedFieldTypeValues } from 'wherehows-web/t
  */
 const isHighConfidenceSuggestion = (
   { confidenceLevel = 0 }: { confidenceLevel: number },
-  suggestionConfidenceThreshold: number
+  suggestionConfidenceThreshold: number = 0
 ): boolean => confidenceLevel > suggestionConfidenceThreshold;
 
 /**
