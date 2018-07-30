@@ -1,4 +1,3 @@
-import { lowQualitySuggestionConfidenceThreshold } from 'wherehows-web/constants';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { IComplianceChangeSet, ISuggestedFieldTypeValues } from 'wherehows-web/typings/app/dataset-compliance';
 
@@ -6,23 +5,28 @@ import { IComplianceChangeSet, ISuggestedFieldTypeValues } from 'wherehows-web/t
  * Takes a list of suggestions with confidence values, and if the confidence is greater than
  * a low confidence threshold
  * @param {number} confidenceLevel percentage indicating how confidence the system is in the suggested value
+ * @param {number} suggestionConfidenceThreshold threshold number to consider as a valid suggestion
  * @return {boolean}
  */
-const isHighConfidenceSuggestion = ({ confidenceLevel = 0 }: { confidenceLevel: number }): boolean =>
-  confidenceLevel > lowQualitySuggestionConfidenceThreshold;
+const isHighConfidenceSuggestion = (
+  { confidenceLevel = 0 }: { confidenceLevel: number },
+  suggestionConfidenceThreshold: number
+): boolean => confidenceLevel > suggestionConfidenceThreshold;
 
 /**
  * Extracts the tag suggestion from an IComplianceChangeSet tag.
  * If a suggestionAuthority property exists on the tag, then the user has already either accepted or ignored
  * the suggestion for this tag. It's value should not be taken into account on re-renders,
  * in place, this substitutes an empty suggestion
- * @param {IComplianceChangeSet} tag
- * @return {{identifierType: IComplianceChangeSet.identifierType, logicalType: IComplianceChangeSet.logicalType, confidence: number} | void}
+ * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
+ * @return {(tag?: IComplianceChangeSet) => (ISuggestedFieldTypeValues | void)}
  */
-const getTagSuggestions = (tag: IComplianceChangeSet = <IComplianceChangeSet>{}): ISuggestedFieldTypeValues | void => {
+const getTagSuggestions = ({ suggestionConfidenceThreshold }: { suggestionConfidenceThreshold: number }) => (
+  tag: IComplianceChangeSet = <IComplianceChangeSet>{}
+): ISuggestedFieldTypeValues | void => {
   const { suggestion } = tag;
 
-  if (suggestion && isHighConfidenceSuggestion(suggestion)) {
+  if (suggestion && isHighConfidenceSuggestion(suggestion, suggestionConfidenceThreshold)) {
     const { identifierType, logicalType, confidenceLevel: confidence } = suggestion;
     return { identifierType, logicalType, confidence: +(confidence * 100).toFixed(2) };
   }
@@ -30,8 +34,10 @@ const getTagSuggestions = (tag: IComplianceChangeSet = <IComplianceChangeSet>{})
 
 /**
  * Gets the suggestions for a list of IComplianceChangeSet fields
- * @type {(array: Array<IComplianceChangeSet>) => Array<{identifierType: ComplianceFieldIdValue | NonIdLogicalType | null; logicalType: IdLogicalType | null; confidence: number} | void>}
+ * @param {number} suggestionConfidenceThreshold
+ * @return {(array: Array<IComplianceChangeSet>) => Array<ISuggestedFieldTypeValues | void>}
  */
-const getTagsSuggestions = arrayMap(getTagSuggestions);
+const getTagsSuggestions = ({ suggestionConfidenceThreshold }: { suggestionConfidenceThreshold: number }) =>
+  arrayMap(getTagSuggestions({ suggestionConfidenceThreshold }));
 
 export { isHighConfidenceSuggestion, getTagSuggestions, getTagsSuggestions };

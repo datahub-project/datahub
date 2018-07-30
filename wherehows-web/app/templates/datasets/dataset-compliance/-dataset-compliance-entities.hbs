@@ -136,6 +136,7 @@
             field=field
             isNewComplianceInfo=isNewComplianceInfo
             complianceDataTypes=complianceDataTypes
+            suggestionConfidenceThreshold=suggestionConfidenceThreshold
             onFieldDblClick=(action "onFieldDblClick")
             onFieldTagAdded=(action "onFieldTagAdded")
             onFieldTagRemoved=(action "onFieldTagRemoved")
@@ -216,6 +217,7 @@
                             sourceTag=tag
                             parentHasSingleTag=row.hasSingleTag
                             tagDidChange=(action "tagPropertiesUpdated")
+                            suggestionConfidenceThreshold=suggestionConfidenceThreshold
                             complianceFieldIdDropdownOptions=complianceFieldIdDropdownOptions
                             complianceDataTypes=complianceDataTypes as |tagRowComponent|
                           }}
