@@ -21,6 +21,15 @@ module.exports = function(defaults) {
       includePolyfill: true
     },
 
+    emberHighCharts: {
+      includedHighCharts: true,
+      // Note: Since we only need highcharts, excluding the other available modules in the addon
+      includeHighStock: false,
+      includeHighMaps: false,
+      includeHighChartsMore: false,
+      includeHighCharts3D: false
+    },
+
     storeConfigInMeta: false,
 
     SRI: {

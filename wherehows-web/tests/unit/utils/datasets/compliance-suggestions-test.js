@@ -8,21 +8,30 @@ test('isHighConfidenceSuggestion correctly determines the confidence of a sugges
   let result = isHighConfidenceSuggestion({});
   assert.notOk(result, 'should be false if no arguments are supplied');
 
-  result = isHighConfidenceSuggestion({ confidenceLevel: lowQualitySuggestionConfidenceThreshold + 1 });
+  result = isHighConfidenceSuggestion(
+    { confidenceLevel: lowQualitySuggestionConfidenceThreshold + 1 },
+    lowQualitySuggestionConfidenceThreshold
+  );
 
   assert.ok(
     result,
     `should be true if the confidence value is greater than ${lowQualitySuggestionConfidenceThreshold}`
   );
 
-  result = isHighConfidenceSuggestion({ confidenceLevel: lowQualitySuggestionConfidenceThreshold - 1 });
+  result = isHighConfidenceSuggestion(
+    { confidenceLevel: lowQualitySuggestionConfidenceThreshold - 1 },
+    lowQualitySuggestionConfidenceThreshold
+  );
 
   assert.notOk(
     result,
     `should be false if the confidence value is less than ${lowQualitySuggestionConfidenceThreshold}`
   );
 
-  result = isHighConfidenceSuggestion({ confidenceLevel: lowQualitySuggestionConfidenceThreshold });
+  result = isHighConfidenceSuggestion(
+    { confidenceLevel: lowQualitySuggestionConfidenceThreshold },
+    lowQualitySuggestionConfidenceThreshold
+  );
 
   assert.notOk(
     result,
@@ -42,15 +51,17 @@ test('getTagSuggestions correctly extracts suggestions from a compliance field',
     suggestionAuthority: SuggestionIntent.accept
   };
 
-  let result = getTagSuggestions({});
+  let result = getTagSuggestions({ suggestionConfidenceThreshold: lowQualitySuggestionConfidenceThreshold })({});
 
   assert.ok(typeof result === 'undefined', 'expected undefined return when the argument is an empty object');
 
-  result = getTagSuggestions();
+  result = getTagSuggestions({ suggestionConfidenceThreshold: lowQualitySuggestionConfidenceThreshold })();
 
   assert.ok(typeof result === 'undefined', 'expected undefined return when no argument is supplied');
 
-  result = getTagSuggestions({ suggestion: changeSetField.suggestion });
+  result = getTagSuggestions({ suggestionConfidenceThreshold: lowQualitySuggestionConfidenceThreshold })({
+    suggestion: changeSetField.suggestion
+  });
 
   assert.deepEqual(
     result,

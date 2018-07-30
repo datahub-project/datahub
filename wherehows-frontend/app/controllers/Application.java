@@ -66,6 +66,10 @@ public class Application extends Controller {
   private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
   private static final Boolean WHZ_SHOW_LINEAGE =
       Play.application().configuration().getBoolean("linkedin.show.dataset.lineage", false);
+  private static final Boolean WHZ_SHOW_DS_HEALTH =
+      Play.application().configuration().getBoolean("linkedin.show.dataset.health", false);
+  private static final String WHZ_SUGGESTION_CONFIDENCE_THRESHOLD =
+      Play.application().configuration().getString("linkedin.suggestion.confidence.threshold", "50");
 
   private static final String WHZ_WIKI_LINKS__GDRP_PII =
       Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "");
@@ -199,6 +203,8 @@ public class Application extends Controller {
     config.put("appVersion", APP_VERSION);
     config.put("isInternal", IS_INTERNAL);
     config.put("shouldShowDatasetLineage", WHZ_SHOW_LINEAGE);
+    config.put("shouldShowDatasetHealth", WHZ_SHOW_DS_HEALTH);
+    config.put("suggestionConfidenceThreshold", Integer.parseInt(WHZ_SUGGESTION_CONFIDENCE_THRESHOLD));
     config.set("wikiLinks", wikiLinks());
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
     config.set("tracking", trackingInfo());
