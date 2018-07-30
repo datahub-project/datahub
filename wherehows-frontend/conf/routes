@@ -270,6 +270,8 @@ GET           /api/v2/list/platforms                                            
 
 GET           /api/v2/list/compliance-data-types                                controllers.api.v2.Dataset.getComplianceDataTypes
 
+GET           /api/v2/list/field-format-docs                                    controllers.api.v2.Dataset.getFieldFormatDocs
+
 GET           /api/v2/platforms/:platform/prefix/:prefix                        controllers.api.v2.Dataset.listSegments(platform: String, prefix: String)
 
 GET           /api/v2/platforms/:platform                                       controllers.api.v2.Dataset.listSegments(platform: String, prefix = "")
