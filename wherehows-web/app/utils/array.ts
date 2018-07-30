@@ -1,4 +1,4 @@
-import { identity } from 'wherehows-web/utils/helpers/functions';
+import { identity, not } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Composable function that will in turn consume an item from a list an emit a result of equal or same type
@@ -22,37 +22,53 @@ const take = <T>(n: number = 0) => (list: Array<T>): Array<T> => Array.prototype
 
 /**
  * Convenience utility takes a type-safe mapping function, and returns a list mapping function
- * @param {(param: T) => U} mappingFunction maps a single type T to type U
+ * @param {(param: T) => U} predicate maps a single type T to type U
  * @return {(array: Array<T>) => Array<U>}
  */
-const arrayMap = <T, U>(mappingFunction: (param: T) => U): ((array: Array<T>) => Array<U>) => (array = []) =>
-  array.map(mappingFunction);
+const arrayMap = <T, U>(predicate: (param: T) => U): ((array: Array<T>) => Array<U>) => (array = []) =>
+  array.map(predicate);
+
+/**
+ * Partitions an array into a tuple containing elements that meet the predicate in the zeroth index,
+ * and excluded elements in the next
+ * `iterate-first data-last` function
+ * @template T type of source element list
+ * @template U subtype of T in first partition
+ * @param {(param: T) => param is U} predicate is a type guard function
+ * @returns {((array: Array<T>) => [Array<U>, Array<Exclude<T, U>>])}
+ */
+const arrayPartition = <T, U extends T>(
+  predicate: (param: T) => param is U
+): ((array: Array<T>) => [Array<U>, Array<Exclude<T, U>>]) => (array = []) => [
+  array.filter(predicate),
+  array.filter<Exclude<T, U>>((v: T): v is Exclude<T, U> => not(predicate)(v))
+];
 
 /**
  * Convenience utility takes a type-safe filter function, and returns a list filtering function
- * @param {(param: T) => boolean} filtrationFunction
+ * @param {(param: T) => boolean} predicate
  * @return {(array: Array<T>) => Array<T>}
  */
-const arrayFilter = <T>(filtrationFunction: (param: T) => boolean): ((array: Array<T>) => Array<T>) => (array = []) =>
-  array.filter(filtrationFunction);
+const arrayFilter = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => Array<T>) => (array = []) =>
+  array.filter(predicate);
 
 /**
  * Type safe utility `iterate-first data-last` function for array every
  * @template T
- * @param {(param: T) => boolean} filter
+ * @param {(param: T) => boolean} predicate
  * @returns {((array: Array<T>) => boolean)}
  */
-const arrayEvery = <T>(filter: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
-  array.every(filter);
+const arrayEvery = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
+  array.every(predicate);
 
 /**
  * Type safe utility `iterate-first data-last` function for array some
  * @template T
- * @param {(param: T) => boolean} filter
+ * @param {(param: T) => boolean} predicate
  * @return {(array: Array<T>) => boolean}
  */
-const arraySome = <T>(filter: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
-  array.some(filter);
+const arraySome = <T>(predicate: (param: T) => boolean): ((array: Array<T>) => boolean) => (array = []) =>
+  array.some(predicate);
 
 /**
  * Composable reducer abstraction, curries a reducing iteratee and returns a reducing function that takes a list
@@ -228,9 +244,10 @@ export { Many, Iteratee };
 export {
   take,
   arrayMap,
+  arrayPipe,
   arrayFilter,
   arrayReduce,
-  arrayPipe,
+  arrayPartition,
   isListUnique,
   compact,
   arrayEvery,
