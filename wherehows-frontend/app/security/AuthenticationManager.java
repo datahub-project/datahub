@@ -33,7 +33,7 @@ public class AuthenticationManager {
     LoginContext lc = null;
     // authenticate using the jaas config
     try {
-      lc = new LoginContext("WH-Authentication", new WHCallbackHandler(userName, password));
+      lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
     } catch (LoginException le) {
       throw new AuthenticationException(le.toString());
     } catch (SecurityException se) {
@@ -47,10 +47,10 @@ public class AuthenticationManager {
     }
   }
 
-  private static class WHCallbackHandler implements CallbackHandler {
+  private static class WHZCallbackHandler implements CallbackHandler {
     private String password = null;
     private String username = null;
-    private WHCallbackHandler(String username, String password) {
+    private WHZCallbackHandler(String username, String password) {
       this.username = username;
       this.password = password;
     }
@@ -71,5 +71,6 @@ public class AuthenticationManager {
       }
     }
   }
-
+  
 }
+

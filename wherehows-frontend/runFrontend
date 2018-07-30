@@ -3,6 +3,6 @@ set -a
 source ./application.env
 set +a
 
-export JAVA_OPTS="-Xms512m -Xmx2048m -Dhttp.port=9000"
+export JAVA_OPTS="-Xms512m -Xmx2048m -Dhttp.port=9000 -Djava.security.auth.login.config=conf/jaas.conf"
 
 build/stage/wherehows-frontend/bin/playBinary
