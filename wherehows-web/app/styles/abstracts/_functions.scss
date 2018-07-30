@@ -6,7 +6,7 @@
 /// @param {String} $path - asset path
 /// @return {Url}
 @function asset($base, $type, $path) {
-  @return url($base + $type + $path);
+  @return url($base+$type+$path);
 }
 
 /// Returns URL to an image based on its path
@@ -90,7 +90,7 @@
     blue: (oxford: rgb(53, 75, 87), curious: rgb(26, 161, 217), eastern: rgb(26, 132, 188), blue5: rgb(26, 161, 217)),
     grey: (light: rgb(237, 237, 237), dark: rgb(68, 68, 68), mid: rgb(153, 153, 153)),
     black: (dune: rgb(41, 39, 36)),
-    white: (base: rgb(255, 255, 255), catskill: rgb(243, 247, 249), earlydawn:rgb(255, 249, 232))
+    white: (base: rgb(255, 255, 255), catskill: rgb(243, 247, 249), earlydawn: rgb(255, 249, 232))
   );
 
   @return map-get(map-get($color-scheme, $color), $hue);
@@ -284,4 +284,58 @@
   }
 
   @return $color;
+}
+
+@function get-dataviz-color($value) {
+  $color-palette-dataviz: (
+    order:
+      (
+        get-color(blue5),
+        get-color(teal7),
+        get-color(purple5),
+        get-color(slate3),
+        get-color(orange5),
+        get-color(pink7),
+        get-color(blue3),
+        get-color(teal5),
+        get-color(purple3),
+        get-color(slate7),
+        get-color(orange3),
+        get-color(pink5),
+        get-color(blue7),
+        get-color(teal3),
+        get-color(purple7),
+        get-color(slate5),
+        get-color(orange7),
+        get-color(pink3)
+      ),
+    positive: get-color(green6),
+    negative: get-color(red6)
+  );
+
+  $list: map-get($color-palette-dataviz, order);
+
+  @if (type-of($value) == 'number') {
+    $index: $value % length($list);
+
+    @if ($value < 1) {
+      @error 'get-dataviz-color requires a number greater than 0, got #{$value}.';
+    }
+
+    @if ($index == 0) {
+      @return nth($list, length($list));
+    }
+
+    @return nth($list, $index);
+  }
+
+  @if ($value == 'positive') {
+    @return map-get($color-palette-dataviz, positive);
+  }
+
+  @if ($value == 'negative') {
+    @return map-get($color-palette-dataviz, negative);
+  }
+
+  @error '#{$value} is not a valid data-visualization-color option';
 }
