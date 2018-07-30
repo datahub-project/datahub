@@ -40,11 +40,6 @@ const compliancePolicyStrings = {
   failedUpdating: 'An error occurred while saving.',
   successUploading: 'Metadata successfully updated! Please confirm and complete subsequent metadata information.',
   invalidPolicyData: 'Received policy in an unexpected format! Please check the provided attributes and try again.',
-  helpText: {
-    classification:
-      'This security classification is from go/dht and should be good enough in most cases. ' +
-      'You can optionally override it if required by house security.'
-  },
   missingPurgePolicy: 'Please specify a Compliance Purge Policy',
   missingDatasetSecurityClassification: 'Please specify a security classification for this dataset.'
 };
@@ -183,10 +178,18 @@ const suggestedIdentifierTypesInList = (suggestion: ISuggestedFieldTypeValues | 
  * @param {SchemaFieldToSuggestedValue} suggestion
  * @param {SuggestionIntent} suggestionAuthority
  * @param {ComplianceFieldIdValue | NonIdLogicalType | null} identifierType
+ * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
  * @return {boolean}
  */
-const tagSuggestionNeedsReview = ({ suggestion, suggestionAuthority, identifierType }: IComplianceChangeSet): boolean =>
-  suggestion && suggestion.identifierType !== identifierType && isHighConfidenceSuggestion(suggestion)
+const tagSuggestionNeedsReview = ({
+  suggestion,
+  suggestionAuthority,
+  identifierType,
+  suggestionConfidenceThreshold
+}: IComplianceChangeSet & { suggestionConfidenceThreshold: number }): boolean =>
+  suggestion &&
+  suggestion.identifierType !== identifierType &&
+  isHighConfidenceSuggestion(suggestion, suggestionConfidenceThreshold)
     ? !suggestionAuthority
     : false;
 
@@ -223,14 +226,14 @@ const tagValuePatternNeedsReview = ({ valuePattern }: IComplianceChangeSet): boo
  * checking steps
  * @return {(tag: IComplianceChangeSet) => boolean}
  */
-const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>, options?: IComplianceTagReviewOptions) =>
+const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>, options: IComplianceTagReviewOptions) =>
   /**
    * Checks if a compliance tag needs to be reviewed against a set of rules
    * @param {IComplianceChangeSet} tag
    * @return {boolean}
    */
   (tag: IComplianceChangeSet): boolean => {
-    const { checkSuggestions } = options || { checkSuggestions: true };
+    const { checkSuggestions, suggestionConfidenceThreshold } = options;
     const { isDirty, privacyPolicyExists, identifierType, logicalType } = tag;
     let isReviewRequired = false;
 
@@ -241,7 +244,7 @@ const tagNeedsReview = (complianceDataTypes: Array<IComplianceDataType>, options
 
     // Check that a hi confidence suggestion exists and the identifierType does not match the change set item
     if (checkSuggestions) {
-      isReviewRequired = isReviewRequired || tagSuggestionNeedsReview(tag);
+      isReviewRequired = isReviewRequired || tagSuggestionNeedsReview({ ...tag, suggestionConfidenceThreshold });
     }
 
     // Ensure that tag has a logical type and nonOwner flag is set when tag is of id type
@@ -391,17 +394,20 @@ const singleTagsInChangeSet = (
  * @param {IComplianceTagReviewOptions} options
  * @return {(array: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>}
  */
-const tagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>, options?: IComplianceTagReviewOptions) =>
+const tagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>, options: IComplianceTagReviewOptions) =>
   arrayFilter<IComplianceChangeSet>(tagNeedsReview(complianceDataTypes, options));
 
 /**
  * Lists the tags for a specific identifier field that need to be reviewed
  * @param {Array<IComplianceDataType>} complianceDataTypes
+ * @param {IComplianceTagReviewOptions} options
  * @return {(identifierField: string) => (tags: Array<IComplianceChangeSet>) => Array<IComplianceChangeSet>}
  */
-const fieldTagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>) => (identifierField: string) => (
-  tags: Array<IComplianceChangeSet>
-) => tagsRequiringReview(complianceDataTypes)(tagsForIdentifierField(identifierField)(tags));
+const fieldTagsRequiringReview = (
+  complianceDataTypes: Array<IComplianceDataType>,
+  options: IComplianceTagReviewOptions
+) => (identifierField: string) => (tags: Array<IComplianceChangeSet>) =>
+  tagsRequiringReview(complianceDataTypes, options)(tagsForIdentifierField(identifierField)(tags));
 
 /**
  * Extracts a suggestion for a field from a suggestion map and merges a compliance entity with the suggestion

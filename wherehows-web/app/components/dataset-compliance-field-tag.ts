@@ -68,6 +68,13 @@ export default class DatasetComplianceFieldTag extends Component {
   parentHasSingleTag: boolean;
 
   /**
+   * Confidence percentage number used to filter high quality suggestions versus lower quality
+   * @type {number}
+   * @memberof DatasetComplianceFieldTag
+   */
+  suggestionConfidenceThreshold: number;
+
+  /**
    * Stores the value of error result if the valuePattern is invalid
    * @type {string}
    */
@@ -204,8 +211,11 @@ export default class DatasetComplianceFieldTag extends Component {
     this: DatasetComplianceFieldTag
   ): boolean {
     const tagWithoutSuggestion = <IComplianceChangeSet>omit<IComplianceChangeSet>(get(this, 'tag'), ['suggestion']);
+    const suggestionConfidenceThreshold = get(this, 'suggestionConfidenceThreshold');
 
-    return tagNeedsReview(get(this, 'complianceDataTypes'))(tagWithoutSuggestion);
+    return tagNeedsReview(get(this, 'complianceDataTypes'), { checkSuggestions: true, suggestionConfidenceThreshold })(
+      tagWithoutSuggestion
+    );
   });
 
   /**

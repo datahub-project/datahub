@@ -8,7 +8,8 @@ import {
   PurgePolicy,
   initialComplianceObjectFactory,
   isRecentSuggestion,
-  tagNeedsReview
+  tagNeedsReview,
+  lowQualitySuggestionConfidenceThreshold
 } from 'wherehows-web/constants';
 import complianceDataTypes from 'wherehows-web/mirage/fixtures/compliance-data-types';
 import { mockTimeStamps } from 'wherehows-web/tests/helpers/datasets/compliance-policy/recent-suggestions-constants';
@@ -16,6 +17,11 @@ import { mockFieldChangeSets } from 'wherehows-web/tests/helpers/datasets/compli
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
 module('Unit | Constants | dataset compliance');
+
+const complianceTagReviewOptions = {
+  checkSuggestions: false,
+  suggestionConfidenceThreshold: lowQualitySuggestionConfidenceThreshold
+};
 
 test('initialComplianceObjectFactory', function(assert) {
   assert.expect(2);
@@ -55,14 +61,20 @@ test('isRecentSuggestion correctly determines if a suggestion is recent or not',
 test('tagNeedsReview exists', function(assert) {
   assert.ok(typeof tagNeedsReview === 'function', 'tagNeedsReview is a function');
 
-  assert.ok(typeof tagNeedsReview([])({}) === 'boolean', 'tagNeedsReview returns a boolean');
+  assert.ok(
+    typeof tagNeedsReview([], complianceTagReviewOptions)({}) === 'boolean',
+    'tagNeedsReview returns a boolean'
+  );
 });
 
 test('tagNeedsReview correctly determines if a fieldChangeSet requires review', function(assert) {
   assert.expect(mockFieldChangeSets.length);
 
   mockFieldChangeSets.forEach(changeSet =>
-    assert.ok(tagNeedsReview(complianceDataTypes)(changeSet) === changeSet.__requiresReview__, changeSet.__msg__)
+    assert.ok(
+      tagNeedsReview(complianceDataTypes, complianceTagReviewOptions)(changeSet) === changeSet.__requiresReview__,
+      changeSet.__msg__
+    )
   );
 });
 
