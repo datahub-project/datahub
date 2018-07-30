@@ -9,6 +9,9 @@ interface IAppConfig {
   isInternal: boolean | void;
   JitAclAccessWhitelist: Array<DatasetPlatform> | void;
   shouldShowDatasetLineage: boolean;
+  shouldShowDatasetHealth: boolean;
+  // confidence threshold for filtering out higher quality suggestions
+  suggestionConfidenceThreshold: number;
   tracking: {
     isEnabled: boolean;
     trackers: {
