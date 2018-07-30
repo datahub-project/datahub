@@ -21,12 +21,20 @@ import {
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
 import { readComplianceDataTypes } from 'wherehows-web/utils/api/list/compliance-datatypes';
-import { compliancePolicyStrings, removeReadonlyAttr, editableTags, SuggestionIntent } from 'wherehows-web/constants';
+import {
+  compliancePolicyStrings,
+  removeReadonlyAttr,
+  editableTags,
+  SuggestionIntent,
+  lowQualitySuggestionConfidenceThreshold
+} from 'wherehows-web/constants';
 import { iterateArrayAsync } from 'wherehows-web/utils/array';
 import validateMetadataObject, {
   complianceEntitiesTaxonomy
 } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+import Configurator from 'wherehows-web/services/configurator';
+import { typeOf } from '@ember/utils';
 
 /**
  * Type alias for the response when container data items are batched
@@ -49,6 +57,7 @@ type BatchContainerDataResult = Pick<
   | 'complianceSuggestion'
   | 'schemaFieldNamesMappedToDataTypes'
   | 'schemaless'
+  | 'suggestionConfidenceThreshold'
 >;
 
 const { successUpdating, failedUpdating, successUploading, invalidPolicyData } = compliancePolicyStrings;
@@ -129,6 +138,13 @@ export default class DatasetComplianceContainer extends Component {
   datasetName: string = '';
 
   /**
+   * Confidence percentage number used to filter high quality suggestions versus lower quality
+   * @type {number}
+   * @memberof DatasetComplianceContainer
+   */
+  suggestionConfidenceThreshold: number = lowQualitySuggestionConfidenceThreshold;
+
+  /**
    * The urn identifier for the dataset
    * @type {string}
    */
@@ -177,11 +193,16 @@ export default class DatasetComplianceContainer extends Component {
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
+    let suggestionConfidenceThreshold = Configurator.getConfig('suggestionConfidenceThreshold');
 
+    // convert to fractional percentage if valid number is present
+    typeOf(suggestionConfidenceThreshold) === 'number' &&
+      (suggestionConfidenceThreshold = suggestionConfidenceThreshold / 100);
     this.notifyPiiStatus(!!containingPersonalData);
     this.onCompliancePolicyStateChange.call(this, { isNewComplianceInfo, fromUpstream: !!fromUpstream });
 
     return setProperties(this, {
+      suggestionConfidenceThreshold,
       isNewComplianceInfo,
       complianceInfo,
       complianceDataTypes,

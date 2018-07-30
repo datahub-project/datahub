@@ -27,7 +27,9 @@ interface IPartialOrIdentityTypeFn<T> {
  * @param {Array<K>} [droppedKeys=[]] the list of attributes on T to be dropped
  * @returns {IPartialOrIdentityTypeFn<T>}
  */
-const fleece = <T, K extends keyof T>(droppedKeys: Array<K> = []): IPartialOrIdentityTypeFn<T> => o => {
+const fleece = <T, K extends keyof T = keyof T>(droppedKeys: Array<K> = []): IPartialOrIdentityTypeFn<T> => (
+  o: T
+): Partial<T> | T => {
   const partialResult = Object.assign({}, o);
 
   return droppedKeys.reduce((partial, key) => {
