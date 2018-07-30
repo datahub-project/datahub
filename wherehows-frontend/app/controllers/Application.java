@@ -68,7 +68,7 @@ public class Application extends Controller {
       Play.application().configuration().getBoolean("linkedin.show.dataset.lineage", false);
   private static final Boolean WHZ_SHOW_DS_HEALTH =
       Play.application().configuration().getBoolean("linkedin.show.dataset.health", false);
-  private static final Boolean WHZ_SUGGESTION_CONFIDENCE_THRESHOLD =
+  private static final String WHZ_SUGGESTION_CONFIDENCE_THRESHOLD =
       Play.application().configuration().getString("linkedin.suggestion.confidence.threshold", "50");
 
   private static final String WHZ_WIKI_LINKS__GDRP_PII =
