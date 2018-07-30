@@ -1,0 +1,20 @@
+<h5 class="viz-bar-chart__title">{{title}}</h5>
+<svg version="1.1" class="highcharts-root" xmlns="http://www.w3.org/2000/svg" width="100%" height="{{height}}" viewBox="0 0 {{width}} {{height}}">
+  <g class="highcharts-series-group">
+    <g class="highcharts-series highcharts-series-0 highcharts-bar-series highcharts-tracker highcharts-series-hover">
+      {{#each seriesData as |datum index|}}
+      <rect x="0" y="{{datum.yOffset}}" height="16" width="{{datum.barLength}}" class="highcharts-color-{{index}}" rx="2px" ry="2px"></rect>
+      {{/each}}
+    </g>
+    <g class="highcharts-data-labels highcharts-series-0 highcharts-bar-series highcharts-color-0 highcharts-tracker">
+      {{#each seriesData as |datum index|}}
+      <g class="highcharts-label highcharts-data-label">
+        <text x="0" y="{{datum.labelOffset}}">
+          <tspan class="highcharts-emphasized">{{datum.value}}</tspan>
+          <tspan> | {{datum.name}}</tspan>
+        </text>
+      </g>
+      {{/each}}
+    </g>
+  </g>
+</svg>
