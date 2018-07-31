@@ -13,26 +13,24 @@
  */
 package security;
 
+import com.google.common.base.Preconditions;
 import javax.security.auth.callback.NameCallback;
 import javax.security.auth.callback.PasswordCallback;
-import javax.security.auth.callback.UnsupportedCallbackException;
-
 import javax.naming.AuthenticationException;
 import javax.naming.NamingException;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.Callback;
-
-import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.StringUtils;
+import play.Logger;
 
 public class AuthenticationManager {
 
   public static void authenticateUser(String userName, String password) throws NamingException {
-    Preconditions.checkNotNull(userName, "Username String cannot be null");
-    Preconditions.checkNotNull(password, "Password String cannot be null");
-    Preconditions.checkArgument(!userName.isEmpty(), "Username cannot be empty");
-    Preconditions.checkArgument(!password.isEmpty(), "Password cannot be empty");
+    Preconditions.checkArgument(
+        !StringUtils.isAnyEmpty(userName, password), "Username or password cannot be empty"
+    );
     try {
       LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
@@ -50,8 +48,7 @@ public class AuthenticationManager {
     }
 
     @Override
-    public void handle(Callback[] callbacks)
-        throws UnsupportedCallbackException {
+    public void handle(Callback[] callbacks) {
       NameCallback nc = null;
       PasswordCallback pc = null;
       for (Callback callback : callbacks) {
@@ -62,7 +59,7 @@ public class AuthenticationManager {
           pc = (PasswordCallback) callback;
           pc.setPassword(this.password.toCharArray());
         } else {
-          throw new UnsupportedCallbackException(callback, "The submitted Callback is unsupported");
+          Logger.warn("The submitted callback is unsupported! ", callback);
         }
       }
     }
