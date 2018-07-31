@@ -86,15 +86,15 @@ export default class HorizontalBarChart extends Component {
    * has been measured.
    * @type {ComputedProperty<number>}
    */
-  width: ComputedProperty<number> = computed('size', function(this: HorizontalBarChart) {
-    return get(this, 'size') ? this.$(this.element).width() : 0;
+  width: ComputedProperty<number> = computed('size', function(this: HorizontalBarChart): number {
+    return get(this, 'size') ? this.$(this.element).width() || 0 : 0;
   });
 
   /**
    * Overall height of our chart, calculated based on the amount of items we have in our series
    * @type {ComputedProperty<number>}
    */
-  height: ComputedProperty<number> = computed('categories', function(this: HorizontalBarChart) {
+  height: ComputedProperty<number> = computed('categories', function(this: HorizontalBarChart): number {
     return (get(this, 'series') || []).length * this.heightModifier();
   });
 
@@ -103,7 +103,9 @@ export default class HorizontalBarChart extends Component {
    * correct dimensions relative to the data it's receiving
    * @type {ComputedProperty<IBarSeriesDatum[]}
    */
-  seriesData: ComputedProperty<Array<IBarSeriesDatum>> = computed('series', 'size', function(this: HorizontalBarChart) {
+  seriesData: ComputedProperty<Array<IBarSeriesDatum>> = computed('series', 'size', function(
+    this: HorizontalBarChart
+  ): Array<IBarSeriesDatum> {
     return (this.get('series') || []).map(this.bar.bind(this));
   });
 
@@ -111,7 +113,7 @@ export default class HorizontalBarChart extends Component {
    * Sets our highest value for the chart's Y axis, based on the highest value inside the series
    * @type {ComputedProperty<number>}
    */
-  maxY: ComputedProperty<number> = computed('series', function(this: HorizontalBarChart) {
+  maxY: ComputedProperty<number> = computed('series', function(this: HorizontalBarChart): number {
     return (get(this, 'series') || []).reduce((memo, dataPoint) => {
       if (dataPoint.value > memo) {
         return dataPoint.value;
@@ -142,7 +144,7 @@ export default class HorizontalBarChart extends Component {
    * @param data - single datum object in our series
    * @param index - current index in the series array
    */
-  bar(this: HorizontalBarChart, data: IChartDatum, index: number) {
+  bar(this: HorizontalBarChart, data: IChartDatum, index: number): IBarSeriesDatum {
     const yOffset = 1 + index * this.heightModifier();
 
     return {
@@ -154,7 +156,7 @@ export default class HorizontalBarChart extends Component {
   }
 
   constructor() {
-    super();
+    super(...arguments);
     // Applying passed in properties or setting to default values
     setProperties(this, {
       labelTagProperty: this.labelTagProperty || 'name',
