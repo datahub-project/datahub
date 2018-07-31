@@ -29,4 +29,7 @@ export default class DatasetHealthContainer extends Component {
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<TaskInstance<Promise<any>>> {
     // Do something in the future
   });
+
+  // Mock data for testing demo purposes, to be deleted once we have actual data and further development
+  testSeries = [{ name: 'Test1', value: 10 }, { name: 'Test2', value: 5 }, { name: 'Test3', value: 3 }];
 }
