@@ -24,20 +24,17 @@ import javax.security.auth.login.LoginException;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.Callback;
 
+import com.google.common.base.Preconditions;
+
 public class AuthenticationManager {
 
   public static void authenticateUser(String userName, String password) throws NamingException {
-    if (userName == null || userName.isEmpty() || password == null || password.isEmpty()) {
-      throw new IllegalArgumentException("Username and password can not be blank.");
-    }
-    LoginContext lc = null;
+    Preconditions.checkNotNull(userName, "Username String cannot be null");
+    Preconditions.checkNotNull(password, "Password String cannot be null");
+    Preconditions.checkArgument(!userName.isEmpty(), "Username cannot be empty");
+    Preconditions.checkArgument(!password.isEmpty(), "Password cannot be empty");
     try {
-      lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
-    } catch (LoginException le) {
-      throw new AuthenticationException(le.toString());
-    }
-
-    try {
+      LoginContext lc = new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
       lc.login();
     } catch (LoginException le) {
       throw new AuthenticationException(le.toString());
@@ -51,6 +48,8 @@ public class AuthenticationManager {
       this.username = username;
       this.password = password;
     }
+
+    @Override
     public void handle(Callback[] callbacks)
         throws UnsupportedCallbackException {
       NameCallback nc = null;
