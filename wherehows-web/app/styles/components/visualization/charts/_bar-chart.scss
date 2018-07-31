@@ -1,0 +1,25 @@
+.viz-bar-chart {
+  .highcharts-root {
+    .highcharts {
+      &-label,
+      &-data-label {
+        fill: $text-color;
+        stroke: $text-color;
+
+        text {
+          font-weight: 100;
+        }
+
+        .highcharts-emphasized {
+          font-weight: 400;
+        }
+      }
+    }
+  }
+
+  &__title {
+    font-weight: bold;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+}
