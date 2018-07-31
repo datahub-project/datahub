@@ -1,6 +1,6 @@
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
-import { fleece } from 'wherehows-web/utils/object';
+import { pick } from 'wherehows-web/utils/object';
 
 /**
  * Extracts values from an IComplianceInfo instance to create an instance of IDatasetRetention
@@ -8,11 +8,11 @@ import { fleece } from 'wherehows-web/utils/object';
  * @returns {IDatasetRetention}
  */
 const extractRetentionFromComplianceInfo = (complianceInfo: IComplianceInfo): IDatasetRetention => {
-  const { datasetUrn, compliancePurgeNote, complianceType } = <IComplianceInfo>fleece<IComplianceInfo>([
+  const { datasetUrn, compliancePurgeNote, complianceType } = pick(complianceInfo, [
     'complianceType',
     'compliancePurgeNote',
     'datasetUrn'
-  ])(complianceInfo);
+  ]);
 
   return {
     purgeNote: compliancePurgeNote,
