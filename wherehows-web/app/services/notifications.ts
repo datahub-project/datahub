@@ -2,7 +2,7 @@ import Service from '@ember/service';
 import { setProperties, get, set } from '@ember/object';
 import { delay } from 'wherehows-web/utils/promise-delay';
 import { action } from '@ember-decorators/object';
-import { fleece } from 'wherehows-web/utils/object';
+import { omit } from 'wherehows-web/utils/object';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
 
@@ -155,14 +155,9 @@ const notificationHandlers: INotificationHandler = {
     props = { dismissButtonText: 'No', confirmButtonText: 'Yes', ...props };
     const { dismissButtonText, confirmButtonText, onDialogToggle } = props;
     // Removes dismiss or confirm buttons if set to false
-    let resolvedProps: IConfirmOptions =
-      dismissButtonText === false
-        ? <IConfirmOptions>fleece<IConfirmOptions, 'dismissButtonText'>(['dismissButtonText'])(props)
-        : props;
-    resolvedProps =
-      confirmButtonText === false
-        ? <IConfirmOptions>fleece<IConfirmOptions, 'confirmButtonText'>(['confirmButtonText'])(props)
-        : props;
+    let resolvedProps: IConfirmOptions = dismissButtonText === false ? omit(props, ['dismissButtonText']) : props;
+
+    resolvedProps = confirmButtonText === false ? omit(props, ['confirmButtonText']) : props;
     resolvedProps = typeof onDialogToggle === 'function' ? props : { ...props, onDialogToggle: noop };
 
     return {
