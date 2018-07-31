@@ -10,8 +10,8 @@
       {{#each seriesData as |datum index|}}
       <g class="highcharts-label highcharts-data-label">
         <text x="0" y="{{datum.labelOffset}}">
-          <tspan class="highcharts-emphasized">{{datum.value}}</tspan>
-          <tspan> | {{datum.name}}</tspan>
+          <tspan class="highcharts-emphasized">{{datum.value}}{{labelAppendValue}}</tspan>
+          <tspan> | {{get datum labelTagProperty}}</tspan>
         </text>
       </g>
       {{/each}}

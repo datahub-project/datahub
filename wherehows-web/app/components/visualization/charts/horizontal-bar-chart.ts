@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
-import { computed, get, set } from '@ember/object';
+import { computed, get, set, setProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
 
 interface IBarSeriesDatum extends IChartDatum {
@@ -14,8 +14,28 @@ interface IBarSeriesDatum extends IChartDatum {
  * of capabilities we need to match up with our design vision for horizontal bar charts. As such,
  * there are similarities between this component and a highcharts component but it has been
  * tailor-fit to our needs
+ *
+ * Bar Chart Usage
+ * {{visualization/charts/horizontal-bar-chart
+ *   series=[ { name: string, value: number, otherKey: otherValue } ]
+ *   title="string"
+ *   labelTagProperty="optionStringOverridesDefault"
+ *   labelAppendTag="optionalStringAppendsEachTag"
+ *   labelAppendValue="optionalStringSuchAs%"}}
  */
 export default class HorizontalBarChart extends Component {
+  /**
+   * Sets the tag for the rendered html elemenet for the component
+   * @type {string}
+   */
+  tagName = 'figure';
+
+  /**
+   * Sets the classes for the rendered html element for the component
+   * @type {Array<string>}
+   */
+  classNames = ['vz-chart', 'viz-bar-chart', 'single-series'];
+
   /**
    * Represents the series of data needed to power our chart. Format is
    * [ { name: string, value: number } ].
@@ -32,19 +52,29 @@ export default class HorizontalBarChart extends Component {
   size: number = 0;
 
   /**
-   * Sets the tag for the rendered html elemenet for the component
+   * Property in the series datum to use as the tag for each value in the bar legend. Note, each
+   * legend item will appear as VALUE | TAG
    * @type {string}
+   * @default 'name'
    */
-  tagName = 'figure';
+  labelTagProperty: string;
 
   /**
-   * Sets the classes for the rendered html element for the component
-   * @type {Array<string>}
+   * Any string we want to append to each tag in the label, such as a unit.
+   * @type {string}
    */
-  classNames = ['vz-chart', 'viz-bar-chart', 'single-series'];
+  labelAppendTag: string;
+
+  /**
+   * Any string that we want to append to each value in the label, such as %. Doing so would
+   * append every value, such as 60, in the label with % and appear as 60%
+   * @type {string}
+   */
+  labelAppendValue: string;
 
   /**
    * Constant properties to be used in calculations for the size of the svg elements drawn
+   * @type {number}
    */
   BAR_HEIGHT = 16;
   BAR_MARGIN_BOTTOM = 8;
@@ -121,6 +151,16 @@ export default class HorizontalBarChart extends Component {
       barLength: Math.max(1, Math.floor(data.value / get(this, 'maxY') * get(this, 'width'))),
       labelOffset: yOffset + get(this, 'BAR_HEIGHT') + get(this, 'BAR_MARGIN_BOTTOM') + get(this, 'LABEL_HEIGHT')
     };
+  }
+
+  constructor() {
+    super();
+    // Applying passed in properties or setting to default values
+    setProperties(this, {
+      labelTagProperty: this.labelTagProperty || 'name',
+      labelAppendTag: this.labelAppendTag || '',
+      labelAppendValue: this.labelAppendValue || ''
+    });
   }
 
   /**
