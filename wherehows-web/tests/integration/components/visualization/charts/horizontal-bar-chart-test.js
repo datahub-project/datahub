@@ -1,26 +1,46 @@
-import { module, test } from 'qunit';
-import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { moduleForComponent, test } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 
-module('Integration | Component | visualization/charts/horizontal-bar-chart', function(hooks) {
-  setupRenderingTest(hooks);
+moduleForComponent(
+  'visualization/charts/horizontal-bar-chart',
+  'Integration | Component | visualization/charts/horizontal-bar-chart',
+  { integration: true }
+);
 
-  test('it renders', async function(assert) {
-    // Set any properties with this.set('myProperty', 'value');
-    // Handle any actions with this.set('myAction', function(val) { ... });
+/* Selectors */
+const chartTitle = '.viz-bar-chart__title';
+const chartBar = 'rect';
+const chartLabel = '.highcharts-data-label';
 
-    await render(hbs`{{visualization/charts/horizontal-bar-chart}}`);
+test('it renders', async function(assert) {
+  this.render(hbs`{{visualization/charts/horizontal-bar-chart}}`);
+  assert.ok(this.$(), 'Renders without errors');
+});
 
-    assert.equal(this.element.textContent.trim(), '');
+test('it displays the correct graph information', async function(assert) {
+  const title = 'Pokemon Values';
+  const series = [
+    { name: 'Mewtwo', value: 150 },
+    { name: 'Alakazam', value: 65 },
+    { name: 'Pikachu', value: 25 },
+    { name: 'Charmander', value: 4 }
+  ];
 
-    // Template block usage:
-    await render(hbs`
-      {{#visualization/charts/horizontal-bar-chart}}
-        template block text
-      {{/visualization/charts/horizontal-bar-chart}}
-    `);
+  this.setProperties({ title, series });
+  this.render(hbs`{{visualization/charts/horizontal-bar-chart
+                    series=series
+                    title=title}}`);
 
-    assert.equal(this.element.textContent.trim(), 'template block text');
-  });
+  assert.ok(this.$(), 'Still renders without errors');
+  assert.equal(this.$(chartBar).length, series.length, 'Renders 3 bars');
+  assert.equal(this.$(chartLabel).length, series.length, 'Renders 3 labels');
+
+  assert.equal(
+    this.$('text:eq(0)')
+      .text()
+      .trim()
+      .replace(/[ \n]/g, ''),
+    '150|Mewtwo',
+    'Renders the correct first label'
+  );
 });
