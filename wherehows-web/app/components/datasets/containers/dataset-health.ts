@@ -30,6 +30,12 @@ export default class DatasetHealthContainer extends Component {
     // Do something in the future
   });
 
+  actions = {
+    onFilterSelect(): void {
+      // Change filter so that table can only show a certain category or severity
+    }
+  };
+
   // Mock data for testing demo purposes, to be deleted once we have actual data and further development
   testSeries = [{ name: 'Test1', value: 10 }, { name: 'Test2', value: 5 }, { name: 'Test3', value: 3 }];
 }
