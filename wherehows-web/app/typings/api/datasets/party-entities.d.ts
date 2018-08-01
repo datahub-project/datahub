@@ -31,5 +31,5 @@ export interface IUserEntityMap {
 export interface IPartyProps {
   userEntities: Array<IPartyEntity>;
   userEntitiesMaps: IUserEntityMap;
-  userEntitiesSource: Array<keyof IUserEntityMap>;
+  userEntitiesSource: Array<Extract<keyof IUserEntityMap, string>>;
 }

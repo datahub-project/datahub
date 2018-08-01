@@ -60,7 +60,7 @@ const readDatasetProperties = async <T extends IDatasetPropertiesGetResponse | I
  * @param {*} value
  * @returns {*}
  */
-const formatPropertyDateValue = (property: keyof IDatasetProperties, value: any): any => {
+const formatPropertyDateValue = (property: Extract<keyof IDatasetProperties, string>, value: any): any => {
   const isoStringDateProperties = ['modification_time', 'begin_date', 'lumos_process_time', 'end_date', 'oracle_time'];
 
   if (isoStringDateProperties.includes(property)) {
@@ -96,7 +96,7 @@ const formatPropertyDateValue = (property: keyof IDatasetProperties, value: any)
  * @link IPropertyItem
  */
 const buildPropertiesList = (properties: IDatasetProperties): Array<IPropertyItem> => {
-  return Object.keys(properties).reduce((propertiesList, property: keyof IDatasetProperties) => {
+  return Object.keys(properties).reduce((propertiesList, property: Extract<keyof IDatasetProperties, string>) => {
     if (['elements', 'view_depends_on'].includes(property)) {
       return propertiesList;
     }

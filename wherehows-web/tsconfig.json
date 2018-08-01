@@ -1,30 +1,35 @@
 {
   "compilerOptions": {
     "target": "es2017",
-    "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
-    "listEmittedFiles": true,
-    "moduleResolution": "node",
     "allowJs": true,
-    "baseUrl": ".",
-    "inlineSourceMap": true,
-    "inlineSources": true,
-    "module": "es6",
+    "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "noFallthroughCasesInSwitch": true,
-    "noEmit": true,
-    "noEmitOnError": true,
-    "noImplicitThis": true,
     "noImplicitAny": true,
+    "noImplicitThis": true,
     "strictNullChecks": true,
-    "pretty": true,
+    "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noEmitOnError": true,
+    "noEmit": true,
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "baseUrl": ".",
+    "module": "es6",
+    "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
+    "listEmittedFiles": true,
     "experimentalDecorators": true,
     "downlevelIteration": true,
     "paths": {
-      "wherehows-web/*": ["app/*"],
-      "wherehows-web/tests/*": ["tests/*"],
-      "wherehows-web/mirage/*": ["mirage/*"]
+      "wherehows-web/tests/*": [
+        "tests/*"
+      ],
+      "wherehows-web/*": [
+        "app/*"
+      ],
+      "wherehows-web/mirage/*": [
+        "mirage/*"
+      ]
     }
   },
   "include": ["app/**/*", "tests/**/*", "mirage/**/*"],

@@ -47,7 +47,7 @@ export default class DatasetSchema extends Component {
    * @param {Element} jsonViewer
    * @return {JQuery}
    */
-  buildJsonView(this: DatasetSchema, jsonViewer: Element): JQuery | void {
+  buildJsonView(this: DatasetSchema, jsonViewer: Element): JQuery<Element> | void {
     try {
       return $(jsonViewer).JSONView(JSON.parse(get(this, 'json')));
     } catch (e) {
