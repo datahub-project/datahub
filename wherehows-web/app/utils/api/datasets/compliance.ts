@@ -10,7 +10,10 @@ import {
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
-import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
+import {
+  extractRetentionFromComplianceInfo,
+  nullifyRetentionFieldsOnComplianceInfo
+} from 'wherehows-web/utils/datasets/retention';
 
 /**
  * Constructs the dataset compliance url
@@ -90,7 +93,10 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
  * @return {Promise<void>}
  */
 const saveDatasetComplianceByUrn = async (urn: string, complianceInfo: IComplianceInfo): Promise<void> => {
-  await postJSON<void>({ url: datasetComplianceUrlByUrn(urn), data: complianceInfo });
+  await postJSON<void>({
+    url: datasetComplianceUrlByUrn(urn),
+    data: nullifyRetentionFieldsOnComplianceInfo(complianceInfo)
+  });
   await saveDatasetRetentionByUrn(urn, extractRetentionFromComplianceInfo(complianceInfo));
 };
 
