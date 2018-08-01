@@ -3,7 +3,7 @@ import { IdLogicalType, PurgePolicy } from 'wherehows-web/constants/index';
 import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome, reduceArrayAsync } from 'wherehows-web/utils/array';
-import { fleece, hasEnumerableKeys } from 'wherehows-web/utils/object';
+import { omit, hasEnumerableKeys } from 'wherehows-web/utils/object';
 import { lastSeenSuggestionInterval } from 'wherehows-web/constants/metadata-acquisition';
 import { decodeUrn, isValidCustomValuePattern } from 'wherehows-web/utils/validators/urn';
 import {
@@ -120,7 +120,7 @@ const editableTags = (entities: Array<IComplianceEntity>): Array<IComplianceEnti
  * @type {(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>}
  */
 const removeReadonlyAttr = <(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>>arrayMap(
-  fleece<IComplianceEntity, 'readonly'>(['readonly'])
+  (entity: IComplianceEntity) => omit(entity, ['readonly'])
 );
 
 /**
