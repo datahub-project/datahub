@@ -1,0 +1,11 @@
+.dataset-health {
+  &__metrics-charts {
+    @include nacho-container;
+    display: flex;
+  }
+  &__chart-container {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 16px;
+  }
+}

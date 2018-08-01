@@ -1,9 +1,5 @@
 <h3>Metadata Health</h3>
-
-<div style="width: 50%">
-  {{visualization/charts/horizontal-bar-chart
-    title="test Chart"
-    series=testSeries
-    labelAppendValue="%"
-    onBarSelect=(action "onFilterSelect")}}
-</div>
+{{datasets/health/metrics-charts
+  categoryData=fakeCategories
+  severityData=fakeSeverity
+  onFilterSelect=(action "onFilterSelect")}}
