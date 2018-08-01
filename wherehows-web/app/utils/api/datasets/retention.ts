@@ -2,7 +2,7 @@ import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
 import { isNotFoundApiError } from 'wherehows-web/utils/api';
-import { fleece } from 'wherehows-web/utils/object';
+import { omit } from 'wherehows-web/utils/object';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 
 /**
@@ -38,7 +38,7 @@ const readDatasetRetentionByUrn = async (urn: string): Promise<IGetDatasetRetent
 const saveDatasetRetentionByUrn = (urn: string, retention: IDatasetRetention): Promise<IDatasetRetention> =>
   postJSON<IDatasetRetention>({
     url: datasetRetentionUrlByUrn(urn),
-    data: fleece<IDatasetRetention, 'modifiedTime' | 'modifiedBy'>(['modifiedBy', 'modifiedTime'])(retention)
+    data: omit(retention, ['modifiedBy', 'modifiedTime'])
   });
 
 export { readDatasetRetentionByUrn, saveDatasetRetentionByUrn };

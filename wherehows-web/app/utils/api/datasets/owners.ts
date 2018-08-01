@@ -10,7 +10,7 @@ import { datasetUrlByUrn } from 'wherehows-web/utils/api/datasets/shared';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
 import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
 import { arrayFilter, arrayMap } from 'wherehows-web/utils/array';
-import { fleece } from 'wherehows-web/utils/object';
+import { omit } from 'wherehows-web/utils/object';
 
 /**
  * Defines a string enum for valid owner types
@@ -149,7 +149,7 @@ const readDatasetSuggestedOwnersByUrn = async (urn: string): Promise<IOwnerRespo
  * @return {Promise<void>}
  */
 const updateDatasetOwnersByUrn = (urn: string, csrfToken: string = '', updatedOwners: Array<IOwner>): Promise<{}> => {
-  const ownersWithoutModifiedTime = arrayMap(fleece<IOwner, 'modifiedTime'>(['modifiedTime']));
+  const ownersWithoutModifiedTime = arrayMap((owner: IOwner) => omit(owner, ['modifiedTime']));
 
   return postJSON<{}>({
     url: datasetOwnersUrlByUrn(urn),
