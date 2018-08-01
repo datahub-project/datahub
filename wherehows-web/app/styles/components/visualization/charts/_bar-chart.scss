@@ -22,4 +22,12 @@
     font-size: 15px;
     margin-bottom: 16px;
   }
+
+  &__bar {
+    &:hover {
+      cursor: pointer;
+      transform: scale(1.02, 1);
+      height: 18px;
+    }
+  }
 }

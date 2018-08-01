@@ -3,7 +3,9 @@
   <g class="highcharts-series-group">
     <g class="highcharts-series highcharts-series-0 highcharts-bar-series highcharts-tracker highcharts-series-hover">
       {{#each seriesData as |datum index|}}
-      <rect x="0" y="{{datum.yOffset}}" height="16" width="{{datum.barLength}}" class="highcharts-color-{{index}}" rx="2px" ry="2px"></rect>
+        <rect x="0" y="{{datum.yOffset}}" height="16" width="{{datum.barLength}}" class="highcharts-color-{{index}} viz-bar-chart__bar" rx="2px" ry="2px"
+         {{action onBarSelect (get datum labelTagProperty) datum.value}}>
+        </rect>
       {{/each}}
     </g>
     <g class="highcharts-data-labels highcharts-series-0 highcharts-bar-series highcharts-color-0 highcharts-tracker">
