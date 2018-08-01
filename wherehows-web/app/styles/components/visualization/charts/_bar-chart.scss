@@ -29,5 +29,15 @@
       transform: scale(1.02, 1);
       height: 18px;
     }
+
+    &--faded {
+      opacity: 0.5;
+    }
+  }
+
+  &__label {
+    &--faded {
+      opacity: 0.5;
+    }
   }
 }

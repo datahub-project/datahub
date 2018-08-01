@@ -1,6 +1,8 @@
 import Component from '@ember/component';
-import { get, set } from '@ember/object';
+import { get, set, computed } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
+import ComputedProperty from '@ember/object/computed';
+import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 
 /**
  * This is the container component for the dataset health tab. It should contain the health bar graphs and a table
@@ -26,6 +28,7 @@ export default class DatasetHealthContainer extends Component {
    * @type {Array<string>}
    */
   currentFilters: Set<string>;
+
   constructor() {
     super(...arguments);
     set(this, 'currentFilters', new Set());
@@ -48,20 +51,52 @@ export default class DatasetHealthContainer extends Component {
   });
 
   actions = {
-    /*
+    /**
      * Triggered when the user clicks on one of the bars in the summary charts child component, will trigger
      * a filter for whatever bar they select, unless it already is one in which case we will remove the filter
      * @param this - Explicit this declaration for typescript
-     * @param filterName - Passed in to the action by the child component, contains the tag to be filtered for
+     * @param filterDatum - Passed in to the action by the child component, contains the tag to be filtered for
      */
-    onFilterSelect(this: DatasetHealthContainer, filterName: string): void {
+    onFilterSelect(this: DatasetHealthContainer, filterDatum: IChartDatum): void {
       const currentFilters = get(this, 'currentFilters');
-      currentFilters.has(filterName) ? currentFilters.delete(filterName) : currentFilters.add(filterName);
+      const filterName = filterDatum.name;
+
+      if (currentFilters.has(filterName)) {
+        currentFilters.delete(filterName);
+      } else {
+        // This strange little logic here makes sure we have only one active filter at a time. Taking this away will
+        // essentially give us multiple filter support (if we decide to make such a UI for it)
+        currentFilters.clear();
+        currentFilters.add(filterName);
+      }
+
+      this.notifyPropertyChange('currentFilters');
     }
   };
 
   // Mock data for testing demo purposes, to be deleted once we have actual data and further development
   testSeries = [{ name: 'Test1', value: 10 }, { name: 'Test2', value: 5 }, { name: 'Test3', value: 3 }];
-  fakeCategories = [{ name: 'Compliance', value: 60 }, { name: 'Ownership', value: 40 }];
-  fakeSeverity = [{ name: 'Minor', value: 50 }, { name: 'Warning', value: 30 }, { name: 'Critical', value: 25 }];
+  fakeCategories: ComputedProperty<Array<IChartDatum>> = computed('currentFilters', function(
+    this: DatasetHealthContainer
+  ): Array<IChartDatum> {
+    const baseCategories = [{ name: 'Compliance', value: 60 }, { name: 'Ownership', value: 40 }];
+    const currentFilters = get(this, 'currentFilters');
+    const hasFilters = Array.from(currentFilters).length > 0;
+
+    return baseCategories.map(datum => ({ ...datum, isFaded: hasFilters && !currentFilters.has(datum.name) }));
+  });
+
+  fakeSeverity: ComputedProperty<Array<IChartDatum>> = computed('currentFilters', function(
+    this: DatasetHealthContainer
+  ): Array<IChartDatum> {
+    const baseSeverities = [
+      { name: 'Minor', value: 50, customColorClass: 'severity-chart__bar--minor' },
+      { name: 'Warning', value: 30, customColorClass: 'severity-chart__bar--warning' },
+      { name: 'Critical', value: 25, customColorClass: 'severity-chart__bar--critical' }
+    ];
+    const currentFilters = get(this, 'currentFilters');
+    const hasFilters = Array.from(currentFilters).length > 0;
+
+    return baseSeverities.map(datum => ({ ...datum, isFaded: hasFilters && !currentFilters.has(datum.name) }));
+  });
 }
