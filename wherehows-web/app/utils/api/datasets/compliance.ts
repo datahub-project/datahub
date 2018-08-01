@@ -9,6 +9,8 @@ import {
   IComplianceSuggestionResponse
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
+import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
+import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
 
 /**
  * Constructs the dataset compliance url
@@ -87,8 +89,10 @@ const readDatasetComplianceByUrn = async (urn: string): Promise<IReadComplianceR
  * @param {IComplianceInfo} complianceInfo
  * @return {Promise<void>}
  */
-const saveDatasetComplianceByUrn = (urn: string, complianceInfo: IComplianceInfo): Promise<void> =>
-  postJSON<void>({ url: datasetComplianceUrlByUrn(urn), data: complianceInfo });
+const saveDatasetComplianceByUrn = async (urn: string, complianceInfo: IComplianceInfo): Promise<void> => {
+  await postJSON<void>({ url: datasetComplianceUrlByUrn(urn), data: complianceInfo });
+  await saveDatasetRetentionByUrn(urn, extractRetentionFromComplianceInfo(complianceInfo));
+};
 
 /**
  * Requests the compliance suggestions for a given dataset Id and returns the suggestion list
