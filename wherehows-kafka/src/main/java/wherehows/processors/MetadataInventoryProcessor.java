@@ -91,7 +91,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     final String cluster = event.deployment.cluster.toString(); // if null cluster, throw exception here
     final String namespace = event.namespace.toString();
 
-    log.info("Processing MIE for " + platform + " " + origin + " " + namespace);
+    log.info("Processing MIE for {} {} {}", platform, origin, namespace);
 
     final List<Pattern> exclusions =
         event.exclusionPatterns.stream().map(s -> Pattern.compile(s.toString())).collect(Collectors.toList());
@@ -101,6 +101,8 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
     final List<String> existingDatasets = _datasetViewDao.listFullNames(platform, origin.name(), cluster, namespace);
     log.debug("existing datasets: " + existingDatasets);
+
+    log.info("New datasets: {}, Existing datasets: {}", names.size(), existingDatasets.size());
 
     // find removed datasets by diff
     return ProcessorUtil.listDiffWithExclusion(existingDatasets, names, exclusions).stream().map(datasetName -> {
