@@ -1,3 +1,5 @@
+import { IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
+
 const fixtures = [
   'dataset-nodes',
   'metric-metrics',
@@ -7,7 +9,7 @@ const fixtures = [
   'dataset-acl-users'
 ];
 
-export default function(server) {
+export default function(server: IMirageServer) {
   server.loadFixtures(...fixtures);
   server.create('config');
   server.createList('owner', 6);

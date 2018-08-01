@@ -41,7 +41,8 @@ export default class JsonUpload extends Component {
     const reader = new FileReader();
 
     if (typeof closureAction === 'function' && fileBlob) {
-      reader.onload = ({ target }: FileReaderProgressEvent) => target && closureAction(target.result);
+      reader.onload = ({ target }: ProgressEvent & { target: FileReader }) =>
+        target && closureAction(String(target.result));
       reader.readAsText(fileBlob);
     }
   }
