@@ -3,14 +3,15 @@
   <g class="highcharts-series-group">
     <g class="highcharts-series highcharts-series-0 highcharts-bar-series highcharts-tracker highcharts-series-hover">
       {{#each seriesData as |datum index|}}
-        <rect x="0" y="{{datum.yOffset}}" height="16" width="{{datum.barLength}}" class="highcharts-color-{{index}} viz-bar-chart__bar" rx="2px" ry="2px"
-         {{action onBarSelect (get datum labelTagProperty) datum.value}}>
+        <rect x="0" y="{{datum.yOffset}}" height="16" width="{{datum.barLength}}" rx="2px" ry="2px"
+         class="highcharts-color-{{index}} viz-bar-chart__bar {{if datum.isFaded "viz-bar-chart__bar--faded"}} {{datum.customColorClass}}"
+         {{action onBarSelect datum}}>
         </rect>
       {{/each}}
     </g>
     <g class="highcharts-data-labels highcharts-series-0 highcharts-bar-series highcharts-color-0 highcharts-tracker">
       {{#each seriesData as |datum index|}}
-      <g class="highcharts-label highcharts-data-label">
+      <g class="highcharts-label highcharts-data-label  viz-bar-chart__label {{if datum.isFaded "viz-bar-chart__label--faded"}}">
         <text x="0" y="{{datum.labelOffset}}">
           <tspan class="highcharts-emphasized">{{datum.value}}{{labelAppendValue}}</tspan>
           <tspan> | {{get datum labelTagProperty}}</tspan>
