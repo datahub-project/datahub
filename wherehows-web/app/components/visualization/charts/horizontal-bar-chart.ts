@@ -35,7 +35,7 @@ export default class HorizontalBarChart extends Component {
    * Sets the classes for the rendered html element for the component
    * @type {Array<string>}
    */
-  classNames = ['vz-chart', 'viz-bar-chart', 'single-series'];
+  classNames = ['viz-chart', 'viz-bar-chart', 'single-series'];
 
   /**
    * Represents the series of data needed to power our chart. Format is

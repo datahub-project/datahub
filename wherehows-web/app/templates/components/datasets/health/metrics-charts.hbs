@@ -1,1 +1,14 @@
-{{yield}}
+<div class="dataset-health__chart-container">
+  {{visualization/charts/horizontal-bar-chart
+    title="Categories"
+    series=categoryData
+    labelAppendValue="%"
+    onBarSelect=(action onFilterSelect)}}
+</div>
+<div class="dataset-health__chart-container">
+  {{visualization/charts/horizontal-bar-chart
+    title="Severity"
+    series=severityData
+    labelAppendValue="%"
+    onBarSelect=(action onFilterSelect)}}
+</div>
