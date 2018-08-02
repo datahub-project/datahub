@@ -3,7 +3,6 @@ import { get, computed, setProperties, getProperties } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
-import { action } from '@ember-decorators/object';
 import healthCategories from 'wherehows-web/mirage/fixtures/health-categories';
 import healthSeverity from 'wherehows-web/mirage/fixtures/health-severity';
 
@@ -122,7 +121,6 @@ export default class DatasetHealthContainer extends Component {
     });
   });
 
-  @action
   /**
    * Triggered when the user clicks on one of the bars in the summary charts child component, will trigger
    * a filter for whatever bar they select, unless it already is one in which case we will remove the filter
