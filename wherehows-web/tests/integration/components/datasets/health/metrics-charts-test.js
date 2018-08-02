@@ -23,18 +23,15 @@ test('it provides the correct information', async function(assert) {
     { name: 'Warning', value: 30, customColorClass: 'severity-chart__bar--warning' },
     { name: 'Critical', value: 25, customColorClass: 'severity-chart__bar--critical' }
   ];
-  const testAction = datum => assert.equal(datum.name, 'Warnisng', 'Action successfully passes along info');
 
   this.setProperties({
     categoryData,
-    severityData,
-    testAction
+    severityData
   });
 
   this.render(hbs`{{datasets/health/metrics-charts
                     categoryData=categoryData
-                    severityData=severityData
-                    onBarSelect=testAction}}`);
+                    severityData=severityData}}`);
 
   assert.ok(this.$(), 'Still renders without errors');
   assert.equal(this.$(chartClass).length, 2, 'Renders 2 charts');
