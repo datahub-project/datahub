@@ -1,7 +1,7 @@
 import { module, test } from 'qunit';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import datasetsCreateSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
-import { testSchemaA } from 'wherehows-web/mirage/data/schema';
+import { testSchemaA } from 'wherehows-web/mirage/fixtures/schema';
 
 module('Unit | Utility | datasets/create search entries', {
   beforeEach() {
