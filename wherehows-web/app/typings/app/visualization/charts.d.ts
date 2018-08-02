@@ -4,4 +4,6 @@
 export interface IChartDatum {
   name: string;
   value: number;
+  isFaded?: boolean;
+  customColorClass?: string;
 }
