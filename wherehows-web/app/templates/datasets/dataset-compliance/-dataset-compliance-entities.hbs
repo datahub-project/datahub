@@ -150,7 +150,7 @@
                 {{#if
                   (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
 
-                  <span class="nacho-tooltip" title="Has suggestions">
+                  <span class="nacho-tooltip" data-title="Has suggestions">
                     <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
                        title="Compliance field has suggested values"></i>
                   </span>
@@ -159,14 +159,14 @@
 
                   {{#if row.isReviewRequested}}
 
-                    <span class="nacho-tooltip" title="Please review">
+                    <span class="nacho-tooltip" data-title="Please review">
                       <i class="fa fa-question dataset-compliance-fields--review-required__icon"
                          title="Compliance policy information needs review"></i>
                     </span>
 
                   {{else}}
 
-                    <span class="nacho-tooltip" title="All good!">
+                    <span class="nacho-tooltip" data-title="All good!">
                       <i class="fa fa-check dataset-compliance-fields--ok__icon" title="All good!"></i>
                     </span>
 
@@ -401,7 +401,7 @@
                       {{/basic-dropdown}}
 
                       {{#if (and isEditing (not row.hasSingleTag))}}
-                        <span class="nacho-tooltip" title="Delete Tag">
+                        <span class="nacho-tooltip" data-title="Delete Tag">
                       <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
                               onclick={{action row.onRemoveFieldTag tag}}>
                         {{fa-icon "trash"}}
@@ -426,7 +426,7 @@
                       {{tag.identifierType}}{{if tag.logicalType (concat " (" tag.logicalType ")")}}
 
                       {{#if row.isReadonly}}
-                        <span class="nacho-tooltip" title="Readonly">
+                        <span class="nacho-tooltip" data-title="Readonly">
                         <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
                                 disabled={{not isEditing}}
                                   onclick={{action row.onEditReadonlyTag tag}}>
