@@ -2,6 +2,7 @@ import Component from '@ember/component';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import { computed, get, set, setProperties } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 interface IBarSeriesDatum extends IChartDatum {
   yOffset: number;
@@ -34,7 +35,7 @@ export default class HorizontalBarChart extends Component {
    * Sets the classes for the rendered html element for the component
    * @type {Array<string>}
    */
-  classNames = ['vz-chart', 'viz-bar-chart', 'single-series'];
+  classNames = ['viz-chart', 'viz-bar-chart', 'single-series'];
 
   /**
    * Represents the series of data needed to power our chart. Format is
@@ -155,13 +156,22 @@ export default class HorizontalBarChart extends Component {
     };
   }
 
+  /**
+   * Expected to be optionally passed in from the containing component, this function handles the action to
+   * be taken if a user selects an individual bar from the chart.
+   * @param {string} name - the "category" or "tag" that goes with each legend label
+   * @param {number} value - the value associated with each series datum
+   */
+  onBarSelect: (name: string, value: number) => void;
+
   constructor() {
     super(...arguments);
     // Applying passed in properties or setting to default values
     setProperties(this, {
       labelTagProperty: this.labelTagProperty || 'name',
       labelAppendTag: this.labelAppendTag || '',
-      labelAppendValue: this.labelAppendValue || ''
+      labelAppendValue: this.labelAppendValue || '',
+      onBarSelect: this.onBarSelect || noop
     });
   }
 
