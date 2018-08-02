@@ -495,8 +495,8 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
-    { value: TagFilter.showAll, label: 'Showing all fields' },
-    { value: TagFilter.showReview, label: 'Showing only fields to review' },
+    { value: TagFilter.showAll, label: 'Show all fields' },
+    { value: TagFilter.showReview, label: 'Show required field' },
     { value: TagFilter.showSuggested, label: 'Show suggested fields' }
   ];
 
