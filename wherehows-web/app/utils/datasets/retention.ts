@@ -1,6 +1,6 @@
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
-import { pick } from 'wherehows-web/utils/object';
+import { nullify, Nullify, Omit, pick } from 'wherehows-web/utils/object';
 import { isExempt } from 'wherehows-web/constants';
 
 /**
@@ -22,4 +22,20 @@ const extractRetentionFromComplianceInfo = (complianceInfo: IComplianceInfo): ID
   };
 };
 
-export { extractRetentionFromComplianceInfo };
+/**
+ * Makes values in IComplianceInfo that are present / have a corollary in IDatasetRetention type null i.e. keys
+ * 'complianceType' | 'compliancePurgeNote'
+ * and retains other properties
+ * @param {IComplianceInfo} complianceInfo
+ * @returns {(Omit<IComplianceInfo, 'complianceType' | 'compliancePurgeNote'> &
+ *   Nullify<Pick<IComplianceInfo, 'complianceType' | 'compliancePurgeNote'>>)}
+ */
+const nullifyRetentionFieldsOnComplianceInfo = (
+  complianceInfo: IComplianceInfo
+): Omit<IComplianceInfo, 'complianceType' | 'compliancePurgeNote'> &
+  Nullify<Pick<IComplianceInfo, 'complianceType' | 'compliancePurgeNote'>> => ({
+  ...complianceInfo,
+  ...nullify(pick(complianceInfo, ['complianceType', 'compliancePurgeNote']))
+});
+
+export { extractRetentionFromComplianceInfo, nullifyRetentionFieldsOnComplianceInfo };
