@@ -5,6 +5,8 @@ import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import healthCategories from 'wherehows-web/mirage/fixtures/health-categories';
 import healthSeverity from 'wherehows-web/mirage/fixtures/health-severity';
+import healthDetail from 'wherehows-web/mirage/fixtures/health-detail';
+import { IHealthScore } from 'wherehows-web/typings/api/datasets/health';
 
 /**
  * This is the container component for the dataset health tab. It should contain the health bar graphs and a table
@@ -51,6 +53,12 @@ export default class DatasetHealthContainer extends Component {
    * @type {Array<pending>}
    */
   severityMetrics: Array<IChartDatum> = [];
+
+  /**
+   * Fetched data for the health score detailed data.
+   * @type {Array<IHealthScore>}
+   */
+  tableData: Array<IHealthScore> = [];
 
   /**
    * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
@@ -112,12 +120,14 @@ export default class DatasetHealthContainer extends Component {
     // Pretend like we're getting data from somehwere
     const healthData = {
       categories: healthCategories,
-      severity: healthSeverity
+      severity: healthSeverity,
+      detail: healthDetail
     };
 
     setProperties(this, {
       categoryMetrics: healthData.categories,
-      severityMetrics: healthData.severity
+      severityMetrics: healthData.severity,
+      tableData: healthData.detail
     });
   });
 

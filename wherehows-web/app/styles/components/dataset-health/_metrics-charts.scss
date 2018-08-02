@@ -2,6 +2,7 @@
   &__metrics-charts {
     @include nacho-container;
     display: flex;
+    margin-bottom: 24px;
   }
 
   &__chart-container {
