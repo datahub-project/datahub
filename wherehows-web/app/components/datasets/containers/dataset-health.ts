@@ -1,8 +1,11 @@
 import Component from '@ember/component';
-import { get, set, computed } from '@ember/object';
+import { get, computed, setProperties, getProperties } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
+import { action } from '@ember-decorators/object';
+import healthCategories from 'wherehows-web/mirage/fixtures/health-categories';
+import healthSeverity from 'wherehows-web/mirage/fixtures/health-severity';
 
 /**
  * This is the container component for the dataset health tab. It should contain the health bar graphs and a table
@@ -21,18 +24,78 @@ export default class DatasetHealthContainer extends Component {
    * @type {Array<string>}
    */
   classNames = ['dataset-health'];
-  /**
-   * The current filter is used to set a filter for the table to show only items within a certain category or
-   * severity. It is set as a set of strings in order to support the idea of multiple filters in the future,
-   * even though our initial version will support only one filter at a time.
-   * @type {Array<string>}
-   */
-  currentFilters: Set<string>;
 
-  constructor() {
-    super(...arguments);
-    set(this, 'currentFilters', new Set());
-  }
+  /**
+   * The current filter for the category chart. Clicking on a bar in the chart changes this value and will cause
+   * the table component to filter out certain rows. Since we only allow one filter at a time, only this or
+   * currentSeverityFilter should have a truthy value at any given point.
+   * @type {string}
+   */
+  currentCategoryFilter = '';
+
+  /**
+   * The current filter for the severity chart. Clicking on a bar in the chart changes this value and will cause
+   * the table component to filter out certain rows. Since we only allow one filter at a time, only this or
+   * currentCategoryFilter should have a truthy value at any given point.
+   * @type {string}
+   */
+  currentSeverityFilter = '';
+
+  /**
+   * Raw fetched data for the category metrics
+   * @type {Array<pending>}
+   */
+  categoryMetrics: Array<IChartDatum> = [];
+
+  /**
+   * Raw fetched data for the category metrics
+   * @type {Array<pending>}
+   */
+  severityMetrics: Array<IChartDatum> = [];
+
+  /**
+   * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
+   * data
+   * @type {ComputedProperty<Array<IChartDatum>>}
+   */
+  renderedCategories: ComputedProperty<Array<IChartDatum>> = computed(
+    'categoryMetrics',
+    'currentCategoryFilter',
+    function(this: DatasetHealthContainer): Array<IChartDatum> {
+      const { categoryMetrics, currentCategoryFilter } = getProperties(
+        this,
+        'categoryMetrics',
+        'currentCategoryFilter'
+      );
+
+      return categoryMetrics.map(category => ({
+        ...category,
+        isFaded: !!currentCategoryFilter && category.name !== currentCategoryFilter
+      }));
+    }
+  );
+
+  /**
+   * Modified severityMetrics to add properties that will help us render our actual charts
+   * @type {ComputedProperty<Array<IChartDatum>>}
+   */
+  renderedSeverity: ComputedProperty<Array<IChartDatum>> = computed(
+    'severityMetrics',
+    'currentSeverityFilter',
+    function(this: DatasetHealthContainer): Array<IChartDatum> {
+      const { severityMetrics, currentSeverityFilter } = getProperties(
+        this,
+        'severityMetrics',
+        'currentSeverityFilter'
+      );
+
+      return severityMetrics.map(severity => ({
+        ...severity,
+        isFaded: !!currentSeverityFilter && severity.name !== currentSeverityFilter,
+        customColorClass: `severity-chart__bar--${severity.name.toLowerCase()}`
+      }));
+    }
+  );
 
   didInsertElement() {
     get(this, 'getContainerDataTask').perform();
@@ -47,56 +110,37 @@ export default class DatasetHealthContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<TaskInstance<Promise<any>>> {
-    // Do something in the future
+    // Pretend like we're getting data from somehwere
+    const healthData = {
+      categories: healthCategories,
+      severity: healthSeverity
+    };
+
+    setProperties(this, {
+      categoryMetrics: healthData.categories,
+      severityMetrics: healthData.severity
+    });
   });
 
-  actions = {
-    /**
-     * Triggered when the user clicks on one of the bars in the summary charts child component, will trigger
-     * a filter for whatever bar they select, unless it already is one in which case we will remove the filter
-     * @param this - Explicit this declaration for typescript
-     * @param filterDatum - Passed in to the action by the child component, contains the tag to be filtered for
-     */
-    onFilterSelect(this: DatasetHealthContainer, filterDatum: IChartDatum): void {
-      const currentFilters = get(this, 'currentFilters');
-      const filterName = filterDatum.name;
+  @action
+  /**
+   * Triggered when the user clicks on one of the bars in the summary charts child component, will trigger
+   * a filter for whatever bar they select, unless it already is one in which case we will remove the filter
+   * @param this - Explicit this declaration for typescript
+   * @param filterType - Whether we are filtering by category or severity
+   * @param filterDatum - Passed in to the action by the child component, contains the tag to be filtered for
+   */
+  onFilterSelect(this: DatasetHealthContainer, filterType: string, filterDatum: IChartDatum): void {
+    const { currentCategoryFilter, currentSeverityFilter } = getProperties(
+      this,
+      'currentCategoryFilter',
+      'currentSeverityFilter'
+    );
+    const newFilterName = filterDatum.name;
 
-      if (currentFilters.has(filterName)) {
-        currentFilters.delete(filterName);
-      } else {
-        // This strange little logic here makes sure we have only one active filter at a time. Taking this away will
-        // essentially give us multiple filter support (if we decide to make such a UI for it)
-        currentFilters.clear();
-        currentFilters.add(filterName);
-      }
-
-      this.notifyPropertyChange('currentFilters');
-    }
-  };
-
-  // Mock data for testing demo purposes, to be deleted once we have actual data and further development
-  testSeries = [{ name: 'Test1', value: 10 }, { name: 'Test2', value: 5 }, { name: 'Test3', value: 3 }];
-  fakeCategories: ComputedProperty<Array<IChartDatum>> = computed('currentFilters', function(
-    this: DatasetHealthContainer
-  ): Array<IChartDatum> {
-    const baseCategories = [{ name: 'Compliance', value: 60 }, { name: 'Ownership', value: 40 }];
-    const currentFilters = get(this, 'currentFilters');
-    const hasFilters = Array.from(currentFilters).length > 0;
-
-    return baseCategories.map(datum => ({ ...datum, isFaded: hasFilters && !currentFilters.has(datum.name) }));
-  });
-
-  fakeSeverity: ComputedProperty<Array<IChartDatum>> = computed('currentFilters', function(
-    this: DatasetHealthContainer
-  ): Array<IChartDatum> {
-    const baseSeverities = [
-      { name: 'Minor', value: 50, customColorClass: 'severity-chart__bar--minor' },
-      { name: 'Warning', value: 30, customColorClass: 'severity-chart__bar--warning' },
-      { name: 'Critical', value: 25, customColorClass: 'severity-chart__bar--critical' }
-    ];
-    const currentFilters = get(this, 'currentFilters');
-    const hasFilters = Array.from(currentFilters).length > 0;
-
-    return baseSeverities.map(datum => ({ ...datum, isFaded: hasFilters && !currentFilters.has(datum.name) }));
-  });
+    setProperties(this, {
+      currentCategoryFilter: filterType === 'category' && newFilterName !== currentCategoryFilter ? newFilterName : '',
+      currentSeverityFilter: filterType === 'severity' && newFilterName !== currentSeverityFilter ? newFilterName : ''
+    });
+  }
 }
