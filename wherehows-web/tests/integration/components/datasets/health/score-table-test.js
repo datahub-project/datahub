@@ -1,26 +1,48 @@
-import { module, test } from 'qunit';
-import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { moduleForComponent, test } from 'ember-qunit';
+import { run } from '@ember/runloop';
 import hbs from 'htmlbars-inline-precompile';
+import healthDetail from 'wherehows-web/mirage/fixtures/health-detail';
 
-module('Integration | Component | datasets/health/score-table', function(hooks) {
-  setupRenderingTest(hooks);
+moduleForComponent('datasets/health/score-table', 'Integration | Component | datasets/health/score-table', {
+  integration: true
+});
 
-  test('it renders', async function(assert) {
-    // Set any properties with this.set('myProperty', 'value');
-    // Handle any actions with this.set('myAction', function(val) { ... });
+const table = '.dataset-health__score-table';
+const row = `${table}__row`;
 
-    await render(hbs`{{datasets/health/score-table}}`);
+test('it renders', async function(assert) {
+  this.render(hbs`{{datasets/health/score-table}}`);
 
-    assert.equal(this.element.textContent.trim(), '');
+  assert.ok(this.$(), 'Renders without errors as standalone component');
+});
 
-    // Template block usage:
-    await render(hbs`
-      {{#datasets/health/score-table}}
-        template block text
-      {{/datasets/health/score-table}}
-    `);
+test('it renders the correct information', async function(assert) {
+  const tableData = healthDetail;
 
-    assert.equal(this.element.textContent.trim(), 'template block text');
+  this.set('tableData', tableData);
+  this.render(hbs`{{datasets/health/score-table
+                    tableData=tableData}}`);
+
+  assert.ok(this.$(), 'Still renders without errors');
+  assert.equal(this.$(table).length, 1, 'Renders one table');
+  assert.equal(this.$(row).length, tableData.length, 'Renders one row for every detail data');
+});
+
+test('it filters correctly', async function(assert) {
+  const tableData = healthDetail;
+  const numComplianceRows = tableData.reduce((sum, curr) => sum + (curr.category === 'Compliance' ? 1 : 0), 0);
+
+  this.setProperties({
+    tableData,
+    categoryFilter: 'Compliance',
+    severityFilter: ''
   });
+
+  this.render(hbs`{{datasets/health/score-table
+                    tableData=tableData
+                    currentCategoryFilter=categoryFilter
+                    currentSeverityFilter=severityFilter}}`);
+
+  assert.ok(this.$(), 'Still renders further without errors');
+  assert.equal(this.$(row).length, numComplianceRows, 'Show correct rows based on filter');
 });
