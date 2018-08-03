@@ -29,7 +29,8 @@ const initializeState = () => JSON.parse(JSON.stringify(_initialState));
  * @param {String} entityName
  */
 const appendEntityIdMap = (
-  entityName /**
+  entityName
+  /**
    *
    * @param {Object} prevEntities current list of ids mapped to entities
    * @param {Object} props
@@ -117,7 +118,8 @@ const namesToNodeName = (state, { nodes = [], parentName = null } = {}) => {
  * @param {String} entityName
  */
 const receiveEntities = (
-  entityName /**
+  entityName
+  /**
    * entities (flows|metrics|datasets) for the ActionTypes.RECEIVE_PAGED_[ENTITY_NAME] action
    * @param {Object} state previous state for datasets
    * @param {Object} payload data received through ActionTypes.RECEIVE_PAGED_[ENTITY_NAME]

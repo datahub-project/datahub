@@ -10,7 +10,8 @@
 const createLazyRequest = (
   requesterActionCreator,
   receiverActionCreator,
-  asyncExecutor /**
+  asyncExecutor
+  /**
    *
    * @param {Object} props = {}
    */
@@ -33,7 +34,8 @@ const createLazyRequest = (
  */
 const createAsyncThunk = (
   receiverActionCreator,
-  asyncExecutor /**
+  asyncExecutor
+  /**
    *
    * @param {Function} dispatch callback for action dispatch from redux thunk
    * @param {Function} getState callback to get the current store state
