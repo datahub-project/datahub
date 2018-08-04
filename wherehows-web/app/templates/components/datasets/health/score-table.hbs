@@ -1,7 +1,18 @@
 <thead>
   <tr>
-    {{#each headers as |header index|}}
-      <th class={{get headerClasses index}}>{{header}}</th>
+    {{#each headers as |header|}}
+      <th class={{header.class}}>
+        {{#if header.dropdownOptions}}
+          {{#nacho/dropdown/hover-dropdown
+            selectedDropDown=header.initialDropdown
+            onSelect=header.onDropdownSelect
+            dropDownItems=header.dropdownOptions as |dd|}}
+            {{dd.content}}
+          {{/nacho/dropdown/hover-dropdown}}
+        {{else}}
+          {{header.label}}
+        {{/if}}
+      </th>
     {{/each}}
   </tr>
 </thead>

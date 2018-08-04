@@ -144,7 +144,7 @@ export default class DatasetHealthContainer extends Component {
       'currentCategoryFilter',
       'currentSeverityFilter'
     );
-    const newFilterName = filterDatum.name;
+    const newFilterName = filterDatum.name || filterDatum.value.toString();
 
     setProperties(this, {
       currentCategoryFilter: filterType === 'category' && newFilterName !== currentCategoryFilter ? newFilterName : '',
