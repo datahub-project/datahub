@@ -1,7 +1,9 @@
 import Component from '@ember/component';
 import { IHealthScore } from 'wherehows-web/typings/api/datasets/health';
-import { computed, setProperties, getProperties } from '@ember/object';
+import { computed, setProperties, getProperties, get } from '@ember/object';
 import ComputedProperty from '@ember/object/computed';
+import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Adds properties specifically to help the table render each row to the basic health score
@@ -9,6 +11,25 @@ import ComputedProperty from '@ember/object/computed';
 interface IRenderedHealthScore extends IHealthScore {
   highlightClass: string;
   isHidden: boolean;
+}
+
+/**
+ * Properties that define a useful header object to be rendered in the template
+ */
+interface IHealthTableHeader {
+  label: string;
+  class: string;
+  dropdownOptions: IDropDownOption<string>[] | undefined;
+  initialDropdown: IDropDownOption<string>;
+  onDropdownSelect: (type: string, selection: IDropDownOption<string>) => void;
+}
+
+/**
+ * Defining a loose interface for the dropdowns object calculated for category and severity based on
+ * the received table data
+ */
+interface IHealthTableDropdowns {
+  [key: string]: Array<IDropDownOption<string>>;
 }
 
 export default class DatasetsHealthScoreTable extends Component {
@@ -25,16 +46,52 @@ export default class DatasetsHealthScoreTable extends Component {
   tagName = 'table';
 
   /**
-   * Expected headers for the detailed table
-   * @type {Array<string>}
+   * Expected headers for the detailed table. It contains the wording for each header as well as
+   * additional properties
+   * @type {Array<IHealthTableHeader>}
    */
-  headers = ['Category', 'Description', 'Score', 'Severity'];
+  headers = computed('dropdownOptions', function(this: DatasetsHealthScoreTable): Array<IHealthTableHeader> {
+    const dropdownOptions = get(this, 'dropdownOptions');
+    const onDropdownSelect = get(this, 'onDropdownSelect');
+
+    return ['Category', 'Description', 'Score', 'Severity'].map(header => ({
+      label: header,
+      class: `dataset-health__score-table__${header.toLowerCase()}`,
+      dropdownOptions: dropdownOptions[header.toLowerCase()],
+      initialDropdown: { label: header, value: '' },
+      onDropdownSelect: onDropdownSelect.bind(this, header)
+    }));
+  });
 
   /**
-   * Classes for each header element based on the actual header column title
-   * @type {Array<string>}
+   * Uses the passed in table data to calculate a dropdown list of options available for filtering by category
+   * and severity for the table's rows.
+   * @type {ComputedProperty<IHealthTableDropdowns>}
    */
-  headerClasses = this.headers.map(header => `dataset-health__score-table__${header.toLowerCase()}`);
+  dropdownOptions: ComputedProperty<IHealthTableDropdowns> = computed('tableData', function(
+    this: DatasetsHealthScoreTable
+  ) {
+    const tableData = get(this, 'tableData');
+    const includedOptions = new Set();
+
+    return tableData.reduce(
+      (output, row) => {
+        const { category, severity } = row;
+
+        !includedOptions.has(category) && output.category.push({ label: category, value: category });
+        severity && !includedOptions.has(severity) && output.severity.push({ label: severity, value: severity });
+        // Ensures we only add each option once, assumes severity will never === category
+        includedOptions.add(category);
+        includedOptions.add(severity);
+
+        return output;
+      },
+      {
+        category: <IDropDownOption<string>[]>[{ label: 'Category', value: '' }],
+        severity: <IDropDownOption<string>[]>[{ label: 'Severity', value: '' }]
+      }
+    );
+  });
 
   /**
    * Passed in table data, mostly raw detailed information about the compliance score details and the
@@ -83,13 +140,43 @@ export default class DatasetsHealthScoreTable extends Component {
     }
   );
 
+  /**
+   * Passed in function from the dataset health container that helps us handle when the user clicks on a
+   * specific category from the dropdown menu in the table header
+   * @param {IDropDownOption} selection - the selected option from the dropdown
+   */
+  onCategorySelect: (selection: IDropDownOption<string>) => void;
+
+  /**
+   * Passed in function from the dataset health container that helps us handle when the user clicks on a
+   * specific severity from the dropdown menu on the table header
+   * @param {IDropDownOption} selection - the selected option from the dropdown
+   */
+  onSeveritySelect: (section: IDropDownOption<string>) => void;
+
   constructor() {
     super(...arguments);
 
     setProperties(this, {
       tableData: this.tableData || [],
       currentSeverityFilter: this.currentSeverityFilter || '',
-      currentCategoryFilter: this.currentCategoryFilter || ''
+      currentCategoryFilter: this.currentCategoryFilter || '',
+      onCategorySelect: this.onCategorySelect || noop,
+      onSeveritySelect: this.onSeveritySelect || noop
     });
+  }
+
+  /**
+   * This is attached to each header object so that we can pass into the dropdown option for that header
+   * and allow the user to select from it with a handler
+   * @param type - lets us know which dropdown called this function
+   * @param selection - the actual dropdown option passed in from the child component
+   */
+  onDropdownSelect(type: string, selection: IDropDownOption<string>) {
+    if (type === 'Category') {
+      this.onCategorySelect(selection);
+    } else if (type === 'Severity') {
+      this.onSeveritySelect(selection);
+    }
   }
 }
