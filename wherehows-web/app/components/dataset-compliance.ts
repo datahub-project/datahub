@@ -36,11 +36,13 @@ import {
   tagsForIdentifierField,
   overrideTagReadonly,
   editableTags,
-  lowQualitySuggestionConfidenceThreshold
+  lowQualitySuggestionConfidenceThreshold,
+  TagFilter,
+  tagSuggestionNeedsReview
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
-import { arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
-import { noop } from 'wherehows-web/utils/helpers/functions';
+import { arrayFilter, arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
+import { identity, noop } from 'wherehows-web/utils/helpers/functions';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
@@ -59,8 +61,7 @@ import {
   IDropDownOption,
   ISchemaFieldsToPolicy,
   ISchemaFieldsToSuggested,
-  ISecurityClassificationOption,
-  ShowAllShowReview
+  ISecurityClassificationOption
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
@@ -279,7 +280,7 @@ export default class DatasetCompliance extends Component {
    * @type {string}
    * @memberof DatasetCompliance
    */
-  fieldReviewOption: 'showReview' | 'showAll' = 'showAll';
+  fieldReviewOption: TagFilter = TagFilter.showAll;
 
   /**
    * Flag indicating that the component is in edit mode
@@ -494,8 +495,9 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
-    { value: 'showAll', label: 'Showing all fields' },
-    { value: 'showReview', label: 'Showing only fields to review' }
+    { value: TagFilter.showAll, label: 'Show all fields' },
+    { value: TagFilter.showReview, label: 'Show required field' },
+    { value: TagFilter.showSuggested, label: 'Show suggested fields' }
   ];
 
   didReceiveAttrs(): void {
@@ -785,15 +787,32 @@ export default class DatasetCompliance extends Component {
     'complianceDataTypes',
     'suggestionConfidenceThreshold',
     function(this: DatasetCompliance): Array<IComplianceChangeSet> {
+      /**
+       * Aliases the index signature for a hash of callback functions keyed by TagFilter
+       * to filter out compliance changeset items
+       * @alias
+       */
+      type TagFilterCallback<T = Array<IComplianceChangeSet>> = { [K in TagFilter]: (x: T) => T };
+
       const {
         compliancePolicyChangeSet: changeSet,
         complianceDataTypes,
         suggestionConfidenceThreshold
       } = getProperties(this, ['compliancePolicyChangeSet', 'complianceDataTypes', 'suggestionConfidenceThreshold']);
 
-      return get(this, 'fieldReviewOption') === 'showReview'
-        ? tagsRequiringReview(complianceDataTypes, { checkSuggestions: true, suggestionConfidenceThreshold })(changeSet)
-        : changeSet;
+      // references the filter predicate for changeset items based on the currently set tag filter
+      const changeSetFilter = (<TagFilterCallback>{
+        [TagFilter.showAll]: identity,
+        [TagFilter.showReview]: tagsRequiringReview(complianceDataTypes, {
+          checkSuggestions: true,
+          suggestionConfidenceThreshold
+        }),
+        [TagFilter.showSuggested]: arrayFilter((tag: IComplianceChangeSet) =>
+          tagSuggestionNeedsReview({ ...tag, suggestionConfidenceThreshold })
+        )
+      })[get(this, 'fieldReviewOption')];
+
+      return changeSetFilter(changeSet);
     }
   );
 
@@ -1264,10 +1283,10 @@ export default class DatasetCompliance extends Component {
 
     /**
      * Updates the fieldReviewOption with the user selected value
-     * @param {{value: ShowAllShowReview}} { value }
-     * @returns {ShowAllShowReview}
+     * @param {{value: TagFilter}} { value }
+     * @returns {TagFilter}
      */
-    onFieldReviewChange(this: DatasetCompliance, { value }: { value: ShowAllShowReview }): ShowAllShowReview {
+    onFieldReviewChange(this: DatasetCompliance, { value }: { value: TagFilter }): TagFilter {
       const option = set(this, 'fieldReviewOption', value);
       get(this, 'foldChangeSetTask').perform();
 

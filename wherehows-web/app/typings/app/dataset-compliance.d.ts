@@ -145,14 +145,8 @@ type IComplianceFieldFormatOption = IDropDownOption<IdLogicalType | null>;
  */
 type ISecurityClassificationOption = IDropDownOption<Classification | null>;
 
-/**
- * Defines the applicable string values for compliance fields drop down filter
- */
-type ShowAllShowReview = 'showReview' | 'showAll';
-
 export {
   IComplianceChangeSet,
-  ShowAllShowReview,
   IDatasetComplianceActions,
   IComplianceEntityWithMetadata,
   ISchemaFieldsToPolicy,
