@@ -7,7 +7,7 @@ const fixtures = [
   'dataset-acl-users'
 ];
 
-export default function(server) {
+export default function(server: any) {
   server.loadFixtures(...fixtures);
   server.create('config');
   server.createList('owner', 6);

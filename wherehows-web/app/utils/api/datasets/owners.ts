@@ -205,7 +205,7 @@ const getUserEntities: () => Promise<IPartyProps> = (() => {
    * Memoized reference to the resolved value of a previous invocation to curried function in getUserEntities
    * @type {{result: IPartyProps | null}}
    */
-  const cache: { result: IPartyProps | null; userEntitiesSource: Array<keyof IUserEntityMap> } = {
+  const cache: { result: IPartyProps | null; userEntitiesSource: Array<Extract<keyof IUserEntityMap, string>> } = {
     result: null,
     userEntitiesSource: []
   };
