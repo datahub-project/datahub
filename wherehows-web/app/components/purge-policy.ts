@@ -53,6 +53,13 @@ export default class PurgePolicyComponent extends Component {
   purgePolicy: PurgePolicy;
 
   /**
+   * The default selected Purge Policy if one does not exist for this dataset
+   * @type {PurgePolicy}
+   * @memberof PurgePolicyComponent
+   */
+  defaultPurgePolicy: PurgePolicy;
+
+  /**
    * Flag indication that policy has a request exemption reason
    * @type {boolean}
    */

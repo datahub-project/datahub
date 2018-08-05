@@ -10,7 +10,7 @@
           name="dataset-purge-policy"
           value=(if (contains purgeType supportedPurgePolicies) purgeType null)
           disabled=(if (contains purgeType supportedPurgePolicies) false true)
-          groupValue=(readonly purgePolicy)
+          groupValue=(readonly (or purgePolicy defaultPurgePolicy))
           changed=(action "onChange")
         }}
           {{prop.displayAs}}
