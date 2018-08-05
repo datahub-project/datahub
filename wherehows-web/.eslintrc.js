@@ -4,7 +4,7 @@ module.exports = {
     server: true,
     define: true
   },
-  extends: ['prettier', 'plugin:ember/recommended'],
+  extends: ['plugin:ember/recommended', 'prettier'],
   parser: 'typescript-eslint-parser',
   parserOptions: {
     ecmaVersion: 2018,

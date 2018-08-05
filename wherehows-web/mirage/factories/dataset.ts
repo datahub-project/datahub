@@ -1,5 +1,5 @@
 import { Factory, faker, trait } from 'ember-cli-mirage';
-import { testSchemaA } from 'wherehows-web/mirage/data/schema';
+import { testSchemaA } from 'wherehows-web/mirage/fixtures/schema';
 
 export default Factory.extend({
   id: faker.random.number({ min: 10000, max: 20000 }),
@@ -34,10 +34,10 @@ export default Factory.extend({
   owners: () => [],
 
   forUnitTests: trait({
-    id(id) {
+    id(id: number) {
       return id;
     },
-    schema(id) {
+    schema(id: number) {
       return id === 0 ? testSchemaA : 'abcd';
     }
   })
