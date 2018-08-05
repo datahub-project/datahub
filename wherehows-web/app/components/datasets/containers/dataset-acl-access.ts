@@ -68,6 +68,13 @@ export default class DatasetAclAccessContainer extends Component {
   userAcl: Array<IAccessControlEntry> = [];
 
   /**
+   * Flag indicating that this dataset platform has JIT ACL access enabled
+   * @type {boolean}
+   * @memberof DatasetAclAccessContainer
+   */
+  isJitAclAccessEnabled: boolean;
+
+  /**
    * Request object for the current user requesting access control
    * @type {IRequestAccessControlEntry}
    * @memberof DatasetAclAccessContainer
@@ -79,9 +86,9 @@ export default class DatasetAclAccessContainer extends Component {
    * @type {Array<IAccessControlAccessTypeOption>}
    * @memberof DatasetAclAccessContainer
    */
-  accessTypeDropDownOptions: Array<IAccessControlAccessTypeOption> = getAccessControlTypeOptions(<Array<
-    AccessControlAccessType
-  >>Object.values(AccessControlAccessType));
+  accessTypeDropDownOptions: Array<IAccessControlAccessTypeOption> = getAccessControlTypeOptions(<
+    Array<AccessControlAccessType>
+  >Object.values(AccessControlAccessType));
 
   /**
    * Checks if there is a acl entry in the userAcl tuple
@@ -103,6 +110,13 @@ export default class DatasetAclAccessContainer extends Component {
 
   didUpdateAttrs() {
     get(this, 'getContainerDataTask').perform();
+  }
+
+  constructor() {
+    super(...arguments);
+
+    // Default to false if not set externally
+    typeof this.isJitAclAccessEnabled === 'boolean' || set(this, 'isJitAclAccessEnabled', false);
   }
 
   /**
@@ -165,17 +179,18 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   getContainerDataTask = task(function*(this: DatasetAclAccessContainer): IterableIterator<any> {
-    const { getCurrentUserTask, getDatasetAclsTask, checkUserAccessTask } = getProperties(this, [
-      'getCurrentUserTask',
-      'getDatasetAclsTask',
-      'checkUserAccessTask'
-    ]);
+    if (get(this, 'isJitAclAccessEnabled')) {
+      const { getCurrentUserTask, getDatasetAclsTask, checkUserAccessTask } = getProperties(this, [
+        'getCurrentUserTask',
+        'getDatasetAclsTask',
+        'checkUserAccessTask'
+      ]);
+      const user: DatasetAclAccessContainer['user'] = yield getCurrentUserTask.perform();
 
-    const user: DatasetAclAccessContainer['user'] = yield getCurrentUserTask.perform();
-
-    if (user) {
-      yield getDatasetAclsTask.perform();
-      yield checkUserAccessTask.perform();
+      if (user) {
+        yield getDatasetAclsTask.perform();
+        yield checkUserAccessTask.perform();
+      }
     }
   });
 
