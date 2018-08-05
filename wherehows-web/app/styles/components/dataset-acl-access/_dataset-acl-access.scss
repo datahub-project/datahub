@@ -120,3 +120,8 @@ $gray-color: rgb(234, 234, 234);
 .acl-expiration-calendar {
   @include ember-power-calendar($cell-size: item-spacing(7), $primary-color: get-color(blue7));
 }
+
+.acl-no-platform-access {
+  margin-top: item-spacing(5);
+  @include nacho-container;
+}
