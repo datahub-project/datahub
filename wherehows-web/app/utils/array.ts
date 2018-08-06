@@ -14,6 +14,14 @@ type Iteratee<A, R> = (a: A) => R;
 type Many<T> = T | Array<T>;
 
 /**
+ * Serializes the values in an array as a sorted string
+ * @template S the type of values in the array that are assignable to type string
+ * @param {Array<S>} stringArray array of values assignable to S
+ * @returns {string}
+ */
+const serializeStringArray = <S extends string>(stringArray: Array<S>): string => String([...stringArray].sort());
+
+/**
  * Takes a number of elements in the list from the start up to the length of the list
  * @template T type of elements in array
  * @param {number} [n=0] number of elements to take from the start of the array
@@ -253,5 +261,6 @@ export {
   arrayEvery,
   arraySome,
   iterateArrayAsync,
-  reduceArrayAsync
+  reduceArrayAsync,
+  serializeStringArray
 };
