@@ -71,6 +71,7 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
+import { pluralize } from 'ember-inflector';
 
 const {
   complianceDataException,
@@ -277,7 +278,10 @@ export default class DatasetCompliance extends Component {
    */
   complianceDataTypes: Array<IComplianceDataType>;
 
-  // Map of classifiers options for drop down
+  /**
+   * Mapped list of classifiers options for drop down
+   * @type {Array<ISecurityClassificationOption>}
+   */
   classifiers: Array<ISecurityClassificationOption> = getSecurityClassificationDropDownOptions();
 
   /**
@@ -286,6 +290,30 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOption: TagFilter = TagFilter.showAll;
+
+  /**
+   * Computes a cta string for the selected field review filter option
+   * @type {ComputedProperty<string>}
+   * @memberof DatasetCompliance
+   */
+  fieldReviewHint: ComputedProperty<string> = computed('fieldReviewOption', 'changeSetReviewCount', function(
+    this: DatasetCompliance
+  ): string {
+    type TagFilterHint = { [K in TagFilter]: string };
+
+    const { fieldReviewOption, changeSetReviewCount } = getProperties(this, [
+      'fieldReviewOption',
+      'changeSetReviewCount'
+    ]);
+
+    const hint = (<TagFilterHint>{
+      [TagFilter.showAll]: `${pluralize(changeSetReviewCount, 'field')} to be reviewed`,
+      [TagFilter.showReview]: 'It is required to select compliance info for all fields',
+      [TagFilter.showSuggested]: 'Please review suggestions and provide feedback'
+    })[fieldReviewOption];
+
+    return changeSetReviewCount ? hint : '';
+  });
 
   /**
    * Flag indicating that the component is in edit mode
@@ -503,7 +531,7 @@ export default class DatasetCompliance extends Component {
    */
   fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
     { value: TagFilter.showAll, label: 'Show all fields' },
-    { value: TagFilter.showReview, label: 'Show required field' },
+    { value: TagFilter.showReview, label: 'Show required fields' },
     { value: TagFilter.showSuggested, label: 'Show suggested fields' }
   ];
 

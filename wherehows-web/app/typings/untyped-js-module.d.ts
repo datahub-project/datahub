@@ -60,7 +60,8 @@ declare module '@ember/service' {
 
 declare module 'ember-inflector' {
   const singularize: (arg: string) => string;
-  const pluralize: (arg: string) => string;
+  function pluralize(arg: string): string;
+  function pluralize(count: number, arg: string, options?: { withoutCount: number }): string;
   export { singularize, pluralize };
 }
 
