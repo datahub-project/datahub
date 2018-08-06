@@ -40,6 +40,8 @@ import static wherehows.utils.ProcessorUtil.*;
 @Slf4j
 public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
+  private static final String MCE_ACTOR = "WhereHows-MIE-processor";
+
   private final Set<String> _whitelistActors;
 
   private final DatasetViewDao _datasetViewDao;
@@ -68,7 +70,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
     final MetadataInventoryEvent event = (MetadataInventoryEvent) indexedRecord;
     try {
-      for (MetadataChangeEvent mce : processEvent(event)) {
+      for (MetadataChangeEvent mce : processEvent(event, MCE_ACTOR)) {
         sendMessage(mce);
         log.info("set " + mce.datasetIdentifier + " removed");
       }
@@ -78,7 +80,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
     }
   }
 
-  public List<MetadataChangeEvent> processEvent(MetadataInventoryEvent event) throws Exception {
+  public List<MetadataChangeEvent> processEvent(MetadataInventoryEvent event, String mceActor) throws Exception {
     final ChangeAuditStamp changeAuditStamp = event.changeAuditStamp;
     final String actorUrn = changeAuditStamp.actorUrn == null ? null : changeAuditStamp.actorUrn.toString();
     if (_whitelistActors != null && !_whitelistActors.contains(actorUrn)) {
@@ -112,7 +114,7 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
       identifier.dataOrigin = origin;
       identifier.nativeName = datasetName;
 
-      return mceDelete(identifier, event.deployment, actorUrn);
+      return mceDelete(identifier, event.deployment, mceActor);
     }).collect(Collectors.toList());
   }
 
