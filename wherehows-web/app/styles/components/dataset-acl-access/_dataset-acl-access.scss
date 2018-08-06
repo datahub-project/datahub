@@ -122,6 +122,6 @@ $gray-color: rgb(234, 234, 234);
 }
 
 .acl-no-platform-access {
-  margin-top: item-spacing(5);
   @include nacho-container;
+  margin-top: item-spacing(5);
 }
