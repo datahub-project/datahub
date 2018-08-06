@@ -17,6 +17,7 @@ import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { action } from '@ember-decorators/object';
 import { retentionObjectFactory } from 'wherehows-web/constants/datasets/retention';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
+import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 
 /**
  * Aliases the yieldable values for the container task
@@ -44,11 +45,19 @@ export default class UpstreamDatasetContainer extends Component {
   urn: string;
 
   /**
-   * The plaform this dataset is stored on
+   * The platform this dataset is stored on
    * @type {IDatasetView.platform}
    * @memberof UpstreamDatasetContainer
    */
   platform: IDatasetView['platform'];
+
+  /**
+   * Purge Policy for the upstream dataset, used as the default selected option for this dataset if a current
+   * Purge Policy does not exist
+   * @type {IComplianceInfo.complianceType}
+   * @memberof UpstreamDatasetContainer
+   */
+  upstreamComplianceType: IComplianceInfo['complianceType'] | undefined;
 
   /**
    * The list of supported purge policies for the related platform
