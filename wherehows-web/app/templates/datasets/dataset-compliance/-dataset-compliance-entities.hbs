@@ -44,10 +44,10 @@
       selectionDidChange=(action "onFieldReviewChange")
     }}
 
-    {{#if changeSetReviewCount}}
+    {{#if fieldReviewHint}}
       <span class="dataset-compliance-fields__has-suggestions">
-          {{changeSetReviewCount}} fields to be reviewed
-    </span>
+        {{fieldReviewHint}}
+      </span>
     {{/if}}
   {{/if}}
 
