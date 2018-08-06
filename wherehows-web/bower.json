@@ -4,7 +4,6 @@
     "ace-builds": "^1.2.6",
     "bootstrap": "3.3.7",
     "font-awesome": "^4.7.0",
-    "highcharts": "^5.0.7",
     "jquery-jsonview": "jsonview#^1.2.3",
     "jquery-treegrid": "^0.3.0",
     "jquery-ui": "^1.12.1",

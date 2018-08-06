@@ -58,11 +58,6 @@ export default Controller.extend({
         });
 
         var runtimeUrl = '/api/v1/scriptFinder/scripts/runtime/' + script.applicationID + '/' + script.jobID;
-        $.get(runtimeUrl, data => {
-          if (data && data.status == 'ok') {
-            this.renderRuntimeHighcharts(data.data);
-          }
-        });
       }
     },
     typeChanged: function() {
@@ -124,44 +119,7 @@ export default Controller.extend({
       return false;
     }
   }),
-  renderRuntimeHighcharts(data) {
-    $('#runtime').highcharts({
-      chart: {
-        type: 'bar'
-      },
-      title: {
-        text: 'Execution Time'
-      },
-      xAxis: {
-        categories: getCategories(data),
-        title: {
-          text: 'Start Time'
-        }
-      },
-      yAxis: {
-        title: {
-          text: 'Time (sec)'
-        }
-      },
-      tooltip: {
-        style: {
-          padding: 10,
-          fontWeight: 'bold'
-        }
-      },
-      plotOptions: {
-        bar: {
-          dataLabels: {
-            enabled: true
-          }
-        }
-      },
-      credits: {
-        enabled: false
-      },
-      series: getSeries(data)
-    });
-  },
+
   updateScripts(page) {
     var url;
     let query;
@@ -239,7 +197,6 @@ export default Controller.extend({
                 .addClass('highlight')
                 .siblings()
                 .removeClass('highlight');
-              this.get('renderRuntimeHighcharts')(data.data);
             }
           });
         }

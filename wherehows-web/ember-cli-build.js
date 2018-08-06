@@ -139,7 +139,6 @@ module.exports = function(defaults) {
   app.import('bower_components/ace-builds/src-noconflict/theme-github.js');
   app.import('bower_components/ace-builds/src-noconflict/mode-sql.js');
   app.import('bower_components/toastr/toastr.min.js');
-  app.import('bower_components/highcharts/highcharts.js');
   app.import('bower_components/jsondiffpatch/public/build/jsondiffpatch.min.js');
   app.import('bower_components/jsondiffpatch/public/build/jsondiffpatch-formatters.min.js');
   app.import('bower_components/x-editable/dist/bootstrap3-editable/js/bootstrap-editable.min.js');
