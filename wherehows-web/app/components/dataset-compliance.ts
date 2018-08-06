@@ -66,13 +66,11 @@ import {
 import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
-import { pick } from 'lodash';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
-import validateMetadataObject, {
-  complianceEntitiesTaxonomy
-} from 'wherehows-web/utils/datasets/compliance/metadata-schema';
+import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { typeOf } from '@ember/utils';
+import { pick } from 'wherehows-web/utils/object';
 
 const {
   complianceDataException,
@@ -154,7 +152,14 @@ export default class DatasetCompliance extends Component {
   jsonComplianceEntities: ComputedProperty<string> = computed('columnIdFieldsToCurrentPrivacyPolicy', function(
     this: DatasetCompliance
   ): string {
-    const entityAttrs = ['identifierField', 'identifierType', 'logicalType', 'nonOwner', 'valuePattern', 'readonly'];
+    const entityAttrs: Array<keyof IComplianceEntity> = [
+      'identifierField',
+      'identifierType',
+      'logicalType',
+      'nonOwner',
+      'valuePattern',
+      'readonly'
+    ];
     const entityMap: ISchemaFieldsToPolicy = get(this, 'columnIdFieldsToCurrentPrivacyPolicy');
     const entitiesWithModifiableKeys = arrayMap((tag: IComplianceEntityWithMetadata) => pick(tag, entityAttrs))(
       (<Array<IComplianceEntityWithMetadata>>[]).concat(...Object.values(entityMap))
@@ -472,12 +477,14 @@ export default class DatasetCompliance extends Component {
           // invoking the previousStep action to go back in the sequence
           // batch previousStep invocation in a afterRender queue due to editStepIndex update
           previousAction = noop;
-          run((): void => {
-            if (this.isDestroyed || this.isDestroying) {
-              return;
+          run(
+            (): void => {
+              if (this.isDestroyed || this.isDestroying) {
+                return;
+              }
+              schedule('afterRender', this, this.actions.previousStep);
             }
-            schedule('afterRender', this, this.actions.previousStep);
-          });
+          );
         }
       }
     }).enqueue();
@@ -979,7 +986,7 @@ export default class DatasetCompliance extends Component {
     ]);
     const { complianceEntities } = complianceInfo!;
     // All changeSet attrs that can be on policy, excluding changeSet metadata
-    const entityAttrs = [
+    const entityAttrs: Array<keyof IComplianceEntity> = [
       'identifierField',
       'identifierType',
       'logicalType',
@@ -989,7 +996,7 @@ export default class DatasetCompliance extends Component {
       'valuePattern'
     ];
     const updatingComplianceEntities = arrayMap(
-      (tag: IComplianceChangeSet): IComplianceEntity => <IComplianceEntity>pick(tag, entityAttrs)
+      (tag: IComplianceChangeSet): IComplianceEntity => pick(tag, entityAttrs)
     )(workingCopy);
 
     return complianceEntities.setObjects(updatingComplianceEntities);
@@ -1095,12 +1102,24 @@ export default class DatasetCompliance extends Component {
      */
     onManualComplianceUpdate(this: DatasetCompliance, updatedEntities: string): void {
       try {
-        // check if the string is parseable as a JSON object
+        // check if the string is parse-able as a JSON object
         const entities = JSON.parse(updatedEntities);
         const metadataObject = {
           complianceEntities: entities
         };
-        const isValid = validateMetadataObject(metadataObject, complianceEntitiesTaxonomy);
+        // Check that metadataObject has a valid property matching complianceEntitiesTaxonomy
+        let isValid = isMetadataObject(metadataObject);
+
+        // Lists the fieldNames / identifierField property values on the edit compliance policy
+        const updatedIdentifierFieldValues = arrayMap(({ identifierField }: IComplianceEntity) => identifierField)(
+          entities
+        );
+        // Lists the expected fieldNames / identifierField property values from the schemaFieldNamesMappedToDataTypes
+        const expectedIdentifierFieldValues = arrayMap(
+          ({ fieldName }: Pick<IDatasetColumn, 'dataType' | 'fieldName'>) => fieldName
+        )(get(this, 'schemaFieldNamesMappedToDataTypes'));
+
+        isValid = isValid && jsonValuesMatch(updatedIdentifierFieldValues, expectedIdentifierFieldValues);
 
         setProperties(this, { isManualApplyDisabled: !isValid, manualParseError: '' });
 
@@ -1119,7 +1138,7 @@ export default class DatasetCompliance extends Component {
     async onApplyComplianceJson(this: DatasetCompliance) {
       try {
         await get(this, 'onComplianceJsonUpdate')(JSON.stringify(get(this, 'manuallyEnteredComplianceEntities')));
-        // Proceed to next step if application of entites is successful
+        // Proceed to next step if application of entities is successful
         this.actions.nextStep.call(this);
       } catch {
         noop();
@@ -1263,11 +1282,13 @@ export default class DatasetCompliance extends Component {
       }
 
       if (willMarkAllAsNo) {
-        return <DatasetClassification>setProperties(
-          this.getDatasetClassificationRef(),
-          datasetClassifiersKeys.reduce(
-            (classification, classifier): {} => ({ ...classification, ...{ [classifier]: false } }),
-            {}
+        return <DatasetClassification>(
+          setProperties(
+            this.getDatasetClassificationRef(),
+            datasetClassifiersKeys.reduce(
+              (classification, classifier): {} => ({ ...classification, ...{ [classifier]: false } }),
+              {}
+            )
           )
         );
       }

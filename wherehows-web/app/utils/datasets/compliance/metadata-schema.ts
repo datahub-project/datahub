@@ -1,9 +1,10 @@
 import { typeOf } from '@ember/utils';
 import { DatasetClassifiers } from 'wherehows-web/constants';
-import { arrayEvery, arrayMap, arrayReduce } from 'wherehows-web/utils/array';
+import { arrayEvery, arrayMap, arrayReduce, serializeStringArray } from 'wherehows-web/utils/array';
 import { IObject } from 'wherehows-web/typings/generic';
 import { isObject } from 'wherehows-web/utils/object';
 import { difference } from 'lodash';
+import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
 
 /**
  * Defines the interface for an IDL that specifies the data types for properties on
@@ -186,6 +187,34 @@ const keysMatchNames = (object: IObject<any>, typeMaps: Array<IMetadataType>): t
 };
 
 /**
+ * Validates that an array of json object string values match
+ * @param {Array<string>} values the received list of strings
+ * @param {Array<string>} expectedValues the expected list of strings
+ * @returns {true}
+ */
+const jsonValuesMatch = (values: Array<string>, expectedValues: Array<string>): true => {
+  const sValues = serializeStringArray(values);
+  const sExpectedValues = serializeStringArray(expectedValues);
+  const match = sValues === sExpectedValues;
+
+  if (!match) {
+    throw new Error(
+      ` Found ${difference(values, expectedValues).join(', ')}. Expected only ${expectedValues.join(', ')}`
+    );
+  }
+
+  return match;
+};
+
+/**
+ * Type guard asserts that object is assignable to { complianceEntities: Array<IComplianceEntity> }
+ * @param {*} object object to be tested against complianceEntitiesTaxonomy
+ * @returns {(object is { complianceEntities: Array<IComplianceEntity> })}
+ */
+const isMetadataObject = (object: any): object is { complianceEntities: Array<IComplianceEntity> } =>
+  keysEquiv(object, complianceEntitiesTaxonomy);
+
+/**
  * Checks each key on an object matches the expected types in the typeMap
  * @param {IObject<any>} object the object with keys to check
  * @param {Array<IMetadataType>} typeMaps the colon delimited type string
@@ -196,4 +225,4 @@ const keysEquiv = (object: IObject<any>, typeMaps: Array<IMetadataType>): boolea
 
 export default keysEquiv;
 
-export { complianceMetadataTaxonomy, complianceEntitiesTaxonomy };
+export { complianceMetadataTaxonomy, complianceEntitiesTaxonomy, jsonValuesMatch, isMetadataObject };
