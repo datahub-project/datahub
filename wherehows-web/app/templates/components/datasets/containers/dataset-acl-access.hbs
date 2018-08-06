@@ -4,16 +4,24 @@
 
 {{else}}
 
-  {{dataset-aclaccess
-    acls=acls
-    hasValidAclRequest=hasValidAclRequest
-    userAclRequest=userAclRequest
-    userHasAclAccess=userHasAclAccess
-    requestAccessAndCheckAccessTask=requestAccessAndCheckAccessTask
-    removeAccessTask=removeAccessTask
-    accessTypeDropDownOptions=accessTypeDropDownOptions
-    expiresAtDidChange=(action "expiresAtDidChange")
-    accessTypeDidChange=(action "accessTypeDidChange")
-  }}
+  {{#if isJitAclAccessEnabled}}
+    {{dataset-aclaccess
+      acls=acls
+      hasValidAclRequest=hasValidAclRequest
+      userAclRequest=userAclRequest
+      userHasAclAccess=userHasAclAccess
+      requestAccessAndCheckAccessTask=requestAccessAndCheckAccessTask
+      removeAccessTask=removeAccessTask
+      accessTypeDropDownOptions=accessTypeDropDownOptions
+      expiresAtDidChange=(action "expiresAtDidChange")
+      accessTypeDidChange=(action "accessTypeDidChange")
+    }}
+  {{else}}
+    <div class="acl-no-platform-access">
+      <strong>
+        JIT ACL is not currently available for this dataset platform
+      </strong>
+    </div>
+  {{/if}}
 
 {{/if}}
