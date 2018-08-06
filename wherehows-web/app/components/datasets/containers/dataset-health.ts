@@ -1,12 +1,22 @@
 import Component from '@ember/component';
 import { get, computed, setProperties, getProperties } from '@ember/object';
-import { task, TaskInstance } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import healthCategories from 'wherehows-web/mirage/fixtures/health-categories';
 import healthSeverity from 'wherehows-web/mirage/fixtures/health-severity';
 import healthDetail from 'wherehows-web/mirage/fixtures/health-detail';
 import { IHealthScore } from 'wherehows-web/typings/api/datasets/health';
+
+/**
+ * Used for the dataset health tab, represents the fieldnames for the health score table
+ */
+export enum HealthDataFields {
+  category = 'Category',
+  severity = 'Severity',
+  description = 'Description',
+  score = 'Score'
+}
 
 /**
  * This is the container component for the dataset health tab. It should contain the health bar graphs and a table
@@ -116,7 +126,7 @@ export default class DatasetHealthContainer extends Component {
    * An async parent task to group all data tasks for this container component
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
-  getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<TaskInstance<Promise<any>>> {
+  getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<void> {
     // Pretend like we're getting data from somehwere
     const healthData = {
       categories: healthCategories,
