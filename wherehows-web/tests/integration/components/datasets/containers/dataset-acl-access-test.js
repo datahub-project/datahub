@@ -39,6 +39,6 @@ test('it renders', function(assert) {
     this.$()
       .text()
       .trim(),
-    ''
+    'JIT ACL is not currently available for this dataset platform'
   );
 });

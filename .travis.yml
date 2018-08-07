@@ -34,6 +34,7 @@ cache:
     - $HOME/.gradle/wrapper/
 
 script:
+- echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 - ./gradlew check assemble
 - ./gradlew jacocoFullReport coveralls && ./gradlew emberCoverage
 - (cd wherehows-docker && ./build.sh latest)
