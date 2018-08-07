@@ -2,8 +2,10 @@
    order for each item should always be the same */
 @for $i from 1 through 18 {
   $color: get-dataviz-color($i);
-  .highcharts-color-#{$i - 1} {
-    fill: $color;
-    stroke: $color;
+  .viz-chart {
+    .highcharts-color-#{$i - 1} {
+      fill: $color;
+      stroke: $color;
+    }
   }
 }
