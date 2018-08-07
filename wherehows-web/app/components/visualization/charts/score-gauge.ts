@@ -1,6 +1,7 @@
 import Component from '@ember/component';
 import { computed, setProperties, getProperties, get } from '@ember/object';
 import { IHighChartsGaugeConfig, IHighChartsDataConfig } from 'wherehows-web/typings/app/visualization/charts';
+import { getBaseGaugeConfig, getBaseChartDataConfig } from 'wherehows-web/constants/visualization/charts/chart-configs';
 
 /**
  * Whether the score is in the good (51%+), warning (26-50%) or critical (0-25% range)
@@ -45,18 +46,21 @@ export default class VisualizationChartsScoreGauge extends Component {
 
   /**
    * Displays a passed in chart title.
+   * @type {number}
    * @default ''
    */
   title: string;
 
   /**
    * Fetched score data in order to render onto the graph
-   * @default NaN
+   * @type {number}
+   * @default 0
    */
   score: number;
 
   /**
    * Represents the maximum value a score can be. Helps us to calculate a percentage score
+   * @type {number}
    * @default 100
    */
   maxScore: number;
@@ -72,15 +76,12 @@ export default class VisualizationChartsScoreGauge extends Component {
    * Gives a simple access to the chart state for other computed values to use
    * @type {ComputedProperty<string>}
    */
-  chartState = computed('score', function(): string {
-    const { score, maxScore } = getProperties(this, 'score', 'maxScore');
-    const percentageScore = score / maxScore;
+  chartState = computed('score', function(): ScoreState {
+    const scoreAsPercentage = get(this, 'scoreAsPercentage');
 
-    if (percentageScore <= 0.25) {
+    if (scoreAsPercentage <= 25) {
       return ScoreState.critical;
-    }
-
-    if (percentageScore <= 0.5) {
+    } else if (scoreAsPercentage <= 50) {
       return ScoreState.warning;
     }
 
@@ -95,6 +96,11 @@ export default class VisualizationChartsScoreGauge extends Component {
     return `score-gauge__legend-value--${get(this, 'chartState')}`;
   });
 
+  /**
+   * Computes the score as a percentage in order to determine the score state property as well as use
+   * in the template to display the numerical score if we choose to display as a percentage
+   * @type {ComputedProperty<number>}
+   */
   scoreAsPercentage = computed('score', function(): number {
     const { score, maxScore } = getProperties(this, 'score', 'maxScore');
 
@@ -106,71 +112,18 @@ export default class VisualizationChartsScoreGauge extends Component {
    * component class
    * @type {ComputedProperty<IHighChartsGaugeConfig>}
    */
-  chartOptions = computed(function(): IHighChartsGaugeConfig {
-    return {
-      chart: { type: 'solidgauge', backgroundColor: 'transparent' },
-      title: '',
-      pane: {
-        center: ['50%', '50%'],
-        size: '100%',
-        startAngle: 0,
-        endAngle: 360,
-        background: {
-          backgroundColor: '#ddd',
-          innerRadius: '90%',
-          outerRadius: '100%',
-          shape: 'arc',
-          borderColor: 'transparent'
-        }
-      },
-      tooltip: {
-        enabled: false
-      },
-      yAxis: {
-        min: 0,
-        max: 100,
-        stops: [
-          [0.25, '#ff2c33'], // get-color(red5)
-          [0.5, '#e55800'], // get-color(orange5)
-          [0.75, '#469a1f'] // get-color(green5)
-        ],
-        minorTickInterval: null,
-        tickPixelInterval: 400,
-        tickWidth: 0,
-        gridLineWidth: 0,
-        gridLineColor: 'transparent',
-        labels: {
-          enabled: false
-        },
-        title: {
-          enabled: false
-        }
-      },
-      credits: {
-        enabled: false
-      },
-      plotOptions: {
-        solidgauge: {
-          innerRadius: '90%',
-          dataLabels: {
-            enabled: false
-          }
-        }
-      }
-    };
-  });
+  chartOptions: IHighChartsGaugeConfig;
 
   /**
    * Creates a fresh copy of the data object in the format expected by the highcharts "content" reader.
    */
-  chartData = computed(function(): Array<IHighChartsDataConfig> {
-    return [{ name: 'score', data: [0] }];
-  });
+  chartData: Array<IHighChartsDataConfig>;
 
   constructor() {
     super(...arguments);
 
-    const { chartOptions, chartData } = getProperties(this, 'chartOptions', 'chartData');
+    const chartOptions = getBaseGaugeConfig();
+    const chartData = getBaseChartDataConfig('score');
     const maxScore = typeof this.maxScore === 'number' ? this.maxScore : 100;
     const score = this.score || NaN;
     // Adds our information to the highcharts formatted configurations so that they can be read in the chart
@@ -180,6 +133,8 @@ export default class VisualizationChartsScoreGauge extends Component {
     setProperties(this, {
       score,
       maxScore,
+      chartOptions,
+      chartData,
       title: this.title || '',
       scoreDisplay: this.scoreDisplay || ScoreDisplay.percentage
     });
