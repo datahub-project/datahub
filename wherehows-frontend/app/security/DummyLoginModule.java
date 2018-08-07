@@ -6,6 +6,7 @@ import javax.security.auth.login.LoginException;
 import javax.security.auth.spi.LoginModule;
 import java.util.Map;
 
+
 /**
  * This LoginModule performs dummy authentication.
  * Any username and password can work for authentication
