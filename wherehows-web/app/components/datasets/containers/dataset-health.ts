@@ -3,10 +3,8 @@ import { get, computed, setProperties, getProperties } from '@ember/object';
 import { task } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
-import healthCategories from 'wherehows-web/mirage/fixtures/health-categories';
-import healthSeverity from 'wherehows-web/mirage/fixtures/health-severity';
-import healthDetail from 'wherehows-web/mirage/fixtures/health-detail';
 import { IHealthScore } from 'wherehows-web/typings/api/datasets/health';
+import { healthCategories, healthSeverity, healthDetail } from 'wherehows-web/constants/data/temp-mock/health';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
