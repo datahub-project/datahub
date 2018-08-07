@@ -22,12 +22,13 @@ module.exports = function(defaults) {
     },
 
     emberHighCharts: {
-      includedHighCharts: true,
+      includeHighCharts: true,
       // Note: Since we only need highcharts, excluding the other available modules in the addon
       includeHighStock: false,
       includeHighMaps: false,
-      includeHighChartsMore: false,
-      includeHighCharts3D: false
+      includeHighChartsMore: true,
+      includeHighCharts3D: false,
+      includeModules: ['solid-gauge']
     },
 
     storeConfigInMeta: false,
