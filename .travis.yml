@@ -28,13 +28,15 @@ before_install:
   - chmod +x docker-compose
   - sudo mv docker-compose /usr/local/bin
 
+  - echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+
+
 cache:
   directories:
     - $HOME/.gradle/caches/
     - $HOME/.gradle/wrapper/
 
 script:
-- echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
 - ./gradlew check assemble
 - ./gradlew jacocoFullReport coveralls && ./gradlew emberCoverage
 - (cd wherehows-docker && ./build.sh latest)
