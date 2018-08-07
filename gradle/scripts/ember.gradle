@@ -27,18 +27,18 @@ task bowerInstall(type: NodeTask, dependsOn: yarn) {
 }
 
 task emberServe(type: NodeTask, dependsOn: bowerInstall) {
-  script = file('node_modules/ember-cli/bin/ember')
+  script = file('node_modules/.bin/ember')
   args = ['serve']
 }
 
 task emberBuild(type: NodeTask, dependsOn: bowerInstall) {
-  script = file('node_modules/ember-cli/bin/ember')
+  script = file('node_modules/.bin/ember')
   args = ['build', '--environment', 'production']
 }
 
 task emberTest(type: NodeTask, dependsOn: bowerInstall) {
   environment = ['COVERAGE': 'true']
-  script = file('node_modules/ember-cli/bin/ember')
+  script = file('node_modules/.bin/ember')
   args = ['test', '--launch', 'Chrome']
 }
 
