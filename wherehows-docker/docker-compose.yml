@@ -43,9 +43,6 @@ services:
       WHZ_ES_DATASET_URL: ${WHZ_ES_DATASET_URL}
       WHZ_ES_METRIC_URL: ${WHZ_ES_METRIC_URL}
       WHZ_ES_FLOW_URL: ${WHZ_ES_FLOW_URL}
-      WHZ_LDAP_URL: ${WHZ_LDAP_URL}
-      WHZ_LDAP_PRINCIPAL_DOMAIN: ${WHZ_LDAP_PRINCIPAL_DOMAIN}
-      WHZ_LDAP_SEARCH_BASE: ${WHZ_LDAP_SEARCH_BASE}
     command: dockerize -wait tcp://wherehows-mysql:3306 -wait http://wherehows-elasticsearch:9200 -timeout 120s bin/playBinary
     links:
       - "wherehows-mysql:wherehows-mysql"
