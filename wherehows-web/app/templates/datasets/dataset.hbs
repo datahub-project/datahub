@@ -49,17 +49,32 @@
           {{/if}}
         </div>
 
-        {{#datasets/containers/dataset-fabrics class="dataset-fabric-row-container" urn=model.uri as |fabricsContainer|}}
-          <div class="dataset-fabric-entity-container">
-            <strong>Fabric:</strong> {{datasets/dataset-fabric-switcher
-            urn=fabricsContainer.urn
-          }}
-          </div>
-        {{/datasets/containers/dataset-fabrics}}
+        <div class="dataset-header-meta">
+          {{#datasets/containers/dataset-fabrics class="dataset-fabric-row-container" urn=model.uri as |fabricsContainer|}}
+            <div class="dataset-fabric-entity-container">
+              <strong>Fabric:</strong> {{datasets/dataset-fabric-switcher urn=fabricsContainer.urn }}
+            </div>
+          {{/datasets/containers/dataset-fabrics}}
+
+          {{#if shouldShowDatasetHealth}}
+            {{datasets/containers/dataset-owner-list
+              urn=encodedUrn
+              class="dataset-owner-list"
+              shouldShowDatasetHealth=shouldShowDatasetHealth}}
+
+            {{visualization/charts/score-gauge
+              class="dataset-health-score"
+              score=83
+              title="Health Score:"}}
+          {{/if}}
+        </div>
+
       </div>
     </div>
 
-    {{datasets/containers/dataset-owner-list urn=encodedUrn}}
+    {{#unless shouldShowDatasetHealth}}
+      {{datasets/containers/dataset-owner-list urn=encodedUrn}}
+    {{/unless}}
 
   </div>
 </div>
