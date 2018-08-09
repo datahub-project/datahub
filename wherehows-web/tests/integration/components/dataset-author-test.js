@@ -1,4 +1,6 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { triggerEvent } from 'ember-native-dom-helpers';
 
@@ -10,81 +12,81 @@ const [confirmedOwner, suggestedOwner] = owners;
 const commonOwners = [];
 const ownerTypes = Object.values(OwnerType);
 
-moduleForComponent('dataset-author', 'Integration | Component | dataset author', {
-  integration: true
-});
+module('Integration | Component | dataset author', function(hooks) {
+  setupRenderingTest(hooks);
 
-test('it renders', function(assert) {
-  this.set('removeOwner', noop);
-  this.set('confirmSuggestedOwner', noop);
-  this.set('owner', confirmedOwner);
-  this.set('commonOwners', commonOwners);
+  test('it renders', async function(assert) {
+    this.set('removeOwner', noop);
+    this.set('confirmSuggestedOwner', noop);
+    this.set('owner', confirmedOwner);
+    this.set('commonOwners', commonOwners);
 
-  this.render(
-    hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
-  );
+    await render(
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+    );
 
-  assert.equal(document.querySelector('tr.dataset-author-record').tagName, 'TR');
-});
-
-test('triggers the removeOwner action when invoked', function(assert) {
-  assert.expect(2);
-  let removeActionCallCount = 0;
-
-  this.set('removeOwner', () => {
-    removeActionCallCount++;
-    assert.equal(removeActionCallCount, 1, 'action is called once');
+    assert.equal(document.querySelector('tr.dataset-author-record').tagName, 'TR');
   });
-  this.set('confirmSuggestedOwner', noop);
-  this.set('owner', confirmedOwner);
-  this.set('commonOwners', commonOwners);
 
-  this.render(
-    hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
-  );
+  test('triggers the removeOwner action when invoked', async function(assert) {
+    assert.expect(2);
+    let removeActionCallCount = 0;
 
-  assert.equal(removeActionCallCount, 0, 'action is not called on render');
+    this.set('removeOwner', () => {
+      removeActionCallCount++;
+      assert.equal(removeActionCallCount, 1, 'action is called once');
+    });
+    this.set('confirmSuggestedOwner', noop);
+    this.set('owner', confirmedOwner);
+    this.set('commonOwners', commonOwners);
 
-  triggerEvent('.remove-dataset-author', 'click');
-});
+    await render(
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+    );
 
-test('triggers the confirmSuggestedOwner action when invoked', function(assert) {
-  assert.expect(2);
-  let confirmSuggestedOwnerActionCallCount = 0;
+    assert.equal(removeActionCallCount, 0, 'action is not called on render');
 
-  this.set('removeOwner', noop);
-  this.set('confirmSuggestedOwner', () => {
-    confirmSuggestedOwnerActionCallCount++;
-    assert.equal(confirmSuggestedOwnerActionCallCount, 1, 'action is called once');
+    triggerEvent('.remove-dataset-author', 'click');
   });
-  this.set('owner', suggestedOwner);
-  this.set('commonOwners', commonOwners);
 
-  this.render(
-    hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
-  );
+  test('triggers the confirmSuggestedOwner action when invoked', async function(assert) {
+    assert.expect(2);
+    let confirmSuggestedOwnerActionCallCount = 0;
 
-  assert.equal(confirmSuggestedOwnerActionCallCount, 0, 'action is not called on render');
+    this.set('removeOwner', noop);
+    this.set('confirmSuggestedOwner', () => {
+      confirmSuggestedOwnerActionCallCount++;
+      assert.equal(confirmSuggestedOwnerActionCallCount, 1, 'action is called once');
+    });
+    this.set('owner', suggestedOwner);
+    this.set('commonOwners', commonOwners);
 
-  triggerEvent('.confirm-suggested-dataset-author', 'click');
-});
+    await render(
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+    );
 
-test('triggers the updateOwnerType action when invoked', function(assert) {
-  assert.expect(2);
+    assert.equal(confirmSuggestedOwnerActionCallCount, 0, 'action is not called on render');
 
-  this.set('removeOwner', noop);
-  this.set('confirmSuggestedOwner', noop);
-  this.set('updateOwnerType', (owner, type) => {
-    assert.ok(confirmedOwner === owner, 'updateOwnerType action is invoked correct owner reference');
-    assert.equal(type, confirmedOwner.type, 'updateOwnerType action is invoked with selected type');
+    triggerEvent('.confirm-suggested-dataset-author', 'click');
   });
-  this.set('owner', confirmedOwner);
-  this.set('commonOwners', commonOwners);
-  this.set('ownerTypes', ownerTypes);
 
-  this.render(
-    hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners updateOwnerType=updateOwnerType ownerTypes=ownerTypes}}`
-  );
+  test('triggers the updateOwnerType action when invoked', async function(assert) {
+    assert.expect(2);
 
-  triggerEvent('select', 'change');
+    this.set('removeOwner', noop);
+    this.set('confirmSuggestedOwner', noop);
+    this.set('updateOwnerType', (owner, type) => {
+      assert.ok(confirmedOwner === owner, 'updateOwnerType action is invoked correct owner reference');
+      assert.equal(type, confirmedOwner.type, 'updateOwnerType action is invoked with selected type');
+    });
+    this.set('owner', confirmedOwner);
+    this.set('commonOwners', commonOwners);
+    this.set('ownerTypes', ownerTypes);
+
+    await render(
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners updateOwnerType=updateOwnerType ownerTypes=ownerTypes}}`
+    );
+
+    triggerEvent('select', 'change');
+  });
 });

@@ -1,45 +1,47 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import { run } from '@ember/runloop';
 import hbs from 'htmlbars-inline-precompile';
 
-moduleForComponent('datasets/health/metrics-charts', 'Integration | Component | datasets/health/metrics-charts', {
-  integration: true
-});
+module('Integration | Component | datasets/health/metrics-charts', function(hooks) {
+  setupRenderingTest(hooks);
 
-const chartClass = '.viz-bar-chart';
-const labelClass = '.highcharts-label';
-const labelValueClass = `${labelClass} .highcharts-emphasized`;
-const barClass = `${chartClass}__bar`;
+  const chartClass = '.viz-bar-chart';
+  const labelClass = '.highcharts-label';
+  const labelValueClass = `${labelClass} .highcharts-emphasized`;
+  const barClass = `${chartClass}__bar`;
 
-test('it renders', async function(assert) {
-  this.render(hbs`{{datasets/health/metrics-charts}}`);
-  assert.ok(this.$(), 'Renders without errors');
-});
-
-test('it provides the correct information', async function(assert) {
-  const categoryData = [{ name: 'Compliance', value: 60 }, { name: 'Ownership', value: 40 }];
-  const severityData = [
-    { name: 'Minor', value: 50, customColorClass: 'severity-chart__bar--minor' },
-    { name: 'Warning', value: 30, customColorClass: 'severity-chart__bar--warning' },
-    { name: 'Critical', value: 25, customColorClass: 'severity-chart__bar--critical' }
-  ];
-
-  this.setProperties({
-    categoryData,
-    severityData
+  test('it renders', async function(assert) {
+    await render(hbs`{{datasets/health/metrics-charts}}`);
+    assert.ok(this.$(), 'Renders without errors');
   });
 
-  this.render(hbs`{{datasets/health/metrics-charts
-                    categoryData=categoryData
-                    severityData=severityData}}`);
+  test('it provides the correct information', async function(assert) {
+    const categoryData = [{ name: 'Compliance', value: 60 }, { name: 'Ownership', value: 40 }];
+    const severityData = [
+      { name: 'Minor', value: 50, customColorClass: 'severity-chart__bar--minor' },
+      { name: 'Warning', value: 30, customColorClass: 'severity-chart__bar--warning' },
+      { name: 'Critical', value: 25, customColorClass: 'severity-chart__bar--critical' }
+    ];
 
-  assert.ok(this.$(), 'Still renders without errors');
-  assert.equal(this.$(chartClass).length, 2, 'Renders 2 charts');
-  assert.equal(
-    this.$(`${labelValueClass}:eq(0)`)
-      .text()
-      .trim(),
-    '60%',
-    'Renders correct value for labels'
-  );
+    this.setProperties({
+      categoryData,
+      severityData
+    });
+
+    await render(hbs`{{datasets/health/metrics-charts
+                      categoryData=categoryData
+                      severityData=severityData}}`);
+
+    assert.ok(this.$(), 'Still renders without errors');
+    assert.equal(this.$(chartClass).length, 2, 'Renders 2 charts');
+    assert.equal(
+      this.$(`${labelValueClass}:eq(0)`)
+        .text()
+        .trim(),
+      '60%',
+      'Renders correct value for labels'
+    );
+  });
 });

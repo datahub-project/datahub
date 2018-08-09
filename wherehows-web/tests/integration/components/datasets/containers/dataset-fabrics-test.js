@@ -1,97 +1,96 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import { find, waitFor } from 'ember-native-dom-helpers';
 import fabrics from 'wherehows-web/mirage/fixtures/fabrics';
 
-moduleForComponent(
-  'datasets/containers/dataset-fabrics',
-  'Integration | Component | datasets/containers/dataset-fabrics',
-  {
-    integration: true,
-    beforeEach() {
-      this.server = startMirage();
-    },
+module('Integration | Component | datasets/containers/dataset-fabrics', function(hooks) {
+  setupRenderingTest(hooks);
 
-    afterEach() {
-      this.server.shutdown();
-    }
-  }
-);
+  hooks.beforeEach(function() {
+    this.server = startMirage();
+  });
 
-test('dataset fabric container rendering', async function(assert) {
-  assert.expect(5);
+  hooks.afterEach(function() {
+    this.server.shutdown();
+  });
 
-  const containerTestClass = 'container-testing-class';
-  const loadingSelector = '.ellipsis-loader';
+  test('dataset fabric container rendering', async function(assert) {
+    assert.expect(5);
 
-  this.set('class', containerTestClass);
-  this.render(hbs`
-      {{#datasets/containers/dataset-fabrics class=class}}
-        rendered
-      {{/datasets/containers/dataset-fabrics}}
-    `);
+    const containerTestClass = 'container-testing-class';
+    const loadingSelector = '.ellipsis-loader';
 
-  await waitFor(`.${containerTestClass}`);
+    this.set('class', containerTestClass);
+    await render(hbs`
+        {{#datasets/containers/dataset-fabrics class=class}}
+          rendered
+        {{/datasets/containers/dataset-fabrics}}
+      `);
 
-  assert.equal(
-    find(`.${containerTestClass}`).textContent.trim(),
-    'rendered',
-    'it should yield contents when no urn is provided'
-  );
+    await waitFor(`.${containerTestClass}`);
 
-  const { server } = this;
-  const { uri } = server.create('datasetView');
-  this.set('urn', uri);
+    assert.equal(
+      find(`.${containerTestClass}`).textContent.trim(),
+      'rendered',
+      'it should yield contents when no urn is provided'
+    );
 
-  this.render(hbs`
-      {{#datasets/containers/dataset-fabrics urn=urn}}
-      {{/datasets/containers/dataset-fabrics}}
-    `);
+    const { server } = this;
+    const { uri } = server.create('datasetView');
+    this.set('urn', uri);
 
-  await waitFor(loadingSelector);
+    await render(hbs`
+        {{#datasets/containers/dataset-fabrics urn=urn}}
+        {{/datasets/containers/dataset-fabrics}}
+      `);
 
-  assert.ok(find(loadingSelector), 'it should render a loading indicator pending data fetching');
+    await waitFor(loadingSelector);
 
-  this.render(hbs`
-      {{#datasets/containers/dataset-fabrics class=class urn=urn}}
-        <div class="yielded-content">rendered with urn supplied</div>
-      {{/datasets/containers/dataset-fabrics}}
-    `);
+    assert.ok(find(loadingSelector), 'it should render a loading indicator pending data fetching');
 
-  await waitFor(`.${containerTestClass} .yielded-content`);
+    await render(hbs`
+        {{#datasets/containers/dataset-fabrics class=class urn=urn}}
+          <div class="yielded-content">rendered with urn supplied</div>
+        {{/datasets/containers/dataset-fabrics}}
+      `);
 
-  assert.equal(
-    find(`.${containerTestClass} .yielded-content`).textContent.trim(),
-    'rendered with urn supplied',
-    'it should yield contents when a valid urn is provided'
-  );
+    await waitFor(`.${containerTestClass} .yielded-content`);
 
-  this.render(hbs`
-      {{#datasets/containers/dataset-fabrics class=class urn=urn as |container|}}
-        <div class="yielded-content">{{container.urn}}</div>
-      {{/datasets/containers/dataset-fabrics}}
-    `);
+    assert.equal(
+      find(`.${containerTestClass} .yielded-content`).textContent.trim(),
+      'rendered with urn supplied',
+      'it should yield contents when a valid urn is provided'
+    );
 
-  await waitFor(`.${containerTestClass} .yielded-content`);
+    await render(hbs`
+        {{#datasets/containers/dataset-fabrics class=class urn=urn as |container|}}
+          <div class="yielded-content">{{container.urn}}</div>
+        {{/datasets/containers/dataset-fabrics}}
+      `);
 
-  assert.equal(
-    find(`.${containerTestClass} .yielded-content`).textContent.trim(),
-    `${this.get('urn')}`,
-    'it should yield the dataset urn contextually'
-  );
+    await waitFor(`.${containerTestClass} .yielded-content`);
 
-  this.render(hbs`
-      {{#datasets/containers/dataset-fabrics class=class urn=urn as |container|}}
-        <div class="yielded-content">{{container.fabrics}}</div>
-      {{/datasets/containers/dataset-fabrics}}
-    `);
+    assert.equal(
+      find(`.${containerTestClass} .yielded-content`).textContent.trim(),
+      `${this.get('urn')}`,
+      'it should yield the dataset urn contextually'
+    );
 
-  await waitFor(`.${containerTestClass} .yielded-content`);
+    await render(hbs`
+        {{#datasets/containers/dataset-fabrics class=class urn=urn as |container|}}
+          <div class="yielded-content">{{container.fabrics}}</div>
+        {{/datasets/containers/dataset-fabrics}}
+      `);
 
-  assert.equal(
-    find(`.${containerTestClass} .yielded-content`).textContent.trim(),
-    `${fabrics}`,
-    'it should yield the list of dataset fabrics contextually'
-  );
+    await waitFor(`.${containerTestClass} .yielded-content`);
+
+    assert.equal(
+      find(`.${containerTestClass} .yielded-content`).textContent.trim(),
+      `${fabrics}`,
+      'it should yield the list of dataset fabrics contextually'
+    );
+  });
 });
