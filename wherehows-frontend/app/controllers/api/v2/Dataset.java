@@ -225,6 +225,26 @@ public class Dataset extends Controller {
     return Promise.promise(() -> ok(Json.newObject().set("schema", Json.toJson(schema))));
   }
 
+  public static Promise<Result> getDatasetHealth(String datasetUrn) {
+    final DatasetHealth health;
+    try {
+      health = DATASET_VIEW_DAO.getDatasetHealth(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
+      Logger.error("Fetch health fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+
+    if (health == null) {
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().set("health", Json.toJson(schema))));
+  }
+
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
     final DatasetOwnership ownership;
     try {
