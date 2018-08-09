@@ -144,6 +144,7 @@
             onTagIdentifierTypeChange=(action "tagIdentifierChanged")
             onSuggestionIntent=(action "onFieldSuggestionIntentChange") as |row|
           }}
+            {{! template-lint-disable no-invalid-interactive }}
             <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
               row.onFragmentDblClick}}>
               {{#row.cell}}
@@ -205,8 +206,8 @@
                             {{else}}
                               <span
                                 class="dataset-compliance-fields__tag-info__text dataset-compliance-fields__tag-info__text--obscure">
-                          Select Field Type ...
-                          </span>
+                                Select Field Type ...
+                              </span>
                             {{/if}}
                           </p>
 
@@ -402,11 +403,11 @@
 
                       {{#if (and isEditing (not row.hasSingleTag))}}
                         <span class="nacho-tooltip" data-title="Delete Tag">
-                      <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
-                              onclick={{action row.onRemoveFieldTag tag}}>
-                        {{fa-icon "trash"}}
-                      </button>
-                    </span>
+                          <button class="nacho-button nacho-button--tertiary dataset-compliance-fields__remove-tag"
+                                  onclick={{action row.onRemoveFieldTag tag}}>
+                            {{fa-icon "trash"}}
+                          </button>
+                        </span>
                       {{/if}}
                     </div>
                   {{/each}}
@@ -427,12 +428,12 @@
 
                       {{#if row.isReadonly}}
                         <span class="nacho-tooltip" data-title="Readonly">
-                        <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
-                                disabled={{not isEditing}}
+                          <button class="nacho-button nacho-button--tertiary dataset-compliance-fields--readonly__icon"
+                                  disabled={{not isEditing}}
                                   onclick={{action row.onEditReadonlyTag tag}}>
-                          {{fa-icon "lock"}}
-                        </button>
-                    </span>
+                            {{fa-icon "lock"}}
+                          </button>
+                        </span>
                       {{/if}}
                     </div>
 

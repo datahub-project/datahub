@@ -18,11 +18,11 @@ module('Integration | Component | dataset author', function(hooks) {
   test('it renders', async function(assert) {
     this.set('removeOwner', noop);
     this.set('confirmSuggestedOwner', noop);
-    this.set('owner', confirmedOwner);
+    this.set('author', confirmedOwner);
     this.set('commonOwners', commonOwners);
 
     await render(
-      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=author commonOwners=commonOwners}}`
     );
 
     assert.equal(document.querySelector('tr.dataset-author-record').tagName, 'TR');
@@ -37,11 +37,11 @@ module('Integration | Component | dataset author', function(hooks) {
       assert.equal(removeActionCallCount, 1, 'action is called once');
     });
     this.set('confirmSuggestedOwner', noop);
-    this.set('owner', confirmedOwner);
+    this.set('author', confirmedOwner);
     this.set('commonOwners', commonOwners);
 
     await render(
-      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=author commonOwners=commonOwners}}`
     );
 
     assert.equal(removeActionCallCount, 0, 'action is not called on render');
@@ -58,11 +58,11 @@ module('Integration | Component | dataset author', function(hooks) {
       confirmSuggestedOwnerActionCallCount++;
       assert.equal(confirmSuggestedOwnerActionCallCount, 1, 'action is called once');
     });
-    this.set('owner', suggestedOwner);
+    this.set('author', suggestedOwner);
     this.set('commonOwners', commonOwners);
 
     await render(
-      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners}}`
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=author commonOwners=commonOwners}}`
     );
 
     assert.equal(confirmSuggestedOwnerActionCallCount, 0, 'action is not called on render');
@@ -79,12 +79,12 @@ module('Integration | Component | dataset author', function(hooks) {
       assert.ok(confirmedOwner === owner, 'updateOwnerType action is invoked correct owner reference');
       assert.equal(type, confirmedOwner.type, 'updateOwnerType action is invoked with selected type');
     });
-    this.set('owner', confirmedOwner);
+    this.set('author', confirmedOwner);
     this.set('commonOwners', commonOwners);
     this.set('ownerTypes', ownerTypes);
 
     await render(
-      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=owner commonOwners=commonOwners updateOwnerType=updateOwnerType ownerTypes=ownerTypes}}`
+      hbs`{{dataset-author confirmSuggestedOwner=confirmSuggestedOwner removeOwner=removeOwner owner=author commonOwners=commonOwners updateOwnerType=updateOwnerType ownerTypes=ownerTypes}}`
     );
 
     triggerEvent('select', 'change');

@@ -24,14 +24,14 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
   test('it renders for base and empty cases', async function(assert) {
     this.setProperties({
       commonOwners,
-      owner: {},
+      author: {},
       ownerTypes: [],
       removeOwner: noop,
       confirmSuggestedOwner: noop
     });
 
     await render(hbs`{{datasets/owners/suggested-owner-card
-                      owner=owner
+                      owner=author
                       ownerTypes=ownerTypes
                       commonOwners=commonOwners
                       removeOwner=removeOwner
@@ -50,13 +50,13 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
     this.setProperties({
       ownerTypes,
       commonOwners,
-      owner: model,
+      author: model,
       removeOwner: noop,
       confirmSuggestedOwner: noop
     });
 
     await render(hbs`{{datasets/owners/suggested-owner-card
-                      owner=owner
+                      owner=author
                       ownerTypes=ownerTypes
                       commonOwners=commonOwners
                       removeOwner=removeOwner
@@ -98,7 +98,7 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
     this.setProperties({
       ownerTypes,
       commonOwners,
-      owner: model,
+      author: model,
       removeOwner: noop,
       confirmSuggestedOwner: owner => {
         assert.equal(owner.name, model.name, 'Passes the correct information to the confirmOwner function');
@@ -106,7 +106,7 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
     });
 
     await render(hbs`{{datasets/owners/suggested-owner-card
-                      owner=owner
+                      owner=author
                       ownerTypes=ownerTypes
                       commonOwners=commonOwners
                       removeOwner=removeOwner
