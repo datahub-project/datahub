@@ -1,44 +1,42 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import userStub from 'wherehows-web/tests/stubs/services/current-user';
 import sinon from 'sinon';
 
-moduleForComponent(
-  'datasets/containers/dataset-acl-access',
-  'Integration | Component | datasets/containers/dataset acl access',
-  {
-    integration: true,
+module('Integration | Component | datasets/containers/dataset acl access', function(hooks) {
+  setupRenderingTest(hooks);
 
-    beforeEach() {
-      this.register('service:current-user', userStub);
-      this.register('service:notifications', notificationsStub);
+  hooks.beforeEach(function() {
+    this.owner.register('service:current-user', userStub);
+    this.owner.register('service:notifications', notificationsStub);
 
-      this.inject.service('current-user');
-      this.inject.service('notifications');
+    this['current-user'] = this.owner.lookup('service:current-user');
+    this.notifications = this.owner.lookup('service:notifications');
 
-      this.server = sinon.createFakeServer();
-      this.server.respondImmediately = true;
-    },
+    this.server = sinon.createFakeServer();
+    this.server.respondImmediately = true;
+  });
 
-    afterEach() {
-      this.server.restore();
-    }
-  }
-);
+  hooks.afterEach(function() {
+    this.server.restore();
+  });
 
-test('it renders', function(assert) {
-  this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
-    200,
-    { 'Content-Type': 'application/json' },
-    JSON.stringify({})
-  ]);
-  this.render(hbs`{{datasets/containers/dataset-acl-access}}`);
+  test('it renders', async function(assert) {
+    this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
+      200,
+      { 'Content-Type': 'application/json' },
+      JSON.stringify({})
+    ]);
+    await render(hbs`{{datasets/containers/dataset-acl-access}}`);
 
-  assert.equal(
-    this.$()
-      .text()
-      .trim(),
-    'JIT ACL is not currently available for this dataset platform'
-  );
+    assert.equal(
+      this.$()
+        .text()
+        .trim(),
+      'JIT ACL is not currently available for this dataset platform'
+    );
+  });
 });
