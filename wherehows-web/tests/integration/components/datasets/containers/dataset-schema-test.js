@@ -4,17 +4,17 @@ import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { find } from 'ember-native-dom-helpers';
 import { urn } from 'wherehows-web/mirage/fixtures/urn';
-import sinon from 'sinon';
+import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 
 module('Integration | Component | datasets/containers/dataset schema', function(hooks) {
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
+    this.server = startMirage();
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.server.shutdown();
   });
 
   test('it renders', async function(assert) {
