@@ -1,9 +1,9 @@
-import Service, { inject } from '@ember/service';
-import ComputedProperty from '@ember/object/computed';
+import Service from '@ember/service';
 import { get, set } from '@ember/object';
 import { currentUser } from 'wherehows-web/utils/api/authentication';
 import { IUser } from 'wherehows-web/typings/api/authentication/user';
 import Session from 'ember-simple-auth/services/session';
+import { service } from '@ember-decorators/service';
 
 /**
  * Indicates that the current user has already been tracked in the current session
@@ -17,7 +17,8 @@ export default class CurrentUser extends Service {
    * Reference to the application session service, implemented with Ember Simple Auth
    * @type {ComputedProperty<Session>}
    */
-  session: ComputedProperty<Session> = inject();
+  @service
+  session: Session;
 
   /**
    * Current user properties
