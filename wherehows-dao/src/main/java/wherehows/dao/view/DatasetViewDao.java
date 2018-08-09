@@ -26,6 +26,7 @@ import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
+import wherehows.models.view.DatasetHealth;
 
 import static org.apache.commons.lang3.StringUtils.*;
 import static wherehows.util.UrnUtil.*;
@@ -144,6 +145,14 @@ public class DatasetViewDao extends BaseViewDao {
    */
   @Nullable
   public DatasetSchema getDatasetSchema(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  /**
+   * Get datset health by dataset urn
+   */
+  @Nonnull
+  public DatasetHealth getDatasetHealth(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
