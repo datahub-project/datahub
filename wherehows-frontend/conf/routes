@@ -324,6 +324,9 @@ GET           /api/v2/datasets/:urn/upstreams                                   
 
 GET           /api/v2/datasets/:urn/downstreams                                 controllers.api.v2.Dataset.getDatasetDownstreams(urn: String)
 
+GET           /api/v2/datasets/:urn/health
+controllers.api.v2.Dataset.getDatasetHealth(urn: String)
+
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                     controllers.Assets.at(path="/public", file)
 
