@@ -1,8 +1,8 @@
 import Component from '@ember/component';
-import { computed, get } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
+import { get } from '@ember/object';
 import { bakeUrnBreadcrumbs } from 'wherehows-web/utils/entities';
 import { IDatasetBreadcrumb } from 'wherehows-web/utils/entities/bake-urn-breadcrumbs';
+import { computed } from '@ember-decorators/object';
 
 export default class UrnBreadcrumbs extends Component {
   tagName = 'ul';
@@ -21,9 +21,8 @@ export default class UrnBreadcrumbs extends Component {
    * @type {ComputedProperty<Array<IDatasetBreadcrumb>>}
    * @memberof UrnBreadcrumbs
    */
-  breadcrumbs: ComputedProperty<Array<IDatasetBreadcrumb>> = computed('urn', function(
-    this: UrnBreadcrumbs
-  ): Array<IDatasetBreadcrumb> {
+  @computed('urn')
+  get breadcrumbs(this: UrnBreadcrumbs): Array<IDatasetBreadcrumb> {
     return bakeUrnBreadcrumbs(get(this, 'urn'));
-  });
+  }
 }

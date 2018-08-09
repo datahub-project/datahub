@@ -10,7 +10,7 @@ export default class DatasetsOwnersSuggestedOwners extends Component {
   classNames = ['dataset-authors-suggested'];
 
   constructor() {
-    super();
+    super(...arguments);
     // Sets default class values
     this.owners || set(this, 'owners', []);
   }
