@@ -1,4 +1,6 @@
-<i class="fa fa-pencil pull-right wh-clickable-icon" {{action "showComments"}}></i>
+<button class="nacho-button nacho-button--tertiary" onclick={{action "showComments"}}>
+  <i class="fa fa-pencil pull-right wh-clickable-icon"></i>
+</button>
 
 {{#if isShowingFieldComment}}
   {{#if getComments.last.isRunning}}
@@ -33,6 +35,6 @@
       {{/comment/comment-stream}}
     {{/modal-dialog}}
   {{else}}
-    <p>TODO:loading</p>
+    {{pendulum-ellipsis-animation}}
   {{/if}}
 {{/if}}

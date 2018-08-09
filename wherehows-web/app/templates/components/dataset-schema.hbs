@@ -29,75 +29,75 @@
 
   <table id="json-table" class="columntreegrid tree table table-bordered dataset-detail-table">
     <thead>
-    <tr class="results-header">
-      <th style="min-width: 200px;" class="col-xs-2">Column</th>
-      <th class="col-xs-1">Data Type</th>
-      <th style="width:150px;">Default Comments</th>
-      <th title="Comment Count" style="width:15px;">
-        <i class="fa fa-comments" title="Comment Count"></i>
-      </th>
-    </tr>
+      <tr class="results-header">
+        <th style="min-width: 200px;" class="col-xs-2">Column</th>
+        <th class="col-xs-1">Data Type</th>
+        <th style="width:150px;">Default Comments</th>
+        <th title="Comment Count" style="width:15px;">
+          <i class="fa fa-comments" title="Comment Count"></i>
+        </th>
+      </tr>
     </thead>
     <tbody>
-    {{#each schemas as |schema|}}
-      <tr class="{{schema.treeGridClass}}">
-        <td>
-          <div>
+      {{#each schemas as |schema|}}
+        <tr class="{{schema.treeGridClass}}">
+          <td>
+            <div>
 
-            {{schema.fieldName}}
+              {{schema.fieldName}}
 
-            {{#if schema.nullable}}
-              <span class="schema-property-indicator schema-property-indicator--nullable">
-                N
-                {{tooltip-on-element
-                  text="Is Nullable"
-                }}
-              </span>
-            {{/if}}
+              {{#if schema.nullable}}
+                <span class="schema-property-indicator schema-property-indicator--nullable">
+                  N
+                  {{tooltip-on-element
+                    text="Is Nullable"
+                  }}
+                </span>
+              {{/if}}
 
-            {{#if schema.indexed}}
-              <span class="schema-property-indicator schema-property-indicator--indexed">
-                I
-                {{tooltip-on-element
-                  text="Is Indexed"
-                }}
-              </span>
-            {{/if}}
+              {{#if schema.indexed}}
+                <span class="schema-property-indicator schema-property-indicator--indexed">
+                  I
+                  {{tooltip-on-element
+                    text="Is Indexed"
+                  }}
+                </span>
+              {{/if}}
 
-            {{#if schema.partitioned}}
-              <span class="schema-property-indicator schema-property-indicator--partitioned">
-                P
-                {{tooltip-on-element
-                  text="Is Partitioned"
-                }}
-              </span>
-            {{/if}}
+              {{#if schema.partitioned}}
+                <span class="schema-property-indicator schema-property-indicator--partitioned">
+                  P
+                  {{tooltip-on-element
+                    text="Is Partitioned"
+                  }}
+                </span>
+              {{/if}}
 
-            {{#if schema.distributed}}
-              <span class="schema-property-indicator schema-property-indicator--distributed">
-                D
-                {{tooltip-on-element
-                  text="Is Distributed"
-                }}
-              </span>
-            {{/if}}
+              {{#if schema.distributed}}
+                <span class="schema-property-indicator schema-property-indicator--distributed">
+                  D
+                  {{tooltip-on-element
+                    text="Is Distributed"
+                  }}
+                </span>
+              {{/if}}
 
-          </div>
-        </td>
+            </div>
+          </td>
 
-        <td>{{schema.dataType}}</td>
+          <td>{{schema.dataType}}</td>
 
-        <td class="commentsArea">
-          <div class="commentsArea">
-            {{!--{{#schema-comment schema=schema datasetId=dataset.id fieldId=schema.id}}{{/schema-comment}}--}}
-            {{schema.commentHtml}}
-          </div>
-        </td>
-        <td class="text-center">
-          {{schema.commentCount}}
-        </td>
-      </tr>
-    {{/each}}
+          <td class="commentsArea">
+            <div class="commentsArea">
+              {{!--{{#schema-comment schema=schema datasetId=dataset.id fieldId=schema.id}}{{/schema-comment}}--}}
+              {{schema.commentHtml}}
+            </div>
+          </td>
+          <td class="text-center">
+            {{schema.commentCount}}
+          </td>
+        </tr>
+      {{/each}}
     </tbody>
   </table>
   <div id="json-viewer" class="hidden"></div>

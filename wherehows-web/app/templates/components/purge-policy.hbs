@@ -3,7 +3,7 @@
 
     {{#each-in purgePolicyProps as |purgeType prop|}}
       <li
-        class="purge-policy-list__item {{unless (contains purgeType supportedPurgePolicies)
+        class="purge-policy-list__item {{if (not (contains purgeType supportedPurgePolicies))
                                                 'purge-policy-list__item--disabled'}}">
 
         {{#radio-button-composer
@@ -16,12 +16,14 @@
           {{prop.displayAs}}
         {{/radio-button-composer}}
 
-        {{#unless (contains purgeType supportedPurgePolicies)}}
+        {{#if (not (contains purgeType supportedPurgePolicies))}}
           <p class="purge-policy-list__availability">
-            Purge policy not available for <span class="purge-policy-list__platform--unavailable">
-            {{platform}}</span>
+            Purge policy not available for
+            <span class="purge-policy-list__platform--unavailable">
+              {{platform}}
+            </span>
           </p>
-        {{/unless}}
+        {{/if}}
 
         <p>{{prop.desc}}</p>
 
