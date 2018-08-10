@@ -7,14 +7,13 @@ tasks.withType(PlayRun) {
 model {
     components {
         play {
-            platform play: '2.4.11', scala: '2.10'
+            platform play: '2.4.11', scala: '2.11', java: '1.8'
 
             binaries.all {
                 tasks.withType(PlatformScalaCompile) {
                     scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
                 }
             }
-        }
     }
 
     distributions {
