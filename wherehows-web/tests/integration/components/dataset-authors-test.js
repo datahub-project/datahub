@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll, triggerEvent, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
 
 import { noop } from 'wherehows-web/utils/helpers/functions';
 import { OwnerType, OwnerSource } from 'wherehows-web/utils/api/datasets/owners';
@@ -29,7 +28,7 @@ module('Integration | Component | dataset authors', function(hooks) {
     this.set('saveOwnerChanges', noop);
     await render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
 
-    assert.equal(this.$('.dataset-author').length, 2, 'expected two dataset author components to be rendered');
+    assert.equal(findAll('.dataset-author').length, 2, 'expected two dataset author components to be rendered');
   });
 
   test('it should remove an owner when removeOwner is invoked', async function(assert) {
@@ -39,7 +38,7 @@ module('Integration | Component | dataset authors', function(hooks) {
     this.set('saveOwnerChanges', noop);
     await render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
 
-    triggerEvent('.remove-dataset-author', 'click');
+    await click('.remove-dataset-author');
 
     assert.equal(this.get('owners').length, 0);
   });
@@ -67,8 +66,8 @@ module('Integration | Component | dataset authors', function(hooks) {
       `the list of owners is ${initialLength} before adding confirmed owner`
     );
 
-    triggerEvent('.dataset-authors-suggested__info__trigger', 'click');
-    triggerEvent('.suggested-owner-card__owner-info__add button', 'click');
+    await click('.dataset-authors-suggested__info__trigger');
+    await click('.suggested-owner-card__owner-info__add button');
 
     userName = this.get('current-user.currentUser.userName');
     confirmedOwner = this.get('owners').findBy('confirmedBy', userName);

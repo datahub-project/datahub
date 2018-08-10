@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import userStub from 'wherehows-web/tests/stubs/services/current-user';
@@ -32,11 +32,6 @@ module('Integration | Component | datasets/containers/dataset acl access', funct
     ]);
     await render(hbs`{{datasets/containers/dataset-acl-access}}`);
 
-    assert.equal(
-      this.$()
-        .text()
-        .trim(),
-      'JIT ACL is not currently available for this dataset platform'
-    );
+    assert.equal(this.element.textContent.trim(), 'JIT ACL is not currently available for this dataset platform');
   });
 });

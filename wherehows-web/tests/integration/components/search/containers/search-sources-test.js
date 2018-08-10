@@ -1,9 +1,8 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find, waitUntil } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import sinon from 'sinon';
-import { waitUntil, find } from 'ember-native-dom-helpers';
 
 const platformsResponse = {
   platforms: [
@@ -43,13 +42,7 @@ module('Integration | Component | search/containers/search sources', function(ho
 
     await waitUntil(() => find('.inner-content'));
 
-    assert.equal(
-      this.$()
-        .text()
-        .trim(),
-      'Yielded Content',
-      'inner content is rendered'
-    );
+    assert.equal(this.element.textContent.trim(), 'Yielded Content', 'inner content is rendered');
   });
 
   test('Platform sources yielded', async function(assert) {

@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | datasets/owners/suggested owners', function(hooks) {
@@ -15,12 +15,10 @@ module('Integration | Component | datasets/owners/suggested owners', function(ho
     await render(hbs`{{datasets/owners/suggested-owners}}`);
 
     assert.ok(this.$(), 'Renders without errors when passed no values');
-    assert.equal(this.$(suggestedCardClass).length, 0, 'Renders no cards');
+    assert.equal(findAll(suggestedCardClass).length, 0, 'Renders no cards');
 
     assert.equal(
-      this.$(descriptionClass)
-        .text()
-        .trim(),
+      find(descriptionClass).textContent.trim(),
       descriptionText,
       'Renders the correct message when there are no owners'
     );

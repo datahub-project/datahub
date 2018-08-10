@@ -2,7 +2,7 @@
   "name": "wherehows-web",
   "version": "0.0.0",
   "private": true,
-  "description": "Small description for wherehows-web goes here",
+  "description": "A Data Discovery and Lineage Portal",
   "license": "MIT",
   "author": "",
   "directories": {
@@ -72,7 +72,6 @@
     "ember-load-initializers": "^1.0.0",
     "ember-math-helpers": "^2.4.0",
     "ember-metrics": "^0.12.1",
-    "ember-native-dom-helpers": "^0.5.10",
     "ember-power-calendar": "^0.7.1",
     "ember-power-select-typeahead": "^0.7.0",
     "ember-resolver": "^4.0.0",

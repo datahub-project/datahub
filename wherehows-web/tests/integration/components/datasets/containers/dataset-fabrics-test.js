@@ -1,9 +1,8 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find, waitFor } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
-import { find, waitFor } from 'ember-native-dom-helpers';
 import fabrics from 'wherehows-web/mirage/fixtures/fabrics';
 
 const containerTestClass = 'container-testing-class';

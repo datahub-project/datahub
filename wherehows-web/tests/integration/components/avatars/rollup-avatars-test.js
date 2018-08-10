@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { find, click } from 'ember-native-dom-helpers';
 
 module('Integration | Component | avatars/rollup avatars', function(hooks) {
   setupRenderingTest(hooks);

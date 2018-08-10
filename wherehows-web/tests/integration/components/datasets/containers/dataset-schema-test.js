@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { find } from 'ember-native-dom-helpers';
 import { urn } from 'wherehows-web/mirage/fixtures/urn';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 

@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | visualization/charts/horizontal-bar-chart', function(hooks) {
@@ -31,13 +31,12 @@ module('Integration | Component | visualization/charts/horizontal-bar-chart', fu
                       title=title}}`);
 
     assert.ok(this.$(), 'Still renders without errors');
-    assert.equal(this.$(chartBar).length, series.length, 'Renders 3 bars');
-    assert.equal(this.$(chartLabel).length, series.length, 'Renders 3 labels');
+    assert.equal(findAll(chartBar).length, series.length, 'Renders 3 bars');
+    assert.equal(findAll(chartLabel).length, series.length, 'Renders 3 labels');
 
     assert.equal(
-      this.$('text:eq(0)')
-        .text()
-        .trim()
+      find('text')
+        .textContent.trim()
         .replace(/[ \n]/g, ''),
       '150|Mewtwo',
       'Renders the correct first label'

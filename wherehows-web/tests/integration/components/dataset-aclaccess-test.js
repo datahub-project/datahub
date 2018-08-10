@@ -1,4 +1,4 @@
-import { module, skip } from 'qunit';
+import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
@@ -6,7 +6,7 @@ import hbs from 'htmlbars-inline-precompile';
 module('Integration | Component | dataset aclaccess', function(hooks) {
   setupRenderingTest(hooks);
 
-  skip('it renders', async function(assert) {
+  test('it renders', async function(assert) {
     this.setProperties({
       acls: [],
       accessTypeDropDownOptions: []

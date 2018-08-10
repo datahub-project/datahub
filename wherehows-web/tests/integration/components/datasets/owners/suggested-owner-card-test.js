@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll, find, triggerEvent } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
 
 import owners from 'wherehows-web/mirage/fixtures/owners';
 import { OwnerType } from 'wherehows-web/utils/api/datasets/owners';
@@ -64,32 +63,14 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
 
     assert.ok(this.$(), 'Still renders without errors');
 
-    assert.equal(
-      this.$(fullNameClass)
-        .text()
-        .trim(),
-      fullNameText,
-      'Renders the name correctly'
-    );
+    assert.equal(find(fullNameClass).textContent.trim(), fullNameText, 'Renders the name correctly');
 
-    assert.equal(
-      this.$(usernameClass)
-        .text()
-        .trim(),
-      usernameText,
-      'Renders the username correctly'
-    );
+    assert.equal(find(usernameClass).textContent.trim(), usernameText, 'Renders the username correctly');
 
-    assert.equal(
-      this.$(sourceClass)
-        .text()
-        .trim(),
-      sourceText,
-      'Renders the source correctly'
-    );
+    assert.equal(find(sourceClass).textContent.trim(), sourceText, 'Renders the source correctly');
 
-    assert.equal(this.$(addedClass).length, 0, 'Does not consider suggested owner already added');
-    assert.equal(this.$(addButtonClass).length, 1, 'Renders add button for suggested class');
+    assert.equal(findAll(addedClass).length, 0, 'Does not consider suggested owner already added');
+    assert.equal(findAll(addButtonClass).length, 1, 'Renders add button for suggested class');
   });
 
   test('it functions correctly to add a suggested owner', async function(assert) {

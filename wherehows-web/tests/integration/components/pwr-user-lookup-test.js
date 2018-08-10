@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll, triggerEvent } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
 
 module('Integration | Component | pwr user lookup', function(hooks) {
   setupRenderingTest(hooks);
@@ -15,7 +14,7 @@ module('Integration | Component | pwr user lookup', function(hooks) {
   test('it renders', async function(assert) {
     await render(hbs`{{pwr-user-lookup}}`);
     assert.ok(this.$(), 'Renders without errors');
-    assert.equal(this.$(autosuggestionClass).length, 1, 'Renders suggestion component');
+    assert.equal(findAll(autosuggestionClass).length, 1, 'Renders suggestion component');
     assert.equal(this.$(typeaheadInputClass).length, 1, 'Renders typeahead input component');
   });
 

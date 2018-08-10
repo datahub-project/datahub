@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll } from '@ember/test-helpers';
 import Service from '@ember/service';
 import hbs from 'htmlbars-inline-precompile';
 
@@ -46,7 +46,7 @@ module('Integration | Component | notifications/banner alerts', function(hooks) 
 
   test('it renders the correct information', async function(assert) {
     await render(hbs`{{notifications/banner-alerts}}`);
-    assert.equal(this.$(bannerAlertClass).length, 2, 'Renders the correct amount of banners');
+    assert.equal(findAll(bannerAlertClass).length, 2, 'Renders the correct amount of banners');
     assert.equal(
       this.$(`${bannerAlertClass}__content:eq(0)`)
         .text()

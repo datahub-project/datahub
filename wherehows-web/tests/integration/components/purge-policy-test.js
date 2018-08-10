@@ -1,8 +1,7 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, triggerEvent } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
 import sinon from 'sinon';
 
 import { purgePolicyProps, exemptPolicy, PurgePolicy, getSupportedPurgePolicies } from 'wherehows-web/constants';

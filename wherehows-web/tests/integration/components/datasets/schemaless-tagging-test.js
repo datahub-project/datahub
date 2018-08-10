@@ -1,10 +1,9 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, triggerEvent } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 import { Classification } from 'wherehows-web/constants';
-import { triggerEvent } from 'ember-native-dom-helpers';
 
 module('Integration | Component | datasets/schemaless tagging', function(hooks) {
   setupRenderingTest(hooks);

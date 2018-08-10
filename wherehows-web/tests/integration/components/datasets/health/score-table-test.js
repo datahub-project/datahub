@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll } from '@ember/test-helpers';
 import { run } from '@ember/runloop';
 import hbs from 'htmlbars-inline-precompile';
 import healthDetail from 'wherehows-web/mirage/fixtures/health-detail';
@@ -25,7 +25,7 @@ module('Integration | Component | datasets/health/score-table', function(hooks) 
                       tableData=tableData}}`);
 
     assert.ok(this.$(), 'Still renders without errors');
-    assert.equal(this.$(table).length, 1, 'Renders one table');
+    assert.equal(findAll(table).length, 1, 'Renders one table');
     assert.equal(this.$(row).length, tableData.length, 'Renders one row for every detail data');
   });
 

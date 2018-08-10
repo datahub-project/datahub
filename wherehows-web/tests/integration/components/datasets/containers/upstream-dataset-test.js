@@ -1,9 +1,8 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, waitUntil, find, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
-import { waitUntil, find, findAll, click } from 'ember-native-dom-helpers';
 import { DatasetPlatform, PurgePolicy } from 'wherehows-web/constants';
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
@@ -106,7 +105,7 @@ module('Integration | Component | datasets/containers/upstream dataset', functio
 
     await waitUntil(find.bind(find, downstreamPolicyEditButton));
 
-    click(downstreamPolicyEditButton);
+    await click(downstreamPolicyEditButton);
 
     assert.equal(findAll(purgePolicyClass).length, supportedPurgePolicies.length, 'renders all purge options on edit');
     assert.equal(
