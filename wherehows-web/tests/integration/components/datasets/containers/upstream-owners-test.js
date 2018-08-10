@@ -1,10 +1,9 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, waitUntil, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 import sinon from 'sinon';
-import { waitUntil, find } from 'ember-native-dom-helpers';
 
 module('Integration | Component | datasets/containers/upstream owners', function(hooks) {
   setupRenderingTest(hooks);

@@ -1,7 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
-import { click, fillIn } from 'ember-native-dom-helpers';
+import { render, find, findAll, click, fillIn } from '@ember/test-helpers';
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 import hbs from 'htmlbars-inline-precompile';
 import { run } from '@ember/runloop';
@@ -18,13 +17,13 @@ module('Integration | Component | dataset deprecation', function(hooks) {
       document.querySelector('.dataset-deprecation-toggle__toggle-header__label'),
       'it shows the dataset is deprecation label element'
     );
-    assert.equal(this.$('#dataset-is-deprecated').length, 1, 'has one input checkbox with known selector');
+    assert.equal(findAll('#dataset-is-deprecated').length, 1, 'has one input checkbox with known selector');
     assert.equal(
-      this.$('#dataset-is-deprecated').attr('type'),
+      find('#dataset-is-deprecated').getAttribute('type'),
       'checkbox',
       'has an input checkbox to toggle deprecation'
     );
-    assert.equal(this.$('.dataset-deprecation-toggle__actions').length, 1, 'has an actions container');
+    assert.equal(findAll('.dataset-deprecation-toggle__actions').length, 1, 'has an actions container');
   });
 
   test('setting the deprecated property should toggle the checkbox', async function(assert) {

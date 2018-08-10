@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | empty state', function(hooks) {
@@ -12,12 +12,7 @@ module('Integration | Component | empty state', function(hooks) {
 
     await render(hbs`{{empty-state}}`);
 
-    assert.equal(
-      this.$()
-        .text()
-        .trim(),
-      'No data found'
-    );
+    assert.equal(this.element.textContent.trim(), 'No data found');
 
     // Template block usage:
     await render(hbs`
@@ -26,12 +21,7 @@ module('Integration | Component | empty state', function(hooks) {
       {{/empty-state}}
     `);
 
-    assert.equal(
-      this.$()
-        .text()
-        .trim(),
-      'template block text'
-    );
+    assert.equal(this.element.textContent.trim(), 'template block text');
   });
 
   test('it renders a heading', async function(assert) {
@@ -42,13 +32,7 @@ module('Integration | Component | empty state', function(hooks) {
 
     await render(hbs`{{empty-state heading=heading}}`);
 
-    assert.equal(
-      this.$()
-        .text()
-        .trim(),
-      heading,
-      'shows the heading text'
-    );
+    assert.equal(this.element.textContent.trim(), heading, 'shows the heading text');
   });
 
   test('it renders a subheading', async function(assert) {
@@ -59,12 +43,6 @@ module('Integration | Component | empty state', function(hooks) {
 
     await render(hbs`{{empty-state subHead=subHeading}}`);
 
-    assert.equal(
-      this.$('.empty-state__sub-head')
-        .text()
-        .trim(),
-      subHeading,
-      'shows the subheading text'
-    );
+    assert.equal(find('.empty-state__sub-head').textContent.trim(), subHeading, 'shows the subheading text');
   });
 });

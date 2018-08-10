@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render } from '@ember/test-helpers';
+import { render, findAll } from '@ember/test-helpers';
 import { run } from '@ember/runloop';
 import hbs from 'htmlbars-inline-precompile';
 
@@ -35,7 +35,7 @@ module('Integration | Component | datasets/health/metrics-charts', function(hook
                       severityData=severityData}}`);
 
     assert.ok(this.$(), 'Still renders without errors');
-    assert.equal(this.$(chartClass).length, 2, 'Renders 2 charts');
+    assert.equal(findAll(chartClass).length, 2, 'Renders 2 charts');
     assert.equal(
       this.$(`${labelValueClass}:eq(0)`)
         .text()
