@@ -1139,15 +1139,15 @@ export default class DatasetCompliance extends Component {
         let isValid = isMetadataObject(metadataObject);
 
         // Lists the fieldNames / identifierField property values on the edit compliance policy
-        const updatedIdentifierFieldValues = arrayMap(({ identifierField }: IComplianceEntity) => identifierField)(
-          entities
+        const updatedIdentifierFieldValues = new Set(
+          arrayMap(({ identifierField }: IComplianceEntity) => identifierField)(entities)
         );
         // Lists the expected fieldNames / identifierField property values from the schemaFieldNamesMappedToDataTypes
         const expectedIdentifierFieldValues = arrayMap(
           ({ fieldName }: Pick<IDatasetColumn, 'dataType' | 'fieldName'>) => fieldName
         )(get(this, 'schemaFieldNamesMappedToDataTypes'));
 
-        isValid = isValid && jsonValuesMatch(updatedIdentifierFieldValues, expectedIdentifierFieldValues);
+        isValid = isValid && jsonValuesMatch([...updatedIdentifierFieldValues], expectedIdentifierFieldValues);
 
         setProperties(this, { isManualApplyDisabled: !isValid, manualParseError: '' });
 

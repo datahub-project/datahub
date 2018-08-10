@@ -5,8 +5,6 @@ import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-rout
 import { featureEntryPoints } from 'wherehows-web/constants/application';
 import Configurator from 'wherehows-web/services/configurator';
 
-const { browse, scriptFinder, schemaHistory } = featureEntryPoints;
-
 export default Route.extend(AuthenticatedRouteMixin, {
   /**
    * @type {Ember.Service}
@@ -19,10 +17,6 @@ export default Route.extend(AuthenticatedRouteMixin, {
    */
   metrics: inject(),
 
-  model() {
-    // Static list of content for the index route featureCard links
-    return [browse, scriptFinder, schemaHistory];
-  },
   /**
    * Perform post model operations
    * @return {Promise}
