@@ -1,36 +1,29 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render, waitUntil, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { waitUntil, find } from 'ember-native-dom-helpers';
-import { urn } from 'wherehows-web/mirage/fixtures/urn';
-import sinon from 'sinon';
+import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 
-moduleForComponent(
-  'datasets/containers/dataset-properties',
-  'Integration | Component | datasets/containers/dataset properties',
-  {
-    integration: true,
+module('Integration | Component | datasets/containers/dataset properties', function(hooks) {
+  setupRenderingTest(hooks);
 
-    beforeEach() {
-      this.server = sinon.createFakeServer();
-      this.server.respondImmediately = true;
-    },
+  hooks.beforeEach(function() {
+    this.server = startMirage();
+  });
 
-    afterEach() {
-      this.server.restore();
-    }
-  }
-);
+  hooks.afterEach(function() {
+    this.server.shutdown();
+  });
 
-test('it renders', function(assert) {
-  const labelClass = '.dataset-deprecation-toggle__toggle-header__label';
-  this.set('urn', urn);
-  this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
-    200,
-    { 'Content-Type': 'application/json' },
-    JSON.stringify({})
-  ]);
+  test('it renders', async function(assert) {
+    const { server } = this;
+    const { uri } = server.create('datasetView');
+    const labelClass = '.dataset-deprecation-toggle__toggle-header__label';
 
-  this.render(hbs`{{datasets/containers/dataset-properties urn=urn}}`);
+    this.setProperties({ urn: uri, deprecated: false });
 
-  assert.ok(find(labelClass), 'renders presentation component');
+    await render(hbs`{{datasets/containers/dataset-properties urn=urn deprecated=deprecated}}`);
+
+    assert.ok(find(labelClass), 'renders presentation component');
+  });
 });

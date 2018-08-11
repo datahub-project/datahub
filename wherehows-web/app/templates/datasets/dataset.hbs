@@ -11,25 +11,25 @@
 
           {{#if model.removed}}
             <span class="removed-dataset dataset-pill">
-          REMOVED
+              REMOVED
 
               {{tooltip-on-element
                 event="hover"
                 text="This dataset has been removed"
               }}
-        </span>
+            </span>
           {{/if}}
 
           {{#if datasetContainsPersonalData}}
             <span class="pii-dataset dataset-pill">
-          PII
+              PII
 
               {{tooltip-on-element
                 event="hover"
                 side="right"
                 text="This dataset contains personally identifiable information"
               }}
-        </span>
+            </span>
 
           {{/if}}
 

@@ -82,31 +82,6 @@ AppRouter.map(function() {
   });
   this.route('search');
   this.route('logout');
-  this.route('scripts', function() {
-    this.route('page', {
-      path: '/page/:page'
-    });
-
-    this.route('script', {
-      path: '/:script_id'
-    });
-  });
-
-  this.route(
-    'schemahistory',
-    {
-      path: 'schemas'
-    },
-    function() {
-      this.route('page', {
-        path: '/page/:page'
-      });
-
-      this.route('schema', {
-        path: '/:schema'
-      });
-    }
-  );
 
   this.route('login');
 

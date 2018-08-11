@@ -23,16 +23,16 @@
     </div>
   {{/if}}
 
-  {{#unless (eq dismissButtonText false)}}
+  {{#if (not-eq dismissButtonText false)}}
     <button class="nacho-button--large nacho-button--secondary" {{action onDismiss}}>
       {{dismissButtonText}}
     </button>
-  {{/unless}}
+  {{/if}}
 
-  {{#unless (eq confirmButtonText false)}}
+  {{#if (not-eq confirmButtonText false)}}
     <button class="nacho-button nacho-button--large-inverse" {{action onConfirm}}>
       {{confirmButtonText}}
     </button>
-  {{/unless}}
+  {{/if}}
 
 {{/if}}

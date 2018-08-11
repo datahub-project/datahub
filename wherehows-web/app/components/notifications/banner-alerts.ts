@@ -1,27 +1,17 @@
 import Component from '@ember/component';
-import { inject as service } from '@ember/service';
-import { computed, get, set } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
+import { get, set } from '@ember/object';
 import BannerService, { IBanner } from 'wherehows-web/services/banners';
 import { bannerAnimationSpeed } from 'wherehows-web/constants/notifications';
+import { service } from '@ember-decorators/service';
+import { alias } from '@ember-decorators/object/computed';
+import { action } from '@ember-decorators/object';
 
 export default class BannerAlerts extends Component {
-  /**
-   * Imports the service used to handle actual activation and dismissal of banners. The service also
-   * maintains the banners list
-   * @type {ComputedProperty<BannerService>}
-   */
-  banners: ComputedProperty<BannerService> = service();
-
-  /**
-   * Sets the tagname for the html element rendered by this component
-   */
   tagName = 'section';
 
-  /**
-   * Sets the classnames to attach to the html element rendered by this component
-   */
   classNames = ['banner-alerts'];
+
+  classNameBindings = ['isShowingBanners:banner-alerts--show:banner-alerts--hide'];
 
   /**
    * Keeps the base banner animation speed as a property to attach as a data attribute to the rendered
@@ -30,27 +20,29 @@ export default class BannerAlerts extends Component {
   bannerAnimationSpeed = bannerAnimationSpeed;
 
   /**
-   * Binds classnames to specific truthy values of properties on this component
+   * Imports the service used to handle actual activation and dismissal of banners. The service also
+   * maintains the banners list
+   * @type {ComputedProperty<BannerService>}
    */
-  classNameBindings = ['isShowingBanners:banner-alerts--show:banner-alerts--hide'];
+  @service
+  banners: BannerService;
 
   /**
    * References the banners service computation on whether or not we should be showing banners
    */
-  isShowingBanners: ComputedProperty<boolean> = computed.alias('banners.isShowingBanners');
+  @alias('banners.isShowingBanners')
+  isShowingBanners: boolean;
 
-  actions = {
-    /**
-     * Triggered by the user by clicking the dismiss icon on the banner, triggers the exiting state on the
-     * topmost (first in queue) banner and starts the timer/css animation for the dismissal action
-     * @param this - explicit this declaration for typescript
-     * @param {IBanner} banner - the banner as a subject for the dismissal action
-     */
-    onDismissBanner(this: BannerAlerts, banner: IBanner) {
-      const banners = get(this, 'banners');
+  /**
+   * Triggered by the user by clicking the dismiss icon on the banner, triggers the exiting state on the
+   * topmost (first in queue) banner and starts the timer/css animation for the dismissal action
+   * @param {IBanner} banner - the banner as a subject for the dismissal action
+   */
+  @action
+  onDismissBanner(this: BannerAlerts, banner: IBanner) {
+    const banners = get(this, 'banners');
 
-      set(banner, 'isExiting', true);
-      banners.dequeue();
-    }
-  };
+    set(banner, 'isExiting', true);
+    banners.dequeue();
+  }
 }

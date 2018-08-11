@@ -1,46 +1,43 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render, waitUntil, find } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { waitUntil, find } from 'ember-native-dom-helpers';
 import { urn } from 'wherehows-web/mirage/fixtures/urn';
 import sinon from 'sinon';
 
-moduleForComponent(
-  'datasets/containers/dataset-ownership',
-  'Integration | Component | datasets/containers/dataset ownership',
-  {
-    integration: true,
+module('Integration | Component | datasets/containers/dataset ownership', function(hooks) {
+  setupRenderingTest(hooks);
 
-    beforeEach() {
-      this.server = sinon.createFakeServer();
-      this.server.respondImmediately = true;
-    },
+  hooks.beforeEach(function() {
+    this.server = sinon.createFakeServer();
+    this.server.respondImmediately = true;
+  });
 
-    afterEach() {
-      this.server.restore();
-    }
-  }
-);
+  hooks.afterEach(function() {
+    this.server.restore();
+  });
 
-test('it renders', async function(assert) {
-  const lookupClass = '.dataset-owner-table__add-owner';
-  this.set('urn', urn);
-  this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
-    200,
-    { 'Content-Type': 'application/json' },
-    JSON.stringify({})
-  ]);
-  this.server.respondWith('GET', '/api/v1/owner/types', [
-    200,
-    { 'Content-Type': 'application/json' },
-    JSON.stringify([])
-  ]);
+  test('it renders', async function(assert) {
+    const lookupClass = '.dataset-owner-table__add-owner';
+    this.set('urn', urn);
+    this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
+      200,
+      { 'Content-Type': 'application/json' },
+      JSON.stringify({})
+    ]);
+    this.server.respondWith('GET', '/api/v1/owner/types', [
+      200,
+      { 'Content-Type': 'application/json' },
+      JSON.stringify([])
+    ]);
 
-  this.render(hbs`{{datasets/containers/dataset-ownership urn=urn}}`);
+    await render(hbs`{{datasets/containers/dataset-ownership urn=urn}}`);
 
-  await waitUntil(() => find(lookupClass));
-  assert.equal(
-    document.querySelector(lookupClass).textContent.trim(),
-    'Add an owner',
-    'shows dataset authors component'
-  );
+    await waitUntil(() => find(lookupClass));
+    assert.equal(
+      document.querySelector(lookupClass).textContent.trim(),
+      'Add an owner',
+      'shows dataset authors component'
+    );
+  });
 });

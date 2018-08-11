@@ -1,22 +1,24 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 import notificationsStub from 'wherehows-web/tests/stubs/services/notifications';
 
-moduleForComponent('dataset-compliance', 'Integration | Component | dataset compliance', {
-  integration: true,
+module('Integration | Component | dataset compliance', function(hooks) {
+  setupRenderingTest(hooks);
 
-  beforeEach() {
-    this.register('service:notifications', notificationsStub);
+  hooks.beforeEach(function() {
+    this.owner.register('service:notifications', notificationsStub);
 
-    this.inject.service('notifications');
-  }
-});
+    this.notifications = this.owner.lookup('service:notifications');
+  });
 
-test('it renders an empty state component when isCompliancePolicyAvailable is false', function(assert) {
-  this.render(hbs`{{dataset-compliance}}`);
+  test('it renders an empty state component when isCompliancePolicyAvailable is false', async function(assert) {
+    await render(hbs`{{dataset-compliance}}`);
 
-  assert.notOk(this.get('isCompliancePolicyAvailable'));
+    assert.notOk(this.get('isCompliancePolicyAvailable'));
 
-  assert.ok(document.querySelector('empty-state'));
+    assert.ok(document.querySelector('empty-state'));
+  });
 });

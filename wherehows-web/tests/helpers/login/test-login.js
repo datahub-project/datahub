@@ -1,4 +1,4 @@
-import { visit, click, fillIn } from 'ember-native-dom-helpers';
+import { visit, click, fillIn } from '@ember/test-helpers';
 import { authenticationUrl, testUser, testPassword } from 'wherehows-web/tests/helpers/login/constants';
 import {
   loginUserInput,
