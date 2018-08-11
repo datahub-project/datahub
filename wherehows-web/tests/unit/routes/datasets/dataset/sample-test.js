@@ -1,10 +1,11 @@
-import { moduleFor, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupTest } from 'ember-qunit';
 
-moduleFor('route:datasets/dataset/sample', 'Unit | Route | datasets/dataset/sample', {
-  needs: ['service:metrics']
-});
+module('Unit | Route | datasets/dataset/sample', function(hooks) {
+  setupTest(hooks);
 
-test('it exists', function(assert) {
-  let route = this.subject();
-  assert.ok(route);
+  test('it exists', function(assert) {
+    let route = this.owner.lookup('route:datasets/dataset/sample');
+    assert.ok(route);
+  });
 });

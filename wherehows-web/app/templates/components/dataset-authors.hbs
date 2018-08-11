@@ -1,16 +1,16 @@
 <section class="dataset-author">
-    <header>
-      <h2 class="dataset-author__header">
-        Owners
-      </h2>
+  <header>
+    <h2 class="dataset-author__header">
+      Owners
+    </h2>
 
-      <p class="dataset-author__byline">
-        Please add at least <strong>2</strong> owners.
-      </p>
-    </header>
+    <p class="dataset-author__byline">
+      Please add at least <strong>2</strong> owners.
+    </p>
+  </header>
 
-    <table class="nacho-table nacho-table--bordered dataset-owner-table">
-      <thead>
+  <table class="nacho-table nacho-table--bordered dataset-owner-table">
+    <thead>
       <tr>
         <th class="dataset-author-column--extra-wide">
           LDAP Username
@@ -20,23 +20,23 @@
         <th class="dataset-author-column--wide">
           Ownership Type
 
-          <!--TODO: DSS-6716-->
-          <!-- DRY out with wrapper component that takes the link as an attribute-->
           <a
+            rel="noopener"
             target="_blank"
             href="https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Acquisition#ProjectOverview-ownership">
             <sup>
-        <span class="glyphicon glyphicon-question-sign"
-              title="Link to more information"></span>
+              <span class="glyphicon glyphicon-question-sign"
+                    title="Link to more information">
+              </span>
             </sup>
           </a>
         </th>
         <th></th>
       </tr>
-      </thead>
+    </thead>
 
-      {{#each confirmedOwners as |confirmedOwner|}}
-        <tbody>
+    {{#each confirmedOwners as |confirmedOwner|}}
+      <tbody>
         {{dataset-author
           owner=confirmedOwner
           ownerTypes=ownerTypes
@@ -44,34 +44,34 @@
           confirmSuggestedOwner=(action "confirmSuggestedOwner")
           updateOwnerType=(action "updateOwnerType")
         }}
-        </tbody>
-      {{/each}}
-
-      <tbody>
-        <tr>
-          <div class="dataset-owner-table__add-owner">
-            {{#if isAddingOwner}}
-              {{pwr-user-lookup didFindUser=(action "addOwner")}}
-            {{else}}
-              <span class="dataset-owner-table__trigger" {{action (mut isAddingOwner) true}}>
-                {{fa-icon "plus"}} Add an owner
-              </span>
-            {{/if}}
-          </div>
-        </tr>
       </tbody>
-    </table>
-  </section>
+    {{/each}}
+
+    <tbody>
+      <tr>
+        <div class="dataset-owner-table__add-owner">
+          {{#if isAddingOwner}}
+            {{pwr-user-lookup didFindUser=(action "addOwner")}}
+          {{else}}
+            <button class="nacho-button nacho-button--tertiary dataset-owner-table__trigger" {{action (mut isAddingOwner) true}}>
+              {{fa-icon "plus"}} Add an owner
+            </button>
+          {{/if}}
+        </div>
+      </tr>
+    </tbody>
+  </table>
+</section>
 
 <section class="dataset-author">
-    {{datasets/owners/suggested-owners
-      owners=systemGeneratedOwners
-      ownerTypes=ownerTypes
-      commonOwners=commonOwners
-      removeOwner=(action "removeOwner")
-      confirmSuggestedOwner=(action  "confirmSuggestedOwner")
-      updateOwnerType=(action "updateOwnerType")}}
-  </section>
+  {{datasets/owners/suggested-owners
+    owners=systemGeneratedOwners
+    ownerTypes=ownerTypes
+    commonOwners=commonOwners
+    removeOwner=(action "removeOwner")
+    confirmSuggestedOwner=(action  "confirmSuggestedOwner")
+    updateOwnerType=(action "updateOwnerType")}}
+</section>
 
 <section class="action-bar">
   <div class="container action-bar__content">
@@ -92,15 +92,15 @@
       <div class="dataset-authors-save-error">
         <p>
           {{fa-icon "times-circle-o" class="dataset-authors-save-error__icon"}}
-          {{#unless (eq changedState 1)}}
-            Please make changes to save.
-          {{else}}
+          {{#if (eq changedState 1)}}
             {{#if (eq ownersRequiredCount 2)}}
               Add at least 2 DataOwners.
             {{else}}
               Add at least {{ownersRequiredCount}} more DataOwner(s).
             {{/if}}
-          {{/unless}}
+          {{else}}
+            Please make changes to save.
+          {{/if}}
         </p>
       </div>
     {{/if}}
