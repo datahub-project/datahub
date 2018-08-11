@@ -14,6 +14,7 @@ model {
                     scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
                 }
             }
+        }
     }
 
     distributions {
