@@ -3,7 +3,6 @@ repositories {
     dirs 'extralibs'
   }
   mavenCentral()
-  jcenter()
   maven {
       name "lightbend-maven-release"
       url "https://repo.lightbend.com/lightbend/maven-releases"
