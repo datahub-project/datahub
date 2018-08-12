@@ -1,11 +1,10 @@
 import Component from '@ember/component';
-import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { get, getProperties } from '@ember/object';
 import { action } from '@ember-decorators/object';
 import Metrics from 'ember-metrics';
 import { TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { IPiwikEvent, TrackableEvent } from 'wherehows-web/typings/app/analytics/event-tracking';
+import { service } from '@ember-decorators/service';
 
 export default class TrackUiEvent extends Component.extend({
   tagName: '' //Creates a fragment component that will not have a DOM representation
@@ -14,7 +13,8 @@ export default class TrackUiEvent extends Component.extend({
    * References the metrics service
    * @type {ComputedProperty<Metrics>}
    */
-  metrics: ComputedProperty<Metrics> = inject();
+  @service
+  metrics: Metrics;
 
   /**
    * The set category for the event to be tracked

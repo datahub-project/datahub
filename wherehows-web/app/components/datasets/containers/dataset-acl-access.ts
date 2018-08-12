@@ -1,6 +1,4 @@
 import Component from '@ember/component';
-import ComputedProperty, { equal } from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { get, set, getProperties, computed } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
@@ -21,6 +19,8 @@ import {
 import { hasEnumerableKeys } from 'wherehows-web/utils/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
+import { service } from '@ember-decorators/service';
+import { equal } from '@ember-decorators/object/computed';
 
 /**
  * Enumerates the string value for an acl access request
@@ -37,14 +37,16 @@ export default class DatasetAclAccessContainer extends Component {
    * @type {ComputedProperty<CurrentUser>}
    * @memberof DatasetAclAccessContainer
    */
-  currentUser: ComputedProperty<CurrentUser> = inject();
+  @service('current-user')
+  currentUser: CurrentUser;
 
   /**
    * App notifications service
    * @type {ComputedProperty<Notifications>}
    * @memberof DatasetAclAccessContainer
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * The currently logged in user
@@ -95,7 +97,8 @@ export default class DatasetAclAccessContainer extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAclAccessContainer
    */
-  userHasAclAccess = equal('userAcl.length', 1);
+  @equal('userAcl.length', 1)
+  userHasAclAccess: boolean;
 
   /**
    * Dataset urn

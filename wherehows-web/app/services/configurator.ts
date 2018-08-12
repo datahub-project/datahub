@@ -10,7 +10,7 @@ import deepClone from 'wherehows-web/utils/deep-clone';
  * Conditional type alias for getConfig return type, if T is assignable to a key of
  * IAppConfig, then return the property value, otherwise returns the  IAppConfig object
  */
-type IAppConfigOrProperty<T> = T extends keyof IAppConfig ? IAppConfig[T] : IAppConfig;
+type IAppConfigOrProperty<T> = T extends keyof IAppConfig ? IAppConfig[T] : T extends undefined ? IAppConfig : never;
 
 /**
  * Holds the application configuration object
@@ -54,12 +54,12 @@ export default class Configurator extends Service {
    * @returns {IAppConfigOrProperty<K>}
    * @memberof Configurator
    */
-  static getConfig<K extends keyof IAppConfig>(key?: K): IAppConfigOrProperty<K> {
+  static getConfig<K extends keyof IAppConfig | undefined>(key?: K): IAppConfigOrProperty<K> {
     // Ensure that the application configuration has been successfully cached
     assert('Please ensure you have invoked the `load` method successfully prior to calling `getConfig`.', configLoaded);
 
-    return typeof key === 'string'
-      ? <IAppConfigOrProperty<K>>deepClone(appConfig[key])
+    return typeof key === 'string' && appConfig.hasOwnProperty(<keyof IAppConfig>key)
+      ? <IAppConfigOrProperty<K>>deepClone(appConfig[<keyof IAppConfig>key])
       : <IAppConfigOrProperty<K>>deepClone(appConfig);
   }
 }

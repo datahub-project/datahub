@@ -3,7 +3,7 @@ import { OwnerSource, OwnerIdType, OwnerUrnNamespace, OwnerType } from 'wherehow
 
 export default <Array<IOwner>>[
   {
-    confirmedBy: '',
+    confirmedBy: 'test',
     email: 'confirmed-owner@linkedin.com',
     idType: OwnerIdType.User,
     isActive: true,
@@ -17,7 +17,7 @@ export default <Array<IOwner>>[
     type: OwnerType.Owner
   },
   {
-    confirmedBy: '',
+    confirmedBy: 'test',
     email: 'suggested-owner@linkedin.com',
     idType: OwnerIdType.User,
     isActive: true,

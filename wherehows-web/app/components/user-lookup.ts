@@ -1,8 +1,7 @@
 import Component from '@ember/component';
-import { inject } from '@ember/service';
-import ComputedProperty from '@ember/object/computed';
 import { get, set } from '@ember/object';
 import { action } from '@ember-decorators/object';
+import { service } from '@ember-decorators/service';
 
 import UserLookupService from 'wherehows-web/services/user-lookup';
 import { OwnerIdType } from 'wherehows-web/utils/api/datasets/owners';
@@ -24,7 +23,8 @@ export default class UserLookup extends Component {
    * @type {ComputedProperty<UserLookupService>}
    * @memberof UserLookup
    */
-  userLookup: ComputedProperty<UserLookupService> = inject();
+  @service('user-lookup')
+  userLookup: UserLookupService;
   /**
    * Reference to the userNamesResolver function to asynchronously match userNames
    * @type {UserLookupService.userNamesResolver}
@@ -53,8 +53,7 @@ export default class UserLookup extends Component {
     }
 
     const { didFindUser } = this;
-    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
-    const findUser = get(get(this, 'userLookup'), 'getPartyEntityWithUserName');
+    const findUser = this.userLookup.getPartyEntityWithUserName;
     const userEntity = await findUser(userName);
 
     if (userEntity) {

@@ -1,36 +1,40 @@
 import Route from '@ember/routing/route';
 import { get } from '@ember/object';
-import { inject } from '@ember/service';
+import { service } from '@ember-decorators/service';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
-import { featureEntryPoints } from 'wherehows-web/constants/application';
 import Configurator from 'wherehows-web/services/configurator';
+import CurrentUser from 'wherehows-web/services/current-user';
+import Metrics from 'ember-metrics';
 
-export default Route.extend(AuthenticatedRouteMixin, {
+export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {
   /**
-   * @type {Ember.Service}
+   * @type {CurrentUser}
    */
-  sessionUser: inject('current-user'),
+  @service('current-user')
+  sessionUser: CurrentUser;
 
   /**
    * Metrics tracking service
-   * @type {Ember.Service}
+   * @type {Metrics}
    */
-  metrics: inject(),
+  @service
+  metrics: Metrics;
 
   /**
    * Perform post model operations
+   * @param {import('ember').Ember.Transition} transition
    * @return {Promise}
    */
-  async beforeModel() {
-    this._super(...arguments);
+  async beforeModel(transition: import('ember').Ember.Transition) {
+    super.beforeModel(transition);
 
     await this._trackCurrentUser();
     this.replaceWithBrowseDatasetsRoute();
-  },
+  }
 
   replaceWithBrowseDatasetsRoute() {
     this.replaceWith('browse.entity', 'datasets');
-  },
+  }
 
   /**
    * On entry into route, track the currently logged in user
@@ -38,7 +42,7 @@ export default Route.extend(AuthenticatedRouteMixin, {
    * @private
    */
   async _trackCurrentUser() {
-    const { tracking = {} } = await Configurator.getConfig();
+    const { tracking } = await Configurator.getConfig<undefined>();
 
     // Check if tracking is enabled prior to invoking
     // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
@@ -47,4 +51,4 @@ export default Route.extend(AuthenticatedRouteMixin, {
       get(this, 'sessionUser').trackCurrentUser(userId => get(this, 'metrics').identify({ userId }))
     );
   }
-});
+}
