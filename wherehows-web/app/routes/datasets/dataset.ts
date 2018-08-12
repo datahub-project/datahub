@@ -1,8 +1,6 @@
 import Ember from 'ember'; // type import, no emit, access to Ember.Transition interface
 import Route from '@ember/routing/route';
-import { inject } from '@ember/service';
 import { get, set, setProperties } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
 import Configurator from 'wherehows-web/services/configurator';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
@@ -16,6 +14,7 @@ import isUrn, {
 import { datasetIdToUrn, readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import DatasetController from 'wherehows-web/controllers/datasets/dataset';
+import { service } from '@ember-decorators/service';
 
 /**
  * Describes the interface for properties passed into the routes's model hook
@@ -32,7 +31,8 @@ export default class DatasetRoute extends Route {
    * @type {ComputedProperty<Notifications>}
    * @memberof DatasetRoute
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   queryParams = refreshModelQueryParams(['urn']);
 

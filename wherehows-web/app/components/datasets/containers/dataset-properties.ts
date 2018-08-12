@@ -1,13 +1,12 @@
 import Component from '@ember/component';
 import { get, setProperties } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { task } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { updateDatasetDeprecationByUrn } from 'wherehows-web/utils/api/datasets/properties';
+import { service } from '@ember-decorators/service';
 
 export default class DatasetPropertiesContainer extends Component {
   /**
@@ -45,7 +44,8 @@ export default class DatasetPropertiesContainer extends Component {
    * @memberof DatasetPropertiesContainer
    * @type {ComputedProperty<Notifications>}
    */
-  notifications = <ComputedProperty<Notifications>>inject();
+  @service
+  notifications: Notifications;
 
   constructor() {
     super(...arguments);

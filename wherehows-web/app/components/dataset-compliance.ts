@@ -2,7 +2,6 @@ import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
 import ComputedProperty, { not, or, alias } from '@ember/object/computed';
 import { run, schedule, next } from '@ember/runloop';
-import { inject } from '@ember/service';
 import { classify } from '@ember/string';
 import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
@@ -72,6 +71,7 @@ import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
 import { pluralize } from 'ember-inflector';
+import { service } from '@ember-decorators/service';
 
 const {
   complianceDataException,
@@ -250,7 +250,8 @@ export default class DatasetCompliance extends Component {
    * Reference to the application notifications Service
    * @type {ComputedProperty<Notifications>}
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * Flag indicating that the field names in each compliance row is truncated or rendered in full

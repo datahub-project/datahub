@@ -14,7 +14,7 @@ module('Integration | Component | datasets/owners/suggested owners', function(ho
 
     await render(hbs`{{datasets/owners/suggested-owners}}`);
 
-    assert.ok(this.$(), 'Renders without errors when passed no values');
+    assert.ok(this.element, 'Renders without errors when passed no values');
     assert.equal(findAll(suggestedCardClass).length, 0, 'Renders no cards');
 
     assert.equal(
