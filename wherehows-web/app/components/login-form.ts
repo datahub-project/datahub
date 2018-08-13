@@ -1,6 +1,6 @@
 import Component from '@ember/component';
-import { get } from '@ember/object';
 import { assert } from '@ember/debug';
+import { action } from '@ember-decorators/object';
 
 export default class LoginForm extends Component {
   classNames = ['nacho-login-form'];
@@ -23,13 +23,12 @@ export default class LoginForm extends Component {
     );
   }
 
-  actions = {
-    /**
-     * Handle the login for submission
-     */
-    userDidSubmit(this: LoginForm) {
-      // Trigger action on parent controller
-      get(this, 'onSubmit')();
-    }
-  };
+  /**
+   * Handle the login for submission
+   */
+  @action
+  userDidSubmit() {
+    // Trigger action on parent controller
+    this.onSubmit();
+  }
 }

@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render, findAll, triggerEvent, click } from '@ember/test-helpers';
+import { render, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 import { noop } from 'wherehows-web/utils/helpers/functions';
@@ -11,6 +11,7 @@ import { minRequiredConfirmedOwners } from 'wherehows-web/constants/datasets/own
 
 const [confirmedOwner] = owners;
 const ownerTypes = Object.values(OwnerType);
+const saveButtonSelector = '.dataset-authors-save';
 
 module('Integration | Component | dataset authors', function(hooks) {
   setupRenderingTest(hooks);
@@ -83,7 +84,7 @@ module('Integration | Component | dataset authors', function(hooks) {
     this.set('saveOwnerChanges', noop);
     await render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
 
-    const isDisabled = document.querySelector('.dataset-authors-save').disabled;
+    const isDisabled = document.querySelector(saveButtonSelector).disabled;
 
     assert.ok(
       this.get('owners').length < minRequiredConfirmedOwners,
@@ -93,21 +94,25 @@ module('Integration | Component | dataset authors', function(hooks) {
   });
 
   test('it should invoke the external save action on save', async function(assert) {
-    assert.expect(2);
-    this.set('owners', [confirmedOwner]);
+    assert.expect(3);
+    const confirmedOwners = [confirmedOwner, confirmedOwner];
+
+    this.set('owners', []);
     this.set('ownerTypes', ownerTypes);
     this.set('saveOwnerChanges', owners => {
-      assert.ok(owners === this.get('owners'), 'the list of owners is passed into the save action');
+      assert.ok(owners === this.get('owners'), 'expect the list of owners is passed into the save action');
     });
-    await render(
-      hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes requiredMinNotConfirmed=requiredMinNotConfirmed save=(action saveOwnerChanges)}}`
+    await render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
+
+    this.set('owners', confirmedOwners);
+
+    assert.equal(
+      document.querySelector('.dataset-authors-save').disabled,
+      false,
+      'expect save button to not be disabled'
     );
+    await click(saveButtonSelector);
 
-    // enable save button interaction
-    this.set('requiredMinNotConfirmed', false);
-
-    triggerEvent('.dataset-authors-save', 'click');
-
-    assert.equal(this.get('owners').length, 1);
+    assert.equal(this.get('owners'), confirmedOwners, 'expect the same owners list as the passed in confirmed owners');
   });
 });

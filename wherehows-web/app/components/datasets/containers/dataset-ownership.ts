@@ -1,7 +1,5 @@
 import Component from '@ember/component';
 import { get, set, getProperties, setProperties } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { task, TaskInstance } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
@@ -14,6 +12,7 @@ import {
   readDatasetOwnerTypesWithoutConsumer,
   updateDatasetOwnersByUrn
 } from 'wherehows-web/utils/api/datasets/owners';
+import { service } from '@ember-decorators/service';
 
 export default class DatasetOwnershipContainer extends Component {
   /**
@@ -44,7 +43,8 @@ export default class DatasetOwnershipContainer extends Component {
    * Reference to the application notifications Service
    * @type {ComputedProperty<Notifications>}
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * Flag indicates that a ownership metadata is inherited from an upstream dataset

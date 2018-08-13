@@ -5,6 +5,7 @@ import { assert } from '@ember/debug';
 
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
+import { action } from '@ember-decorators/object';
 
 /**
  * This component renders a single owner record and also provides functionality for interacting with the component
@@ -89,11 +90,11 @@ export default class DatasetAuthor extends Component {
   isConfirmedSuggestedOwner: ComputedProperty<boolean> = computed('commonOwners', function(
     this: DatasetAuthor
   ): boolean {
-    const { commonOwners, isOwnerMutable, owner: { userName } } = getProperties(this, [
-      'commonOwners',
-      'isOwnerMutable',
-      'owner'
-    ]);
+    const {
+      commonOwners,
+      isOwnerMutable,
+      owner: { userName }
+    } = getProperties(this, ['commonOwners', 'isOwnerMutable', 'owner']);
 
     return isOwnerMutable ? false : !!commonOwners.findBy('userName', userName);
   });
@@ -105,48 +106,49 @@ export default class DatasetAuthor extends Component {
 
     // Checks that the expected external actions are provided
     assert(
-      `Expected action removeOwner to be an function (Ember action), got ${typeOfRemoveOwner}`,
+      `Expected action removeOwner to be a function (Ember action), got ${typeOfRemoveOwner}`,
       typeOfRemoveOwner === 'function'
     );
 
     assert(
-      `Expected action confirmOwner to be an function (Ember action), got ${typeOfConfirmSuggestedOwner}`,
+      `Expected action confirmOwner to be a function (Ember action), got ${typeOfConfirmSuggestedOwner}`,
       typeOfConfirmSuggestedOwner === 'function'
     );
   }
 
-  actions = {
-    /**
-     * Invokes the external action removeOwner to remove an owner from the confirmed list
-     * @return {boolean | void | IOwner}
-     */
-    removeOwner(this: DatasetAuthor): boolean | void | IOwner {
-      const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
-      return isOwnerMutable && removeOwner(owner);
-    },
+  /**
+   * Invokes the external action removeOwner to remove an owner from the confirmed list
+   * @return {boolean | void | IOwner}
+   */
+  @action
+  onRemoveOwner(): boolean | void | IOwner {
+    const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
+    return isOwnerMutable && removeOwner(owner);
+  }
 
-    /**
-     * Invokes the external action for  confirming the suggested owner
-     * @return {Array<IOwner> | void}
-     */
-    confirmOwner(this: DatasetAuthor): Array<IOwner> | void {
-      const { owner, confirmSuggestedOwner } = getProperties(this, ['owner', 'confirmSuggestedOwner']);
-      return confirmSuggestedOwner(owner);
-    },
+  /**
+   * Invokes the external action for  confirming the suggested owner
+   * @return {Array<IOwner> | void}
+   */
+  @action
+  confirmOwner(): Array<IOwner> | void {
+    const { owner, confirmSuggestedOwner } = getProperties(this, ['owner', 'confirmSuggestedOwner']);
+    return confirmSuggestedOwner(owner);
+  }
 
-    /**
-     * Updates the type attribute on the owner record
-     * @param {OwnerType} type value to update the type attribute with
-     * @return {void}
-     */
-    changeOwnerType(this: DatasetAuthor, type: OwnerType): boolean | void {
-      const { owner, isOwnerMutable, updateOwnerType } = getProperties(this, [
-        'owner',
-        'isOwnerMutable',
-        'updateOwnerType'
-      ]);
+  /**
+   * Updates the type attribute on the owner record
+   * @param {OwnerType} type value to update the type attribute with
+   * @return {void}
+   */
+  @action
+  changeOwnerType(type: OwnerType): boolean | void {
+    const { owner, isOwnerMutable, updateOwnerType } = getProperties(this, [
+      'owner',
+      'isOwnerMutable',
+      'updateOwnerType'
+    ]);
 
-      return isOwnerMutable && updateOwnerType(owner, type);
-    }
-  };
+    return isOwnerMutable && updateOwnerType(owner, type);
+  }
 }
