@@ -257,7 +257,7 @@ class LdapExtract:
   def run(self):
     self.fetch_ldap_user(self.metadata_folder + "/ldap_user_record.csv")
     self.fetch_ldap_group(self.metadata_folder + "/ldap_group_record.csv")
-    self.fetch_ldap_group_flatten(self.metadata_folder + "/ldap_group_flatten_record.csv")
+    #self.fetch_ldap_group_flatten(self.metadata_folder + "/ldap_group_flatten_record.csv")
 
 
 if __name__ == "__main__":
