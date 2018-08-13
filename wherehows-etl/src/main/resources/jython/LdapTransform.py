@@ -38,10 +38,10 @@ class LdapTransform:
                    "table": "stg_dir_external_group_user_map",
                    "nullif_columns": {"user_id": "''"}
                    },
-    "ldap_group_flatten": {"columns": "app_id, group_id, sort_id, user_app_id, user_id, wh_etl_exec_id",
-                           "file": "ldap_group_flatten_record.csv",
-                           "table": "stg_dir_external_group_user_map_flatten"
-                           }
+  # "ldap_group_flatten": {"columns": "app_id, group_id, sort_id, user_app_id, user_id, wh_etl_exec_id",
+  #                        "file": "ldap_group_flatten_record.csv",
+  #                        "table": "stg_dir_external_group_user_map_flatten"
+  #                        }
   }
 
   _read_file_template = """
@@ -110,7 +110,7 @@ class LdapTransform:
       self.read_file_to_stg()
       self.update_null_value()
       self.update_manager_info()
-      self.update_hierarchy_info()
+      #self.update_hierarchy_info()
     finally:
       self.wh_cursor.close()
       self.wh_con.close()
