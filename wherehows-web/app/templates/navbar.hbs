@@ -10,9 +10,9 @@
 
       {{#link-to "index" class="navbar-brand"}}
         <div>
-        <img src="{{model.brand.logo}}"
-             alt="WhereHows Logo">
-        <sup class="beta-badge">(Beta)</sup>
+          <img src="{{model.brand.logo}}"
+               alt="WhereHows Logo">
+          <sup class="beta-badge">(Beta)</sup>
         </div>
       {{/link-to}}
     </div>
@@ -22,20 +22,6 @@
       </ul>
 
       <ul class="nav navbar-nav navbar-right">
-        <li class="dropdown">
-          <a class="dropdown-toggle"
-             data-toggle="dropdown"
-             role="button"
-             aria-haspopup="true"
-             aria-expanded="false">
-            <i class="caret"></i>
-            Tools
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            {{#nav-link 'scripts' tagName="li"}}Script Finder{{/nav-link}}
-            {{#nav-link 'schemahistory' tagName="li"}}Schema History{{/nav-link}}
-          </ul>
-        </li>
 
         <li class="dropdown">
           <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
@@ -51,10 +37,11 @@
             </li>
 
             <li>
-              <!--TODO: DSS-6716-->
-              <!-- DRY out with wrapper component that takes the link as an attribute-->
+              {{! TODO: DSS-6716 }}
+              {{! DRY out with wrapper component that takes the link as an attribute }}
               <a href="https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Metadata+Coverage"
                  title="Metadata Coverage"
+                 rel="noopener"
                  target="_blank">
                 See Metadata Coverage
               </a>

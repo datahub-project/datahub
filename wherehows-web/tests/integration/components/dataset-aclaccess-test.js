@@ -1,18 +1,19 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { triggerEvent } from 'ember-native-dom-helpers';
 
-moduleForComponent('dataset-aclaccess', 'Integration | Component | dataset aclaccess', {
-  integration: true
-});
+module('Integration | Component | dataset aclaccess', function(hooks) {
+  setupRenderingTest(hooks);
 
-test('it renders', function(assert) {
-  this.setProperties({
-    acls: [],
-    accessTypeDropDownOptions: []
+  test('it renders', async function(assert) {
+    this.setProperties({
+      acls: [],
+      accessTypeDropDownOptions: []
+    });
+
+    await render(hbs`{{dataset-aclaccess acls=acls accessTypeDropDownOptions=accessTypeDropDownOptions}}`);
+
+    assert.ok(document.querySelector('.acl-permission__header'), 'it renders a constituent element in the DOM');
   });
-
-  this.render(hbs`{{dataset-aclaccess acls=acls accessTypeDropDownOptions=accessTypeDropDownOptions}}`);
-
-  assert.ok(document.querySelector('.acl-permission__header'), 'it renders a constituent element in the DOM');
 });

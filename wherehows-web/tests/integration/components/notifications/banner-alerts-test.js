@@ -1,4 +1,6 @@
-import { moduleForComponent, test } from 'ember-qunit';
+import { module, test } from 'qunit';
+import { setupRenderingTest } from 'ember-qunit';
+import { render, findAll } from '@ember/test-helpers';
 import Service from '@ember/service';
 import hbs from 'htmlbars-inline-precompile';
 
@@ -27,30 +29,31 @@ const bannersStub = Service.extend({
   }
 });
 
-moduleForComponent('notifications/banner-alerts', 'Integration | Component | notifications/banner alerts', {
-  integration: true,
-  beforeEach() {
-    this.register('service:banners', bannersStub);
-    this.inject.service('banners', { as: 'banners' });
-  }
-});
+module('Integration | Component | notifications/banner alerts', function(hooks) {
+  setupRenderingTest(hooks);
 
-const bannerAlertClass = '.banner-alert';
+  hooks.beforeEach(function() {
+    this.owner.register('service:banners', bannersStub);
+    this.banners = this.owner.lookup('service:banners');
+  });
 
-test('it renders', function(assert) {
-  this.render(hbs`{{notifications/banner-alerts}}`);
-  assert.ok(this.$(), 'Renders without errors');
-});
+  const bannerAlertClass = '.banner-alert';
 
-test('it renders the correct information', function(assert) {
-  this.render(hbs`{{notifications/banner-alerts}}`);
-  assert.equal(this.$(bannerAlertClass).length, 2, 'Renders the correct amount of banners');
-  assert.equal(
-    this.$(`${bannerAlertClass}__content:eq(0)`)
-      .text()
-      .trim(),
-    banners[0].content,
-    'Renders the correct text'
-  );
-  assert.equal(this.$(`.fa-${banners[0].iconName}`).length, 1, 'Renders the correct types of banners');
+  test('it renders', async function(assert) {
+    await render(hbs`{{notifications/banner-alerts}}`);
+    assert.ok(this.$(), 'Renders without errors');
+  });
+
+  test('it renders the correct information', async function(assert) {
+    await render(hbs`{{notifications/banner-alerts}}`);
+    assert.equal(findAll(bannerAlertClass).length, 2, 'Renders the correct amount of banners');
+    assert.equal(
+      this.$(`${bannerAlertClass}__content:eq(0)`)
+        .text()
+        .trim(),
+      banners[0].content,
+      'Renders the correct text'
+    );
+    assert.equal(this.$(`.fa-${banners[0].iconName}`).length, 1, 'Renders the correct types of banners');
+  });
 });

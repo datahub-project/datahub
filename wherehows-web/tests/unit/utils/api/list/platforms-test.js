@@ -4,16 +4,16 @@ import sinon from 'sinon';
 
 const { readPlatforms } = platformsApi;
 
-module('Unit | Utility | api/list/platforms', {
-  beforeEach() {
+module('Unit | Utility | api/list/platforms', function(hooks) {
+  hooks.beforeEach(function() {
     this.xhr = sinon.useFakeXMLHttpRequest();
-  },
+  });
 
-  afterEach() {
+  hooks.afterEach(function() {
     this.xhr.restore();
-  }
-});
+  });
 
-test('readPlatforms exhibits expected behaviour', function(assert) {
-  assert.ok(typeof readPlatforms({}).then === 'function', 'it returns a Promise object or thennable');
+  test('readPlatforms exhibits expected behaviour', function(assert) {
+    assert.ok(typeof readPlatforms({}).then === 'function', 'it returns a Promise object or thennable');
+  });
 });
