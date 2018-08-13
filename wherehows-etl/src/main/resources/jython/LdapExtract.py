@@ -51,7 +51,7 @@ class LdapExtract:
     fetch ldap user from ldap server
     :param file: output file name
     """
-
+    self.logger.info("Fetching ldap users")
     # Setup LDAP Context Options
     settings = Hashtable()
     settings.put(Context.INITIAL_CONTEXT_FACTORY, self.args[Constant.LDAP_CONTEXT_FACTORY_KEY])
@@ -143,6 +143,7 @@ class LdapExtract:
     fetch group mapping from group ldap server
     :param file: output file name
     """
+    self.logger.info("Fetching ldap groups")
     settings = Hashtable()
     settings.put(Context.INITIAL_CONTEXT_FACTORY, self.args[Constant.LDAP_GROUP_CONTEXT_FACTORY_KEY])
     settings.put(Context.PROVIDER_URL, self.args[Constant.LDAP_GROUP_CONTEXT_PROVIDER_URL_KEY])
@@ -198,6 +199,7 @@ class LdapExtract:
     Flatten the group - user map by recursive extending inner-group members
     :param file: output file name
     """
+    self.logger.info("Flattening ldap users")
     ldap_records = []
     for group in self.group_map:
       all_users = self.get_all_users_for_group(group, self.ldap_user, self.group_map, set())
@@ -212,6 +214,7 @@ class LdapExtract:
         ldap_group_flatten_tuple.append(self.wh_exec_id)
         ldap_records.append(ldap_group_flatten_tuple)
         sort_id += 1
+    self.logger.info("%d groups flattened" % (len(self.group_map)))
 
     csv_writer = csv.writer(open(file, "w"), delimiter='', quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
     csv_writer.writerows(ldap_records)
