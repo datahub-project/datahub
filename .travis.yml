@@ -8,7 +8,7 @@ jdk:
   - oraclejdk8
 
 env:
-  - DOCKER_COMPOSE_VERSION=1.14.0
+  - DOCKER_COMPOSE_VERSION=1.22.0
 
 services:
   - docker
@@ -16,7 +16,7 @@ services:
 
 before_install:
   # elasticsearch
-  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.3/elasticsearch-2.3.3.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.3.deb && sudo service elasticsearch restart
+  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.5/elasticsearch-2.3.5.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.5.deb && sudo service elasticsearch restart
 
   # extralibs
   - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
