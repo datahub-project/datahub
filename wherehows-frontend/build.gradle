@@ -19,7 +19,7 @@ dependencies{
     play externalDependency.play_cache
     play externalDependency.mysql
 
-    playTest 'org.easytesting:fest-assert-core:2.0M10'
+    playTest externalDependency.festAssert
     playTest externalDependency.mockito
 }
 

@@ -3,7 +3,7 @@ apply plugin: 'com.palantir.jacoco-full-report'
 apply plugin: 'jacoco'
 
 // Must match the version used in jacoco4sbt plugin.
-ext.jacocoVersion = '0.7.1.201405082137'
+ext.jacocoVersion = '0.8.1'
 
 jacoco {
   toolVersion = jacocoVersion

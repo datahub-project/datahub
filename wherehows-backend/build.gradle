@@ -14,8 +14,8 @@ dependencies {
     play externalDependency.slf4j_api
     play externalDependency.jasypt
 
-    playTest 'com.github.stefanbirkner:system-rules:1.16.0'
-    playTest 'org.easytesting:fest-assert-core:2.0M10'
+    playTest externalDependency.systemRules
+    playTest externalDependency.festAssert
     playTest externalDependency.mockito
 }
 
