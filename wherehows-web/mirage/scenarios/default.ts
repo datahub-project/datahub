@@ -27,4 +27,5 @@ export default function(server: IMirageServer) {
   server.createList('suggestion', 2);
   server.createList('platform', 2);
   server.createList('version', 2);
+  server.createList('health', 1);
 }
