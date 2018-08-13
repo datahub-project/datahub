@@ -1,7 +1,5 @@
 import Component from '@ember/component';
 import { get, set, setProperties, getProperties } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { task } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -35,6 +33,7 @@ import validateMetadataObject, {
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 import Configurator from 'wherehows-web/services/configurator';
 import { typeOf } from '@ember/utils';
+import { service } from '@ember-decorators/service';
 
 /**
  * Type alias for the response when container data items are batched
@@ -111,7 +110,8 @@ export default class DatasetComplianceContainer extends Component {
    * Reference to the application notifications Service
    * @type {ComputedProperty<Notifications>}
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * Object containing the compliance information for the dataset
@@ -193,7 +193,9 @@ export default class DatasetComplianceContainer extends Component {
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
-    let suggestionConfidenceThreshold = Configurator.getConfig('suggestionConfidenceThreshold');
+    let suggestionConfidenceThreshold = Configurator.getConfig<'suggestionConfidenceThreshold'>(
+      'suggestionConfidenceThreshold'
+    );
 
     // convert to fractional percentage if valid number is present
     typeOf(suggestionConfidenceThreshold) === 'number' &&

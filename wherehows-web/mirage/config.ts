@@ -25,6 +25,7 @@ import { aclAuth } from 'wherehows-web/mirage/helpers/aclauth';
 import { getDatasetUpstreams } from 'wherehows-web/mirage/helpers/dataset-upstreams';
 import { getDatasetRetention } from 'wherehows-web/mirage/helpers/dataset-retentions';
 import { getDatasetFabrics } from 'wherehows-web/mirage/helpers/dataset-fabrics';
+import { getDatasetHealth } from 'wherehows-web/mirage/helpers/dataset-health';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -41,7 +42,7 @@ export default function(this: IMirageServer) {
 
   this.get('/datasets/:dataset_id/schema', getDatasetSchema);
 
-  this.get('/datasets/:dataset_id/compliance/suggestions', getDatasetComplianceSuggestion);
+  this.get('/datasets/:dataset_id/compliance/suggestion', getDatasetComplianceSuggestion);
 
   this.get('/datasets/:dataset_id/owners', getDatasetOwners);
 
@@ -56,6 +57,8 @@ export default function(this: IMirageServer) {
   this.get('/datasets/:dataset_id/compliance', getDatasetCompliance);
 
   this.get('/datasets/:dataset_id/fabrics', getDatasetFabrics);
+
+  this.get('/datasets/:dataset_id/health', getDatasetHealth);
 
   this.namespace = '/api/v1';
 

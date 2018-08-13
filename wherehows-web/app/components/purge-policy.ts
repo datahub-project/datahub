@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get, set } from '@ember/object';
+import { set } from '@ember/object';
 import { run, next } from '@ember/runloop';
 import DatasetCompliance from 'wherehows-web/components/dataset-compliance';
 import {
@@ -11,6 +11,7 @@ import {
   purgePolicyProps
 } from 'wherehows-web/constants';
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
+import { action } from '@ember-decorators/object';
 
 export default class PurgePolicyComponent extends Component {
   /**
@@ -93,7 +94,7 @@ export default class PurgePolicyComponent extends Component {
 
   didReceiveAttrs() {
     this._super(...arguments);
-    this.checkExemption(get(this, 'purgePolicy'));
+    this.checkExemption(this.purgePolicy);
   }
 
   /**
@@ -116,7 +117,7 @@ export default class PurgePolicyComponent extends Component {
    * Applies cursor / document focus to the purge note text editor
    */
   focusEditor(this: PurgePolicyComponent) {
-    const element = get(this, 'element');
+    const { element } = this;
     const exemptionReasonElement: HTMLElement | null = element && element.querySelector('.comment-new__content');
 
     if (exemptionReasonElement) {
@@ -124,13 +125,12 @@ export default class PurgePolicyComponent extends Component {
     }
   }
 
-  actions = {
-    /**
-     * Handles the change to the currently selected purge policy
-     * @param {PurgePolicy} purgePolicy the selected purge policy
-     */
-    onChange(this: PurgePolicyComponent, purgePolicy: PurgePolicy) {
-      return get(this, 'onPolicyChange')(purgePolicy);
-    }
-  };
+  /**
+   * Handles the change to the currently selected purge policy
+   * @param {PurgePolicy} purgePolicy the selected purge policy
+   */
+  @action
+  onChange(purgePolicy: PurgePolicy) {
+    return this.onPolicyChange(purgePolicy);
+  }
 }

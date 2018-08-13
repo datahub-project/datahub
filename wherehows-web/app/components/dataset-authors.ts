@@ -1,8 +1,9 @@
 import Component from '@ember/component';
-import { inject } from '@ember/service';
-import ComputedProperty, { filter } from '@ember/object/computed';
-import { set, get, computed, getProperties } from '@ember/object';
+import { set, get, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
+import { action, computed } from '@ember-decorators/object';
+import { filter } from '@ember-decorators/object/computed';
+import { service } from '@ember-decorators/service';
 import { task } from 'ember-concurrency';
 
 import UserLookup from 'wherehows-web/services/user-lookup';
@@ -56,21 +57,24 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<CurrentUser>}
    * @memberof DatasetAuthors
    */
-  currentUser: ComputedProperty<CurrentUser> = inject();
+  @service('current-user')
+  currentUser: CurrentUser;
 
   /**
    * Application notifications service
    * @type {ComputedProperty<Notifications>}
    * @memberof DatasetAuthors
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * User look up service
    * @type {ComputedProperty<UserLookup>}
    * @memberof DatasetAuthors
    */
-  userLookup: ComputedProperty<UserLookup> = inject();
+  @service('user-lookup')
+  userLookup: UserLookup;
 
   /**
    * If there are no changes to the ownership tab, we want to keep the save button disabled. Rather than
@@ -101,42 +105,6 @@ export default class DatasetAuthors extends Component {
   ownerTypes: Array<OwnerType>;
 
   /**
-   * Flag that resolves in the affirmative if the number of confirmed owner is less the minimum required
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetAuthors
-   */
-  requiredMinNotConfirmed: ComputedProperty<boolean> = computed('confirmedOwners.@each.type', function(
-    this: DatasetAuthors
-  ) {
-    const changedState = get(this, 'changedState');
-
-    if (changedState < 1) {
-      set(this, 'changedState', <Comparator>(changedState + 1));
-    }
-    // If there have been no changes, then we want to automatically set true in order to disable save button
-    // when no changes have been made
-    return changedState === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
-  });
-
-  /**
-   * Counts the number of valid confirmed owners needed to make changes to the dataset
-   * @type {ComputedProperty<number>}
-   * @memberof DatasetAuthors
-   */
-  ownersRequiredCount: ComputedProperty<number> = computed('confirmedOwners.@each.type', function(
-    this: DatasetAuthors
-  ) {
-    return minRequiredConfirmedOwners - validConfirmedOwners(get(this, 'confirmedOwners')).length;
-  });
-
-  /**
-   * Lists the owners that have be confirmed view the client ui
-   * @type {ComputedProperty<Array<IOwner>>}
-   * @memberof DatasetAuthors
-   */
-  confirmedOwners: ComputedProperty<Array<IOwner>> = filter('owners', isConfirmedOwner);
-
-  /**
    * Boolean that determines whether the user is currently using the typeahead box to add an
    * owner. This is triggered to true when the user clicks on Add an Owner in the table and
    * returns to false at the end of the addOwner action
@@ -147,24 +115,57 @@ export default class DatasetAuthors extends Component {
   isAddingOwner = false;
 
   /**
+   * Flag that resolves in the affirmative if the number of confirmed owner is less the minimum required
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetAuthors
+   */
+  @computed('confirmedOwners.@each.type')
+  get requiredMinNotConfirmed(): boolean {
+    const changedState = get(this, 'changedState');
+
+    if (changedState < 1) {
+      set(this, 'changedState', <Comparator>(changedState + 1));
+    }
+    // If there have been no changes, then we want to automatically set true in order to disable save button
+    // when no changes have been made
+    return changedState === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+  }
+
+  /**
+   * Counts the number of valid confirmed owners needed to make changes to the dataset
+   * @type {ComputedProperty<number>}
+   * @memberof DatasetAuthors
+   */
+  @computed('confirmedOwners.@each.type')
+  get ownersRequiredCount(): number {
+    return minRequiredConfirmedOwners - validConfirmedOwners(get(this, 'confirmedOwners')).length;
+  }
+
+  /**
+   * Lists the owners that have be confirmed view the client ui
+   * @type {ComputedProperty<Array<IOwner>>}
+   * @memberof DatasetAuthors
+   */
+  @filter('owners', isConfirmedOwner)
+  confirmedOwners: Array<IOwner>;
+
+  /**
    * Intersection of confirmed owners and suggested owners
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  commonOwners: ComputedProperty<Array<IOwner>> = computed(
-    '{confirmedOwners,systemGeneratedOwners}.@each.userName',
-    function(this: DatasetAuthors) {
-      const { confirmedOwners = [], systemGeneratedOwners = [] } = getProperties(this, [
-        'confirmedOwners',
-        'systemGeneratedOwners'
-      ]);
+  @computed('{confirmedOwners,systemGeneratedOwners}.@each.userName')
+  get commonOwners(): Array<IOwner> {
+    const { confirmedOwners = [], systemGeneratedOwners = [] } = getProperties(this, [
+      'confirmedOwners',
+      'systemGeneratedOwners'
+    ]);
 
-      return confirmedOwners.reduce((common, owner) => {
-        const { userName } = owner;
-        return systemGeneratedOwners.findBy('userName', userName) ? [...common, owner] : common;
-      }, []);
-    }
-  );
+    return confirmedOwners.reduce((common, owner) => {
+      const { userName } = owner;
+      return systemGeneratedOwners.findBy('userName', userName) ? [...common, owner] : common;
+    }, []);
+  }
 
   /**
    * Lists owners that have been gleaned from dataset metadata,
@@ -172,11 +173,12 @@ export default class DatasetAuthors extends Component {
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
    */
-  systemGeneratedOwners: ComputedProperty<Array<IOwner>> = computed('suggestedOwners', function() {
+  @computed('suggestedOwners')
+  get systemGeneratedOwners(): Array<IOwner> {
     // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
     // same render" error
     return (get(this, 'suggestedOwners') || []).slice(0);
-  });
+  }
 
   /**
    * Invokes the external action as a dropping task
@@ -201,53 +203,55 @@ export default class DatasetAuthors extends Component {
     );
   }
 
-  actions = {
-    /**
-     * Adds the component owner record to the list of owners with default props
-     * @returns {Array<IOwner> | void}
-     */
-    addOwner(this: DatasetAuthors, newOwner: IOwner): Array<IOwner> | void {
-      const owners = get(this, 'owners') || [];
-      const { notify } = get(this, 'notifications');
+  /**
+   * Adds the component owner record to the list of owners with default props
+   * @returns {Array<IOwner> | void}
+   */
+  @action
+  addOwner(this: DatasetAuthors, newOwner: IOwner): Array<IOwner> | void {
+    const owners = get(this, 'owners') || [];
+    const { notify } = get(this, 'notifications');
 
-      if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
-        return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });
-      }
-
-      const { userName } = get(get(this, 'currentUser'), 'currentUser');
-      const updatedOwners = [...owners, newOwner];
-      confirmOwner(newOwner, userName);
-
-      return owners.setObjects(updatedOwners);
-    },
-
-    /**
-     * Updates the type attribute for a given owner in the owner list
-     * @param {IOwner} owner owner to be updates
-     * @param {OwnerType} type new value to be set on the type attribute
-     */
-    updateOwnerType(this: DatasetAuthors, owner: IOwner, type: OwnerType): Array<IOwner> | void {
-      const owners = get(this, 'owners') || [];
-      return updateOwner(owners, owner, 'type', type);
-    },
-
-    /**
-     * Adds the owner instance to the list of owners with the source set to ui
-     * @param {IOwner} owner the owner to add to the list of owner with the source set to OwnerSource.Ui
-     * @return {Array<IOwner> | void}
-     */
-    confirmSuggestedOwner(this: DatasetAuthors, owner: IOwner): Array<IOwner> | void {
-      const suggestedOwner = { ...owner, source: OwnerSource.Ui };
-      return this.actions.addOwner.call(this, suggestedOwner);
-    },
-
-    /**
-     * removes an owner instance from the list of owners
-     * @param {IOwner} owner the owner to be removed
-     */
-    removeOwner(this: DatasetAuthors, owner: IOwner): IOwner {
-      const owners = get(this, 'owners') || [];
-      return owners.removeObject(owner);
+    if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
+      return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });
     }
-  };
+
+    const { userName } = get(get(this, 'currentUser'), 'currentUser');
+    const updatedOwners = [...owners, newOwner];
+    confirmOwner(newOwner, userName);
+
+    return owners.setObjects(updatedOwners);
+  }
+
+  /**
+   * Updates the type attribute for a given owner in the owner list
+   * @param {IOwner} owner owner to be updates
+   * @param {OwnerType} type new value to be set on the type attribute
+   */
+  @action
+  updateOwnerType(this: DatasetAuthors, owner: IOwner, type: OwnerType): Array<IOwner> | void {
+    const owners = get(this, 'owners') || [];
+    return updateOwner(owners, owner, 'type', type);
+  }
+
+  /**
+   * Adds the owner instance to the list of owners with the source set to ui
+   * @param {IOwner} owner the owner to add to the list of owner with the source set to OwnerSource.Ui
+   * @return {Array<IOwner> | void}
+   */
+  @action
+  confirmSuggestedOwner(this: DatasetAuthors, owner: IOwner): Array<IOwner> | void {
+    const suggestedOwner = { ...owner, source: OwnerSource.Ui };
+    return this.actions.addOwner.call(this, suggestedOwner);
+  }
+
+  /**
+   * removes an owner instance from the list of owners
+   * @param {IOwner} owner the owner to be removed
+   */
+  @action
+  removeOwner(this: DatasetAuthors, owner: IOwner): IOwner {
+    const owners = get(this, 'owners') || [];
+    return owners.removeObject(owner);
+  }
 }

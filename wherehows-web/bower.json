@@ -1,18 +1,12 @@
 {
   "name": "wherehows-web",
   "dependencies": {
-    "ace-builds": "^1.2.6",
     "bootstrap": "3.3.7",
     "font-awesome": "^4.7.0",
     "jquery-jsonview": "jsonview#^1.2.3",
     "jquery-treegrid": "^0.3.0",
-    "jquery-ui": "^1.12.1",
-    "jquery.scrollTo": "^2.1.2",
     "json-human": "^0.1.1",
-    "jsondiffpatch": "^0.2.4",
     "marked": "^0.3.6",
-    "toastr": "^2.1.3",
-    "x-editable": "^1.5.1",
     "scrollMonitor": "^1.2.3",
     "medium-editor": "5.14.4"
   },

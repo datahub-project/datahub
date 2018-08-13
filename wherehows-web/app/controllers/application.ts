@@ -13,38 +13,42 @@ export default class Application extends Controller {
    * User session management service
    * @type {Session}
    */
-  @service session: Session;
+  @service
+  session: Session;
 
   /**
    * Injected global search service
    * @type {Search}
    */
-  @service search: Search;
+  @service
+  search: Search;
 
   /**
    * Looks up user names and properties from the partyEntities api
    * @type {UserLookup}
    */
-  @service('user-lookup') ldapUsers: UserLookup;
+  @service('user-lookup')
+  ldapUsers: UserLookup;
 
   /**
    * References the application notifications service
    * @type {Notifications}
    */
-  @service notifications: Notifications;
+  @service
+  notifications: Notifications;
 
   /**
    * Adds the service for banners in order to trigger the application to render the banners when
    * they are triggered
    * @type {BannerService}
    */
-  @service('banners') banners: BannerService;
+  @service('banners')
+  banners: BannerService;
 
   constructor() {
     super(...arguments);
 
-    //@ts-ignore dot notation limitation with ts and ember object model
-    get(this, 'ldapUsers.fetchUserNames')();
+    this.ldapUsers.fetchUserNames();
   }
 
   /**

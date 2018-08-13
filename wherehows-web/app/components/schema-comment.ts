@@ -1,7 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty from '@ember/object/computed';
 import { getProperties, get, set } from '@ember/object';
-import { inject } from '@ember/service';
 import { assert } from '@ember/debug';
 import { task } from 'ember-concurrency';
 import {
@@ -14,6 +12,8 @@ import { augmentObjectsWithHtmlComments } from 'wherehows-web/utils/api/datasets
 import { IDatasetComment } from 'wherehows-web/typings/api/datasets/comments';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
+import { action } from '@ember-decorators/object';
+import { service } from '@ember-decorators/service';
 
 enum SchemaCommentActions {
   modify = 'modify',
@@ -38,7 +38,8 @@ export class SchemaComment extends Component {
    * Local reference to the notifications service
    * @memberof SchemaComment
    */
-  notifications: ComputedProperty<Notifications> = inject();
+  @service
+  notifications: Notifications;
 
   /**
    * Enum of applicable values for schema comment actions
@@ -59,53 +60,54 @@ export class SchemaComment extends Component {
     comments.setObjects.call(comments, withHtmlComments);
   }).drop();
 
-  actions = {
-    showComments(this: SchemaComment) {
-      const props = getProperties(this, ['datasetId', 'columnId', 'comments']);
-      set(this, 'isShowingFieldComment', true);
+  @action
+  showComments() {
+    const props = getProperties(this, ['datasetId', 'columnId', 'comments']);
+    set(this, 'isShowingFieldComment', true);
 
+    // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
+    return get(this, 'getComments').perform(props);
+  }
+
+  @action
+  hideComments() {
+    return set(this, 'isShowingFieldComment', false);
+  }
+
+  /**
+   * Given a schema comment action, invokes the related action to process the schema comment
+   * @param {SchemaCommentActions} strategy
+   * @return {Promise<boolean>}
+   */
+  @action
+  async handleSchemaComment(strategy: SchemaCommentActions) {
+    const [, { text }] = arguments;
+    const { datasetId, columnId, notifications, comments, getCommentsTask } = getProperties(this, [
+      'datasetId',
+      'columnId',
+      'notifications',
+      'comments',
+      'getCommentsTask'
+    ]);
+    const { notify } = notifications;
+
+    assert(`Expected action to be one of ${Object.keys(SchemaCommentActions)}`, strategy in SchemaCommentActions);
+
+    const action = {
+      add: (): Promise<void> => createDatasetSchemaComment(datasetId, columnId, text),
+      modify: (): Promise<void> => updateDatasetSchemaComment(datasetId, columnId, text),
+      destroy: (): Promise<void> => deleteDatasetSchemaComment(datasetId, columnId)
+    }[strategy];
+
+    try {
+      await action();
+      notify(NotificationEvent.success, { content: 'Success!' });
       // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
-      return get(this, 'getComments').perform(props);
-    },
-
-    hideComments(this: SchemaComment) {
-      return set(this, 'isShowingFieldComment', false);
-    },
-
-    /**
-     * Given a schema comment action, invokes the related action to process the schema comment
-     * @param {SchemaCommentActions} strategy
-     * @return {Promise<boolean>}
-     */
-    async handleSchemaComment(this: SchemaComment, strategy: SchemaCommentActions) {
-      const [, { text }] = arguments;
-      const { datasetId, columnId, notifications, comments, getCommentsTask } = getProperties(this, [
-        'datasetId',
-        'columnId',
-        'notifications',
-        'comments',
-        'getCommentsTask'
-      ]);
-      const { notify } = notifications;
-
-      assert(`Expected action to be one of ${Object.keys(SchemaCommentActions)}`, strategy in SchemaCommentActions);
-
-      const action = {
-        add: (): Promise<void> => createDatasetSchemaComment(datasetId, columnId, text),
-        modify: (): Promise<void> => updateDatasetSchemaComment(datasetId, columnId, text),
-        destroy: (): Promise<void> => deleteDatasetSchemaComment(datasetId, columnId)
-      }[strategy];
-
-      try {
-        await action();
-        notify(NotificationEvent.success, { content: 'Success!' });
-        // @ts-ignore ts limitation with the ember object model, fixed in ember 3.1 with es5 getters
-        getCommentsTask.perform({ datasetId, columnId, comments });
-      } catch (e) {
-        notify(NotificationEvent.error, { content: e.message });
-      }
-
-      return false;
+      getCommentsTask.perform({ datasetId, columnId, comments });
+    } catch (e) {
+      notify(NotificationEvent.error, { content: e.message });
     }
-  };
+
+    return false;
+  }
 }
