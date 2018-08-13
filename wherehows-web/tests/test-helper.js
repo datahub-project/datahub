@@ -4,7 +4,6 @@ import { setApplication } from '@ember/test-helpers';
 import { start } from 'ember-qunit';
 import { registerDeprecationHandler } from '@ember/debug';
 
-const testState = { showWarning: false };
 let hasShownDefinePropDeprecation = false;
 
 // Suggestion to keep this here until we are ready to handle the deprecation to use definePRoperty for
