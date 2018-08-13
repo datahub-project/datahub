@@ -118,10 +118,3 @@ export default class BannerService extends Service {
     }
   }
 }
-
-declare module '@ember/service' {
-  // eslint-disable-next-line typescript/interface-name-prefix
-  interface Registry {
-    banners: BannerService;
-  }
-}

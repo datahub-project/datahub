@@ -1,8 +1,6 @@
 import Component from '@ember/component';
 import { task, TaskInstance } from 'ember-concurrency';
 import { get, set, computed, setProperties, getProperties } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { inject } from '@ember/service';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { assert } from '@ember/debug';
 import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
@@ -18,6 +16,7 @@ import { action } from '@ember-decorators/object';
 import { retentionObjectFactory } from 'wherehows-web/constants/datasets/retention';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
+import { service } from '@ember-decorators/service';
 
 /**
  * Aliases the yieldable values for the container task
@@ -35,7 +34,8 @@ export default class UpstreamDatasetContainer extends Component {
    * @memberof UpstreamDatasetContainer
    * @type {ComputedProperty<Notifications>}
    */
-  notifications = <ComputedProperty<Notifications>>inject();
+  @service
+  notifications: Notifications;
 
   /**
    * urn for the child dataset
