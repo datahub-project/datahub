@@ -42,7 +42,7 @@ export default function(this: IMirageServer) {
 
   this.get('/datasets/:dataset_id/schema', getDatasetSchema);
 
-  this.get('/datasets/:dataset_id/compliance/suggestions', getDatasetComplianceSuggestion);
+  this.get('/datasets/:dataset_id/compliance/suggestion', getDatasetComplianceSuggestion);
 
   this.get('/datasets/:dataset_id/owners', getDatasetOwners);
 
