@@ -27,10 +27,6 @@ export default Factory.extend({
     return validations;
   },
 
-  refDatasetUrn() {
-    return this.dataset ? this.dataset.urn : 'fakeUrn';
-  },
-
   forTesting: trait({
     score: 83,
     validations() {

@@ -40,11 +40,5 @@ export default Factory.extend({
     schema(id: number) {
       return id === 0 ? testSchemaA : 'abcd';
     }
-  }),
-
-  withHealth: trait({
-    afterCreate(dataset: any, server: any) {
-      server.create('health', 1, { dataset });
-    }
   })
 });

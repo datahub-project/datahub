@@ -1,9 +1,7 @@
 import { IFunctionRouteHandler } from 'wherehows-web/typings/ember-cli-mirage';
 
-export const getDatasetHealth = function(this: IFunctionRouteHandler, { health }: any, request: any) {
-  const { dataset_id } = request.params;
-
+export const getDatasetHealth = function(this: IFunctionRouteHandler, { db: healths }: any) {
   return {
-    health: health.filter((score: any) => score.refDatasetUrn === dataset_id)[0] || null
+    health: this.serialize(healths[0])
   };
 };
