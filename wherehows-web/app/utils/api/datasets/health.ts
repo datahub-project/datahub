@@ -10,7 +10,13 @@ import { IHealthScoreResponse, IDatasetHealth } from 'wherehows-web/typings/api/
 const datasetHealthUrlByUrn = (urn: string): string => `${datasetUrlByUrn(urn)}/health`;
 
 export const readDatasetHealthByUrn = async (urn: string): Promise<IDatasetHealth> => {
-  const { health } = await getJSON<IHealthScoreResponse>({ url: datasetHealthUrlByUrn(urn) });
+  const defaultResponse = { score: 0, validations: [] };
 
-  return health || { score: 0, validations: [] };
+  try {
+    const { health } = await getJSON<IHealthScoreResponse>({ url: datasetHealthUrlByUrn(urn) });
+
+    return health;
+  } catch {
+    return defaultResponse;
+  }
 };
