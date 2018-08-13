@@ -1,11 +1,13 @@
 import Component from '@ember/component';
-import { get, computed, setProperties, getProperties, set } from '@ember/object';
+import { get, computed, setProperties, getProperties } from '@ember/object';
 import { task } from 'ember-concurrency';
-import ComputedProperty, { equal } from '@ember/object/computed';
+import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import { IHealthScore, IDatasetHealth } from 'wherehows-web/typings/api/datasets/health';
 import { healthCategories, healthSeverity, healthDetail } from 'wherehows-web/constants/data/temp-mock/health';
 import { readDatasetHealthByUrn } from 'wherehows-web/utils/api/datasets/health';
+import { Tabs } from 'wherehows-web/constants/datasets/shared';
+import { equal } from '@ember-decorators/object/computed';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
@@ -72,9 +74,9 @@ export default class DatasetHealthContainer extends Component {
   /**
    * Passed in from the higher level component, we use this property in order to determine whether the dataset health
    * tab is the currently selected tab
-   * @type {string}
+   * @type {Tabs}
    */
-  tabSelected: string;
+  tabSelected: Tabs;
 
   /**
    * Calculated from the currently selected tab to determine whether this container is the currently selected tab.
@@ -83,7 +85,8 @@ export default class DatasetHealthContainer extends Component {
    * otherwise we will insert elements off screen and size will default to 0 and we lose our charts
    * @type {ComputedProperty<boolean>}
    */
-  isActiveTab = equal('tabSelected', 'health');
+  @equal('tabSelected', Tabs.Health)
+  isActiveTab: boolean;
 
   /**
    * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
@@ -178,12 +181,5 @@ export default class DatasetHealthContainer extends Component {
       currentCategoryFilter: filterType === 'category' && newFilterName !== currentCategoryFilter ? newFilterName : '',
       currentSeverityFilter: filterType === 'severity' && newFilterName !== currentSeverityFilter ? newFilterName : ''
     });
-  }
-
-  constructor() {
-    super(...arguments);
-    console.log('constructing');
-    console.log(this.tabSelected);
-    set(this, 'tabSelected', this.tabSelected);
   }
 }
