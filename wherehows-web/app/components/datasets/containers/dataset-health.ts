@@ -3,8 +3,9 @@ import { get, computed, setProperties, getProperties } from '@ember/object';
 import { task } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
-import { IHealthScore } from 'wherehows-web/typings/api/datasets/health';
+import { IHealthScore, IDatasetHealth } from 'wherehows-web/typings/api/datasets/health';
 import { healthCategories, healthSeverity, healthDetail } from 'wherehows-web/constants/data/temp-mock/health';
+import { readDatasetHealthByUrn } from 'wherehows-web/utils/api/datasets/health';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
@@ -124,7 +125,8 @@ export default class DatasetHealthContainer extends Component {
    * An async parent task to group all data tasks for this container component
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
-  getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<void> {
+  getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<Promise<IDatasetHealth>> {
+    const { health } = yield readDatasetHealthByUrn(get(this, 'urn'));
     // Pretend like we're getting data from somehwere
     const healthData = {
       categories: healthCategories,
@@ -137,6 +139,8 @@ export default class DatasetHealthContainer extends Component {
       severityMetrics: healthData.severity,
       tableData: healthData.detail
     });
+
+    return health; // Do something with health information
   });
 
   /**
