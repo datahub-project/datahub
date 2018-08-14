@@ -11,8 +11,6 @@
     "medium-editor": "5.14.4"
   },
   "resolutions": {
-    "jquery": ">=2.1.1",
-    "bootstrap": "3.3.7",
-    "jquery-ui": "^1.12.1"
+    "bootstrap": "3.3.7"
   }
 }
