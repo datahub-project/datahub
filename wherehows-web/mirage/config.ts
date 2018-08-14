@@ -27,6 +27,7 @@ import { getDatasetRetention } from 'wherehows-web/mirage/helpers/dataset-retent
 import { getDatasetFabrics } from 'wherehows-web/mirage/helpers/dataset-fabrics';
 import { getDatasetHealth } from 'wherehows-web/mirage/helpers/dataset-health';
 import { getDatasetCount } from 'wherehows-web/mirage/helpers/dataset-count';
+import { getDatasetDownstreams } from 'wherehows-web/mirage/helpers/dataset-downstreams';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -52,6 +53,8 @@ export default function(this: IMirageServer) {
   this.get('/list/platforms', getDatasetPlatforms);
 
   this.get('/datasets/:dataset_id/upstreams', getDatasetUpstreams);
+
+  this.get('/datasets/:dataset_id/downstreams', getDatasetDownstreams);
 
   this.get('/datasets/:dataset_id/retention', getDatasetRetention);
 
