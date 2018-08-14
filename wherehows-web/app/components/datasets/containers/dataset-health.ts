@@ -6,6 +6,8 @@ import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import { IHealthScore, IDatasetHealth } from 'wherehows-web/typings/api/datasets/health';
 import { healthCategories, healthSeverity, healthDetail } from 'wherehows-web/constants/data/temp-mock/health';
 import { readDatasetHealthByUrn } from 'wherehows-web/utils/api/datasets/health';
+import { Tabs } from 'wherehows-web/constants/datasets/shared';
+import { equal } from '@ember-decorators/object/computed';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
@@ -68,6 +70,23 @@ export default class DatasetHealthContainer extends Component {
    * @type {Array<IHealthScore>}
    */
   tableData: Array<IHealthScore> = [];
+
+  /**
+   * Passed in from the higher level component, we use this property in order to determine whether the dataset health
+   * tab is the currently selected tab
+   * @type {Tabs}
+   */
+  tabSelected: Tabs;
+
+  /**
+   * Calculated from the currently selected tab to determine whether this container is the currently selected tab.
+   * Note: Highcharts calculates size and other chart details upon initial render and doesn't do a good job of handling
+   * rerenders. Because of this we want those calculations to take place when dataset health is the currently active tab,
+   * otherwise we will insert elements off screen and size will default to 0 and we lose our charts
+   * @type {ComputedProperty<boolean>}
+   */
+  @equal('tabSelected', Tabs.Health)
+  isActiveTab: boolean;
 
   /**
    * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
