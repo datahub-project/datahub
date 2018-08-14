@@ -12,7 +12,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
 package wherehows.models.view;
+import lombok.AllArgsConstructor;
 
+@AllArgsConstructor
 public class DatasetValidation {
 
   private String tier;
@@ -24,12 +26,4 @@ public class DatasetValidation {
   private float weight;
 
   private String validator;
-
-  public DatasetValidation(String tier, float score, String description, float weight, String validator) {
-    this.tier = tier;
-    this.score = score;
-    this.description = description;
-    this.weight = weight;
-    this.validator = validator;
-  }
 }
