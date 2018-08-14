@@ -24,6 +24,7 @@
     "@types/ember-qunit": "^3.0.3",
     "@types/ember-test-helpers": "^0.7.1",
     "@types/ember-testing-helpers": "^0.0.3",
+    "@types/ember__test-helpers": "^0.7.0",
     "@types/lodash": "^4.14.83",
     "@types/qunit": "^2.5.2",
     "@types/rsvp": "^4.0.2",
