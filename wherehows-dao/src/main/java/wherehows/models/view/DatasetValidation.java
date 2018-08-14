@@ -24,4 +24,12 @@ public class DatasetValidation {
   private float weight;
 
   private String validator;
+
+  public DatasetValidation(String tier, float score, String description, float weight, String validator) {
+    this.tier = tier;
+    this.score = score;
+    this.description = description;
+    this.weight = weight;
+    this.validator = validator;
+  }
 }
