@@ -48,14 +48,13 @@ public class UserDAO extends AbstractMySQLOpenSourceDAO
 			"authentication_type FROM users WHERE username = ? and authentication_type = 'default'";
 
 	private final static String GET_ALL_COMPANY_USERS = "SELECT DISTINCT user_id as id, display_name as name " +
-			"FROM dir_external_user_info WHERE is_active = 'Y' and org_hierarchy_depth > 0 ";
+			"FROM dir_external_user_info WHERE is_active = 'Y'";
 
 	private final static String GET_ALL_GROUPS = "SELECT DISTINCT group_id as name FROM dir_external_group_user_map " +
 			"WHERE group_id is not null and group_id != ''";
 
 	private final static String GET_ALL_COMPANY_USERS_AND_GROUPS = "SELECT DISTINCT user_id as id, " +
-			"display_name as name, 'person' as category FROM dir_external_user_info " +
-			"WHERE is_active = 'Y' and org_hierarchy_depth > 1 " +
+			"display_name as name, 'person' as category FROM dir_external_user_info WHERE is_active = 'Y' " +
 			"UNION SELECT DISTINCT group_id as id, NULL as name, 'group' as category " +
 			"FROM dir_external_group_user_map WHERE group_id > ''";
 

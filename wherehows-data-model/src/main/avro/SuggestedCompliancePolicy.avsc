@@ -5,6 +5,15 @@
   "doc": "Compliance metadata suggested by algorithms.",
   "fields": [
     {
+      "name": "modelId",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "The ID of the model used to generate the suggestion."
+    },
+    {
       "name": "suggestedFieldClassifications",
       "type": {
         "type": "array",
