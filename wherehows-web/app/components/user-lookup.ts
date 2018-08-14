@@ -1,4 +1,4 @@
-import Component from '@ember/component';
+import StopPropagationBase from 'wherehows-web/components/abstracts/stop-propagation';
 import { get, set } from '@ember/object';
 import { action } from '@ember-decorators/object';
 import { service } from '@ember-decorators/service';
@@ -8,7 +8,7 @@ import { OwnerIdType } from 'wherehows-web/utils/api/datasets/owners';
 import { defaultOwnerProps } from 'wherehows-web/constants/datasets/owner';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 
-export default class UserLookup extends Component {
+export default class UserLookup extends StopPropagationBase {
   classNames = ['user-lookup'];
 
   /**

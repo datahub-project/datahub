@@ -33,5 +33,17 @@ export default IvyTabsTablistComponent.extend({
 
     event.preventDefault();
     scheduleOnce('afterRender', this, this.focusSelectedTab);
+  },
+
+  /**
+   * Prevents keys meant to only affect the ivy tabs from bubbling up to other components
+   * @param event - The keyboard event triggering this method
+   */
+  keyUp(event: KeyboardEvent) {
+    const { keyCode } = event;
+
+    if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) {
+      event.stopImmediatePropagation();
+    }
   }
 });

@@ -1,11 +1,11 @@
-import Component from '@ember/component';
+import StopPropagationBase from 'wherehows-web/components/abstracts/stop-propagation';
 import { getProperties, computed, set } from '@ember/object';
 import ComputedProperty, { oneWay } from '@ember/object/computed';
 import { baseCommentEditorOptions } from 'wherehows-web/constants';
 import { action } from '@ember-decorators/object';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 
-export default class DatasetDeprecation extends Component {
+export default class DatasetDeprecation extends StopPropagationBase {
   tagName = 'div';
 
   classNames = ['dataset-deprecation-toggle'];

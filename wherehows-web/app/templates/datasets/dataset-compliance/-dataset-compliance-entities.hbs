@@ -36,7 +36,10 @@
   </button>
 </section>
 
-<section class="compliance-entities-meta">
+{{#abstracts/stop-propagation
+  tagName="section"
+  class="compliance-entities-meta"}}
+
   {{#if showGuidedComplianceEditMode}}
     {{ember-selector
       values=fieldReviewOptions
@@ -87,10 +90,12 @@
       </button>
     </div>
   {{/if}}
-</section>
+{{/abstracts/stop-propagation}}
 
 {{#if showGuidedComplianceEditMode}}
   {{#if foldedChangeSet.length}}
+    {{#abstracts/stop-propagation}}
+
     {{#dataset-table
       class="dataset-compliance-fields"
       fields=foldedChangeSet
@@ -488,6 +493,8 @@
 
     {{/dataset-table}}
 
+    {{/abstracts/stop-propagation}}
+
   {{else}}
 
     {{empty-state
@@ -498,19 +505,23 @@
   {{/if}}
 {{else}}
 
-  {{ember-ace
-    readOnly=isReadOnly
-    update=(action "onManualComplianceUpdate")
-    class="dataset-compliance-editor"
-    value=jsonComplianceEntities
-    enableAutocompletion=true
-    enableLiveAutocompletion=true
-    minLines=10
-    maxLines=50
-    showLineNumbers=true
-    useWrapMode=true
-    mode="ace/mode/json"
-    worker="ace/mode/json_worker"
-    theme="ace/theme/github"}}
+  {{#abstracts/stop-propagation}}
+
+    {{ember-ace
+      readOnly=isReadOnly
+      update=(action "onManualComplianceUpdate")
+      class="dataset-compliance-editor"
+      value=jsonComplianceEntities
+      enableAutocompletion=true
+      enableLiveAutocompletion=true
+      minLines=10
+      maxLines=50
+      showLineNumbers=true
+      useWrapMode=true
+      mode="ace/mode/json"
+      worker="ace/mode/json_worker"
+      theme="ace/theme/github"}}
+
+    {{/abstracts/stop-propagation}}
 
 {{/if}}
