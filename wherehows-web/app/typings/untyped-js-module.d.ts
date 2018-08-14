@@ -7,6 +7,14 @@ declare module 'ember-simple-auth/mixins/authenticated-route-mixin' {
   export default Mixin;
 }
 
+declare module 'wherehows-web/initializers/ember-cli-mirage' {
+  import { IMirageServer } from 'wherehows-web/typings/ember-cli-mirage';
+
+  const startMirage: (env?: string) => IMirageServer;
+
+  export { startMirage };
+}
+
 declare module 'ivy-tabs/components/ivy-tabs-tablist' {
   import Component from '@ember/component';
   export default class IvyTabsTablistComponent extends Component {
