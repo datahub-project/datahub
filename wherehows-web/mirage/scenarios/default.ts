@@ -12,6 +12,7 @@ const fixtures = [
 export default function(server: IMirageServer) {
   server.loadFixtures(...fixtures);
   server.create('config');
+  server.create('datasetsCount');
   server.createList('owner', 6);
   server.createList('dataset', 10);
   server.createList('datasetView', 2);

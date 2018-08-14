@@ -201,6 +201,13 @@
     "@types/jquery" "*"
     "@types/rsvp" "*"
 
+"@types/ember__test-helpers@^0.7.0":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@types/ember__test-helpers/-/ember__test-helpers-0.7.0.tgz#0c0e86cb39dbe5e97bb4f09a898dcde0f5c1966a"
+  dependencies:
+    "@types/ember" "*"
+    "@types/htmlbars-inline-precompile" "*"
+
 "@types/handlebars@*":
   version "4.0.39"
   resolved "https://registry.yarnpkg.com/@types/handlebars/-/handlebars-4.0.39.tgz#961fb54db68030890942e6aeffe9f93a957807bd"
