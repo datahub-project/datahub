@@ -12,7 +12,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
 package wherehows.models.view;
+import lombok.AllArgsConstructor;
 
+@AllArgsConstructor
 public class DatasetValidation {
 
   private String tier;

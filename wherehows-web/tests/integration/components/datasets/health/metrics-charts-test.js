@@ -31,6 +31,7 @@ module('Integration | Component | datasets/health/metrics-charts', function(hook
     });
 
     await render(hbs`{{datasets/health/metrics-charts
+                      isActiveTab=true
                       categoryData=categoryData
                       severityData=severityData}}`);
 

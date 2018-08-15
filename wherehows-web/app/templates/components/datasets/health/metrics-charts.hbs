@@ -1,5 +1,5 @@
 <div class="dataset-health__chart-container">
-  {{#if categoryData}}
+  {{#if (and isActiveTab categoryData)}}
     {{visualization/charts/horizontal-bar-chart
       title="Categories"
       series=categoryData
@@ -8,7 +8,7 @@
   {{/if}}
 </div>
 <div class="dataset-health__chart-container">
-  {{#if severityData}}
+  {{#if (and isActiveTab severityData)}}
     {{visualization/charts/horizontal-bar-chart
       class="severity-chart"
       title="Severity"
