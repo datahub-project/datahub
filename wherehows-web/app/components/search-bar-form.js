@@ -2,6 +2,7 @@ import Component from '@ember/component';
 import { computed, set, get } from '@ember/object';
 import { inject } from '@ember/service';
 import { debounce } from '@ember/runloop';
+import { Keyboard } from 'wherehows-web/constants/keyboard';
 
 /**
  * Number of milliseconds to wait before triggering a request for keywords
@@ -60,7 +61,7 @@ export default Component.extend({
   didInsertElement() {
     document.getElementsByClassName('ember-application')[0].addEventListener('keyup', e => {
       console.log('keyup detected');
-      if (e.keyCode === 191) {
+      if (e.keyCode === Keyboard.ForwardSlash) {
         this.$('input.nacho-global-search__text-input:eq(1)').trigger('focus');
         e.stopImmediatePropagation();
       }
