@@ -2,6 +2,7 @@ import Component from '@ember/component';
 import { computed, set, get } from '@ember/object';
 import { inject } from '@ember/service';
 import { debounce } from '@ember/runloop';
+import { Keyboard } from 'wherehows-web/constants/keyboard';
 
 /**
  * Number of milliseconds to wait before triggering a request for keywords
@@ -41,6 +42,37 @@ export default Component.extend({
   debouncedResolver() {
     const queryResolver = get(this, 'keywords.apiResultsFor')(get(this, 'currentFilter'));
     return queryResolver(...arguments);
+  },
+
+  /**
+   * Triggered by a keyup event that hits this element. Since we have event listeners for when someone presses
+   * a key within the body, we want to make sure not to trigger that by the user typing in
+   * the typeahead. Therefore we use this to stop the event from propogating any further here.
+   * @param {Proxy KeyboardEvent} e - passed in by the action that triggers the keyUp event
+   */
+  keyUp(e) {
+    e.stopImmediatePropagation();
+  },
+
+  /**
+   * Triggered once upon the insert of this element, lets the user press '/' anywhere within the body of the
+   * application to push the cursor to the search box and bring focus to it.
+   */
+  didInsertElement() {
+    document.getElementsByClassName('ember-application')[0].addEventListener('keyup', e => {
+      console.log('keyup detected');
+      if (e.keyCode === Keyboard.ForwardSlash) {
+        this.$('input.nacho-global-search__text-input:eq(1)').trigger('focus');
+        e.stopImmediatePropagation();
+      }
+    });
+  },
+
+  /**
+   * When this element gets destroyed, we want to remove the event listener to prevent unnecessary calls
+   */
+  willDestroyElement() {
+    document.getElementsByClassName('ember-application')[0].removeEventListener('keyup');
   },
 
   actions: {

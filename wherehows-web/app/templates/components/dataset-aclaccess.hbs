@@ -48,9 +48,11 @@
       <h4 class="acl-form__meta__header">Why do you need access?</h4>
       <p class="acl-form__meta__content ">Please add the business reason why you need to access this data.</p>
 
-      {{textarea
-        value=(mut userAclRequest.businessJustification)
-        class="acl-form__content"}}
+      {{#abstracts/stop-propagation}}
+        {{textarea
+          value=(mut userAclRequest.businessJustification)
+          class="acl-form__content"}}
+      {{/abstracts/stop-propagation}}
     </div>
 
 
