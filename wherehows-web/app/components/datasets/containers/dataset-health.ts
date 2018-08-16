@@ -150,7 +150,7 @@ export default class DatasetHealthContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<Promise<IDatasetHealth>> {
-    const health = <IDatasetHealth>yield readDatasetHealthByUrn(get(this, 'urn'));
+    const health: IDatasetHealth = yield readDatasetHealthByUrn(get(this, 'urn'));
 
     const details = health.validations || [];
     const total = details.length;
