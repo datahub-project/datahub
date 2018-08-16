@@ -4,10 +4,12 @@ import { task } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
 import { IHealthScore, IDatasetHealth } from 'wherehows-web/typings/api/datasets/health';
-import { healthCategories, healthSeverity, healthDetail } from 'wherehows-web/constants/data/temp-mock/health';
-import { readDatasetHealthByUrn } from 'wherehows-web/utils/api/datasets/health';
+import { readDatasetHealthByUrn, getCategory } from 'wherehows-web/utils/api/datasets/health';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { equal } from '@ember-decorators/object/computed';
+import { IObject } from 'wherehows-web/typings/generic';
+import { service } from '@ember-decorators/service';
+import DatasetMeta from 'wherehows-web/services/dataset-meta';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
@@ -88,6 +90,9 @@ export default class DatasetHealthContainer extends Component {
   @equal('tabSelected', Tabs.Health)
   isActiveTab: boolean;
 
+  @service
+  datasetMeta: ComputedProperty<DatasetMeta>;
+
   /**
    * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
    * data
@@ -145,21 +150,40 @@ export default class DatasetHealthContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<Promise<IDatasetHealth>> {
-    const { health } = yield readDatasetHealthByUrn(get(this, 'urn'));
-    // Pretend like we're getting data from somehwere
-    const healthData = {
-      categories: healthCategories,
-      severity: healthSeverity,
-      detail: healthDetail
-    };
+    const health = <IDatasetHealth>yield readDatasetHealthByUrn(get(this, 'urn'));
 
-    setProperties(this, {
-      categoryMetrics: healthData.categories,
-      severityMetrics: healthData.severity,
-      tableData: healthData.detail
+    const details = health.validations || [];
+    const total = details.length;
+    const categories: IObject<number> = {};
+    const severities: IObject<number> = {};
+
+    // Go through the details and find the COUNT of severity and category groupings
+    const tableData: Array<IHealthScore> = details.map(detail => {
+      const category = getCategory(detail.validator);
+      const severity = detail.tier || 'none';
+      categories[category] = (categories[category] || 0) + 1;
+      severities[severity] = (severities[severity] || 0) + 1;
+
+      return { category, severity, description: detail.description, score: detail.score * 100 };
     });
 
-    return health; // Do something with health information
+    const categoryMetrics: Array<IChartDatum> = Object.keys(categories).map(category => ({
+      name: category,
+      value: Math.round((categories[category] / total) * 100)
+    }));
+
+    const severityMetrics: Array<IChartDatum> = Object.keys(severities).map(severity => ({
+      name: severity,
+      value: Math.round((severities[severity] / total) * 100)
+    }));
+
+    get(this, 'datasetMeta').set('healthScore', health.score * 100 || 0);
+
+    setProperties(this, {
+      categoryMetrics,
+      severityMetrics,
+      tableData
+    });
   });
 
   /**
