@@ -7,6 +7,9 @@ import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from '@ember-decorators/object';
 import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
+import { alias } from '@ember-decorators/object/computed';
+import DatasetMeta from 'wherehows-web/services/dataset-meta';
+import { service } from '@ember-decorators/service';
 
 export default class DatasetController extends Controller {
   queryParams = ['urn'];
@@ -103,6 +106,21 @@ export default class DatasetController extends Controller {
   datasetContainsPersonalData: boolean;
 
   /**
+   * Including the datasetmeta property that is connected to each child container for the routable
+   * tabs. Can be used to share information between these tabs from a higher level
+   * @type {Ember.Service}
+   */
+  @service
+  datasetMeta: ComputedProperty<DatasetMeta>;
+
+  /**
+   * Easy access in the template to the datasetMeta health score provided by the /health endpoint
+   * called in the dataset-health container
+   */
+  @alias('datasetMeta.healthScore')
+  datasetHealthScore: ComputedProperty<number>;
+
+  /**
    * Flag indicating that the compliance policy needs user attention
    * @type {ComputedProperty<boolean>}
    */
@@ -119,6 +137,12 @@ export default class DatasetController extends Controller {
   encodedUrn: ComputedProperty<string> = computed('model', function(this: DatasetController): string {
     const { uri } = get(this, 'model') || { uri: '' };
     return encodeUrn(uri);
+  });
+
+  shouldShowHealthGauge: ComputedProperty<boolean> = computed('datasetHealthScore', function(
+    this: DatasetController
+  ): boolean {
+    return typeof get(this, 'datasetHealthScore') === 'number';
   });
 
   /**
