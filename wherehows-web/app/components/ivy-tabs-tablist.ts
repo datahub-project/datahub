@@ -1,9 +1,7 @@
 import IvyTabsTablistComponent from 'ivy-tabs/components/ivy-tabs-tablist';
 import { noop } from 'wherehows-web/utils/helpers/functions';
 import { scheduleOnce } from '@ember/runloop';
-
-const LEFT_ARROW = 37;
-const RIGHT_ARROW = 39;
+import { Keyboard } from 'wherehows-web/constants/keyboard';
 
 export default IvyTabsTablistComponent.extend({
   /**
@@ -21,10 +19,10 @@ export default IvyTabsTablistComponent.extend({
    */
   keyDown(event: KeyboardEvent) {
     switch (event.keyCode) {
-      case LEFT_ARROW:
+      case Keyboard.ArrowLeft:
         this.selectPreviousTab();
         break;
-      case RIGHT_ARROW:
+      case Keyboard.ArrowRight:
         this.selectNextTab();
         break;
       default:
