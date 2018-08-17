@@ -149,7 +149,7 @@ export default class VisualizationChartsScoreGauge extends Component {
   constructor() {
     super(...arguments);
     // Prevents "modify twice in single render" issue
-    this.score = this.score || 0;
+    this.score = typeof this.score === 'number' ? this.score : 0;
 
     setProperties(this, {
       maxScore: typeof this.maxScore === 'number' ? this.maxScore : 100,
