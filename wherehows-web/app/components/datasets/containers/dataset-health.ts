@@ -8,8 +8,6 @@ import { readDatasetHealthByUrn, getCategory } from 'wherehows-web/utils/api/dat
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { equal } from '@ember-decorators/object/computed';
 import { IObject } from 'wherehows-web/typings/generic';
-import { service } from '@ember-decorators/service';
-import DatasetMeta from 'wherehows-web/services/dataset-meta';
 
 /**
  * Used for the dataset health tab, represents the fieldnames for the health score table
@@ -89,9 +87,6 @@ export default class DatasetHealthContainer extends Component {
    */
   @equal('tabSelected', Tabs.Health)
   isActiveTab: boolean;
-
-  @service
-  datasetMeta: ComputedProperty<DatasetMeta>;
 
   /**
    * Modified categoryMetrics to add properties that will help us render our actual charts without modifying the original
@@ -176,8 +171,6 @@ export default class DatasetHealthContainer extends Component {
       name: severity,
       value: Math.round((severities[severity] / total) * 100)
     }));
-
-    get(this, 'datasetMeta').set('healthScore', health.score * 100 || 0);
 
     setProperties(this, {
       categoryMetrics,

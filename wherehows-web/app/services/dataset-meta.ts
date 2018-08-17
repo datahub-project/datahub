@@ -1,13 +1,18 @@
 import Service from '@ember/service';
+import { IObject } from 'wherehows-web/typings/generic';
+import { get } from '@ember/object';
 
-/**
- * The dataset meta service can be used to share information between dataset route containers.
- * Used to share health score but can be expanded to other meta informations
- */
 export default class DatasetMeta extends Service {
   healthScore: number;
+
+  healthScores: IObject<number> = {};
+
+  setHealthScoreForUrn(urn: string, score: number) {
+    get(this, 'healthScores')[urn] = score;
+  }
 }
 
+// DO NOT DELETE: this is how TypeScript knows how to look up your services.
 declare module '@ember/service' {
   interface Registry {
     'dataset-meta': DatasetMeta;
