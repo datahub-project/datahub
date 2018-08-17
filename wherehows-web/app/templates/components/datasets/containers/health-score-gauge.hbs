@@ -1,0 +1,8 @@
+{{#if getHealthScoreTask.isIdle}}
+  {{visualization/charts/score-gauge
+    class="dataset-health-score"
+    score=healthScore
+    title="Health Score:"}}
+{{else}}
+  {{pendulum-ellipsis-animation}}
+{{/if}}

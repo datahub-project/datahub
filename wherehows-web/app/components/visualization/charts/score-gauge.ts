@@ -119,24 +119,44 @@ export default class VisualizationChartsScoreGauge extends Component {
    */
   chartData: Array<IHighChartsDataConfig>;
 
-  constructor() {
-    super(...arguments);
-
+  /**
+   * Performs update functions for the charts upon initial and subsequent renders
+   */
+  updateChart(): void {
     const chartOptions = getBaseGaugeConfig();
     const chartData = getBaseChartDataConfig('score');
-    const maxScore = typeof this.maxScore === 'number' ? this.maxScore : 100;
-    const score = this.score || NaN;
+    const score = this.score || 0;
+
     // Adds our information to the highcharts formatted configurations so that they can be read in the chart
-    chartOptions.yAxis.max = maxScore;
+    chartOptions.yAxis.max = get(this, 'maxScore');
     chartData[0].data = [score];
 
     setProperties(this, {
-      score,
-      maxScore,
       chartOptions,
-      chartData,
+      chartData
+    });
+  }
+
+  /**
+   * Allows us to rerender the graph when the score gets updated. Useful for when API calls haven't been
+   * resolved yet at initial render
+   */
+  didUpdateAttrs() {
+    this._super(...arguments);
+    this.updateChart();
+  }
+
+  constructor() {
+    super(...arguments);
+    // Prevents "modify twice in single render" issue
+    this.score = typeof this.score === 'number' ? this.score : 0;
+
+    setProperties(this, {
+      maxScore: typeof this.maxScore === 'number' ? this.maxScore : 100,
       title: this.title || '',
       scoreDisplay: this.scoreDisplay || ScoreDisplay.percentage
     });
+
+    this.updateChart();
   }
 }

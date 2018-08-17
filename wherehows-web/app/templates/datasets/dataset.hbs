@@ -62,10 +62,7 @@
               class="dataset-owner-list"
               shouldShowDatasetHealth=shouldShowDatasetHealth}}
 
-            {{visualization/charts/score-gauge
-              class="dataset-health-score"
-              score=83
-              title="Health Score:"}}
+            {{datasets/containers/health-score-gauge urn=encodedUrn}}
           {{/if}}
         </div>
 
