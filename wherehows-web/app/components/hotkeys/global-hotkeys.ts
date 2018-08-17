@@ -59,10 +59,12 @@ export default class GlobalHotkeys extends Component {
    * native DOM events) so instead we are using this native event listener
    */
   didInsertElement() {
-    document.getElementsByClassName('ember-application')[0].addEventListener('keyup', this.onKeyUp.bind(this));
+    const applicationBody = document.getElementsByClassName('ember-application')[0];
+    applicationBody && applicationBody.addEventListener('keyup', this.onKeyUp.bind(this));
   }
 
   willDestroyElement() {
-    document.getElementsByClassName('ember-application')[0].removeEventListener('keyup', this.onKeyUp.bind(this));
+    const applicationBody = document.getElementsByClassName('ember-application')[0];
+    applicationBody && applicationBody.removeEventListener('keyup', this.onKeyUp.bind(this));
   }
 }
