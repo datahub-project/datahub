@@ -56,7 +56,7 @@ export default class VisualizationChartsScoreGauge extends Component {
    * @type {number}
    * @default 0
    */
-  score: number = this.score || 0;
+  score: number;
 
   /**
    * Represents the maximum value a score can be. Helps us to calculate a percentage score
