@@ -1,7 +1,8 @@
 import Component from '@ember/component';
 import { computed, set, get } from '@ember/object';
-import { inject } from '@ember/service';
+import { inject as service } from '@ember/service';
 import { debounce } from '@ember/runloop';
+import { Keyboard } from 'wherehows-web/constants/keyboard';
 
 /**
  * Number of milliseconds to wait before triggering a request for keywords
@@ -14,7 +15,14 @@ export default Component.extend({
    * Service to retrieve type ahead keywords for a dataset
    * @type {Ember.Service}
    */
-  keywords: inject('search-keywords'),
+  keywords: service('search-keywords'),
+
+  /**
+   * Service to bind the search bar form to a global hotkey, allowing us to instantly jump to the
+   * search whenever the user presses the '/' key
+   * @type {Ember.Service}
+   */
+  hotKeys: service(),
 
   // Keywords and search Category filter
   currentFilter: 'datasets',
@@ -41,6 +49,25 @@ export default Component.extend({
   debouncedResolver() {
     const queryResolver = get(this, 'keywords.apiResultsFor')(get(this, 'currentFilter'));
     return queryResolver(...arguments);
+  },
+
+  /**
+   * Sets to the focus to the input in the search bar
+   */
+  setSearchBarFocus() {
+    const searchBar = document.getElementsByClassName('nacho-global-search__text-input')[1];
+    searchBar && searchBar.focus();
+  },
+
+  didInsertElement() {
+    this._super(...arguments);
+    // Registering this hotkey allows us to jump to focus the search bar when pressing '/'
+    get(this, 'hotKeys').registerKeyMapping(Keyboard.Slash, this.setSearchBarFocus.bind(this));
+  },
+
+  willDestroyElement() {
+    this._super(...arguments);
+    get(this, 'hotKeys').unregisterKeyMapping(Keyboard.Slash);
   },
 
   actions: {
