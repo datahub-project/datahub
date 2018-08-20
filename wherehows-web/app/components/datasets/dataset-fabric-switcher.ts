@@ -129,7 +129,7 @@ export default class DatasetFabricSwitcher extends Component {
 
   /**
    * Handles the DOM onmouseenter event to show list of Fabrics
-   * @param {{ actions: { open: () => void } }} dropdown
+   * @param dropdown {{ actions: { open: () => void } }}
    * @memberof DatasetFabricSwitcher
    */
   @action
@@ -146,7 +146,7 @@ export default class DatasetFabricSwitcher extends Component {
   /**
    * Handles the DOM event onmouseleave to hide the list of Fabrics and
    * stores a reference to the last invoked hideFabricsTask TaskInstance
-   * @param {{ actions: { close: () => void } }} dropdown
+   * @param dropdown {{ actions: { close: () => void } }}
    * @memberof DatasetFabricSwitcher
    */
   @action
