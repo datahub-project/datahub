@@ -7,6 +7,7 @@ import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from '@ember-decorators/object';
 import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
+import { once } from '@ember/runloop';
 
 export default class DatasetController extends Controller {
   queryParams = ['urn'];
@@ -101,6 +102,14 @@ export default class DatasetController extends Controller {
    * @memberof DatasetController
    */
   datasetContainsPersonalData: boolean;
+
+  datasetOwnersRequiredNotMet: boolean;
+
+  /**
+   * Flag indicating that the dataset ownership requires user attention
+   * @type {ComputedProperty<boolean>}
+   */
+  ownershipRequiresUserAction: ComputedProperty<boolean> = or('datasetOwnersRequiredNotMet');
 
   /**
    * Flag indicating that the compliance policy needs user attention
@@ -218,5 +227,17 @@ export default class DatasetController extends Controller {
   setOnChangeSetDrift(hasDrift: boolean) {
     const fromUpstream = get(this, 'isPolicyFromUpstream');
     set(this, 'compliancePolicyHasDrift', !fromUpstream && hasDrift);
+  }
+
+  /**
+   * Triggered when the ownership information changes, will alert the user on the tab with a red dot if
+   * the current state of the dataset doesn't match the rules set out for the dataset ownership
+   * @param ownersNotConfirmed - Whether or not the owners for the dataset meet the requirements
+   */
+  @action
+  setOwnershipRuleChange(ownersNotConfirmed: boolean) {
+    once('afterRender', () => {
+      set(this, 'datasetOwnersRequiredNotMet', ownersNotConfirmed);
+    });
   }
 }
