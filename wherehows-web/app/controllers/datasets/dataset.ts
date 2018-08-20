@@ -103,6 +103,11 @@ export default class DatasetController extends Controller {
    */
   datasetContainsPersonalData: boolean;
 
+  /**
+   * Whether or not we have met the dataset ownership count requirements
+   * @type {boolean}
+   * @memberof DatasetController
+   */
   datasetOwnersRequiredNotMet: boolean;
 
   /**
