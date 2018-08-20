@@ -29,7 +29,7 @@ export default class HotKeys extends Service {
    * this lets us clear that out
    * @param keyCode - keycode that has been registered
    */
-  clearKeyMapping(keyCode: Keyboard): void {
+  unregisterKeyMapping(keyCode: Keyboard): void {
     get(this, 'keyMappings')[keyCode] = noop;
   }
 
@@ -43,11 +43,5 @@ export default class HotKeys extends Service {
   applyKeyMapping(keyCode: Keyboard): void {
     const action = get(this, 'keyMappings')[keyCode];
     action && action();
-  }
-}
-
-declare module '@ember/service' {
-  interface Registry {
-    'hot-keys': HotKeys;
   }
 }
