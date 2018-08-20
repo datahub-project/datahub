@@ -12,6 +12,19 @@ export default class GlobalHotkeys extends Component {
   classNames = ['global-hotkey-binder'];
 
   /**
+   * Allows us to bind the tabindex attribute to our element to make it focusable. This will
+   * allow it to capture keyup events
+   * @type {Array<string>}
+   */
+  attributeBindings = ['tabindex'];
+
+  /**
+   * Sets the tabindex for our rendered element through attributeBindings
+   * @type {number}
+   */
+  tabindex = 0;
+
+  /**
    * Contains a set of elements that we deem to be inEligible in any circumstance. Targets
    * with these tags will never be passed through for global hotkeys
    * @type {Set<string>}
@@ -43,28 +56,11 @@ export default class GlobalHotkeys extends Component {
    * Method for handling the global keyup.
    * @param {KeyboardEvent} e - KeyboardEvent triggered by user input
    */
-  onKeyUp(e: KeyboardEvent) {
-    // KeyboardEvent.target is not well defined in our TS, casting any to return as HTMLElement
+  keyUp(e: KeyboardEvent) {
     const target = <HTMLElement>e.target;
 
     if (this.isEligibleTarget(target)) {
       get(this, 'hotKeys').applyKeyMapping(e.keyCode);
     }
-  }
-
-  /**
-   * Note: When originally developing the global hotkeys handler, we intended to wrap this component around all
-   * application content and use the keyUp hook in order to catch key presses. However, this hook only catches
-   * Ember fired keyUp events and is unreliable in catching all user keypresses (which would be captured by
-   * native DOM events) so instead we are using this native event listener
-   */
-  didInsertElement() {
-    const applicationBody = document.getElementsByClassName('ember-application')[0];
-    applicationBody && applicationBody.addEventListener('keyup', this.onKeyUp.bind(this));
-  }
-
-  willDestroyElement() {
-    const applicationBody = document.getElementsByClassName('ember-application')[0];
-    applicationBody && applicationBody.removeEventListener('keyup', this.onKeyUp.bind(this));
   }
 }
