@@ -94,7 +94,7 @@
         {{#tablist.tab tabIds.Ownership on-select=(action "tabSelectionChanged")}}
           Ownership
 
-          {{#if requiredMinNotConfirmed}}
+          {{#if ownershipRequiresUserAction}}
             <span class="notification-dot notification-dot--on-tab" aria-hidden="true"></span>
           {{/if}}
         {{/tablist.tab}}
@@ -142,7 +142,9 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Ownership}}
-      {{datasets/containers/dataset-ownership urn=encodedUrn}}
+      {{datasets/containers/dataset-ownership
+        urn=encodedUrn
+        setOwnershipRuleChange=(action "setOwnershipRuleChange")}}
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Compliance}}
