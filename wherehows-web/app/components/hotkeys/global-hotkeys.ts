@@ -12,14 +12,14 @@ export default class GlobalHotkeys extends Component {
   classNames = ['global-hotkey-binder'];
 
   /**
-   * Contains a set of elements that we deem to be inelligible in any circumstance. Targets
+   * Contains a set of elements that we deem to be inEligible in any circumstance. Targets
    * with these tags will never be passed through for global hotkeys
    * @type {Set<string>}
    */
-  inElligibleTargets = new Set(['INPUT', 'TEXTAREA']);
+  inEligibleTargets = new Set(['INPUT', 'TEXTAREA']);
 
   /**
-   * Service that assists with actually triggering the actions tied to a particular elligible
+   * Service that assists with actually triggering the actions tied to a particular Eligible
    * target hotkey
    * @type {Ember.Service}
    */
@@ -31,10 +31,10 @@ export default class GlobalHotkeys extends Component {
    * @param {HTMLElement} target - target element
    * @returns {boolean}
    */
-  isElligibleTarget(target: HTMLElement): boolean {
+  isEligibleTarget(target: HTMLElement): boolean {
     return (
       !!target &&
-      !get(this, 'inElligibleTargets').has(target.tagName) &&
+      !get(this, 'inEligibleTargets').has(target.tagName) &&
       !(target.tagName === 'DIV' && target.attributes.getNamedItem('contenteditable'))
     );
   }
@@ -45,9 +45,9 @@ export default class GlobalHotkeys extends Component {
    */
   onKeyUp(e: KeyboardEvent) {
     // KeyboardEvent.target is not well defined in our TS, casting any to return as HTMLElement
-    const target: HTMLElement = <any>e.target;
+    const target = <HTMLElement>e.target;
 
-    if (this.isElligibleTarget(target)) {
+    if (this.isEligibleTarget(target)) {
       get(this, 'hotKeys').applyKeyMapping(e.keyCode);
     }
   }

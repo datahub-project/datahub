@@ -25,7 +25,7 @@ module('Unit | Service | hot-keys', function(hooks) {
     service.applyKeyMapping(Keyboard.ArrowUp);
 
     service.registerKeyMapping(Keyboard.Enter, theChairsArePeople);
-    service.clearKeyMapping(Keyboard.Enter);
+    service.unregisterKeyMapping(Keyboard.Enter);
     service.applyKeyMapping(Keyboard.Enter);
   });
 });
