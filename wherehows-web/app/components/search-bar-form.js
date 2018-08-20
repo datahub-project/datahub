@@ -55,7 +55,8 @@ export default Component.extend({
    * Sets to the focus to the input in the search bar
    */
   setSearchBarFocus() {
-    this.$('input.nacho-global-search__text-input:eq(1)').trigger('focus');
+    const searchBar = document.getElementsByClassName('nacho-global-search__text-input')[1];
+    searchBar && searchBar.focus();
   },
 
   didInsertElement() {
@@ -64,9 +65,9 @@ export default Component.extend({
     get(this, 'hotKeys').registerKeyMapping(Keyboard.Slash, this.setSearchBarFocus.bind(this));
   },
 
-  didDestroyElement() {
+  willDestroyElement() {
     this._super(...arguments);
-    get(this, 'hotKeys').clearKeyMapping(Keyboard.Slash);
+    get(this, 'hotKeys').unregisterKeyMapping(Keyboard.Slash);
   },
 
   actions: {
