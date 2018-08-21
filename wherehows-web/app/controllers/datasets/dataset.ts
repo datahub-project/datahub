@@ -7,7 +7,7 @@ import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from '@ember-decorators/object';
 import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
-import { once } from '@ember/runloop';
+import { next } from '@ember/runloop';
 
 export default class DatasetController extends Controller {
   queryParams = ['urn'];
@@ -241,8 +241,6 @@ export default class DatasetController extends Controller {
    */
   @action
   setOwnershipRuleChange(ownersNotConfirmed: boolean) {
-    once('afterRender', () => {
-      set(this, 'datasetOwnersRequiredNotMet', ownersNotConfirmed);
-    });
+    next(this, () => set(this, 'datasetOwnersRequiredNotMet', ownersNotConfirmed));
   }
 }
