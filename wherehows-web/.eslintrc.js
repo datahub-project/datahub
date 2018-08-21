@@ -16,6 +16,8 @@ module.exports = {
   },
   rules: {
     'no-implicit-globals': [1],
+    'no-console': 'error',
+    'no-debugger': 'error',
     'typescript/class-name-casing': 'error',
     'typescript/interface-name-prefix': ['error', 'always'],
     'typescript/member-delimiter-style': 'error',
