@@ -10,20 +10,21 @@
   </strong>
 </li>
 
-{{#each breadcrumbs as |crumb|}}
+{{#each affix.prefix as |crumb|}}
+  {{datasets/urn-breadcrumbs/crumb crumb=crumb}}
+{{/each}}
+
+{{#if affix.suffix}}
   <li class="nacho-breadcrumbs__crumb">
-    <strong>
-      {{#link-to
-        "browse.entity"
-        "datasets"
-        (query-params page=1 prefix=crumb.prefix platform=crumb.platform)
-        class="nacho-breadcrumbs__crumb__grain"}}
-
-        <span class="nacho-breadcrumbs__crumb__text" title="{{crumb.crumb}}">
-          {{split-text crumb.crumb 18}}
-        </span>
-
-      {{/link-to}}
+    <strong class="nacho-breadcrumbs__crumb__grain nacho-breadcrumbs__crumb__grain--no-focus">
+      {{tooltip-on-element
+        text=(join ', ' (map-by "crumb" affix.infix))
+      }}
+      ...
     </strong>
   </li>
-{{/each}}
+
+  {{#each affix.suffix as |crumb|}}
+    {{datasets/urn-breadcrumbs/crumb crumb=crumb}}
+  {{/each}}
+{{/if}}
