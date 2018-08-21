@@ -20,6 +20,7 @@ import {
 } from 'wherehows-web/constants/datasets/owner';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 
 type Comparator = -1 | 0 | 1;
 
@@ -114,6 +115,8 @@ export default class DatasetAuthors extends Component {
    */
   isAddingOwner = false;
 
+  setOwnershipRuleChange: (notConfirmed: boolean) => void;
+
   /**
    * Flag that resolves in the affirmative if the number of confirmed owner is less the minimum required
    * @type {ComputedProperty<boolean>}
@@ -128,7 +131,9 @@ export default class DatasetAuthors extends Component {
     }
     // If there have been no changes, then we want to automatically set true in order to disable save button
     // when no changes have been made
-    return changedState === -1 ? true : isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+    const requiredOwnersNotConfirmed = isRequiredMinOwnersNotConfirmed(get(this, 'confirmedOwners'));
+    get(this, 'setOwnershipRuleChange')(requiredOwnersNotConfirmed);
+    return changedState === -1 || requiredOwnersNotConfirmed;
   }
 
   /**
@@ -201,6 +206,8 @@ export default class DatasetAuthors extends Component {
       `Expected action save to be an function (Ember action), got ${typeOfSaveAction}`,
       typeOfSaveAction === 'function'
     );
+
+    this.setOwnershipRuleChange || (this.setOwnershipRuleChange = noop);
   }
 
   /**
