@@ -15,13 +15,23 @@ $secondary-border-color: get-color(slate0);
     padding: 0,
     margin: 5px 0,
     height: 41px,
-    restyle-modifiers: ('with a border': (border: 1px solid restyle-var(primary-border-color)))
+    restyle-modifiers: (
+      'with a border': (
+        border: 1px solid restyle-var(primary-border-color)
+      )
+    )
   )
 );
 
 @include restyle-define(
   grain-text,
-  (max-width: 120px, overflow: hidden, text-overflow: ellipsis, white-space: nowrap, display: block)
+  (
+    max-width: 120px,
+    overflow: hidden,
+    text-overflow: ellipsis,
+    white-space: nowrap,
+    display: block
+  )
 );
 
 @include restyle-define(
@@ -33,34 +43,32 @@ $secondary-border-color: get-color(slate0);
     display: block,
     position: relative,
     padding: 10px 0 10px 45px,
-    '&::before':
-      (
-        content: ' ',
-        display: block,
-        width: 0,
-        height: 0,
-        border-top: 50px solid transparent,
-        border-bottom: 50px solid transparent,
-        border-left: 30px solid restyle-var(primary-border-color),
-        position: absolute,
-        top: 50%,
-        margin-top: -50px,
-        left: 102%
-      ),
-    '&::after':
-      (
-        content: ' ',
-        display: block,
-        width: 0,
-        height: 0,
-        border-top: 50px solid transparent,
-        border-bottom: 50px solid transparent,
-        border-left: 30px solid restyle-var(secondary-border-color),
-        position: absolute,
-        top: 50%,
-        margin-top: -50px,
-        left: 101%
-      )
+    '&::before': (
+      content: ' ',
+      display: block,
+      width: 0,
+      height: 0,
+      border-top: 50px solid transparent,
+      border-bottom: 50px solid transparent,
+      border-left: 30px solid restyle-var(primary-border-color),
+      position: absolute,
+      top: 50%,
+      margin-top: -50px,
+      left: 102%
+    ),
+    '&::after': (
+      content: ' ',
+      display: block,
+      width: 0,
+      height: 0,
+      border-top: 50px solid transparent,
+      border-bottom: 50px solid transparent,
+      border-left: 30px solid restyle-var(secondary-border-color),
+      position: absolute,
+      top: 50%,
+      margin-top: -50px,
+      left: 101%
+    )
   )
 );
 
@@ -71,6 +79,10 @@ $secondary-border-color: get-color(slate0);
     $secondary-border-color: get-color(white);
 
     .nacho-breadcrumbs__crumb__grain {
+      &--no-focus {
+        outline: none;
+      }
+
       &::after {
         border-left: 30px solid $secondary-border-color;
       }
