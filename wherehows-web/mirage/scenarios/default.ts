@@ -6,7 +6,8 @@ const fixtures = [
   'user-entities',
   'compliance-data-types',
   'list-platforms',
-  'dataset-acl-users'
+  'dataset-acl-users',
+  'browse-platforms'
 ];
 
 export default function(server: IMirageServer) {
