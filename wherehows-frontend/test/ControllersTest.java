@@ -218,49 +218,6 @@ public class ControllersTest {
         assertThat(status(result)).isEqualTo(OK);
     }
 
-    @Ignore("need config") @Test
-    public void testScriptFinder()
-    {
-        Result result = controllers.api.v1.ScriptFinder.getScripts();
-        assertThat(status(result)).isEqualTo(OK);
-        JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
-        JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
-        long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
-    }
-
-    @Ignore("need config") @Test
-    public void testSchemaHistory()
-    {
-        Result result = controllers.api.v1.SchemaHistory.getPagedDatasets();
-        assertThat(status(result)).isEqualTo(OK);
-        JsonNode node = Json.parse(contentAsString(result));
-        assertThat(node.isContainerNode());
-        assertThat(node.get("status").asText()).isEqualTo("ok");
-        JsonNode dataNode = node.get("data");
-        assertThat(dataNode.isContainerNode());
-        long count = dataNode.get("count").asLong();
-        assertThat(count > 0);
-
-        JsonNode datasetsNode = dataNode.get("datasets");
-        assertThat(datasetsNode.isArray());
-        JsonNode firstDatasetNode = ((ArrayNode) datasetsNode).get(0);
-        assertThat(firstDatasetNode.isContainerNode());
-        int datasetId = firstDatasetNode.get("id").asInt();
-        assertThat(datasetId > 0);
-
-        result = controllers.api.v1.SchemaHistory.getSchemaHistory(datasetId);
-        assertThat(status(result)).isEqualTo(OK);
-        JsonNode historyNode = Json.parse(contentAsString(result));
-        assertThat(historyNode.isContainerNode());
-        assertThat(historyNode.get("status").asText()).isEqualTo("ok");
-        JsonNode historyDataNode = node.get("data");
-        assertThat(historyDataNode.isArray());
-    }
-
     @AfterClass
     public static void stopApp() {
         stop(app);
