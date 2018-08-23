@@ -315,44 +315,6 @@ public class Application extends Controller {
     return serveAsset("");
   }
 
-  @Security.Authenticated(Secured.class)
-  public static Result schemaHistory() {
-    String username = session("user");
-    if (username == null) {
-      username = "";
-    }
-
-    return serveAsset("");
-  }
-
-  @Security.Authenticated(Secured.class)
-  public static Result scriptFinder() {
-    String username = session("user");
-    if (username == null) {
-      username = "";
-    }
-
-    return serveAsset("");
-  }
-
-  @Security.Authenticated(Secured.class)
-  public static Result idpc() {
-    String username = session("user");
-    if (username == null) {
-      username = "";
-    }
-    return serveAsset("");
-  }
-
-  @Security.Authenticated(Secured.class)
-  public static Result dashboard() {
-    String username = session("user");
-    if (username == null) {
-      username = "";
-    }
-    return serveAsset("");
-  }
-
   public static Result login() {
     //You cann generate the Csrf token such as String csrfToken = SecurityPlugin.getInstance().getCsrfToken();
     String csrfToken = "";
