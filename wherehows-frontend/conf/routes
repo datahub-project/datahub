@@ -54,10 +54,6 @@ GET           /api/v1/autocomplete/search                                       
 
 GET           /api/v1/autocomplete/datasets                                     controllers.api.v1.Search.getSearchAutoCompleteForDataset()
 
-GET           /api/v1/autocomplete/metrics                                      controllers.api.v1.Search.getSearchAutoCompleteForMetric()
-
-GET           /api/v1/autocomplete/flows                                        controllers.api.v1.Search.getSearchAutoCompleteForFlow()
-
 GET           /api/v1/list/datasets                                             controllers.api.v1.Dataset.getDatasetListNodes()
 
 GET           /api/v1/list/metrics                                              controllers.api.v1.Metric.getMetricListViewDashboards()
@@ -189,30 +185,6 @@ GET           /api/v1/flows/:application                                        
 GET           /api/v1/flows/:application/:project                               controllers.api.v1.Flow.getPagedFlows(application: String, project: String)
 
 GET           /api/v1/flow/:application/:flowId                                 controllers.api.v1.Flow.getPagedJobs(application: String, flowId: Long)
-
-GET           /api/v1/advsearch/sources                                         controllers.api.v1.AdvSearch.getDatasetSources()
-
-GET           /api/v1/advsearch/scopes                                          controllers.api.v1.AdvSearch.getDatasetScopes()
-
-GET           /api/v1/advsearch/tables                                          controllers.api.v1.AdvSearch.getDatasetTableNames()
-
-GET           /api/v1/advsearch/fields                                          controllers.api.v1.AdvSearch.getDatasetFields()
-
-GET           /api/v1/advsearch/appcodes                                        controllers.api.v1.AdvSearch.getFlowApplicationCodes()
-
-GET           /api/v1/advsearch/flowNames                                       controllers.api.v1.AdvSearch.getFlowNames()
-
-GET           /api/v1/advsearch/jobNames                                        controllers.api.v1.AdvSearch.getJobNames()
-
-GET           /api/v1/advsearch/dashboards                                      controllers.api.v1.AdvSearch.getDashboardNames()
-
-GET           /api/v1/advsearch/metricGroups                                    controllers.api.v1.AdvSearch.getMetricGroups()
-
-GET           /api/v1/advsearch/metricCategories                                controllers.api.v1.AdvSearch.getMetricCategories()
-
-GET           /api/v1/advsearch/metricNames                                     controllers.api.v1.AdvSearch.getMetricNames()
-
-GET           /api/v1/advsearch/search                                          controllers.api.v1.AdvSearch.search()
 
 GET           /api/v1/lineage/dataset/:id                                       controllers.api.v1.Lineage.getDatasetLineageGraphData(id:Int)
 
