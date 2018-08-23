@@ -12,8 +12,8 @@ const textContentHeader = { 'Content-Type': 'text/plain; charset=utf-8' };
  * @return {{status: ApiStatus, data: object}}
  */
 const getAuth = (_schema: {}, { requestBody }: { requestBody: string }) => {
-  const { username, password } = <{ username: StringOrNullOrUndefined; password: StringOrNullOrUndefined }>JSON.parse(
-    requestBody
+  const { username, password } = <{ username: StringOrNullOrUndefined; password: StringOrNullOrUndefined }>(
+    JSON.parse(requestBody)
   );
 
   if (!password) {
@@ -23,6 +23,8 @@ const getAuth = (_schema: {}, { requestBody }: { requestBody: string }) => {
   if (password === 'invalidPassword') {
     return new Response(401, textContentHeader, 'Invalid Password');
   }
+
+  console.log('authentication successful');
 
   return {
     status: ApiStatus.OK,

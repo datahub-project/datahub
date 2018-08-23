@@ -944,10 +944,13 @@ export default class DatasetCompliance extends Component {
     this: DatasetCompliance
   ): IterableIterator<Promise<Array<ComplianceFieldIdValue | NonIdLogicalType>>> {
     const unspecifiedTags = get(this, 'unspecifiedTags');
-    const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
-      set(tag, 'identifierType', value);
+    // const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
+    //   set(tag, 'identifierType', value);
 
-    yield iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
+    // yield iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
+    unspecifiedTags.forEach(tag => {
+      set(tag, 'identifierType', ComplianceFieldIdValue.None);
+    });
   }).drop();
 
   /**
