@@ -47,6 +47,7 @@ export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {
     // Check if tracking is enabled prior to invoking
     // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
     return (
+      tracking &&
       tracking.isEnabled &&
       get(this, 'sessionUser').trackCurrentUser(userId => get(this, 'metrics').identify({ userId }))
     );
