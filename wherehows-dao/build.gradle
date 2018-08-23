@@ -15,6 +15,9 @@ dependencies {
   runtime externalDependency.hikaricp
 
   testCompile externalDependency.testng
+
+  compile externalDependency.play_java_ws
+
 }
 
 findbugs {
