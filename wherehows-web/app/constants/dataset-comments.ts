@@ -17,7 +17,7 @@ type DatasetStreamActionsUnion = 'add' | 'modify' | 'destroy';
 const baseCommentEditorOptions = {
   disableDoubleReturn: true,
   disableExtraSpaces: true,
-  disableEditing: true
+  disableEditing: false
 };
 
 /**

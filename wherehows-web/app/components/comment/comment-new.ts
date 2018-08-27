@@ -110,16 +110,6 @@ export default Component.extend({
     },
 
     /**
-     * Invoked with a delay after the commenter has finished typing
-     * Dispatched on a slight delay after changes are made.
-     * TODO: Enhancement META-1995 - maybe use for auto-save, or other times we need to know
-     * that the field contents changed
-     */
-    commentTextUpdated(): void {
-      //TODO: META-1995 interval auto-save?
-    },
-
-    /**
      * Updates the type attribute on the comment property
      * @param {CommentTypeUnion} type
      */

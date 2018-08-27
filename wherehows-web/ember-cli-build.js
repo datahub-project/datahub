@@ -73,19 +73,19 @@ module.exports = function(defaults) {
     }
   });
 
-  const faFontTree = new Funnel('bower_components/font-awesome', {
+  const faFontTree = new Funnel('node_modules/font-awesome', {
     srcDir: '/',
     include: ['**/*.woff2', '**/*.woff', '**/*.ttf', '**/font-awesome.min.css'],
     destDir: '/'
   });
 
-  const bsFontTree = new Funnel('bower_components/bootstrap/dist/fonts', {
+  const bsFontTree = new Funnel('node_modules/bootstrap/dist/fonts', {
     srcDir: '/',
     include: ['**/*.woff2', '**/*.woff', '**/*.ttf'],
     destDir: '/assets/fonts'
   });
 
-  const treegridImgTree = new Funnel('bower_components/jquery-treegrid/img', {
+  const treegridImgTree = new Funnel('node_modules/jquery-treegrid/img', {
     srcDir: '/',
     include: ['**/*.png'],
     destDir: '/img'
@@ -104,17 +104,17 @@ module.exports = function(defaults) {
   // please specify an object with the list of modules as keys
   // along with the exports of each module as its value.
 
-  app.import('bower_components/font-awesome/css/font-awesome.min.css');
-  app.import('bower_components/json-human/css/json.human.css');
-  app.import('bower_components/jquery-treegrid/css/jquery.treegrid.css');
-  app.import('bower_components/jquery-jsonview/dist/jquery.jsonview.css');
+  app.import('node_modules/font-awesome/css/font-awesome.min.css');
+  app.import('node_modules/json-human/css/json.human.css');
+  app.import('node_modules/jquery-treegrid/css/jquery.treegrid.css');
+  app.import('node_modules/jquery-jsonview/dist/jquery.jsonview.css');
 
-  app.import('bower_components/jquery-treegrid/js/jquery.treegrid.js');
-  app.import('bower_components/json-human/src/json.human.js');
-  app.import('bower_components/jquery-jsonview/dist/jquery.jsonview.js');
+  app.import('node_modules/jquery-treegrid/js/jquery.treegrid.js');
+  app.import('node_modules/json-human/src/json.human.js');
+  app.import('node_modules/jquery-jsonview/dist/jquery.jsonview.js');
   app.import('vendor/typeahead.jquery.js');
-  app.import('bower_components/marked/marked.min.js');
-  app.import('bower_components/scrollMonitor/scrollMonitor.js');
+  app.import('node_modules/marked/marked.min.js');
+  app.import('node_modules/scrollMonitor/scrollmonitor.js');
   app.import('vendor/shims/scrollmonitor.js');
 
   return app.toTree(new MergeTrees([faFontTree, bsFontTree, treegridImgTree]));

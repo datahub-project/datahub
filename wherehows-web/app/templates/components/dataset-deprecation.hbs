@@ -21,10 +21,11 @@
 
   {{#if deprecatedAlias}}
 
-    {{medium-content-editable
-      value=deprecationNoteAlias
+    {{medium-editor
+      deprecationNoteAlias
       options=editorOptions
-      class="comment-new__content"}}
+      class="comment-new__content"
+      onChange=(action (mut deprecationNoteAlias))}}
 
     <h4 class="dataset-deprecation-header">When should this dataset be decommissioned?</h4>
 

@@ -1377,10 +1377,6 @@ bower-endpoint-parser@0.2.2:
   version "0.2.2"
   resolved "https://registry.yarnpkg.com/bower-endpoint-parser/-/bower-endpoint-parser-0.2.2.tgz#00b565adbfab6f2d35addde977e97962acbcb3f6"
 
-bower@^1.8.2:
-  version "1.8.4"
-  resolved "https://registry.yarnpkg.com/bower/-/bower-1.8.4.tgz#e7876a076deb8137f7d06525dc5e8c66db82f28a"
-
 brace-expansion@^1.0.0, brace-expansion@^1.1.7:
   version "1.1.11"
   resolved "https://registry.yarnpkg.com/brace-expansion/-/brace-expansion-1.1.11.tgz#3c7fcbf529d87226f3d2f52b966ff5271eb441dd"
@@ -2847,7 +2843,7 @@ ember-cli-app-version@^3.0.0:
     ember-cli-babel "^6.12.0"
     git-repo-version "^1.0.2"
 
-ember-cli-babel@^5.1.5, ember-cli-babel@^5.1.7, ember-cli-babel@^5.2.1:
+ember-cli-babel@^5.1.7, ember-cli-babel@^5.2.1:
   version "5.2.8"
   resolved "https://registry.yarnpkg.com/ember-cli-babel/-/ember-cli-babel-5.2.8.tgz#0356b03cc3fdff5d0f2ecaa46a0e1cfaebffd876"
   dependencies:
@@ -2857,7 +2853,7 @@ ember-cli-babel@^5.1.5, ember-cli-babel@^5.1.7, ember-cli-babel@^5.2.1:
     ember-cli-version-checker "^1.0.2"
     resolve "^1.1.2"
 
-ember-cli-babel@^6.0.0, ember-cli-babel@^6.0.0-beta.4, ember-cli-babel@^6.0.0-beta.7, ember-cli-babel@^6.0.0-beta.9, ember-cli-babel@^6.1.0, ember-cli-babel@^6.10.0, ember-cli-babel@^6.11.0, ember-cli-babel@^6.12.0, ember-cli-babel@^6.3.0, ember-cli-babel@^6.6.0, ember-cli-babel@^6.7.2, ember-cli-babel@^6.8.1, ember-cli-babel@^6.8.2, ember-cli-babel@^6.9.0, ember-cli-babel@^6.9.2:
+ember-cli-babel@^6.0.0, ember-cli-babel@^6.0.0-beta.3, ember-cli-babel@^6.0.0-beta.4, ember-cli-babel@^6.0.0-beta.7, ember-cli-babel@^6.0.0-beta.9, ember-cli-babel@^6.1.0, ember-cli-babel@^6.10.0, ember-cli-babel@^6.11.0, ember-cli-babel@^6.12.0, ember-cli-babel@^6.3.0, ember-cli-babel@^6.6.0, ember-cli-babel@^6.7.2, ember-cli-babel@^6.8.1, ember-cli-babel@^6.8.2, ember-cli-babel@^6.9.0, ember-cli-babel@^6.9.2:
   version "6.16.0"
   resolved "https://registry.yarnpkg.com/ember-cli-babel/-/ember-cli-babel-6.16.0.tgz#623b4a2764ece72b65f1572fc8aeb5714a450228"
   dependencies:
@@ -3008,12 +3004,6 @@ ember-cli-lodash-subset@^1.0.7:
 ember-cli-lodash-subset@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/ember-cli-lodash-subset/-/ember-cli-lodash-subset-2.0.1.tgz#20cb68a790fe0fde2488ddfd8efbb7df6fe766f2"
-
-ember-cli-medium-editor@^1.2.4:
-  version "1.2.4"
-  resolved "https://registry.yarnpkg.com/ember-cli-medium-editor/-/ember-cli-medium-editor-1.2.4.tgz#ce0c01afd18c62363ca2697b22bd4eb72c012c98"
-  dependencies:
-    ember-cli-babel "^5.1.5"
 
 ember-cli-mirage@0.4.1:
   version "0.4.1"
@@ -3579,6 +3569,16 @@ ember-maybe-in-element@^0.1.3:
   resolved "https://registry.yarnpkg.com/ember-maybe-in-element/-/ember-maybe-in-element-0.1.3.tgz#1c89be49246e580c1090336ad8be31e373f71b60"
   dependencies:
     ember-cli-babel "^6.11.0"
+
+ember-medium-editor@^0.1.4:
+  version "0.1.4"
+  resolved "https://registry.yarnpkg.com/ember-medium-editor/-/ember-medium-editor-0.1.4.tgz#0955fbde5bd646a44a2874b2b87e594ea034f94c"
+  dependencies:
+    broccoli-funnel "^1.1.0"
+    broccoli-merge-trees "^2.0.0"
+    broccoli-stew "^1.5.0"
+    ember-cli-babel "^6.0.0-beta.3"
+    medium-editor "^5.23.0"
 
 ember-metrics@^0.12.1:
   version "0.12.1"
@@ -5584,7 +5584,15 @@ jest-validate@^23.0.0:
     leven "^2.1.0"
     pretty-format "^23.2.0"
 
-jquery@>=1.11, jquery@^3.3.0, jquery@^3.3.1:
+jquery-jsonview@^1.2.3:
+  version "1.2.3"
+  resolved "https://registry.yarnpkg.com/jquery-jsonview/-/jquery-jsonview-1.2.3.tgz#6a24ce73357368e00ee32fb605950a4083ad6b7a"
+
+jquery-treegrid@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/jquery-treegrid/-/jquery-treegrid-0.3.0.tgz#e445d4e789cbd85ec045ed467192d70b2ab189d3"
+
+jquery@^3.3.0, jquery@^3.3.1:
   version "3.3.1"
   resolved "https://registry.yarnpkg.com/jquery/-/jquery-3.3.1.tgz#958ce29e81c9790f31be7792df5d4d95fc57fbca"
 
@@ -5646,6 +5654,10 @@ jsmin@1.x:
 json-buffer@3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/json-buffer/-/json-buffer-3.0.0.tgz#5b1f397afc75d677bde8bcfc0e47e1f9a3d9a898"
+
+"json-human@https://github.com/marianoguerra/json.human.js#0.1.1":
+  version "1.0.3"
+  resolved "https://github.com/marianoguerra/json.human.js#bf427232f543642bbe4df4b041f59e40a3208c0c"
 
 json-parse-better-errors@^1.0.1:
   version "1.0.2"
@@ -6395,6 +6407,10 @@ markdown-it@^8.3.0, markdown-it@^8.3.1:
     mdurl "^1.0.1"
     uc.micro "^1.0.5"
 
+marked@^0.3.6:
+  version "0.3.19"
+  resolved "https://registry.yarnpkg.com/marked/-/marked-0.3.19.tgz#5d47f709c4c9fc3c216b6d46127280f40b39d790"
+
 matcher-collection@^1.0.0, matcher-collection@^1.0.5:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/matcher-collection/-/matcher-collection-1.0.5.tgz#2ee095438372cb8884f058234138c05c644ec339"
@@ -6422,6 +6438,14 @@ mdurl@^1.0.1:
 media-typer@0.3.0:
   version "0.3.0"
   resolved "https://registry.yarnpkg.com/media-typer/-/media-typer-0.3.0.tgz#8710d7af0aa626f8fffa1ce00168545263255748"
+
+medium-editor@5.14.4:
+  version "5.14.4"
+  resolved "https://registry.yarnpkg.com/medium-editor/-/medium-editor-5.14.4.tgz#84669da34de41083a8cba86b4841f9c2c805bd6a"
+
+medium-editor@^5.23.0:
+  version "5.23.3"
+  resolved "https://registry.yarnpkg.com/medium-editor/-/medium-editor-5.23.3.tgz#6fb638759ae2fc76c423feb056f346d9c518d3b7"
 
 memory-streams@^0.1.3:
   version "0.1.3"
@@ -7824,6 +7848,10 @@ sass-graph@^2.2.4:
 sax@^1.2.4:
   version "1.2.4"
   resolved "https://registry.yarnpkg.com/sax/-/sax-1.2.4.tgz#2816234e2378bddc4e5354fab5caa895df7100d9"
+
+scrollmonitor@^1.2.4:
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/scrollmonitor/-/scrollmonitor-1.2.4.tgz#823d04cc1574aa3b71de7cc70ef91ebe633344a0"
 
 scss-tokenizer@^0.2.3:
   version "0.2.3"
