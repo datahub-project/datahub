@@ -840,7 +840,7 @@ export default class DatasetCompliance extends Component {
       const changeSetFilter = (<TagFilterCallback>{
         [TagFilter.showAll]: identity,
         [TagFilter.showReview]: tagsRequiringReview(complianceDataTypes, {
-          checkSuggestions: true,
+          checkSuggestions: false,
           suggestionConfidenceThreshold
         }),
         [TagFilter.showSuggested]: arrayFilter((tag: IComplianceChangeSet) =>
