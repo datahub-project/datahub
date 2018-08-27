@@ -1,11 +1,11 @@
 {{#if isEditing}}
   <form {{action "publishComment" on="submit"}}>
     {{medium-content-editable
-      value=comment.text
+      comment.text
       options=editorOptions
       class="comment-new__content"
-      editable=isEditing
-      onFinishedTyping=(action "commentTextUpdated")}}
+      onChange=(action (mut comment.text))
+    }}
 
     {{ember-selector
       values=commentTypes
