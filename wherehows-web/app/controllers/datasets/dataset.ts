@@ -68,6 +68,12 @@ export default class DatasetController extends Controller {
   jitAclAccessWhitelist: Array<DatasetPlatform>;
 
   /**
+   * References the collection of help links with references to external pages of help information
+   * @type {Record<string, string>}
+   */
+  wikiLinks: Record<string, string>;
+
+  /**
    * Flag indicating the dataset policy is derived from an upstream source
    * @type {boolean}
    * @memberof DatasetController
@@ -154,8 +160,11 @@ export default class DatasetController extends Controller {
    */
   constructor() {
     super(...arguments);
+
+    // defaults
     this.tabSelected || (this.tabSelected = Tabs.Ownership);
     this.jitAclAccessWhitelist || (this.jitAclAccessWhitelist = []);
+    this.wikiLinks || (this.wikiLinks = {});
   }
 
   /**

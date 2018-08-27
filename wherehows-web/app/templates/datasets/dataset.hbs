@@ -151,6 +151,7 @@
       {{datasets/containers/dataset-compliance
         urn=encodedUrn
         platform=model.platform
+        wikiLinks=wikiLinks
         datasetName=model.nativeName
         notifyPiiStatus=(action "onNotifyPiiStatus")
         setOnChangeSetChange=(action "setOnChangeSetChange")
@@ -160,7 +161,11 @@
     {{/tabs.tabpanel}}
 
     {{#tabs.tabpanel tabIds.Access}}
-      {{datasets/containers/dataset-acl-access urn=encodedUrn isJitAclAccessEnabled=isJitAclAccessEnabled}}
+      {{datasets/containers/dataset-acl-access
+        urn=encodedUrn
+        aclMoreInfoLink=wikiLinks.jitAcl
+        isJitAclAccessEnabled=isJitAclAccessEnabled
+      }}
     {{/tabs.tabpanel}}
 
     {{#if shouldShowDatasetLineage}}
