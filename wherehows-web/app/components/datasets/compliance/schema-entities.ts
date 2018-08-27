@@ -49,7 +49,7 @@ import {
 import { assert } from '@ember/debug';
 import { pluralize } from 'ember-inflector';
 import { action } from '@ember-decorators/object';
-import { identity } from 'wherehows-web/utils/helpers/functions';
+import { identity, noop } from 'wherehows-web/utils/helpers/functions';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { pick } from 'wherehows-web/utils/object';
@@ -57,6 +57,7 @@ import { TrackableEventCategory, trackableEvent } from 'wherehows-web/constants/
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { service } from '@ember-decorators/service';
+import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 
 export default class ComplianceSchemaEntities extends Component {
   /**
@@ -164,6 +165,27 @@ export default class ComplianceSchemaEntities extends Component {
   supportedPurgePolicies: Array<PurgePolicy> = [];
 
   /**
+   * Flag enabling or disabling the manual apply button
+   * @type {boolean}
+   * @memberof DatasetCompliance
+   */
+  isManualApplyDisabled: boolean = false;
+
+  /**
+   * String representation of a parse error that may have occurred when validating manually entered compliance entities
+   * @type {string}
+   * @memberof DatasetCompliance
+   */
+  manualParseError: string = '';
+
+  /**
+   * Lists the compliance entities that are entered via the advanced editing interface
+   * @type {Pick<IComplianceInfo, 'complianceEntities'>}
+   * @memberof DatasetCompliance
+   */
+  manuallyEnteredComplianceEntities: Pick<IComplianceInfo, 'complianceEntities'>;
+
+  /**
    * A list of ui values and labels for review filter drop-down
    * @type {Array<{value: string, label:string}>}
    * @memberof ComplianceSchemaEntities
@@ -188,6 +210,7 @@ export default class ComplianceSchemaEntities extends Component {
    */
   complianceSuggestion: IComplianceSuggestion | void;
 
+  onComplianceJsonUpdate: (jsonString: string) => Promise<void>;
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
   notifyOnComplianceSuggestionFeedback: () => void;
@@ -773,6 +796,58 @@ export default class ComplianceSchemaEntities extends Component {
 
     if (!isShowingGuidedEditMode) {
       this.actions.onManualComplianceUpdate.call(this, get(this, 'jsonComplianceEntities'));
+    }
+  }
+
+  /**
+   * Handles updating the list of compliance entities when a user manually enters values
+   * for the compliance entity metadata
+   * @param {string} updatedEntities json string of entities
+   */
+  @action
+  onManualComplianceUpdate(this: ComplianceSchemaEntities, updatedEntities: string): void {
+    try {
+      // check if the string is parse-able as a JSON object
+      const entities = JSON.parse(updatedEntities);
+      const metadataObject = {
+        complianceEntities: entities
+      };
+      // Check that metadataObject has a valid property matching complianceEntitiesTaxonomy
+      let isValid = isMetadataObject(metadataObject);
+
+      // Lists the fieldNames / identifierField property values on the edit compliance policy
+      const updatedIdentifierFieldValues = new Set(
+        arrayMap(({ identifierField }: IComplianceEntity) => identifierField)(entities)
+      );
+      // Lists the expected fieldNames / identifierField property values from the schemaFieldNamesMappedToDataTypes
+      const expectedIdentifierFieldValues = arrayMap(
+        ({ fieldName }: Pick<IDatasetColumn, 'dataType' | 'fieldName'>) => fieldName
+      )(get(this, 'schemaFieldNamesMappedToDataTypes'));
+
+      isValid = isValid && jsonValuesMatch([...updatedIdentifierFieldValues], expectedIdentifierFieldValues);
+
+      setProperties(this, { isManualApplyDisabled: !isValid, manualParseError: '' });
+
+      if (isValid) {
+        set(this, 'manuallyEnteredComplianceEntities', metadataObject);
+      }
+    } catch (e) {
+      setProperties(this, { isManualApplyDisabled: true, manualParseError: e.message });
+    }
+  }
+
+  /**
+   * Handler to apply manually entered compliance entities to the actual list of
+   * compliance metadata entities to be saved
+   */
+  @action
+  async onApplyComplianceJson(this: ComplianceSchemaEntities) {
+    try {
+      await get(this, 'onComplianceJsonUpdate')(JSON.stringify(get(this, 'manuallyEnteredComplianceEntities')));
+      // Proceed to next step if application of entities is successful
+      this.actions.nextStep.call(this);
+    } catch {
+      noop();
     }
   }
 }

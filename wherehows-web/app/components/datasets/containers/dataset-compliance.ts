@@ -305,6 +305,9 @@ export default class DatasetComplianceContainer extends Component {
     if (complianceInfo) {
       const { complianceEntities } = complianceInfo;
 
+      console.log('saving compliance policy');
+      console.log(complianceInfo);
+
       await this.notifyOnSave<void>(
         saveDatasetComplianceByUrn(get(this, 'urn'), {
           ...complianceInfo,
