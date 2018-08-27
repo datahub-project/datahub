@@ -34,7 +34,6 @@
     "babel-plugin-transform-es2015-destructuring": "^6.23.0",
     "babel-plugin-transform-es2015-parameters": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "bower": "^1.8.2",
     "broccoli-asset-rev": "^2.7.0",
     "broccoli-funnel": "^2.0.1",
     "broccoli-merge-trees": "^3.0.0",
@@ -54,7 +53,6 @@
     "ember-cli-htmlbars": "^2.0.1",
     "ember-cli-htmlbars-inline-precompile": "^1.0.0",
     "ember-cli-inject-live-reload": "^1.4.1",
-    "ember-cli-medium-editor": "^1.2.4",
     "ember-cli-moment-shim": "^3.5.0",
     "ember-cli-qunit": "^4.1.1",
     "ember-cli-shims": "^1.1.0",
@@ -72,6 +70,7 @@
     "ember-inflector": "^2.2.0",
     "ember-load-initializers": "^1.0.0",
     "ember-math-helpers": "^2.4.0",
+    "ember-medium-editor": "^0.1.4",
     "ember-metrics": "^0.12.1",
     "ember-power-calendar": "^0.7.1",
     "ember-power-select-typeahead": "^0.7.0",
@@ -97,6 +96,7 @@
     "typescript": "^3.0.1"
   },
   "dependencies": {
+    "bootstrap": "3.3.7",
     "dynamic-link": "^0.2.3",
     "ember-aupac-typeahead": "3.1.0",
     "ember-cli-mirage": "0.4.1",
@@ -111,7 +111,14 @@
     "ember-tooltips": "https://github.com/mattgraham1995/ember-tooltips#06112adb703f1701eef2257bf7690434af2c7444",
     "ember-truth-helpers": "^2.0.0",
     "eslint-plugin-typescript": "^0.12.0",
+    "font-awesome": "^4.7.0",
     "jquery": "^3.3.0",
+    "jquery-jsonview": "^1.2.3",
+    "jquery-treegrid": "^0.3.0",
+    "json-human": "https://github.com/marianoguerra/json.human.js#0.1.1",
+    "marked": "^0.3.6",
+    "medium-editor": "5.14.4",
+    "scrollmonitor": "^1.2.4",
     "typescript-eslint-parser": "^17.0.1"
   },
   "engines": {

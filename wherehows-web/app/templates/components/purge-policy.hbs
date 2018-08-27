@@ -29,10 +29,12 @@
 
         {{#if (and requestExemptionReason (eq purgeType exemptPolicy))}}
 
-          {{medium-content-editable
-            value=purgeNote
+          {{medium-editor
+            purgeNote
             options=editorOptions
-            class="comment-new__content"}}
+            class="comment-new__content"
+            onChange=(action (mut purgeNote))
+            }}
 
         {{/if}}
       </li>
