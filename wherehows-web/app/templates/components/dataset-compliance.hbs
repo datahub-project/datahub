@@ -175,7 +175,7 @@
                 Compliance Purge Policy
 
                 {{more-info
-                  link="http://go/gdpr/deletions/purgePolicies"
+                  link=@wikiLinks.purgePolicies
                   tooltip="Click for more information Purge Policies"
                 }}
               </p>
@@ -212,6 +212,7 @@
 
         {{#if (or isReadOnly isInitialEditStep)}}
           {{datasets/schemaless-tagging
+            classificationHelpLink=@wikiLinks.dht
             isEditable=(not isReadOnly)
             classification=(readonly complianceInfo.confidentiality)
             containsPersonalData=(readonly complianceInfo.containingPersonalData)

@@ -96,7 +96,8 @@ export default class DatasetRoute extends Route {
       isInternal: !!getConfig('isInternal'),
       jitAclAccessWhitelist: getConfig('JitAclAccessWhitelist') || [],
       shouldShowDatasetLineage: getConfig('shouldShowDatasetLineage'),
-      shouldShowDatasetHealth: getConfig('shouldShowDatasetHealth')
+      shouldShowDatasetHealth: getConfig('shouldShowDatasetHealth'),
+      wikiLinks: getConfig('wikiLinks')
     });
   }
 

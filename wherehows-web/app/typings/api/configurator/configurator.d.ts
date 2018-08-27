@@ -12,6 +12,8 @@ interface IAppConfig {
   shouldShowDatasetHealth: boolean;
   // confidence threshold for filtering out higher quality suggestions
   suggestionConfidenceThreshold: number;
+  // collection of links to external help resource pages
+  wikiLinks: Record<string, string>;
   tracking: {
     isEnabled: boolean;
     trackers: {
