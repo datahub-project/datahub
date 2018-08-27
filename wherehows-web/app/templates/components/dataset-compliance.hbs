@@ -224,7 +224,22 @@
       {{else}}
 
         {{#if (or isReadOnly isInitialEditStep)}}
-          {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+          {{datasets/compliance/schema-entities
+            datasetName=datasetName
+            schemaless=schemaless
+            complianceSuggestion=complianceSuggestion
+            isEditing=isEditing
+            platform=platform
+            searchTerm=searchTerm
+            complianceInfo=complianceInfo
+            isNewComplianceInfo=isNewComplianceInfo
+            complianceDataTypes=complianceDataTypes
+            nextStep=(action "nextStep")
+            schemaFieldNamesMappedToDataTypes=schemaFieldNamesMappedToDataTypes
+            suggestionConfidenceThreshold=suggestionConfidenceThreshold
+            notifyOnChangeSetSuggestions=notifyOnChangeSetSuggestions
+            notifyOnComplianceSuggestionFeedback=notifyOnComplianceSuggestionFeedback
+            notifyOnChangeSetRequiresReview=notifyOnChangeSetRequiresReview}}
         {{/if}}
 
       {{/if}}
