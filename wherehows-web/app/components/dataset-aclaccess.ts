@@ -31,6 +31,12 @@ const maxSelectableExpirationDate = new Date(Date.now() + millisecondDays(7));
 
 export default class DatasetAclAccess extends Component {
   /**
+   * Named component argument with a string link reference to more information on acls
+   * @type {string}
+   */
+  aclMoreInfoLink: string;
+
+  /**
    * The currently logged in user is listed on the related datasets acl
    * @type {boolean}
    * @memberof DatasetAclAccess
