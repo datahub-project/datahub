@@ -31,26 +31,26 @@ import wherehows.models.table.Dataset;
 
 import static wherehows.util.Search.*;
 
-public class SearchDAO
+public class SearchDao
 {
 	public static String ELASTICSEARCH_DATASET_URL_KEY = "elasticsearch.dataset.url";
 	public static String WHEREHOWS_SEARCH_ENGINE_KEY = "search.engine";
 
-	public static List<String> getAutoCompleteList(String input, int limit)
+	public List<String> getAutoCompleteList(String input, int limit)
 	{
 		List<String> names = new ArrayList<>();
 		names.addAll(getAutoCompleteListDataset(input, limit / 3));
 		return names;
 	}
 
-	public static List<String> getAutoCompleteListDataset(String input, int limit)
+	public List<String> getAutoCompleteListDataset(String input, int limit)
 	{
 		String elasticSearchTypeURLKey = "elasticsearch.dataset.url";
 		String fieldName = "name_suggest";
 		return getAutoCompleteListbyES(elasticSearchTypeURLKey,fieldName,input,limit);
 	}
 
-	public static List<String> getAutoCompleteListbyES(String elasticSearchTypeURLKey, String fieldName, String input,
+	public List<String> getAutoCompleteListbyES(String elasticSearchTypeURLKey, String fieldName, String input,
 			int limit)
 	{
 		// use elastic search completion suggester, ES will validate the input and limit
@@ -211,7 +211,7 @@ public class SearchDAO
 		return SuggestionList;
 	}
 
-	public static JsonNode elasticSearchDatasetByKeyword(
+	public JsonNode elasticSearchDatasetByKeyword(
 			String category,
 			String keywords,
 			String source,
@@ -262,7 +262,7 @@ public class SearchDAO
 					" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
 			Promise<WSResponse> responsePromise =
-					WS.url(Play.application().configuration().getString(SearchDAO.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
+					WS.url(Play.application().configuration().getString(SearchDao.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
 			responseNode = responsePromise.get(1000).asJson();
 
 			// Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
