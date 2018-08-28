@@ -21,6 +21,7 @@ import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
 import wherehows.dao.table.AclDao;
 import wherehows.dao.table.LineageDao;
+import wherehows.dao.table.SearchDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
@@ -49,6 +50,8 @@ public class DaoFactory {
   private static LineageDao lineageDao;
 
   private static AclDao aclDao;
+
+  private static SearchDao searchDao;
 
   public DaoFactory(EntityManagerFactory entityManagerFactory) {
     this.entityManagerFactory = entityManagerFactory;
@@ -122,5 +125,12 @@ public class DaoFactory {
       aclDao = new AclDao();
     }
     return aclDao;
+  }
+
+  public SearchDao getSearchDao() {
+    if (searchDao == null) {
+      searchDao = new SearchDao();
+    }
+    return searchDao;
   }
 }
