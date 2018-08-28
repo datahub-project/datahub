@@ -114,7 +114,7 @@ module.exports = function(defaults) {
   app.import('node_modules/jquery-jsonview/dist/jquery.jsonview.js');
   app.import('vendor/typeahead.jquery.js');
   app.import('node_modules/marked/marked.min.js');
-  app.import('node_modules/scrollMonitor/scrollmonitor.js');
+  app.import('node_modules/scrollmonitor/scrollMonitor.js');
   app.import('vendor/shims/scrollmonitor.js');
 
   return app.toTree(new MergeTrees([faFontTree, bsFontTree, treegridImgTree]));
