@@ -19,11 +19,12 @@
 {{#if isEditing}}
 
   <form {{action "updateComment" on="submit"}}>
-    {{medium-content-editable
-      value=comment.text
+    {{medium-editor
+      comment.text
       options=editorOptions
       class="comment-new__content"
-      editable=isEditing}}
+      onChange=(action (mut comment.text))
+      }}
 
     <div class="comment-new__actions">
       <button
