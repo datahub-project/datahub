@@ -9,7 +9,6 @@ You will need the following things properly installed on your computer.
 
 * [Git](https://git-scm.com/)
 * [Node.js](https://nodejs.org/) (with NPM)
-* [Bower](https://bower.io/)
 * [Ember CLI](https://ember-cli.com/)
 * [PhantomJS](http://phantomjs.org/)
 
@@ -18,7 +17,6 @@ You will need the following things properly installed on your computer.
 * `git clone <repository-url>` this repository
 * `cd wherehows-web`
 * `npm install`
-* `bower install`
 
 ## Running / Development
 
@@ -52,16 +50,16 @@ Specify what it takes to deploy your app.
   * [ember inspector for firefox](https://addons.mozilla.org/en-US/firefox/addon/ember-inspector/)
 
 ## Troubleshooting
-### git commit SyntaxError on Mac 
-> git commit -m 'foo bar'  
->> husky - npm run -s precommit  
->> const path = require('path')  
->> ^^^^^`  
+### git commit SyntaxError on Mac
+> git commit -m 'foo bar'
+>> husky - npm run -s precommit
+>> const path = require('path')
+>> ^^^^^`
 >> SyntaxError: Use of const in strict mode.
 
 ```
 # Re-install npm global packages
 npm cache clean -f
 sudo npm install -g n
-sudo n stable 
+sudo n stable
 ```
