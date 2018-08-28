@@ -21,22 +21,17 @@ node {
   nodeModulesDir = file("${project.projectDir}")
 }
 
-task bowerInstall(type: NodeTask, dependsOn: yarn) {
-  script = file('node_modules/bower/lib/bin/bower.js')
-  args = ['install']
-}
-
-task emberServe(type: NodeTask, dependsOn: bowerInstall) {
+task emberServe(type: NodeTask, dependsOn: yarn) {
   script = file('node_modules/.bin/ember')
   args = ['serve']
 }
 
-task emberBuild(type: NodeTask, dependsOn: bowerInstall) {
+task emberBuild(type: NodeTask, dependsOn: yarn) {
   script = file('node_modules/.bin/ember')
   args = ['build', '--environment', 'production']
 }
 
-task emberTest(type: NodeTask, dependsOn: bowerInstall) {
+task emberTest(type: NodeTask, dependsOn: yarn) {
   environment = ['COVERAGE': 'true']
   script = file('node_modules/.bin/ember')
   args = ['test', '--launch', 'Chrome']
