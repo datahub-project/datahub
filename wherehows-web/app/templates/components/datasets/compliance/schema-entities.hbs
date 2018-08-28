@@ -6,7 +6,7 @@
            "IDs and PII in the schema"}}
 
       {{more-info
-        link=@wikiLinks.gdprPii
+        link="http://go/gdpr-pii"
         tooltip="Click for more information on Schema field format and types"
       }}
 
@@ -79,7 +79,7 @@
     <div class="compliance-entities-meta__secondary">
       <button
         class="nacho-button nacho-button--tertiary"
-        onclick={{action "onToggleEditing" true ComplianceEdit.CompliancePolicy}}>
+        {{action nextStep true ComplianceEdit.CompliancePolicy}}>
 
         <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
 
@@ -105,7 +105,7 @@
           Field
 
           {{more-info
-            link=@wikiLinks.tmsSchema
+            link="http://go/tms-schema"
             tooltip="Click for more information on Schema"
           }}
         {{/head.column}}
@@ -337,7 +337,7 @@
                                             </div>
 
                                             {{more-info
-                                              link=@wikiLinks.metadataCustomRegex
+                                              link="http://go/metadata-custom-regex"
                                               tooltip="Click for more information on RegExp format"
                                             }}
 
@@ -500,7 +500,7 @@
 
   {{ember-ace
     readOnly=isReadOnly
-    update=(action "onManualComplianceUpdate")
+    update=onManualComplianceUpdate
     class="dataset-compliance-editor"
     value=jsonComplianceEntities
     enableAutocompletion=true

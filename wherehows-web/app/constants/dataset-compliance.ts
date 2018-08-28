@@ -94,6 +94,17 @@ const complianceSteps = {
   }
 };
 
+// Should replace compliance steps
+/**
+ * Defines the edit states that the compliance policy component can ahve
+ */
+enum ComplianceEdit {
+  CompliancePolicy = 'editCompliancePolicy',
+  PurgePolicy = 'editPurgePolicy',
+  DatasetLevelPolicy = 'editDatasetLevelCompliancePolicy',
+  ExportPolicy = 'editExportPolicy'
+}
+
 /**
  * Takes a map of dataset options and constructs the relevant compliance edit wizard steps to build the wizard flow
  * @param {boolean} [hasSchema=true] flag indicating if the dataset has a schema or otherwise
@@ -129,8 +140,8 @@ const editableTags = (entities: Array<IComplianceEntity>): Array<IComplianceEnti
  * Strips out the readonly attribute from a list of compliance entities
  * @type {(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>}
  */
-const removeReadonlyAttr = <(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>>arrayMap(
-  (entity: IComplianceEntity) => omit(entity, ['readonly'])
+const removeReadonlyAttr = <(entities: Array<IComplianceEntity>) => Array<IComplianceEntity>>(
+  arrayMap((entity: IComplianceEntity) => omit(entity, ['readonly']))
 );
 
 /**
@@ -667,5 +678,6 @@ export {
   tagsWithoutIdentifierType,
   tagsForIdentifierField,
   singleTagsInChangeSet,
-  overrideTagReadonly
+  overrideTagReadonly,
+  ComplianceEdit
 };
