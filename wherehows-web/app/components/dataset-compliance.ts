@@ -1,8 +1,7 @@
 import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
 import ComputedProperty, { not, or, alias } from '@ember/object/computed';
-import { run, schedule, next } from '@ember/runloop';
-import { classify } from '@ember/string';
+import { run, next } from '@ember/runloop';
 import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
@@ -37,7 +36,8 @@ import {
   editableTags,
   lowQualitySuggestionConfidenceThreshold,
   TagFilter,
-  tagSuggestionNeedsReview
+  tagSuggestionNeedsReview,
+  ComplianceEdit
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayFilter, arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -91,12 +91,6 @@ const datasetClassificationKey = 'complianceInfo.datasetClassification';
  * @type {Array<keyof typeof DatasetClassifiers>}
  */
 const datasetClassifiersKeys = <Array<keyof typeof DatasetClassifiers>>Object.keys(DatasetClassifiers);
-
-/**
- * The initial state of the compliance step for a zero based array
- * @type {number}
- */
-const initialStepIndex = -1;
 
 export default class DatasetCompliance extends Component {
   isNewComplianceInfo: boolean;
@@ -170,17 +164,6 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Convenience computed property flag indicates if current edit step is the first step in  the wizard flow
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetCompliance
-   */
-  isInitialEditStep = computed('editStep', 'editSteps.0.name', function(this: DatasetCompliance): boolean {
-    const { editStep, editSteps } = getProperties(this, ['editStep', 'editSteps']);
-    const [initialStep] = editSteps;
-    return editStep.name === initialStep.name;
-  });
-
-  /**
    * Indicates if the first step does not need further user review to advance
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
@@ -188,13 +171,10 @@ export default class DatasetCompliance extends Component {
   initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReviewWithoutSuggestionCheck', function(
     this: DatasetCompliance
   ): boolean {
-    const { isInitialEditStep, changeSetReviewWithoutSuggestionCheck } = getProperties(this, [
-      'isInitialEditStep',
-      'changeSetReviewWithoutSuggestionCheck'
-    ]);
+    const { changeSetReviewWithoutSuggestionCheck } = getProperties(this, ['changeSetReviewWithoutSuggestionCheck']);
     const { length } = editableTags(changeSetReviewWithoutSuggestionCheck);
 
-    return isInitialEditStep && length > 0;
+    return length > 0;
   });
 
   /**
@@ -205,11 +185,8 @@ export default class DatasetCompliance extends Component {
   showAdvancedEditApplyStep = computed('isInitialEditStep', 'showGuidedComplianceEditMode', function(
     this: DatasetCompliance
   ): boolean {
-    const { isInitialEditStep, showGuidedComplianceEditMode } = getProperties(this, [
-      'isInitialEditStep',
-      'showGuidedComplianceEditMode'
-    ]);
-    return isInitialEditStep && !showGuidedComplianceEditMode;
+    const { showGuidedComplianceEditMode } = getProperties(this, ['showGuidedComplianceEditMode']);
+    return !showGuidedComplianceEditMode;
   });
 
   /**
@@ -317,14 +294,25 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Flag indicating that the component is in edit mode
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetCompliance
+   * The current edit state of the dataset compliance tab. If isEditing is true, then
+   * this state is used to determine what is actually being edited
+   * @type {ComplianceEdit}
    */
-  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(this: DatasetCompliance): boolean {
-    // initialStepIndex is less than the currently set step index
-    return get(this, 'editStepIndex') > initialStepIndex;
-  });
+  editTarget: ComplianceEdit;
+
+  /**
+   * Used in the template to set the action for the edit target
+   * @type {ComplianceEdit}
+   */
+  ComplianceEdit = ComplianceEdit;
+
+  /**
+   * Flag determining whether or not we are in an editing state. Triggered by an action connected to the
+   * user pressing an edit button, set back to false by the cancellation button or successful save of the
+   * edit
+   * @type {boolean}
+   */
+  isEditing: boolean = false;
 
   /**
    * Convenience flag indicating the policy is not currently being edited
@@ -369,7 +357,6 @@ export default class DatasetCompliance extends Component {
     super(...arguments);
 
     //sets default values for class fields
-    this.editStepIndex = initialStepIndex;
     this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
     this.filterBy || set(this, 'filterBy', '0'); // first element in field type is identifierField
     this.sortDirection || set(this, 'sortDirection', 'asc');
@@ -467,65 +454,6 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * e-c Task to update the current edit step in the wizard flow.
-   * Handles the transitions between steps, including performing each step's
-   * post processing action once a user has completed a step, or reverting the step
-   * and stepping backward if the post process fails
-   * @type {Task<void, (a?: void) => TaskInstance<void>>}
-   * @memberof DatasetCompliance
-   */
-  updateEditStepTask = (function() {
-    // initialize the previous action with a no-op function
-    let previousAction = noop;
-    // initialize the last seen index to the same value as editStepIndex
-    let lastIndex = initialStepIndex;
-
-    return task(function*(this: DatasetCompliance): IterableIterator<void> {
-      const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-      // the current step in the edit sequence
-      const editStep = editSteps[currentIndex] || { name: '' };
-      const { name } = editStep;
-
-      if (name) {
-        // using the steps name, construct a reference to the step process handler
-        const nextAction = this.actions[`did${classify(name)}`];
-        let previousActionResult: void;
-
-        // if the transition is backward, then the previous action is ignored
-        currentIndex > lastIndex && (previousActionResult = previousAction.call(this));
-        lastIndex = currentIndex;
-
-        try {
-          yield previousActionResult;
-          // if the previous action is resolved successfully, then replace with the next processor
-          previousAction = typeof nextAction === 'function' ? nextAction : noop;
-
-          set(this, 'editStep', editStep);
-        } catch {
-          // if the previous action settles in a rejected state, replace with no-op before
-          // invoking the previousStep action to go back in the sequence
-          // batch previousStep invocation in a afterRender queue due to editStepIndex update
-          previousAction = noop;
-          run(
-            (): void => {
-              if (this.isDestroyed || this.isDestroying) {
-                return;
-              }
-              schedule('afterRender', this, this.actions.previousStep);
-            }
-          );
-        }
-      }
-    }).enqueue();
-  })();
-
-  /**
-   * Holds a reference to the current step in the compliance edit wizard flow
-   * @type {{ name: string }}
-   */
-  editStep: { name: string } = { name: '' };
-
-  /**
    * A list of ui values and labels for review filter drop-down
    * @type {Array<{value: string, label:string}>}
    * @memberof DatasetCompliance
@@ -539,11 +467,6 @@ export default class DatasetCompliance extends Component {
   didReceiveAttrs(): void {
     // Perform validation step on the received component attributes
     this.validateAttrs();
-
-    // Set the current step to first edit step if compliance policy is new / doesn't exist
-    if (get(this, 'isNewComplianceInfo')) {
-      this.updateStep(0);
-    }
   }
 
   didInsertElement(): void {
@@ -1105,15 +1028,6 @@ export default class DatasetCompliance extends Component {
     return Promise.reject(get(this, 'notifications').notify(NotificationEvent.error, { content: missingPurgePolicy }));
   }
 
-  /**
-   * Updates the currently active step in the edit sequence
-   * @param {number} step
-   */
-  updateStep(this: DatasetCompliance, step: number): void {
-    set(this, 'editStepIndex', step);
-    get(this, 'updateEditStepTask').perform();
-  }
-
   actions: IDatasetComplianceActions = {
     /**
      * Toggle the visibility of the guided compliance edit view vs the advanced edit view modes
@@ -1171,17 +1085,10 @@ export default class DatasetCompliance extends Component {
       try {
         await get(this, 'onComplianceJsonUpdate')(JSON.stringify(get(this, 'manuallyEnteredComplianceEntities')));
         // Proceed to next step if application of entities is successful
-        this.actions.nextStep.call(this);
+        // this.actions.nextStep.call(this);
       } catch {
         noop();
       }
-    },
-
-    /**
-     * Action handles wizard step cancellation
-     */
-    onCancel(this: DatasetCompliance): void {
-      this.updateStep(initialStepIndex);
     },
 
     /**
@@ -1347,24 +1254,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Progresses 1 step backward in the edit sequence
-     */
-    previousStep(this: DatasetCompliance): void {
-      const editStepIndex = get(this, 'editStepIndex');
-      const previousIndex = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
-      this.updateStep(previousIndex);
-    },
-
-    /**
-     * Progresses 1 step forward in the edit sequence
-     */
-    nextStep(this: DatasetCompliance): void {
-      const { editStepIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-      const nextIndex = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
-      this.updateStep(nextIndex);
-    },
-
-    /**
      * Handler applies fields changeSet working copy to compliance policy to be persisted amd validates fields
      * @returns {Promise<void>}
      */
@@ -1513,6 +1402,21 @@ export default class DatasetCompliance extends Component {
      */
     async saveCompliance(this: DatasetCompliance): Promise<void> {
       const setSaveFlag = (flag = false): boolean => set(this, 'isSaving', flag);
+      const editTarget = get(this, 'editTarget');
+
+      switch (editTarget) {
+        case ComplianceEdit.CompliancePolicy:
+          await this.actions.didEditCompliancePolicy.call(this);
+          break;
+
+        case ComplianceEdit.DatasetLevelPolicy:
+          await this.actions.didEditDatasetLevelCompliancePolicy.call(this);
+          break;
+
+        case ComplianceEdit.PurgePolicy:
+          await this.actions.didEditPurgePolicy.call(this);
+          break;
+      }
 
       try {
         const isSaving = true;
@@ -1520,9 +1424,10 @@ export default class DatasetCompliance extends Component {
         setSaveFlag(isSaving);
 
         await onSave();
-        return this.updateStep(-1);
+        return;
       } finally {
         setSaveFlag();
+        set(this, 'isEditing', false);
       }
     },
 
@@ -1530,6 +1435,15 @@ export default class DatasetCompliance extends Component {
     // server state
     resetCompliance(): void {
       get(this, 'onReset')();
+    },
+
+    /**
+     * Toggles us to start editing mode and which target to be currently editing
+     * @param {boolean} isEditing - whether or not we should be going into editing mode or leaving it
+     * @param {ComplianceEdit} editTarget - which component is going into edit mode
+     */
+    onToggleEditing(this: DatasetCompliance, isEditing: boolean, editTarget: ComplianceEdit) {
+      setProperties(this, { isEditing, editTarget });
     }
   };
 }

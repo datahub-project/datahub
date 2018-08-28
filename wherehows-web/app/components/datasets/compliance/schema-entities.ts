@@ -6,11 +6,6 @@ import {
   TagFilter,
   tagsRequiringReview,
   changeSetReviewableAttributeTriggers,
-  mergeComplianceEntitiesWithSuggestions,
-  asyncMapSchemaColumnPropsToCurrentPrivacyPolicy,
-  sortFoldedChangeSetTuples,
-  foldComplianceChangeSets,
-  tagSuggestionNeedsReview,
   getSupportedPurgePolicies,
   PurgePolicy,
   singleTagsInChangeSet,
@@ -24,7 +19,7 @@ import {
   getFieldIdentifierOptions
 } from 'wherehows-web/constants';
 import { computed, get, set, getProperties, setProperties } from '@ember/object';
-import { arrayMap, compact, iterateArrayAsync, arrayFilter } from 'wherehows-web/utils/array';
+import { arrayMap, compact, iterateArrayAsync } from 'wherehows-web/utils/array';
 import {
   IComplianceChangeSet,
   ISchemaFieldsToPolicy,
@@ -34,12 +29,10 @@ import {
   IComplianceFieldIdentifierOption,
   IDropDownOption
 } from 'wherehows-web/typings/app/dataset-compliance';
-import { run, next } from '@ember/runloop';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
-import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
-import { task, waitForProperty } from 'ember-concurrency';
+import { task, Task, TaskInstance } from 'ember-concurrency';
 import {
   IComplianceInfo,
   ISuggestedFieldClassification,
@@ -49,7 +42,7 @@ import {
 import { assert } from '@ember/debug';
 import { pluralize } from 'ember-inflector';
 import { action } from '@ember-decorators/object';
-import { identity, noop } from 'wherehows-web/utils/helpers/functions';
+import { noop } from 'wherehows-web/utils/helpers/functions';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { pick } from 'wherehows-web/utils/object';
@@ -202,7 +195,7 @@ export default class ComplianceSchemaEntities extends Component {
    * Computed prop over the current Id fields in the Privacy Policy
    * @type {ISchemaFieldsToPolicy}
    */
-  columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy = {};
+  columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy;
 
   /**
    * Suggested values for compliance types e.g. identifier type and/or logical type
@@ -220,22 +213,25 @@ export default class ComplianceSchemaEntities extends Component {
    * @type {ComputedProperty<Array<IComplianceChangeSet>>}
    * @memberof ComplianceSchemaEntities
    */
-  changeSetReview = computed(
-    `compliancePolicyChangeSet.@each.{${changeSetReviewableAttributeTriggers}}`,
-    'complianceDataTypes',
-    'suggestionConfidenceThreshold',
-    function(this: ComplianceSchemaEntities): Array<IComplianceChangeSet> {
-      const { suggestionConfidenceThreshold, compliancePolicyChangeSet } = getProperties(this, [
-        'suggestionConfidenceThreshold',
-        'compliancePolicyChangeSet'
-      ]);
+  changeSetReview: Array<IComplianceChangeSet>;
 
-      return tagsRequiringReview(get(this, 'complianceDataTypes'), {
-        checkSuggestions: true,
-        suggestionConfidenceThreshold
-      })(compliancePolicyChangeSet);
-    }
-  );
+  /**
+   * Filters out the compliance tags requiring review excluding tags that require review,
+   * due to a suggestion mismatch with the current tag identifierType
+   * This drives the initialStep review check and fulfills the use-case,
+   * where the user can proceed with the compliance update, without
+   * being required to resolve a suggestion mismatch
+   * @type {ComputedProperty<Array<IComplianceChangeSet>>}
+   * @memberof DatasetCompliance
+   */
+  changeSetReviewWithoutSuggestionCheck = computed('changeSetReview', function(
+    this: ComplianceSchemaEntities
+  ): Array<IComplianceChangeSet> {
+    return tagsRequiringReview(get(this, 'complianceDataTypes'), {
+      checkSuggestions: false,
+      suggestionConfidenceThreshold: 0 // irrelevant value set to 0 since checkSuggestions flag is false above
+    })(get(this, 'changeSetReview'));
+  });
 
   /**
    * Returns a count of changeSet tags that require user attention
@@ -315,76 +311,14 @@ export default class ComplianceSchemaEntities extends Component {
    * @type {ComputedProperty<IComplianceChangeSet>}
    * @memberof ComplianceSchemaEntities
    */
-  compliancePolicyChangeSet = computed(
-    'columnIdFieldsToCurrentPrivacyPolicy',
-    'complianceDataTypes',
-    'identifierFieldToSuggestion',
-    'suggestionConfidenceThreshold',
-    function(this: ComplianceSchemaEntities): Array<IComplianceChangeSet> {
-      // schemaFieldNamesMappedToDataTypes is a dependency for CP columnIdFieldsToCurrentPrivacyPolicy, so no need to dep on that directly
-      const changeSet = mergeComplianceEntitiesWithSuggestions(
-        get(this, 'columnIdFieldsToCurrentPrivacyPolicy'),
-        get(this, 'identifierFieldToSuggestion')
-      );
-
-      const suggestionThreshold = get(this, 'suggestionConfidenceThreshold');
-
-      // pass current changeSet state to parent handlers
-      run(() => next(this, 'notifyHandlerOfSuggestions', suggestionThreshold, changeSet));
-      run(() =>
-        next(
-          this,
-          'notifyHandlerOfFieldsRequiringReview',
-          suggestionThreshold,
-          get(this, 'complianceDataTypes'),
-          changeSet
-        )
-      );
-
-      return changeSet;
-    }
-  );
+  compliancePolicyChangeSet: Array<IComplianceChangeSet>;
 
   /**
    * Returns a list of changeSet fields that meets the user selected filter criteria
    * @type {ComputedProperty<IComplianceChangeSet>}
    * @memberof ComplianceSchemaEntities
    */
-  filteredChangeSet = computed(
-    'changeSetReviewCount',
-    'fieldReviewOption',
-    'compliancePolicyChangeSet',
-    'complianceDataTypes',
-    'suggestionConfidenceThreshold',
-    function(this: ComplianceSchemaEntities): Array<IComplianceChangeSet> {
-      /**
-       * Aliases the index signature for a hash of callback functions keyed by TagFilter
-       * to filter out compliance changeset items
-       * @alias
-       */
-      type TagFilterCallback<T = Array<IComplianceChangeSet>> = { [K in TagFilter]: (x: T) => T };
-
-      const {
-        compliancePolicyChangeSet: changeSet,
-        complianceDataTypes,
-        suggestionConfidenceThreshold
-      } = getProperties(this, ['compliancePolicyChangeSet', 'complianceDataTypes', 'suggestionConfidenceThreshold']);
-
-      // references the filter predicate for changeset items based on the currently set tag filter
-      const changeSetFilter = (<TagFilterCallback>{
-        [TagFilter.showAll]: identity,
-        [TagFilter.showReview]: tagsRequiringReview(complianceDataTypes, {
-          checkSuggestions: true,
-          suggestionConfidenceThreshold
-        }),
-        [TagFilter.showSuggested]: arrayFilter((tag: IComplianceChangeSet) =>
-          tagSuggestionNeedsReview({ ...tag, suggestionConfidenceThreshold })
-        )
-      })[get(this, 'fieldReviewOption')];
-
-      return changeSetFilter(changeSet);
-    }
-  );
+  filteredChangeSet: Array<IComplianceChangeSet>;
 
   /**
    * Lists the IComplianceChangeSet / tags without an identifierType value
@@ -496,49 +430,6 @@ export default class ComplianceSchemaEntities extends Component {
   });
 
   /**
-   * Task to retrieve column fields async and set values on Component
-   * @type {Task<Promise<any>, () => TaskInstance<Promise<any>>>}
-   * @memberof ComplianceSchemaEntities
-   */
-  columnFieldsToCompliancePolicyTask = task(function*(this: ComplianceSchemaEntities): IterableIterator<any> {
-    // Truncated list of Dataset field names and data types currently returned from the column endpoint
-    const schemaFieldNamesMappedToDataTypes: ComplianceSchemaEntities['schemaFieldNamesMappedToDataTypes'] = yield waitForProperty(
-      this,
-      'schemaFieldNamesMappedToDataTypes',
-      ({ length }) => !!length
-    );
-
-    const { complianceEntities = [], modifiedTime }: Pick<IComplianceInfo, 'complianceEntities' | 'modifiedTime'> = get(
-      this,
-      'complianceInfo'
-    )!;
-
-    const renameFieldNameAttr = ({
-      fieldName,
-      dataType
-    }: Pick<IDatasetColumn, 'dataType' | 'fieldName'>): {
-      identifierField: IDatasetColumn['fieldName'];
-      dataType: IDatasetColumn['dataType'];
-    } => ({
-      identifierField: fieldName,
-      dataType
-    });
-    const columnProps: Array<IColumnFieldProps> = yield iterateArrayAsync(arrayMap(renameFieldNameAttr))(
-      schemaFieldNamesMappedToDataTypes
-    );
-
-    const columnIdFieldsToCurrentPrivacyPolicy: ISchemaFieldsToPolicy = yield asyncMapSchemaColumnPropsToCurrentPrivacyPolicy(
-      {
-        columnProps,
-        complianceEntities,
-        policyModificationTime: modifiedTime
-      }
-    );
-
-    set(this, 'columnIdFieldsToCurrentPrivacyPolicy', columnIdFieldsToCurrentPrivacyPolicy);
-  }).enqueue();
-
-  /**
    * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
    * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
    * @param {Array<IComplianceChangeSet>} changeSet
@@ -596,16 +487,7 @@ export default class ComplianceSchemaEntities extends Component {
    * @type {Task<Promise<any>, () => TaskInstance<Promise<any>>>}
    * @memberof ComplianceSchemaEntities
    */
-  foldChangeSetTask = task(function*(this: ComplianceSchemaEntities): IterableIterator<any> {
-    //@ts-ignore dot notation for property access
-    yield waitForProperty(this, 'columnFieldsToCompliancePolicyTask.isIdle');
-    const filteredChangeSet = get(this, 'filteredChangeSet');
-    const foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> = yield foldComplianceChangeSets(
-      filteredChangeSet
-    );
-
-    set(this, 'foldedChangeSet', sortFoldedChangeSetTuples(foldedChangeSet));
-  }).enqueue();
+  foldChangeSetTask: Task<Promise<any>, () => TaskInstance<Promise<any>>>;
 
   /**
    * Task to retrieve platform policies and set supported policies for the current platform
@@ -641,21 +523,14 @@ export default class ComplianceSchemaEntities extends Component {
     // Setting default values for passed in properties
     typeof this.isEditing === 'boolean' || (this.isEditing = false);
     typeof this.isNewComplianceInfo === 'boolean' || (this.isNewComplianceInfo = false);
+    this.compliancePolicyChangeSet || (this.compliancePolicyChangeSet = []);
     this.searchTerm || set(this, 'searchTerm', '');
     typeof this.suggestionConfidenceThreshold === 'number' ||
       (this.suggestionConfidenceThreshold = lowQualitySuggestionConfidenceThreshold);
     this.complianceDataTypes || (this.complianceDataTypes = []);
     // this.schemaFieldNamesMappedToDataTypes || (this.schemaFieldNamesMappedToDataTypes = []);
-  }
-
-  didInsertElement(): void {
-    get(this, 'columnFieldsToCompliancePolicyTask').perform();
-    get(this, 'foldChangeSetTask').perform();
-  }
-
-  didUpdateAttrs(): void {
-    get(this, 'columnFieldsToCompliancePolicyTask').perform();
-    get(this, 'foldChangeSetTask').perform();
+    this.columnIdFieldsToCurrentPrivacyPolicy || (this.columnIdFieldsToCurrentPrivacyPolicy = {});
+    this.changeSetReview || (this.changeSetReview = []);
   }
 
   /**
@@ -783,7 +658,10 @@ export default class ComplianceSchemaEntities extends Component {
    */
   @action
   tagPropertiesUpdated(tag: IComplianceChangeSet, tagUpdates: IComplianceChangeSet) {
+    console.log('tag properties updated');
+    console.log(tagUpdates);
     setProperties(tag, tagUpdates);
+    console.log(JSON.stringify(tag));
   }
 
   /**
