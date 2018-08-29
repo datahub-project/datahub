@@ -37,7 +37,8 @@ import {
   editableTags,
   lowQualitySuggestionConfidenceThreshold,
   TagFilter,
-  tagSuggestionNeedsReview
+  tagSuggestionNeedsReview,
+  ComplianceEdit
 } from 'wherehows-web/constants';
 import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { arrayFilter, arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
@@ -147,6 +148,29 @@ export default class DatasetCompliance extends Component {
   suggestionConfidenceThreshold: number;
 
   /**
+   * Used in the template to help pass values for the edit target
+   * @type {ComplianceEdit}
+   */
+  ComplianceEdit = ComplianceEdit;
+
+  /**
+   * The current edit state of the dataset compliance tab. If isEditing is true, then this state is used to
+   * determine which component we are actually editing
+   * @type {ComplianceEdit}
+   * @memberof DatasetCompliance
+   */
+  editTarget: ComplianceEdit;
+
+  /**
+   * Flag determining whether or not we are in an editing state. Triggered by an action connected to the
+   * user pressing an edit button, set back to false by the cancellation button or successful save of the
+   * edit
+   * @type {boolean}
+   * @memberof DatasetCompliance
+   */
+  isEditing = false;
+
+  /**
    * Formatted JSON string representing the compliance entities for this dataset
    * @type {ComputedProperty<string>}
    */
@@ -170,31 +194,14 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Convenience computed property flag indicates if current edit step is the first step in  the wizard flow
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetCompliance
-   */
-  isInitialEditStep = computed('editStep', 'editSteps.0.name', function(this: DatasetCompliance): boolean {
-    const { editStep, editSteps } = getProperties(this, ['editStep', 'editSteps']);
-    const [initialStep] = editSteps;
-    return editStep.name === initialStep.name;
-  });
-
-  /**
    * Indicates if the first step does not need further user review to advance
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  initialStepNeedsReview = computed('isInitialEditStep', 'changeSetReviewWithoutSuggestionCheck', function(
+  initialStepNeedsReview = computed('changeSetReviewWithoutSuggestionCheck', function(
     this: DatasetCompliance
   ): boolean {
-    const { isInitialEditStep, changeSetReviewWithoutSuggestionCheck } = getProperties(this, [
-      'isInitialEditStep',
-      'changeSetReviewWithoutSuggestionCheck'
-    ]);
-    const { length } = editableTags(changeSetReviewWithoutSuggestionCheck);
-
-    return isInitialEditStep && length > 0;
+    return editableTags(get(this, 'changeSetReviewWithoutSuggestionCheck')).length > 0;
   });
 
   /**
@@ -202,14 +209,8 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  showAdvancedEditApplyStep = computed('isInitialEditStep', 'showGuidedComplianceEditMode', function(
-    this: DatasetCompliance
-  ): boolean {
-    const { isInitialEditStep, showGuidedComplianceEditMode } = getProperties(this, [
-      'isInitialEditStep',
-      'showGuidedComplianceEditMode'
-    ]);
-    return isInitialEditStep && !showGuidedComplianceEditMode;
+  showAdvancedEditApplyStep = computed('showGuidedComplianceEditMode', function(this: DatasetCompliance): boolean {
+    return !get(this, 'showGuidedComplianceEditMode');
   });
 
   /**
@@ -238,7 +239,6 @@ export default class DatasetCompliance extends Component {
    * External action to handle manual compliance entity metadata entry
    */
   onComplianceJsonUpdate: (jsonString: string) => Promise<void>;
-
   notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
@@ -314,16 +314,6 @@ export default class DatasetCompliance extends Component {
     })[fieldReviewOption];
 
     return changeSetReviewCount ? hint : '';
-  });
-
-  /**
-   * Flag indicating that the component is in edit mode
-   * @type {ComputedProperty<boolean>}
-   * @memberof DatasetCompliance
-   */
-  isEditing = computed('editStepIndex', 'complianceInfo.fromUpstream', function(this: DatasetCompliance): boolean {
-    // initialStepIndex is less than the currently set step index
-    return get(this, 'editStepIndex') > initialStepIndex;
   });
 
   /**
@@ -539,11 +529,6 @@ export default class DatasetCompliance extends Component {
   didReceiveAttrs(): void {
     // Perform validation step on the received component attributes
     this.validateAttrs();
-
-    // Set the current step to first edit step if compliance policy is new / doesn't exist
-    if (get(this, 'isNewComplianceInfo')) {
-      this.updateStep(0);
-    }
   }
 
   didInsertElement(): void {
@@ -1106,12 +1091,33 @@ export default class DatasetCompliance extends Component {
   }
 
   /**
-   * Updates the currently active step in the edit sequence
-   * @param {number} step
+   * Can be an action triggered by the user or another component action/method to toggle whether we are currently editing
+   * @param this - explicit this declaration for typescript
+   * @param isEditing - Whether or not we are entering or exiting the editing mode
+   * @param editTarget - Which component/section is going into editing mode
    */
-  updateStep(this: DatasetCompliance, step: number): void {
-    set(this, 'editStepIndex', step);
-    get(this, 'updateEditStepTask').perform();
+  toggleEditing(this: DatasetCompliance, isEditing: boolean = false, editTarget: ComplianceEdit): void {
+    setProperties(this, { isEditing, editTarget });
+  }
+
+  /**
+   * Handler that processes actions to be called before the save process
+   * @param editTarget - The current edit target being saved
+   */
+  async beforeSaveCompliance(editTarget: ComplianceEdit): Promise<void> {
+    switch (editTarget) {
+      case ComplianceEdit.CompliancePolicy:
+        await this.actions.didEditCompliancePolicy.call(this);
+        break;
+
+      case ComplianceEdit.DatasetLevelPolicy:
+        await this.actions.didEditDatasetLevelCompliancePolicy.call(this);
+        break;
+
+      case ComplianceEdit.PurgePolicy:
+        await this.actions.didEditPurgePolicy.call(this);
+        break;
+    }
   }
 
   actions: IDatasetComplianceActions = {
@@ -1171,7 +1177,7 @@ export default class DatasetCompliance extends Component {
       try {
         await get(this, 'onComplianceJsonUpdate')(JSON.stringify(get(this, 'manuallyEnteredComplianceEntities')));
         // Proceed to next step if application of entities is successful
-        this.actions.nextStep.call(this);
+        this.actions.saveCompliance.call(this);
       } catch {
         noop();
       }
@@ -1181,7 +1187,7 @@ export default class DatasetCompliance extends Component {
      * Action handles wizard step cancellation
      */
     onCancel(this: DatasetCompliance): void {
-      this.updateStep(initialStepIndex);
+      this.toggleEditing(false, <any>undefined);
     },
 
     /**
@@ -1347,24 +1353,6 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Progresses 1 step backward in the edit sequence
-     */
-    previousStep(this: DatasetCompliance): void {
-      const editStepIndex = get(this, 'editStepIndex');
-      const previousIndex = editStepIndex > 0 ? editStepIndex - 1 : editStepIndex;
-      this.updateStep(previousIndex);
-    },
-
-    /**
-     * Progresses 1 step forward in the edit sequence
-     */
-    nextStep(this: DatasetCompliance): void {
-      const { editStepIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-      const nextIndex = editStepIndex < editSteps.length - 1 ? editStepIndex + 1 : editStepIndex;
-      this.updateStep(nextIndex);
-    },
-
-    /**
      * Handler applies fields changeSet working copy to compliance policy to be persisted amd validates fields
      * @returns {Promise<void>}
      */
@@ -1513,16 +1501,19 @@ export default class DatasetCompliance extends Component {
      */
     async saveCompliance(this: DatasetCompliance): Promise<void> {
       const setSaveFlag = (flag = false): boolean => set(this, 'isSaving', flag);
+      const editTarget = get(this, 'editTarget');
 
       try {
         const isSaving = true;
         const onSave = get(this, 'onSave');
         setSaveFlag(isSaving);
 
+        await this.beforeSaveCompliance(editTarget);
         await onSave();
-        return this.updateStep(-1);
+        return;
       } finally {
         setSaveFlag();
+        this.toggleEditing(false, editTarget);
       }
     },
 

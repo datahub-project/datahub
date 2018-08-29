@@ -21,35 +21,19 @@
           {{#if isEditing}}
 
             <div class="container action-bar__content">
-              {{#if (has-next editStep editSteps)}}
 
-                {{#if showAdvancedEditApplyStep}}
+              {{#if showAdvancedEditApplyStep}}
 
-                  {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.ManualApply
-                                    name=editStep.name as |metrics|}}
-                    <button
-                      class="nacho-button nacho-button--large-inverse action-bar__item"
-                      title="Apply JSON"
-                      onclick={{action metrics.trackOnAction (action "onApplyComplianceJson")}}
-                      disabled={{isManualApplyDisabled}}>
-                      Apply
-                    </button>
-                  {{/track-ui-event}}
-
-                {{else}}
-
-                  {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.Next
-                                    name=editStep.name as |metrics|}}
-                    <button
-                      class="nacho-button nacho-button--large-inverse action-bar__item"
-                      title="Next"
-                      onclick={{action metrics.trackOnAction (action "nextStep")}}
-                      disabled={{initialStepNeedsReview}}>
-                      Next
-                    </button>
-                  {{/track-ui-event}}
-
-                {{/if}}
+                {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.ManualApply
+                                  name=editStep.name as |metrics|}}
+                  <button
+                    class="nacho-button nacho-button--large-inverse action-bar__item"
+                    title="Apply JSON"
+                    onclick={{action metrics.trackOnAction (action "onApplyComplianceJson")}}
+                    disabled={{isManualApplyDisabled}}>
+                    Apply
+                  </button>
+                {{/track-ui-event}}
 
               {{else}}
 
@@ -67,19 +51,6 @@
 
               {{/if}}
 
-              {{#if (has-previous editStep editSteps)}}
-                {{#track-ui-event category=trackableCategory.Compliance
-                                  action=trackableEvent.Compliance.Previous
-                                  name=editStep.name as |metrics|}}
-                  <button
-                    class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
-                    title="Back"
-                    onclick={{action metrics.trackOnAction (action "previousStep")}}>
-                    Back
-                  </button>
-                {{/track-ui-event}}
-
-              {{/if}}
 
               {{#track-ui-event category=trackableCategory.Compliance
                                 action=trackableEvent.Compliance.Cancel as |metrics|}}
@@ -106,19 +77,6 @@
       {{/if}}
 
       <div class="secondary-actions">
-        {{#unless isEditing}}
-
-          {{#track-ui-event category=trackableCategory.Compliance
-                            action=trackableEvent.Compliance.Edit as |metrics|}}
-            <button
-              class="nacho-button nacho-button--large secondary-actions__action"
-              onclick={{action metrics.trackOnAction (action "nextStep")}}>
-              Edit
-            </button>
-          {{/track-ui-event}}
-
-        {{/unless}}
-
         <div class="policy-last-saved">
           Last saved:
           {{#if isNewComplianceInfo}}
@@ -136,17 +94,11 @@
         </div>
       </div>
 
-      {{#if isEditing}}
-        <div class="dataset-compliance-step-container">
-          {{partial "datasets/dataset-compliance/dataset-compliance-step-indicator"}}
-        </div>
-      {{/if}}
-
-      {{#if (or isReadOnly (eq editStep.name editSteps.2.name))}}
+      {{#if (or isReadOnly (eq editTarget ComplianceEdit.DatasetLevelPolicy))}}
         {{partial "datasets/dataset-compliance/dataset-classification"}}
       {{/if}}
 
-      {{#if (or isReadOnly (eq editStep.name editSteps.1.name))}}
+      {{#if (or isReadOnly (eq editTarget ComplianceEdit.PurgePolicy))}}
         {{#if getPlatformPoliciesTask.isRunning}}
           {{pendulum-ellipsis-animation}}
         {{/if}}
@@ -184,7 +136,7 @@
                 <div class="compliance-entities-meta__secondary">
                   <button
                     class="nacho-button nacho-button--tertiary"
-                    onclick={{action "nextStep"}}>
+                    onclick={{action toggleEditing true ComplianceEdit.PurgePolicy}}>
 
                     <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
 
@@ -210,7 +162,7 @@
 
       {{#if schemaless}}
 
-        {{#if (or isReadOnly isInitialEditStep)}}
+        {{#if (or isReadOnly (eq editTarget ComplianceEdit.CompliancePolicy))}}
           {{datasets/schemaless-tagging
             classificationHelpLink=@wikiLinks.dht
             isEditable=(not isReadOnly)
@@ -223,7 +175,7 @@
 
       {{else}}
 
-        {{#if (or isReadOnly isInitialEditStep)}}
+        {{#if (or isReadOnly (eq editTarget ComplianceEdit.CompliancePolicy))}}
           {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
         {{/if}}
 
