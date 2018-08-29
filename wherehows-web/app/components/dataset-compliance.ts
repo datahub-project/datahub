@@ -198,9 +198,7 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  initialStepNeedsReview = computed('changeSetReviewWithoutSuggestionCheck', function(
-    this: DatasetCompliance
-  ): boolean {
+  changeSetNeedsReview = computed('changeSetReviewWithoutSuggestionCheck', function(this: DatasetCompliance): boolean {
     return editableTags(get(this, 'changeSetReviewWithoutSuggestionCheck')).length > 0;
   });
 
