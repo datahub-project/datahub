@@ -40,8 +40,7 @@ import {
   tagSuggestionNeedsReview,
   ComplianceEdit
 } from 'wherehows-web/constants';
-import { getTagsSuggestions } from 'wherehows-web/utils/datasets/compliance-suggestions';
-import { arrayFilter, arrayMap, compact, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
+import { arrayFilter, arrayMap, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import { identity, noop } from 'wherehows-web/utils/helpers/functions';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -237,7 +236,7 @@ export default class DatasetCompliance extends Component {
    * External action to handle manual compliance entity metadata entry
    */
   onComplianceJsonUpdate: (jsonString: string) => Promise<void>;
-  notifyOnChangeSetSuggestions: (hasSuggestions: boolean) => void;
+
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
   classNames = ['compliance-container'];
@@ -779,7 +778,6 @@ export default class DatasetCompliance extends Component {
       const suggestionThreshold = get(this, 'suggestionConfidenceThreshold');
 
       // pass current changeSet state to parent handlers
-      run(() => next(this, 'notifyHandlerOfSuggestions', suggestionThreshold, changeSet));
       run(() =>
         next(
           this,
@@ -935,19 +933,6 @@ export default class DatasetCompliance extends Component {
       set(tag, 'identifierType', ComplianceFieldIdValue.None);
     });
   }).drop();
-
-  /**
-   * Invokes external action with flag indicating that at least 1 suggestion exists for a field in the changeSet
-   * @param {number} suggestionConfidenceThreshold confidence threshold for filtering out higher quality suggestions
-   * @param {Array<IComplianceChangeSet>} changeSet
-   */
-  notifyHandlerOfSuggestions = (
-    suggestionConfidenceThreshold: number,
-    changeSet: Array<IComplianceChangeSet>
-  ): void => {
-    const hasChangeSetSuggestions = !!compact(getTagsSuggestions({ suggestionConfidenceThreshold })(changeSet)).length;
-    this.notifyOnChangeSetSuggestions(hasChangeSetSuggestions);
-  };
 
   /**
    * Invokes external action with flag indicating that a field in the tags requires user review
