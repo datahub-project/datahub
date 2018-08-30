@@ -154,11 +154,7 @@ const readDatasetExportPolicyByUrn = async (urn: string): Promise<IDatasetExport
       url: datasetExportPolicyByUrn(urn)
     }));
   } catch {
-    return {
-      containsUserActionGeneratedContent: true,
-      containsUserDerivedContent: false,
-      containsUserGeneratedContent: false
-    };
+    return exportPolicy;
   }
 
   return exportPolicy;
