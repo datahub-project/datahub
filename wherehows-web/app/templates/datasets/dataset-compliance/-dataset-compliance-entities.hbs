@@ -44,11 +44,9 @@
       selectionDidChange=(action "onFieldReviewChange")
     }}
 
-    {{#if fieldReviewHint}}
-      <span class="dataset-compliance-fields__has-suggestions">
-        {{fieldReviewHint}}
-      </span>
-    {{/if}}
+    <span class="dataset-compliance-fields__filter-count">
+      {{pluralize foldedChangeSet.length "field"}}
+    </span>
   {{/if}}
 
   {{#if isEditing}}
@@ -88,6 +86,12 @@
     </div>
   {{/if}}
 </section>
+
+<div class="dataset-compliance-fields__subtitle">
+  <div class="dataset-compliance-fields__review-hint">
+    {{fieldReviewHint}}
+  </div>
+</div>
 
 {{#if showGuidedComplianceEditMode}}
   {{#if foldedChangeSet.length}}
@@ -148,10 +152,11 @@
             <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
               row.onFragmentDblClick}}>
               {{#row.cell}}
+                {{! primary tag has an identifierType, field has a suggestion that does not match the identifierType, and suggestion resolution}}
                 {{#if
-                  (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
+                  (and row.fieldProps.identifierType (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution))))}}
 
-                  <span class="nacho-tooltip" data-title="Has suggestions">
+                  <span class="nacho-tooltip" data-title="Suggestion conflicts with data type">
                     <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
                        title="Compliance field has suggested values"></i>
                   </span>
