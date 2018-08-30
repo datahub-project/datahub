@@ -72,23 +72,25 @@ public class Application extends Controller {
       Play.application().configuration().getString("linkedin.suggestion.confidence.threshold", "50");
 
   private static final String WHZ_WIKI_LINKS__GDRP_PII =
-      Play.application().configuration().getString("linkedin.links.wiki.gdprPii", "");
+      Play.application().configuration().getString("links.wiki.gdprPii", "");
   private static final String WHZ_WIKI_LINKS__TMS_SCHEMA =
-      Play.application().configuration().getString("linkedin.links.wiki.tmsSchema", "");
+      Play.application().configuration().getString("links.wiki.tmsSchema", "");
   private static final String WHZ_WIKI_LINKS__GDPR_TAXONOMY =
-      Play.application().configuration().getString("linkedin.links.wiki.gdprTaxonomy", "");
+      Play.application().configuration().getString("links.wiki.gdprTaxonomy", "");
   private static final String WHZ_WIKI_LINKS__STALE_SEARCH_INDEX =
-      Play.application().configuration().getString("linkedin.links.wiki.staleSearchIndex", "");
+      Play.application().configuration().getString("links.wiki.staleSearchIndex", "");
   private static final String WHZ_WIKI_LINKS__DHT =
-      Play.application().configuration().getString("linkedin.links.wiki.dht", "");
+      Play.application().configuration().getString("links.wiki.dht", "");
   private static final String WHZ_WIKI_LINKS__PURGE_POLICIES =
-      Play.application().configuration().getString("linkedin.links.wiki.purgePolicies", "");
+      Play.application().configuration().getString("links.wiki.purgePolicies", "");
   private static final String WHZ_WIKI_LINKS__JIT_ACL_FAQ =
-      Play.application().configuration().getString("linkedin.links.wiki.jitAcl", "");
+      Play.application().configuration().getString("links.wiki.jitAcl", "");
   private static final String WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX =
-      Play.application().configuration().getString("linkedin.links.wiki.metadataCustomRegex", "");
+      Play.application().configuration().getString("links.wiki.metadataCustomRegex", "");
   private static final String WHZ_WIKI_LINKS__COMPLIANCE_OWNER =
-      Play.application().configuration().getString("linkedin.links.wiki.complianceOwner", "");
+      Play.application().configuration().getString("links.wiki.complianceOwner", "");
+  private static final String WHZ_WIKI_LINKS__EXPORT_POLICY =
+      Play.application().configuration().getString("links.wiki.exportPolicy", "");
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
@@ -233,6 +235,7 @@ public class Application extends Controller {
     wikiLinks.put("purgePolicies", WHZ_WIKI_LINKS__PURGE_POLICIES);
     wikiLinks.put("jitAcl", WHZ_WIKI_LINKS__JIT_ACL_FAQ);
     wikiLinks.put("metadataCustomRegex", WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX);
+    wikiLinks.put("exportPolicy", WHZ_WIKI_LINKS__EXPORT_POLICY);
 
     return wikiLinks;
   }
