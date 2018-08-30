@@ -63,11 +63,6 @@ const { successUpdating, failedUpdating, successUploading, invalidPolicyData } =
 
 export default class DatasetComplianceContainer extends Component {
   /**
-   * External action on parent
-   */
-  setOnChangeSetChange: (hasSuggestions: boolean) => void;
-
-  /**
    * External action to capture changes to dataset pii status
    */
   notifyPiiStatus: (containingPersonalData: boolean) => void;
@@ -323,15 +318,6 @@ export default class DatasetComplianceContainer extends Component {
   @action
   resetPrivacyCompliancePolicy() {
     get(this, 'getComplianceTask').perform();
-  }
-
-  /**
-   * Invokes external action if field suggestions change
-   * @param {boolean} hasSuggestions
-   */
-  @action
-  onSuggestionsChanged(hasSuggestions: boolean) {
-    this.setOnChangeSetChange(hasSuggestions);
   }
 
   /**

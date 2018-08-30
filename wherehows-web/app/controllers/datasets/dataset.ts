@@ -47,13 +47,6 @@ export default class DatasetController extends Controller {
   isNewComplianceInfo: boolean;
 
   /**
-   * Flag indicating is there are suggestions that have not been accepted or ignored
-   * @type {boolean}
-   * @memberof DatasetController
-   */
-  hasSuggestions: boolean;
-
-  /**
    * Flag indicating there are fields in the compliance policy that have not been updated by a user
    * @type {boolean}
    * @memberof DatasetController
@@ -126,11 +119,7 @@ export default class DatasetController extends Controller {
    * Flag indicating that the compliance policy needs user attention
    * @type {ComputedProperty<boolean>}
    */
-  requiresUserAction: ComputedProperty<boolean> = or(
-    'isNewComplianceInfo',
-    'hasSuggestions',
-    'compliancePolicyHasDrift'
-  );
+  requiresUserAction: ComputedProperty<boolean> = or('isNewComplianceInfo', 'compliancePolicyHasDrift');
 
   /**
    * Converts the uri on a model to a usable URN format
@@ -191,17 +180,6 @@ export default class DatasetController extends Controller {
   }
 
   /**
-   * Updates the hasSuggestions flag if the policy is not from an upstream dataset, otherwise set to false
-   * @param {boolean} hasSuggestions
-   * @memberof DatasetController
-   */
-  @action
-  setOnChangeSetChange(hasSuggestions: boolean) {
-    const fromUpstream = get(this, 'isPolicyFromUpstream');
-    set(this, 'hasSuggestions', !fromUpstream && hasSuggestions);
-  }
-
-  /**
    * Updates the isNewComplianceInfo flag if the policy is not from an upstream dataset, otherwise set to false
    * Also sets the isPolicyFromUpstream attribute
    * @param {({
@@ -227,7 +205,6 @@ export default class DatasetController extends Controller {
     });
 
     if (fromUpstream) {
-      this.setOnChangeSetChange(false);
       this.setOnChangeSetDrift(false);
     }
   }
