@@ -42,6 +42,19 @@ task emberCoverage(type: NodeTask, dependsOn: emberTest) {
   args = ['-f', 'coverage/coverage-final.json']
 }
 
+task execEmber(type: NodeTask) {
+  script = file('node_modules/.bin/ember')
+  if ( project.hasProperty('emberArgs') ) {
+    args = emberArgs.tokenize();
+  }
+}
+
+task execYarn(type: YarnTask) {
+  if ( project.hasProperty('yarnArgs') ) {
+    args = yarnArgs.tokenize();
+  }
+}
+
 clean {
   delete 'node_modules'
   delete 'bower_components'

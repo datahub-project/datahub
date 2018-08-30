@@ -19,16 +19,16 @@ module('Integration | Component | search/containers/search sources', function(ho
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
-    this.server.respondImmediately = true;
+    this.sinonServer = sinon.createFakeServer();
+    this.sinonServer.respondImmediately = true;
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   test('it renders', async function(assert) {
-    this.server.respondWith('GET', /\/api\/v2\/list\/platforms/, [
+    this.sinonServer.respondWith('GET', /\/api\/v2\/list\/platforms/, [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify(platformsResponse)
@@ -46,7 +46,7 @@ module('Integration | Component | search/containers/search sources', function(ho
   });
 
   test('Platform sources yielded', async function(assert) {
-    this.server.respondWith('GET', /\/api\/v2\/list\/platforms/, [
+    this.sinonServer.respondWith('GET', /\/api\/v2\/list\/platforms/, [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify(platformsResponse)
@@ -57,7 +57,7 @@ module('Integration | Component | search/containers/search sources', function(ho
       <span class="inner-content">
       {{#each container.radioSources as |source|}}
       {{source.value}}
-      {{/each}} 
+      {{/each}}
       </span>
       {{/search/containers/search-sources}}
     `);

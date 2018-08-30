@@ -14,7 +14,7 @@ module('Acceptance | datasets/dataset/comments', function(hooks) {
   // feature not yet supported in v2
   skip('visiting /datasets/dataset/comments', async function(assert) {
     assert.expect(2);
-    defaultScenario(server);
+    defaultScenario(this.server);
     const url = '/datasets/12345/comments';
 
     await visit(url);

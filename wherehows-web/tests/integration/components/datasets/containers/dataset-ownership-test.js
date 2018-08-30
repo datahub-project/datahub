@@ -9,23 +9,23 @@ module('Integration | Component | datasets/containers/dataset ownership', functi
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
-    this.server.respondImmediately = true;
+    this.sinonServer = sinon.createFakeServer();
+    this.sinonServer.respondImmediately = true;
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   test('it renders', async function(assert) {
     const lookupClass = '.dataset-owner-table__add-owner';
     this.set('urn', urn);
-    this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
+    this.sinonServer.respondWith('GET', /\/api\/v2\/datasets.*/, [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify({})
     ]);
-    this.server.respondWith('GET', '/api/v1/owner/types', [
+    this.sinonServer.respondWith('GET', '/api/v1/owner/types', [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify([])
