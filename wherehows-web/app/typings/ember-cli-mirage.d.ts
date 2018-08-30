@@ -23,7 +23,6 @@ export interface IMirageServer {
   loadFactories: (factoryMap: object) => void;
   create: (type: string, options?: object) => object;
   createList: <T>(type: string, amount: number, traitsAndOverrides?: object | string) => Array<T>;
-  shutdown: (this: IMirageServer) => void;
 }
 
 /**

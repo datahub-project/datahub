@@ -2,6 +2,7 @@ import { module, test } from 'qunit';
 import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import datasetsCreateSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
 import { testSchemaA } from 'wherehows-web/mirage/fixtures/schema';
+import mirageScenario from 'wherehows-web/mirage/scenarios/default';
 
 module('Unit | Utility | datasets/create search entries', function(hooks) {
   hooks.beforeEach(function() {
@@ -14,7 +15,7 @@ module('Unit | Utility | datasets/create search entries', function(hooks) {
 
   test('it works base case', function(assert) {
     const { server } = this;
-    const dataset = server.create('dataset', 'forUnitTests');
+    const dataset = server.create('dataset', 'forUnitTests').attrs;
 
     const result = datasetsCreateSearchEntries([]);
     assert.ok(!result, 'Returns without error for nothing case');
@@ -26,7 +27,7 @@ module('Unit | Utility | datasets/create search entries', function(hooks) {
 
   test('it works for keyword cases', function(assert) {
     const { server } = this;
-    const dataset = server.create('dataset', 'forUnitTests');
+    const dataset = server.create('dataset', 'forUnitTests').attrs;
 
     datasetsCreateSearchEntries([dataset], 'Rebel');
     assert.equal(dataset.id, 0, 'Sanity check: Created model successfully again');

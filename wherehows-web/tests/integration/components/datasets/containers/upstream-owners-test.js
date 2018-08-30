@@ -9,12 +9,12 @@ module('Integration | Component | datasets/containers/upstream owners', function
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
-    this.server.respondImmediately = true;
+    this.sinonServer = sinon.createFakeServer();
+    this.sinonServer.respondImmediately = true;
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   test('it renders', async function(assert) {
@@ -22,7 +22,7 @@ module('Integration | Component | datasets/containers/upstream owners', function
     const nativeName = 'A nativeName';
 
     this.set('upstreamUrn', hdfsUrn);
-    this.server.respondWith(/\/api\/v2\/datasets.*/, async function(xhr) {
+    this.sinonServer.respondWith(/\/api\/v2\/datasets.*/, async function(xhr) {
       xhr.respond(
         200,
         { 'Content-Type': 'application/json' },
