@@ -23,9 +23,9 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 public class DatasetExportPolicy {
-  private containsUserGeneratedContent;
+  private boolean containsUserGeneratedContent;
 
-  private containsUserActionGeneratedContent;
+  private boolean containsUserActionGeneratedContent;
 
-  private containsUserDerivedContent;
+  private boolean containsUserDerivedContent;
 }
