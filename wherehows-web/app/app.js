@@ -2,6 +2,22 @@ import Application from '@ember/application';
 import Resolver from './resolver';
 import loadInitializers from 'ember-load-initializers';
 import config from './config/environment';
+import { registerDeprecationHandler } from '@ember/debug';
+
+let hasShownDefinePropDeprecation = false;
+
+// Suggestion to keep this here until we are ready to handle the deprecation to use definePRoperty for
+// computed properties. Otherwise, console log will actually hang the app
+registerDeprecationHandler(function(message, { id }, next) {
+  if (message.includes('defineProperty')) {
+    if (!hasShownDefinePropDeprecation) {
+      next(...arguments);
+      hasShownDefinePropDeprecation = true;
+    }
+  } else {
+    next(...arguments);
+  }
+});
 
 const App = Application.extend({
   Resolver,
