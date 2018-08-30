@@ -134,3 +134,24 @@ export interface IComplianceSuggestionResponse {
   status: ApiStatus;
   complianceSuggestion?: IComplianceSuggestion;
 }
+
+/**
+ * Describes the interface for the dataset export policy fields
+ * @export
+ * @interface IDatasetExportPolicy
+ */
+export interface IDatasetExportPolicy {
+  containsUserGeneratedContent: boolean;
+  containsUserActionGeneratedContent: boolean;
+  containsUserDerivedContent: boolean;
+}
+
+/**
+ * Describes the expected affirmative API response for the dataset export policy
+ * @export
+ * @interface IDatasetExportPolicyResponse
+ */
+export interface IDatasetExportPolicyResponse {
+  exportPolicy: IDatasetExportPolicy;
+  status: ApiStatus;
+}

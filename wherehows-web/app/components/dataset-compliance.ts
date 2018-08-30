@@ -50,7 +50,8 @@ import {
   IComplianceInfo,
   IComplianceEntity,
   ISuggestedFieldClassification,
-  IComplianceSuggestion
+  IComplianceSuggestion,
+  IDatasetExportPolicy
 } from 'wherehows-web/typings/api/datasets/compliance';
 import {
   IComplianceChangeSet,
@@ -139,6 +140,13 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   showGuidedComplianceEditMode: boolean = true;
+
+  /**
+   * Pass through value for the dataset export policy, to be used by one of our child components on
+   * this page
+   * @type {IDatasetClassificationOption}
+   */
+  exportPolicy: IDatasetExportPolicy;
 
   /**
    * Confidence percentage number used to filter high quality suggestions versus lower quality
@@ -232,6 +240,11 @@ export default class DatasetCompliance extends Component {
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
   onReset: <T>() => Promise<T>;
   onSave: <T>() => Promise<T>;
+
+  /**
+   * Passthrough from parent to export policy component to save the export policy
+   */
+  onSaveExportPolicy: (exportPolicy: IDatasetExportPolicy) => Promise<void>;
 
   /**
    * External action to handle manual compliance entity metadata entry
@@ -1512,6 +1525,24 @@ export default class DatasetCompliance extends Component {
       } finally {
         setSaveFlag();
         this.toggleEditing(false, editTarget);
+      }
+    },
+
+    /**
+     * Saving the export policy
+     * @param {IDatasetExportPolicy} exportPolicy - the export policy data object that will be passed to the
+     *  server via POST request
+     */
+    async saveExportPolicy(this: DatasetCompliance, exportPolicy: IDatasetExportPolicy): Promise<void> {
+      const onSaveExportPolicy = get(this, 'onSaveExportPolicy');
+
+      try {
+        set(this, 'isSaving', true);
+        await onSaveExportPolicy(exportPolicy);
+        return;
+      } finally {
+        set(this, 'isSaving', false);
+        this.toggleEditing(false, get(this, 'editTarget'));
       }
     },
 
