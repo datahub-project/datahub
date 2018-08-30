@@ -71,7 +71,6 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
-import { pluralize } from 'ember-inflector';
 import { service } from '@ember-decorators/service';
 
 const {
@@ -194,7 +193,7 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Indicates if the first step does not need further user review to advance
+   * Indicates if the compliance annotation does not need further user review to advance
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
@@ -295,23 +294,21 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<string>}
    * @memberof DatasetCompliance
    */
-  fieldReviewHint: ComputedProperty<string> = computed('fieldReviewOption', 'changeSetReviewCount', function(
+  fieldReviewHint: ComputedProperty<string> = computed('fieldReviewOption', 'foldedChangeSet.length', function(
     this: DatasetCompliance
   ): string {
     type TagFilterHint = { [K in TagFilter]: string };
 
-    const { fieldReviewOption, changeSetReviewCount } = getProperties(this, [
-      'fieldReviewOption',
-      'changeSetReviewCount'
-    ]);
+    const { fieldReviewOption, foldedChangeSet = [] } = getProperties(this, ['fieldReviewOption', 'foldedChangeSet']);
 
     const hint = (<TagFilterHint>{
-      [TagFilter.showAll]: `${pluralize(changeSetReviewCount, 'field')} to be reviewed`,
-      [TagFilter.showReview]: 'It is required to select compliance info for all fields',
-      [TagFilter.showSuggested]: 'Please review suggestions and provide feedback'
+      [TagFilter.showAll]: '',
+      [TagFilter.showReview]: '? Please select at least one type for each field',
+      [TagFilter.showSuggested]:
+        '! Please review suggestions and click thumbs up or down, based on the accuracy of the suggestion'
     })[fieldReviewOption];
 
-    return changeSetReviewCount ? hint : '';
+    return foldedChangeSet.length ? hint : '';
   });
 
   /**
@@ -519,9 +516,9 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
-    { value: TagFilter.showAll, label: 'Show all fields' },
-    { value: TagFilter.showReview, label: 'Show required fields' },
-    { value: TagFilter.showSuggested, label: 'Show suggested fields' }
+    { value: TagFilter.showAll, label: '  Show all fields' },
+    { value: TagFilter.showReview, label: '? Show fields missing a data type' },
+    { value: TagFilter.showSuggested, label: '! Show fields that need review' }
   ];
 
   didReceiveAttrs(): void {
@@ -887,7 +884,7 @@ export default class DatasetCompliance extends Component {
    * @type {Array<IdentifierFieldWithFieldChangeSetTuple>}
    * @memberof DatasetCompliance
    */
-  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple>;
+  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> | void;
 
   /**
    * Task to retrieve platform policies and set supported policies for the current platform
