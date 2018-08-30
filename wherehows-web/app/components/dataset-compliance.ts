@@ -193,7 +193,7 @@ export default class DatasetCompliance extends Component {
   });
 
   /**
-   * Indicates if the first step does not need further user review to advance
+   * Indicates if the compliance annotation does not need further user review to advance
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
