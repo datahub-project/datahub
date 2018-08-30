@@ -92,6 +92,7 @@
     {{fieldReviewHint}}
   </div>
 </div>
+
 {{#if showGuidedComplianceEditMode}}
   {{#if foldedChangeSet.length}}
     {{#dataset-table
@@ -151,8 +152,9 @@
             <tr class="{{if row.isReadonly 'dataset-compliance-fields--readonly'}}" ondblclick={{action
               row.onFragmentDblClick}}>
               {{#row.cell}}
+                {{! primary tag has an identifierType, field has a suggestion that does not match the identifierType, and suggestion resolution}}
                 {{#if
-                  (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution)))}}
+                  (and row.fieldProps.identifierType (and row.suggestion (and (not row.suggestionMatchesCurrentValue) (not row.suggestionResolution))))}}
 
                   <span class="nacho-tooltip" data-title="Suggestion conflicts with data type">
                     <i class="fa fa-exclamation dataset-compliance-fields__has-suggestions__icon"
