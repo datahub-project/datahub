@@ -13,7 +13,7 @@ module('Acceptance | datasets/dataset/schema', function(hooks) {
 
   skip('visiting /datasets/dataset/schema', async function(assert) {
     assert.expect(2);
-    defaultScenario(server);
+    defaultScenario(this.server);
     const url = '/datasets/12345/schema';
 
     await visit(url);

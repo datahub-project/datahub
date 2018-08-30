@@ -27,7 +27,9 @@ export default Factory.extend({
     tbl_type: 'VIRTUAL_VIEW',
     view_expanded_text: faker.lorem.sentence()
   }),
-  schema: 'abcd',
+
+  // TODO https://github.com/samselikoff/ember-cli-mirage/issues/1379
+  whSchema: 'abcd',
   source: 'Hive',
   urn: faker.internet.url(),
   watchId: 0,
@@ -37,8 +39,15 @@ export default Factory.extend({
     id(id: number) {
       return id;
     },
-    schema(id: number) {
+
+    // TODO https://github.com/samselikoff/ember-cli-mirage/issues/1379
+    whSchema(id: number) {
       return id === 0 ? testSchemaA : 'abcd';
     }
-  })
+  }),
+
+  // TODO https://github.com/samselikoff/ember-cli-mirage/issues/1379
+  afterCreate(dataset: any) {
+    dataset.attrs.schema = dataset.attrs.whSchema;
+  }
 });

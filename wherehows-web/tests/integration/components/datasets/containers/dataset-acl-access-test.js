@@ -16,16 +16,16 @@ module('Integration | Component | datasets/containers/dataset acl access', funct
     this['current-user'] = this.owner.lookup('service:current-user');
     this.notifications = this.owner.lookup('service:notifications');
 
-    this.server = sinon.createFakeServer();
-    this.server.respondImmediately = true;
+    this.sinonServer = sinon.createFakeServer();
+    this.sinonServer.respondImmediately = true;
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   test('it renders', async function(assert) {
-    this.server.respondWith('GET', /\/api\/v2\/datasets.*/, [
+    this.sinonServer.respondWith('GET', /\/api\/v2\/datasets.*/, [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify({})
