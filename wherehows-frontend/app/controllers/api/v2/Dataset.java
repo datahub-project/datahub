@@ -278,17 +278,7 @@ public class Dataset extends Controller {
     }
 
     try {
-      JsonNode record = request().body().asJson();
-
-      boolean containsUserGeneratedContent = record.get("containsUserGeneratedContent").asBoolean();
-      boolean containsUserActionGeneratedContent = record.get("containsUserActionGeneratedContent").asBoolean();
-      boolean containsUserDerivedContent = record.get("containsUserDerivedContent").asBoolean();
-
-      final DatasetExportPolicy exportPolicy = new DatasetExportPolicy();
-
-      exportPolicy.setContainsUserGeneratedContent(containsUserGeneratedContent);
-      exportPolicy.setContainsUserActionGeneratedContent(containsUserActionGeneratedContent);
-      exportPolicy.setContainsUserDerivedContent(containsUserDerivedContent);
+      JsonNode exportPolicy = request().body().asJson();
 
       EXPORT_POLICY_DAO.updateDatasetExportPolicy(exportPolicy, username);
     } catch (Exception e) {
