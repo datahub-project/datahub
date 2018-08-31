@@ -130,7 +130,7 @@ export default class DatasetComplianceContainer extends Component {
    * Object containing the fields for the export policy for this dataset
    * @type {IDatasetExportPolicy}
    */
-  exportPolicy: IDatasetExportPolicy;
+  exportPolicy: IDatasetExportPolicy | undefined;
 
   /**
    * The platform / db that the dataset is persisted
