@@ -236,9 +236,9 @@ GET           /api/v2/datasets/:urn/retention                                   
 
 POST          /api/v2/datasets/:urn/retention                                   controllers.api.v2.Dataset.updateDatasetRetention(urn: String)
 
-GET           /api/v2/datasets/:urn/exportPolicy                                controllers.api.v2.Dataset.getExportPolicy(urn: String)
+GET           /api/v2/datasets/:urn/exportpolicy                                controllers.api.v2.Dataset.getExportPolicy(urn: String)
 
-POST          /api/v2/datasets/:urn/exportPolicy                                controllers.api.v2.Dataset.updateExportPolicy(urn: String)
+POST          /api/v2/datasets/:urn/exportpolicy                                controllers.api.v2.Dataset.updateExportPolicy(urn: String)
 
 GET           /api/v2/datasets/:urn/compliance/suggestion                       controllers.api.v2.Dataset.getDatasetSuggestedCompliance(urn: String)
 
