@@ -7,7 +7,8 @@ import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import {
   IComplianceInfo,
   IComplianceSuggestion,
-  IDatasetExportPolicy
+  IDatasetExportPolicy,
+  IDatasetExportPolicyResponse
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
@@ -249,6 +250,18 @@ export default class DatasetComplianceContainer extends Component {
   });
 
   /**
+   * Reads the export policy properties for the dataset
+   * @type {Task<Promise<IReadComplianceResult>, (a?: any) => TaskInstance<Promise<IDatasetExportPolicy>>>}
+   */
+  getExportPolicyTask = task(function*(
+    this: DatasetComplianceContainer
+  ): IterableIterator<Promise<IDatasetExportPolicy>> {
+    const exportPolicy: IDatasetExportPolicy = yield readDatasetExportPolicyByUrn(get(this, 'urn'));
+
+    set(this, 'exportPolicy', exportPolicy);
+  });
+
+  /**
    * Reads the compliance data types
    * @type {Task<Promise<Array<IComplianceDataType>>, (a?: any) => TaskInstance<Promise<Array<IComplianceDataType>>>>}
    */
@@ -341,7 +354,7 @@ export default class DatasetComplianceContainer extends Component {
   async saveExportPolicy(this: DatasetComplianceContainer, exportPolicy: IDatasetExportPolicy): Promise<void> {
     await this.notifyOnSave<void>(saveDatasetExportPolicyByUrn(get(this, 'urn'), exportPolicy));
 
-    this.resetPrivacyCompliancePolicy.call(this);
+    this.getExportPolicyTask.perform();
   }
 
   /**
