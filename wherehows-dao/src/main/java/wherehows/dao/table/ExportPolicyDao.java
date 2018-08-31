@@ -25,7 +25,7 @@ public class ExportPolicyDao {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
-  public void updateDatasetExportPolicy(@Nonnull DatasetExportPolicy record, @Nonnull String user) throws Exception {
+  public void updateDatasetExportPolicy(@Nonnull datasetUrn, @Nonnull DatasetExportPolicy record, @Nonnull String user) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
 
   }
