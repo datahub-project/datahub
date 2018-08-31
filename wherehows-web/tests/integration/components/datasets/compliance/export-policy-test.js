@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
-import { render, find, click } from '@ember/test-helpers';
+import { render, find, click, waitFor } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 const header = '.metadata-prompt__header__text';
