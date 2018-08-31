@@ -5,8 +5,9 @@ import { IDatasetExportPolicy } from 'wherehows-web/typings/api/datasets/complia
 import { IExportPolicyTable } from 'wherehows-web/typings/app/datasets/export-policy';
 import { get, set } from '@ember/object';
 import { action, computed } from '@ember-decorators/object';
-import { or } from '@ember-decorators/object/computed';
-import ComputedProperty from '@ember/object/computed';
+import { or } from '@ember/object/computed';
+// import { or } from '@ember-decorators/object/computed';
+// import ComputedProperty, { or } from '@ember/object/computed';
 
 enum ExportPolicyLabels {
   UGC = 'User Generated Content - data directly created by the member',
@@ -67,8 +68,8 @@ export default class ComplianceExportPolicy extends Component.extend({
    * @type {boolean}
    * @memberof ComplianceExportPolicy
    */
-  @or('isEditing', 'shouldShowMorePolicyData')
-  shouldShowAllExportPolicyData: ComputedProperty<boolean>;
+  // @or('isEditing', 'shouldShowMorePolicyData')
+  shouldShowAllExportPolicyData = or('isEditing', 'shouldShowMorePolicyData');
 
   /**
    * The export policy data extracted directly from the api response, passed in from the dataset-compliance
@@ -86,11 +87,7 @@ export default class ComplianceExportPolicy extends Component.extend({
    */
   @computed('exportPolicyData', 'isEditing')
   get datasetExportPolicy(): Array<IExportPolicyTable> {
-    const exportPolicyData = get(this, 'exportPolicyData');
-
-    if (!exportPolicyData) {
-      return [];
-    }
+    const exportPolicyData = <IDatasetExportPolicy>(get(this, 'exportPolicyData') || {});
 
     return policyKeys.map(key => {
       const dataType = ExportPolicyKeys[key];
