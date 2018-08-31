@@ -13,7 +13,7 @@ module('Acceptance | datasets/dataset/properties', function(hooks) {
 
   skip('visiting /datasets/dataset/properties', async function(assert) {
     assert.expect(2);
-    defaultScenario(server);
+    defaultScenario(this.server);
     const url = '/datasets/12345/properties';
 
     await visit(url);

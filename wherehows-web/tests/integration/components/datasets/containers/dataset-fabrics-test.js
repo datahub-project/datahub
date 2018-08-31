@@ -2,21 +2,12 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, find, waitFor } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import fabrics from 'wherehows-web/mirage/fixtures/fabrics';
 
 const containerTestClass = 'container-testing-class';
 
 module('Integration | Component | datasets/containers/dataset-fabrics', function(hooks) {
   setupRenderingTest(hooks);
-
-  hooks.beforeEach(function() {
-    this.server = startMirage();
-  });
-
-  hooks.afterEach(function() {
-    this.server.shutdown();
-  });
 
   test('dataset fabric container rendering', async function(assert) {
     assert.expect(2);
