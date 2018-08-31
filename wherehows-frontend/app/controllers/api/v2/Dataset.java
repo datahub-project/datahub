@@ -272,17 +272,14 @@ public class Dataset extends Controller {
 
   public static Promise<Result> updateExportPolicy(String datasetUrn) {
     final String username = session("user");
-    final DatasetExportPolicy exportPolicy = new DatasetExportPolicy();
+    final DatasetExportPolicy exportPolicy;
 
     if (StringUtils.isBlank(username)) {
       return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
     }
 
     try {
-      JsonNode requestBody = request().body().asJson();
-      exportPolicy.setContainsUserGeneratedContent(requestBody.get("containsUserGeneratedContent").asBoolean());
-      exportPolicy.setContainsUserActionGeneratedContent(requestBody.get("containsUserActionGeneratedContent").asBoolean());
-      exportPolicy.setContainsUserDerivedContent(requestBody.get("setContainsUserDerivedContent").asBoolean());
+      exportPolicy = Json.mapper().convertValue(request().body().asJson(), DatasetExportPolicy.class);
 
       EXPORT_POLICY_DAO.updateDatasetExportPolicy(datasetUrn, exportPolicy, username);
     } catch (Exception e) {
@@ -290,7 +287,7 @@ public class Dataset extends Controller {
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy", Json.toJson(exportPolicy))));
   }
 
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
