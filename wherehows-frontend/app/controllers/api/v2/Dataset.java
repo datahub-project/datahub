@@ -280,13 +280,13 @@ public class Dataset extends Controller {
     try {
       JsonNode exportPolicy = request().body().asJson();
 
-      EXPORT_POLICY_DAO.updateDatasetExportPolicy(exportPolicy, username);
+      EXPORT_POLICY_DAO.updateDatasetExportPolicy(datasetUrn, exportPolicy, username);
     } catch (Exception e) {
       Logger.error("Update dataset export policy fail", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    return Promise.promise(() -> ok(_EMPTY_RESPONSE));
+    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy", Json.toJson(exportPolicy))));
   }
 
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
