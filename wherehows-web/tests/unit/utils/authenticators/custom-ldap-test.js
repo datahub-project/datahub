@@ -5,11 +5,11 @@ import { ApiStatus } from 'wherehows-web/utils/api';
 
 module('Unit | Utility | authenticators/custom ldap', function(hooks) {
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
+    this.sinonServer = sinon.createFakeServer();
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   test('Authenticate methods work as expected', async function(assert) {
@@ -23,14 +23,14 @@ module('Unit | Utility | authenticators/custom ldap', function(hooks) {
 
     let response;
 
-    this.server.respondWith('POST', '/authenticate', [
+    this.sinonServer.respondWith('POST', '/authenticate', [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify({ status: ApiStatus.OK, data })
     ]);
 
     response = authenticator.authenticate('username', 'password');
-    this.server.respond();
+    this.sinonServer.respond();
 
     assert.ok(typeof response.then === 'function', 'returns a Promise object or thennable');
     assert.equal((await response).username, data.username, 'authenticate correctly resolves with api response');
