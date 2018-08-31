@@ -250,7 +250,7 @@ export default class DatasetComplianceContainer extends Component {
 
   /**
    * Reads the export policy properties for the dataset
-   * @type {Task<Promise<IReadComplianceResult>, (a?: any) => TaskInstance<Promise<IDatasetExportPolicy>>>}
+   * @type {Task<Promise<IDatasetExportPolicy>, (a?: any) => TaskInstance<Promise<IDatasetExportPolicy>>>}
    */
   getExportPolicyTask = task(function*(
     this: DatasetComplianceContainer
