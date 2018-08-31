@@ -5,9 +5,8 @@ import { IDatasetExportPolicy } from 'wherehows-web/typings/api/datasets/complia
 import { IExportPolicyTable } from 'wherehows-web/typings/app/datasets/export-policy';
 import { get, set } from '@ember/object';
 import { action, computed } from '@ember-decorators/object';
-import { or } from '@ember/object/computed';
-// import { or } from '@ember-decorators/object/computed';
-// import ComputedProperty, { or } from '@ember/object/computed';
+import { or } from '@ember-decorators/object/computed';
+import ComputedProperty from '@ember/object/computed';
 
 enum ExportPolicyLabels {
   UGC = 'User Generated Content - data directly created by the member',
@@ -68,8 +67,8 @@ export default class ComplianceExportPolicy extends Component.extend({
    * @type {boolean}
    * @memberof ComplianceExportPolicy
    */
-  // @or('isEditing', 'shouldShowMorePolicyData')
-  shouldShowAllExportPolicyData = or('isEditing', 'shouldShowMorePolicyData');
+  @or('isEditing', 'shouldShowMorePolicyData')
+  shouldShowAllExportPolicyData: ComputedProperty<boolean>;
 
   /**
    * The export policy data extracted directly from the api response, passed in from the dataset-compliance
