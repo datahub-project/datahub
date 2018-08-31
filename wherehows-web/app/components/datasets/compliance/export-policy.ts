@@ -3,9 +3,10 @@ import { ComplianceEdit, ExportPolicyKeys } from 'wherehows-web/constants';
 import { noop } from 'wherehows-web/utils/helpers/functions';
 import { IDatasetExportPolicy } from 'wherehows-web/typings/api/datasets/compliance';
 import { IExportPolicyTable } from 'wherehows-web/typings/app/datasets/export-policy';
-import { computed, getWithDefault, get, set } from '@ember/object';
-import { action } from '@ember-decorators/object';
-import { or } from '@ember/object/computed';
+import { get, set } from '@ember/object';
+import { action, computed } from '@ember-decorators/object';
+import { or } from '@ember-decorators/object/computed';
+import ComputedProperty from '@ember/object/computed';
 
 enum ExportPolicyLabels {
   UGC = 'User Generated Content - data directly created by the member',
@@ -17,22 +18,16 @@ enum ExportPolicyLabels {
  * Creates an array from the ExportPolicyKeys enum
  */
 const policyKeys = <Array<keyof typeof ExportPolicyKeys>>Object.keys(ExportPolicyKeys);
+// Values in the same order as our keys
 const policyValues = <Array<ExportPolicyKeys>>policyKeys.map(key => ExportPolicyKeys[key]);
 
-export default class ComplianceExportPolicy extends Component {
+export default class ComplianceExportPolicy extends Component.extend({
   /**
    * Sets the tag for the html element rendered by our component
    * @type {string}
    */
-  tagName = '';
-
-  /**
-   * Sets the id of the html element rendered by our component. Removing it here so we avoid
-   * errors that occur because our component is tagless
-   * @type {string}
-   */
-  elementId = <any>undefined;
-
+  tagName: ''
+}) {
   /**
    * Allows us to use our constants set in this enum inside our hbs template
    * @type {ComplianceEdit}
@@ -46,16 +41,16 @@ export default class ComplianceExportPolicy extends Component {
   isEditing: boolean;
 
   /**
-   * Passed in from the parent component, this function acts as an action to trigger edit mode on
-   * this component
-   * @type {Ember.ActionHandler}
+   * Passed through ation from the parent component, this function acts as an action to trigger edit mode
+   * on this component
+   * @type {(edit: boolean, target: ComplianceEdit) => void}
    */
-  toggleEditing: (edit: boolean, target: ComplianceEdit) => void;
+  toggleEditing: (edit: boolean, target?: ComplianceEdit) => void;
 
   /**
-   * Passed in from the parent component, this function triggers the saving logic and subsequent POST
-   * request to persist the export policy edits
-   * @type {Ember.ActionHandler}
+   * Passed through action from the parent component, this function triggers the saving logic and subsequent
+   * POST request to persist the export policy edits
+   * @type {(policy: IDatasetExportPolicy) => void}
    */
   onSaveExportPolicy: (policy: IDatasetExportPolicy) => void;
 
@@ -72,7 +67,8 @@ export default class ComplianceExportPolicy extends Component {
    * @type {boolean}
    * @memberof ComplianceExportPolicy
    */
-  shouldShowAllExportPolicyData = or('isEditing', 'shouldShowMorePolicyData');
+  @or('isEditing', 'shouldShowMorePolicyData')
+  shouldShowAllExportPolicyData: ComputedProperty<boolean>;
 
   /**
    * The export policy data extracted directly from the api response, passed in from the dataset-compliance
@@ -80,7 +76,7 @@ export default class ComplianceExportPolicy extends Component {
    * @type {IDatasetExportPolicy}
    * @memberof ComplianceExportPolicy
    */
-  exportPolicyData: IDatasetExportPolicy;
+  exportPolicyData: IDatasetExportPolicy | undefined;
 
   /**
    * Calculates the table for the export policy questions with seeded information based on the api response
@@ -88,8 +84,13 @@ export default class ComplianceExportPolicy extends Component {
    * @type {ComputedProperty<Array<IExportPolicyTable>>}
    * @memberof ComplianceExportPolicy
    */
-  datasetExportPolicy = computed('exportPolicyData', 'isEditing', function(): Array<IExportPolicyTable> {
-    const exportPolicyData: IDatasetExportPolicy = getWithDefault(this, 'exportPolicyData', {});
+  @computed('exportPolicyData', 'isEditing')
+  get datasetExportPolicy(): Array<IExportPolicyTable> {
+    const exportPolicyData = get(this, 'exportPolicyData');
+
+    if (!exportPolicyData) {
+      return [];
+    }
 
     return policyKeys.map(key => {
       const dataType = ExportPolicyKeys[key];
@@ -100,7 +101,7 @@ export default class ComplianceExportPolicy extends Component {
         label: ExportPolicyLabels[key]
       };
     });
-  });
+  }
 
   constructor() {
     super(...arguments);
@@ -149,13 +150,9 @@ export default class ComplianceExportPolicy extends Component {
   @action
   saveCompliance(): void {
     const datasetExportPolicy = get(this, 'datasetExportPolicy');
-    const exportPolicy = datasetExportPolicy.reduce(
-      (policy, datum) => {
-        policy[datum.dataType] = datum.value;
-        return policy;
-      },
-      <IDatasetExportPolicy>{}
-    );
+    const exportPolicy = datasetExportPolicy.reduce((policy, datum) => ({ ...policy, [datum.dataType]: datum.value }), <
+      IDatasetExportPolicy
+    >{});
 
     this.onSaveExportPolicy(exportPolicy);
   }
@@ -167,6 +164,6 @@ export default class ComplianceExportPolicy extends Component {
    */
   @action
   onCancel(): void {
-    this.toggleEditing(false, <any>undefined);
+    this.toggleEditing(false);
   }
 }
