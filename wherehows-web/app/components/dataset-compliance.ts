@@ -144,9 +144,9 @@ export default class DatasetCompliance extends Component {
   /**
    * Pass through value for the dataset export policy, to be used by one of our child components on
    * this page
-   * @type {IDatasetClassificationOption}
+   * @type {IDatasetExportPolicy}
    */
-  exportPolicy: IDatasetExportPolicy;
+  exportPolicy: IDatasetExportPolicy | undefined;
 
   /**
    * Confidence percentage number used to filter high quality suggestions versus lower quality
@@ -167,7 +167,7 @@ export default class DatasetCompliance extends Component {
    * @type {ComplianceEdit}
    * @memberof DatasetCompliance
    */
-  editTarget: ComplianceEdit;
+  editTarget: ComplianceEdit | undefined;
 
   /**
    * Flag determining whether or not we are in an editing state. Triggered by an action connected to the
@@ -1107,7 +1107,7 @@ export default class DatasetCompliance extends Component {
    * @param isEditing - Whether or not we are entering or exiting the editing mode
    * @param editTarget - Which component/section is going into editing mode
    */
-  toggleEditing(this: DatasetCompliance, isEditing: boolean = false, editTarget: ComplianceEdit): void {
+  toggleEditing(this: DatasetCompliance, isEditing: boolean = false, editTarget?: ComplianceEdit): void {
     setProperties(this, { isEditing, editTarget });
   }
 
@@ -1115,7 +1115,7 @@ export default class DatasetCompliance extends Component {
    * Handler that processes actions to be called before the save process
    * @param editTarget - The current edit target being saved
    */
-  async beforeSaveCompliance(editTarget: ComplianceEdit): Promise<void> {
+  async beforeSaveCompliance(editTarget?: ComplianceEdit): Promise<void> {
     switch (editTarget) {
       case ComplianceEdit.CompliancePolicy:
         await this.actions.didEditCompliancePolicy.call(this);
