@@ -7,8 +7,7 @@ import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import {
   IComplianceInfo,
   IComplianceSuggestion,
-  IDatasetExportPolicy,
-  IDatasetExportPolicyResponse
+  IDatasetExportPolicy
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
