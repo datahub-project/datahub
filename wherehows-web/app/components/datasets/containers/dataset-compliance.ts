@@ -4,7 +4,11 @@ import { task } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
-import { IComplianceInfo, IComplianceSuggestion } from 'wherehows-web/typings/api/datasets/compliance';
+import {
+  IComplianceInfo,
+  IComplianceSuggestion,
+  IDatasetExportPolicy
+} from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -14,7 +18,9 @@ import {
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
   saveDatasetComplianceByUrn,
-  saveDatasetComplianceSuggestionFeedbackByUrn
+  saveDatasetComplianceSuggestionFeedbackByUrn,
+  readDatasetExportPolicyByUrn,
+  saveDatasetExportPolicyByUrn
 } from 'wherehows-web/utils/api';
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
@@ -42,7 +48,8 @@ type BatchComplianceResponse = [
   IReadComplianceResult,
   Array<IComplianceDataType>,
   IComplianceSuggestion,
-  IDatasetSchema
+  IDatasetSchema,
+  IDatasetExportPolicy
 ];
 
 /**
@@ -115,6 +122,12 @@ export default class DatasetComplianceContainer extends Component {
   complianceInfo: IComplianceInfo | void;
 
   /**
+   * Object containing the fields for the export policy for this dataset
+   * @type {IDatasetExportPolicy}
+   */
+  exportPolicy: IDatasetExportPolicy | undefined;
+
+  /**
    * The platform / db that the dataset is persisted
    * @type {IDatasetView.platform}
    */
@@ -179,12 +192,14 @@ export default class DatasetComplianceContainer extends Component {
       { isNewComplianceInfo, complianceInfo },
       complianceDataTypes,
       complianceSuggestion,
-      { columns, schemaless }
+      { columns, schemaless },
+      exportPolicy
     ]: BatchComplianceResponse = await Promise.all([
       readDatasetComplianceByUrn(urn),
       readComplianceDataTypes(),
       readDatasetComplianceSuggestionByUrn(urn),
-      readDatasetSchemaByUrn(urn)
+      readDatasetSchemaByUrn(urn),
+      readDatasetExportPolicyByUrn(urn)
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
@@ -205,7 +220,8 @@ export default class DatasetComplianceContainer extends Component {
       complianceDataTypes,
       complianceSuggestion,
       schemaFieldNamesMappedToDataTypes,
-      schemaless
+      schemaless,
+      exportPolicy
     });
   }
 
@@ -225,6 +241,18 @@ export default class DatasetComplianceContainer extends Component {
 
     this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!fromUpstream });
     setProperties(this, { isNewComplianceInfo, complianceInfo });
+  });
+
+  /**
+   * Reads the export policy properties for the dataset
+   * @type {Task<Promise<IDatasetExportPolicy>, (a?: any) => TaskInstance<Promise<IDatasetExportPolicy>>>}
+   */
+  getExportPolicyTask = task(function*(
+    this: DatasetComplianceContainer
+  ): IterableIterator<Promise<IDatasetExportPolicy>> {
+    const exportPolicy: IDatasetExportPolicy = yield readDatasetExportPolicyByUrn(get(this, 'urn'));
+
+    set(this, 'exportPolicy', exportPolicy);
   });
 
   /**
@@ -310,6 +338,17 @@ export default class DatasetComplianceContainer extends Component {
 
       this.resetPrivacyCompliancePolicy.call(this);
     }
+  }
+
+  /**
+   * Persists the updates to the export policy on the remote host
+   * @return {Promise<void}
+   */
+  @action
+  async saveExportPolicy(this: DatasetComplianceContainer, exportPolicy: IDatasetExportPolicy): Promise<void> {
+    await this.notifyOnSave<void>(saveDatasetExportPolicyByUrn(get(this, 'urn'), exportPolicy));
+
+    this.getExportPolicyTask.perform();
   }
 
   /**
