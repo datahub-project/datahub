@@ -1,0 +1,152 @@
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p class="metadata-prompt__header__text">
+      {{if isEditing
+           "Does this dataset contain the following types of user generated data?"
+           "Data Export Metadata Annotations"}}
+
+
+      {{more-info
+        link=@wikiLinks.exportPolicy
+        tooltip="Click for more information on Data Export Metadata Annotations"
+      }}
+    </p>
+
+    {{#unless isEditing}}
+      <div class="compliance-entities-meta__secondary">
+        <button
+          class="nacho-button nacho-button--tertiary edit-button"
+          onclick={{action toggleEditing true ComplianceEdit.ExportPolicy}}>
+
+          <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
+
+          Edit
+        </button>
+      </div>
+    {{/unless}}
+
+    {{#if isEditing}}
+      <button
+        {{action "onMarkAllExportFieldsAsFalse"}}
+        class="nacho-button--large nacho-button--secondary mark-dataset-no-button">
+        Mark all as No
+      </button>
+    {{/if}}
+  </header>
+</section>
+
+{{#if isEditing}}
+  {{partial "datasets/dataset-compliance/action-bar"}}
+{{/if}}
+
+{{#dataset-table
+  class="nacho-table nacho-table--bordered nacho-table--stripped"
+  fields=datasetExportPolicy as |table|}}
+
+  {{#table.head as |head|}}
+    {{#head.column}}Types of data{{/head.column}}
+
+    {{#head.column class="dataset-field-content__header"}}
+      <span class="dataset-field-value">Is this type of data contained in this dataset?</span>
+    {{/head.column}}
+  {{/table.head}}
+
+  {{#table.body as |body|}}
+    {{#each (if shouldShowAllExportPolicyData table.data (filter-by "value" true table.data)) as |classification|}}
+      {{#body.row as |row|}}
+        {{#row.cell class="dataset-field-content__prompt"}}
+          <span class="dataset-tag-container">
+            {{#if (eq classification.value true)}}
+
+              <i class="dataset-classification-indicator dataset-classification-indicator--tagged"
+                 title="{{classification.label}} is in dataset">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
+                  <g class="large-icon" style="fill: currentColor">
+                    <path
+                      d="M19.68,4L9,17.7,4.36,12,3,13.06l5.42,6.67A0.72,0.72,0,0,0,9,20a0.7,0.7,0,0,0,.59-0.28L21,5.05Z"></path>
+                  </g>
+                </svg>
+              </i>
+
+            {{/if}}
+
+            {{#if (eq classification.value false)}}
+              <i class="dataset-classification-indicator dataset-classification-indicator--not-tagged"
+                 title="{{classification.label}} is not in dataset">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" x="0" y="0" preserveAspectRatio="xMinYMin meet">
+                  <g class="large-icon" style="fill: currentColor">
+                    <path
+                      d="M20,5.32L13.32,12,20,18.68,18.66,20,12,13.33,5.34,20,4,18.68,10.68,12,4,5.32,5.32,4,12,10.69,18.68,4Z"></path>
+                  </g>
+                </svg>
+              </i>
+            {{/if}}
+
+            {{classification.label}}
+          </span>
+        {{/row.cell}}
+
+        {{#row.cell class="dataset-field-content__input"}}
+          <span class="dataset-field-value">
+            {{#radio-button-composer
+              value=true
+              name=classification.dataType
+              groupValue=(readonly classification.value)
+              changed=(action "onChangeExportPolicy" classification.dataType)}}
+              Yes
+            {{/radio-button-composer}}
+            {{#radio-button-composer
+              value=false
+              name=classification.dataType
+              groupValue=(readonly classification.value)
+              changed=(action "onChangeExportPolicy" classification.dataType)}}
+              No
+            {{/radio-button-composer}}
+          </span>{{/row.cell}}
+      {{/body.row}}
+    {{else}}
+
+      <tr class="dataset-field-content__empty">
+        <td colspan="2">
+          <div>
+            <header>
+              <strong>
+                None selected
+              </strong>
+            </header>
+
+            {{#if (and excludesSomeMemberData (not isEditing))}}
+              <p>
+                Click 'See More' below to view all available types of data
+              </p>
+            {{/if}}
+          </div>
+        </td>
+      </tr>
+
+    {{/each}}
+  {{/table.body}}
+
+  {{#if (not isEditing)}}
+
+    {{#table.foot}}
+      <td colspan="2" class="text-center">
+        <button
+          {{action "onShowAllExportPolicyData"}}
+          class="nacho-button--large nacho-button--tertiary">
+          {{#if shouldShowMorePolicyData}}
+
+            See Less <span class="fa fa-caret-up" aria-label="See Less Types of Data"></span>
+
+          {{else}}
+
+            See More <span class="fa fa-caret-down" aria-label="See More Types of Data"></span>
+
+          {{/if}}
+        </button>
+      </td>
+    {{/table.foot}}
+
+  {{/if}}
+
+{{/dataset-table}}

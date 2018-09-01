@@ -18,7 +18,7 @@
         </div>
       {{else}}
         <section class="action-bar">
-          {{#if isEditing}}
+          {{#if (and isEditing (not (eq editTarget ComplianceEdit.ExportPolicy)))}}
 
             <div class="container action-bar__content">
 
@@ -94,8 +94,12 @@
         </div>
       </div>
 
-      {{#if (or isReadOnly (eq editTarget ComplianceEdit.DatasetLevelPolicy))}}
-        {{partial "datasets/dataset-compliance/dataset-classification"}}
+      {{#if (or isReadOnly (eq editTarget ComplianceEdit.ExportPolicy))}}
+        {{datasets/compliance/export-policy
+          exportPolicyData=exportPolicy
+          isEditing=isEditing
+          toggleEditing=(action toggleEditing)
+          onSaveExportPolicy=(action "saveExportPolicy")}}
       {{/if}}
 
       {{#if (or isReadOnly (eq editTarget ComplianceEdit.PurgePolicy))}}
