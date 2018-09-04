@@ -15,11 +15,14 @@ package wherehows.dao.table;
 
 import javax.annotation.Nonnull;
 import wherehows.models.view.DatasetExportPolicy;
+import javax.persistence.EntityManagerFactory;
 
-public class ExportPolicyDao {
-  /**
-   * Get datset health by dataset urn
-   */
+
+public class ExportPolicyDao extends BaseDao {
+  public ExportPolicyDao(@Nonnull EntityManagerFactory factory) {
+    super(factory);
+  }
+
   @Nonnull
   public DatasetExportPolicy getDatasetExportPolicy(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
