@@ -125,7 +125,7 @@ public class DaoFactory {
 
   public ExportPolicyDao getExportPolicyDao() {
     if (exportPolicyDao == null) {
-      exportPolicyDao = new ExportPolicyDao();
+      exportPolicyDao = new ExportPolicyDao(entityManagerFactory);
     }
     return exportPolicyDao;
   }
