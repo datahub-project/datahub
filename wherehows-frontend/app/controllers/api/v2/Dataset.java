@@ -271,8 +271,8 @@ public class Dataset extends Controller {
   }
 
   public static Promise<Result> updateExportPolicy(String datasetUrn) {
-    final String username = session("user");
     JsonNode requestBody = request().body().asJson();
+    final String username = session("user");
 
     if (StringUtils.isBlank(username)) {
       return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
@@ -287,7 +287,7 @@ public class Dataset extends Controller {
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy", Json.toJson(requestBody))));
+    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy",requestBody)));
   }
 
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
