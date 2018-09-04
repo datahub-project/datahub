@@ -33,6 +33,7 @@ import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.LineageDao;
+import wherehows.dao.table.ExportPolicyDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
@@ -45,6 +46,7 @@ import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
 import wherehows.models.view.DatasetHealth;
+import wherehows.models.view.DatasetExportPolicy;
 
 import static controllers.api.v1.Dataset.*;
 import static utils.Dataset.*;
@@ -65,6 +67,8 @@ public class Dataset extends Controller {
   private static final DatasetComplianceDao COMPLIANCE_DAO = Application.DAO_FACTORY.getDatasetComplianceDao();
 
   private static final LineageDao LINEAGE_DAO = Application.DAO_FACTORY.getLineageDao();
+
+  private static final ExportPolicyDao EXPORT_POLICY_DAO = Application.DAO_FACTORY.getExportPolicyDao();
 
   private static final AclDao ACL_DAO = initAclDao();
 
@@ -244,6 +248,46 @@ public class Dataset extends Controller {
     }
 
     return Promise.promise(() -> ok(Json.newObject().set("health", Json.toJson(health))));
+  }
+
+  public static Promise<Result> getExportPolicy(String datasetUrn) {
+    final DatasetExportPolicy exportPolicy;
+    try {
+      exportPolicy = EXPORT_POLICY_DAO.getDatasetExportPolicy(datasetUrn);
+    } catch (Exception e) {
+      if (e.toString().contains("Response status 404")) {
+        return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+      }
+
+      Logger.error("Fetch export policy fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+
+    if (exportPolicy == null) {
+      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy", Json.toJson(exportPolicy))));
+  }
+
+  public static Promise<Result> updateExportPolicy(String datasetUrn) {
+    JsonNode requestBody = request().body().asJson();
+    final String username = session("user");
+
+    if (StringUtils.isBlank(username)) {
+      return Promise.promise(() -> unauthorized(_EMPTY_RESPONSE));
+    }
+
+    try {
+      final DatasetExportPolicy exportPolicy = Json.mapper().convertValue(requestBody, DatasetExportPolicy.class);
+
+      EXPORT_POLICY_DAO.updateDatasetExportPolicy(datasetUrn, exportPolicy, username);
+    } catch (Exception e) {
+      Logger.error("Update dataset export policy fail", e);
+      return Promise.promise(() -> internalServerError(errorResponse(e)));
+    }
+
+    return Promise.promise(() -> ok(Json.newObject().set("exportPolicy",requestBody)));
   }
 
   public static Promise<Result> getDatasetOwners(String datasetUrn) {
