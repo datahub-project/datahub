@@ -23,13 +23,19 @@ import play.cache.Cache;
 import play.libs.Json;
 import play.mvc.Controller;
 import play.mvc.Result;
+import wherehows.dao.table.SearchDao;
 
 import static org.apache.commons.lang3.StringUtils.*;
 
-import wherehows.dao.table.SearchDao;
-
 
 public class Search extends Controller {
+
+  private static final String ELASTICSEARCH_DATASET_URL_KEY = "elasticsearch.dataset.url";
+  private static final String ELASTICSEARCH_DATASET_URL =
+      Play.application().configuration().getString(ELASTICSEARCH_DATASET_URL_KEY);
+  private static final String WHEREHOWS_SEARCH_ENGINE_KEY = "search.engine"; // TODO: deprecated this setting
+  private static final String SEARCH_ENGINE = Play.application().configuration().getString(WHEREHOWS_SEARCH_ENGINE_KEY);
+
   private static final String AUTOCOMPLETE_ALL_KEY = "autocomplete.all";
   private static final String AUTOCOMPLETE_DATASET_KEY = "autocomplete.dataset";
   private static final int DEFAULT_AUTOCOMPLETE_SIZE = 20;
@@ -48,7 +54,7 @@ public class Search extends Controller {
     String cacheKey = AUTOCOMPLETE_ALL_KEY + (isNotBlank(input) ? "." + input : "-all");
     List<String> names = (List<String>) Cache.get(cacheKey);
     if (names == null || names.size() == 0) {
-      names = SEARCH_DAO.getAutoCompleteList(input, size);
+      names = SEARCH_DAO.getAutoCompleteList(ELASTICSEARCH_DATASET_URL, input, size);
       Cache.set(cacheKey, names, DEFAULT_AUTOCOMPLETE_CACHE_TIME);
     }
 
@@ -70,7 +76,7 @@ public class Search extends Controller {
     String cacheKey = AUTOCOMPLETE_DATASET_KEY + (isNotBlank(input) ? "." + input : "-all");
     List<String> names = (List<String>) Cache.get(cacheKey);
     if (names == null || names.size() == 0) {
-      names = SEARCH_DAO.getAutoCompleteListDataset(input, size);
+      names = SEARCH_DAO.getAutoCompleteListDataset(ELASTICSEARCH_DATASET_URL, input, size);
       Cache.set(cacheKey, names, DEFAULT_AUTOCOMPLETE_CACHE_TIME);
     }
 
@@ -80,8 +86,6 @@ public class Search extends Controller {
     result.set("source", Json.toJson(names));
     return ok(result);
   }
-
-
 
   public static Result searchByKeyword() {
     ObjectNode result = Json.newObject();
@@ -124,10 +128,8 @@ public class Search extends Controller {
       source = null;
     }
 
-    String searchEngine = Play.application().configuration().getString(SearchDao.WHEREHOWS_SEARCH_ENGINE_KEY);
-    Logger.info("searchEngine is: " + searchEngine); // TODO: deprecated this setting
-
-    result.set("result", SEARCH_DAO.elasticSearchDatasetByKeyword(category, keyword, source, page, size));
+    result.set("result",
+        SEARCH_DAO.elasticSearchDatasetByKeyword(ELASTICSEARCH_DATASET_URL, category, keyword, source, page, size));
 
     return ok(result);
   }
