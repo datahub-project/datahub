@@ -56,11 +56,27 @@ export default class GlobalHotkeys extends Component {
    * Method for handling the global keyup.
    * @param {KeyboardEvent} e - KeyboardEvent triggered by user input
    */
-  keyUp(e: KeyboardEvent) {
+  onKeyUp(e: KeyboardEvent) {
     const target = <HTMLElement>e.target;
 
     if (this.isEligibleTarget(target)) {
       get(this, 'hotKeys').applyKeyMapping(e.keyCode);
+    }
+  }
+
+  didInsertElement() {
+    const body = document.getElementsByClassName('ember-application')[0];
+
+    if (body) {
+      body.addEventListener('keyup', this.onKeyUp.bind(this));
+    }
+  }
+
+  willDestroyElement() {
+    const body = document.getElementsByClassName('ember-application')[0];
+
+    if (body) {
+      body.removeEventListener('keyup', this.onKeyUp.bind(this));
     }
   }
 }
