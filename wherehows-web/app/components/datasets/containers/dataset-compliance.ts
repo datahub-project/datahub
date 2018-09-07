@@ -345,10 +345,11 @@ export default class DatasetComplianceContainer extends Component {
    * @return {Promise<void}
    */
   @action
-  async saveExportPolicy(this: DatasetComplianceContainer, exportPolicy: IDatasetExportPolicy): Promise<void> {
-    await this.notifyOnSave<void>(saveDatasetExportPolicyByUrn(get(this, 'urn'), exportPolicy));
-
-    this.getExportPolicyTask.perform();
+  async saveExportPolicy(
+    this: DatasetComplianceContainer,
+    exportPolicy: IDatasetExportPolicy
+  ): Promise<IDatasetExportPolicy> {
+    return await this.notifyOnSave<IDatasetExportPolicy>(saveDatasetExportPolicyByUrn(get(this, 'urn'), exportPolicy));
   }
 
   /**

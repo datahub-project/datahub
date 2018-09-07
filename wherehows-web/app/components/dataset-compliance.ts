@@ -242,7 +242,7 @@ export default class DatasetCompliance extends Component {
   /**
    * Passthrough from parent to export policy component to save the export policy
    */
-  onSaveExportPolicy: (exportPolicy: IDatasetExportPolicy) => Promise<void>;
+  onSaveExportPolicy: (exportPolicy: IDatasetExportPolicy) => Promise<IDatasetExportPolicy>;
 
   /**
    * External action to handle manual compliance entity metadata entry
@@ -1518,12 +1518,17 @@ export default class DatasetCompliance extends Component {
     async saveExportPolicy(this: DatasetCompliance, exportPolicy: IDatasetExportPolicy): Promise<void> {
       const onSaveExportPolicy = get(this, 'onSaveExportPolicy');
 
+      let response: IDatasetExportPolicy | undefined;
+
       try {
         set(this, 'isSaving', true);
-        await onSaveExportPolicy(exportPolicy);
+        response = await onSaveExportPolicy(exportPolicy);
         return;
       } finally {
         set(this, 'isSaving', false);
+        if (response) {
+          set(this, 'exportPolicy', response);
+        }
         this.toggleEditing(false, get(this, 'editTarget'));
       }
     },
