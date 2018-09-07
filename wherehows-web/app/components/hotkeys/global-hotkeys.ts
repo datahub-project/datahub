@@ -65,7 +65,7 @@ export default class GlobalHotkeys extends Component {
   }
 
   didInsertElement() {
-    const body = document.getElementsByClassName('ember-application')[0];
+    const body = document.querySelector('.ember-application');
 
     if (body) {
       body.addEventListener('keyup', this.onKeyUp.bind(this));
@@ -73,7 +73,7 @@ export default class GlobalHotkeys extends Component {
   }
 
   willDestroyElement() {
-    const body = document.getElementsByClassName('ember-application')[0];
+    const body = document.querySelector('.ember-application');
 
     if (body) {
       body.removeEventListener('keyup', this.onKeyUp.bind(this));
