@@ -76,7 +76,7 @@ export default class DatasetsHealthScoreTable extends Component {
   headers = computed('dropdownOptions', function(this: DatasetsHealthScoreTable): Array<IHealthTableHeader> {
     const { dropdownOptions, onDropdownSelect } = getProperties(this, 'dropdownOptions', 'onDropdownSelect');
 
-    return (['category', 'description', 'score', 'severity'] as Array<keyof typeof HealthDataFields>).map(header => ({
+    return (Object.keys(HealthDataFields) as Array<keyof typeof HealthDataFields>).map(header => ({
       label: HealthDataFields[header],
       class: `dataset-health__score-table__${header.toLowerCase()}`,
       dropdownOptions: dropdownOptions[header.toLowerCase()],
