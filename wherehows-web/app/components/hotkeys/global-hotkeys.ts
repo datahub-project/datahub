@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get, set } from '@ember/object';
+import { get } from '@ember/object';
 import { service } from '@ember-decorators/service';
 import ComputedProperty from '@ember/object/computed';
 import HotKeys from 'wherehows-web/services/hot-keys';
@@ -40,11 +40,6 @@ export default class GlobalHotkeys extends Component {
   hotKeys: ComputedProperty<HotKeys>;
 
   /**
-   * The event listener function created for the body
-   */
-  bodyEventListener: (e: KeyboardEvent) => void;
-
-  /**
    * Returns true if target exists, is not an input, and is not an editable div
    * @param {HTMLElement} target - target element
    * @returns {boolean}
@@ -61,19 +56,21 @@ export default class GlobalHotkeys extends Component {
    * Method for handling the global keyup.
    * @param {KeyboardEvent} e - KeyboardEvent triggered by user input
    */
-  onKeyUp(e: KeyboardEvent) {
+  // Note: Important to define this as an arrow function in order to maintain this context when
+  // attaching to event listener below
+  onKeyUp = (e: KeyboardEvent) => {
     const target = <HTMLElement>e.target;
 
     if (this.isEligibleTarget(target)) {
       get(this, 'hotKeys').applyKeyMapping(e.keyCode);
     }
-  }
+  };
 
   didInsertElement() {
     const body = document.querySelector('.ember-application');
 
     if (body) {
-      body.addEventListener('keyup', set(this, 'bodyEventListener', this.onKeyUp.bind(this)));
+      body.addEventListener('keyup', this.onKeyUp);
     }
   }
 
@@ -81,7 +78,7 @@ export default class GlobalHotkeys extends Component {
     const body = document.querySelector('.ember-application');
 
     if (body) {
-      body.removeEventListener('keyup', this.bodyEventListener);
+      body.removeEventListener('keyup', this.onKeyUp);
     }
   }
 }
