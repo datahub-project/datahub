@@ -14,22 +14,24 @@
 package wherehows.dao.table;
 
 import javax.annotation.Nonnull;
-import wherehows.models.view.DatasetExportPolicy;
+import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
+import wherehows.models.view.DatasetExportPolicy;
 
 
 public class ExportPolicyDao extends BaseDao {
+
   public ExportPolicyDao(@Nonnull EntityManagerFactory factory) {
     super(factory);
   }
 
-  @Nonnull
+  @Nullable
   public DatasetExportPolicy getDatasetExportPolicy(@Nonnull String datasetUrn) throws Exception {
-    throw new UnsupportedOperationException("Not implemented yet");
+    throw new UnsupportedOperationException("ExportPolicy Not implemented yet");
   }
 
-  public void updateDatasetExportPolicy(@Nonnull String datasetUrn, @Nonnull DatasetExportPolicy record, @Nonnull String user) throws Exception {
+  public void updateDatasetExportPolicy(@Nonnull String datasetUrn, @Nonnull DatasetExportPolicy record,
+      @Nonnull String user) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
-
   }
 }
