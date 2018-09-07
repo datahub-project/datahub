@@ -76,11 +76,11 @@ export default class DatasetsHealthScoreTable extends Component {
   headers = computed('dropdownOptions', function(this: DatasetsHealthScoreTable): Array<IHealthTableHeader> {
     const { dropdownOptions, onDropdownSelect } = getProperties(this, 'dropdownOptions', 'onDropdownSelect');
 
-    return ['Category', 'Description', 'Score', 'Severity'].map(header => ({
-      label: header,
+    return (['category', 'description', 'score', 'severity'] as Array<keyof typeof HealthDataFields>).map(header => ({
+      label: HealthDataFields[header],
       class: `dataset-health__score-table__${header.toLowerCase()}`,
       dropdownOptions: dropdownOptions[header.toLowerCase()],
-      initialDropdown: { label: header, value: '' },
+      initialDropdown: { label: HealthDataFields[header], value: '' },
       onDropdownSelect: onDropdownSelect.bind(this, header)
     }));
   });
@@ -145,12 +145,16 @@ export default class DatasetsHealthScoreTable extends Component {
         'currentCategoryFilter',
         'currentSeverityFilter'
       );
+
       return tableData.map(healthScore => ({
         ...healthScore,
         isHidden:
           (!!categoryFilter && healthScore.category !== categoryFilter) ||
           (!!severityFilter && healthScore.severity !== severityFilter),
-        highlightClass: `dataset-health__score-table__row--${(healthScore.severity || 'normal').toLowerCase()}`
+        highlightClass:
+          healthScore.score < 100
+            ? `dataset-health__score-table__row--${(healthScore.severity || 'normal').toLowerCase()}`
+            : 'dataset-health__score-table__row--successful'
       }));
     }
   );
