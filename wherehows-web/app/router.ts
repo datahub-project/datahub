@@ -4,6 +4,7 @@ import { inject } from '@ember/service';
 import { scheduleOnce } from '@ember/runloop';
 import config from 'wherehows-web/config/environment';
 import Metrics from 'ember-metrics';
+import { IHandler } from 'router_js';
 
 const AppRouter = EmberRouter.extend({
   location: config.locationType,
@@ -12,7 +13,7 @@ const AppRouter = EmberRouter.extend({
 
   metrics: inject(),
 
-  didTransition(infos: Array<IHandlerInfo>) {
+  didTransition(infos: Array<IHandler>) {
     this._super(...arguments);
 
     // On route transition / navigation invoke page tracking
@@ -23,7 +24,7 @@ const AppRouter = EmberRouter.extend({
    * Tracks the current page
    * @private
    */
-  _trackPage(infos: Array<IHandlerInfo>) {
+  _trackPage(infos: Array<IHandler>) {
     scheduleOnce('afterRender', null, () => {
       //@ts-ignore types need update, location property is not a string post instantiation
       const page = get(this, 'location').getURL();
@@ -42,7 +43,7 @@ const AppRouter = EmberRouter.extend({
        * @link https://developer.piwik.org/guides/tracking-javascript-guide#internal-search-tracking
        */
       if (title.includes('search') && searchInfo) {
-        const { keywords, category = 'datasets', page = 1 } = searchInfo.context;
+        const { keywords, category = 'datasets', page = 1 } = <{ [key: string]: any }>searchInfo.context;
 
         if (keywords) {
           // Early exit once we track search, so we do not invoke the
