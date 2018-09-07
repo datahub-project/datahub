@@ -49,7 +49,7 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final Set<String> _whitelistActors;
 
-  private final int MAX_DATASET_NAME_LENGTH = 400;
+  private final static int MAX_DATASET_NAME_LENGTH = 400;
 
   public MetadataChangeProcessor(Config config, DaoFactory daoFactory, String producerTopic,
       KafkaProducer<String, IndexedRecord> producer) {
@@ -119,9 +119,10 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
     // if schema is not null, insert or update schema
     if (dsSchema != null) { // if instanceof DatasetSchema
-      _fieldDetailDao.insertUpdateDatasetFields(identifier, dataset, event.datasetProperty, changeAuditStamp, dsSchema);
+      _fieldDetailDao.insertUpdateDatasetFields(identifier, dataset, event.deploymentInfo, event.datasetProperty,
+          changeAuditStamp, dsSchema);
     } else if (event.schema instanceof Schemaless) { // if instanceof Schemaless
-      _fieldDetailDao.insertUpdateSchemaless(identifier, changeAuditStamp);
+      _fieldDetailDao.insertUpdateSchemaless(identifier, event.deploymentInfo, changeAuditStamp);
     }
 
     // if owners are not null, insert or update owner
@@ -132,7 +133,8 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     // if retention or compliance is not null, insert or update retention / compliance
     // if both null, bypass this
     if (event.compliancePolicy != null || event.retentionPolicy != null) {
-      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy, event.retentionPolicy);
+      _complianceDao.insertUpdateCompliance(identifier, dataset, changeAuditStamp, event.compliancePolicy,
+          event.retentionPolicy);
     }
 
     // if suggested compliance is not null, insert or update suggested compliance

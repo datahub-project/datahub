@@ -17,6 +17,7 @@ import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.DatasetProperty;
 import com.linkedin.events.metadata.DatasetSchema;
+import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.FieldSchema;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,13 +52,14 @@ public class FieldDetailDao extends BaseDao {
    * Insert or update dict field details given information from MetadataChangeEvent
    * @param identifier DatasetIdentifier
    * @param dataset DictDataset
+   * @param deployments List DeploymentDetail
    * @param auditStamp ChangeAuditStamp
    * @param schema DatasetSchema
    * @throws Exception
    */
   public void insertUpdateDatasetFields(@Nonnull DatasetIdentifier identifier, @Nullable DictDataset dataset,
-      @Nullable DatasetProperty property, @Nonnull ChangeAuditStamp auditStamp, @Nonnull DatasetSchema schema)
-      throws Exception {
+      @Nullable List<DeploymentDetail> deployments, @Nullable DatasetProperty property,
+      @Nonnull ChangeAuditStamp auditStamp, @Nonnull DatasetSchema schema) throws Exception {
 
     if (dataset == null) {
       throw new RuntimeException("Fail to update dataset fields, dataset is NULL.");
@@ -82,11 +84,12 @@ public class FieldDetailDao extends BaseDao {
   /**
    * Insert or update Schemaless from MetadataChangeEvent
    * @param identifier DatasetIdentifier
+   * @param deployments List DeploymentDetail
    * @param auditStamp ChangeAuditStamp
    * @throws Exception
    */
-  public void insertUpdateSchemaless(@Nonnull DatasetIdentifier identifier, @Nonnull ChangeAuditStamp auditStamp)
-      throws Exception {
+  public void insertUpdateSchemaless(@Nonnull DatasetIdentifier identifier,
+      @Nullable List<DeploymentDetail> deployments, @Nonnull ChangeAuditStamp auditStamp) throws Exception {
     throw new UnsupportedOperationException("Support for Schemaless not yet implemented.");
   }
 
