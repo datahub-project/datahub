@@ -23,6 +23,14 @@
         }
       }
 
+      &--successful {
+        .dataset-health__score-table {
+          &__score {
+            color: get-color(green5);
+          }
+        }
+      }
+
       & .dataset-health__score-table {
         &__category {
           color: get-color(blue5);
