@@ -11,7 +11,7 @@
   {{#if (and isActiveTab severityData)}}
     {{visualization/charts/horizontal-bar-chart
       class="severity-chart"
-      title="Severity"
+      title="Priority Level"
       series=severityData
       labelAppendValue="%"
       onBarSelect=(action onSeveritySelect)}}
