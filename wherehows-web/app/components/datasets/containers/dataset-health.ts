@@ -14,9 +14,9 @@ import { IObject } from 'wherehows-web/typings/generic';
  */
 export enum HealthDataFields {
   category = 'Category',
-  severity = 'Priority',
   description = 'Description',
-  score = 'Score'
+  score = 'Score',
+  severity = 'Priority'
 }
 
 /**
