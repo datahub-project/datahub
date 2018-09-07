@@ -12,18 +12,18 @@ const AppRouter = EmberRouter.extend({
 
   metrics: inject(),
 
-  didTransition() {
+  didTransition(infos: Array<IHandlerInfo>) {
     this._super(...arguments);
 
     // On route transition / navigation invoke page tracking
-    this._trackPage();
+    this._trackPage(infos);
   },
 
   /**
    * Tracks the current page
    * @private
    */
-  _trackPage() {
+  _trackPage(infos: Array<IHandlerInfo>) {
     scheduleOnce('afterRender', null, () => {
       //@ts-ignore types need update, location property is not a string post instantiation
       const page = get(this, 'location').getURL();
@@ -33,6 +33,7 @@ const AppRouter = EmberRouter.extend({
       // Reference to the _paq queue
       //   check if we are in a browser env
       const paq = window && window._paq ? window._paq : [];
+      const searchInfo = infos.find(({ name }) => name === 'search');
 
       /**
        * Manually track Piwik siteSearch using the `trackSiteSearch` api
@@ -40,15 +41,14 @@ const AppRouter = EmberRouter.extend({
        *  "search", "q", "query", "s", "searchword", "k" and "keyword", keywords
        * @link https://developer.piwik.org/guides/tracking-javascript-guide#internal-search-tracking
        */
-      if (title.includes('search')) {
-        //@ts-ignore types need update
-        const routerJs = get(this, 'router');
-        const queryParams = routerJs ? get(routerJs, 'state.queryParams') : {};
-        const { keyword, category = 'datasets', page = 1 } = queryParams;
+      if (title.includes('search') && searchInfo) {
+        const { keywords, category = 'datasets', page = 1 } = searchInfo.context;
 
-        // Early exit once we track search, so we do not invoke the
-        //   default op by invoking `trackPageView` event
-        return paq.push(['trackSiteSearch', keyword, category, page]);
+        if (keywords) {
+          // Early exit once we track search, so we do not invoke the
+          //   default op by invoking `trackPageView` event
+          return paq.push(['trackSiteSearch', keywords, category, page]);
+        }
       }
 
       metrics.trackPage({ page, title });
