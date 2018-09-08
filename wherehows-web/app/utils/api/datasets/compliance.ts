@@ -160,11 +160,16 @@ const readDatasetExportPolicyByUrn = async (urn: string): Promise<IDatasetExport
   return exportPolicy;
 };
 
-const saveDatasetExportPolicyByUrn = async (urn: string, exportPolicy: IDatasetExportPolicy): Promise<void> => {
-  await postJSON<void>({
+const saveDatasetExportPolicyByUrn = async (
+  urn: string,
+  exportPolicy: IDatasetExportPolicy
+): Promise<IDatasetExportPolicy> => {
+  const response = await postJSON<IDatasetExportPolicyResponse>({
     url: datasetExportPolicyByUrn(urn),
     data: exportPolicy
   });
+
+  return response.exportPolicy;
 };
 
 /**
