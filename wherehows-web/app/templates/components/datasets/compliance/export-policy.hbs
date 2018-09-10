@@ -52,7 +52,7 @@
   {{/table.head}}
 
   {{#table.body as |body|}}
-    {{#each (if shouldShowAllExportPolicyData table.data (filter-by "value" true table.data)) as |classification|}}
+    {{#each table.data as |classification|}}
       {{#body.row as |row|}}
         {{#row.cell class="dataset-field-content__prompt"}}
           <span class="dataset-tag-container">
@@ -126,27 +126,5 @@
 
     {{/each}}
   {{/table.body}}
-
-  {{#if (not isEditing)}}
-
-    {{#table.foot}}
-      <td colspan="2" class="text-center">
-        <button
-          {{action "onShowAllExportPolicyData"}}
-          class="nacho-button--large nacho-button--tertiary">
-          {{#if shouldShowMorePolicyData}}
-
-            See Less <span class="fa fa-caret-up" aria-label="See Less Types of Data"></span>
-
-          {{else}}
-
-            See More <span class="fa fa-caret-down" aria-label="See More Types of Data"></span>
-
-          {{/if}}
-        </button>
-      </td>
-    {{/table.foot}}
-
-  {{/if}}
 
 {{/dataset-table}}
