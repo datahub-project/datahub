@@ -1496,9 +1496,6 @@ export default class DatasetCompliance extends Component {
       const setSaveFlag = (flag = false): boolean => set(this, 'isSaving', flag);
       const editTarget = get(this, 'editTarget');
 
-      console.log('saving compliance');
-      console.log(get(this, 'changeSetNeedsReview'));
-
       try {
         const isSaving = true;
         const onSave = get(this, 'onSave');
