@@ -39,13 +39,21 @@ public class Search {
   private final static String FLOW_CATEGORY = "flows";
   private final static String JOB_CATEGORY = "jobs";
 
-  private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_METRIC_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_FLOW_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_FLOW_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_COMMENT_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_SUGGESTER_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_METRIC_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_FLOW_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_FLOW_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_COMMENT_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_SUGGESTER_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_TEMPLATE");
   private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE = System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT");
+  private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE_FABRIC =
+      System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT_FABRIC");
 
   public static String readJsonQueryFile(String jsonFile) {
     try {
@@ -147,7 +155,7 @@ public class Search {
     return queryNode;
   }
 
-  public static ObjectNode generateElasticSearchFilterString(String sources) throws IOException {
+  public static ObjectNode generateESFilterStringForSources(String sources) throws IOException {
     if (StringUtils.isBlank(sources)) {
       return null;
     }
@@ -168,6 +176,59 @@ public class Search {
     shouldNode.putPOJO("should", shouldValueList);
     ObjectNode queryNode = _OM.createObjectNode();
     queryNode.putPOJO("bool", shouldNode);
+
+    return queryNode;
+  }
+
+  public static ObjectNode generateESFilterStringForFabrics(String fabrics) throws IOException {
+
+    if (StringUtils.isBlank(fabrics)) {
+      return null;
+    }
+
+    List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
+
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_FILTER_UNIT_FILE_FABRIC);
+    String[] values = fabrics.trim().split(",");
+
+    for (String value : values) {
+      if (StringUtils.isNotBlank(value)) {
+        String query = queryTemplate.replace("$FABRIC", value.replace("\"", "").toLowerCase().trim());
+        shouldValueList.add(_OM.readTree(query));
+      }
+    }
+
+    ObjectNode shouldNode = _OM.createObjectNode();
+    shouldNode.putPOJO("should", shouldValueList);
+    ObjectNode queryNode = _OM.createObjectNode();
+    queryNode.putPOJO("bool", shouldNode);
+
+    return queryNode;
+  }
+
+  public static ObjectNode generateElasticSearchFilterString(String sources, String fabrics) throws Exception {
+
+    ObjectNode sourcesNode = generateESFilterStringForSources(sources);
+    ObjectNode fabricsNode = generateESFilterStringForFabrics(fabrics);
+
+    if (sourcesNode == null && fabricsNode == null) {
+      return null;
+    }
+
+    List<JsonNode> mustValueList = new ArrayList<JsonNode>();
+
+    if (sourcesNode != null) {
+      mustValueList.add(generateESFilterStringForSources(sources));
+    }
+
+    if (fabricsNode != null) {
+      mustValueList.add(generateESFilterStringForFabrics(fabrics));
+    }
+
+    ObjectNode mustNode = _OM.createObjectNode();
+    mustNode.putPOJO("must", mustValueList);
+    ObjectNode queryNode = _OM.createObjectNode();
+    queryNode.putPOJO("bool", mustNode);
 
     return queryNode;
   }

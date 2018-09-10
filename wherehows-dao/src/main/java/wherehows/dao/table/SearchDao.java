@@ -176,7 +176,7 @@ public class SearchDao {
   }
 
   public JsonNode elasticSearchDatasetByKeyword(String elasticSearchUrl, String category, String keywords,
-      String source, int page, int size) {
+      String source, int page, int size, String fabric) {
     ObjectNode queryNode = _OM.createObjectNode();
     queryNode.put("from", (page - 1) * size);
     queryNode.put("size", size);
@@ -202,7 +202,7 @@ public class SearchDao {
 
       ObjectNode filterNode = _OM.createObjectNode();
       try {
-        filterNode = generateElasticSearchFilterString(source);
+        filterNode = generateElasticSearchFilterString(source, fabric);
       } catch (Exception e) {
         log.error("Elastic search filter query node generation failed :" + e.getMessage());
       }
@@ -214,7 +214,7 @@ public class SearchDao {
       log.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
       responseNode = HttpUtil.httpPostRequest(elasticSearchUrl, queryNode);
-      // Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
+
     } catch (IOException e) {
       log.error("Elastic search dataset query error: {}", e.toString());
     }
