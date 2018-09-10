@@ -29,6 +29,7 @@ import { getDatasetHealth } from 'wherehows-web/mirage/helpers/dataset-health';
 import { getDatasetCount } from 'wherehows-web/mirage/helpers/dataset-count';
 import { getDatasetDownstreams } from 'wherehows-web/mirage/helpers/dataset-downstreams';
 import { getBrowsePlatforms } from 'wherehows-web/mirage/helpers/browse-platforms';
+import { getSearchResults } from 'wherehows-web/mirage/helpers/search';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -248,8 +249,7 @@ export default function(this: IMirageServer) {
    * Add POST request to support to the current user get ACL permission.
    */
   this.post('/acl', aclAuth);
-
-  this.passthrough();
+  this.get('/search', getSearchResults);
 }
 
 export function testConfig(this: IMirageServer) {}
