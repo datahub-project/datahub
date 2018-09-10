@@ -146,7 +146,7 @@ const readDatasetComplianceSuggestionByUrn = async (urn: string): Promise<ICompl
  * @param urn
  * @return {Promise<IDatasetExportPolicy>}
  */
-const readDatasetExportPolicyByUrn = async (urn: string): Promise<IDatasetExportPolicy> => {
+const readDatasetExportPolicyByUrn = async (urn: string): Promise<IDatasetExportPolicy | null> => {
   let exportPolicy: IDatasetExportPolicy = <IDatasetExportPolicy>{};
 
   try {
@@ -154,7 +154,7 @@ const readDatasetExportPolicyByUrn = async (urn: string): Promise<IDatasetExport
       url: datasetExportPolicyByUrn(urn)
     }));
   } catch {
-    return exportPolicy;
+    return null;
   }
 
   return exportPolicy;
