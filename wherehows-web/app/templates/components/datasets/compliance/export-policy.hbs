@@ -52,7 +52,7 @@
   {{/table.head}}
 
   {{#table.body as |body|}}
-    {{#each table.data as |classification|}}
+    {{#each (unless showExportPolicyUndefined table.data false) as |classification|}}
       {{#body.row as |row|}}
         {{#row.cell class="dataset-field-content__prompt"}}
           <span class="dataset-tag-container">
@@ -111,15 +111,9 @@
           <div>
             <header>
               <strong>
-                None selected
+                No Export Policy Defined
               </strong>
             </header>
-
-            {{#if (and excludesSomeMemberData (not isEditing))}}
-              <p>
-                Click 'See More' below to view all available types of data
-              </p>
-            {{/if}}
           </div>
         </td>
       </tr>
