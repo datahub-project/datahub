@@ -49,7 +49,7 @@ type BatchComplianceResponse = [
   Array<IComplianceDataType>,
   IComplianceSuggestion,
   IDatasetSchema,
-  IDatasetExportPolicy
+  IDatasetExportPolicy | null
 ];
 
 /**
@@ -125,7 +125,7 @@ export default class DatasetComplianceContainer extends Component {
    * Object containing the fields for the export policy for this dataset
    * @type {IDatasetExportPolicy}
    */
-  exportPolicy: IDatasetExportPolicy | undefined;
+  exportPolicy: IDatasetExportPolicy | null;
 
   /**
    * The platform / db that the dataset is persisted
@@ -249,7 +249,7 @@ export default class DatasetComplianceContainer extends Component {
    */
   getExportPolicyTask = task(function*(
     this: DatasetComplianceContainer
-  ): IterableIterator<Promise<IDatasetExportPolicy>> {
+  ): IterableIterator<Promise<IDatasetExportPolicy | null>> {
     const exportPolicy: IDatasetExportPolicy = yield readDatasetExportPolicyByUrn(get(this, 'urn'));
 
     set(this, 'exportPolicy', exportPolicy);
