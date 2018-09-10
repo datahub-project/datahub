@@ -34,6 +34,7 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import Configurator from 'wherehows-web/services/configurator';
 import { typeOf } from '@ember/utils';
 import { service } from '@ember-decorators/service';
+import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
 
 /**
  * Type alias for the response when container data items are batched
@@ -61,6 +62,7 @@ type BatchContainerDataResult = Pick<
 
 const { successUpdating, failedUpdating, successUploading, invalidPolicyData } = compliancePolicyStrings;
 
+@containerDataSource('getContainerDataTask')
 export default class DatasetComplianceContainer extends Component {
   /**
    * External action to capture changes to dataset pii status
@@ -144,14 +146,6 @@ export default class DatasetComplianceContainer extends Component {
    * @type {string}
    */
   urn: string;
-
-  didInsertElement() {
-    get(this, 'getContainerDataTask').perform();
-  }
-
-  didUpdateAttrs() {
-    get(this, 'getContainerDataTask').perform();
-  }
 
   /**
    * An async parent task to group all data tasks for this container component
