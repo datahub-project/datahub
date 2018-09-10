@@ -96,6 +96,8 @@ public class Search extends Controller {
     String category = request().getQueryString("category");
     String source = request().getQueryString("source");
     String pageStr = request().getQueryString("page");
+    String fabric = request().getQueryString("fabric");
+
     if (isBlank(pageStr)) {
       page = 1;
     } else {
@@ -124,12 +126,18 @@ public class Search extends Controller {
     if (isBlank(category)) {
       category = "datasets";
     }
+    // Filter on platform
     if (isBlank(source) || source.equalsIgnoreCase("all") || source.equalsIgnoreCase("default")) {
       source = null;
     }
 
+    // Filter on fabric
+    if (isBlank(fabric) || fabric.equalsIgnoreCase("all") || fabric.equalsIgnoreCase("default")) {
+      fabric = null;
+    }
+
     result.set("result",
-        SEARCH_DAO.elasticSearchDatasetByKeyword(ELASTICSEARCH_DATASET_URL, category, keyword, source, page, size));
+        SEARCH_DAO.elasticSearchDatasetByKeyword(ELASTICSEARCH_DATASET_URL, category, keyword, source, page, size, fabric));
 
     return ok(result);
   }
