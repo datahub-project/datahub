@@ -98,6 +98,7 @@
         {{datasets/compliance/export-policy
           exportPolicyData=exportPolicy
           isEditing=isEditing
+          wikiLinks=@wikiLinks
           toggleEditing=(action toggleEditing)
           onSaveExportPolicy=(action "saveExportPolicy")}}
       {{/if}}
@@ -166,14 +167,17 @@
 
       {{#if schemaless}}
 
-        {{#if (or isReadOnly (eq editTarget ComplianceEdit.CompliancePolicy))}}
+        {{#if (or isReadOnly (eq editTarget ComplianceEdit.DatasetLevelPolicy))}}
           {{datasets/schemaless-tagging
             classificationHelpLink=@wikiLinks.dht
-            isEditable=(not isReadOnly)
+            isEditing=isEditing
             classification=(readonly complianceInfo.confidentiality)
             containsPersonalData=(readonly complianceInfo.containingPersonalData)
+            toggleEditing=(action toggleEditing)
             onClassificationChange=(action "onDatasetSecurityClassificationChange")
             onPersonalDataChange=(action "onDatasetLevelPolicyChange")
+            onSaveCompliance=(action "saveCompliance")
+            resetCompliance=(action "resetCompliance")
           }}
         {{/if}}
 
