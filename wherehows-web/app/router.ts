@@ -4,7 +4,22 @@ import { inject } from '@ember/service';
 import { scheduleOnce } from '@ember/runloop';
 import config from 'wherehows-web/config/environment';
 import Metrics from 'ember-metrics';
-import { IHandler } from 'router_js';
+
+/**
+ * Extracted from here: https://github.com/tildeio/router.js/blob/73d6a7f5ca6fba3cfff8460245fb5a3ceef8a2b5/lib/router/handler-info.ts#L324
+ *
+ * Due to import ts issues:
+ *  * 2 new deps
+ *  * Modify tsconfig.ts
+ *  * Add RSVP definitions
+ *
+ * We decided to manually add the interface.
+ */
+interface IHandler {
+  context: unknown;
+  names: string[];
+  name?: string;
+}
 
 const AppRouter = EmberRouter.extend({
   location: config.locationType,

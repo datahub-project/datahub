@@ -224,10 +224,6 @@
   version "4.14.116"
   resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.116.tgz#5ccf215653e3e8c786a58390751033a9adca0eb9"
 
-"@types/node@^10.5.5":
-  version "10.9.4"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-10.9.4.tgz#0f4cb2dc7c1de6096055357f70179043c33e9897"
-
 "@types/qunit@^2.5.2":
   version "2.5.2"
   resolved "https://registry.yarnpkg.com/@types/qunit/-/qunit-2.5.2.tgz#8b1c3fa33017148032c58a6530f66be3239edef9"
@@ -7727,15 +7723,9 @@ route-recognizer@^0.2.3:
   version "0.2.10"
   resolved "https://registry.yarnpkg.com/route-recognizer/-/route-recognizer-0.2.10.tgz#024b2283c2e68d13a7c7f5173a5924645e8902df"
 
-route-recognizer@^0.3.3, route-recognizer@^0.3.4:
+route-recognizer@^0.3.3:
   version "0.3.4"
   resolved "https://registry.yarnpkg.com/route-recognizer/-/route-recognizer-0.3.4.tgz#39ab1ffbce1c59e6d2bdca416f0932611e4f3ca3"
-
-router_js@^3.0.0:
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/router_js/-/router_js-3.0.0.tgz#fcbc928bfc918d9bf1ca6fc02632f2a7cf62e0c1"
-  dependencies:
-    "@types/node" "^10.5.5"
 
 rsvp@^3.0.14, rsvp@^3.0.17, rsvp@^3.0.18, rsvp@^3.0.21, rsvp@^3.0.6, rsvp@^3.1.0, rsvp@^3.2.1, rsvp@^3.3.3:
   version "3.6.2"

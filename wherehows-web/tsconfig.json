@@ -29,8 +29,7 @@
       ],
       "wherehows-web/mirage/*": [
         "mirage/*"
-      ],
-      "router/*": ["node_modules/router_js/dist/cjs/*"]
+      ]
     }
   },
   "include": ["app/**/*", "tests/**/*", "mirage/**/*"],
