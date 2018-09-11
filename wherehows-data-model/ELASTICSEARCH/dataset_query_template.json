@@ -4,8 +4,8 @@
       {
         "wildcard": {
           "name": {
-            "value": "*$VALUE*",
-            "boost": 16
+            "value": "*.$VALUE*",
+            "boost": 2
           }
         }
       },
@@ -13,7 +13,7 @@
         "prefix": {
           "name": {
             "value": "$VALUE",
-            "boost": 32
+            "boost": 1
           }
         }
       },
@@ -21,7 +21,7 @@
         "match": {
           "name": {
             "query": "$VALUE",
-            "boost": 48
+            "boost": 2
           }
         }
       },
@@ -30,7 +30,7 @@
           "name": {
             "query": "$VALUE",
             "type": "phrase",
-            "boost": 64
+            "boost": 1
           }
         }
       }
