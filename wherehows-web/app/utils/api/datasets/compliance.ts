@@ -11,11 +11,7 @@ import {
   IDatasetExportPolicy
 } from 'wherehows-web/typings/api/datasets/compliance';
 import { getJSON, postJSON } from 'wherehows-web/utils/api/fetcher';
-import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
-import {
-  extractRetentionFromComplianceInfo,
-  nullifyRetentionFieldsOnComplianceInfo
-} from 'wherehows-web/utils/datasets/retention';
+import { nullifyRetentionFieldsOnComplianceInfo } from 'wherehows-web/utils/datasets/retention';
 
 /**
  * Constructs the dataset compliance url
@@ -106,7 +102,6 @@ const saveDatasetComplianceByUrn = async (urn: string, complianceInfo: IComplian
     url: datasetComplianceUrlByUrn(urn),
     data: nullifyRetentionFieldsOnComplianceInfo(complianceInfo)
   });
-  await saveDatasetRetentionByUrn(urn, extractRetentionFromComplianceInfo(complianceInfo));
 };
 
 /**
