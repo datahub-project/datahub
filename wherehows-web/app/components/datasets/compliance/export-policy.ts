@@ -78,6 +78,11 @@ export default class ComplianceExportPolicy extends Component.extend({
    */
   exportPolicyData: IDatasetExportPolicy | undefined;
 
+  @computed('exportPolicyData', 'isEditing')
+  get showExportPolicyUndefined(): boolean {
+    return !get(this, 'isEditing') && !get(this, 'exportPolicyData');
+  }
+
   /**
    * Calculates the table for the export policy questions with seeded information based on the api response
    * for the dataset's export policy
