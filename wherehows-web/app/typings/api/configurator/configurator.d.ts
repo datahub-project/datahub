@@ -8,6 +8,7 @@ import { DatasetPlatform } from 'wherehows-web/constants';
 interface IAppConfig {
   isInternal: boolean | void;
   JitAclAccessWhitelist: Array<DatasetPlatform> | void;
+  jitAclContact: string;
   shouldShowDatasetLineage: boolean;
   shouldShowDatasetHealth: boolean;
   // confidence threshold for filtering out higher quality suggestions
