@@ -61,6 +61,13 @@ export default class DatasetController extends Controller {
   jitAclAccessWhitelist: Array<DatasetPlatform>;
 
   /**
+   * String to indicate who to contact for acl issues
+   * @type {string}
+   * @memberof DatasetController
+   */
+  jitAclContact: string;
+
+  /**
    * References the collection of help links with references to external pages of help information
    * @type {Record<string, string>}
    */
