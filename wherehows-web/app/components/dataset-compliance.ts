@@ -240,6 +240,11 @@ export default class DatasetCompliance extends Component {
   onSave: <T>() => Promise<T>;
 
   /**
+   * Passthrough from parent to export policy component to save the retention policy
+   */
+  onSaveRetentionPolicy: <T>() => Promise<T>;
+
+  /**
    * Passthrough from parent to export policy component to save the export policy
    */
   onSaveExportPolicy: (exportPolicy: IDatasetExportPolicy) => Promise<IDatasetExportPolicy>;
@@ -1499,10 +1504,11 @@ export default class DatasetCompliance extends Component {
       try {
         const isSaving = true;
         const onSave = get(this, 'onSave');
+        const onSaveRetentionPolicy = get(this, 'onSaveRetentionPolicy');
         setSaveFlag(isSaving);
 
         await this.beforeSaveCompliance(editTarget);
-        await onSave();
+        await (editTarget === ComplianceEdit.PurgePolicy ? onSaveRetentionPolicy() : onSave());
         return;
       } finally {
         setSaveFlag();
