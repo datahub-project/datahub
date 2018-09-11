@@ -40,6 +40,9 @@ import { notificationDialogActionFactory } from 'wherehows-web/utils/notificatio
 import Configurator from 'wherehows-web/services/configurator';
 import { typeOf } from '@ember/utils';
 import { service } from '@ember-decorators/service';
+import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
+import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
+import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
 
 /**
  * Type alias for the response when container data items are batched
@@ -334,6 +337,30 @@ export default class DatasetComplianceContainer extends Component {
           // filter out readonly entities, then omit readonly attribute from remaining entities before save
           complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
         })
+      );
+
+      this.resetPrivacyCompliancePolicy.call(this);
+    }
+  }
+
+  /**
+   * Persists the updates to the retention policy on the remote host
+   * @return {Promise<void>}
+   */
+  @action
+  async saveRetentionPolicy(this: DatasetComplianceContainer): Promise<void> {
+    const complianceInfo = get(this, 'complianceInfo');
+    if (complianceInfo) {
+      const { complianceEntities } = complianceInfo;
+
+      await this.notifyOnSave<IDatasetRetention>(
+        saveDatasetRetentionByUrn(
+          get(this, 'urn'),
+          extractRetentionFromComplianceInfo({
+            ...complianceInfo,
+            complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
+          })
+        )
       );
 
       this.resetPrivacyCompliancePolicy.call(this);
