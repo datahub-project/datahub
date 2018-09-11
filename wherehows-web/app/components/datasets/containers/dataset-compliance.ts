@@ -332,7 +332,7 @@ export default class DatasetComplianceContainer extends Component {
       const { complianceEntities } = complianceInfo;
 
       await this.notifyOnSave<void>(
-        saveDatasetComplianceByUrn(get(this, 'urn'), {
+        saveDatasetComplianceByUrn(this.urn, {
           ...complianceInfo,
           // filter out readonly entities, then omit readonly attribute from remaining entities before save
           complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
@@ -355,9 +355,10 @@ export default class DatasetComplianceContainer extends Component {
 
       await this.notifyOnSave<IDatasetRetention>(
         saveDatasetRetentionByUrn(
-          get(this, 'urn'),
+          this.urn,
           extractRetentionFromComplianceInfo({
             ...complianceInfo,
+            // filter out readonly entities, then omit readonly attribute from remaining entities before save
             complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
           })
         )
