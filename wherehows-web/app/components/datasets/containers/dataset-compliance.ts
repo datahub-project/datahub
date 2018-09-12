@@ -4,7 +4,11 @@ import { task } from 'ember-concurrency';
 import { action } from '@ember-decorators/object';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
-import { IComplianceInfo, IComplianceSuggestion } from 'wherehows-web/typings/api/datasets/compliance';
+import {
+  IComplianceInfo,
+  IComplianceSuggestion,
+  IDatasetExportPolicy
+} from 'wherehows-web/typings/api/datasets/compliance';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDatasetSchema } from 'wherehows-web/typings/api/datasets/schema';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
@@ -14,7 +18,9 @@ import {
   readDatasetComplianceByUrn,
   readDatasetComplianceSuggestionByUrn,
   saveDatasetComplianceByUrn,
-  saveDatasetComplianceSuggestionFeedbackByUrn
+  saveDatasetComplianceSuggestionFeedbackByUrn,
+  readDatasetExportPolicyByUrn,
+  saveDatasetExportPolicyByUrn
 } from 'wherehows-web/utils/api';
 import { columnDataTypesAndFieldNames } from 'wherehows-web/utils/api/datasets/columns';
 import { readDatasetSchemaByUrn } from 'wherehows-web/utils/api/datasets/schema';
@@ -35,6 +41,9 @@ import Configurator from 'wherehows-web/services/configurator';
 import { typeOf } from '@ember/utils';
 import { service } from '@ember-decorators/service';
 import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
+import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
+import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
+import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
 
 /**
  * Type alias for the response when container data items are batched
@@ -43,7 +52,8 @@ type BatchComplianceResponse = [
   IReadComplianceResult,
   Array<IComplianceDataType>,
   IComplianceSuggestion,
-  IDatasetSchema
+  IDatasetSchema,
+  IDatasetExportPolicy | null
 ];
 
 /**
@@ -117,6 +127,12 @@ export default class DatasetComplianceContainer extends Component {
   complianceInfo: IComplianceInfo | void;
 
   /**
+   * Object containing the fields for the export policy for this dataset
+   * @type {IDatasetExportPolicy}
+   */
+  exportPolicy: IDatasetExportPolicy | null;
+
+  /**
    * The platform / db that the dataset is persisted
    * @type {IDatasetView.platform}
    */
@@ -173,12 +189,14 @@ export default class DatasetComplianceContainer extends Component {
       { isNewComplianceInfo, complianceInfo },
       complianceDataTypes,
       complianceSuggestion,
-      { columns, schemaless }
+      { columns, schemaless },
+      exportPolicy
     ]: BatchComplianceResponse = await Promise.all([
       readDatasetComplianceByUrn(urn),
       readComplianceDataTypes(),
       readDatasetComplianceSuggestionByUrn(urn),
-      readDatasetSchemaByUrn(urn)
+      readDatasetSchemaByUrn(urn),
+      readDatasetExportPolicyByUrn(urn)
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
@@ -199,7 +217,8 @@ export default class DatasetComplianceContainer extends Component {
       complianceDataTypes,
       complianceSuggestion,
       schemaFieldNamesMappedToDataTypes,
-      schemaless
+      schemaless,
+      exportPolicy
     });
   }
 
@@ -219,6 +238,18 @@ export default class DatasetComplianceContainer extends Component {
 
     this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!fromUpstream });
     setProperties(this, { isNewComplianceInfo, complianceInfo });
+  });
+
+  /**
+   * Reads the export policy properties for the dataset
+   * @type {Task<Promise<IDatasetExportPolicy>, (a?: any) => TaskInstance<Promise<IDatasetExportPolicy>>>}
+   */
+  getExportPolicyTask = task(function*(
+    this: DatasetComplianceContainer
+  ): IterableIterator<Promise<IDatasetExportPolicy | null>> {
+    const exportPolicy: IDatasetExportPolicy = yield readDatasetExportPolicyByUrn(get(this, 'urn'));
+
+    set(this, 'exportPolicy', exportPolicy);
   });
 
   /**
@@ -295,7 +326,7 @@ export default class DatasetComplianceContainer extends Component {
       const { complianceEntities } = complianceInfo;
 
       await this.notifyOnSave<void>(
-        saveDatasetComplianceByUrn(get(this, 'urn'), {
+        saveDatasetComplianceByUrn(this.urn, {
           ...complianceInfo,
           // filter out readonly entities, then omit readonly attribute from remaining entities before save
           complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
@@ -304,6 +335,43 @@ export default class DatasetComplianceContainer extends Component {
 
       this.resetPrivacyCompliancePolicy.call(this);
     }
+  }
+
+  /**
+   * Persists the updates to the retention policy on the remote host
+   * @return {Promise<void>}
+   */
+  @action
+  async saveRetentionPolicy(this: DatasetComplianceContainer): Promise<void> {
+    const complianceInfo = get(this, 'complianceInfo');
+    if (complianceInfo) {
+      const { complianceEntities } = complianceInfo;
+
+      await this.notifyOnSave<IDatasetRetention>(
+        saveDatasetRetentionByUrn(
+          this.urn,
+          extractRetentionFromComplianceInfo({
+            ...complianceInfo,
+            // filter out readonly entities, then omit readonly attribute from remaining entities before save
+            complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
+          })
+        )
+      );
+
+      this.resetPrivacyCompliancePolicy.call(this);
+    }
+  }
+
+  /**
+   * Persists the updates to the export policy on the remote host
+   * @return {Promise<void}
+   */
+  @action
+  async saveExportPolicy(
+    this: DatasetComplianceContainer,
+    exportPolicy: IDatasetExportPolicy
+  ): Promise<IDatasetExportPolicy> {
+    return await this.notifyOnSave<IDatasetExportPolicy>(saveDatasetExportPolicyByUrn(get(this, 'urn'), exportPolicy));
   }
 
   /**

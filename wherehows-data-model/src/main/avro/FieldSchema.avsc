@@ -17,7 +17,7 @@
     {
       "name": "fieldPath",
       "type": "string",
-      "doc": "For example, <grand_grand_parent>.<grand_parent>.<parent>.<name>. See https://iwww.corp.linkedin.com/wiki/cf/display/ENGS/Schema+Metadata for more details."
+      "doc": "For example, <grand_grand_parent>.<grand_parent>.<parent>.<name>. See http://go/tms/schema for more details."
     },
     {
       "name": "fieldJsonPath",
@@ -51,7 +51,7 @@
     {
       "name": "semanticType",
       "type": [ "null", "string" ],
-      "doc": "semantic data type. can be Urn, MemberId, Email, PhoneNumber, GroupName, etc. https://iwww.corp.linkedin.com/wiki/cf/display/DWH/Metadata+Taxonomy+for+Data+Sets"
+      "doc": "[Deprecated] Do not use this field"
     },
     {
       "name": "abstractType",

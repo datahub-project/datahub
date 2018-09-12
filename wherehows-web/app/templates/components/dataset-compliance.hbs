@@ -18,7 +18,7 @@
         </div>
       {{else}}
         <section class="action-bar">
-          {{#if isEditing}}
+          {{#if (and isEditing (not (eq editTarget ComplianceEdit.ExportPolicy)))}}
 
             <div class="container action-bar__content">
 
@@ -44,7 +44,7 @@
                     title="{{unless isDatasetFullyClassified
                                     'Ensure you have provided a yes/no value for all dataset tags'
                                     'Save'}}"
-                    onclick={{action metrics.trackOnAction (action "saveCompliance")}} disabled={{and (eq edit ComplianceEdit.CompliancePolicy) changeSetNeedsReview}}>
+                    onclick={{action metrics.trackOnAction (action "saveCompliance")}} disabled={{and (eq editTarget ComplianceEdit.CompliancePolicy) changeSetNeedsReview}}>
                     Save
                   </button>
                 {{/track-ui-event}}
@@ -94,8 +94,13 @@
         </div>
       </div>
 
-      {{#if (or isReadOnly (eq editTarget ComplianceEdit.DatasetLevelPolicy))}}
-        {{partial "datasets/dataset-compliance/dataset-classification"}}
+      {{#if (or isReadOnly (eq editTarget ComplianceEdit.ExportPolicy))}}
+        {{datasets/compliance/export-policy
+          exportPolicyData=exportPolicy
+          isEditing=isEditing
+          wikiLinks=@wikiLinks
+          toggleEditing=(action toggleEditing)
+          onSaveExportPolicy=(action "saveExportPolicy")}}
       {{/if}}
 
       {{#if (or isReadOnly (eq editTarget ComplianceEdit.PurgePolicy))}}
@@ -162,14 +167,17 @@
 
       {{#if schemaless}}
 
-        {{#if (or isReadOnly (eq editTarget ComplianceEdit.CompliancePolicy))}}
+        {{#if (or isReadOnly (eq editTarget ComplianceEdit.DatasetLevelPolicy))}}
           {{datasets/schemaless-tagging
             classificationHelpLink=@wikiLinks.dht
-            isEditable=(not isReadOnly)
+            isEditing=isEditing
             classification=(readonly complianceInfo.confidentiality)
             containsPersonalData=(readonly complianceInfo.containingPersonalData)
+            toggleEditing=(action toggleEditing)
             onClassificationChange=(action "onDatasetSecurityClassificationChange")
             onPersonalDataChange=(action "onDatasetLevelPolicyChange")
+            onSaveCompliance=(action "saveCompliance")
+            resetCompliance=(action "resetCompliance")
           }}
         {{/if}}
 

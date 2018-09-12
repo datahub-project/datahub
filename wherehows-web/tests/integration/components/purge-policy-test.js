@@ -13,11 +13,11 @@ module('Integration | Component | purge policy', function(hooks) {
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    this.server = sinon.createFakeServer();
+    this.sinonServer = sinon.createFakeServer();
   });
 
   hooks.afterEach(function() {
-    this.server.restore();
+    this.sinonServer.restore();
   });
 
   const policyList = '.purge-policy-list';
@@ -89,7 +89,7 @@ module('Integration | Component | purge policy', function(hooks) {
     this.set('purgePolicy', selectedPolicy);
     this.set('supportedPurgePolicies', getSupportedPurgePolicies(platform, platforms));
 
-    this.server.respondWith('GET', '/api/v1/list/platforms', [
+    this.sinonServer.respondWith('GET', '/api/v1/list/platforms', [
       200,
       { 'Content-Type': 'application/json' },
       JSON.stringify({ status: ApiStatus.OK, platforms })
@@ -98,7 +98,7 @@ module('Integration | Component | purge policy', function(hooks) {
     await render(
       hbs`{{purge-policy isEditable=isEditable purgePolicy=purgePolicy platform=platform supportedPurgePolicies=supportedPurgePolicies}}`
     );
-    this.server.respond();
+    this.sinonServer.respond();
 
     assert.ok(
       document.querySelector(`${policyList} [type=radio][value=${selectedPolicy}]`).checked,

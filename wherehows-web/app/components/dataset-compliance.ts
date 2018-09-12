@@ -49,7 +49,8 @@ import {
   IComplianceInfo,
   IComplianceEntity,
   ISuggestedFieldClassification,
-  IComplianceSuggestion
+  IComplianceSuggestion,
+  IDatasetExportPolicy
 } from 'wherehows-web/typings/api/datasets/compliance';
 import {
   IComplianceChangeSet,
@@ -139,6 +140,13 @@ export default class DatasetCompliance extends Component {
   showGuidedComplianceEditMode: boolean = true;
 
   /**
+   * Pass through value for the dataset export policy, to be used by one of our child components on
+   * this page
+   * @type {IDatasetExportPolicy}
+   */
+  exportPolicy: IDatasetExportPolicy | undefined;
+
+  /**
    * Confidence percentage number used to filter high quality suggestions versus lower quality
    * @type {number}
    * @memberof DatasetCompliance
@@ -157,7 +165,7 @@ export default class DatasetCompliance extends Component {
    * @type {ComplianceEdit}
    * @memberof DatasetCompliance
    */
-  editTarget: ComplianceEdit;
+  editTarget: ComplianceEdit | undefined;
 
   /**
    * Flag determining whether or not we are in an editing state. Triggered by an action connected to the
@@ -230,6 +238,16 @@ export default class DatasetCompliance extends Component {
   schemaFieldNamesMappedToDataTypes: Array<Pick<IDatasetColumn, 'dataType' | 'fieldName'>>;
   onReset: <T>() => Promise<T>;
   onSave: <T>() => Promise<T>;
+
+  /**
+   * Passthrough from parent to export policy component to save the retention policy
+   */
+  onSaveRetentionPolicy: <T>() => Promise<T>;
+
+  /**
+   * Passthrough from parent to export policy component to save the export policy
+   */
+  onSaveExportPolicy: (exportPolicy: IDatasetExportPolicy) => Promise<IDatasetExportPolicy>;
 
   /**
    * External action to handle manual compliance entity metadata entry
@@ -1076,7 +1094,7 @@ export default class DatasetCompliance extends Component {
    * @param isEditing - Whether or not we are entering or exiting the editing mode
    * @param editTarget - Which component/section is going into editing mode
    */
-  toggleEditing(this: DatasetCompliance, isEditing: boolean = false, editTarget: ComplianceEdit): void {
+  toggleEditing(this: DatasetCompliance, isEditing: boolean = false, editTarget?: ComplianceEdit): void {
     setProperties(this, { isEditing, editTarget });
   }
 
@@ -1084,7 +1102,7 @@ export default class DatasetCompliance extends Component {
    * Handler that processes actions to be called before the save process
    * @param editTarget - The current edit target being saved
    */
-  async beforeSaveCompliance(editTarget: ComplianceEdit): Promise<void> {
+  async beforeSaveCompliance(editTarget?: ComplianceEdit): Promise<void> {
     switch (editTarget) {
       case ComplianceEdit.CompliancePolicy:
         await this.actions.didEditCompliancePolicy.call(this);
@@ -1486,14 +1504,38 @@ export default class DatasetCompliance extends Component {
       try {
         const isSaving = true;
         const onSave = get(this, 'onSave');
+        const onSaveRetentionPolicy = get(this, 'onSaveRetentionPolicy');
         setSaveFlag(isSaving);
 
         await this.beforeSaveCompliance(editTarget);
-        await onSave();
+        await (editTarget === ComplianceEdit.PurgePolicy ? onSaveRetentionPolicy() : onSave());
         return;
       } finally {
         setSaveFlag();
         this.toggleEditing(false, editTarget);
+      }
+    },
+
+    /**
+     * Saving the export policy
+     * @param {IDatasetExportPolicy} exportPolicy - the export policy data object that will be passed to the
+     *  server via POST request
+     */
+    async saveExportPolicy(this: DatasetCompliance, exportPolicy: IDatasetExportPolicy): Promise<void> {
+      const onSaveExportPolicy = get(this, 'onSaveExportPolicy');
+
+      let response: IDatasetExportPolicy | undefined;
+
+      try {
+        set(this, 'isSaving', true);
+        response = await onSaveExportPolicy(exportPolicy);
+        return;
+      } finally {
+        set(this, 'isSaving', false);
+        if (response) {
+          set(this, 'exportPolicy', response);
+        }
+        this.toggleEditing(false, get(this, 'editTarget'));
       }
     },
 

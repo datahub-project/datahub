@@ -11,334 +11,267 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-
 package wherehows.dao.table;
-import java.util.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import play.Logger;
-import play.Play;
-import play.libs.F.Promise;
-import play.libs.Json;
-import play.libs.ws.*;
+import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import wherehows.models.table.Dataset;
-
+import wherehows.util.HttpUtil;
 
 import static wherehows.util.Search.*;
 
-public class SearchDao
-{
-	public static String ELASTICSEARCH_DATASET_URL_KEY = "elasticsearch.dataset.url";
-	public static String WHEREHOWS_SEARCH_ENGINE_KEY = "search.engine";
 
-	public List<String> getAutoCompleteList(String input, int limit)
-	{
-		List<String> names = new ArrayList<>();
-		names.addAll(getAutoCompleteListDataset(input, limit / 3));
-		return names;
-	}
+@Slf4j
+public class SearchDao {
 
-	public List<String> getAutoCompleteListDataset(String input, int limit)
-	{
-		String elasticSearchTypeURLKey = "elasticsearch.dataset.url";
-		String fieldName = "name_suggest";
-		return getAutoCompleteListbyES(elasticSearchTypeURLKey,fieldName,input,limit);
-	}
+  private static final ObjectMapper _OM = new ObjectMapper();
 
-	public List<String> getAutoCompleteListbyES(String elasticSearchTypeURLKey, String fieldName, String input,
-			int limit)
-	{
-		// use elastic search completion suggester, ES will validate the input and limit
-		List<String> completionSuggestionList = new ArrayList<String>();
-		Set<String> completionSuggestionSet = new HashSet<String>();
+  public List<String> getAutoCompleteList(String elasticSearchUrl, String input, int limit) {
+    return getAutoCompleteListDataset(elasticSearchUrl, input, limit / 3);
+  }
 
-		JsonNode responseNode = null;
-		ObjectNode keywordNode = null;
+  public List<String> getAutoCompleteListDataset(String elasticSearchUrl, String input, int limit) {
+    String fieldName = "name_suggest";
+    return getAutoCompleteListbyES(elasticSearchUrl, fieldName, input, limit);
+  }
 
-		try {
-			keywordNode = generateElasticSearchCompletionSuggesterQuery(fieldName, input, limit);
-		} catch (Exception e) {
-			Logger.error("Elastic search completion suggester error. Error message :" + e.getMessage());
-		}
+  public List<String> getAutoCompleteListbyES(String elasticSearchUrl, String fieldName, String input, int limit) {
+    // use elastic search completion suggester, ES will validate the input and limit
+    List<String> completionSuggestionList = new ArrayList<>();
+    Set<String> completionSuggestionSet = new HashSet<>();
 
-		Logger.info("The completion suggester query sent to Elastic Search was: " + keywordNode.toString());
+    ObjectNode keywordNode = generateElasticSearchCompletionSuggesterQuery(fieldName, input, limit);
+    log.info("The completion suggester query sent to Elastic Search was: " + keywordNode);
 
-		Promise<WSResponse> responsePromise =
-				WS.url(Play.application().configuration().getString(elasticSearchTypeURLKey)).post(keywordNode);
-		responseNode = responsePromise.get(1000).asJson();
+    JsonNode responseNode = null;
+    try {
+      responseNode = HttpUtil.httpPostRequest(elasticSearchUrl, keywordNode);
+    } catch (IOException ex) {
+      log.error("ES suggetion list query error: {}" + ex.toString());
+    }
+    if (responseNode == null || !responseNode.isContainerNode()) {
+      return completionSuggestionList;
+    }
 
-		if (responseNode == null || !responseNode.isContainerNode()) {
-			return completionSuggestionList;
-		}
+    JsonNode suggestNode = responseNode.get("suggest");
+    if (suggestNode == null || !suggestNode.has("wh-suggest")) {
+      log.error("Elastic search completion suggester response does not contain suggest node");
+      return completionSuggestionList;
+    }
 
-		JsonNode suggestNode = responseNode.get("suggest");
-		if (suggestNode == null || !suggestNode.has("wh-suggest")) {
-			Logger.error("Elastic search completion suggester response does not contain suggest node");
-			return completionSuggestionList;
-		}
+    JsonNode whSuggestNode = suggestNode.get("wh-suggest");
+    if (whSuggestNode == null || !whSuggestNode.isArray()) {
+      log.error("Elastic search completion suggester response does not contain wh-suggest node");
+      return completionSuggestionList;
+    }
 
-		JsonNode whSuggestNode = suggestNode.get("wh-suggest");
-		if (whSuggestNode == null || !whSuggestNode.isArray()) {
-			Logger.error("Elastic search completion suggester response does not contain wh-suggest node");
-			return completionSuggestionList;
-		}
+    Iterator<JsonNode> arrayIterator = whSuggestNode.elements();
+    if (arrayIterator == null) {
+      return completionSuggestionList;
+    }
 
-		Iterator<JsonNode> arrayIterator = whSuggestNode.elements();
-		if (arrayIterator == null) {
-			return completionSuggestionList;
-		}
+    while (arrayIterator.hasNext()) {
+      JsonNode node = arrayIterator.next();
+      if (!node.isContainerNode() || !node.has("options")) {
+        continue;
+      }
 
-		while (arrayIterator.hasNext()) {
-			JsonNode node = arrayIterator.next();
-			if (!node.isContainerNode() || !node.has("options")) {
-				continue;
-			}
+      JsonNode optionsNode = node.get("options");
+      if (optionsNode == null || !optionsNode.isArray()) {
+        continue;
+      }
 
-			JsonNode optionsNode = node.get("options");
-			if (optionsNode == null || !optionsNode.isArray()) {
-				continue;
-			}
+      Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
+      if (arrayIteratorOptions == null) {
+        continue;
+      }
 
-			Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
-			if (arrayIteratorOptions == null) {
-				continue;
-			}
+      while (arrayIteratorOptions.hasNext()) {
+        JsonNode textNode = arrayIteratorOptions.next();
+        if (textNode == null || !textNode.has("text")) {
+          continue;
+        }
+        String oneSuggestion = textNode.get("text").asText();
+        completionSuggestionSet.add(oneSuggestion);
+      }
+    }
 
-			while (arrayIteratorOptions.hasNext()) {
-				JsonNode textNode = arrayIteratorOptions.next();
-				if (textNode == null || !textNode.has("text")) {
-					continue;
-				}
-				String oneSuggestion = textNode.get("text").asText();
-				completionSuggestionSet.add(oneSuggestion);
-			}
-		}
+    completionSuggestionList.addAll(completionSuggestionSet);
+    log.info("Returned suggestion list is: " + completionSuggestionList);
+    return completionSuggestionList;
+  }
 
-		completionSuggestionList.addAll(completionSuggestionSet);
-		Logger.info("Returned suggestion list is: " + completionSuggestionList);
-		return completionSuggestionList;
-	}
+  // this is for did you mean feature
+  public List<String> getSuggestionList(String elasticSearchUrl, String category, String searchKeyword) {
+    List<String> suggestionList = new ArrayList<>();
+    String fieldName = "name";
 
-	// this is for did you mean feature
-	public static List<String> getSuggestionList(String category, String searchKeyword)
-	{
-		List<String> SuggestionList = new ArrayList<String>();
-		String elasticSearchType = "dataset";
-		String elasticSearchTypeURLKey = "elasticsearch.dataset.url";
-		String fieldName = "name";
+    ObjectNode keywordNode = generateElasticSearchPhraseSuggesterQuery(fieldName, searchKeyword);
 
-		JsonNode responseNode = null;
-		ObjectNode keywordNode = null;
+    log.info("The suggest query sent to Elastic Search is: " + keywordNode);
 
-		try {
-			String lCategory = category.toLowerCase();
-			Logger.info("lCategory is " + category);
+    JsonNode responseNode = null;
+    try {
+      responseNode = HttpUtil.httpPostRequest(elasticSearchUrl, keywordNode);
+    } catch (IOException ex) {
+      log.error("ES suggetion list query error: {}" + ex.toString());
+    }
 
-			// ToDO: deprecate category or reuse for entity
-			switch (lCategory) {
-				case "dataset":
-					elasticSearchType = "dataset";
-					elasticSearchTypeURLKey = "elasticsearch.dataset.url";
-					fieldName = "name";
-					break;
-				default:
-					break;
-			}
+    if (responseNode == null || !responseNode.isContainerNode() || !responseNode.has("hits")) {
+      return suggestionList;
+    }
 
-			keywordNode = generateElasticSearchPhraseSuggesterQuery(elasticSearchType, fieldName, searchKeyword);
-		} catch (Exception e) {
-			Logger.error("Elastic search phrase suggester error. Error message :" + e.getMessage());
-		}
+    JsonNode suggestNode = responseNode.get("suggest");
+    log.info("suggestNode is " + suggestNode);
 
-		Logger.info("The suggest query sent to Elastic Search is: " + keywordNode.toString());
+    if (suggestNode == null || !suggestNode.has("simple_phrase")) {
+      return suggestionList;
+    }
 
-		Promise<WSResponse> responsePromise =
-				WS.url(Play.application().configuration().getString(elasticSearchTypeURLKey)).post(keywordNode);
-		responseNode = responsePromise.get(1000).asJson();
+    JsonNode simplePhraseNode = suggestNode.get("simple_phrase");
+    if (simplePhraseNode == null || !simplePhraseNode.isArray()) {
+      return suggestionList;
+    }
 
-		if (responseNode == null || !responseNode.isContainerNode() || !responseNode.has("hits")) {
-			return SuggestionList;
-		}
+    Iterator<JsonNode> arrayIterator = simplePhraseNode.elements();
+    if (arrayIterator == null) {
+      return suggestionList;
+    }
 
-		JsonNode suggestNode = responseNode.get("suggest");
-		Logger.info("suggestNode is " + suggestNode.toString());
+    while (arrayIterator.hasNext()) {
+      JsonNode node = arrayIterator.next();
+      if (!node.isContainerNode() || !node.has("options")) {
+        continue;
+      }
 
-		if (suggestNode == null || !suggestNode.has("simple_phrase")) {
-			return SuggestionList;
-		}
+      JsonNode optionsNode = node.get("options");
+      if (optionsNode == null || !optionsNode.isArray()) {
+        continue;
+      }
 
-		JsonNode simplePhraseNode = suggestNode.get("simple_phrase");
-		if (simplePhraseNode == null || !simplePhraseNode.isArray()) {
-			return SuggestionList;
-		}
+      Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
+      if (arrayIteratorOptions == null) {
+        continue;
+      }
 
-		Iterator<JsonNode> arrayIterator = simplePhraseNode.elements();
-		if (arrayIterator == null) {
-			return SuggestionList;
-		}
+      while (arrayIteratorOptions.hasNext()) {
+        JsonNode textNode = arrayIteratorOptions.next();
+        if (textNode == null || !textNode.has("text")) {
+          continue;
+        }
+        String oneSuggestion = textNode.get("text").asText();
+        suggestionList.add(oneSuggestion);
+      }
+    }
 
-		while (arrayIterator.hasNext()) {
-			JsonNode node = arrayIterator.next();
-			if (!node.isContainerNode() || !node.has("options")) {
-				continue;
-			}
+    return suggestionList;
+  }
 
-			JsonNode optionsNode = node.get("options");
-			if (optionsNode == null || !optionsNode.isArray()) {
-				continue;
-			}
+  public JsonNode elasticSearchDatasetByKeyword(String elasticSearchUrl, String category, String keywords,
+      String source, int page, int size, String fabric) {
+    ObjectNode queryNode = _OM.createObjectNode();
+    queryNode.put("from", (page - 1) * size);
+    queryNode.put("size", size);
+    JsonNode responseNode = null;
 
-			Iterator<JsonNode> arrayIteratorOptions = optionsNode.elements();
-			if (arrayIteratorOptions == null) {
-				continue;
-			}
+    try {
+      ObjectNode keywordNode = generateElasticSearchQueryString(category, source, keywords);
 
-			while (arrayIteratorOptions.hasNext()) {
-				JsonNode textNode = arrayIteratorOptions.next();
-				if (textNode == null || !textNode.has("text")) {
-					continue;
-				}
-				String oneSuggestion = textNode.get("text").asText();
-				SuggestionList.add(oneSuggestion);
-			}
-		}
+      ObjectNode fieldValueFactorNode = _OM.createObjectNode();
+      fieldValueFactorNode.put("field", "static_boosting_score");
+      fieldValueFactorNode.put("factor", 1);
+      fieldValueFactorNode.put("modifier", "square");
+      fieldValueFactorNode.put("missing", 1);
 
-		return SuggestionList;
-	}
+      ObjectNode funcScoreNodes = _OM.createObjectNode();
+      funcScoreNodes.put("query", keywordNode);
+      funcScoreNodes.put("field_value_factor", fieldValueFactorNode);
 
-	public JsonNode elasticSearchDatasetByKeyword(
-			String category,
-			String keywords,
-			String source,
-			int page,
-			int size)
-	{
-		ObjectNode queryNode = Json.newObject();
-		queryNode.put("from", (page-1)*size);
-		queryNode.put("size", size);
-		JsonNode responseNode = null;
-		ObjectNode keywordNode = null;
+      ObjectNode funcScoreNodesWrapper = _OM.createObjectNode();
+      funcScoreNodesWrapper.put("function_score", funcScoreNodes);
 
-		try {
-			keywordNode = generateElasticSearchQueryString(category, source, keywords);
-		} catch (Exception e) {
-			Logger.error("Elastic search dataset input query is not JSON format. Error message :" + e.getMessage());
-		}
+      queryNode.put("query", funcScoreNodesWrapper);
 
-		if (keywordNode != null) {
-			ObjectNode funcScoreNodes = Json.newObject();
+      ObjectNode filterNode = _OM.createObjectNode();
+      try {
+        filterNode = generateElasticSearchFilterString(source, fabric);
+      } catch (Exception e) {
+        log.error("Elastic search filter query node generation failed :" + e.getMessage());
+      }
 
-			ObjectNode fieldValueFactorNode = Json.newObject();
-			fieldValueFactorNode.put("field", "static_boosting_score");
-			fieldValueFactorNode.put("factor", 1);
-			fieldValueFactorNode.put("modifier", "square");
-			fieldValueFactorNode.put("missing", 1);
+      if (filterNode != null) {
+        queryNode.put("post_filter", filterNode);
+      }
 
-			funcScoreNodes.put("query", keywordNode);
-			funcScoreNodes.put("field_value_factor", fieldValueFactorNode);
+      log.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
-			ObjectNode funcScoreNodesWrapper = Json.newObject();
-			funcScoreNodesWrapper.put("function_score", funcScoreNodes);
+      responseNode = HttpUtil.httpPostRequest(elasticSearchUrl, queryNode);
 
-			queryNode.put("query", funcScoreNodesWrapper);
+    } catch (IOException e) {
+      log.error("Elastic search dataset query error: {}", e.toString());
+    }
 
-			ObjectNode filterNode = Json.newObject();
-			try {
-				filterNode = generateElasticSearchFilterString(source);
-			} catch (Exception e) {
-				Logger.error("Elastic search filter query node generation failed :" + e.getMessage());
-			}
+    ObjectNode resultNode = _OM.createObjectNode();
+    long count = 0L;
+    List<Dataset> pagedDatasets = new ArrayList<>();
+    resultNode.put("page", page);
+    resultNode.put("category", category);
+    resultNode.put("source", source);
+    resultNode.put("itemsPerPage", size);
+    resultNode.put("keywords", keywords);
 
-			if (filterNode != null) {
-				queryNode.put("post_filter", filterNode);
-			}
-
-			Logger.info(
-					" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
-
-			Promise<WSResponse> responsePromise =
-					WS.url(Play.application().configuration().getString(SearchDao.ELASTICSEARCH_DATASET_URL_KEY)).post(queryNode);
-			responseNode = responsePromise.get(1000).asJson();
-
-			// Logger.debug("The responseNode from Elastic Search is: " + responseNode.toString());
-
-		}
-
-		ObjectNode resultNode = Json.newObject();
-		Long count = 0L;
-		List<Dataset> pagedDatasets = new ArrayList<>();
-		resultNode.put("page", page);
-		resultNode.put("category", category);
-		resultNode.put("source", source);
-		resultNode.put("itemsPerPage", size);
-		resultNode.put("keywords", keywords);
-
-		if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits"))
-		{
-			JsonNode hitsNode = responseNode.get("hits");
-			if (hitsNode != null)
-			{
-				if  (hitsNode.has("total"))
-				{
-					count = hitsNode.get("total").asLong();
-				}
-				if (hitsNode.has("hits"))
-				{
-					JsonNode dataNode = hitsNode.get("hits");
-					if (dataNode != null && dataNode.isArray())
-					{
-						Iterator<JsonNode> arrayIterator = dataNode.elements();
-						if (arrayIterator != null)
-						{
-							while (arrayIterator.hasNext())
-							{
-								JsonNode node = arrayIterator.next();
-								if (node.isContainerNode() && node.has("_id"))
-								{
-									Dataset dataset = new Dataset();
-									dataset.id = node.get("_id").asLong();
-									if (node.has("_source"))
-									{
-										JsonNode sourceNode = node.get("_source");
-										if (sourceNode != null)
-										{
-											if (sourceNode.has("name"))
-											{
-												dataset.name = sourceNode.get("name").asText();
-											}
-											if (sourceNode.has("source"))
-											{
-												dataset.source = sourceNode.get("source").asText();
-											}
-											if (sourceNode.has("urn"))
-											{
-												dataset.urn = sourceNode.get("urn").asText();
-											}
-											if (sourceNode.has("schema"))
-											{
-												dataset.schema = sourceNode.get("schema").asText();
-											}
-										}
-									}
-									pagedDatasets.add(dataset);
-								}
-							}
-						}
-
-					}
-				}
-
-			}
-		}
-		resultNode.put("count", count);
-		resultNode.put("totalPages", (int)Math.ceil(count/((double)size)));
-		resultNode.set("data", Json.toJson(pagedDatasets));
-		return resultNode;
-	}
-
+    if (responseNode != null && responseNode.isContainerNode() && responseNode.has("hits")) {
+      JsonNode hitsNode = responseNode.get("hits");
+      if (hitsNode != null) {
+        if (hitsNode.has("total")) {
+          count = hitsNode.get("total").asLong();
+        }
+        if (hitsNode.has("hits")) {
+          JsonNode dataNode = hitsNode.get("hits");
+          if (dataNode != null && dataNode.isArray()) {
+            Iterator<JsonNode> arrayIterator = dataNode.elements();
+            if (arrayIterator != null) {
+              while (arrayIterator.hasNext()) {
+                JsonNode node = arrayIterator.next();
+                if (node.isContainerNode() && node.has("_id")) {
+                  Dataset dataset = new Dataset();
+                  dataset.id = node.get("_id").asLong();
+                  if (node.has("_source")) {
+                    JsonNode sourceNode = node.get("_source");
+                    if (sourceNode != null) {
+                      if (sourceNode.has("name")) {
+                        dataset.name = sourceNode.get("name").asText();
+                      }
+                      if (sourceNode.has("source")) {
+                        dataset.source = sourceNode.get("source").asText();
+                      }
+                      if (sourceNode.has("urn")) {
+                        dataset.urn = sourceNode.get("urn").asText();
+                      }
+                      if (sourceNode.has("schema")) {
+                        dataset.schema = sourceNode.get("schema").asText();
+                      }
+                    }
+                  }
+                  pagedDatasets.add(dataset);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    resultNode.put("count", count);
+    resultNode.put("totalPages", (int) Math.ceil(count / ((double) size)));
+    resultNode.set("data", _OM.valueToTree(pagedDatasets));
+    return resultNode;
+  }
 }

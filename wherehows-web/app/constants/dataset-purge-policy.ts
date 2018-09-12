@@ -8,6 +8,7 @@ enum PurgePolicy {
   AutoPurge = 'AUTO_PURGE',
   ManualPurge = 'MANUAL_PURGE',
   AutoLimitedRetention = 'LIMITED_RETENTION',
+  AutoLimitedWithLocking = 'LIMITED_RETENTION_WITH_LOCKING',
   ManualLimitedRetention = 'MANUAL_LIMITED_RETENTION',
   PurgeExempt = 'PURGE_EXEMPTED',
   NotApplicable = 'PURGE_NOT_APPLICABLE'
@@ -40,7 +41,12 @@ const purgePolicyProps: PurgePolicyProperties = {
   LIMITED_RETENTION: {
     desc:
       'Choose this option only if you rely on the data platform’s default limited retention mechanism to purge your data.',
-    displayAs: 'Auto Limited Retention'
+    displayAs: 'Auto Limited Retention Without Locking'
+  },
+  LIMITED_RETENTION_WITH_LOCKING: {
+    desc:
+      'Choose this option only if you want to rely on the data platform’s default mechanism to lockdown, prior to removal, the dataset when it is older than the predefined limit.',
+    displayAs: 'Auto Limited Retention With Locking'
   },
   MANUAL_LIMITED_RETENTION: {
     desc: 'Choose this option only if you have a well established process to ensure limited data retention.',
