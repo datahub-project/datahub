@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.processors;
+package wherehows.ingestion.processors;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DataOrigin;
@@ -19,11 +19,12 @@ import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.FailedMetadataInventoryEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataInventoryEvent;
-import com.typesafe.config.Config;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -31,10 +32,10 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.view.DatasetViewDao;
-import wherehows.utils.ProcessorUtil;
+import wherehows.ingestion.utils.ProcessorUtil;
 
+import static wherehows.ingestion.utils.ProcessorUtil.*;
 import static wherehows.util.UrnUtil.*;
-import static wherehows.utils.ProcessorUtil.*;
 
 
 @Slf4j
@@ -46,13 +47,13 @@ public class MetadataInventoryProcessor extends KafkaMessageProcessor {
 
   private final DatasetViewDao _datasetViewDao;
 
-  public MetadataInventoryProcessor(Config config, DaoFactory daoFactory, String producerTopic,
-      KafkaProducer<String, IndexedRecord> producer) {
-    super(producerTopic, producer);
+  public MetadataInventoryProcessor(@Nonnull Properties config, @Nonnull DaoFactory daoFactory,
+      @Nonnull String producerTopic, @Nonnull KafkaProducer<String, IndexedRecord> producer) {
+    super(config, daoFactory, producerTopic, producer);
 
-    _datasetViewDao = daoFactory.getDatasetViewDao();
+    _datasetViewDao = _daoFactory.getDatasetViewDao();
 
-    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mie");
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(_config, "whitelist.mie");
 
     log.info("MIE whitelist: " + _whitelistActors);
   }

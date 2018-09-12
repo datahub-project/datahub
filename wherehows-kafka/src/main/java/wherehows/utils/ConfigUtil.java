@@ -11,22 +11,24 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.converters;
+package wherehows.utils;
 
-import org.apache.avro.generic.IndexedRecord;
+import com.typesafe.config.Config;
+import java.util.Properties;
+import javax.annotation.Nonnull;
 
 
-/**
- * Interface for Kafka message converter.
- */
-public interface KafkaMessageConverter<T extends IndexedRecord> {
+public class ConfigUtil {
+
+  private ConfigUtil() {
+  }
 
   /**
-   * Method 'convert' to be implemented by specific converter.
-   * Input one kafka message, output one converted kafka message.
-   *
-   * @param indexedRecord IndexedRecord
-   * @return IndexedRecord
+   * Convert typesafe {@link Config} to {@link Properties}
    */
-  T convert(T indexedRecord);
+  public static Properties configToProperties(@Nonnull Config config) {
+    Properties properties = new Properties();
+    config.entrySet().forEach(e -> properties.setProperty(e.getKey(), config.getString(e.getKey())));
+    return properties;
+  }
 }
