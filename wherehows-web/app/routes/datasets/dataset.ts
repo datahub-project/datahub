@@ -95,6 +95,7 @@ export default class DatasetRoute extends Route {
     setProperties(controller, {
       isInternal: !!getConfig('isInternal'),
       jitAclAccessWhitelist: getConfig('JitAclAccessWhitelist') || [],
+      jitAclContact: getConfig('jitAclContact', { useDefault: true, default: 'your ACL admin' }),
       shouldShowDatasetLineage: getConfig('shouldShowDatasetLineage'),
       shouldShowDatasetHealth: getConfig('shouldShowDatasetHealth'),
       wikiLinks: getConfig('wikiLinks')

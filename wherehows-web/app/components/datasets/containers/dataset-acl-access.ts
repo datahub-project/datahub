@@ -77,6 +77,11 @@ export default class DatasetAclAccessContainer extends Component {
   isJitAclAccessEnabled: boolean;
 
   /**
+   * Who to contact in case of error
+   */
+  jitAclContact: string;
+
+  /**
    * Request object for the current user requesting access control
    * @type {IRequestAccessControlEntry}
    * @memberof DatasetAclAccessContainer
@@ -170,7 +175,9 @@ export default class DatasetAclAccessContainer extends Component {
 
     notify(NotificationEvent.confirm, {
       header: 'Successfully processed ACL request',
-      content: `${message} Your access should be enabled within 15 minutes. Contact ask_acl@linkedin.com if you're still having issues after that time.`,
+      content: `${message} Your access should be enabled within 15 minutes. Contact ${
+        this.jitAclContact
+      } if you're still having issues after that time.`,
       dialogActions,
       confirmButtonText: false,
       dismissButtonText: 'Dismiss'
