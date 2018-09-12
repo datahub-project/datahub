@@ -93,7 +93,7 @@ public class Application extends Controller {
       Play.application().configuration().getString("links.wiki.exportPolicy", "");
 
   private static final String WHZ_LINKS__JIT_ACL_CONTACT =
-      Play.application().configuration().getString("links.jitAcl.contact");
+      Play.application().configuration().getString("links.jitAcl.contact", "");
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
@@ -212,7 +212,7 @@ public class Application extends Controller {
     config.put("suggestionConfidenceThreshold", Integer.parseInt(WHZ_SUGGESTION_CONFIDENCE_THRESHOLD));
     config.set("wikiLinks", wikiLinks());
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
-    config.set("jitAclContact", WHZ_LINKS__JIT_ACL_CONTACT);
+    config.put("jitAclContact", WHZ_LINKS__JIT_ACL_CONTACT);
     config.set("tracking", trackingInfo());
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
     // such config and alert users that their changes will not affect production data
