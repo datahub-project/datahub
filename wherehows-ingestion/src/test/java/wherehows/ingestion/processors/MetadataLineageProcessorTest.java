@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.processors;
+package wherehows.ingestion.processors;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.DatasetIdentifier;
@@ -20,10 +20,10 @@ import com.linkedin.events.metadata.JobExecution;
 import com.linkedin.events.metadata.JobStatus;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
-import com.typesafe.config.Config;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -33,7 +33,7 @@ import wherehows.dao.table.LineageDao;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
-import static wherehows.util.ProcessorUtilTest.*;
+import static wherehows.ingestion.util.ProcessorUtilTest.*;
 
 
 public class MetadataLineageProcessorTest {
@@ -42,12 +42,10 @@ public class MetadataLineageProcessorTest {
 
   @BeforeTest
   public void setup() {
-    Config mockConfig = mock(Config.class);
-    when(mockConfig.hasPath("whitelist.mle")).thenReturn(false);
     DaoFactory mockDaoFactory = mock(DaoFactory.class);
     when(mockDaoFactory.getLineageDao()).thenReturn(mock(LineageDao.class));
 
-    _processor = new MetadataLineageProcessor(mockConfig, mockDaoFactory, "topic", mock(KafkaProducer.class));
+    _processor = new MetadataLineageProcessor(new Properties(), mockDaoFactory, "topic", mock(KafkaProducer.class));
   }
 
   @Test

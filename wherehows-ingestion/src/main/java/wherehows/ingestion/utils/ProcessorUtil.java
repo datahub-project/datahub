@@ -11,18 +11,18 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.utils;
+package wherehows.ingestion.utils;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.MetadataChangeEvent;
-import com.typesafe.config.Config;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -64,13 +64,13 @@ public class ProcessorUtil {
 
   /**
    * Extract whitelisted actors from the given config and configPath
-   * @param config The {@link Config}
+   * @param config {@link Properties}
    * @param configPath Key for the white list config
    * @return A set of actor names or null if corresponding config doesn't exists
    */
   @Nullable
-  public static Set<String> getWhitelistedActors(@Nonnull Config config, @Nonnull String configPath) {
-    String actors = config.hasPath(configPath) ? config.getString(configPath) : null;
+  public static Set<String> getWhitelistedActors(@Nonnull Properties config, @Nonnull String configPath) {
+    String actors = config.getProperty(configPath);
     if (StringUtils.isEmpty(actors)) {
       return null;
     }

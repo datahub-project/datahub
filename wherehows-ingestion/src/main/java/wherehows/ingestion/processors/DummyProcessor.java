@@ -11,8 +11,10 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.processors;
+package wherehows.ingestion.processors;
 
+import java.util.Properties;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -25,8 +27,9 @@ import wherehows.dao.DaoFactory;
 @Slf4j
 public class DummyProcessor extends KafkaMessageProcessor {
 
-  public DummyProcessor(DaoFactory daoFactory, String producerTopic, KafkaProducer<String, IndexedRecord> producer) {
-    super(producerTopic, producer);
+  public DummyProcessor(@Nonnull Properties config, @Nonnull DaoFactory daoFactory, @Nonnull String producerTopic,
+      @Nonnull KafkaProducer<String, IndexedRecord> producer) {
+    super(config, daoFactory, producerTopic, producer);
   }
 
   /**
