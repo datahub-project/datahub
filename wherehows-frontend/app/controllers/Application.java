@@ -93,7 +93,7 @@ public class Application extends Controller {
       Play.application().configuration().getString("links.wiki.exportPolicy", "");
 
   private static final String WHZ_LINKS__JIT_ACL_CONTACT =
-      Play.application().configuration().getString("links.jitAcl.contact")
+      Play.application().configuration().getString("links.jitAcl.contact");
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
