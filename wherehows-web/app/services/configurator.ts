@@ -57,15 +57,15 @@ export default class Configurator extends Service {
    */
   static getConfig<K extends keyof IAppConfig | undefined>(
     key?: K,
-    defaultValue?: IAppConfigOrProperty<K>
+    options: { useDefault?: boolean; default?: IAppConfigOrProperty<K> } = {}
   ): IAppConfigOrProperty<K> {
     // Ensure that the application configuration has been successfully cached
     assert('Please ensure you have invoked the `load` method successfully prior to calling `getConfig`.', configLoaded);
 
     return typeof key === 'string' && appConfig.hasOwnProperty(<keyof IAppConfig>key)
       ? <IAppConfigOrProperty<K>>deepClone(appConfig[<keyof IAppConfig>key])
-      : defaultValue !== undefined
-        ? defaultValue
+      : options.useDefault
+        ? <IAppConfigOrProperty<K>>options.default
         : <IAppConfigOrProperty<K>>deepClone(appConfig);
   }
 }
