@@ -83,4 +83,14 @@ enum ComplianceFieldIdValue {
   SlideshareUserId = 'SLIDESHARE_USER_ID'
 }
 
-export { Classification, ComplianceFieldIdValue, IdLogicalType, NonIdLogicalType, SuggestionIntent };
+/**
+ * String values for the keys in the export policy data types
+ * @enum {string}
+ */
+enum ExportPolicyKeys {
+  UGC = 'containsUserGeneratedContent',
+  UAGC = 'containsUserActionGeneratedContent',
+  UDC = 'containsUserDerivedContent'
+}
+
+export { Classification, ComplianceFieldIdValue, IdLogicalType, NonIdLogicalType, SuggestionIntent, ExportPolicyKeys };

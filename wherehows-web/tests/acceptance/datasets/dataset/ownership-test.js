@@ -13,7 +13,7 @@ module('Acceptance | datasets/dataset/ownership', function(hooks) {
 
   skip('visiting /datasets/dataset/ownership', async function(assert) {
     assert.expect(2);
-    defaultScenario(server);
+    defaultScenario(this.server);
     const url = '/datasets/12345/ownership';
 
     await visit(url);

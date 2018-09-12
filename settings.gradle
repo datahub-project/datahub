@@ -6,6 +6,7 @@ def modules = [
     "wherehows-etl",
     "wherehows-frontend",
     "wherehows-hadoop",
+    "wherehows-ingestion",
     "wherehows-kafka",
     "wherehows-web",
 ]

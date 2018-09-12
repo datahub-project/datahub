@@ -16,35 +16,49 @@ package wherehows.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.nio.file.Paths;
-import java.nio.file.Files;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+
 @Slf4j
 public class Search {
-  public final static String DATASET_CATEGORY = "datasets";
-  public final static String METRIC_CATEGORY = "metrics";
-  public final static String COMMENT_CATEGORY = "comments";
-  public final static String FLOW_CATEGORY = "flows";
-  public final static String JOB_CATEGORY = "jobs";
 
-  private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_METRIC_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_FLOW_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_FLOW_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_COMMENT_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_SUGGESTER_QUERY_TEMPLATE");
-  private static final String WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE = System.getenv("WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_TEMPLATE");
+  private Search() {
+  }
+
+  private static final ObjectMapper _OM = new ObjectMapper();
+
+  private final static String DATASET_CATEGORY = "datasets";
+  private final static String METRIC_CATEGORY = "metrics";
+  private final static String COMMENT_CATEGORY = "comments";
+  private final static String FLOW_CATEGORY = "flows";
+  private final static String JOB_CATEGORY = "jobs";
+
+  private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_METRIC_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_FLOW_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_FLOW_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_COMMENT_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_COMMENT_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_SUGGESTER_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_SUGGESTER_QUERY_TEMPLATE");
+  private static final String WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_FILE =
+      System.getenv("WHZ_ELASTICSEARCH_AUTO_COMPLETION_QUERY_TEMPLATE");
   private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE = System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT");
+  private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE_FABRIC =
+      System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT_FABRIC");
 
   public static String readJsonQueryFile(String jsonFile) {
     try {
-      ObjectMapper objectMapper = new ObjectMapper();
-
       String contents = new String(Files.readAllBytes(Paths.get(jsonFile)));
-      JsonNode json = objectMapper.readTree(contents);
+      JsonNode json = _OM.readTree(contents);
       return json.toString();
     } catch (Exception e) {
       log.error("ReadJsonQueryFile failed. Error: " + e.getMessage());
@@ -68,10 +82,10 @@ public class Search {
 
     query = query.replace("$LIMIT", Integer.toString(limit));
 
-    ObjectNode suggestNode = new ObjectMapper().createObjectNode();
+    ObjectNode suggestNode = _OM.createObjectNode();
 
     try {
-      ObjectNode textNode = (ObjectNode) new ObjectMapper().readTree(query);
+      ObjectNode textNode = (ObjectNode) _OM.readTree(query);
       suggestNode.putPOJO("suggest", textNode);
     } catch (Exception e) {
       log.error("suggest Exception = " + e.getMessage());
@@ -81,8 +95,7 @@ public class Search {
     return suggestNode;
   }
 
-  public static ObjectNode generateElasticSearchPhraseSuggesterQuery(String category, String field,
-      String searchKeyword) {
+  public static ObjectNode generateElasticSearchPhraseSuggesterQuery(String field, String searchKeyword) {
     if (StringUtils.isBlank(searchKeyword)) {
       return null;
     }
@@ -94,9 +107,9 @@ public class Search {
       query = query.replace("$FIELD", field.toLowerCase());
     }
 
-    ObjectNode suggestNode = new ObjectMapper().createObjectNode();
+    ObjectNode suggestNode = _OM.createObjectNode();
     try {
-      ObjectNode textNode = (ObjectNode) new ObjectMapper().readTree(query);
+      ObjectNode textNode = (ObjectNode) _OM.readTree(query);
       suggestNode.putPOJO("suggest", textNode);
     } catch (Exception e) {
       log.error("suggest Exception = " + e.getMessage());
@@ -105,8 +118,8 @@ public class Search {
     return suggestNode;
   }
 
-  public static ObjectNode generateElasticSearchQueryString(String category, String source, String keywords) throws Exception
-  {
+  public static ObjectNode generateElasticSearchQueryString(String category, String source, String keywords)
+      throws IOException {
     if (StringUtils.isBlank(keywords)) {
       return null;
     }
@@ -127,25 +140,22 @@ public class Search {
       }
     }
 
-    ObjectMapper objectMapper = new ObjectMapper();
-
     for (String value : values) {
       if (StringUtils.isNotBlank(value)) {
         String query = queryTemplate.replace("$VALUE", value.replace("\"", "").toLowerCase().trim());
-        shouldValueList.add(objectMapper.readTree(query));
+        shouldValueList.add(_OM.readTree(query));
       }
     }
 
-    ObjectNode shouldNode = new ObjectMapper().createObjectNode();
+    ObjectNode shouldNode = _OM.createObjectNode();
     shouldNode.putPOJO("should", shouldValueList);
-    ObjectNode queryNode = new ObjectMapper().createObjectNode();
+    ObjectNode queryNode = _OM.createObjectNode();
     queryNode.putPOJO("bool", shouldNode);
 
     return queryNode;
   }
 
-
-  public static ObjectNode generateElasticSearchFilterString(String sources) throws Exception{
+  public static ObjectNode generateESFilterStringForSources(String sources) throws IOException {
     if (StringUtils.isBlank(sources)) {
       return null;
     }
@@ -155,19 +165,70 @@ public class Search {
     String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_FILTER_UNIT_FILE);
     String[] values = sources.trim().split(",");
 
-    ObjectMapper objectMapper = new ObjectMapper();
-
     for (String value : values) {
       if (StringUtils.isNotBlank(value)) {
         String query = queryTemplate.replace("$SOURCE", value.replace("\"", "").toLowerCase().trim());
-        shouldValueList.add(objectMapper.readTree(query));
+        shouldValueList.add(_OM.readTree(query));
       }
     }
 
-    ObjectNode shouldNode = new ObjectMapper().createObjectNode();
+    ObjectNode shouldNode = _OM.createObjectNode();
     shouldNode.putPOJO("should", shouldValueList);
-    ObjectNode queryNode = new ObjectMapper().createObjectNode();
+    ObjectNode queryNode = _OM.createObjectNode();
     queryNode.putPOJO("bool", shouldNode);
+
+    return queryNode;
+  }
+
+  public static ObjectNode generateESFilterStringForFabrics(String fabrics) throws IOException {
+
+    if (StringUtils.isBlank(fabrics)) {
+      return null;
+    }
+
+    List<JsonNode> shouldValueList = new ArrayList<JsonNode>();
+
+    String queryTemplate = readJsonQueryFile(WHZ_ELASTICSEARCH_FILTER_UNIT_FILE_FABRIC);
+    String[] values = fabrics.trim().split(",");
+
+    for (String value : values) {
+      if (StringUtils.isNotBlank(value)) {
+        String query = queryTemplate.replace("$FABRIC", value.replace("\"", "").toLowerCase().trim());
+        shouldValueList.add(_OM.readTree(query));
+      }
+    }
+
+    ObjectNode shouldNode = _OM.createObjectNode();
+    shouldNode.putPOJO("should", shouldValueList);
+    ObjectNode queryNode = _OM.createObjectNode();
+    queryNode.putPOJO("bool", shouldNode);
+
+    return queryNode;
+  }
+
+  public static ObjectNode generateElasticSearchFilterString(String sources, String fabrics) throws Exception {
+
+    ObjectNode sourcesNode = generateESFilterStringForSources(sources);
+    ObjectNode fabricsNode = generateESFilterStringForFabrics(fabrics);
+
+    if (sourcesNode == null && fabricsNode == null) {
+      return null;
+    }
+
+    List<JsonNode> mustValueList = new ArrayList<JsonNode>();
+
+    if (sourcesNode != null) {
+      mustValueList.add(generateESFilterStringForSources(sources));
+    }
+
+    if (fabricsNode != null) {
+      mustValueList.add(generateESFilterStringForFabrics(fabrics));
+    }
+
+    ObjectNode mustNode = _OM.createObjectNode();
+    mustNode.putPOJO("must", mustValueList);
+    ObjectNode queryNode = _OM.createObjectNode();
+    queryNode.putPOJO("bool", mustNode);
 
     return queryNode;
   }

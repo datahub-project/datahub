@@ -2,20 +2,10 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-
-import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import { nonHdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
 module('Integration | Component | datasets/containers/data-systems-count', function(hooks) {
   setupRenderingTest(hooks);
-
-  hooks.beforeEach(function(this: any) {
-    this.server = startMirage();
-  });
-
-  hooks.afterEach(function(this: any) {
-    this.server.shutdown();
-  });
 
   test('component rendering', async function(assert) {
     assert.expect(2);

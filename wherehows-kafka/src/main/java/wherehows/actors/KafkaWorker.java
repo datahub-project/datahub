@@ -24,7 +24,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.SerializationException;
-import wherehows.processors.KafkaMessageProcessor;
+import wherehows.ingestion.processors.KafkaMessageProcessor;
 
 
 /**

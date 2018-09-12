@@ -6,6 +6,7 @@ dependencies {
   compile externalDependency.commons_lang3
   compile externalDependency.slf4j_api
   compile externalDependency.spring_jdbc
+  compile externalDependency.http_client
   compile externalDependency.jackson_databind
   compile externalDependency.jsr305
   compile externalDependency.guava
@@ -15,9 +16,6 @@ dependencies {
   runtime externalDependency.hikaricp
 
   testCompile externalDependency.testng
-
-  compile externalDependency.play_java_ws
-
 }
 
 findbugs {

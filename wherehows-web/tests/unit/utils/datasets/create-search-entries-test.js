@@ -14,7 +14,8 @@ module('Unit | Utility | datasets/create search entries', function(hooks) {
 
   test('it works base case', function(assert) {
     const { server } = this;
-    const dataset = server.create('dataset', 'forUnitTests');
+    // TODO https://github.com/samselikoff/ember-cli-mirage/issues/1379
+    const dataset = server.create('dataset', 'forUnitTests').attrs;
 
     const result = datasetsCreateSearchEntries([]);
     assert.ok(!result, 'Returns without error for nothing case');
@@ -26,7 +27,8 @@ module('Unit | Utility | datasets/create search entries', function(hooks) {
 
   test('it works for keyword cases', function(assert) {
     const { server } = this;
-    const dataset = server.create('dataset', 'forUnitTests');
+    // TODO https://github.com/samselikoff/ember-cli-mirage/issues/1379
+    const dataset = server.create('dataset', 'forUnitTests').attrs;
 
     datasetsCreateSearchEntries([dataset], 'Rebel');
     assert.equal(dataset.id, 0, 'Sanity check: Created model successfully again');

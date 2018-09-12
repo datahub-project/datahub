@@ -1,0 +1,22 @@
+<section class="action-bar">
+  {{#if isEditing}}
+
+    <div class="container action-bar__content">
+      <button
+        class="nacho-button nacho-button--large-inverse action-bar__item"
+        title="{{unless isDatasetFullyClassified
+                        'Ensure you have provided a yes/no value for all dataset tags'
+                        'Save'}}"
+        onclick={{action "saveCompliance"}} disabled={{shouldDisableEditSaving}}>
+        Save
+      </button>
+
+      <button
+        class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+        onclick={{action "onCancel"}}>
+        Cancel
+      </button>
+    </div>
+
+  {{/if}}
+</section>

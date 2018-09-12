@@ -2,7 +2,6 @@ import { module, test } from 'qunit';
 import { setupRenderingTest } from 'ember-qunit';
 import { render, waitUntil, find, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
-import { startMirage } from 'wherehows-web/initializers/ember-cli-mirage';
 import { DatasetPlatform, PurgePolicy } from 'wherehows-web/constants';
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
@@ -12,14 +11,6 @@ const purgePolicyClass = '.purge-policy-list__item';
 
 module('Integration | Component | datasets/containers/upstream dataset', function(hooks) {
   setupRenderingTest(hooks);
-
-  hooks.beforeEach(function() {
-    this.server = startMirage();
-  });
-
-  hooks.afterEach(function() {
-    this.server.shutdown();
-  });
 
   test('it renders', async function(assert) {
     assert.expect(1);

@@ -22,6 +22,7 @@ import wherehows.dao.table.FieldDetailDao;
 import wherehows.dao.table.AclDao;
 import wherehows.dao.table.LineageDao;
 import wherehows.dao.table.SearchDao;
+import wherehows.dao.table.ExportPolicyDao;
 import wherehows.dao.view.DataTypesViewDao;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.dao.view.OwnerViewDao;
@@ -52,6 +53,8 @@ public class DaoFactory {
   private static AclDao aclDao;
 
   private static SearchDao searchDao;
+
+  private static ExportPolicyDao exportPolicyDao;
 
   public DaoFactory(EntityManagerFactory entityManagerFactory) {
     this.entityManagerFactory = entityManagerFactory;
@@ -118,6 +121,13 @@ public class DaoFactory {
       lineageDao = new LineageDao();
     }
     return lineageDao;
+  }
+
+  public ExportPolicyDao getExportPolicyDao() {
+    if (exportPolicyDao == null) {
+      exportPolicyDao = new ExportPolicyDao(entityManagerFactory);
+    }
+    return exportPolicyDao;
   }
 
   public AclDao getAclDao() {
