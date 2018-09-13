@@ -61,6 +61,8 @@ public class Application extends Controller {
       Play.application().configuration().getString("ui.show.ownership.revamp", "hide");
   private static final Boolean WHZ_STG_BANNER =
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
+  private static final Boolean WHZ_LIVE_DATA_BANNER =
+      Play.application().configuration().getBoolean("ui.show.live.data.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
   private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
@@ -223,6 +225,7 @@ public class Application extends Controller {
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
     // such config and alert users that their changes will not affect production data
     config.put("isStagingBanner", WHZ_STG_BANNER);
+    config.put("isLiveDataWarning", WHZ_LIVE_DATA_BANNER);
     // Flag set in order to warn users that search is experiencing issues
     config.put("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
 
