@@ -1,0 +1,28 @@
+<div class="nacho-container search-facet">
+  <section class="search-facet__header">
+    <h4 class="search-facet__title">{{facet.displayName}}</h4>
+    {{#if showClear}}
+      <button
+        class="nacho-button--tertiary"
+        {{action onClear facet}}>
+        clear
+      </button>
+    {{/if}}
+  </section>
+  {{#each facet.values as |facetValue|}}
+    <div class="search-facet__option">
+      {{input
+        class="search-facet__checkbox"
+        type="checkbox"
+        name="facet.name"
+        id=facetValue.value
+        checked=(readonly (get selections facetValue.value))
+        change=(action onChange facet facetValue)
+        }}
+      <label for="{{facetValue.value}}" class="search-facet__checkbox-wrapper">
+        <span class="search-facet__label">{{facetValue.label}}</span>
+        <span class="search-facet__count">{{facetValue.count}}</span>
+      </label>
+    </div>
+  {{/each}}
+</div>

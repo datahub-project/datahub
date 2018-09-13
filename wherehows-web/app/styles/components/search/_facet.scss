@@ -1,0 +1,46 @@
+.search-facet {
+  margin-bottom: 15px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    min-height: 24px;
+  }
+
+  &__title {
+    flex-grow: 1;
+    margin: 0;
+  }
+
+  &__label {
+    display: block;
+    flex-grow: 1;
+    font-weight: 400;
+    margin-left: 5px;
+  }
+
+  &__count {
+    display: block;
+    font-weight: 400;
+  }
+}
+
+input[type='checkbox'] + label.search-facet__checkbox-wrapper {
+  $checkbox-width: 28px;
+  $container-margin: 16px;
+  display: flex;
+  padding: 6px $container-margin 6px ($container-margin + $checkbox-width);
+  box-sizing: content-box;
+  margin: 0 (-1 * $container-margin);
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  &:before,
+  &:after {
+    left: $container-margin;
+    top: 6px - 1;
+  }
+}
