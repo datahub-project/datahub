@@ -8,6 +8,7 @@ import { action } from '@ember-decorators/object';
 import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { next } from '@ember/runloop';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
 export default class DatasetController extends Controller {
   queryParams = ['urn'];
@@ -69,9 +70,15 @@ export default class DatasetController extends Controller {
 
   /**
    * References the collection of help links with references to external pages of help information
-   * @type {Record<string, string>}
+   * @type {IAppConfig.wikiLinks}
    */
-  wikiLinks: Record<string, string>;
+  wikiLinks: IAppConfig['wikiLinks'];
+
+  /**
+   * References a collection of properties for avatar properties
+   * @type {IAppConfig.avatarEntityProps}
+   */
+  avatarEntityProps: IAppConfig['avatarEntityProps'];
 
   /**
    * Flag indicating the dataset policy is derived from an upstream source

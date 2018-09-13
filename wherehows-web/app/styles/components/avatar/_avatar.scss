@@ -1,5 +1,10 @@
 $avatar-size: 18px;
 
+/// Shared declaration for avatar rounding proportions
+@mixin round-avatar {
+  @include round-image(item-spacing(7));
+}
+
 .user-avatar {
   @include round-image($avatar-size);
 }
@@ -23,7 +28,9 @@ $avatar-size: 18px;
 }
 
 .avatar-item {
-  display: inline;
+  @include round-avatar;
+  display: inline-block;
+  background-color: get-color(silver3);
 
   &--stacked {
     transition-duration: 167ms;
@@ -54,7 +61,7 @@ $avatar-size: 18px;
 }
 
 .avatar {
-  @include round-image(item-spacing(7));
+  @include round-avatar;
   box-sizing: border-box;
   background-clip: content-box;
   border: 2px solid transparent;
@@ -72,7 +79,7 @@ $avatar-size: 18px;
 }
 
 .avatar-rollup {
-  @include round-image(item-spacing(7));
+  @include round-avatar;
   box-sizing: border-box;
   background-clip: content-box;
   border: 1px solid get-color(black, 0.5);
