@@ -1,8 +1,8 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':wherehows-common')
   compile project(':wherehows-dao')
+  compile externalDependency.commons_lang3
   compile externalDependency.kafka_clients
   compile externalDependency.slf4j_api
 

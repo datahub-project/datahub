@@ -27,7 +27,7 @@ import java.util.Properties;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import wherehows.common.exceptions.SelfLineageException;
+import wherehows.ingestion.exceptions.SelfLineageException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
 

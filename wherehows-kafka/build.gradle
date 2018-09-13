@@ -3,6 +3,7 @@ apply plugin: 'application'
 mainClassName = "wherehows.main.ApplicationStart"
 
 dependencies {
+  compile project(':wherehows-common')
   compile project(':wherehows-ingestion')
   compile externalDependency.akka
   compile externalDependency.slf4j_api

@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.common.exceptions.UnauthorizedException;
+import wherehows.ingestion.exceptions.UnauthorizedException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.view.DatasetViewDao;
 import wherehows.ingestion.utils.ProcessorUtil;

@@ -20,24 +20,25 @@ import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.Schemaless;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.common.exceptions.UnauthorizedException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
-import wherehows.models.table.DictDataset;
 import wherehows.ingestion.converters.KafkaLogCompactionConverter;
+import wherehows.ingestion.exceptions.UnauthorizedException;
 import wherehows.ingestion.utils.ProcessorUtil;
-
-import static wherehows.common.utils.StringUtil.*;
+import wherehows.models.table.DictDataset;
 
 
 @Slf4j
@@ -151,5 +152,9 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);
     failedEvent.metadataChangeEvent = event;
     return failedEvent;
+  }
+
+  private List<String> toStringList(@Nullable List<? extends CharSequence> list) {
+    return list == null ? null : list.stream().map(s -> (String) s).collect(Collectors.toList());
   }
 }
