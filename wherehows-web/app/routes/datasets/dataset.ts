@@ -98,7 +98,8 @@ export default class DatasetRoute extends Route {
       jitAclContact: getConfig('jitAclContact', { useDefault: true, default: 'your ACL admin' }),
       shouldShowDatasetLineage: getConfig('shouldShowDatasetLineage'),
       shouldShowDatasetHealth: getConfig('shouldShowDatasetHealth'),
-      wikiLinks: getConfig('wikiLinks')
+      wikiLinks: getConfig('wikiLinks'),
+      avatarEntityProps: getConfig('avatarEntityProps')
     });
   }
 

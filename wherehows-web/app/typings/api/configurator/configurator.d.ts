@@ -15,6 +15,11 @@ interface IAppConfig {
   suggestionConfidenceThreshold: number;
   // collection of links to external help resource pages
   wikiLinks: Record<string, string>;
+  // properties for an avatar entity
+  avatarEntityProps: {
+    urlPrimary: string;
+    urlFallback: string;
+  };
   tracking: {
     isEnabled: boolean;
     trackers: {

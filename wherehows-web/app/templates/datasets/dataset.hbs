@@ -59,8 +59,8 @@
           {{#if shouldShowDatasetHealth}}
             {{datasets/containers/dataset-owner-list
               urn=encodedUrn
-              class="dataset-owner-list"
-              shouldShowDatasetHealth=shouldShowDatasetHealth}}
+              avatarEntityProps=avatarEntityProps
+              class="dataset-owner-list"}}
 
             {{datasets/containers/health-score-gauge urn=encodedUrn}}
           {{/if}}
@@ -70,7 +70,10 @@
     </div>
 
     {{#unless shouldShowDatasetHealth}}
-      {{datasets/containers/dataset-owner-list urn=encodedUrn}}
+      {{datasets/containers/dataset-owner-list
+        urn=encodedUrn
+        avatarEntityProps=avatarEntityProps
+      }}
     {{/unless}}
 
   </div>
