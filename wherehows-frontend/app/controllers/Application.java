@@ -95,6 +95,12 @@ public class Application extends Controller {
   private static final String WHZ_LINKS__JIT_ACL_CONTACT =
       Play.application().configuration().getString("links.jitAcl.contact", "");
 
+  private static final String WHZ_AVI_FALLBACK =
+      Play.application().configuration().getString("linkedin.links.avi.urlFallback", "");
+  private static final String WHZ_AVI_PRIMARY =
+      Play.application().configuration().getString("linkedin.links.avi.urlPrimary", "");
+
+
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
   private static final String WHZ_DB_DSCLASSNAME =
@@ -219,10 +225,27 @@ public class Application extends Controller {
     config.put("isStagingBanner", WHZ_STG_BANNER);
     // Flag set in order to warn users that search is experiencing issues
     config.put("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
+
+    // Insert properties for user profile operations
+    config.set("userEntityProps", userEntityProps());
+
     response.put("status", "ok");
     response.set("config", config);
 
     return ok(response);
+  }
+
+  /**
+   * Creates a JSON object of profile / avatar properties
+   * @return Json avatar / profile image properties
+   */
+  private static ObjectNode userEntityProps() {
+    ObjectNode props = Json.newObject();
+
+    props.put("aviUrlPrimary", WHZ_AVI_PRIMARY);
+    props.put("aviUrlFallback", WHZ_AVI_FALLBACK);
+
+    return props;
   }
 
   /**
