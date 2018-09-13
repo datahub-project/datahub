@@ -1,6 +1,10 @@
 import { setProperties } from '@ember/object';
 import { IdLogicalType, PurgePolicy } from 'wherehows-web/constants/index';
-import { IComplianceEntity, IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
+import {
+  IComplianceEntity,
+  IComplianceInfo,
+  ISuggestedFieldClassification
+} from 'wherehows-web/typings/api/datasets/compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import { arrayEvery, arrayFilter, arrayMap, arrayReduce, arraySome, reduceArrayAsync } from 'wherehows-web/utils/array';
 import { omit, hasEnumerableKeys } from 'wherehows-web/utils/object';
@@ -439,13 +443,40 @@ const fieldTagsRequiringReview = (
 const complianceEntityWithSuggestions = (suggestionMap: ISchemaFieldsToSuggested) => (
   entity: IComplianceEntityWithMetadata
 ): IComplianceChangeSet => {
-  const { identifierField, policyModificationTime } = entity;
+  const { identifierField } = entity;
   const suggestion = suggestionMap[identifierField];
 
-  return suggestion && isRecentSuggestion(policyModificationTime, suggestion.suggestionsModificationTime)
-    ? { ...entity, suggestion }
-    : entity;
+  return suggestion ? { ...entity, suggestion } : entity;
 };
+
+/**
+ * Builds a lookup for compliance fields, keyed by field name to suggested values and metadata such as confidence
+ * value and uid
+ * @param {ISchemaFieldsToSuggested} fieldToSuggestionsTable
+ * @param {ISuggestedFieldClassification} {
+ *     suggestion: { identifierField, identifierType, logicalType, securityClassification },
+ *     confidenceLevel,
+ *     uid
+ *   }
+ * @returns {ISchemaFieldsToSuggested}
+ */
+const buildFieldSuggestionsLookupTable = (
+  fieldToSuggestionsTable: ISchemaFieldsToSuggested,
+  {
+    suggestion: { identifierField, identifierType, logicalType, securityClassification },
+    confidenceLevel,
+    uid
+  }: ISuggestedFieldClassification
+): ISchemaFieldsToSuggested => ({
+  ...fieldToSuggestionsTable,
+  [identifierField]: {
+    identifierType,
+    logicalType,
+    securityClassification,
+    confidenceLevel,
+    uid
+  }
+});
 
 /**
  * Creates a list of IComplianceChangeSet instances by merging compliance entities with the related suggestions for
@@ -648,6 +679,7 @@ const overrideTagReadonly = (tag: IComplianceChangeSet): IComplianceChangeSet =>
 export { TagFilter };
 
 export {
+  buildFieldSuggestionsLookupTable,
   suggestedIdentifierTypesInList,
   compliancePolicyStrings,
   getFieldIdentifierOption,
