@@ -11,14 +11,14 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.common.exceptions;
+package wherehows.ingestion.exceptions;
 
 /**
  * An exception to be thrown when authorization is denied.
  */
-public class UnauthorizedException extends RuntimeException {
+public class SelfLineageException extends RuntimeException {
 
-  public UnauthorizedException(String message) {
+  public SelfLineageException(String message) {
     super(message);
   }
 }
