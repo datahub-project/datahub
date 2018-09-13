@@ -43,7 +43,11 @@ export default Route.extend(ApplicationRouteMixin, {
   async model() {
     const { getConfig } = Configurator;
 
-    const [isInternal, showStagingBanner] = await Promise.all([getConfig('isInternal'), getConfig('isStagingBanner')]);
+    const [isInternal, showStagingBanner, showLiveDataWarning] = await Promise.all([
+      getConfig('isInternal'),
+      getConfig('isStagingBanner', { useDefault: true, default: false }),
+      getConfig('isLiveDataWarning', { useDefault: true, default: false })
+    ]);
 
     const { userName } = get(this, 'sessionUser.currentUser') || {};
 
@@ -62,7 +66,7 @@ export default Route.extend(ApplicationRouteMixin, {
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
 
-    return { feedbackMail, brand, showStagingBanner };
+    return { feedbackMail, brand, showStagingBanner, showLiveDataWarning };
   },
 
   /**
@@ -162,9 +166,12 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   renderTemplate() {
     this._super(...arguments);
-    const { showStagingBanner } = get(this, 'controller').get('model');
+    const { showStagingBanner, showLiveDataWarning } = get(this, 'controller').get('model');
     const banners = get(this, 'banners');
-    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [showStagingBanner]);
+    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [
+      showStagingBanner,
+      showLiveDataWarning
+    ]);
   },
 
   processLegacyDomOperations() {
