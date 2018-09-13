@@ -18,9 +18,9 @@ interface IAppConfig {
   // collection of links to external help resource pages
   wikiLinks: Record<string, string>;
   // properties for an avatar entity
-  avatarEntityProps: {
-    urlPrimary: string;
-    urlFallback: string;
+  userEntityProps: {
+    aviUrlPrimary: string;
+    aviUrlFallback: string;
   };
   tracking: {
     isEnabled: boolean;

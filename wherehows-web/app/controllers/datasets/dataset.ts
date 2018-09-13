@@ -78,7 +78,7 @@ export default class DatasetController extends Controller {
    * References a collection of properties for avatar properties
    * @type {IAppConfig.avatarEntityProps}
    */
-  avatarEntityProps: IAppConfig['avatarEntityProps'];
+  avatarEntityProps: IAppConfig['userEntityProps'];
 
   /**
    * Flag indicating the dataset policy is derived from an upstream source

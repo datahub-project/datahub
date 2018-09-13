@@ -10,7 +10,7 @@
 
       {{#link-to "index" class="navbar-brand"}}
         <div>
-          <img src="{{model.brand.logo}}"
+          <img src="/assets/assets/images/wherehows-logo.png"
                alt="WhereHows Logo">
           <sup class="beta-badge">(Beta)</sup>
         </div>
@@ -26,7 +26,7 @@
         <li class="dropdown">
           <a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
             <i class="caret"></i>
-            <img src="{{model.brand.avatarUrl}}" alt="User Avatar" class="user-avatar">
+            {{avatars/avatar-image avatar=model.avatar class="navbar-avatar-image"}}
           </a>
 
 

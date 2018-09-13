@@ -2,12 +2,17 @@ import Component from '@ember/component';
 import { get, set } from '@ember/object';
 import ComputedProperty, { gte } from '@ember/object/computed';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
-import { action } from '@ember-decorators/object';
+import { action, computed } from '@ember-decorators/object';
 import {
   IAccessControlAccessTypeOption,
+  IAccessControlEntry,
   IRequestAccessControlEntry
 } from 'wherehows-web/typings/api/datasets/aclaccess';
 import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/datasets/acl-access';
+import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { arrayMap } from 'wherehows-web/utils/array';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 
 /**
  * Returns the number of days in milliseconds, default is 1 day
@@ -30,6 +35,19 @@ const minSelectableExpirationDate = new Date(Date.now() + millisecondDays());
 const maxSelectableExpirationDate = new Date(Date.now() + millisecondDays(7));
 
 export default class DatasetAclAccess extends Component {
+  /**
+   * External component attribute with list of acls
+   * @type {Array<IAccessControlEntry>}
+   */
+  acls: Array<IAccessControlEntry>;
+
+  /**
+   * External component attribute with properties to construct an acl's avatar image
+   * @type {(IAppConfig['userEntityProps'] | undefined)}
+   * @memberof DatasetAclAccess
+   */
+  avatarProperties: IAppConfig['userEntityProps'] | undefined;
+
   /**
    * Named component argument with a string link reference to more information on acls
    * @type {string}
@@ -107,6 +125,23 @@ export default class DatasetAclAccess extends Component {
    */
   resetForm() {
     set(this, 'userAclRequest', getDefaultRequestAccessControlEntry());
+  }
+
+  /**
+   * Augments each acl in the list with properties for the user avatar
+   * @readonly
+   * @type {(Array<IAccessControlEntry & Record<'avatar', IAvatar>>)}
+   * @memberof DatasetAclAccess
+   */
+  @computed('acls')
+  get aclsWithAvatarProps(): Array<IAccessControlEntry & Record<'avatar', IAvatar>> {
+    const { acls, avatarProperties } = this;
+    const aclToAvatar = (acl: IAccessControlEntry): IAccessControlEntry & Record<'avatar', IAvatar> => ({
+      ...acl,
+      avatar: getAvatarProps(avatarProperties!)({ userName: acl.principal })
+    });
+
+    return avatarProperties ? arrayMap(aclToAvatar)(acls) : [];
   }
 
   /**
