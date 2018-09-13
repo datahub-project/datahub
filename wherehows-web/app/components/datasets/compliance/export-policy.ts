@@ -95,10 +95,11 @@ export default class ComplianceExportPolicy extends Component.extend({
 
     return policyKeys.map(key => {
       const dataType = ExportPolicyKeys[key];
+      const value = exportPolicyData[dataType];
 
       return {
         dataType,
-        value: exportPolicyData[dataType] || false,
+        value: typeof value === 'boolean' ? value : undefined,
         label: ExportPolicyLabels[key]
       };
     });

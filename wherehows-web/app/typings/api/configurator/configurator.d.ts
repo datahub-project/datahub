@@ -7,6 +7,8 @@ import { DatasetPlatform } from 'wherehows-web/constants';
  */
 interface IAppConfig {
   isInternal: boolean | void;
+  isStagingBanner: boolean;
+  isLiveDataWarning: boolean;
   JitAclAccessWhitelist: Array<DatasetPlatform> | void;
   jitAclContact: string;
   shouldShowDatasetLineage: boolean;

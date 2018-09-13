@@ -56,11 +56,18 @@ export default class BannerService extends Service {
     return banners.length > 0 && (banners.length > 1 || !banners[0].isExiting);
   });
 
-  appInitialBanners([showStagingBanner]: Array<boolean>): void {
+  appInitialBanners([showStagingBanner, showLiveDataWarning]: Array<boolean>): void {
     if (showStagingBanner) {
       this.addBanner(
         'You are viewing/editing in the staging environment. Changes made here will not reflect in production',
         NotificationEvent['info']
+      );
+    }
+
+    if (showLiveDataWarning) {
+      this.addBanner(
+        'You are viewing/editing live data. Changes made here will affect production data',
+        NotificationEvent['confirm']
       );
     }
   }
