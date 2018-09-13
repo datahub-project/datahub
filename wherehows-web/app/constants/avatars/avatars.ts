@@ -5,23 +5,19 @@ import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator'
 /**
  * Takes a Partial<IAvatar> object and builds an IAvatar
  * @param {Partial<IAvatar>} object
- * @param {IAppConfig.avatarEntityProps.urlPrimary} urlPrimary
- * @param {IAppConfig.avatarEntityProps.urlPrimary} urlFallback
+ * @param {IAppConfig.userEntityProps.aviUrlPrimary} aviUrlPrimary primary url for avatar image
+ * @param {IAppConfig.userEntityProps.aviUrlFallback} aviUrlFallback
  * @return {IAvatar}
  */
-const getAvatarProps = ({ urlPrimary, urlFallback }: IAppConfig['avatarEntityProps']) => (
+const getAvatarProps = ({ aviUrlPrimary, aviUrlFallback = '' }: IAppConfig['userEntityProps']) => (
   object: Partial<IAvatar>
 ): IAvatar => {
   const props = pick(object, ['email', 'userName', 'name']);
-  let imageUrl = urlFallback || '';
-
-  if (props.userName && urlPrimary) {
-    imageUrl = urlPrimary.replace('[username]', props.userName);
-  }
+  const hasRequiredUrlElements = props.userName && aviUrlPrimary;
 
   return {
-    imageUrl,
-    imageUrlFallback: urlFallback,
+    imageUrl: hasRequiredUrlElements ? aviUrlPrimary.replace('[username]', props.userName!) : aviUrlFallback,
+    imageUrlFallback: aviUrlFallback,
     ...props
   };
 };

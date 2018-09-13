@@ -21,6 +21,9 @@ import Notifications, { NotificationEvent } from 'wherehows-web/services/notific
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 import { service } from '@ember-decorators/service';
 import { equal } from '@ember-decorators/object/computed';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import Configurator from 'wherehows-web/services/configurator';
+import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
 
 /**
  * Enumerates the string value for an acl access request
@@ -31,6 +34,7 @@ enum AclRequestType {
   Approval = 'approved'
 }
 
+@containerDataSource('getContainerDataTask')
 export default class DatasetAclAccessContainer extends Component {
   /**
    * The currently logged in user service
@@ -78,8 +82,16 @@ export default class DatasetAclAccessContainer extends Component {
 
   /**
    * Who to contact in case of error
+   * @type {string}
    */
   jitAclContact: string;
+
+  /**
+   * Avatar properties used to generate the acl's avatar image
+   * @type {(IAppConfig['userEntityProps'] | undefined)}
+   * @memberof DatasetAclAccessContainer
+   */
+  avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
    * Request object for the current user requesting access control
@@ -111,14 +123,6 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   urn: string;
-
-  didInsertElement() {
-    get(this, 'getContainerDataTask').perform();
-  }
-
-  didUpdateAttrs() {
-    get(this, 'getContainerDataTask').perform();
-  }
 
   constructor() {
     super(...arguments);
@@ -189,15 +193,17 @@ export default class DatasetAclAccessContainer extends Component {
    * @memberof DatasetAclAccessContainer
    */
   getContainerDataTask = task(function*(this: DatasetAclAccessContainer): IterableIterator<any> {
-    if (get(this, 'isJitAclAccessEnabled')) {
-      const { getCurrentUserTask, getDatasetAclsTask, checkUserAccessTask } = getProperties(this, [
+    if (this.isJitAclAccessEnabled) {
+      const { getCurrentUserTask, getDatasetAclsTask, checkUserAccessTask, getAvatarProperties } = getProperties(this, [
         'getCurrentUserTask',
         'getDatasetAclsTask',
-        'checkUserAccessTask'
+        'checkUserAccessTask',
+        'getAvatarProperties'
       ]);
       const user: DatasetAclAccessContainer['user'] = yield getCurrentUserTask.perform();
 
       if (user) {
+        yield getAvatarProperties.perform();
         yield getDatasetAclsTask.perform();
         yield checkUserAccessTask.perform();
       }
@@ -212,6 +218,16 @@ export default class DatasetAclAccessContainer extends Component {
     const { currentUser } = get(this, 'currentUser');
 
     return set(this, 'user', currentUser);
+  });
+
+  /**
+   * Fetches and sets the props used in constructing an acl's avatar
+   * @memberof DatasetAclAccessContainer
+   */
+  getAvatarProperties = task(function*(
+    this: DatasetAclAccessContainer
+  ): IterableIterator<IAppConfig['userEntityProps']> {
+    return set(this, 'avatarProperties', Configurator.getConfig('userEntityProps'));
   });
 
   /**
