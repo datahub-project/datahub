@@ -52,3 +52,10 @@ a {
     text-decoration: none;
   }
 }
+
+div,
+section {
+  &:focus {
+    outline: none;
+  }
+}

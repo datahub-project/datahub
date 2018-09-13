@@ -1,19 +1,20 @@
 <div class="row">
   <div class="col-md-3 wh-sidebar">
-    {{#search/filter-rail header=header as |rail|}}
 
-      {{#search/containers/search-sources currentSource=source as |searchSource|}}
-        {{rail.radioGroup
-          radioOptions=searchSource.radioSources
-          title="Source"
-          changed=(action "sourceDidChange")}}
-      {{/search/containers/search-sources}}
+    {{#search/containers/search-facets currentSource=source as |searchFacet selections onFacetChange onFacetClear|}}
 
-      {{!--Api for date range not currently available--}}
-      {{!--rail.dateRange
-        startDateChanged=(action 'startDateDidChange')
-        endDateChanged=(action 'endDateDidChange')--}}
-    {{/search/filter-rail}}
+      {{#each searchFacet as |facet|}}
+        {{search/search-facet
+          facet=facet
+          selections=(get selections facet.name)
+          onChange=(action onFacetChange)
+          onClear=(action onFacetClear)}}
+      {{/each}}
+      {{!-- {{#search/radio-group
+        radioOptions=searchSource.radioSources
+        title="Source"
+        changed=(action "sourceDidChange")}} --}}
+    {{/search/containers/search-facets}}
   </div>
   <div class="col-md-9 wh-main-content">
     <section class="search-results page-section-container">
