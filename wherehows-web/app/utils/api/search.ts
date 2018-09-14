@@ -87,7 +87,7 @@ export const facetToDynamicCounts = (result: ISearchResponse['result']): IFacets
  * @param selections
  */
 export const toFacetSelectionsArray = (selections: IFacetsSelectionsMap): IFacetsSelectionsArray =>
-  Object.keys(selections).reduce((newSelections: any, key) => {
+  Object.keys(selections).reduce((newSelections: IFacetsSelectionsArray, key) => {
     const selectionsArray = Object.keys(selections[key]).reduce((arr, selKey) => {
       if (selections[key][selKey] && selKey) {
         return [...arr, selKey];
@@ -105,8 +105,8 @@ export const toFacetSelectionsArray = (selections: IFacetsSelectionsMap): IFacet
  * @param selections
  */
 export const toFacetSelectionsMap = (selections: IFacetsSelectionsArray): IFacetsSelectionsMap =>
-  Object.keys(selections).reduce((newSelections: any, key) => {
-    newSelections[key] = selections[key].reduce((obj: any, selKey: string) => {
+  Object.keys(selections).reduce((newSelections: IFacetsSelectionsMap, key) => {
+    newSelections[key] = selections[key].reduce((obj: IFacetSelections, selKey: string) => {
       obj[selKey] = true;
       return obj;
     }, {});
