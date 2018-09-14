@@ -15,10 +15,10 @@ package wherehows.models.table;
 
 public class LineageLink {
 
-    public int id;
-    public String source;
-    public String target;
-    public int value;
-    public String label;
-    public String chain;
+  public int id;
+  public String source;
+  public String target;
+  public int value;
+  public String label;
+  public String chain;
 }

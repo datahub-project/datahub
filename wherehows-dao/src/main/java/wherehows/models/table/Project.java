@@ -15,9 +15,9 @@ package wherehows.models.table;
 
 public class Project {
 
-    public Integer appId;
-    public String name;
-    public String appCode;
-    public Long flowCount;
-    public String flowGroup;
+  public Integer appId;
+  public String name;
+  public String appCode;
+  public Long flowCount;
+  public String flowGroup;
 }

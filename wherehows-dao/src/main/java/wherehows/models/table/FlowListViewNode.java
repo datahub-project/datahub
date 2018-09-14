@@ -15,10 +15,10 @@ package wherehows.models.table;
 
 public class FlowListViewNode {
 
-    public String application;
-    public String nodeName;
-    public String nodeUrl;
-    public String project;
-    public String flow;
-    public Long flowId;
+  public String application;
+  public String nodeName;
+  public String nodeUrl;
+  public String project;
+  public String flow;
+  public Long flowId;
 }

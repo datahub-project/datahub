@@ -15,9 +15,10 @@ package wherehows.models.table;
 
 import lombok.Data;
 
+
 @Data
 public class UserSetting {
 
-    private String detailDefaultView;
-    private String defaultWatch;
+  private String detailDefaultView;
+  private String defaultWatch;
 }

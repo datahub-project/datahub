@@ -15,10 +15,10 @@ package wherehows.models.table;
 
 public class ImpactDataset {
 
-    public Long id;
-    public String urn;
-    public String name;
-    public int level;
-    public Boolean isValidDataset;
-    public String datasetUrl;
+  public Long id;
+  public String urn;
+  public String name;
+  public int level;
+  public Boolean isValidDataset;
+  public String datasetUrl;
 }

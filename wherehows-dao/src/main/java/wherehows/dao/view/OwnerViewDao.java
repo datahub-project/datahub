@@ -19,8 +19,6 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityManagerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import wherehows.models.view.DatasetOwner;
 import wherehows.models.view.DatasetOwnership;
 
@@ -37,7 +35,6 @@ public class OwnerViewDao extends BaseViewDao {
           + "FROM dataset_owner o "
           + "LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) "
           + "WHERE o.dataset_urn = :datasetUrn and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
-
 
   /**
    * Get dataset owner list by WH dataset URN

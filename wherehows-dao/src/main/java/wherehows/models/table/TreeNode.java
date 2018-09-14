@@ -15,11 +15,11 @@ package wherehows.models.table;
 
 public class TreeNode {
 
-    public String title;
-    public String key;
-    public String parent;
-    public Long id;
-    public boolean lazy;
-    public boolean folder;
-    public int level;
+  public String title;
+  public String key;
+  public String parent;
+  public Long id;
+  public boolean lazy;
+  public boolean folder;
+  public int level;
 }
