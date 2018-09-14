@@ -1,12 +1,12 @@
 import Component from '@ember/component';
-import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
-import { get, set } from '@ember/object';
+import { set } from '@ember/object';
 import { computed } from '@ember-decorators/object';
 import { empty } from '@ember-decorators/object/computed';
+import { classNames } from '@ember-decorators/component';
+import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 
+@classNames('dataset-authors-suggested')
 export default class DatasetsOwnersSuggestedOwners extends Component {
-  classNames = ['dataset-authors-suggested'];
-
   constructor() {
     super(...arguments);
 
@@ -17,17 +17,16 @@ export default class DatasetsOwnersSuggestedOwners extends Component {
    * Whether or not the component is expanded. If not, users will only see the initial header information
    * whereas if expanded then users will see the list of all suggested owners
    * @type {boolean}
-   * @default false
    */
   isExpanded = false;
 
   /**
    * Passed in value from parent component, `dataset-authors`, a.k.a. systemGeneratedOwners, this list
    * represents a possible list of owners provided by scanning various systems.
-   * @type {Array<IOwner>}
+   * @type {Array<OwnerWithAvatarRecord>}
    * @default []
    */
-  owners: Array<IOwner>;
+  owners: Array<OwnerWithAvatarRecord>;
 
   /**
    * Computed based on the owners array, detects whether this array is empty or not
@@ -40,10 +39,10 @@ export default class DatasetsOwnersSuggestedOwners extends Component {
    * For the facepile in the suggestions window header, we do not need tos how all the faces of all the
    * possible owners as this could be a large amount. Take only up to the first four to pass into the
    * template for rendering
-   * @type {ComputedProperty<Array<IOwner>>}
+   * @type {ComputedProperty<Array<OwnerWithAvatarRecord>>}
    */
   @computed('owners')
-  get facepileOwners(this: DatasetsOwnersSuggestedOwners): Array<IOwner> {
-    return get(this, 'owners').slice(0, 4);
+  get facepileOwners(this: DatasetsOwnersSuggestedOwners): Array<OwnerWithAvatarRecord> {
+    return this.owners.slice(0, 4);
   }
 }

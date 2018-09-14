@@ -99,7 +99,7 @@ export default class DatasetRoute extends Route {
       shouldShowDatasetLineage: getConfig('shouldShowDatasetLineage'),
       shouldShowDatasetHealth: getConfig('shouldShowDatasetHealth'),
       wikiLinks: getConfig('wikiLinks'),
-      avatarEntityProps: getConfig('avatarEntityProps')
+      avatarEntityProps: getConfig('userEntityProps')
     });
   }
 

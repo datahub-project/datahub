@@ -161,11 +161,11 @@
       </p>
     {{/unless}}
   </header>
-  {{#if acls}}
+  {{#if aclsWithAvatarProps}}
 
     {{#dataset-table
       class="nacho-table nacho-table--stripped"
-      fields=acls
+      fields=aclsWithAvatarProps
       sortColumnWithName=sortColumnWithName
       filterBy=filterBy as |table|
     }}
@@ -191,7 +191,7 @@
         {{#each (sort-by table.sortBy table.data) as |field|}}
           {{#body.row as |row|}}
             {{#row.cell}}
-              {{user-avatar userName=field.principal}}
+              {{avatars/avatar-image avatar=field.avatar}}
 
               {{field.principal}}
             {{/row.cell}}

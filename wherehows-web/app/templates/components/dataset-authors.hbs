@@ -35,17 +35,17 @@
       </tr>
     </thead>
 
-    {{#each confirmedOwners as |confirmedOwner|}}
-      <tbody>
+    <tbody>
+      {{#each confirmedOwnersWithAvatars as |confirmedOwnerWithAvatar|}}
         {{dataset-author
-          owner=confirmedOwner
+          owner=confirmedOwnerWithAvatar
           ownerTypes=ownerTypes
           removeOwner=(action "removeOwner")
           confirmSuggestedOwner=(action "confirmSuggestedOwner")
           updateOwnerType=(action "updateOwnerType")
         }}
-      </tbody>
-    {{/each}}
+      {{/each}}
+    </tbody>
 
     <tbody>
       <tr>
@@ -65,7 +65,7 @@
 
 <section class="dataset-author">
   {{datasets/owners/suggested-owners
-    owners=systemGeneratedOwners
+    owners=systemGeneratedOwnersWithAvatars
     ownerTypes=ownerTypes
     commonOwners=commonOwners
     removeOwner=(action "removeOwner")

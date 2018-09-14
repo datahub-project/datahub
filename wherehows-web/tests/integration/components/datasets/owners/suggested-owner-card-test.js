@@ -23,7 +23,7 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
   test('it renders for base and empty cases', async function(assert) {
     this.setProperties({
       commonOwners,
-      author: {},
+      author: { owner: {} },
       ownerTypes: [],
       removeOwner: noop,
       confirmSuggestedOwner: noop
@@ -49,7 +49,7 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
     this.setProperties({
       ownerTypes,
       commonOwners,
-      author: model,
+      author: { owner: model },
       removeOwner: noop,
       confirmSuggestedOwner: noop
     });
@@ -79,7 +79,7 @@ module('Integration | Component | datasets/owners/suggested owner card', functio
     this.setProperties({
       ownerTypes,
       commonOwners,
-      author: model,
+      author: { owner: model },
       removeOwner: noop,
       confirmSuggestedOwner: owner => {
         assert.equal(owner.name, model.name, 'Passes the correct information to the confirmOwner function');
