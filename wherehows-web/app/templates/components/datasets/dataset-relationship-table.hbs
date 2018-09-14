@@ -16,23 +16,23 @@
   {{/relationTable.head}}
 
   {{#relationTable.body as |body|}}
-    {{#each relationTable.data as |dataset|}}
-      {{#body.row field=dataset as |row|}}
+    {{#each relationTable.data as |lineage|}}
+      {{#body.row field=lineage as |row|}}
         {{#row.cell}}
-          {{#link-to 'datasets.dataset' 'urn' (query-params urn=dataset.uri)}}
+          {{#link-to 'datasets.dataset' 'urn' (query-params urn=lineage.dataset.uri)}}
             <strong>
-              {{dataset.nativeName}}
+              {{lineage.dataset.nativeName}}
             </strong>
           {{/link-to}}
         {{/row.cell}}
         {{#row.cell}}
-          {{titleize dataset.nativeType}}
+          {{titleize lineage.type}}
         {{/row.cell}}
         {{#row.cell}}
-          \{{Actor URN}}
+          {{lineage.actor}}
         {{/row.cell}}
         {{#row.cell}}
-          {{moment-calendar dataset.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
+          {{moment-calendar lineage.dataset.modifiedTime sameElse="MMM Do YYYY, h:mm a"}}
         {{/row.cell}}
       {{/body.row}}
     {{/each}}
