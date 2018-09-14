@@ -24,6 +24,10 @@
     display: block;
     font-weight: 400;
   }
+
+  &__option--empty {
+    color: rgba(0, 0, 0, 0.6);
+  }
 }
 
 input[type='checkbox'] + label.search-facet__checkbox-wrapper {

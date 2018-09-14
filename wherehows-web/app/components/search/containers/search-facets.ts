@@ -7,17 +7,30 @@ import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 import { arrayMap } from 'wherehows-web/utils/array';
+import { IFacetsSelectionsMap, IFacetsCounts } from 'wherehows-web/utils/api/search';
 
 /**
- * Describes the interface of the object passed as radio option for source
- * @interface ISearchSourceOption
+ * Options inside a facet
+ * @interface ISearchFacetOption
  */
-interface ISearchSourceOption {
+interface ISearchFacetOption {
   value: string;
   label: string;
-  count: number;
 }
 
+/**
+ * Interface of a facet
+ */
+interface ISearchFacet {
+  name: string;
+  displayName: string;
+  values: Array<ISearchFacetOption>;
+}
+
+/**
+ * Container component for search facets
+ * It will store state related to search facets.
+ */
 export default class SearchFacetsContainer extends Component {
   didInsertElement(this: SearchFacetsContainer) {
     get(this, 'getPlatformsTask').perform();
@@ -36,8 +49,26 @@ export default class SearchFacetsContainer extends Component {
    */
   _sources: Array<DatasetPlatform> = [];
 
-  selections: any;
-  model: any;
+  /**
+   * Current state of selections of facets
+   * EI:
+   * {
+   *  source: {
+   *    hdfs: true
+   *  },
+   *  fabric: {
+   *    corp: true,
+   *    prod: true
+   *  }
+   * }
+   */
+  selections: IFacetsSelectionsMap;
+
+  /**
+   * Counts for the facets in a similar fashion of selections
+   */
+  counts: IFacetsCounts;
+
   /**
    * Gets the available platforms and extracts a list of dataset sources
    * @type {(Task<Promise<Array<IDataPlatform>>, (a?: any) => TaskInstance<Promise<Array<IDataPlatform>>>>)}
@@ -51,48 +82,37 @@ export default class SearchFacetsContainer extends Component {
   });
 
   /**
+   * I will convert a string into a facet option with counts
+   * @param facetValue
+   * @param facetName
+   */
+  stringToFacetOption(facetValue: string): ISearchFacetOption {
+    return {
+      value: facetValue,
+      label: capitalize(facetValue)
+    };
+  }
+
+  /**
    * Creates a list of options with radio props for the data platforms that can be selected as a search filter
    * @type {(ComputedProperty<Array<ISearchSourceOption>>}
    */
-  @computed('_sources.[]', 'model')
-  get sources(this: SearchFacetsContainer): Array<ISearchSourceOption> {
-    return this._sources.map(
-      (source: DatasetPlatform): ISearchSourceOption => ({
-        value: source,
-        label: capitalize(source),
-        count: this.model.groupbysource[source] || 0
-      })
-    );
+  @computed('_sources.[]', 'counts')
+  get sources(this: SearchFacetsContainer): Array<ISearchFacetOption> {
+    return this._sources.map(source => this.stringToFacetOption(source));
   }
 
-  @computed('sources')
-  get facets() {
+  /**
+   * Facets that are available right now.
+   * In the future, it should be fetched from the backend
+   */
+  @computed('sources', 'counts')
+  get facets(): Array<ISearchFacet> {
     return [
       {
         name: 'fabric',
         displayName: 'Fabrics',
-        values: [
-          {
-            value: 'prod',
-            label: 'Prod',
-            count: this.model.groupbyfabric.prod || 0
-          },
-          {
-            value: 'corp',
-            label: 'Corp',
-            count: this.model.groupbyfabric.corp || 0
-          },
-          {
-            value: 'ei',
-            label: 'EI',
-            count: this.model.groupbyfabric.ei || 0
-          },
-          {
-            value: 'dev',
-            label: 'Dev',
-            count: this.model.groupbyfabric.dev || 0
-          }
-        ]
+        values: ['prod', 'corp', 'ei', 'dev'].map(fabric => this.stringToFacetOption(fabric))
       },
       {
         name: 'source',
@@ -102,11 +122,21 @@ export default class SearchFacetsContainer extends Component {
     ];
   }
 
-  onFacetsChange(_: any) {
+  /**
+   * External closure action that triggers when facet changes
+   * @param _ Facet Selections
+   */
+  onFacetsChange(_: IFacetsSelectionsMap) {
     //nothing
   }
 
-  onFacetChange(facet: any, facetValue: any) {
+  /**
+   * Internal action triggered when facet changes. It will update
+   * the state of selections in a redux fashion.
+   * @param facet The facet that changed
+   * @param facetValue the option of the facet that changed
+   */
+  onFacetChange(facet: ISearchFacet, facetValue: ISearchFacetOption) {
     const currentFacetValues = this.selections[facet.name] || {};
     this.set('selections', {
       ...this.selections,
@@ -118,6 +148,10 @@ export default class SearchFacetsContainer extends Component {
     this.onFacetsChange(this.selections);
   }
 
+  /**
+   * When the user clear the facet
+   * @param facet the facet that the user selects
+   */
   onFacetClear(facet: any) {
     this.set('selections', {
       ...this.selections,
