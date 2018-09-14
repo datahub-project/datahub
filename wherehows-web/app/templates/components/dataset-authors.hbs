@@ -35,8 +35,8 @@
       </tr>
     </thead>
 
-    {{#each confirmedOwnersWithAvatars as |confirmedOwnerWithAvatar|}}
-      <tbody>
+    <tbody>
+      {{#each confirmedOwnersWithAvatars as |confirmedOwnerWithAvatar|}}
         {{dataset-author
           owner=confirmedOwnerWithAvatar
           ownerTypes=ownerTypes
@@ -44,8 +44,8 @@
           confirmSuggestedOwner=(action "confirmSuggestedOwner")
           updateOwnerType=(action "updateOwnerType")
         }}
-      </tbody>
-    {{/each}}
+      {{/each}}
+    </tbody>
 
     <tbody>
       <tr>

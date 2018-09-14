@@ -6,6 +6,6 @@ import { IAvatar } from 'wherehows-web/typings/app/avatars';
  * @type OwnerWithAvatarRecord
  * @alias
  */
-type OwnerWithAvatarRecord = IOwner & Record<'avatar', IAvatar>;
+type OwnerWithAvatarRecord = Record<'owner', IOwner> & Record<'avatar', IAvatar>;
 
 export { OwnerWithAvatarRecord };
