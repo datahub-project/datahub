@@ -15,10 +15,10 @@ package wherehows.models.table;
 
 public class MetricListViewNode {
 
-    public String dashboard;
-    public String nodeName;
-    public String nodeUrl;
-    public String group;
-    public String metric;
-    public Long metricId;
+  public String dashboard;
+  public String nodeName;
+  public String nodeUrl;
+  public String group;
+  public String metric;
+  public Long metricId;
 }

@@ -14,12 +14,12 @@
 package wherehows.models.table;
 
 public class Job {
-    public Long id;
-    public String name;
-    public String path;
-    public String type;
-    public String created;
-    public String modified;
-    public Long refFlowId;
-    public String refFlowGroup;
+  public Long id;
+  public String name;
+  public String path;
+  public String type;
+  public String created;
+  public String modified;
+  public Long refFlowId;
+  public String refFlowGroup;
 }

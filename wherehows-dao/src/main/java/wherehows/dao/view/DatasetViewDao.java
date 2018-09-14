@@ -24,9 +24,9 @@ import wherehows.dao.table.DictDatasetDao;
 import wherehows.models.PagedCollection;
 import wherehows.models.table.DictDataset;
 import wherehows.models.view.DatasetColumn;
+import wherehows.models.view.DatasetHealth;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
-import wherehows.models.view.DatasetHealth;
 
 import static org.apache.commons.lang3.StringUtils.*;
 import static wherehows.util.UrnUtil.*;
@@ -45,11 +45,9 @@ public class DatasetViewDao extends BaseViewDao {
   private static final String GET_DATASET_COLUMNS_BY_DATASET_ID =
       "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
           + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
-          + "dfd.is_distributed as distributed, c.comment, "
-          + "( SELECT count(*) FROM dict_dataset_field_comment ddfc "
+          + "dfd.is_distributed as distributed, c.comment, " + "( SELECT count(*) FROM dict_dataset_field_comment ddfc "
           + "WHERE ddfc.dataset_id = dfd.dataset_id AND ddfc.field_id = dfd.field_id ) as comment_count "
-          + "FROM dict_field_detail dfd "
-          + "LEFT JOIN dict_dataset_field_comment ddfc ON ddfc.field_id = dfd.field_id "
+          + "FROM dict_field_detail dfd " + "LEFT JOIN dict_dataset_field_comment ddfc ON ddfc.field_id = dfd.field_id "
           + "  AND ddfc.comment_id = (select max(comment_id) from dict_dataset_field_comment "
           + "  where field_id = dfd.field_id and is_default = true) "
           + "LEFT JOIN field_comments c ON c.id = ddfc.comment_id "

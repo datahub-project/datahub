@@ -251,25 +251,25 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			List<LineageEdge> edges,
 			boolean isUpLevel)
 	{
-		List<LineageNode> sourceNodes = addedSourceNodes.get(jobNode.exec_id);
+		List<LineageNode> sourceNodes = addedSourceNodes.get(jobNode.execId);
 		if (sourceNodes != null)
 		{
 			for(LineageNode node : sourceNodes)
 			{
-				List<LineageNode> existTargetNodes = addedTargetDataNodes.get(node.abstracted_path);
+				List<LineageNode> existTargetNodes = addedTargetDataNodes.get(node.abstractedPath);
 				LineageNode existNode = null;
 				if (existTargetNodes != null)
 				{
 					Collections.sort(existTargetNodes, new Comparator<LineageNode>(){
 						public int compare(LineageNode node1, LineageNode node2){
-							if(node1.job_end_unix_time == node2.job_end_unix_time)
+							if(node1.jobEndUnixTime == node2.jobEndUnixTime)
 								return 0;
-							return node1.job_end_unix_time > node2.job_end_unix_time ? -1 : 1;
+							return node1.jobEndUnixTime > node2.jobEndUnixTime ? -1 : 1;
 						}
 					});
 					for(LineageNode target : existTargetNodes)
 					{
-						if (node.job_start_unix_time >= target.job_end_unix_time)
+						if (node.jobStartUnixTime >= target.jobEndUnixTime)
 						{
 							existNode = target;
 							break;
@@ -278,7 +278,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				}
 				if (existNode == null)
 				{
-					existNode = addedSourceDataNodes.get(node.abstracted_path);
+					existNode = addedSourceDataNodes.get(node.abstractedPath);
 				}
 				if (existNode != null)
 				{   node.id = existNode.id;
@@ -287,14 +287,14 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				{
 					node.id = nodes.size();
 					nodes.add(node);
-					addedSourceDataNodes.put(node.abstracted_path, node);
+					addedSourceDataNodes.put(node.abstractedPath, node);
 					if (isUpLevel) {
-						List<LineageNode> originalSourceNodes = toBeConvertedSourceDataNodes.get(node.abstracted_path);
+						List<LineageNode> originalSourceNodes = toBeConvertedSourceDataNodes.get(node.abstractedPath);
 						if (originalSourceNodes == null) {
 							originalSourceNodes = new ArrayList<LineageNode>();
 						}
 						originalSourceNodes.add(node);
-						toBeConvertedSourceDataNodes.put(node.abstracted_path, originalSourceNodes);
+						toBeConvertedSourceDataNodes.put(node.abstractedPath, originalSourceNodes);
 					}
 
 				}
@@ -318,26 +318,26 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			List<LineageEdge> edges,
 			boolean isUpLevel)
 	{
-		List<LineageNode> targetNodes = addedTargetNodes.get(jobNode.exec_id);
+		List<LineageNode> targetNodes = addedTargetNodes.get(jobNode.execId);
 		if (targetNodes != null)
 		{
 			for(LineageNode node : targetNodes)
 			{
-				List<LineageNode> existTargetNodes = addedTargetDataNodes.get(node.abstracted_path);
+				List<LineageNode> existTargetNodes = addedTargetDataNodes.get(node.abstractedPath);
 				LineageNode existNode = null;
 				if (existTargetNodes != null)
 				{
 					for(LineageNode target : existTargetNodes)
 					{
-						if (target.partition_end != null)
+						if (target.partitionEnd != null)
 						{
-							if (target.partition_end.equals(node.partition_end))
+							if (target.partitionEnd.equals(node.partitionEnd))
 							{
 								existNode = target;
 								break;
 							}
 						}
-						else if(target.job_end_unix_time == node.job_end_unix_time)
+						else if(target.jobEndUnixTime == node.jobEndUnixTime)
 						{
 							existNode = target;
 							break;
@@ -347,8 +347,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				if (isUpLevel) {
 					if (existNode == null)
 					{
-						existNode = toBeClearedSourceDataNodes.get(node.abstracted_path);
-						if (existNode != null && existNode.job_start_unix_time < node.job_end_unix_time)
+						existNode = toBeClearedSourceDataNodes.get(node.abstractedPath);
+						if (existNode != null && existNode.jobStartUnixTime < node.jobEndUnixTime)
 						{
 							existNode = null;
 						}
@@ -368,7 +368,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						existTargetNodes = new ArrayList<LineageNode>();
 					}
 					existTargetNodes.add(node);
-					addedTargetDataNodes.put(node.abstracted_path, existTargetNodes);
+					addedTargetDataNodes.put(node.abstractedPath, existTargetNodes);
 				}
 				LineageEdge edge = new LineageEdge();
 				edge.id = edges.size();
@@ -404,13 +404,13 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		{
 			LineageNode node = new LineageNode();
 			node.id = nodes.size();
-			node._sort_list = new ArrayList<String>();
-			node.node_type = "data";
-			node.abstracted_path = pathInfo.filePath;
-			node.storage_type = pathInfo.storageType;
-			node._sort_list.add("abstracted_path");
-			node._sort_list.add("storage_type");
-			node._sort_list.add("urn");
+			node.sortList = new ArrayList<String>();
+			node.nodeType = "data";
+			node.abstractedPath = pathInfo.filePath;
+			node.storageType = pathInfo.storageType;
+			node.sortList.add("abstracted_path");
+			node.sortList.add("storage_type");
+			node.sortList.add("urn");
 			node.urn = urn;
 			nodes.add(node);
 		}
@@ -590,20 +590,20 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 		}
 		if (currentNode != null)
 		{
-			if ( StringUtils.isBlank(currentNode.source_target_type))
+			if ( StringUtils.isBlank(currentNode.sourceTargetType))
 			{
 				Logger.error("Source target type is not available");
-				Logger.error(currentNode.abstracted_path);
+				Logger.error(currentNode.abstractedPath);
 				return;
 			}
-			else if (currentNode.source_target_type.equalsIgnoreCase("target") && downLevel <= 0)
+			else if (currentNode.sourceTargetType.equalsIgnoreCase("target") && downLevel <= 0)
 			{
-				Logger.warn("Dataset " + currentNode.abstracted_path + " downLevel = " + Integer.toString(downLevel));
+				Logger.warn("Dataset " + currentNode.abstractedPath + " downLevel = " + Integer.toString(downLevel));
 				return;
 			}
-			else if (currentNode.source_target_type.equalsIgnoreCase("source") && upLevel <= 0)
+			else if (currentNode.sourceTargetType.equalsIgnoreCase("source") && upLevel <= 0)
 			{
-				Logger.warn("Dataset " + currentNode.abstracted_path + " upLevel = " + Integer.toString(upLevel));
+				Logger.warn("Dataset " + currentNode.abstractedPath + " upLevel = " + Integer.toString(upLevel));
 				return;
 			}
 		}
@@ -617,7 +617,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 
 		if (currentNode != null)
 		{
-			if (currentNode.source_target_type.equalsIgnoreCase("source"))
+			if (currentNode.sourceTargetType.equalsIgnoreCase("source"))
 			{
 				rows = namedParameterJdbcTemplate.queryForList(
 						GET_UP_LEVEL_JOB,
@@ -625,7 +625,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			}
 			else
 			{
-				parameters.addValue("type", currentNode.source_target_type);
+				parameters.addValue("type", currentNode.sourceTargetType);
 				rows = namedParameterJdbcTemplate.queryForList(
 						GET_JOB_WITH_SOURCE,
 						parameters);
@@ -650,34 +650,34 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				if (addedJobNodes.get(jobExecId) != null) {
 					continue;
 				}
-				node._sort_list = new ArrayList<String>();
-				node.node_type = "script";
-				node.job_type = (String) row.get("job_type");
+				node.sortList = new ArrayList<String>();
+				node.nodeType = "script";
+				node.jobType = (String) row.get("job_type");
 				node.cluster = (String) row.get("cluster");
-				node.job_name = (String) row.get("job_name");
-				node.job_path = (String) row.get("flow_path") + "/" + node.job_name;
-				node.exec_id = jobExecId;
-				node.application_id = (Integer)row.get("app_id");
-				node.job_id = (Long)row.get("job_id");
+				node.jobName = (String) row.get("job_name");
+				node.jobPath = (String) row.get("flow_path") + "/" + node.jobName;
+				node.execId = jobExecId;
+				node.applicationId = (Integer)row.get("app_id");
+				node.jobId = (Long)row.get("job_id");
 				node.operation = (String) row.get("operation");
-				ScriptInfo scriptInfo = getScriptInfo(node.application_id, node.job_id);
-				node.git_location = scriptInfo.gitPath;
-				node.script_name = scriptInfo.scriptName;
-				node.script_path = scriptInfo.scriptPath;
-				node.script_type = scriptInfo.scriptType;
-				node.source_target_type = (String) row.get("source_target_type");
+				ScriptInfo scriptInfo = getScriptInfo(node.applicationId, node.jobId);
+				node.gitLocation = scriptInfo.gitPath;
+				node.scriptName = scriptInfo.scriptName;
+				node.scriptPath = scriptInfo.scriptPath;
+				node.scriptType = scriptInfo.scriptType;
+				node.sourceTargetType = (String) row.get("source_target_type");
 				node.level = level;
-				node._sort_list.add("cluster");
-				node._sort_list.add("job_path");
-				node._sort_list.add("job_name");
-				node._sort_list.add("job_type");
-				node._sort_list.add("job_start_time");
-				node._sort_list.add("job_end_time");
-				node._sort_list.add("script_name");
-				node._sort_list.add("script_path");
-				node._sort_list.add("script_type");
-				node._sort_list.add("exec_id");
-				node._sort_list.add("job_id");
+				node.sortList.add("cluster");
+				node.sortList.add("job_path");
+				node.sortList.add("job_name");
+				node.sortList.add("job_type");
+				node.sortList.add("job_start_time");
+				node.sortList.add("job_end_time");
+				node.sortList.add("script_name");
+				node.sortList.add("script_path");
+				node.sortList.add("script_type");
+				node.sortList.add("exec_id");
+				node.sortList.add("job_id");
 				addedJobNodes.put(jobExecId, node);
 				List<LineageNode> sourceNodeList = new ArrayList<LineageNode>();
 				List<LineageNode> targetNodeList = new ArrayList<LineageNode>();
@@ -685,7 +685,7 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				Long jobId = ((BigInteger)row.get("job_exec_id")).longValue();
 				List<Map<String, Object>> relatedDataRows = null;
 
-				if (node.source_target_type.equalsIgnoreCase("source") && node.operation.equalsIgnoreCase("JDBC Read"))
+				if (node.sourceTargetType.equalsIgnoreCase("source") && node.operation.equalsIgnoreCase("JDBC Read"))
 				{
 					MapSqlParameterSource lassenParams = new MapSqlParameterSource();
 					lassenParams.addValue("names", nameList);
@@ -713,33 +713,33 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						}
 						String relatedSourceType = (String)relatedDataRow.get("source_target_type");
 						LineageNode relatedNode = new LineageNode();
-						relatedNode._sort_list = new ArrayList<String>();
-						relatedNode.node_type = "data";
+						relatedNode.sortList = new ArrayList<String>();
+						relatedNode.nodeType = "data";
 						relatedNode.level = level;
-						relatedNode.source_target_type = relatedSourceType;
-						relatedNode.abstracted_path = (String)relatedDataRow.get("abstracted_object_name");
-						relatedNode.storage_type = ((String)relatedDataRow.get("storage_type")).toLowerCase();
-						relatedNode.job_start_unix_time = (Long)relatedDataRow.get("job_start_unixtime");
+						relatedNode.sourceTargetType = relatedSourceType;
+						relatedNode.abstractedPath = (String)relatedDataRow.get("abstracted_object_name");
+						relatedNode.storageType = ((String)relatedDataRow.get("storage_type")).toLowerCase();
+						relatedNode.jobStartUnixTime = (Long)relatedDataRow.get("job_start_unixtime");
 
-						relatedNode.job_start_time = relatedDataRow.get("start_time").toString();
-						relatedNode.job_end_time = relatedDataRow.get("end_time").toString();
-						relatedNode.job_end_unix_time = (Long)relatedDataRow.get("job_finished_unixtime");
-						node.job_start_unix_time = relatedNode.job_start_unix_time;
-						node.job_end_unix_time = relatedNode.job_end_unix_time;
-						node.job_start_time = relatedNode.job_start_time;
-						node.job_end_time = relatedNode.job_end_time;
+						relatedNode.jobStartTime = relatedDataRow.get("start_time").toString();
+						relatedNode.jobEndTime = relatedDataRow.get("end_time").toString();
+						relatedNode.jobEndUnixTime = (Long)relatedDataRow.get("job_finished_unixtime");
+						node.jobStartUnixTime = relatedNode.jobStartUnixTime;
+						node.jobEndUnixTime = relatedNode.jobEndUnixTime;
+						node.jobStartTime = relatedNode.jobStartTime;
+						node.jobEndTime = relatedNode.jobEndTime;
 						relatedNode.operation = (String)relatedDataRow.get("operation");
 						LineagePathInfo info = new LineagePathInfo();
-						info.filePath = relatedNode.abstracted_path;
-						info.storageType = relatedNode.storage_type;
+						info.filePath = relatedNode.abstractedPath;
+						info.storageType = relatedNode.storageType;
 						relatedNode.urn = utils.Lineage.convertToURN(info);
-						relatedNode._sort_list.add("abstracted_path");
-						relatedNode._sort_list.add("storage_type");
-						relatedNode._sort_list.add("urn");
+						relatedNode.sortList.add("abstracted_path");
+						relatedNode.sortList.add("storage_type");
+						relatedNode.sortList.add("urn");
 						if (relatedSourceType.equalsIgnoreCase("source"))
 						{
-							if (node.source_target_type.equalsIgnoreCase("target") ||
-									utils.Lineage.isInList(nameList, relatedNode.abstracted_path))
+							if (node.sourceTargetType.equalsIgnoreCase("target") ||
+									utils.Lineage.isInList(nameList, relatedNode.abstractedPath))
 							{
 								sourceNodeList.add(relatedNode);
 								allSourceNodes.add(relatedNode);
@@ -747,8 +747,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						}
 						else if (relatedSourceType.equalsIgnoreCase("target"))
 						{
-							if (node.source_target_type.equalsIgnoreCase("source") ||
-									utils.Lineage.isInList(nameList, relatedNode.abstracted_path))
+							if (node.sourceTargetType.equalsIgnoreCase("source") ||
+									utils.Lineage.isInList(nameList, relatedNode.abstractedPath))
 							{
 								targetNodeList.add(relatedNode);
 								allTargetNodes.add(relatedNode);
@@ -773,8 +773,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			for(LineageNode sourceNode : currentSourceNodes)
 			{
 				LineagePathInfo subPath = new LineagePathInfo();
-				subPath.storageType = sourceNode.storage_type;
-				subPath.filePath = sourceNode.abstracted_path;
+				subPath.storageType = sourceNode.storageType;
+				subPath.filePath = sourceNode.abstractedPath;
 				if (sourceNode.level == level)
 				{
 					getObjectAdjacentNode(
@@ -799,8 +799,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 			for(LineageNode targetNode : currentTargetNodes)
 			{
 				LineagePathInfo subPath = new LineagePathInfo();
-				subPath.storageType = targetNode.storage_type;
-				subPath.filePath = targetNode.abstracted_path;
+				subPath.storageType = targetNode.storageType;
+				subPath.filePath = targetNode.abstractedPath;
 				if (targetNode.level == level)
 				{
 					getObjectAdjacentNode(
@@ -933,34 +933,34 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				for (Map row : rows) {
 					Long jobExecId = ((BigInteger)row.get("job_exec_id")).longValue();
 					LineageNode node = new LineageNode();
-					node.abstracted_path = (String)row.get("abstracted_object_name");
-					node.source_target_type = (String)row.get("source_target_type");
-					node.exec_id = jobExecId;
+					node.abstractedPath = (String)row.get("abstracted_object_name");
+					node.sourceTargetType = (String)row.get("source_target_type");
+					node.execId = jobExecId;
 					Object recordCountObject = row.get("record_count");
 					if (recordCountObject != null)
 					{
-						node.record_count = ((BigInteger)recordCountObject).longValue();
+						node.recordCount = ((BigInteger)recordCountObject).longValue();
 					}
 
-					node.application_id = (int)row.get("app_id");
+					node.applicationId = (int)row.get("app_id");
 					node.cluster = (String)row.get("app_code");
-					node.partition_type = (String)row.get("partition_type");
+					node.partitionType = (String)row.get("partition_type");
 					node.operation = (String)row.get("operation");
-					node.partition_start = (String)row.get("partition_start");
-					node.partition_end = (String)row.get("partition_end");
-					node.full_object_name = (String)row.get("full_object_name");
-					node.job_start_time = row.get("start_time").toString();
-					node.job_end_time = row.get("end_time").toString();
-					node.storage_type = ((String)row.get("storage_type")).toLowerCase();
-					node.node_type = "data";
-					node._sort_list = new ArrayList<String>();
-					node._sort_list.add("cluster");
-					node._sort_list.add("abstracted_path");
-					node._sort_list.add("storage_type");
-					node._sort_list.add("partition_type");
-					node._sort_list.add("partition_start");
-					node._sort_list.add("partition_end");
-					node._sort_list.add("source_target_type");
+					node.partitionStart = (String)row.get("partition_start");
+					node.partitionEnd = (String)row.get("partition_end");
+					node.fullObjectName = (String)row.get("full_object_name");
+					node.jobStartTime = row.get("start_time").toString();
+					node.jobEndTime = row.get("end_time").toString();
+					node.storageType = ((String)row.get("storage_type")).toLowerCase();
+					node.nodeType = "data";
+					node.sortList = new ArrayList<String>();
+					node.sortList.add("cluster");
+					node.sortList.add("abstracted_path");
+					node.sortList.add("storage_type");
+					node.sortList.add("partition_type");
+					node.sortList.add("partition_start");
+					node.sortList.add("partition_end");
+					node.sortList.add("source_target_type");
 					List<LineageNode> nodeList = nodeHash.get(jobExecId);
 					if (nodeList != null)
 					{
@@ -991,39 +991,39 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				for (Map row : jobRows) {
 					Long jobExecId = ((BigInteger)row.get("job_exec_id")).longValue();
 					LineageNode node = new LineageNode();
-					node._sort_list = new ArrayList<String>();
-					node.node_type = "script";
-					node.job_type = (String)row.get("job_type");
+					node.sortList = new ArrayList<String>();
+					node.nodeType = "script";
+					node.jobType = (String)row.get("job_type");
 					node.cluster = (String)row.get("app_code");
-					node.job_path = (String)row.get("job_path");
-					node.job_name = (String)row.get("job_name");
-					node.pre_jobs = (String)row.get("pre_jobs");
-					node.post_jobs = (String)row.get("post_jobs");
-					node.job_id = (Long)row.get("job_id");
-					ScriptInfo scriptInfo = getScriptInfo(node.application_id, node.job_id);
-					node.git_location = scriptInfo.gitPath;
-					node.script_name = scriptInfo.scriptName;
-					node.script_path = scriptInfo.scriptPath;
-					node.script_type = scriptInfo.scriptType;
-					node.job_start_time = row.get("start_time").toString();
-					node.job_end_time = row.get("end_time").toString();
-					node.exec_id = jobExecId;
-					node._sort_list.add("cluster");
-					node._sort_list.add("job_path");
-					node._sort_list.add("job_name");
-					node._sort_list.add("job_type");
-					node._sort_list.add("job_id");
-					node._sort_list.add("job_start_time");
-					node._sort_list.add("job_end_time");
-					node._sort_list.add("script_name");
-					node._sort_list.add("script_path");
-					node._sort_list.add("script_type");
+					node.jobPath = (String)row.get("job_path");
+					node.jobName = (String)row.get("job_name");
+					node.preJobs = (String)row.get("pre_jobs");
+					node.postJobs = (String)row.get("post_jobs");
+					node.jobId = (Long)row.get("job_id");
+					ScriptInfo scriptInfo = getScriptInfo(node.applicationId, node.jobId);
+					node.gitLocation = scriptInfo.gitPath;
+					node.scriptName = scriptInfo.scriptName;
+					node.scriptPath = scriptInfo.scriptPath;
+					node.scriptType = scriptInfo.scriptType;
+					node.jobStartTime = row.get("start_time").toString();
+					node.jobEndTime = row.get("end_time").toString();
+					node.execId = jobExecId;
+					node.sortList.add("cluster");
+					node.sortList.add("job_path");
+					node.sortList.add("job_name");
+					node.sortList.add("job_type");
+					node.sortList.add("job_id");
+					node.sortList.add("job_start_time");
+					node.sortList.add("job_end_time");
+					node.sortList.add("script_name");
+					node.sortList.add("script_path");
+					node.sortList.add("script_type");
 					Integer id = addedJobNodes.get(jobExecId);
 					if (id == null)
 					{
 						node.id = index++;
 						nodes.add(node);
-						jobNodeMap.put(node.job_id, node);
+						jobNodeMap.put(node.jobId, node);
 						jobNodes.add(node);
 						addedJobNodes.put(jobExecId, node.id);
 					}
@@ -1040,24 +1040,24 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						{
 							for(LineageNode sourceNode : sourceNodeList)
 							{
-								if (sourceNode.source_target_type.equalsIgnoreCase("source"))
+								if (sourceNode.sourceTargetType.equalsIgnoreCase("source"))
 								{
 									Pair matchedSourcePair = new ImmutablePair<>(
-											sourceNode.abstracted_path,
-											sourceNode.partition_end);
+											sourceNode.abstractedPath,
+											sourceNode.partitionEnd);
 									Integer nodeId = addedDataNodes.get(matchedSourcePair);
 									if (nodeId == null)
 									{
-										List<LineageNode> nodeList = partitionedNodeHash.get(sourceNode.abstracted_path);
-										if (StringUtils.isBlank(sourceNode.partition_end))
+										List<LineageNode> nodeList = partitionedNodeHash.get(sourceNode.abstractedPath);
+										if (StringUtils.isBlank(sourceNode.partitionEnd))
 										{
 											Boolean bFound = false;
 											if (nodeList != null)
 											{
 												for(LineageNode n : nodeList)
 												{
-													if (StringUtils.isNotBlank(n.partition_end) &&
-															n.partition_end.compareTo(sourceNode.job_start_time) < 0)
+													if (StringUtils.isNotBlank(n.partitionEnd) &&
+															n.partitionEnd.compareTo(sourceNode.jobStartTime) < 0)
 													{
 														sourceNode.id = n.id;
 														bFound = true;
@@ -1070,8 +1070,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 												sourceNode.id = index++;
 												nodes.add(sourceNode);
 												Pair sourcePair = new ImmutablePair<>(
-														sourceNode.abstracted_path,
-														sourceNode.partition_end);
+														sourceNode.abstractedPath,
+														sourceNode.partitionEnd);
 												addedDataNodes.put(sourcePair, sourceNode.id);
 											}
 										}
@@ -1082,12 +1082,12 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 												nodeList = new ArrayList<LineageNode>();
 											}
 											nodeList.add(sourceNode);
-											partitionedNodeHash.put(sourceNode.abstracted_path, nodeList);
+											partitionedNodeHash.put(sourceNode.abstractedPath, nodeList);
 											sourceNode.id = index++;
 											nodes.add(sourceNode);
 											Pair sourcePair = new ImmutablePair<>(
-													sourceNode.abstracted_path,
-													sourceNode.partition_end);
+													sourceNode.abstractedPath,
+													sourceNode.partitionEnd);
 											addedDataNodes.put(sourcePair, sourceNode.id);
 										}
 									}
@@ -1121,24 +1121,24 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						{
 							for(LineageNode targetNode : targetNodeList)
 							{
-								if (targetNode.source_target_type.equalsIgnoreCase("target"))
+								if (targetNode.sourceTargetType.equalsIgnoreCase("target"))
 								{
 									Pair matchedTargetPair = new ImmutablePair<>(
-											targetNode.abstracted_path,
-											targetNode.partition_end);
+											targetNode.abstractedPath,
+											targetNode.partitionEnd);
 									Integer nodeId = addedDataNodes.get(matchedTargetPair);
 									if (nodeId == null)
 									{
-										List<LineageNode> nodeList = partitionedNodeHash.get(targetNode.abstracted_path);
-										if (StringUtils.isBlank(targetNode.partition_end))
+										List<LineageNode> nodeList = partitionedNodeHash.get(targetNode.abstractedPath);
+										if (StringUtils.isBlank(targetNode.partitionEnd))
 										{
 											Boolean bFound = false;
 											if (nodeList != null)
 											{
 												for(LineageNode n : nodeList)
 												{
-													if (StringUtils.isNotBlank(n.partition_end) &&
-															n.partition_end.compareTo(targetNode.job_start_time) < 0)
+													if (StringUtils.isNotBlank(n.partitionEnd) &&
+															n.partitionEnd.compareTo(targetNode.jobStartTime) < 0)
 													{
 														targetNode.id = n.id;
 														bFound = true;
@@ -1151,8 +1151,8 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 												targetNode.id = index++;
 												nodes.add(targetNode);
 												Pair targetPair = new ImmutablePair<>(
-														targetNode.abstracted_path,
-														targetNode.partition_end);
+														targetNode.abstractedPath,
+														targetNode.partitionEnd);
 												addedDataNodes.put(targetPair, targetNode.id);
 											}
 										}
@@ -1163,12 +1163,12 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 												nodeList = new ArrayList<LineageNode>();
 											}
 											nodeList.add(targetNode);
-											partitionedNodeHash.put(targetNode.abstracted_path, nodeList);
+											partitionedNodeHash.put(targetNode.abstractedPath, nodeList);
 											targetNode.id = index++;
 											nodes.add(targetNode);
 											Pair targetPair = new ImmutablePair<>(
-													targetNode.abstracted_path,
-													targetNode.partition_end);
+													targetNode.abstractedPath,
+													targetNode.partitionEnd);
 											addedDataNodes.put(targetPair, targetNode.id);
 										}
 									}
@@ -1197,10 +1197,10 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 				}
 				for (LineageNode node : jobNodes)
 				{
-					Long jobId = node.job_id;
-					if (StringUtils.isNotBlank(node.pre_jobs))
+					Long jobId = node.jobId;
+					if (StringUtils.isNotBlank(node.preJobs))
 					{
-						String [] prevJobIds = node.pre_jobs.split(",");
+						String [] prevJobIds = node.preJobs.split(",");
 						if (prevJobIds != null)
 						{
 							for(String jobIdString: prevJobIds)
@@ -1229,9 +1229,9 @@ public class LineageDAO extends AbstractMySQLOpenSourceDAO
 						}
 					}
 
-					if (StringUtils.isNotBlank(node.post_jobs))
+					if (StringUtils.isNotBlank(node.postJobs))
 					{
-						String [] postJobIds = node.post_jobs.split(",");
+						String [] postJobIds = node.postJobs.split(",");
 						if (postJobIds != null)
 						{
 							for(String jobIdString: postJobIds)

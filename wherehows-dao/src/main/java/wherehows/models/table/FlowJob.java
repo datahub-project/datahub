@@ -15,18 +15,18 @@ package wherehows.models.table;
 
 public class FlowJob {
 
-    public Long jobId;
-    public String displayName;
-    public String link;
-    public String jobName;
-    public String jobPath;
-    public String jobType;
-    public String appCode;
-    public String flowName;
-    public String flowGroup;
-    public String flowPath;
-    public String path;
-    public Integer appId;
-    public Long flowId;
-    public String schema;
+  public Long jobId;
+  public String displayName;
+  public String link;
+  public String jobName;
+  public String jobPath;
+  public String jobType;
+  public String appCode;
+  public String flowName;
+  public String flowGroup;
+  public String flowPath;
+  public String path;
+  public Integer appId;
+  public Long flowId;
+  public String schema;
 }

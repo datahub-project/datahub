@@ -15,14 +15,14 @@ package wherehows.models.table;
 
 public class DashboardOwnerStat {
 
-    public String userName;
-    public String fullName;
-    public String displayName;
-    public String email;
-    public String managerUserId;
-    public String orgHierarchy;
-    public String iconUrl;
-    public Long potentialDatasets;
-    public Long qualifiedDatasets;
-    public String completeRate;
+  public String userName;
+  public String fullName;
+  public String displayName;
+  public String email;
+  public String managerUserId;
+  public String orgHierarchy;
+  public String iconUrl;
+  public Long potentialDatasets;
+  public Long qualifiedDatasets;
+  public String completeRate;
 }

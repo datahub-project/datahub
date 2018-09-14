@@ -15,13 +15,13 @@ package wherehows.models.table;
 
 public class LdapInfo {
 
-    public String userName;
-    public String fullName;
-    public String displayName;
-    public int departmentId;
-    public String departmentName;
-    public String email;
-    public String managerUserId;
-    public String orgHierarchy;
-    public String iconUrl;
+  public String userName;
+  public String fullName;
+  public String displayName;
+  public int departmentId;
+  public String departmentName;
+  public String email;
+  public String managerUserId;
+  public String orgHierarchy;
+  public String iconUrl;
 }

@@ -15,12 +15,12 @@ package wherehows.models.table;
 
 public class ColumnComment {
 
-    public int id;
-    public Long fieldId;
-    public String text;
-    public String authorName;
-    public String authorUserName;
-    public String authorEmail;
-    public String created;
-    public String modified;
+  public int id;
+  public Long fieldId;
+  public String text;
+  public String authorName;
+  public String authorUserName;
+  public String authorEmail;
+  public String created;
+  public String modified;
 }

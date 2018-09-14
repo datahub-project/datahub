@@ -15,14 +15,14 @@ package wherehows.models.table;
 
 public class DatasetComment {
 
-    public int id;
-    public int datasetId;
-    public String text;
-    public String authorName;
-    public String authorUserName;
-    public String authorEmail;
-    public long created;
-    public long modified;
-    public String type;
-    public Boolean isAuthor;
+  public int id;
+  public int datasetId;
+  public String text;
+  public String authorName;
+  public String authorUserName;
+  public String authorEmail;
+  public long created;
+  public long modified;
+  public String type;
+  public Boolean isAuthor;
 }

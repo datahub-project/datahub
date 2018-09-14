@@ -15,7 +15,7 @@ package wherehows.models.table;
 
 public class ScriptRuntime {
 
-    public String jobStarted;
-    public float elapsedTime;
-    public String jobPath;
+  public String jobStarted;
+  public float elapsedTime;
+  public String jobPath;
 }
