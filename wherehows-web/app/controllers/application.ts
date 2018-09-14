@@ -8,8 +8,6 @@ import { action } from '@ember-decorators/object';
 import { service } from '@ember-decorators/service';
 
 export default class Application extends Controller {
-  // queryParams = ['keyw/ord'];
-
   /**
    * User session management service
    * @type {Session}
@@ -45,6 +43,8 @@ export default class Application extends Controller {
    */
   @service('banners')
   banners: BannerService;
+
+  keyword: string;
 
   constructor() {
     super(...arguments);

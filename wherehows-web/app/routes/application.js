@@ -61,9 +61,8 @@ export default Route.extend(ApplicationRouteMixin, {
       logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : '',
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
-    const { keyword } = this.paramsFor('search');
 
-    return { feedbackMail, brand, showStagingBanner, keyword };
+    return { feedbackMail, brand, showStagingBanner };
   },
 
   /**
@@ -179,5 +178,19 @@ export default Route.extend(ApplicationRouteMixin, {
       tables: true,
       renderer: markedRendererOverride
     });
+  },
+
+  setupController(controller, model) {
+    const keyword = this.paramsFor('search').keyword;
+    controller.set('keyword', keyword);
+    controller.set('model', model);
+  },
+
+  actions: {
+    willTransition() {
+      const controller = this.controllerFor('application');
+      const keyword = this.paramsFor('search').keyword;
+      controller.set('keyword', keyword);
+    }
   }
 });

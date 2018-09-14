@@ -93,13 +93,11 @@ export default class SearchFacetsContainer extends Component {
             count: this.model.groupbyfabric.dev || 0
           }
         ]
-          .sortBy('count')
-          .reverse()
       },
       {
         name: 'source',
         displayName: 'Data Platform',
-        values: this.sources.sortBy('count').reverse()
+        values: this.sources
       }
     ];
   }

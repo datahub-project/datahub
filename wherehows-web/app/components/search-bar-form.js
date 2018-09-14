@@ -59,6 +59,14 @@ export default Component.extend({
     searchBar && searchBar.focus();
   },
 
+  /**
+   * Sets to the blur to the input in the search bar
+   */
+  setSearchBarFocus() {
+    const searchBar = document.getElementsByClassName('nacho-global-search__text-input')[1];
+    searchBar && searchBar.blur();
+  },
+
   didInsertElement() {
     this._super(...arguments);
     // Registering this hotkey allows us to jump to focus the search bar when pressing '/'
@@ -81,6 +89,7 @@ export default Component.extend({
         keyword: get(this, 'search'),
         category: get(this, 'currentFilter')
       });
+      this.setSearchBarFocus();
     },
 
     /**

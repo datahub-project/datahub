@@ -8,7 +8,7 @@
         <span class="icon-bar"></span>
       </button>
 
-      {{#link-to "index" class="navbar-brand"}}
+      {{#link-to "index" (query-params keyword=null platform=null) class="navbar-brand"}}
         <div>
           <img src="{{model.brand.logo}}"
                alt="WhereHows Logo">
