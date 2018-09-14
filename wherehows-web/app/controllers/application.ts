@@ -1,5 +1,4 @@
 import Controller from '@ember/controller';
-import { get } from '@ember/object';
 import Session from 'ember-simple-auth/services/session';
 import Search from 'wherehows-web/services/search';
 import UserLookup from 'wherehows-web/services/user-lookup';
@@ -9,6 +8,8 @@ import { action } from '@ember-decorators/object';
 import { service } from '@ember-decorators/service';
 
 export default class Application extends Controller {
+  // queryParams = ['keyw/ord'];
+
   /**
    * User session management service
    * @type {Session}
@@ -59,6 +60,6 @@ export default class Application extends Controller {
    */
   @action
   didSearch({ keyword, category }: { keyword: string; category: string }) {
-    get(this, 'search').showSearchResults({ keyword, category });
+    this.search.showSearchResults({ keyword, category });
   }
 }

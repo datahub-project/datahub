@@ -15,7 +15,6 @@ import { arrayMap } from 'wherehows-web/utils/array';
 interface ISearchSourceOption {
   value: string;
   label: string;
-  group: string;
   count: number;
 }
 
@@ -28,7 +27,7 @@ export default class SearchFacetsContainer extends Component {
    * The current source to narrow search results to
    * @type {DatasetPlatform}
    */
-  currentSource: DatasetPlatform;
+  currentSource: string;
 
   /**
    * Lists data platforms available to restrict search results by source
@@ -37,12 +36,8 @@ export default class SearchFacetsContainer extends Component {
    */
   _sources: Array<DatasetPlatform> = [];
 
-  selections: any = {
-    fabric: {
-      EI: true
-    }
-  };
-
+  selections: any;
+  model: any;
   /**
    * Gets the available platforms and extracts a list of dataset sources
    * @type {(Task<Promise<Array<IDataPlatform>>, (a?: any) => TaskInstance<Promise<Array<IDataPlatform>>>>)}
@@ -59,16 +54,15 @@ export default class SearchFacetsContainer extends Component {
    * Creates a list of options with radio props for the data platforms that can be selected as a search filter
    * @type {(ComputedProperty<Array<ISearchSourceOption>>}
    */
-  @computed('currentSource', '_sources.[]')
+  @computed('_sources.[]', 'model')
   get sources(this: SearchFacetsContainer): Array<ISearchSourceOption> {
-    const sourceAsOption = (source: DatasetPlatform): ISearchSourceOption => ({
-      value: source,
-      label: capitalize(source),
-      group: String(get(this, 'currentSource')).toLowerCase(),
-      count: 0
-    });
-
-    return arrayMap(sourceAsOption)(get(this, '_sources'));
+    return this._sources.map(
+      (source: DatasetPlatform): ISearchSourceOption => ({
+        value: source,
+        label: capitalize(source),
+        count: this.model.groupbysource[source] || 0
+      })
+    );
   }
 
   @computed('sources')
@@ -79,33 +73,39 @@ export default class SearchFacetsContainer extends Component {
         displayName: 'Fabrics',
         values: [
           {
-            value: 'PROD',
+            value: 'prod',
             label: 'Prod',
-            count: 0
+            count: this.model.groupbyfabric.prod || 0
           },
           {
-            value: 'CORP',
+            value: 'corp',
             label: 'Corp',
-            count: 0
+            count: this.model.groupbyfabric.corp || 0
           },
           {
-            value: 'EI',
+            value: 'ei',
             label: 'EI',
-            count: 0
+            count: this.model.groupbyfabric.ei || 0
           },
           {
-            value: 'DEV',
+            value: 'dev',
             label: 'Dev',
-            count: 0
+            count: this.model.groupbyfabric.dev || 0
           }
         ]
+          .sortBy('count')
+          .reverse()
       },
       {
         name: 'source',
         displayName: 'Data Platform',
-        values: this.sources
+        values: this.sources.sortBy('count').reverse()
       }
     ];
+  }
+
+  onFacetsChange(_: any) {
+    //nothing
   }
 
   onFacetChange(facet: any, facetValue: any) {
@@ -117,6 +117,7 @@ export default class SearchFacetsContainer extends Component {
         [facetValue.value]: !currentFacetValues[facetValue.value]
       }
     });
+    this.onFacetsChange(this.selections);
   }
 
   onFacetClear(facet: any) {
@@ -124,5 +125,6 @@ export default class SearchFacetsContainer extends Component {
       ...this.selections,
       [facet.name]: {}
     });
+    this.onFacetsChange(this.selections);
   }
 }

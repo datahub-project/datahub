@@ -36,6 +36,10 @@ function buildUrl(baseUrl?: string, queryParamOrMap?: string | Record<string, st
     const separator = String(url).includes('?') ? '&' : '?';
     let paramValue = paramMap[paramKey];
 
+    if (Array.isArray(paramValue)) {
+      paramValue = paramValue.toString();
+    }
+
     if (isBlank(paramValue)) {
       return url;
     }

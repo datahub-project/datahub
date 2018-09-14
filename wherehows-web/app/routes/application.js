@@ -61,8 +61,9 @@ export default Route.extend(ApplicationRouteMixin, {
       logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : '',
       avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
     };
+    const { keyword } = this.paramsFor('search');
 
-    return { feedbackMail, brand, showStagingBanner };
+    return { feedbackMail, brand, showStagingBanner, keyword };
   },
 
   /**

@@ -1,3 +1,5 @@
+declare module '@ember-decorators/runloop';
+
 declare module 'ember-modal-dialog/components/modal-dialog';
 
 declare module 'ember-radio-button/components/radio-button';
