@@ -175,7 +175,7 @@ export default class DatasetAuthors extends Component {
     const { avatarProperties } = this;
 
     return {
-      ...owner,
+      owner,
       avatar: avatarProperties
         ? getAvatarProps(avatarProperties)({ userName: owner.userName })
         : { imageUrl: '', imageUrlFallback: '/assets/assets/images/default_avatar.png' }
@@ -266,8 +266,10 @@ export default class DatasetAuthors extends Component {
    */
   @action
   addOwner(this: DatasetAuthors, newOwner: IOwner): Array<IOwner> | void {
-    const owners = get(this, 'owners') || [];
-    const { notify } = get(this, 'notifications');
+    const {
+      owners = [],
+      notifications: { notify }
+    } = this;
 
     if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
       return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });
