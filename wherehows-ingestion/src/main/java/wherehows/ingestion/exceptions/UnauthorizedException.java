@@ -11,22 +11,14 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.converters;
-
-import org.apache.avro.generic.IndexedRecord;
-
+package wherehows.ingestion.exceptions;
 
 /**
- * Interface for Kafka message converter.
+ * An exception to be thrown when authorization is denied.
  */
-public interface KafkaMessageConverter<T extends IndexedRecord> {
+public class UnauthorizedException extends RuntimeException {
 
-  /**
-   * Method 'convert' to be implemented by specific converter.
-   * Input one kafka message, output one converted kafka message.
-   *
-   * @param indexedRecord IndexedRecord
-   * @return IndexedRecord
-   */
-  T convert(T indexedRecord);
+  public UnauthorizedException(String message) {
+    super(message);
+  }
 }

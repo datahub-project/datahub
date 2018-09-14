@@ -51,15 +51,21 @@ export default class Configurator extends Service {
    * @static
    * @template K
    * @param {K} [key] if provided, the value is returned with that key on the config hash is returned
+   * @param {IAppConfigOrProperty<K>} [defaultValue] if provided, will default if key is not found in config
    * @returns {IAppConfigOrProperty<K>}
    * @memberof Configurator
    */
-  static getConfig<K extends keyof IAppConfig | undefined>(key?: K): IAppConfigOrProperty<K> {
+  static getConfig<K extends keyof IAppConfig | undefined>(
+    key?: K,
+    options: { useDefault?: boolean; default?: IAppConfigOrProperty<K> } = {}
+  ): IAppConfigOrProperty<K> {
     // Ensure that the application configuration has been successfully cached
     assert('Please ensure you have invoked the `load` method successfully prior to calling `getConfig`.', configLoaded);
 
     return typeof key === 'string' && appConfig.hasOwnProperty(<keyof IAppConfig>key)
       ? <IAppConfigOrProperty<K>>deepClone(appConfig[<keyof IAppConfig>key])
-      : <IAppConfigOrProperty<K>>deepClone(appConfig);
+      : options.useDefault
+        ? <IAppConfigOrProperty<K>>options.default
+        : <IAppConfigOrProperty<K>>deepClone(appConfig);
   }
 }

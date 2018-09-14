@@ -68,9 +68,7 @@ type SchemaFieldToSuggestedValue = Pick<
   IComplianceEntity,
   'identifierType' | 'logicalType' | 'securityClassification'
 > &
-  Pick<ISuggestedFieldClassification, 'confidenceLevel' | 'uid'> & {
-    suggestionsModificationTime: IComplianceSuggestion['lastModified'];
-  };
+  Pick<ISuggestedFieldClassification, 'confidenceLevel' | 'uid'>;
 
 /**
  * Describes the mapping of attributes to value types for a datasets schema field names to suggested property values

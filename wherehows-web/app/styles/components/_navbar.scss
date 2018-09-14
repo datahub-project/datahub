@@ -118,3 +118,12 @@ $navbar-transition-speed: $banner-animation-speed;
     border-radius: 0;
   }
 }
+
+/**
+ * Adds styles for navigation bar avatar image
+ */
+.navbar-avatar-image {
+  &#{&} {
+    @include round-image(item-spacing(6));
+  }
+}

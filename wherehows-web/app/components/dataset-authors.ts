@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { set, get, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
 import { action, computed } from '@ember-decorators/object';
-import { filter } from '@ember-decorators/object/computed';
+import { filter, map } from '@ember-decorators/object/computed';
 import { service } from '@ember-decorators/service';
 import { task } from 'ember-concurrency';
 
@@ -21,6 +21,9 @@ import {
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 
 type Comparator = -1 | 0 | 1;
 
@@ -52,6 +55,13 @@ export default class DatasetAuthors extends Component {
    * @memberof DatasetAuthors
    */
   suggestedOwners: Array<IOwner>;
+
+  /**
+   * Avatar properties used to generate avatar images
+   * @type {(IAppConfig['userEntityProps'] | undefined)}
+   * @memberof DatasetAuthors
+   */
+  avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
    * Current user service
@@ -155,6 +165,35 @@ export default class DatasetAuthors extends Component {
   confirmedOwners: Array<IOwner>;
 
   /**
+   * Augments an IOwner instance with an IAvatar Record keyed by 'avatar'
+   * @this {DatasetAuthors}
+   * @param owner
+   * @memberof DatasetAuthors
+   * @returns {OwnerWithAvatarRecord}
+   */
+  datasetAuthorsOwnersAugmentedWithAvatars = (owner: IOwner): OwnerWithAvatarRecord => {
+    const { avatarProperties } = this;
+
+    return {
+      owner,
+      avatar: avatarProperties
+        ? getAvatarProps(avatarProperties)({ userName: owner.userName })
+        : { imageUrl: '', imageUrlFallback: '/assets/assets/images/default_avatar.png' }
+    };
+  };
+
+  /**
+   * Augments each confirmedOwner IOwner instance with an avatar Record
+   * @param {IOwner} owner the IOwner instance
+   * @returns {OwnerWithAvatarRecord}
+   * @memberof DatasetAuthors
+   */
+  @map('confirmedOwners')
+  confirmedOwnersWithAvatars(owner: IOwner): OwnerWithAvatarRecord {
+    return this.datasetAuthorsOwnersAugmentedWithAvatars(owner);
+  }
+
+  /**
    * Intersection of confirmed owners and suggested owners
    * @type {ComputedProperty<Array<IOwner>>}
    * @memberof DatasetAuthors
@@ -183,6 +222,17 @@ export default class DatasetAuthors extends Component {
     // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
     // same render" error
     return (get(this, 'suggestedOwners') || []).slice(0);
+  }
+
+  /**
+   * Augments each systemGeneratedOwner IOwner instance with an avatar Record
+   * @param {IOwner} owner the IOwner instance
+   * @returns {OwnerWithAvatarRecord}
+   * @memberof DatasetAuthors
+   */
+  @map('systemGeneratedOwners')
+  systemGeneratedOwnersWithAvatars(owner: IOwner): OwnerWithAvatarRecord {
+    return this.datasetAuthorsOwnersAugmentedWithAvatars(owner);
   }
 
   /**
@@ -216,8 +266,10 @@ export default class DatasetAuthors extends Component {
    */
   @action
   addOwner(this: DatasetAuthors, newOwner: IOwner): Array<IOwner> | void {
-    const owners = get(this, 'owners') || [];
-    const { notify } = get(this, 'notifications');
+    const {
+      owners = [],
+      notifications: { notify }
+    } = this;
 
     if (ownerAlreadyExists(owners, { userName: newOwner.userName, source: newOwner.source })) {
       return void notify(NotificationEvent.info, { content: 'Owner has already been added to "confirmed" list' });

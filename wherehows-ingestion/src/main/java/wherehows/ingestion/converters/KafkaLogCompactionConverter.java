@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.converters;
+package wherehows.ingestion.converters;
 
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.MetadataChangeEvent;

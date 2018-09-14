@@ -19,6 +19,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import wherehows.models.view.DatasetView;
+import wherehows.models.view.LineageView;
 
 
 public class LineageDao {
@@ -38,6 +39,26 @@ public class LineageDao {
    * @return List of DatasetView
    */
   public List<DatasetView> getDownstreamDatasets(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Lineage not implemented yet.");
+  }
+
+  /**
+   * Get upstream datasets lineage for a certain dataset, similar to upstream datasets but with
+   * lineage data attached
+   * @param datasetUrn String
+   * @return List of LineageView
+   */
+  public List<LineageView> getUpstreamLineage(@Nonnull String datasetUrn) throws Exception {
+    throw new UnsupportedOperationException("Lineage not implemented yet.");
+  }
+
+  /**
+   * Get downstream datasets lineage for a certain dataset, similar to downstream datasets but with
+   * lineage data attached
+   * @param datasetUrn String
+   * @return List of LineageView
+   */
+  public List<LineageView> getDownstreamLineage(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Lineage not implemented yet.");
   }
 

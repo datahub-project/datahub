@@ -38,9 +38,10 @@ import {
   lowQualitySuggestionConfidenceThreshold,
   TagFilter,
   tagSuggestionNeedsReview,
-  ComplianceEdit
+  ComplianceEdit,
+  buildFieldSuggestionsLookupTable
 } from 'wherehows-web/constants';
-import { arrayFilter, arrayMap, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
+import { arrayFilter, arrayMap, arrayReduce, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import { identity, noop } from 'wherehows-web/utils/helpers/functions';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -316,7 +317,7 @@ export default class DatasetCompliance extends Component {
   ): string {
     type TagFilterHint = { [K in TagFilter]: string };
 
-    const { fieldReviewOption, foldedChangeSet = [] } = getProperties(this, ['fieldReviewOption', 'foldedChangeSet']);
+    const { fieldReviewOption, foldedChangeSet = [] } = this;
 
     const hint = (<TagFilterHint>{
       [TagFilter.showAll]: '',
@@ -742,36 +743,18 @@ export default class DatasetCompliance extends Component {
   identifierFieldToSuggestion = computed('complianceSuggestion', function(
     this: DatasetCompliance
   ): ISchemaFieldsToSuggested {
-    const fieldSuggestions: ISchemaFieldsToSuggested = {};
+    const fieldsToSuggested: ISchemaFieldsToSuggested = {};
     const complianceSuggestion = get(this, 'complianceSuggestion') || {
       lastModified: 0,
       suggestedFieldClassification: <Array<ISuggestedFieldClassification>>[]
     };
-    const { lastModified: suggestionsModificationTime, suggestedFieldClassification = [] } = complianceSuggestion;
+    const { suggestedFieldClassification = [] } = complianceSuggestion;
 
     // If the compliance suggestions array contains suggestions the create reduced lookup map,
     // otherwise, ignore
-    if (suggestedFieldClassification.length) {
-      return suggestedFieldClassification.reduce(
-        (
-          fieldSuggestions: ISchemaFieldsToSuggested,
-          { suggestion: { identifierField, identifierType, logicalType, securityClassification }, confidenceLevel, uid }
-        ) => ({
-          ...fieldSuggestions,
-          [identifierField]: {
-            identifierType,
-            logicalType,
-            securityClassification,
-            confidenceLevel,
-            uid,
-            suggestionsModificationTime
-          }
-        }),
-        fieldSuggestions
-      );
-    }
-
-    return fieldSuggestions;
+    return suggestedFieldClassification.length
+      ? arrayReduce(buildFieldSuggestionsLookupTable, fieldsToSuggested)(suggestedFieldClassification)
+      : fieldsToSuggested;
   });
 
   /**
@@ -900,7 +883,7 @@ export default class DatasetCompliance extends Component {
    * @type {Array<IdentifierFieldWithFieldChangeSetTuple>}
    * @memberof DatasetCompliance
    */
-  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> | void;
+  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> = [];
 
   /**
    * Task to retrieve platform policies and set supported policies for the current platform

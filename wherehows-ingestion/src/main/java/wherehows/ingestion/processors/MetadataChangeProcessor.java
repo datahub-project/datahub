@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.processors;
+package wherehows.ingestion.processors;
 
 import com.linkedin.events.metadata.ChangeAuditStamp;
 import com.linkedin.events.metadata.ChangeType;
@@ -20,23 +20,25 @@ import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FailedMetadataChangeEvent;
 import com.linkedin.events.metadata.MetadataChangeEvent;
 import com.linkedin.events.metadata.Schemaless;
-import com.typesafe.config.Config;
+import java.util.List;
+import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.common.exceptions.UnauthorizedException;
-import wherehows.converters.KafkaLogCompactionConverter;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.DatasetComplianceDao;
 import wherehows.dao.table.DatasetOwnerDao;
 import wherehows.dao.table.DictDatasetDao;
 import wherehows.dao.table.FieldDetailDao;
+import wherehows.ingestion.converters.KafkaLogCompactionConverter;
+import wherehows.ingestion.exceptions.UnauthorizedException;
+import wherehows.ingestion.utils.ProcessorUtil;
 import wherehows.models.table.DictDataset;
-import wherehows.utils.ProcessorUtil;
-
-import static wherehows.common.utils.StringUtil.*;
 
 
 @Slf4j
@@ -51,16 +53,16 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
 
   private final static int MAX_DATASET_NAME_LENGTH = 400;
 
-  public MetadataChangeProcessor(Config config, DaoFactory daoFactory, String producerTopic,
-      KafkaProducer<String, IndexedRecord> producer) {
-    super(producerTopic, producer);
+  public MetadataChangeProcessor(@Nonnull Properties config, @Nonnull DaoFactory daoFactory,
+      @Nonnull String producerTopic, @Nonnull KafkaProducer<String, IndexedRecord> producer) {
+    super(config, daoFactory, producerTopic, producer);
 
-    _dictDatasetDao = daoFactory.getDictDatasetDao();
-    _fieldDetailDao = daoFactory.getDictFieldDetailDao();
-    _ownerDao = daoFactory.getDatasteOwnerDao();
-    _complianceDao = daoFactory.getDatasetComplianceDao();
+    _dictDatasetDao = _daoFactory.getDictDatasetDao();
+    _fieldDetailDao = _daoFactory.getDictFieldDetailDao();
+    _ownerDao = _daoFactory.getDatasteOwnerDao();
+    _complianceDao = _daoFactory.getDatasetComplianceDao();
 
-    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mce");
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(_config, "whitelist.mce");
     log.info("MCE whitelist: " + _whitelistActors);
   }
 
@@ -150,5 +152,9 @@ public class MetadataChangeProcessor extends KafkaMessageProcessor {
     failedEvent.error = ExceptionUtils.getStackTrace(throwable);
     failedEvent.metadataChangeEvent = event;
     return failedEvent;
+  }
+
+  private List<String> toStringList(@Nullable List<? extends CharSequence> list) {
+    return list == null ? null : list.stream().map(s -> (String) s).collect(Collectors.toList());
   }
 }

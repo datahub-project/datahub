@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.processors;
+package wherehows.ingestion.processors;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.events.metadata.ChangeAuditStamp;
@@ -21,21 +21,22 @@ import com.linkedin.events.metadata.FailedMetadataLineageEvent;
 import com.linkedin.events.metadata.JobStatus;
 import com.linkedin.events.metadata.MetadataLineageEvent;
 import com.linkedin.events.metadata.agent;
-import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.kafka.clients.producer.KafkaProducer;
-import wherehows.common.exceptions.SelfLineageException;
-import wherehows.common.exceptions.UnauthorizedException;
+import wherehows.ingestion.exceptions.SelfLineageException;
+import wherehows.ingestion.exceptions.UnauthorizedException;
 import wherehows.dao.DaoFactory;
 import wherehows.dao.table.LineageDao;
-import wherehows.utils.ProcessorUtil;
+import wherehows.ingestion.utils.ProcessorUtil;
 
-import static wherehows.utils.ProcessorUtil.*;
+import static wherehows.ingestion.utils.ProcessorUtil.*;
 
 
 @Slf4j
@@ -45,12 +46,13 @@ public class MetadataLineageProcessor extends KafkaMessageProcessor {
 
   private final Set<String> _whitelistActors;
 
-  public MetadataLineageProcessor(Config config, DaoFactory daoFactory, String producerTopic,
-      KafkaProducer<String, IndexedRecord> producer) {
-    super(producerTopic, producer);
-    this._lineageDao = daoFactory.getLineageDao();
+  public MetadataLineageProcessor(@Nonnull Properties config, @Nonnull DaoFactory daoFactory,
+      @Nonnull String producerTopic, @Nonnull KafkaProducer<String, IndexedRecord> producer) {
+    super(config, daoFactory, producerTopic, producer);
 
-    _whitelistActors = ProcessorUtil.getWhitelistedActors(config, "whitelist.mle");
+    this._lineageDao = _daoFactory.getLineageDao();
+
+    _whitelistActors = ProcessorUtil.getWhitelistedActors(_config, "whitelist.mle");
     log.info("MLE whitelist: " + _whitelistActors);
   }
 

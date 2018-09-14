@@ -7,13 +7,21 @@ import { DatasetPlatform } from 'wherehows-web/constants';
  */
 interface IAppConfig {
   isInternal: boolean | void;
+  isStagingBanner: boolean;
+  isLiveDataWarning: boolean;
   JitAclAccessWhitelist: Array<DatasetPlatform> | void;
+  jitAclContact: string;
   shouldShowDatasetLineage: boolean;
   shouldShowDatasetHealth: boolean;
   // confidence threshold for filtering out higher quality suggestions
   suggestionConfidenceThreshold: number;
   // collection of links to external help resource pages
   wikiLinks: Record<string, string>;
+  // properties for an avatar entity
+  userEntityProps: {
+    aviUrlPrimary: string;
+    aviUrlFallback: string;
+  };
   tracking: {
     isEnabled: boolean;
     trackers: {
