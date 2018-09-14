@@ -317,7 +317,7 @@ export default class DatasetCompliance extends Component {
   ): string {
     type TagFilterHint = { [K in TagFilter]: string };
 
-    const { fieldReviewOption, foldedChangeSet = [] } = getProperties(this, ['fieldReviewOption', 'foldedChangeSet']);
+    const { fieldReviewOption, foldedChangeSet = [] } = this;
 
     const hint = (<TagFilterHint>{
       [TagFilter.showAll]: '',
@@ -883,7 +883,7 @@ export default class DatasetCompliance extends Component {
    * @type {Array<IdentifierFieldWithFieldChangeSetTuple>}
    * @memberof DatasetCompliance
    */
-  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> | void;
+  foldedChangeSet: Array<IdentifierFieldWithFieldChangeSetTuple> = [];
 
   /**
    * Task to retrieve platform policies and set supported policies for the current platform
