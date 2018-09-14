@@ -1,16 +1,11 @@
 import Controller from '@ember/controller';
-import { set } from '@ember/object';
-import { action, computed } from '@ember-decorators/object';
+import { computed } from '@ember-decorators/object';
+import { debounce } from '@ember-decorators/runloop';
+import { IFacetsSelectionsMap, facetToParamUrl, facetFromParamUrl } from 'wherehows-web/utils/api/search';
 
 // gradual refactor into es class, hence extends EmberObject instance
 export default class SearchController extends Controller {
-  queryParams = ['keyword', 'category', 'source', 'page'];
-
-  /**
-   * Search keyword to look for
-   * @type {string}
-   */
-  keyword = '';
+  queryParams = ['category', 'page', 'facets', 'keyword'];
 
   /**
    * The category to narrow/ filter search results
@@ -20,9 +15,9 @@ export default class SearchController extends Controller {
 
   /**
    * Dataset Platform to restrict search results to
-   * @type {'all'|DatasetPlatform}
+   * @type {DatasetPlatform}
    */
-  source = 'all';
+  facets: string;
 
   /**
    * The current search page
@@ -36,13 +31,28 @@ export default class SearchController extends Controller {
    */
   header = 'Refine By';
 
-  /**
-   * Handles the response to changing the source platform to search through
-   * @param source
-   */
-  @action
-  sourceDidChange(source: string) {
-    set(this, 'source', source);
+  searchLoading: boolean = false;
+
+  onFacetsChange(selections: IFacetsSelectionsMap) {
+    this.set('searchLoading', true);
+    this.onFacetsChangeDebounced(selections);
+  }
+
+  @debounce(1000)
+  onFacetsChangeDebounced(selections: IFacetsSelectionsMap) {
+    this.setProperties({
+      facets: facetToParamUrl(selections),
+      page: 1
+    });
+  }
+
+  @computed('facets')
+  get facetsSelections() {
+    return facetFromParamUrl(this.facets || '');
+  }
+  @computed('model.data.length')
+  get showNoResult() {
+    return this.model.data ? this.model.data.length === 0 : true;
   }
 
   @computed('model.category')
