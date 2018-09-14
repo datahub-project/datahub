@@ -5,9 +5,9 @@ import { get } from '@ember/object';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 import { feedback, avatar } from 'wherehows-web/constants';
 import Configurator from 'wherehows-web/services/configurator';
+import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 
 const { mail, subject, title } = feedback;
-const { url: avatarUrl } = avatar;
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
@@ -42,14 +42,13 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   async model() {
     const { getConfig } = Configurator;
-
-    const [isInternal, showStagingBanner, showLiveDataWarning] = await Promise.all([
-      getConfig('isInternal'),
+    const [showStagingBanner, showLiveDataWarning, avatarEntityProps] = [
       getConfig('isStagingBanner', { useDefault: true, default: false }),
-      getConfig('isLiveDataWarning', { useDefault: true, default: false })
-    ]);
-
-    const { userName } = get(this, 'sessionUser.currentUser') || {};
+      getConfig('isLiveDataWarning', { useDefault: true, default: false }),
+      getConfig('userEntityProps')
+    ];
+    const { userName, email, name } = get(this, 'sessionUser.currentUser') || {};
+    const avatar = getAvatarProps(avatarEntityProps)({ userName, email, name });
 
     /**
      * properties for the navigation link to allow a user to provide feedback
@@ -61,12 +60,7 @@ export default Route.extend(ApplicationRouteMixin, {
       target: '_blank'
     };
 
-    const brand = {
-      logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : '',
-      avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
-    };
-
-    return { feedbackMail, brand, showStagingBanner, showLiveDataWarning };
+    return { feedbackMail, showStagingBanner, showLiveDataWarning, avatar };
   },
 
   /**

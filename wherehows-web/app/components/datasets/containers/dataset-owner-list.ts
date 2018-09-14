@@ -47,7 +47,7 @@ export default class DatasetOwnerListContainer extends Component {
    * @type {IAppConfig.avatarEntityProps}
    * @memberof DatasetOwnerListContainer
    */
-  avatarEntityProps!: IAppConfig['avatarEntityProps'];
+  avatarEntityProps!: IAppConfig['userEntityProps'];
 
   /**
    * Lists the avatar objects based off the dataset owners

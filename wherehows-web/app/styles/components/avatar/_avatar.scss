@@ -1,12 +1,6 @@
-$avatar-size: 18px;
-
 /// Shared declaration for avatar rounding proportions
 @mixin round-avatar {
   @include round-image(item-spacing(7));
-}
-
-.user-avatar {
-  @include round-image($avatar-size);
 }
 
 .avatar-container {
