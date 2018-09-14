@@ -15,4 +15,15 @@ type Relationships = Array<IDatasetView>;
  */
 type RelationshipType = IDropDownOption<string>;
 
-export { Relationships, RelationshipType };
+/**
+ * Relationship upstream and downstream api will return Array<IDatasetLineage> displaying
+ * the type of dataset, type of lineage, and actor urn that modified that relationship
+ */
+interface IDatasetLineage {
+  dataset: IDatasetView;
+  type: string;
+  actor: string;
+  modified: string;
+}
+
+export { Relationships, RelationshipType, IDatasetLineage };
