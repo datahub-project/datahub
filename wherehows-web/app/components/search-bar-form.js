@@ -62,7 +62,7 @@ export default Component.extend({
   /**
    * Sets to the blur to the input in the search bar
    */
-  setSearchBarFocus() {
+  setSearchBarBlur() {
     const searchBar = document.getElementsByClassName('nacho-global-search__text-input')[1];
     searchBar && searchBar.blur();
   },
@@ -89,7 +89,7 @@ export default Component.extend({
         keyword: get(this, 'search'),
         category: get(this, 'currentFilter')
       });
-      this.setSearchBarFocus();
+      this.setSearchBarBlur();
     },
 
     /**
