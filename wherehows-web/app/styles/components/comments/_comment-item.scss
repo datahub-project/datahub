@@ -12,12 +12,6 @@
     }
   }
 
-  /// Overrides the nested user avatar class
-  .user-avatar {
-    width: item-spacing(6);
-    height: item-spacing(6);
-  }
-
   &__header {
     display: flex;
     align-items: center;

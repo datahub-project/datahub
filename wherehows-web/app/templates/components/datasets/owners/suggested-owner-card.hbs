@@ -1,14 +1,13 @@
 <section class="suggested-owner-card__owner-info">
   <div class="suggested-owner-card__owner-info__profile">
-    {{user-avatar
-      class="suggested-owner-card__owner-info__profile__pic"
-      userName=owner.userName}}
+    {{avatars/avatar-image avatar=@owner.avatar class="suggested-owner-card__owner-info__profile__pic"}}
+
     <div class="suggested-owner-card__owner-info__profile__name">
       <h5 class="suggested-owner-card__owner-info__profile__name__full">
-        {{owner.name}}
+        {{@owner.name}}
       </h5>
       <p class="suggested-owner-card__owner-info__profile__name__username">
-        {{owner.userName}}
+        {{@owner.userName}}
       </p>
     </div>
   </div>
@@ -25,5 +24,5 @@
   </div>
 </section>
 <section class="suggested-owner-card__source-info">
-  Source: {{owner.source}}
+  Source: {{@owner.source}}
 </section>
