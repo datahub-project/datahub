@@ -44,6 +44,9 @@ export default class Application extends Controller {
   @service('banners')
   banners: BannerService;
 
+  /**
+   * Keyword of the current search to pass it down to the search bar
+   */
   keyword: string;
 
   constructor() {

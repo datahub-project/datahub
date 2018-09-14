@@ -181,6 +181,13 @@ export default Route.extend(ApplicationRouteMixin, {
     });
   },
 
+  /**
+   * To make keyword accesible to the search bar
+   * we need to read it from the search query parameters
+   * and pass it down to the controller.
+   * @param {*} controller
+   * @param {*} model
+   */
   setupController(controller, model) {
     const keyword = this.paramsFor('search').keyword;
     controller.set('keyword', keyword);
@@ -188,6 +195,10 @@ export default Route.extend(ApplicationRouteMixin, {
   },
 
   actions: {
+    /**
+     * Make sure we keep the keywork updated, so if we return
+     * home, the search term clears
+     */
     willTransition() {
       const controller = this.controllerFor('application');
       const keyword = this.paramsFor('search').keyword;
