@@ -35,10 +35,10 @@
       </tr>
     </thead>
 
-    {{#each confirmedOwners as |confirmedOwner|}}
+    {{#each confirmedOwnersWithAvatars as |confirmedOwnerWithAvatar|}}
       <tbody>
         {{dataset-author
-          owner=confirmedOwner
+          owner=confirmedOwnerWithAvatar
           ownerTypes=ownerTypes
           removeOwner=(action "removeOwner")
           confirmSuggestedOwner=(action "confirmSuggestedOwner")

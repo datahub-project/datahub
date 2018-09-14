@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { set, get, getProperties } from '@ember/object';
 import { assert } from '@ember/debug';
 import { action, computed } from '@ember-decorators/object';
-import { filter } from '@ember-decorators/object/computed';
+import { filter, map } from '@ember-decorators/object/computed';
 import { service } from '@ember-decorators/service';
 import { task } from 'ember-concurrency';
 
@@ -21,6 +21,9 @@ import {
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 
 type Comparator = -1 | 0 | 1;
 
@@ -52,6 +55,13 @@ export default class DatasetAuthors extends Component {
    * @memberof DatasetAuthors
    */
   suggestedOwners: Array<IOwner>;
+
+  /**
+   * Avatar properties used to generate avatar images
+   * @type {(IAppConfig['userEntityProps'] | undefined)}
+   * @memberof DatasetAuthors
+   */
+  avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
    * Current user service
@@ -153,6 +163,25 @@ export default class DatasetAuthors extends Component {
    */
   @filter('owners', isConfirmedOwner)
   confirmedOwners: Array<IOwner>;
+
+  /**
+   * Augments each confirmedOwner IOwner instance with an avatar Record
+   * @param {DatasetAuthors} this
+   * @param {IOwner} owner the IOwner instance
+   * @returns {(IOwner & Record<'avatar', IAvatar>)}
+   * @memberof DatasetAuthors
+   */
+  @map('confirmedOwners')
+  confirmedOwnersWithAvatars(this: DatasetAuthors, owner: IOwner): IOwner & Record<'avatar', IAvatar> {
+    const { avatarProperties } = this;
+
+    return {
+      ...owner,
+      avatar: avatarProperties
+        ? getAvatarProps(avatarProperties)({ userName: owner.userName })
+        : { imageUrl: '', imageUrlFallback: '/assets/assets/images/default_avatar.png' }
+    };
+  }
 
   /**
    * Intersection of confirmed owners and suggested owners

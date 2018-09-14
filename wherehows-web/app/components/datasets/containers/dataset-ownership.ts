@@ -13,7 +13,11 @@ import {
   updateDatasetOwnersByUrn
 } from 'wherehows-web/utils/api/datasets/owners';
 import { service } from '@ember-decorators/service';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import Configurator from 'wherehows-web/services/configurator';
+import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
 
+@containerDataSource('getContainerDataTask')
 export default class DatasetOwnershipContainer extends Component {
   /**
    * The urn identifier for the dataset
@@ -58,24 +62,40 @@ export default class DatasetOwnershipContainer extends Component {
    */
   upstreamUrn: string;
 
-  didInsertElement() {
-    get(this, 'getContainerDataTask').perform();
-  }
-
-  didUpdateAttrs() {
-    get(this, 'getContainerDataTask').perform();
-  }
+  /**
+   * Avatar properties used to generate avatar images
+   * @type {(IAppConfig['userEntityProps'] | undefined)}
+   * @memberof DatasetOwnershipContainer
+   */
+  avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
    * An async parent task to group all data tasks for this container component
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
-  getContainerDataTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<TaskInstance<Promise<any>>> {
+  getContainerDataTask = task(function*(
+    this: DatasetOwnershipContainer
+  ): IterableIterator<TaskInstance<Promise<any> | IAppConfig['userEntityProps']>> {
     const tasks = Object.values(
-      getProperties(this, ['getDatasetOwnersTask', 'getSuggestedOwnersTask', 'getDatasetOwnerTypesTask'])
+      getProperties(this, [
+        'getDatasetOwnersTask',
+        'getSuggestedOwnersTask',
+        'getDatasetOwnerTypesTask',
+        'getAvatarProperties'
+      ])
     );
 
     yield* tasks.map(task => task.perform());
+  });
+
+  /**
+   * Fetches & sets avatar props to build owner avatar images
+   * @memberof DatasetOwnershipContainer
+   */
+  getAvatarProperties = task(function*(
+    this: DatasetOwnershipContainer
+  ): IterableIterator<IAppConfig['userEntityProps']> {
+    return set(this, 'avatarProperties', Configurator.getConfig('userEntityProps'));
   });
 
   /**
