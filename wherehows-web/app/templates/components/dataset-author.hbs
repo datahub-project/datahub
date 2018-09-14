@@ -1,9 +1,9 @@
 <td>
   {{#unless isOwnerInActive}}
-    {{user-avatar userName=owner.userName}}
+    {{avatars/avatar-image avatar=@owner.avatar}}
   {{/unless}}
 
-  {{owner.userName}}
+  {{@owner.userName}}
 
   {{#if isOwnerInActive}}
 
@@ -15,18 +15,18 @@
 </td>
 
 <td>
-  {{owner.name}}
+  {{@owner.name}}
 </td>
 
 <td>
-  {{owner.idType}}
+  {{@owner.idType}}
 </td>
 
 {{!-- hides source column for confirmed owners--}}
 {{#unless isOwnerMutable}}
 
   <td>
-    {{owner.source}}
+    {{@owner.source}}
   </td>
 
 {{/unless}}
@@ -35,7 +35,7 @@
   {{ember-selector
     class=(unless isOwnerMutable "nacho-select--hidden-state")
     values=ownerTypes
-    selected=owner.type
+    selected=@owner.type
     disabled=(not isOwnerMutable)
     selectionDidChange=(action "changeOwnerType")
   }}

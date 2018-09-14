@@ -136,12 +136,12 @@ export default class DatasetAclAccess extends Component {
   @computed('acls')
   get aclsWithAvatarProps(): Array<IAccessControlEntry & Record<'avatar', IAvatar>> {
     const { acls, avatarProperties } = this;
-    const aclToAvatar = (acl: IAccessControlEntry): IAccessControlEntry & Record<'avatar', IAvatar> => ({
+    const aclWithAvatar = (acl: IAccessControlEntry): IAccessControlEntry & Record<'avatar', IAvatar> => ({
       ...acl,
       avatar: getAvatarProps(avatarProperties!)({ userName: acl.principal })
     });
 
-    return avatarProperties ? arrayMap(aclToAvatar)(acls) : [];
+    return avatarProperties ? arrayMap(aclWithAvatar)(acls) : [];
   }
 
   /**
