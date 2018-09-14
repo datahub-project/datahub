@@ -23,7 +23,8 @@ interface IDatasetLineage {
   dataset: IDatasetView;
   type: string;
   actor: string;
-  modified: string | undefined;
 }
 
-export { Relationships, RelationshipType, IDatasetLineage };
+type LineageList = Array<IDatasetLineage>;
+
+export { Relationships, RelationshipType, IDatasetLineage, LineageList };
