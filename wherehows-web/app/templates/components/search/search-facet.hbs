@@ -10,19 +10,23 @@
     {{/if}}
   </section>
   {{#each facet.values as |facetValue|}}
-    <div class="search-facet__option">
-      {{input
-        class="search-facet__checkbox"
-        type="checkbox"
-        name="facet.name"
-        id=facetValue.value
-        checked=(readonly (get selections facetValue.value))
-        change=(action onChange facet facetValue)
-        }}
-      <label for="{{facetValue.value}}" class="search-facet__checkbox-wrapper">
-        <span class="search-facet__label">{{facetValue.label}}</span>
-        <span class="search-facet__count">{{facetValue.count}}</span>
-      </label>
-    </div>
+    {{#get-yield object=counts property=facetValue.value default=0 as |count|}}
+      {{#get-yield object=selections property=facetValue.value as |checked|}}
+        <div class="search-facet__option {{if (lt count 1) 'search-facet__option--empty'}}">
+          {{input
+            class="search-facet__checkbox"
+            type="checkbox"
+            name="facet.name"
+            id=facetValue.value
+            checked=(readonly checked)
+            change=(action onChange facet facetValue)
+            }}
+          <label for="{{facetValue.value}}" class="search-facet__checkbox-wrapper">
+            <span class="search-facet__label">{{facetValue.label}}</span>
+            <span class="search-facet__count">{{readonly count}}</span>
+          </label>
+        </div>
+      {{/get-yield}}
+    {{/get-yield}}
   {{/each}}
 </div>

@@ -2,14 +2,15 @@
   <div class="col-md-3 wh-sidebar">
 
     {{#search/containers/search-facets
-      model=model
+      counts=facetCounts
       selections=(readonly facetsSelections)
-      onFacetsChange=(action onFacetsChange) as |searchFacet selections onFacetChange onFacetClear|}}
+      onFacetsChange=(action onFacetsChange) as |searchFacet selections counts onFacetChange onFacetClear|}}
 
       {{#each searchFacet as |facet|}}
         {{search/search-facet
           facet=facet
           selections=(get selections facet.name)
+          counts=(get counts facet.name)
           onChange=(action onFacetChange)
           onClear=(action onFacetClear)}}
       {{/each}}
