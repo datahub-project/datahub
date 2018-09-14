@@ -22,8 +22,8 @@ import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners'
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 
 type Comparator = -1 | 0 | 1;
 
@@ -165,14 +165,13 @@ export default class DatasetAuthors extends Component {
   confirmedOwners: Array<IOwner>;
 
   /**
-   * Augments each confirmedOwner IOwner instance with an avatar Record
-   * @param {DatasetAuthors} this
-   * @param {IOwner} owner the IOwner instance
-   * @returns {(IOwner & Record<'avatar', IAvatar>)}
+   * Augments an IOwner instance with an IAvatar Record keyed by 'avatar'
+   * @this {DatasetAuthors}
+   * @param owner
    * @memberof DatasetAuthors
+   * @returns {OwnerWithAvatarRecord}
    */
-  @map('confirmedOwners')
-  confirmedOwnersWithAvatars(this: DatasetAuthors, owner: IOwner): IOwner & Record<'avatar', IAvatar> {
+  datasetAuthorsOwnersAugmentedWithAvatars = (owner: IOwner): OwnerWithAvatarRecord => {
     const { avatarProperties } = this;
 
     return {
@@ -181,6 +180,17 @@ export default class DatasetAuthors extends Component {
         ? getAvatarProps(avatarProperties)({ userName: owner.userName })
         : { imageUrl: '', imageUrlFallback: '/assets/assets/images/default_avatar.png' }
     };
+  };
+
+  /**
+   * Augments each confirmedOwner IOwner instance with an avatar Record
+   * @param {IOwner} owner the IOwner instance
+   * @returns {OwnerWithAvatarRecord}
+   * @memberof DatasetAuthors
+   */
+  @map('confirmedOwners')
+  confirmedOwnersWithAvatars(owner: IOwner): OwnerWithAvatarRecord {
+    return this.datasetAuthorsOwnersAugmentedWithAvatars(owner);
   }
 
   /**
@@ -212,6 +222,17 @@ export default class DatasetAuthors extends Component {
     // Creates a copy of suggested owners since using it directly seems to invoke a "modified twice in the
     // same render" error
     return (get(this, 'suggestedOwners') || []).slice(0);
+  }
+
+  /**
+   * Augments each systemGeneratedOwner IOwner instance with an avatar Record
+   * @param {IOwner} owner the IOwner instance
+   * @returns {OwnerWithAvatarRecord}
+   * @memberof DatasetAuthors
+   */
+  @map('systemGeneratedOwners')
+  systemGeneratedOwnersWithAvatars(owner: IOwner): OwnerWithAvatarRecord {
+    return this.datasetAuthorsOwnersAugmentedWithAvatars(owner);
   }
 
   /**
