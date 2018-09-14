@@ -47,6 +47,7 @@ import wherehows.models.view.DatasetRetention;
 import wherehows.models.view.DatasetSchema;
 import wherehows.models.view.DatasetView;
 import wherehows.models.view.DsComplianceSuggestion;
+import wherehows.models.view.LineageView;
 
 import static controllers.api.v1.Dataset.*;
 import static utils.Dataset.*;
@@ -521,9 +522,9 @@ public class Dataset extends Controller {
   }
 
   public static Promise<Result> getDatasetUpstreams(@Nonnull String datasetUrn) {
-    final List<DatasetView> upstreams;
+    final List<LineageView> upstreams;
     try {
-      upstreams = LINEAGE_DAO.getUpstreamDatasets(datasetUrn);
+      upstreams = LINEAGE_DAO.getUpstreamLineage(datasetUrn);
     } catch (Exception e) {
       Logger.error("Fetch Dataset upstreams error", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
@@ -532,9 +533,9 @@ public class Dataset extends Controller {
   }
 
   public static Promise<Result> getDatasetDownstreams(@Nonnull String datasetUrn) {
-    final List<DatasetView> downstreams;
+    final List<LineageView> downstreams;
     try {
-      downstreams = LINEAGE_DAO.getDownstreamDatasets(datasetUrn);
+      downstreams = LINEAGE_DAO.getDownstreamLineage(datasetUrn);
     } catch (Exception e) {
       Logger.error("Fetch Dataset upstreams error", e);
       return Promise.promise(() -> internalServerError(errorResponse(e)));
