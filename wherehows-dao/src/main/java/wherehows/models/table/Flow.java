@@ -31,7 +31,7 @@ public class Flow {
 
   @Id
   @Column(name = "flow_id")
-  private Long flow_id;
+  private Long flowId;
 
   @Id
   @Column(name = "app_id")
@@ -62,7 +62,7 @@ public class Flow {
   private String appCode;
 
   static class FlowKeys implements Serializable {
-    private String flow_id;
+    private String flowId;
     private String appId;
   }
 }

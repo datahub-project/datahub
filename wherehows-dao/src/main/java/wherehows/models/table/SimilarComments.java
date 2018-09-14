@@ -15,8 +15,8 @@ package wherehows.models.table;
 
 public class SimilarComments {
 
-    public Long count;
-    public Long commentId;
-    public Long datasetId;
-    public String comment;
+  public Long count;
+  public Long commentId;
+  public Long datasetId;
+  public String comment;
 }

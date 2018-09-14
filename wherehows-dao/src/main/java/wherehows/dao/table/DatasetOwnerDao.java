@@ -65,7 +65,8 @@ public class DatasetOwnerDao extends BaseDao {
    * @param owners List<DatasetOwner>
    * @param user String
    */
-  public void updateDatasetOwners(@Nonnull String datasetUrn, @Nonnull List<DatasetOwner> owners, @Nonnull String user) throws Exception {
+  public void updateDatasetOwners(@Nonnull String datasetUrn, @Nonnull List<DatasetOwner> owners, @Nonnull String user)
+      throws Exception {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 

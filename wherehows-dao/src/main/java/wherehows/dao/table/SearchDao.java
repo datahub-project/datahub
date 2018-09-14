@@ -214,7 +214,6 @@ public class SearchDao {
       log.info(" === elasticSearchDatasetByKeyword === The query sent to Elastic Search is: " + queryNode.toString());
 
       responseNode = HttpUtil.httpPostRequest(elasticSearchUrl, queryNode);
-
     } catch (IOException e) {
       log.error("Elastic search dataset query error: {}", e.toString());
     }

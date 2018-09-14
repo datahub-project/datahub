@@ -209,7 +209,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
         }
         for (Map row : rows) {
           Flow flow = new Flow();
-          flow.setFlow_id((Long) row.get("flow_id"));
+          flow.setFlowId((Long) row.get("flow_id"));
           flow.setLevel((Integer) row.get("flow_level"));
           flow.setAppId((Integer) row.get("app_id"));
           flow.setGroup((String) row.get("flow_group"));
@@ -233,10 +233,10 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
 
           int jobCount = 0;
 
-          if (flow.getFlow_id() != null && flow.getFlow_id() != 0) {
+          if (flow.getFlowId() != null && flow.getFlowId() != 0) {
             try {
               jobCount = getJdbcTemplate().queryForObject(GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID,
-                  new Object[]{flow.getAppId(), flow.getFlow_id()}, Integer.class);
+                  new Object[]{flow.getAppId(), flow.getFlowId()}, Integer.class);
               flow.setJobCount(jobCount);
             } catch (EmptyResultDataAccessException e) {
               Logger.error("Exception = " + e.getMessage());
@@ -284,7 +284,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
           }
           for (Map row : rows) {
             Flow flow = new Flow();
-            flow.setFlow_id((Long) row.get("flow_id"));
+            flow.setFlowId((Long) row.get("flow_id"));
             flow.setLevel((Integer) row.get("flow_level"));
             flow.setAppId((Integer) row.get("app_id"));
             flow.setGroup((String) row.get("flow_group"));
@@ -308,10 +308,10 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
 
             int jobCount = 0;
 
-            if (flow.getFlow_id() != null && flow.getFlow_id() != 0) {
+            if (flow.getFlowId() != null && flow.getFlowId() != 0) {
               try {
                 jobCount = getJdbcTemplate().queryForObject(GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID,
-                    new Object[]{flow.getAppId(), flow.getFlow_id()}, Integer.class);
+                    new Object[]{flow.getAppId(), flow.getFlowId()}, Integer.class);
                 flow.setJobCount(jobCount);
               } catch (EmptyResultDataAccessException e) {
                 Logger.error("Exception = " + e.getMessage());
@@ -382,7 +382,7 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
           }
           for (Map row : rows) {
             Flow flow = new Flow();
-            flow.setFlow_id((Long) row.get("flow_id"));
+            flow.setFlowId((Long) row.get("flow_id"));
             flow.setLevel((Integer) row.get("flow_level"));
             flow.setName((String) row.get("flow_name"));
             flow.setPath((String) row.get("flow_path"));
@@ -405,10 +405,10 @@ public class FlowsDAO extends AbstractMySQLOpenSourceDAO {
 
             int jobCount = 0;
 
-            if (flow.getFlow_id() != null && flow.getFlow_id() != 0) {
+            if (flow.getFlowId() != null && flow.getFlowId() != 0) {
               try {
                 jobCount = getJdbcTemplate().queryForObject(GET_JOB_COUNT_BY_APP_ID_AND_FLOW_ID,
-                    new Object[]{appID, flow.getFlow_id()}, Integer.class);
+                    new Object[]{appID, flow.getFlowId()}, Integer.class);
                 flow.setJobCount(jobCount);
               } catch (EmptyResultDataAccessException e) {
                 Logger.error("Exception = " + e.getMessage());

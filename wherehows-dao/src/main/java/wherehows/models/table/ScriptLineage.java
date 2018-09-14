@@ -15,8 +15,8 @@ package wherehows.models.table;
 
 public class ScriptLineage {
 
-    public String sourceTargetType;
-    public String operation;
-    public String storageType;
-    public String abstractedObjectName;
+  public String sourceTargetType;
+  public String operation;
+  public String storageType;
+  public String abstractedObjectName;
 }

@@ -13,19 +13,19 @@
  */
 package wherehows.models.table;
 
-import lombok.Data;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import lombok.Data;
+
 
 @Data
 @Entity
 @Table(name = "dir_external_group_user_map")
 public class Group {
 
-    @Id
-    @Column(name = "group_id")
-    private String name;
+  @Id
+  @Column(name = "group_id")
+  private String name;
 }

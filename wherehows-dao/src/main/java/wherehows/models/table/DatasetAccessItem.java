@@ -13,12 +13,10 @@
  */
 package wherehows.models.table;
 
-import java.util.List;
-
 public class DatasetAccessItem {
 
-    public String recordCountStr;
-    public String sizeInByteStr;
-    public String logTimeEpochStr;
-    public Boolean isPlaceHolder;
+  public String recordCountStr;
+  public String sizeInByteStr;
+  public String logTimeEpochStr;
+  public Boolean isPlaceHolder;
 }

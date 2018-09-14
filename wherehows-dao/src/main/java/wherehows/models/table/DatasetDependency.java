@@ -15,14 +15,14 @@ package wherehows.models.table;
 
 public class DatasetDependency {
 
-    public Long datasetId;
-    public String datasetUrn;
-    public String datasetLink;
-    public String objectType;
-    public String objectSubType;
-    public String objectName;
-    public String treeGridClass;
-    public int sortId;
-    public int level;
-    public boolean isValidDataset;
+  public Long datasetId;
+  public String datasetUrn;
+  public String datasetLink;
+  public String objectType;
+  public String objectSubType;
+  public String objectName;
+  public String treeGridClass;
+  public int sortId;
+  public int level;
+  public boolean isValidDataset;
 }

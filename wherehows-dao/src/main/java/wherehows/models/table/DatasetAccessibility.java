@@ -15,19 +15,20 @@ package wherehows.models.table;
 
 import java.util.List;
 
+
 public class DatasetAccessibility {
 
-    public Long datasetId;
-    public Integer dbId;
-    public String dbName;
-    public String datasetType;
-    public String partitionGain;
-    public String partitionExpr;
-    public String dataTimeExpr;
-    public Integer dataTimeEpoch;
-    public Long recordCount;
-    public Long sizeInByte;
-    public Integer logTimeEpoch;
-    public String logTimeEpochStr;
-    public List<DatasetAccessItem> itemList;
+  public Long datasetId;
+  public Integer dbId;
+  public String dbName;
+  public String datasetType;
+  public String partitionGain;
+  public String partitionExpr;
+  public String dataTimeExpr;
+  public Integer dataTimeEpoch;
+  public Long recordCount;
+  public Long sizeInByte;
+  public Integer logTimeEpoch;
+  public String logTimeEpochStr;
+  public List<DatasetAccessItem> itemList;
 }

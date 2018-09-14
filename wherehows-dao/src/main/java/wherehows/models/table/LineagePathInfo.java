@@ -15,7 +15,7 @@ package wherehows.models.table;
 
 public class LineagePathInfo {
 
-    public String storageType;
-    public String schemaName;
-    public String filePath;
+  public String storageType;
+  public String schemaName;
+  public String filePath;
 }

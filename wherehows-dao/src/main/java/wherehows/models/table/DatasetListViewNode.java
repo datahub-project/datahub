@@ -15,7 +15,7 @@ package wherehows.models.table;
 
 public class DatasetListViewNode {
 
-    public Long datasetId;
-    public String nodeName;
-    public String nodeUrl;
+  public Long datasetId;
+  public String nodeName;
+  public String nodeUrl;
 }

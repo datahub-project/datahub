@@ -15,9 +15,8 @@ package wherehows.models.table;
 
 public class SchemaHistoryData {
 
-    public String modified;
-    public String schema;
-    public String fields;
-    public int fieldCount;
-
+  public String modified;
+  public String schema;
+  public String fields;
+  public int fieldCount;
 }
