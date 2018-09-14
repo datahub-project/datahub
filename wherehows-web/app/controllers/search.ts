@@ -20,8 +20,7 @@ export default class SearchController extends Controller {
   category = 'datasets';
 
   /**
-   * Dataset Platform to restrict search results to
-   * @type {DatasetPlatform}
+   * Encoded facets state in a restli fashion
    */
   facets: string;
 

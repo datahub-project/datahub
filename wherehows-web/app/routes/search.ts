@@ -20,9 +20,11 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
     return result || {};
   }
 
+  /**
+   * Add spinner when model is loading
+   */
   @action
   loading(transition: any) {
-    // @ts-ignore
     let controller = this.controllerFor('search');
     controller.set('searchLoading', true);
     transition.promise.finally(function() {
