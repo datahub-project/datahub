@@ -23,7 +23,7 @@ interface IDatasetLineage {
   dataset: IDatasetView;
   type: string;
   actor: string;
-  modified: string;
+  modified: string | undefined;
 }
 
 export { Relationships, RelationshipType, IDatasetLineage };
