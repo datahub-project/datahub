@@ -152,7 +152,7 @@ export default class SearchFacetsContainer extends Component {
    * When the user clear the facet
    * @param facet the facet that the user selects
    */
-  onFacetClear(facet: any) {
+  onFacetClear(facet: ISearchFacet) {
     this.set('selections', {
       ...this.selections,
       [facet.name]: {}
