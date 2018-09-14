@@ -28,4 +28,6 @@ public class LineageView {
   private String type;
 
   private String actor;
+
+  private String modified;
 }
