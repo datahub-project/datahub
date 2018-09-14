@@ -5,9 +5,9 @@ import { get } from '@ember/object';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 import { feedback, avatar } from 'wherehows-web/constants';
 import Configurator from 'wherehows-web/services/configurator';
+import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 
 const { mail, subject, title } = feedback;
-const { url: avatarUrl } = avatar;
 
 export default Route.extend(ApplicationRouteMixin, {
   // Injected Ember#Service for the current user
@@ -42,10 +42,13 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   async model() {
     const { getConfig } = Configurator;
-
-    const [isInternal, showStagingBanner] = await Promise.all([getConfig('isInternal'), getConfig('isStagingBanner')]);
-
-    const { userName } = get(this, 'sessionUser.currentUser') || {};
+    const [showStagingBanner, showLiveDataWarning, avatarEntityProps] = [
+      getConfig('isStagingBanner', { useDefault: true, default: false }),
+      getConfig('isLiveDataWarning', { useDefault: true, default: false }),
+      getConfig('userEntityProps')
+    ];
+    const { userName, email, name } = get(this, 'sessionUser.currentUser') || {};
+    const avatar = getAvatarProps(avatarEntityProps)({ userName, email, name });
 
     /**
      * properties for the navigation link to allow a user to provide feedback
@@ -57,12 +60,7 @@ export default Route.extend(ApplicationRouteMixin, {
       target: '_blank'
     };
 
-    const brand = {
-      logo: isInternal ? '/assets/assets/images/wherehows-logo.png' : '',
-      avatarUrl: isInternal ? avatarUrl.replace('[username]', userName) : '/assets/assets/images/default_avatar.png'
-    };
-
-    return { feedbackMail, brand, showStagingBanner };
+    return { feedbackMail, showStagingBanner, showLiveDataWarning, avatar };
   },
 
   /**
@@ -162,9 +160,12 @@ export default Route.extend(ApplicationRouteMixin, {
    */
   renderTemplate() {
     this._super(...arguments);
-    const { showStagingBanner } = get(this, 'controller').get('model');
+    const { showStagingBanner, showLiveDataWarning } = get(this, 'controller').get('model');
     const banners = get(this, 'banners');
-    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [showStagingBanner]);
+    run.scheduleOnce('afterRender', this, banners.appInitialBanners.bind(banners), [
+      showStagingBanner,
+      showLiveDataWarning
+    ]);
   },
 
   processLegacyDomOperations() {

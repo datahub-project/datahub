@@ -8,7 +8,7 @@
   <section class="dataset-authors-suggested__info">
     <div class="dataset-authors-suggested__info__facepile">
       {{#each facepileOwners as |owner|}}
-        {{user-avatar class="dataset-authors-suggested__info__facepile__avatar" userName=owner.userName}}
+        {{avatars/avatar-image avatar=owner.avatar class="dataset-authors-suggested__info__facepile__avatar"}}
       {{/each}}
     </div>
     <div class="dataset-authors-suggested__info__description">

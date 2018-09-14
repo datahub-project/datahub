@@ -17,7 +17,7 @@ module('Integration | Component | dataset author', function(hooks) {
   test('it renders', async function(assert) {
     this.set('removeOwner', noop);
     this.set('confirmSuggestedOwner', noop);
-    this.set('author', confirmedOwner);
+    this.set('author', { owner: confirmedOwner });
     this.set('commonOwners', commonOwners);
 
     await render(
@@ -36,7 +36,7 @@ module('Integration | Component | dataset author', function(hooks) {
       assert.equal(removeActionCallCount, 1, 'action is called once');
     });
     this.set('confirmSuggestedOwner', noop);
-    this.set('author', confirmedOwner);
+    this.set('author', { owner: confirmedOwner });
     this.set('commonOwners', commonOwners);
 
     await render(
@@ -57,7 +57,7 @@ module('Integration | Component | dataset author', function(hooks) {
       confirmSuggestedOwnerActionCallCount++;
       assert.equal(confirmSuggestedOwnerActionCallCount, 1, 'action is called once');
     });
-    this.set('author', suggestedOwner);
+    this.set('author', { owner: suggestedOwner });
     this.set('commonOwners', commonOwners);
 
     await render(
@@ -78,7 +78,7 @@ module('Integration | Component | dataset author', function(hooks) {
       assert.ok(confirmedOwner === owner, 'updateOwnerType action is invoked correct owner reference');
       assert.equal(type, confirmedOwner.type, 'updateOwnerType action is invoked with selected type');
     });
-    this.set('author', confirmedOwner);
+    this.set('author', { owner: confirmedOwner });
     this.set('commonOwners', commonOwners);
     this.set('ownerTypes', ownerTypes);
 

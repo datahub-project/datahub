@@ -6,6 +6,7 @@ import { assert } from '@ember/debug';
 import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import { action } from '@ember-decorators/object';
+import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 
 /**
  * This component renders a single owner record and also provides functionality for interacting with the component
@@ -26,10 +27,10 @@ export default class DatasetAuthor extends Component {
 
   /**
    * The owner record being rendered
-   * @type {IOwner}
+   * @type {OwnerWithAvatarRecord}
    * @memberof DatasetAuthor
    */
-  owner: IOwner;
+  owner: OwnerWithAvatarRecord;
 
   /**
    * List of suggested owners that have been confirmed by a user
@@ -73,14 +74,14 @@ export default class DatasetAuthor extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetAuthor
    */
-  isOwnerMutable: ComputedProperty<boolean> = equal('owner.source', OwnerSource.Ui);
+  isOwnerMutable: ComputedProperty<boolean> = equal('owner.owner.source', OwnerSource.Ui);
 
   /**
    * Negates the owner attribute flag `isActive`, indicating owner record is considered inactive
    * @type {ComputedProperty<boolean>}
    * @memberOf DatasetAuthor
    */
-  isOwnerInActive: ComputedProperty<boolean> = not('owner.isActive');
+  isOwnerInActive: ComputedProperty<boolean> = not('owner.owner.isActive');
 
   /**
    * Determines if the owner record is a system suggested owner and if this record is confirmed by a user
@@ -93,7 +94,9 @@ export default class DatasetAuthor extends Component {
     const {
       commonOwners,
       isOwnerMutable,
-      owner: { userName }
+      owner: {
+        owner: { userName }
+      }
     } = getProperties(this, ['commonOwners', 'isOwnerMutable', 'owner']);
 
     return isOwnerMutable ? false : !!commonOwners.findBy('userName', userName);
@@ -123,7 +126,7 @@ export default class DatasetAuthor extends Component {
   @action
   onRemoveOwner(): boolean | void | IOwner {
     const { owner, isOwnerMutable, removeOwner } = getProperties(this, ['owner', 'isOwnerMutable', 'removeOwner']);
-    return isOwnerMutable && removeOwner(owner);
+    return isOwnerMutable && removeOwner(owner.owner);
   }
 
   /**
@@ -133,7 +136,7 @@ export default class DatasetAuthor extends Component {
   @action
   confirmOwner(): Array<IOwner> | void {
     const { owner, confirmSuggestedOwner } = getProperties(this, ['owner', 'confirmSuggestedOwner']);
-    return confirmSuggestedOwner(owner);
+    return confirmSuggestedOwner(owner.owner);
   }
 
   /**
@@ -149,6 +152,6 @@ export default class DatasetAuthor extends Component {
       'updateOwnerType'
     ]);
 
-    return isOwnerMutable && updateOwnerType(owner, type);
+    return isOwnerMutable && updateOwnerType(owner.owner, type);
   }
 }

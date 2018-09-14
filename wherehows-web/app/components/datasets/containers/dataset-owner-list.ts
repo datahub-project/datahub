@@ -1,19 +1,31 @@
 import Component from '@ember/component';
-import { get, set, computed } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { IAvatar } from 'wherehows-web/typings/app/avatars';
-import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
+import { set } from '@ember/object';
 import { task } from 'ember-concurrency';
+import { assert } from '@ember/debug';
+import { computed } from '@ember-decorators/object';
 import { readDatasetOwnersByUrn } from 'wherehows-web/utils/api/datasets/owners';
 import { arrayMap } from 'wherehows-web/utils/array';
+import { IAvatar } from 'wherehows-web/typings/app/avatars';
+import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 import { confirmedOwners } from 'wherehows-web/constants/datasets/owner';
+import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
+import { isLiUrn } from 'wherehows-web/utils/validators/urn';
+import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
+@containerDataSource('getOwnersTask')
 export default class DatasetOwnerListContainer extends Component {
   constructor() {
     super(...arguments);
 
-    this.owners || (this.owners = []);
+    const typeOfAvatarEntityProps = typeof this.avatarEntityProps;
+
+    assert(
+      `Expected avatarEntityProps to be an object, got ${typeOfAvatarEntityProps}`,
+      typeOfAvatarEntityProps === 'object'
+    );
+
+    Array.isArray(this.owners) || (this.owners = []);
   }
 
   /**
@@ -21,7 +33,7 @@ export default class DatasetOwnerListContainer extends Component {
    * @type {string}
    * @memberof DatasetOwnerListContainer
    */
-  urn: string;
+  urn!: string;
 
   /**
    * The owners for the dataset
@@ -31,20 +43,21 @@ export default class DatasetOwnerListContainer extends Component {
   owners: Array<IOwner>;
 
   /**
+   * Avatar entity properties used to constructs the avatar image
+   * @type {IAppConfig.avatarEntityProps}
+   * @memberof DatasetOwnerListContainer
+   */
+  avatarEntityProps!: IAppConfig['userEntityProps'];
+
+  /**
    * Lists the avatar objects based off the dataset owners
    * @type {ComputedProperty<Array<IAvatar>>}
    * @memberof DatasetOwnerListContainer
    */
-  avatars: ComputedProperty<Array<IAvatar>> = computed('owners', function(): Array<IAvatar> {
-    return arrayMap(getAvatarProps)(get(this, 'owners'));
-  });
-
-  didInsertElement() {
-    get(this, 'getOwnersTask').perform();
-  }
-
-  didUpdateAttrs() {
-    get(this, 'getOwnersTask').perform();
+  @computed('owners')
+  get avatars(): Array<IAvatar> {
+    const { avatarEntityProps, owners } = this;
+    return arrayMap(getAvatarProps(avatarEntityProps))(owners);
   }
 
   /**
@@ -52,8 +65,12 @@ export default class DatasetOwnerListContainer extends Component {
    * @type {Task<Promise<Array<IOwnerResponse>>, () => TaskInstance<Promise<IOwnerResponse>>>}
    */
   getOwnersTask = task(function*(this: DatasetOwnerListContainer): IterableIterator<Promise<IOwnerResponse>> {
-    const { owners = [] }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
+    const { urn } = this;
 
-    set(this, 'owners', confirmedOwners(owners));
+    if (isLiUrn(urn)) {
+      const { owners = [] }: IOwnerResponse = yield readDatasetOwnersByUrn(urn);
+
+      set(this, 'owners', confirmedOwners(owners));
+    }
   }).restartable();
 }

@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.util;
+package wherehows.ingestion.util;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.events.metadata.ChangeType;
@@ -19,17 +19,16 @@ import com.linkedin.events.metadata.DataOrigin;
 import com.linkedin.events.metadata.DatasetIdentifier;
 import com.linkedin.events.metadata.DeploymentDetail;
 import com.linkedin.events.metadata.MetadataChangeEvent;
-import com.typesafe.config.Config;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.testng.annotations.Test;
-import wherehows.utils.ProcessorUtil;
+import wherehows.ingestion.utils.ProcessorUtil;
 
-import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
@@ -61,9 +60,8 @@ public class ProcessorUtilTest {
 
   @Test
   public void testGetWhitelistedActors() {
-    Config config = mock(Config.class);
-    when(config.hasPath("whitelist")).thenReturn(true);
-    when(config.getString("whitelist")).thenReturn("foo;bar");
+    Properties config = new Properties();
+    config.put("whitelist", "foo;bar");
 
     Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
 
@@ -72,23 +70,22 @@ public class ProcessorUtilTest {
 
   @Test
   public void testGetWhitelistedActorsNoPath() {
-    Config config = mock(Config.class);
-    when(config.hasPath("whitelist")).thenReturn(false);
+    Properties config = new Properties();
+    config.put("whitelist", "foo;bar");
 
-    Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
+    Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "no");
 
-    assertEquals(actors, null);
+    assertNull(actors);
   }
 
   @Test
   public void testGetWhitelistedActorsEmptyValue() {
-    Config config = mock(Config.class);
-    when(config.hasPath("whitelist")).thenReturn(true);
-    when(config.getString("whitelist")).thenReturn("");
+    Properties config = new Properties();
+    config.put("whitelist", "");
 
     Set<String> actors = ProcessorUtil.getWhitelistedActors(config, "whitelist");
 
-    assertEquals(actors, null);
+    assertNull(actors);
   }
 
   @Test

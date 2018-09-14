@@ -4,14 +4,6 @@ import { formatAsCapitalizedStringWithSpaces } from 'wherehows-web/utils/helpers
 import { IComplianceChangeSet, ISecurityClassificationOption } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
- * Length of time between suggestion modification time and last modified time for the compliance policy
- * If a policy has been updated within the range of this window then it is considered as stale / or
- * has been seen previously
- * @type {number}
- */
-const lastSeenSuggestionInterval: number = 7 * 24 * 60 * 60 * 1000;
-
-/**
  * Percentage value for a compliance policy suggestion with a low confidence score
  * @type {number}
  */
@@ -65,8 +57,8 @@ const isCustomId = (identifierType: string) => identifierType === ComplianceFiel
  * Caches a list of fieldIdentifierTypes values
  * @type {Array<ComplianceFieldIdValue>}
  */
-const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = <Array<ComplianceFieldIdValue>>Object.values(
-  ComplianceFieldIdValue
+const fieldIdentifierTypeValues: Array<ComplianceFieldIdValue> = <Array<ComplianceFieldIdValue>>(
+  Object.values(ComplianceFieldIdValue)
 );
 
 /**
@@ -89,7 +81,6 @@ export {
   fieldIdentifierTypeValues,
   isMixedId,
   isCustomId,
-  lastSeenSuggestionInterval,
   lowQualitySuggestionConfidenceThreshold,
   getDefaultSecurityClassification
 };

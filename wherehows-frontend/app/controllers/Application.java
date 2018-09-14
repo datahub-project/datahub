@@ -61,6 +61,8 @@ public class Application extends Controller {
       Play.application().configuration().getString("ui.show.ownership.revamp", "hide");
   private static final Boolean WHZ_STG_BANNER =
       Play.application().configuration().getBoolean("ui.show.staging.banner", false);
+  private static final Boolean WHZ_LIVE_DATA_BANNER =
+      Play.application().configuration().getBoolean("ui.show.live.data.banner", false);
   private static final Boolean WHZ_STALE_SEARCH_ALERT =
       Play.application().configuration().getBoolean("ui.show.stale.search", false);
   private static final Boolean HTTPS_REDIRECT = Play.application().configuration().getBoolean("https.redirect", false);
@@ -91,6 +93,15 @@ public class Application extends Controller {
       Play.application().configuration().getString("links.wiki.complianceOwner", "");
   private static final String WHZ_WIKI_LINKS__EXPORT_POLICY =
       Play.application().configuration().getString("links.wiki.exportPolicy", "");
+
+  private static final String WHZ_LINKS__JIT_ACL_CONTACT =
+      Play.application().configuration().getString("links.jitAcl.contact", "");
+
+  private static final String WHZ_AVI_FALLBACK =
+      Play.application().configuration().getString("linkedin.links.avi.urlFallback", "");
+  private static final String WHZ_AVI_PRIMARY =
+      Play.application().configuration().getString("linkedin.links.avi.urlPrimary", "");
+
 
   private static final String DB_WHEREHOWS_URL =
       Play.application().configuration().getString("database.opensource.url");
@@ -209,16 +220,35 @@ public class Application extends Controller {
     config.put("suggestionConfidenceThreshold", Integer.parseInt(WHZ_SUGGESTION_CONFIDENCE_THRESHOLD));
     config.set("wikiLinks", wikiLinks());
     config.set("JitAclAccessWhitelist", Json.toJson(StringUtils.split(JIT_ACL_WHITELIST, ',')));
+    config.put("jitAclContact", WHZ_LINKS__JIT_ACL_CONTACT);
     config.set("tracking", trackingInfo());
     // In a staging environment, we can trigger this flag to be true so that the UI can handle based on
     // such config and alert users that their changes will not affect production data
     config.put("isStagingBanner", WHZ_STG_BANNER);
+    config.put("isLiveDataWarning", WHZ_LIVE_DATA_BANNER);
     // Flag set in order to warn users that search is experiencing issues
     config.put("isStaleSearch", WHZ_STALE_SEARCH_ALERT);
+
+    // Insert properties for user profile operations
+    config.set("userEntityProps", userEntityProps());
+
     response.put("status", "ok");
     response.set("config", config);
 
     return ok(response);
+  }
+
+  /**
+   * Creates a JSON object of profile / avatar properties
+   * @return Json avatar / profile image properties
+   */
+  private static ObjectNode userEntityProps() {
+    ObjectNode props = Json.newObject();
+
+    props.put("aviUrlPrimary", WHZ_AVI_PRIMARY);
+    props.put("aviUrlFallback", WHZ_AVI_FALLBACK);
+
+    return props;
   }
 
   /**

@@ -3,25 +3,21 @@ apply plugin: 'application'
 mainClassName = "wherehows.main.ApplicationStart"
 
 dependencies {
-    compile project(':wherehows-common')
-    compile project(':wherehows-dao')
-    compile externalDependency.jackson_databind
-    compile externalDependency.akka
-    compile externalDependency.mysql
-    compile externalDependency.guava
-    compile externalDependency.slf4j_api
-    compile externalDependency.logback
+  compile project(':wherehows-common')
+  compile project(':wherehows-ingestion')
+  compile externalDependency.akka
+  compile externalDependency.slf4j_api
+  compile externalDependency.logback
 
-    compile externalDependency.kafka_clients
-    compile externalDependency.confluent_avro_serde
+  compile externalDependency.kafka_clients
+  compile externalDependency.confluent_avro_serde
 
-    compileOnly externalDependency.lombok
+  compileOnly externalDependency.lombok
 
-    testCompile externalDependency.testng
-    testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }
 
 test {
-    // enable TestNG support (default is JUnit)
-    useTestNG()
+  // enable TestNG support (default is JUnit)
+  useTestNG()
 }

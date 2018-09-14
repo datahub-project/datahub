@@ -11,14 +11,24 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
-package wherehows.common.exceptions;
+package wherehows.utils;
 
-/**
- * An exception to be thrown when authorization is denied.
- */
-public class SelfLineageException extends RuntimeException {
+import com.typesafe.config.Config;
+import java.util.Properties;
+import javax.annotation.Nonnull;
 
-  public SelfLineageException(String message) {
-    super(message);
+
+public class ConfigUtil {
+
+  private ConfigUtil() {
+  }
+
+  /**
+   * Convert typesafe {@link Config} to {@link Properties}
+   */
+  public static Properties configToProperties(@Nonnull Config config) {
+    Properties properties = new Properties();
+    config.entrySet().forEach(e -> properties.setProperty(e.getKey(), config.getString(e.getKey())));
+    return properties;
   }
 }

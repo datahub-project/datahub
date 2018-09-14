@@ -1,15 +1,6 @@
-import {
-  lastSeenSuggestionInterval,
-  lowQualitySuggestionConfidenceThreshold
-} from 'wherehows-web/constants/metadata-acquisition';
+import { lowQualitySuggestionConfidenceThreshold } from 'wherehows-web/constants/metadata-acquisition';
 import { formatAsCapitalizedStringWithSpaces } from 'wherehows-web/utils/helpers/string';
 import { module, test } from 'qunit';
-
-module('Unit | Utility | datasets/metadata acquisition', function() {
-  test('lastSeenSuggestionInterval is a number', function(assert) {
-    assert.ok(typeof lastSeenSuggestionInterval === 'number');
-  });
-});
 
 module('Unit | Utility | datasets/metadata acquisition', function() {
   test('lowQualitySuggestionConfidenceThreshold is a number', function(assert) {
