@@ -96,9 +96,13 @@ export default Component.extend({
      * Triggers a search action by the user pressing enter on a typeahead suggestion
      * @param {string} suggestion - suggestion text passed in from aupac-typeahead
      */
-    onSelectedSuggestion(suggestion) {
+    onSelectedSuggestion(suggestion, evtName) {
       set(this, 'search', suggestion);
-      this.actions.search.call(this);
+
+      // Annoying issue where you focus out and it triggers search.
+      if (evtName !== 'focusout') {
+        this.actions.search.call(this);
+      }
     },
 
     /**
