@@ -6,7 +6,6 @@ import { hdfsUrn, nonHdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
 
 module('Integration | Component | datasets/upstream dataset', function(hooks) {
   setupRenderingTest(hooks);
-
   test('it renders', async function(assert) {
     await render(hbs`{{datasets/upstream-dataset}}`);
 
@@ -15,7 +14,7 @@ module('Integration | Component | datasets/upstream dataset', function(hooks) {
 
   test('it renders upstream dataset properties', async function(assert) {
     const upstreamLink = '.upstream-dataset__upstream-link';
-    const upstreamsMetadata = [{}, {}];
+    const upstreamsMetadata = [{ dataset: {} }, { dataset: {} }];
     this.set('upstreamsMetadata', upstreamsMetadata);
     await render(hbs`{{datasets/upstream-dataset upstreamsMetadata=upstreamsMetadata}}`);
 
