@@ -1,3 +1,3 @@
-const getDatasetUpstreams = ({ datasetViews }: { datasetViews: any }) => datasetViews.all();
+const getDatasetUpstreams = ({ lineageViews }: { lineageViews: any }) => lineageViews.all();
 
 export { getDatasetUpstreams };

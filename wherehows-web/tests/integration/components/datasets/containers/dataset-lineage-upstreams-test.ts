@@ -33,6 +33,7 @@ module('Integration | Component | datasets/containers/dataset-lineage-upstreams'
     const upstreamCount = 3;
 
     server.createList('datasetView', upstreamCount);
+    server.createList('lineageView', upstreamCount);
 
     this.set('urn', nonHdfsUrn);
 
