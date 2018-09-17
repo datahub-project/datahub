@@ -32,8 +32,8 @@ interface ISearchFacet {
  * It will store state related to search facets.
  */
 export default class SearchFacetsContainer extends Component {
-  didInsertElement(this: SearchFacetsContainer) {
-    get(this, 'getPlatformsTask').perform();
+  didInsertElement() {
+    this.getPlatformsTask.perform();
   }
 
   /**

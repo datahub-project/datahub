@@ -16,10 +16,10 @@ export default class SearchFacet extends Component {
    * facet. If that is the case, a clear button will show up.
    */
   @computed('selections')
-  get showClear(): boolean {
+  get showClearBtn(): boolean {
     const selections = this.selections || {};
-    return Object.keys(selections).reduce((willShowClear: boolean, selectionKey: string) => {
-      return willShowClear || selections[selectionKey];
+    return Object.keys(selections).reduce((willShowClearBtn: boolean, selectionKey: string) => {
+      return willShowClearBtn || selections[selectionKey];
     }, false);
   }
 }
