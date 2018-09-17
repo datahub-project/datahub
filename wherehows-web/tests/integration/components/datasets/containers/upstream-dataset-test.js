@@ -20,7 +20,6 @@ module('Integration | Component | datasets/containers/upstream dataset', functio
   test('it renders', async function(assert) {
     assert.expect(1);
     const { server } = this;
-    const something = server.create('datasetView');
     const { nativeName, platform, uri } = server.create('dataset-view');
 
     this.set('urn', uri);
