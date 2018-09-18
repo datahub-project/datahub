@@ -27,7 +27,7 @@
               {{#unless first}}
                 <li class="previous">
                   {{#link-to 'search'
-                            (query-params categroy=category source=source page=previousPage)}}
+                            (query-params category=category source=source page=previousPage)}}
                     &larr; Prev
                   {{/link-to}}
                 </li>
@@ -39,7 +39,7 @@
               {{#unless last}}
                 <li class="next">
                   {{#link-to 'search'
-                            (query-params categroy=category source=source page=nextPage)}}
+                            (query-params category=category source=source page=nextPage)}}
                     Next &rarr;
                   {{/link-to}}
                 </li>
