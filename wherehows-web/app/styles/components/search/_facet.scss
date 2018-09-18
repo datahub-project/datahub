@@ -1,11 +1,11 @@
 .search-facet {
-  margin-bottom: 15px;
+  margin-bottom: item-spacing(4);
 
   &__header {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
-    min-height: 24px;
+    margin-bottom: item-spacing(2);
+    min-height: item-spacing(5);
   }
 
   &__title {
@@ -17,7 +17,7 @@
     display: block;
     flex-grow: 1;
     font-weight: 400;
-    margin-left: 5px;
+    margin-left: item-spacing(1);
   }
 
   &__count {
@@ -32,9 +32,9 @@
 
 input[type='checkbox'] + label.search-facet__checkbox-wrapper {
   $checkbox-width: 28px;
-  $container-margin: 16px;
+  $container-margin: item-spacing(4);
   display: flex;
-  padding: 6px $container-margin 6px ($container-margin + $checkbox-width);
+  padding: item-spacing(2) $container-margin item-spacing(2) ($container-margin + $checkbox-width);
   box-sizing: content-box;
   margin: 0 (-1 * $container-margin);
 
@@ -45,6 +45,6 @@ input[type='checkbox'] + label.search-facet__checkbox-wrapper {
   &:before,
   &:after {
     left: $container-margin;
-    top: 6px - 1;
+    top: item-spacing(2) - 1;
   }
 }
