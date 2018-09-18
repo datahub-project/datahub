@@ -1,8 +1,7 @@
 {{#if getHealthScoreTask.isIdle}}
   {{#visualization/charts/score-gauge
     class="dataset-health-score"
-    score=healthScore
-    customTitleTemplate=true}}
+    score=healthScore}}
     Health Score:
     {{more-info
       link=@wikiLinks.metadataHealth
