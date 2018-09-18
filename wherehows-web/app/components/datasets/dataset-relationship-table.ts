@@ -7,7 +7,7 @@ import ComputedProperty from '@ember/object/computed';
 import {
   allRelationshipType,
   dedupeType,
-  takeNRelationships,
+  takeNLineageItems,
   filterLineageByType
 } from 'wherehows-web/utils/datasets/lineage';
 
@@ -24,7 +24,7 @@ export default class DatasetRelationshipTable extends Component {
    * @type {IDatasetLineage}
    * @memberof DatasetRelationshipTable
    */
-  relationships: Array<IDatasetLineage>;
+  relationships: LineageList;
 
   /**
    * References the currently selected relationship type, used to filter out relationships
@@ -46,13 +46,13 @@ export default class DatasetRelationshipTable extends Component {
 
     // set default values for required props
     this.selectedRelationshipType || set(this, 'selectedRelationshipType', allRelationshipType);
-    Array.isArray(this.relationships) || set(this, 'relationships', <Array<IDatasetLineage>>[]);
+    Array.isArray(this.relationships) || set(this, 'relationships', <LineageList>[]);
   }
 
-  filteredRelationshipsByType: ComputedProperty<Array<IDatasetLineage>> = computed(
+  filteredRelationshipsByType: ComputedProperty<LineageList> = computed(
     'selectedRelationshipType',
     'relationships.[]',
-    function(this: DatasetRelationshipTable): Array<IDatasetLineage> {
+    function(this: DatasetRelationshipTable): LineageList {
       const {
         selectedRelationshipType: { value },
         relationships
@@ -77,7 +77,7 @@ export default class DatasetRelationshipTable extends Component {
         'truncatedLength'
       ]);
 
-      return takeNRelationships(showAllRelationships, n)(filteredRelationshipsByType);
+      return takeNLineageItems(showAllRelationships, n)(filteredRelationshipsByType);
     }
   );
 

@@ -30,5 +30,4 @@ export default function(server: IMirageServer) {
   server.createList('platform', 2);
   server.createList('version', 2);
   server.createList('health', 1);
-  server.createList('lineageView', 4);
 }

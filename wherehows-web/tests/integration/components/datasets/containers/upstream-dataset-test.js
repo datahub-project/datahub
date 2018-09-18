@@ -13,10 +13,6 @@ const purgePolicyClass = '.purge-policy-list__item';
 module('Integration | Component | datasets/containers/upstream dataset', function(hooks) {
   setupRenderingTest(hooks);
 
-  hooks.beforeEach(function() {
-    defaultScenario(this.server);
-  });
-
   test('it renders', async function(assert) {
     assert.expect(1);
     const { server } = this;

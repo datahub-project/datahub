@@ -1,10 +1,4 @@
-import {
-  Relationships,
-  RelationshipType,
-  IDatasetLineage,
-  LineageList
-} from 'wherehows-web/typings/api/datasets/relationships';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
+import { RelationshipType, IDatasetLineage, LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 import { arrayFilter, take } from 'wherehows-web/utils/array';
 
 /**
@@ -15,23 +9,11 @@ import { arrayFilter, take } from 'wherehows-web/utils/array';
 const allRelationshipType: RelationshipType = { label: 'All Types', value: '' };
 
 /**
- * Creates a filter function, the will filter an instance of an IDatasetView on it's nativeType
- * property
- * @param {IDatasetView.nativeType} [filter='']
+ * Creates a filter function and will filter an instance of an IDatasetLineage based on its type property
+ * @param {IDatasetLineage.type} filter
  */
-const nativeTypeFilter = (filter: IDatasetView['nativeType'] = '') => ({ nativeType }: IDatasetView): boolean =>
-  filter ? nativeType === filter : true;
-
 const lineageTypeFilter = (filter: IDatasetLineage['type'] = '') => ({ type }: IDatasetLineage): boolean =>
   filter ? type === filter : true;
-
-/**
- * Filters a list of Relationships on the nativeType attribute
- * @param {string} filter
- * @return {(array: Array<IDatasetView>) => Array<IDatasetView>}
- */
-const filterRelationshipsByType = (filter: string = ''): ((array: Relationships) => Relationships) =>
-  arrayFilter(nativeTypeFilter(filter));
 
 /**
  * Filters a list of dataset lineage objects on the type attribute
@@ -59,7 +41,7 @@ const dedupeType = (set: Array<RelationshipType>, relationshipType: Relationship
  * @param {boolean} shouldShowAll flag to determine if all relationships should be shown
  * @param {number} [n=10]
  */
-const takeNRelationships = (shouldShowAll: boolean, n: number = 10) => (relationships: LineageList): LineageList =>
+const takeNLineageItems = (shouldShowAll: boolean, n: number = 10) => (relationships: LineageList): LineageList =>
   shouldShowAll ? relationships : take<IDatasetLineage>(n)(relationships);
 
-export { allRelationshipType, filterRelationshipsByType, dedupeType, takeNRelationships, filterLineageByType };
+export { allRelationshipType, dedupeType, takeNLineageItems, filterLineageByType };

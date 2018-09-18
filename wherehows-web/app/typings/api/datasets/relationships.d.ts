@@ -2,13 +2,6 @@ import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
 
 /**
- * Alias for a list of IDatasetView instances
- * @alias
- * @type Relationships
- */
-type Relationships = Array<IDatasetView>;
-
-/**
  * Alias for a drop-down option based on an IDatasetView nativeType
  * @alias
  * @type RelationshipType
@@ -27,4 +20,4 @@ interface IDatasetLineage {
 
 type LineageList = Array<IDatasetLineage>;
 
-export { Relationships, RelationshipType, IDatasetLineage, LineageList };
+export { RelationshipType, IDatasetLineage, LineageList };
