@@ -1,15 +1,14 @@
 import Component from '@ember/component';
 import { action } from '@ember-decorators/object';
-import { Relationships, RelationshipType } from 'wherehows-web/typings/api/datasets/relationships';
+import { RelationshipType, IDatasetLineage, LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 import { computed, get, getProperties, set } from '@ember/object';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { arrayMap, arrayPipe, arrayReduce } from 'wherehows-web/utils/array';
 import ComputedProperty from '@ember/object/computed';
 import {
   allRelationshipType,
   dedupeType,
-  filterRelationshipsByType,
-  takeNRelationships
+  takeNLineageItems,
+  filterLineageByType
 } from 'wherehows-web/utils/datasets/lineage';
 
 export default class DatasetRelationshipTable extends Component {
@@ -22,10 +21,10 @@ export default class DatasetRelationshipTable extends Component {
 
   /**
    * List of  dataset relationships
-   * @type {Relationships}
+   * @type {IDatasetLineage}
    * @memberof DatasetRelationshipTable
    */
-  relationships: Relationships;
+  relationships: LineageList;
 
   /**
    * References the currently selected relationship type, used to filter out relationships
@@ -47,18 +46,18 @@ export default class DatasetRelationshipTable extends Component {
 
     // set default values for required props
     this.selectedRelationshipType || set(this, 'selectedRelationshipType', allRelationshipType);
-    Array.isArray(this.relationships) || set(this, 'relationships', []);
+    Array.isArray(this.relationships) || set(this, 'relationships', <LineageList>[]);
   }
 
-  filteredRelationshipsByType: ComputedProperty<Relationships> = computed(
+  filteredRelationshipsByType: ComputedProperty<LineageList> = computed(
     'selectedRelationshipType',
     'relationships.[]',
-    function(this: DatasetRelationshipTable): Relationships {
+    function(this: DatasetRelationshipTable): LineageList {
       const {
         selectedRelationshipType: { value },
         relationships
       } = getProperties(this, ['selectedRelationshipType', 'relationships']);
-      return filterRelationshipsByType(value)(relationships);
+      return filterLineageByType(value)(relationships);
     }
   );
 
@@ -68,17 +67,17 @@ export default class DatasetRelationshipTable extends Component {
    * @type {ComputedProperty<Relationships>}
    * @memberof DatasetRelationshipTable
    */
-  filteredRelationships: ComputedProperty<Relationships> = computed(
+  filteredRelationships: ComputedProperty<LineageList> = computed(
     'showAllRelationships',
     'filteredRelationshipsByType',
-    function(this: DatasetRelationshipTable): Relationships {
+    function(this: DatasetRelationshipTable): LineageList {
       const { filteredRelationshipsByType, showAllRelationships, truncatedLength: n } = getProperties(this, [
         'filteredRelationshipsByType',
         'showAllRelationships',
         'truncatedLength'
       ]);
 
-      return takeNRelationships(showAllRelationships, n)(filteredRelationshipsByType);
+      return takeNLineageItems(showAllRelationships, n)(filteredRelationshipsByType);
     }
   );
 
@@ -120,9 +119,9 @@ export default class DatasetRelationshipTable extends Component {
     this: DatasetRelationshipTable
   ): Array<RelationshipType> {
     const relationships = get(this, 'relationships');
-    const typeOption = ({ nativeType }: IDatasetView): RelationshipType => ({
-      label: nativeType,
-      value: nativeType
+    const typeOption = ({ type }: IDatasetLineage): RelationshipType => ({
+      label: type,
+      value: type
     });
 
     return [allRelationshipType, ...arrayPipe(arrayMap(typeOption), arrayReduce(dedupeType, []))(relationships)];

@@ -38,7 +38,6 @@ module('Integration | Component | dataset authors', function(hooks) {
     this.set('ownerTypes', ownerTypes);
     this.set('saveOwnerChanges', noop);
     await render(hbs`{{dataset-authors owners=owners ownerTypes=ownerTypes save=(action saveOwnerChanges)}}`);
-
     await click('.remove-dataset-author');
 
     assert.equal(this.get('owners').length, 0);

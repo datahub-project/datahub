@@ -4,6 +4,7 @@ import { render, waitUntil, find, findAll, click } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import { DatasetPlatform, PurgePolicy } from 'wherehows-web/constants';
 import { hdfsUrn } from 'wherehows-web/mirage/fixtures/urn';
+import defaultScenario from 'wherehows-web/mirage/scenarios/default';
 
 const upstreamElement = '.upstream-dataset';
 const downstreamPolicyEditButton = '#downstream-purge-edit';
@@ -15,7 +16,7 @@ module('Integration | Component | datasets/containers/upstream dataset', functio
   test('it renders', async function(assert) {
     assert.expect(1);
     const { server } = this;
-    const { nativeName, platform, uri } = server.create('datasetView');
+    const { nativeName, platform, uri } = server.create('dataset-view');
 
     this.set('urn', uri);
     this.set('platform', platform);
