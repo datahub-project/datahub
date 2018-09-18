@@ -62,7 +62,9 @@
               avatarEntityProps=avatarEntityProps
               class="dataset-owner-list"}}
 
-            {{datasets/containers/health-score-gauge urn=encodedUrn}}
+            {{#link-to "datasets.dataset.health" encodedUrn}}
+              {{datasets/containers/health-score-gauge urn=encodedUrn wikiLinks=wikiLinks}}
+            {{/link-to}}
           {{/if}}
         </div>
 
