@@ -1,7 +1,7 @@
 {{high-charts chartOptions=(readonly chartOptions) content=(readonly chartData)}}
 <div class="score-gauge__legend-wrapper">
   <h6 class="score-gauge__legend-title">
-    {{#if customTitleTemplate}}
+    {{#if hasBlock}}
       {{yield}}
     {{else}}
       {{title}}
