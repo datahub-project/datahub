@@ -33,7 +33,6 @@ module('Integration | Component | datasets/containers/dataset-lineage-downstream
     const downstreamCount = 4;
 
     server.createList('datasetView', downstreamCount);
-    server.createList('lineageView', downstreamCount);
 
     this.set('urn', nonHdfsUrn);
 
