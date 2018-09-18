@@ -1,74 +1,14 @@
-import { getApiRoot, ApiStatus } from 'wherehows-web/utils/api/shared';
+import { getApiRoot } from 'wherehows-web/utils/api/shared';
 import buildUrl from 'wherehows-web/utils/build-url';
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
 import { toRestli, fromRestli } from 'restliparams';
-
-/**
- * Backend search expected parameters
- */
-export interface ISearchApiParams {
-  keyword: string;
-  category: string;
-  page: number;
-  facets: string;
-  [key: string]: any;
-}
-
-/**
- * Backend search expected response
- */
-export interface ISearchResponse {
-  status: ApiStatus;
-  result: {
-    keywords: string;
-    data: Array<any>;
-    [key: string]: any;
-  };
-}
-
-/**
- * Dynamic facet selections
- */
-export interface IFacetSelections {
-  [key: string]: boolean;
-}
-
-/**
- * Dynamic facets:
- * {
- *  source: {
- *    hdfs: true,
- *    hive: true
- *  }
- * }
- */
-export interface IFacetsSelectionsMap {
-  [key: string]: IFacetSelections;
-}
-
-/**
- * Compressed version of selection to put it in a url
- * {
- *  source: ['hdfs', 'hive]
- * }
- */
-export interface IFacetsSelectionsArray {
-  [key: string]: Array<string>;
-}
-
-/**
- * Dynamic counts facet option
- */
-export interface IFacetCounts {
-  [key: string]: number;
-}
-
-/**
- * Dynamic counts facet similar to selections
- */
-export interface IFacetsCounts {
-  [key: string]: IFacetCounts;
-}
+import {
+  IFacetsSelectionsMap,
+  IFacetsSelectionsArray,
+  IFacetsCounts,
+  IFacetSelections
+} from 'wherehows-web/typings/app/search/facets';
+import { ISearchResponse, ISearchApiParams } from 'wherehows-web/typings/api/search/search';
 
 /**
  * Convert backend static structure into a dynamic facet count structure

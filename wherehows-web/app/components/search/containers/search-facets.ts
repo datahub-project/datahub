@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get } from '@ember/object';
+import { get, set } from '@ember/object';
 import { computed } from '@ember-decorators/object';
 import { capitalize } from '@ember/string';
 import { task } from 'ember-concurrency';
@@ -7,25 +7,12 @@ import { DatasetPlatform } from 'wherehows-web/constants';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
 import { arrayMap } from 'wherehows-web/utils/array';
-import { IFacetsSelectionsMap, IFacetsCounts } from 'wherehows-web/utils/api/search';
-
-/**
- * Options inside a facet
- * @interface ISearchFacetOption
- */
-interface ISearchFacetOption {
-  value: string;
-  label: string;
-}
-
-/**
- * Interface of a facet
- */
-interface ISearchFacet {
-  name: string;
-  displayName: string;
-  values: Array<ISearchFacetOption>;
-}
+import {
+  ISearchFacet,
+  ISearchFacetOption,
+  IFacetsSelectionsMap,
+  IFacetsCounts
+} from 'wherehows-web/typings/app/search/facets';
 
 /**
  * Container component for search facets
@@ -35,12 +22,6 @@ export default class SearchFacetsContainer extends Component {
   didInsertElement() {
     this.getPlatformsTask.perform();
   }
-
-  /**
-   * The current source to narrow search results to
-   * @type {DatasetPlatform}
-   */
-  currentSource: string;
 
   /**
    * Lists data platforms available to restrict search results by source
@@ -62,12 +43,12 @@ export default class SearchFacetsContainer extends Component {
    *  }
    * }
    */
-  selections: IFacetsSelectionsMap;
+  selections!: IFacetsSelectionsMap;
 
   /**
    * Counts for the facets in a similar fashion of selections
    */
-  counts: IFacetsCounts;
+  counts!: IFacetsCounts;
 
   /**
    * Gets the available platforms and extracts a list of dataset sources
@@ -138,7 +119,7 @@ export default class SearchFacetsContainer extends Component {
    */
   onFacetChange(facet: ISearchFacet, facetValue: ISearchFacetOption) {
     const currentFacetValues = this.selections[facet.name] || {};
-    this.set('selections', {
+    set(this, 'selections', {
       ...this.selections,
       [facet.name]: {
         ...currentFacetValues,
@@ -153,7 +134,7 @@ export default class SearchFacetsContainer extends Component {
    * @param facet the facet that the user selects
    */
   onFacetClear(facet: ISearchFacet) {
-    this.set('selections', {
+    set(this, 'selections', {
       ...this.selections,
       [facet.name]: {}
     });

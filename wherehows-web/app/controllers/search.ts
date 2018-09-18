@@ -1,13 +1,9 @@
 import Controller from '@ember/controller';
 import { computed } from '@ember-decorators/object';
 import { debounce } from '@ember-decorators/runloop';
-import {
-  IFacetsSelectionsMap,
-  facetToParamUrl,
-  facetFromParamUrl,
-  facetToDynamicCounts,
-  IFacetsCounts
-} from 'wherehows-web/utils/api/search';
+import { facetToParamUrl, facetFromParamUrl, facetToDynamicCounts } from 'wherehows-web/utils/api/search';
+import { IFacetsSelectionsMap, IFacetsCounts } from 'wherehows-web/typings/app/search/facets';
+import { set, setProperties, get } from '@ember/object';
 
 // gradual refactor into es class, hence extends EmberObject instance
 export default class SearchController extends Controller {
@@ -50,7 +46,7 @@ export default class SearchController extends Controller {
    * @param selections facet selections
    */
   onFacetsChange(selections: IFacetsSelectionsMap) {
-    this.set('searchLoading', true);
+    set(this, 'searchLoading', true);
     this.onFacetsChangeDebounced(selections);
   }
 
@@ -60,7 +56,7 @@ export default class SearchController extends Controller {
    */
   @debounce(1000)
   onFacetsChangeDebounced(selections: IFacetsSelectionsMap) {
-    this.setProperties({
+    setProperties(this, {
       facets: facetToParamUrl(selections),
       page: 1
     });
@@ -88,8 +84,9 @@ export default class SearchController extends Controller {
    * Will return false if there is data to display
    */
   @computed('model.data.length')
-  get showNoResult() {
-    return this.model.data ? this.model.data.length === 0 : true;
+  get showNoResult(): boolean {
+    // @ts-ignore looks like TS is not working for this type of getters
+    return get(this, 'model.data.length') === 0;
   }
 
   @computed('model.category')

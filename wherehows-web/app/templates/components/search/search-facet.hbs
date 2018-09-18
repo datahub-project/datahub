@@ -3,7 +3,7 @@
     <h4 class="search-facet__title">{{facet.displayName}}</h4>
     {{#if showClearBtn}}
       <button
-        class="nacho-button--tertiary"
+        class="nacho-button--tertiary search-facet__clear-btn"
         {{action onClear facet}}>
         clear
       </button>
@@ -12,7 +12,7 @@
   {{#each facet.values as |facetValue|}}
     {{#get-yield object=counts property=facetValue.value default=0 as |count|}}
       {{#get-yield object=selections property=facetValue.value as |checked|}}
-        <div class="search-facet__option {{if (lt count 1) 'search-facet__option--empty'}}">
+        <div class="search-facet__option {{if (lt count 1) 'search-facet__option--empty'}} search-facet__option--{{facetValue.value}}">
           {{input
             class="search-facet__checkbox"
             type="checkbox"
