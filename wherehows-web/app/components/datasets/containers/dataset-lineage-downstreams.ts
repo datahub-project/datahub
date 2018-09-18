@@ -3,7 +3,7 @@ import { get, set } from '@ember/object';
 import { task } from 'ember-concurrency';
 import { readDownstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { assert } from '@ember/debug';
-import { Relationships } from 'wherehows-web/typings/api/datasets/relationships';
+import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 
 export default class DatasetLineageDownstreamsContainer extends Component {
   /**
@@ -15,10 +15,10 @@ export default class DatasetLineageDownstreamsContainer extends Component {
 
   /**
    * List of downstreams datasets for this urn
-   * @type {Relationships}
+   * @type {LineageList}
    * @memberof DatasetLineageDownstreamsContainer
    */
-  downstreams: Relationships = [];
+  downstreams: LineageList = [];
 
   /**
    * Creates an instance of DatasetLineageDownstreamsContainer.
@@ -46,8 +46,8 @@ export default class DatasetLineageDownstreamsContainer extends Component {
    */
   getDatasetDownstreamsTask = task(function*(
     this: DatasetLineageDownstreamsContainer
-  ): IterableIterator<Promise<Relationships>> {
-    let downstreams: Relationships = [];
+  ): IterableIterator<Promise<LineageList>> {
+    let downstreams: LineageList = [];
 
     try {
       downstreams = yield readDownstreamDatasetsByUrn(get(this, 'urn'));

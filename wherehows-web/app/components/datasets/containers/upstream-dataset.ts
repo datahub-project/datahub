@@ -17,13 +17,14 @@ import { retentionObjectFactory } from 'wherehows-web/constants/datasets/retenti
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { service } from '@ember-decorators/service';
+import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 
 /**
  * Aliases the yieldable values for the container task
  * @alias {IterableIterator<TaskInstance<TaskInstance<Promise<IDatasetView[]>> | Promise<IUpstreamWithComplianceMetadata[]>> | TaskInstance<Promise<IDataPlatform[]>> | TaskInstance<Promise<IGetDatasetRetentionResponse | null>>>}
  */
 type ContainerYieldableResult = IterableIterator<
-  | TaskInstance<TaskInstance<Promise<IDatasetView[]>> | Promise<IUpstreamWithComplianceMetadata[]>>
+  | TaskInstance<TaskInstance<Promise<LineageList>> | Promise<IUpstreamWithComplianceMetadata[]>>
   | TaskInstance<Promise<IDataPlatform[]>>
   | TaskInstance<Promise<IGetDatasetRetentionResponse | null>>
 >;
@@ -68,9 +69,9 @@ export default class UpstreamDatasetContainer extends Component {
 
   /**
    * The list of upstream datasets for the related urn
-   * @type {Array<IDatasetView>}
+   * @type {LineageList}
    */
-  upstreamDatasets: Array<IDatasetView> = [];
+  upstreamDatasets: LineageList = [];
 
   /**
    * List of metadata properties for upstream datasets
@@ -132,10 +133,8 @@ export default class UpstreamDatasetContainer extends Component {
    * @type {Task<Promise<Array<IDatasetView>>>, (a?: {} | undefined) => TaskInstance<Promise<Array<IDatasetView>>>>}
    * @memberof UpstreamDatasetContainer
    */
-  getUpstreamDatasetsTask = task(function*(
-    this: UpstreamDatasetContainer
-  ): IterableIterator<Promise<Array<IDatasetView>>> {
-    const upstreamDatasets: Array<IDatasetView> = yield readUpstreamDatasetsByUrn(get(this, 'urn'));
+  getUpstreamDatasetsTask = task(function*(this: UpstreamDatasetContainer): IterableIterator<Promise<LineageList>> {
+    const upstreamDatasets: LineageList = yield readUpstreamDatasetsByUrn(get(this, 'urn'));
     return set(this, 'upstreamDatasets', upstreamDatasets);
   });
 
@@ -146,9 +145,9 @@ export default class UpstreamDatasetContainer extends Component {
    */
   getUpstreamMetadataTask = task(function*(
     this: UpstreamDatasetContainer
-  ): IterableIterator<TaskInstance<Promise<Array<IDatasetView>>> | Promise<Array<IUpstreamWithComplianceMetadata>>> {
-    const upstreamDatasets: Array<IDatasetView> = yield get(this, 'getUpstreamDatasetsTask').perform();
-    const upstreamMetadataPromises = datasetsWithComplianceMetadata(upstreamDatasets);
+  ): IterableIterator<TaskInstance<Promise<LineageList>> | Promise<Array<IUpstreamWithComplianceMetadata>>> {
+    const upstreamLineage: LineageList = yield get(this, 'getUpstreamDatasetsTask').perform();
+    const upstreamMetadataPromises = datasetsWithComplianceMetadata(upstreamLineage.map(lineage => lineage.dataset));
     const upstreamsMetadata: Array<IUpstreamWithComplianceMetadata> = yield Promise.all(upstreamMetadataPromises);
 
     set(this, 'upstreamsMetadata', upstreamsMetadata);
