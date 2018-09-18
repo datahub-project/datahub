@@ -20,7 +20,7 @@ export default class Search extends Service {
       keyword = encode(keyword);
 
       return applicationRoute.transitionTo('search', {
-        queryParams: { keyword, category }
+        queryParams: { keyword, category, page: 1, facets: '' }
       });
     }
   }

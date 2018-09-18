@@ -1,5 +1,5 @@
 {{#if getPlatformsTask.isRunning}}
   {{pendulum-ellipsis-animation}}
 {{else}}
-  {{yield (hash radioSources=sources)}}
+  {{yield facets selections counts (action onFacetChange) (action onFacetClear)}}
 {{/if}}

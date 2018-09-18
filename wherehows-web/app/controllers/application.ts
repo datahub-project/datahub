@@ -1,5 +1,4 @@
 import Controller from '@ember/controller';
-import { get } from '@ember/object';
 import Session from 'ember-simple-auth/services/session';
 import Search from 'wherehows-web/services/search';
 import UserLookup from 'wherehows-web/services/user-lookup';
@@ -45,6 +44,11 @@ export default class Application extends Controller {
   @service('banners')
   banners: BannerService;
 
+  /**
+   * Keyword of the current search to pass it down to the search bar
+   */
+  keyword: string;
+
   constructor() {
     super(...arguments);
 
@@ -59,6 +63,6 @@ export default class Application extends Controller {
    */
   @action
   didSearch({ keyword, category }: { keyword: string; category: string }) {
-    get(this, 'search').showSearchResults({ keyword, category });
+    this.search.showSearchResults({ keyword, category });
   }
 }
