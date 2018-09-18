@@ -13,9 +13,8 @@
  */
 package wherehows.models.table;
 
-
 public class DashboardBarData {
 
-    public String label;
-    public Long value;
+  public String label;
+  public Long value;
 }

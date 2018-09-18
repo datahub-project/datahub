@@ -15,7 +15,7 @@ package wherehows.models.table;
 
 public class DatasetInstance {
 
-    public Long datasetId;
-    public String dbCode;
-    public Integer dbId;
+  public Long datasetId;
+  public String dbCode;
+  public Integer dbId;
 }

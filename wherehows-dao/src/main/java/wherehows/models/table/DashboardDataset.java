@@ -15,11 +15,12 @@ package wherehows.models.table;
 
 import java.util.List;
 
+
 public class DashboardDataset {
 
-    public Long datasetId;
-    public String ownerId;
-    public String confirmedOwnerId;
-    public String datasetName;
-    public List<String> fields;
+  public Long datasetId;
+  public String ownerId;
+  public String confirmedOwnerId;
+  public String datasetName;
+  public List<String> fields;
 }
