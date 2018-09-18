@@ -44,7 +44,7 @@ public class FlowRowMapper implements RowMapper<Flow> {
     Integer level = rs.getInt(FLOW_LEVEL_COLUMN);
 
     Flow flow = new Flow();
-    flow.setFlow_id(id);
+    flow.setFlowId(id);
     flow.setAppId(appId);
     flow.setName(name);
     flow.setAppCode(appCode);

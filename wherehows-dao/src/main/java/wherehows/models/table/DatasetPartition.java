@@ -15,10 +15,11 @@ package wherehows.models.table;
 
 import java.util.List;
 
+
 public class DatasetPartition {
 
-    public Long datasetId;
-    public List<DatasetAccessibility> accessibilityList;
-    public List<String> instanceList;
-    public String partition;
+  public Long datasetId;
+  public List<DatasetAccessibility> accessibilityList;
+  public List<String> instanceList;
+  public String partition;
 }

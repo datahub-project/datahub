@@ -15,7 +15,7 @@ package wherehows.models.table;
 
 public class UserEntity {
 
-    public String label;
-    public String category;
-    public String displayName;
+  public String label;
+  public String category;
+  public String displayName;
 }

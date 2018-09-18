@@ -15,10 +15,9 @@ package wherehows.models.table;
 
 public class SchemaDataset {
 
-    public int id;
-    public String name;
-    public String urn;
-    public String lastModified;
-    public String datasetLink;
-
+  public int id;
+  public String name;
+  public String urn;
+  public String lastModified;
+  public String datasetLink;
 }
