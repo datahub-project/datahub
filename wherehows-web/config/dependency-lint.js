@@ -7,5 +7,6 @@ module.exports = {
     'ember-concurrency': '^0.8.18', //https://github.com/cibernox/ember-power-calendar/pull/135
     'ember-compatibility-helpers': '0.1.3 || 1.0.0-beta.1 || ^1.0.0',
     'ember-getowner-polyfill': '1.2.5 || ^2.2.0', //https://github.com/asross/dynamic-link/pull/10
+    '@ember-decorators/utils': '0.2.0 || ^2.4.1' //@ember-decorators runloop uses the old version
   }
 };

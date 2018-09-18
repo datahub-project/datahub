@@ -59,6 +59,14 @@ export default Component.extend({
     searchBar && searchBar.focus();
   },
 
+  /**
+   * Sets to the blur to the input in the search bar
+   */
+  setSearchBarBlur() {
+    const searchBar = document.getElementsByClassName('nacho-global-search__text-input')[1];
+    searchBar && searchBar.blur();
+  },
+
   didInsertElement() {
     this._super(...arguments);
     // Registering this hotkey allows us to jump to focus the search bar when pressing '/'
@@ -81,15 +89,20 @@ export default Component.extend({
         keyword: get(this, 'search'),
         category: get(this, 'currentFilter')
       });
+      this.setSearchBarBlur();
     },
 
     /**
      * Triggers a search action by the user pressing enter on a typeahead suggestion
      * @param {string} suggestion - suggestion text passed in from aupac-typeahead
      */
-    onSelectedSuggestion(suggestion) {
+    onSelectedSuggestion(suggestion, evtName) {
       set(this, 'search', suggestion);
-      this.actions.search.call(this);
+
+      // Annoying issue where you focus out and it triggers search.
+      if (evtName !== 'focusout') {
+        this.actions.search.call(this);
+      }
     },
 
     /**

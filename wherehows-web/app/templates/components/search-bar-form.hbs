@@ -3,8 +3,9 @@
     <label for="search-input" class="sr-only">Search</label>
 
     {{aupac-typeahead
+      selection=(readonly selection)
       action=(action "onSelectedSuggestion")
-      autoFocus=true
+      autoFocus=false
       allowFreeInput=true
       source=(action "onInput")
       async=true

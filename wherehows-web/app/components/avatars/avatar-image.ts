@@ -45,6 +45,8 @@ export default class AvatarImage extends Component {
    * @memberof AvatarImage
    */
   onImageFallback(): void {
-    set(this, 'src', this.avatar.imageUrlFallback);
+    if (!this.isDestroyed) {
+      set(this, 'src', this.avatar.imageUrlFallback);
+    }
   }
 }

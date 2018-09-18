@@ -1,16 +1,13 @@
 import Controller from '@ember/controller';
-import { set } from '@ember/object';
-import { action, computed } from '@ember-decorators/object';
+import { computed } from '@ember-decorators/object';
+import { debounce } from '@ember-decorators/runloop';
+import { facetToParamUrl, facetFromParamUrl, facetToDynamicCounts } from 'wherehows-web/utils/api/search';
+import { IFacetsSelectionsMap, IFacetsCounts } from 'wherehows-web/typings/app/search/facets';
+import { set, setProperties, get } from '@ember/object';
 
 // gradual refactor into es class, hence extends EmberObject instance
 export default class SearchController extends Controller {
-  queryParams = ['keyword', 'category', 'source', 'page'];
-
-  /**
-   * Search keyword to look for
-   * @type {string}
-   */
-  keyword = '';
+  queryParams = ['category', 'page', 'facets', 'keyword'];
 
   /**
    * The category to narrow/ filter search results
@@ -19,10 +16,9 @@ export default class SearchController extends Controller {
   category = 'datasets';
 
   /**
-   * Dataset Platform to restrict search results to
-   * @type {'all'|DatasetPlatform}
+   * Encoded facets state in a restli fashion
    */
-  source = 'all';
+  facets: string;
 
   /**
    * The current search page
@@ -37,12 +33,60 @@ export default class SearchController extends Controller {
   header = 'Refine By';
 
   /**
-   * Handles the response to changing the source platform to search through
-   * @param source
+   * Since the loading of search comes from two parts:
+   * 1. Search Call
+   * 2. During debouncing
+   *
+   * We put it as a flag to control it better
    */
-  @action
-  sourceDidChange(source: string) {
-    set(this, 'source', source);
+  searchLoading: boolean = false;
+
+  /**
+   * When facets change we set the flag loading and call the debounced fn
+   * @param selections facet selections
+   */
+  onFacetsChange(selections: IFacetsSelectionsMap) {
+    set(this, 'searchLoading', true);
+    this.onFacetsChangeDebounced(selections);
+  }
+
+  /**
+   * Will set the facets in the URL to start a model refresh (see route)
+   * @param selections Facet selections
+   */
+  @debounce(1000)
+  onFacetsChangeDebounced(selections: IFacetsSelectionsMap) {
+    setProperties(this, {
+      facets: facetToParamUrl(selections),
+      page: 1
+    });
+  }
+
+  /**
+   * Will translate backend fields into a dynamic facet
+   * count structure.
+   */
+  @computed('model')
+  get facetCounts(): IFacetsCounts {
+    return facetToDynamicCounts(this.model);
+  }
+
+  /**
+   * Will read selections from URL and translate it into
+   * our selections object
+   */
+  @computed('facets')
+  get facetsSelections(): IFacetsSelectionsMap {
+    return facetFromParamUrl(this.facets || '');
+  }
+
+  /**
+   * Will return false if there is data to display
+   */
+  @computed('model.data.length')
+  get showNoResult(): boolean {
+    // @ts-ignore looks like TS is not working for this type of getters
+    return get(this, 'model.data.length') === 0;
   }
 
   @computed('model.category')
