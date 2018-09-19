@@ -1,7 +1,7 @@
 import Route from '@ember/routing/route';
 import { setProperties } from '@ember/object';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
-import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
+import { refreshModelForQueryParams } from 'wherehows-web/utils/helpers/routes';
 import BrowseEntityController from 'wherehows-web/controllers/browse/entity';
 
 const queryParamsKeys: Array<keyof IBrowserRouteParams> = ['page', 'prefix', 'platform', 'size'];
@@ -27,7 +27,7 @@ export default class BrowseEntity extends Route.extend(AuthenticatedRouteMixin, 
     }
   }
 }) {
-  queryParams = refreshModelQueryParams(queryParamsKeys);
+  queryParams = refreshModelForQueryParams(queryParamsKeys);
 
   setupController(this: BrowseEntity, controller: BrowseEntityController, model: IBrowserRouteParams) {
     // sets the entity property on the controller in addition to the model

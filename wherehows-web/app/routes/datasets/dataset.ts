@@ -1,9 +1,8 @@
-import Ember from 'ember'; // type import, no emit, access to Ember.Transition interface
 import Route from '@ember/routing/route';
 import { get, set, setProperties } from '@ember/object';
 import Configurator from 'wherehows-web/services/configurator';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
-import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
+import { refreshModelForQueryParams } from 'wherehows-web/utils/helpers/routes';
 import isUrn, {
   convertWhUrnToLiUrn,
   decodeUrn,
@@ -34,7 +33,7 @@ export default class DatasetRoute extends Route {
   @service
   notifications: Notifications;
 
-  queryParams = refreshModelQueryParams(['urn']);
+  queryParams = refreshModelForQueryParams(['urn']);
 
   /**
    * Resolves an IDatasetView if params can be parsed into a valid urn
@@ -73,7 +72,7 @@ export default class DatasetRoute extends Route {
     throw new TypeError(`Could not parse identifier ${dataset_id}. Please ensure format is valid.`);
   }
 
-  afterModel(resolvedModel: object, transition: Ember.Transition): void {
+  afterModel(resolvedModel: object, transition: import('ember').Ember.Transition): void {
     const { dataset_id } = transition.params['datasets.dataset'];
 
     // Check is dataset_id is a number, and replace with urn
