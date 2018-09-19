@@ -7,6 +7,6 @@ module('Unit | Controller | datasets/dataset/compliance', function(hooks): void 
   test('it exists', function(assert): void {
     let controller = this.owner.lookup('controller:datasets/dataset/compliance');
     assert.ok(controller);
-    assert.ok(controller.hasOwnProperty('fieldFilter'), 'fieldFilter queryParam has binding to controller attribute');
+    assert.ok(typeof controller.fieldFilter === 'undefined', 'fieldFilter queryParam binding is undefined');
   });
 });
