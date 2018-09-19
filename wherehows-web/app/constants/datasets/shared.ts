@@ -50,4 +50,4 @@ const descendantDatasetRouteClassFactory = ({ selectedTab }: { selectedTab: Tabs
   };
 };
 
-export { Tabs, descendantDatasetRouteClassFactory, setTabSelectedOnAncestorController };
+export { Tabs, descendantDatasetRouteClassFactory };

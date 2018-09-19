@@ -5,7 +5,7 @@ import { or } from '@ember/object/computed';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from '@ember-decorators/object';
-import { DatasetPlatform } from 'wherehows-web/constants';
+import { DatasetPlatform, TagFilter } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { next } from '@ember/runloop';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
@@ -134,6 +134,13 @@ export default class DatasetController extends Controller {
    * @type {ComputedProperty<boolean>}
    */
   requiresUserAction: ComputedProperty<boolean> = or('isNewComplianceInfo', 'compliancePolicyHasDrift');
+
+  /**
+   * Indicates the current query value for the compliance tags to be filtered by
+   * @type {(TagFilter | undefined)}
+   * @memberof DatasetController
+   */
+  complianceTagFilter: TagFilter | undefined;
 
   /**
    * Converts the uri on a model to a usable URN format
