@@ -13,7 +13,7 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
   /**
    * Makes an API call and process search entries
    */
-  async model(apiParams: any): Promise<{ keywords: string; data: Array<any> }> {
+  async model(apiParams: any): Promise<{ keywords: string; data: Array<any> } | object> {
     const { result } = await readSearch(apiParams);
     const { keywords, data } = result || { keywords: '', data: [] };
     createSearchEntries(data, keywords);
@@ -27,7 +27,7 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
   loading(transition: import('ember').Ember.Transition): void {
     let controller = this.controllerFor('search');
     controller.set('searchLoading', true);
-    transition.promise.finally(function() {
+    transition.promise!.finally(function() {
       controller.set('searchLoading', false);
     });
   }
