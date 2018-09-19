@@ -13,7 +13,7 @@ enum Classification {
   Confidential = 'CONFIDENTIAL',
   LimitedDistribution = 'LIMITED_DISTRIBUTION',
   HighlyConfidential = 'HIGHLY_CONFIDENTIAL',
-  Internal = 'INTERNAL',
+  Internal = 'GENERAL',
   Public = 'PUBLIC'
 }
 
