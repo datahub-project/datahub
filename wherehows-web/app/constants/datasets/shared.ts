@@ -21,17 +21,23 @@ enum Tabs {
 }
 
 /**
- * Sets the tab selection property on the provided route with the currently selected tab
+ * Sets a DatasetController property K to the supplied value
+ * @template K keyof DatasetController
  * @param {Route} route the route instance to update
- * @param {Tabs} tabSelected identifier for the selected tab
- * @returns {Tabs}
+ * @param {K} prop the property on the DatasetController to be set
+ * @param {DatasetController[K]} value value to be applied to prop
+ * @returns {DatasetController[K]}
  */
-const setTabSelectedOnAncestorController = (route: Route, tabSelected: Tabs): Tabs => {
+const setPropertyOnAncestorController = <K extends keyof DatasetController>(
+  route: Route,
+  prop: K,
+  value: DatasetController[K]
+): DatasetController[K] => {
   const { routeName, controllerFor } = route;
   assert('route should be a descendant of datasets.dataset', !routeName.indexOf('datasets.dataset.'));
   const ancestorController = <DatasetController>controllerFor.call(route, 'datasets.dataset');
 
-  return set(ancestorController, 'tabSelected', tabSelected);
+  return set(ancestorController, prop, value);
 };
 
 /**
@@ -39,15 +45,14 @@ const setTabSelectedOnAncestorController = (route: Route, tabSelected: Tabs): Ta
  * @param {{ selectedTab: Tabs }} { selectedTab } options bag contains identifier for the current tab
  * @returns {typeof Route} the descendant route class
  */
-const descendantDatasetRouteClassFactory = ({ selectedTab }: { selectedTab: Tabs }): typeof Route => {
-  return class DatasetDescendantRoute extends Route {
-    actions = {
-      didTransition(this: DatasetDescendantRoute) {
+const descendantDatasetRouteClassFactory = ({ selectedTab }: { selectedTab: Tabs }): typeof Route =>
+  class DatasetDescendantRoute extends Route.extend({
+    actions: {
+      didTransition(this: DatasetDescendantRoute): void {
         // on successful route transition
-        setTabSelectedOnAncestorController(this, selectedTab);
+        setPropertyOnAncestorController(this, 'tabSelected', selectedTab);
       }
-    };
-  };
-};
+    }
+  }) {};
 
-export { Tabs, descendantDatasetRouteClassFactory };
+export { Tabs, descendantDatasetRouteClassFactory, setPropertyOnAncestorController };

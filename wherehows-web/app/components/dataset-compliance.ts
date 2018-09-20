@@ -258,6 +258,12 @@ export default class DatasetCompliance extends Component {
 
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
+  /**
+   * External action to handle compliance filter change
+   * @type {(tagFilter: TagFilter) => TagFilter}
+   */
+  onComplianceTagFilterChange: (tagFilter: TagFilter) => TagFilter;
+
   classNames = ['compliance-container'];
 
   classNameBindings = ['isEditing:compliance-container--edit-mode'];
@@ -302,11 +308,11 @@ export default class DatasetCompliance extends Component {
   classifiers: Array<ISecurityClassificationOption> = getSecurityClassificationDropDownOptions();
 
   /**
-   * Default to show all fields to review
-   * @type {string}
+   * Specifies the filter to be applied on the list of fields shown in the compliance policy table
+   * @type {TagFilter}
    * @memberof DatasetCompliance
    */
-  fieldReviewOption: TagFilter = TagFilter.showAll;
+  fieldReviewOption!: TagFilter;
 
   /**
    * Computes a cta string for the selected field review filter option
@@ -1327,15 +1333,12 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Updates the fieldReviewOption with the user selected value
+     * Invokes the external action to update the tagFilter query
      * @param {{value: TagFilter}} { value }
      * @returns {TagFilter}
      */
     onFieldReviewChange(this: DatasetCompliance, { value }: { value: TagFilter }): TagFilter {
-      const option = set(this, 'fieldReviewOption', value);
-      get(this, 'foldChangeSetTask').perform();
-
-      return option;
+      return this.onComplianceTagFilterChange(value);
     },
 
     /**
