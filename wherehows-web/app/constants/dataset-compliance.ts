@@ -29,6 +29,7 @@ import { IDatasetColumn } from 'wherehows-web/typings/api/datasets/columns';
 import { ComplianceFieldIdValue } from 'wherehows-web/constants/datasets/compliance';
 import { isHighConfidenceSuggestion } from 'wherehows-web/utils/datasets/compliance-suggestions';
 import { validateRegExp } from 'wherehows-web/utils/validators/regexp';
+import { not } from 'wherehows-web/utils/helpers/functions';
 
 /**
  * Defines a map of values for the compliance policy on a dataset
@@ -63,7 +64,8 @@ const changeSetReviewableAttributeTriggers =
 enum TagFilter {
   showAll = 'show-all',
   showReview = 'show-review',
-  showSuggested = 'show-suggested'
+  showSuggested = 'show-suggested',
+  showCompleted = 'show-completed'
 }
 
 /**
@@ -407,6 +409,18 @@ const tagsRequiringReview = (complianceDataTypes: Array<IComplianceDataType>, op
   arrayFilter<IComplianceChangeSet>(tagNeedsReview(complianceDataTypes, options));
 
 /**
+ * Takes a list of compliance data types to check if a tag is an idType as part of reviewable fields check, then filters
+ * out tags that are not reviewable
+ * @param {Array<IComplianceDataType>} complianceDataTypes list of IComplianceDataType objects
+ * @param {IComplianceTagReviewOptions} [options={ checkSuggestions: true, suggestionConfidenceThreshold: 0 }]
+ * @returns (complianceDataTypes: IComplianceDataType[], options?: IComplianceTagReviewOptions) => (array: IComplianceChangeSet[]) => IComplianceChangeSet[]
+ */
+const tagsPassingReview = (
+  complianceDataTypes: Array<IComplianceDataType>,
+  options: IComplianceTagReviewOptions = { checkSuggestions: true, suggestionConfidenceThreshold: 0 }
+) => arrayFilter(not(tagNeedsReview(complianceDataTypes, options)));
+
+/**
  * Lists the tags for a specific identifier field that need to be reviewed
  * @param {Array<IComplianceDataType>} complianceDataTypes
  * @param {IComplianceTagReviewOptions} options
@@ -677,6 +691,7 @@ export {
   isTagIdType,
   mergeComplianceEntitiesWithSuggestions,
   tagsRequiringReview,
+  tagsPassingReview,
   tagsHaveNoneType,
   fieldTagsRequiringReview,
   tagsHaveNoneAndNotNoneType,
