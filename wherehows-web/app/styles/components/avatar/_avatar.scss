@@ -59,6 +59,7 @@
   box-sizing: border-box;
   background-clip: content-box;
   border: 2px solid transparent;
+  background-color: get-color(silver3);
 
   &--stacked {
     border: 2px solid white;

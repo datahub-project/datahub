@@ -2,8 +2,10 @@ import Component from '@ember/component';
 import ComputedProperty from '@ember/object/computed';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { alias } from '@ember-decorators/object/computed';
-import { set } from '@ember/object';
+import { set, get } from '@ember/object';
 import { classNames, tagName, attribute } from '@ember-decorators/component';
+import { task } from 'ember-concurrency';
+import { run } from '@ember/runloop';
 
 @tagName('img')
 @classNames('avatar')
@@ -37,16 +39,15 @@ export default class AvatarImage extends Component {
   @attribute
   onerror = (): void => {
     // Change avatar if an error occurs when the image is loaded
-    this.onImageFallback();
+    run(() => get(this, 'onImageFallback').perform());
   };
 
   /**
-   * Sets the fallback image for an avatar
+   * Task to set the fallback image for an avatar
+   * @type Task<void, (a?: {}) => TaskInstance<void>>
    * @memberof AvatarImage
    */
-  onImageFallback(): void {
-    if (!this.isDestroyed) {
-      set(this, 'src', this.avatar.imageUrlFallback);
-    }
-  }
+  onImageFallback = task(function*(this: AvatarImage): IterableIterator<void> {
+    set(this, 'src', this.avatar.imageUrlFallback);
+  });
 }
