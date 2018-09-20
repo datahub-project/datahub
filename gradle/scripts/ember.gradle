@@ -34,7 +34,7 @@ task emberBuild(type: NodeTask, dependsOn: yarn) {
 task emberTest(type: NodeTask, dependsOn: yarn) {
   environment = ['COVERAGE': 'true']
   script = file('node_modules/.bin/ember')
-  args = ['test', '--launch', 'Chrome,Safari,Firefox']
+  args = ['test', '--launch', 'Chrome,Firefox']
 }
 
 task emberCoverage(type: NodeTask, dependsOn: emberTest) {
