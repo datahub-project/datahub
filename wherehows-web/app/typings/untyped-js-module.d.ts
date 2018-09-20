@@ -38,9 +38,9 @@ declare module 'ember' {
   export namespace Ember {
     // eslint-disable-next-line typescript/interface-name-prefix
     interface Transition {
-      params: {
-        [key: string]: any;
-      };
+      params: Record<string, any>;
+      // temporary typedef till resolution of https://github.com/tildeio/router.js/issues/250
+      promise?: Promise<any> & { finally: (callback: Function, label?: string) => Promise<any> };
     }
   }
 }
