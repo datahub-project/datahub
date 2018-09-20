@@ -56,27 +56,18 @@
             </div>
           {{/datasets/containers/dataset-fabrics}}
 
-          {{#if shouldShowDatasetHealth}}
-            {{datasets/containers/dataset-owner-list
-              urn=encodedUrn
-              avatarEntityProps=avatarEntityProps
-              class="dataset-owner-list"}}
+          {{datasets/containers/dataset-owner-list
+            urn=encodedUrn
+            avatarEntityProps=avatarEntityProps
+            class="dataset-owner-list"}}
 
-            {{#link-to "datasets.dataset.health" encodedUrn}}
-              {{datasets/containers/health-score-gauge urn=encodedUrn wikiLinks=wikiLinks}}
-            {{/link-to}}
-          {{/if}}
+          {{#link-to "datasets.dataset.health" encodedUrn}}
+            {{datasets/containers/health-score-gauge urn=encodedUrn wikiLinks=wikiLinks}}
+          {{/link-to}}
         </div>
 
       </div>
     </div>
-
-    {{#unless shouldShowDatasetHealth}}
-      {{datasets/containers/dataset-owner-list
-        urn=encodedUrn
-        avatarEntityProps=avatarEntityProps
-      }}
-    {{/unless}}
 
   </div>
 </div>
@@ -120,11 +111,9 @@
           {{/tablist.tab}}
         {{/if}}
 
-        {{#if shouldShowDatasetHealth}}
-          {{#tablist.tab tabIds.Health on-select=(action "tabSelectionChanged")}}
-            Health
-          {{/tablist.tab}}
-        {{/if}}
+        {{#tablist.tab tabIds.Health on-select=(action "tabSelectionChanged")}}
+          Health
+        {{/tablist.tab}}
 
       {{/tabs.tablist}}
     </div>
@@ -179,10 +168,12 @@
       {{/tabs.tabpanel}}
     {{/if}}
 
-    {{#if shouldShowDatasetHealth}}
-      {{#tabs.tabpanel tabIds.Health}}
-        {{datasets/containers/dataset-health urn=encodedUrn tabSelected=tabSelected}}
-      {{/tabs.tabpanel}}
-    {{/if}}
+    {{#tabs.tabpanel tabIds.Health}}
+      {{datasets/containers/dataset-health
+        urn=encodedUrn
+        tabSelected=tabSelected
+        shouldShowDatasetHealth=shouldShowDatasetHealth
+      }}
+    {{/tabs.tabpanel}}
   </div>
 {{/ivy-tabs}}
