@@ -135,7 +135,6 @@
 
   &__guided-modal {
     @include nacho-container;
-    overflow: hidden;
     padding: 0;
     border: 0;
     z-index: z(modal);
