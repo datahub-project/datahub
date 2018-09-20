@@ -1,19 +1,19 @@
 import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import createSearchEntries from 'wherehows-web/utils/datasets/create-search-entries';
-import { refreshModelQueryParams } from 'wherehows-web/utils/helpers/routes';
+import { refreshModelForQueryParams } from 'wherehows-web/utils/helpers/routes';
 import { readSearch } from 'wherehows-web/utils/api/search';
 import { action } from '@ember-decorators/object';
 
 export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
   // Set `refreshModel` for each queryParam to true
   //  so each url state change results in a full transition
-  queryParams = refreshModelQueryParams(['category', 'page', 'facets', 'keyword']);
+  queryParams = refreshModelForQueryParams(['category', 'page', 'facets', 'keyword']);
 
   /**
    * Makes an API call and process search entries
    */
-  async model(apiParams: any) {
+  async model(apiParams: any): Promise<{ keywords: string; data: Array<any> } | object> {
     const { result } = await readSearch(apiParams);
     const { keywords, data } = result || { keywords: '', data: [] };
     createSearchEntries(data, keywords);
@@ -24,10 +24,10 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    * Add spinner when model is loading
    */
   @action
-  loading(transition: any) {
+  loading(transition: import('ember').Ember.Transition): void {
     let controller = this.controllerFor('search');
     controller.set('searchLoading', true);
-    transition.promise.finally(function() {
+    transition.promise!.finally(function() {
       controller.set('searchLoading', false);
     });
   }
