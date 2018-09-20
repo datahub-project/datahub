@@ -1,11 +1,10 @@
 import Controller from '@ember/controller';
-import { computed, set, get, setProperties, getWithDefault } from '@ember/object';
-import ComputedProperty from '@ember/object/computed';
-import { or } from '@ember/object/computed';
+import { computed, get, getWithDefault, set, setProperties } from '@ember/object';
+import ComputedProperty, { or } from '@ember/object/computed';
 import { encodeUrn } from 'wherehows-web/utils/validators/urn';
 import { Tabs } from 'wherehows-web/constants/datasets/shared';
 import { action } from '@ember-decorators/object';
-import { DatasetPlatform, TagFilter } from 'wherehows-web/constants';
+import { DatasetPlatform, isTagFilter, TagFilter } from 'wherehows-web/constants';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { next } from '@ember/runloop';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
@@ -137,10 +136,10 @@ export default class DatasetController extends Controller {
 
   /**
    * Indicates the current query value for the compliance tags to be filtered by
-   * @type {(TagFilter | undefined)}
+   * @type {(TagFilter)}
    * @memberof DatasetController
    */
-  complianceTagFilter: TagFilter | undefined;
+  complianceTagFilter: TagFilter;
 
   /**
    * Converts the uri on a model to a usable URN format
@@ -175,6 +174,7 @@ export default class DatasetController extends Controller {
     this.tabSelected || (this.tabSelected = Tabs.Ownership);
     this.jitAclAccessWhitelist || (this.jitAclAccessWhitelist = []);
     this.wikiLinks || (this.wikiLinks = {});
+    isTagFilter(this.complianceTagFilter) || (this.complianceTagFilter = TagFilter.showAll);
   }
 
   /**
@@ -249,5 +249,18 @@ export default class DatasetController extends Controller {
   @action
   setOwnershipRuleChange(ownersNotConfirmed: boolean) {
     next(this, () => set(this, 'datasetOwnersRequiredNotMet', ownersNotConfirmed));
+  }
+
+  /**
+   * Transitions to queryParams when the compliance filter has been changed
+   * @param {TagFilter} fieldFilter the new filter to apply
+   * @returns {TagFilter}
+   * @memberof DatasetController
+   */
+  @action
+  onComplianceTagFilterChange(fieldFilter: TagFilter): TagFilter {
+    // @ts-ignore types not updated to reflect passing only QPs to transitionToRoute
+    this.transitionToRoute({ queryParams: { fieldFilter } });
+    return fieldFilter;
   }
 }

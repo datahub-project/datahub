@@ -87,9 +87,9 @@ export default class DatasetRoute extends Route {
     return { dataset_id: uri };
   }
 
-  async setupController(this: DatasetRoute, controller: DatasetController, model: IDatasetView) {
+  setupController(this: DatasetRoute, controller: DatasetController, model: IDatasetView): void {
     const { getConfig } = Configurator;
-    set(controller, 'model', model);
+    super.setupController(controller, model);
 
     setProperties(controller, {
       isInternal: !!getConfig('isInternal'),
