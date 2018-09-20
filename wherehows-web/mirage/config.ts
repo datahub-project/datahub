@@ -30,6 +30,7 @@ import { getDatasetCount } from 'wherehows-web/mirage/helpers/dataset-count';
 import { getDatasetDownstreams } from 'wherehows-web/mirage/helpers/dataset-downstreams';
 import { getBrowsePlatforms } from 'wherehows-web/mirage/helpers/browse-platforms';
 import { getSearchResults } from 'wherehows-web/mirage/helpers/search';
+import { getDatasetExportPolicy } from 'wherehows-web/mirage/helpers/export-policy';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -63,6 +64,8 @@ export default function(this: IMirageServer) {
   this.get('/datasets/:dataset_id/retention', getDatasetRetention);
 
   this.get('/datasets/:dataset_id/compliance', getDatasetCompliance);
+
+  this.get('/datasets/:dataset_id/exportpolicy', getDatasetExportPolicy);
 
   this.get('/datasets/:dataset_id/fabrics', getDatasetFabrics);
 

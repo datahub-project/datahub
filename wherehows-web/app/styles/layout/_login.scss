@@ -32,6 +32,10 @@
     background-color: transparent;
     outline: 0;
     padding: 0;
+
+    &::placeholder {
+      color: get-color(white, 0.5);
+    }
   }
 
   &__button {

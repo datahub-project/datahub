@@ -61,7 +61,7 @@
                 </button>
               {{/track-ui-event}}
 
-              {{#if (and isInitialEditStep (and manualParseError (not showGuidedComplianceEditMode)))}}
+              {{#if (and (eq editTarget ComplianceEdit.CompliancePolicy) (and manualParseError (not showGuidedComplianceEditMode)))}}
                 <div class="action-bar__content__error-messages">
                   {{fa-icon "times-circle-o"}}
 
