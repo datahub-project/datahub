@@ -20,6 +20,7 @@ module.exports = {
     'no-debugger': 'error',
     'typescript/class-name-casing': 'error',
     'typescript/interface-name-prefix': ['error', 'always'],
+    'typescript/explicit-function-return-type': 'warn',
     'typescript/member-delimiter-style': 'error',
     'typescript/no-empty-interface': 'error',
     'prettier/prettier': ['error', { singleQuote: true, printWidth: 120 }]
