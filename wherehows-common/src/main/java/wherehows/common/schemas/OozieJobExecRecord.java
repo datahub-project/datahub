@@ -35,7 +35,7 @@ public class OozieJobExecRecord extends AbstractRecord {
   Long whExecId;
 
   public OozieJobExecRecord(Integer appId, String jobName, String flowExecUuid, Integer startTime, Integer endTime,
-    String jobExecStatus, String flowPath) {
+      String jobExecStatus, String flowPath) {
     this.appId = appId;
     this.jobName = jobName;
     this.flowExecUuid = flowExecUuid;
@@ -45,9 +45,9 @@ public class OozieJobExecRecord extends AbstractRecord {
     this.flowPath = flowPath;
   }
 
-  public OozieJobExecRecord(Integer appId, String flowPath, String flowExecUuid,
-    String sourceVersion, String jobName, String jobPath, String jobExecUuid,  String jobExecStatus,
-    Integer attemptId, Integer startTime, Integer endTime, Long whExecId) {
+  public OozieJobExecRecord(Integer appId, String flowPath, String flowExecUuid, String sourceVersion, String jobName,
+      String jobPath, String jobExecUuid, String jobExecStatus, Integer attemptId, Integer startTime, Integer endTime,
+      Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.flowExecUuid = flowExecUuid;

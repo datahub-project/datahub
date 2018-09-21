@@ -13,9 +13,12 @@
  */
 package wherehows.common.writers;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import wherehows.common.schemas.Record;
-
-import java.io.*;
 
 
 /**
@@ -24,16 +27,14 @@ import java.io.*;
 public class FileWriter extends Writer {
   OutputStreamWriter streamWriter;
 
-  public FileWriter(String fileName)
-    throws FileNotFoundException {
+  public FileWriter(String fileName) throws FileNotFoundException {
     super();
     File f = new File(fileName);
     streamWriter = new OutputStreamWriter(new FileOutputStream(f));
   }
 
   @Override
-  public boolean flush()
-    throws IOException {
+  public boolean flush() throws IOException {
     for (Record r : this.records) {
       streamWriter.write(r.toCsvString() + "\n");
     }
@@ -42,8 +43,7 @@ public class FileWriter extends Writer {
     return false;
   }
 
-  public void close()
-    throws IOException {
+  public void close() throws IOException {
     flush();
     this.streamWriter.close();
   }

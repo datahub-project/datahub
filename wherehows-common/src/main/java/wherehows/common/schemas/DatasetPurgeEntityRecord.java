@@ -23,12 +23,12 @@ public class DatasetPurgeEntityRecord extends AbstractRecord {
   String logicalType;
   Boolean isSubject;
 
+  public DatasetPurgeEntityRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetPurgeEntityRecord() {
   }
 
   public String getIdentifierType() {

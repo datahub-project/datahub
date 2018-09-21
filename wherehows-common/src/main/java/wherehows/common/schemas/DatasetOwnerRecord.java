@@ -38,11 +38,24 @@ public class DatasetOwnerRecord extends AbstractRecord {
   String confirmedBy;
   Long confirmedOn;
 
+  public DatasetOwnerRecord() {
+  }
+
+  public DatasetOwnerRecord(String datasetUrn, String ownerId, Integer sortId, String namespace, String dbName,
+      Long sourceTime) {
+    this.datasetUrn = datasetUrn;
+    this.owner = ownerId;
+    this.sortId = sortId;
+    this.namespace = namespace;
+    this.dbIds = dbName;
+    this.sourceTime = sourceTime;
+  }
+
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_id",
-        "owner_id_type", "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_ids",
-        "source_time", "created_time", "modified_time", "confirmed_by", "confirmed_on"};
+    return new String[]{"dataset_id", "dataset_urn", "app_id", "owner_type", "owner_id", "owner_id_type", "is_group",
+        "is_active", "sort_id", "namespace", "owner_source", "db_ids", "source_time", "created_time", "modified_time",
+        "confirmed_by", "confirmed_on"};
   }
 
   @Override
@@ -59,27 +72,14 @@ public class DatasetOwnerRecord extends AbstractRecord {
 
   @JsonIgnore
   public String[] getDbColumnForUnmatchedOwner() {
-    return new String[]{"dataset_urn", "app_id", "owner_type", "owner_id", "owner_id_type",
-        "is_group", "is_active", "sort_id", "namespace", "owner_source", "db_name", "db_id", "source_time"};
+    return new String[]{"dataset_urn", "app_id", "owner_type", "owner_id", "owner_id_type", "is_group", "is_active",
+        "sort_id", "namespace", "owner_source", "db_name", "db_id", "source_time"};
   }
 
   @JsonIgnore
   public Object[] getValuesForUnmatchedOwner() {
-    return new Object[]{datasetUrn, appId, ownerCategory, owner, ownerType, isGroup,
-        isActive, sortId, namespace, ownerSource, "N/A", dbIds, sourceTime};
-  }
-
-  public DatasetOwnerRecord() {
-  }
-
-  public DatasetOwnerRecord(String datasetUrn, String ownerId, Integer sortId, String namespace, String dbName,
-      Long sourceTime) {
-    this.datasetUrn = datasetUrn;
-    this.owner = ownerId;
-    this.sortId = sortId;
-    this.namespace = namespace;
-    this.dbIds = dbName;
-    this.sourceTime = sourceTime;
+    return new Object[]{datasetUrn, appId, ownerCategory, owner, ownerType, isGroup, isActive, sortId, namespace,
+        ownerSource, "N/A", dbIds, sourceTime};
   }
 
   public Integer getDatasetId() {

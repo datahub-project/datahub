@@ -26,7 +26,7 @@ public class AppworxFlowOwnerRecord extends AbstractRecord {
   Long whExecId;
 
   public AppworxFlowOwnerRecord(Integer appId, String flowPath, String ownerId, String permissions, String ownerType,
-    Long whExecId) {
+      Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.ownerId = ownerId;

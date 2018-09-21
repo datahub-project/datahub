@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.lang.reflect.Field;
-import java.util.Date;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,8 +73,7 @@ public abstract class AbstractRecord implements Record {
    * @throws IllegalAccessException
    */
   @JsonIgnore
-  public Object[] getAllValues()
-      throws IllegalAccessException {
+  public Object[] getAllValues() throws IllegalAccessException {
     final Field[] fields = this.getAllFields();
     final Object[] values = new Object[fields.length];
     for (int i = 0; i < fields.length; i++) {
@@ -100,8 +99,7 @@ public abstract class AbstractRecord implements Record {
    * @throws IllegalAccessException
    */
   @JsonIgnore
-  public Object[] getAllValuesToString()
-      throws IllegalAccessException {
+  public Object[] getAllValuesToString() throws IllegalAccessException {
     final Object[] values = getAllValues();
     for (int i = 0; i < values.length; i++) {
       values[i] = StringUtil.objectToJsonString(values[i]);
@@ -116,8 +114,7 @@ public abstract class AbstractRecord implements Record {
    * @throws IllegalAccessException
    */
   @JsonIgnore
-  public Map<String, Object> getFieldValueMap()
-      throws IllegalAccessException {
+  public Map<String, Object> getFieldValueMap() throws IllegalAccessException {
     String[] columns = this.getDbColumnNames();
     Object[] values = this.getAllValues();
 

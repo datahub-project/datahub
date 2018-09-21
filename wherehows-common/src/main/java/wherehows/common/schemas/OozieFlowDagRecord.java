@@ -29,7 +29,7 @@ public class OozieFlowDagRecord extends AbstractRecord {
   Long whExecId;
 
   public OozieFlowDagRecord(Integer appId, String flowPath, String sourceVersion, String sourceJobPath,
-    String targetJobPath, Long whExecId) {
+      String targetJobPath, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.sourceVersion = sourceVersion;

@@ -23,6 +23,9 @@ public class DatasetTagRecord extends AbstractRecord {
   String tag;
   Long modifiedTime;
 
+  public DatasetTagRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "tag", "modified_time"};
@@ -31,9 +34,6 @@ public class DatasetTagRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetTagRecord() {
   }
 
   public Integer getDatasetId() {

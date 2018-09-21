@@ -13,9 +13,6 @@
  */
 package wherehows.common.schemas;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -45,25 +42,11 @@ public class MetastoreAuditRecord extends AbstractRecord {
   String oldInfo = null;
   String newInfo = null;
 
-  @Override
-  public String[] getDbColumnNames() {
-    final String[] columnNames = {"server", "instance", "app_name", "event_name", "event_type",
-        "log_event_time", "metastore_thrift_uri", "metastore_version", "is_successful", "is_data_deleted",
-        "db_name", "table_name", "time_partition", "location", "owner",
-        "create_time", "last_access_time", "old_info", "new_info"};
-    return columnNames;
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
-
   public MetastoreAuditRecord() {
   }
 
-  public MetastoreAuditRecord(String server, String instance, String appName,
-      String eventName, String eventType, long timestamp) {
+  public MetastoreAuditRecord(String server, String instance, String appName, String eventName, String eventType,
+      long timestamp) {
     this.server = server;
     this.instance = instance;
     this.appName = appName;
@@ -72,16 +55,30 @@ public class MetastoreAuditRecord extends AbstractRecord {
     this.timestamp = timestamp;
   }
 
-  public void setEventInfo(String metastoreThriftUri, String metastoreVersion,
-      String isSuccessful, String isDataDeleted) {
+  @Override
+  public String[] getDbColumnNames() {
+    final String[] columnNames =
+        {"server", "instance", "app_name", "event_name", "event_type", "log_event_time", "metastore_thrift_uri",
+            "metastore_version", "is_successful", "is_data_deleted", "db_name", "table_name", "time_partition",
+            "location", "owner", "create_time", "last_access_time", "old_info", "new_info"};
+    return columnNames;
+  }
+
+  @Override
+  public List<Object> fillAllFields() {
+    return null;
+  }
+
+  public void setEventInfo(String metastoreThriftUri, String metastoreVersion, String isSuccessful,
+      String isDataDeleted) {
     this.metastoreThriftUri = metastoreThriftUri;
     this.metastoreVersion = metastoreVersion;
     this.isSuccessful = isSuccessful;
     this.isDataDeleted = isDataDeleted;
   }
 
-  public void setTableInfo(String dbName, String tableName, String partition, String location,
-      String owner, long createTime, long lastAccessTime) {
+  public void setTableInfo(String dbName, String tableName, String partition, String location, String owner,
+      long createTime, long lastAccessTime) {
     this.dbName = dbName;
     this.tableName = tableName;
     this.partition = partition;

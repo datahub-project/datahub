@@ -15,27 +15,25 @@ package wherehows.common.utils;
 
 import org.testng.annotations.Test;
 
+
 /**
  * Created by zechen on 12/8/15.
  */
 public class GitUtilTest {
 
   @Test
-  public void testClone()
-      throws Exception {
+  public void testClone() throws Exception {
     //GitUtil.clone("git://git.example.com/project/repo.git", "/tmp/project/repo");
   }
 
   @Test
-  public void testGetRepoListFromProject()
-      throws Exception {
+  public void testGetRepoListFromProject() throws Exception {
     //Map<String, String> repos = GitUtil.getRepoListFromProject("git://git.example.com/project");
     //Assert.assertTrue(repos.size() > 0);
   }
 
   @Test
-  public void testGetRepoMetadata()
-      throws Exception {
+  public void testGetRepoMetadata() throws Exception {
     //GitUtil.getRepoMetadata("/tmp/project/repo");
   }
 }

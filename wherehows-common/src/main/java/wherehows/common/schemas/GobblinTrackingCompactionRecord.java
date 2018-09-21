@@ -36,24 +36,11 @@ public class GobblinTrackingCompactionRecord extends AbstractRecord {
   int flowExecId;
   long logEventTime;
 
-  @Override
-  public String[] getDbColumnNames() {
-    final String[] columnNames = {"cluster", "dataset", "partition_type", "partition_name",
-        "record_count", "late_record_count", "dedupe_status", "job_context", "project_name", "flow_name",
-        "job_name", "flow_exec_id", "log_event_time"};
-    return columnNames;
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
-
   public GobblinTrackingCompactionRecord() {
   }
 
-  public GobblinTrackingCompactionRecord(long timestamp, String jobContext, String cluster,
-      String projectName, String flowId, String jobId, int execId) {
+  public GobblinTrackingCompactionRecord(long timestamp, String jobContext, String cluster, String projectName,
+      String flowId, String jobId, int execId) {
     this.logEventTime = timestamp;
     this.jobContext = jobContext;
     this.cluster = cluster;
@@ -61,6 +48,19 @@ public class GobblinTrackingCompactionRecord extends AbstractRecord {
     this.flowName = flowId;
     this.jobName = jobId;
     this.flowExecId = execId;
+  }
+
+  @Override
+  public String[] getDbColumnNames() {
+    final String[] columnNames =
+        {"cluster", "dataset", "partition_type", "partition_name", "record_count", "late_record_count", "dedupe_status",
+            "job_context", "project_name", "flow_name", "job_name", "flow_exec_id", "log_event_time"};
+    return columnNames;
+  }
+
+  @Override
+  public List<Object> fillAllFields() {
+    return null;
   }
 
   public void setDatasetUrn(String dataset, String partitionType, String partitionName) {

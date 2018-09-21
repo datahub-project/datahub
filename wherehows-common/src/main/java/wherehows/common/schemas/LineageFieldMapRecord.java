@@ -21,12 +21,12 @@ public class LineageFieldMapRecord extends AbstractRecord {
   DatasetIdentifier mappedToDataset;
   List<String> fieldPaths;
 
+  public LineageFieldMapRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public LineageFieldMapRecord() {
   }
 
   public DatasetIdentifier getMappedToDataset() {

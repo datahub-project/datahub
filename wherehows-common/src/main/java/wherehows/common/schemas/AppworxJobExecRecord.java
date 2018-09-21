@@ -34,7 +34,7 @@ public class AppworxJobExecRecord extends AbstractRecord {
   Long whExecId;
 
   public AppworxJobExecRecord(Integer appId, String jobName, Long flowExecId, Integer startTime, Integer endTime,
-    String jobExecStatus, String flowPath) {
+      String jobExecStatus, String flowPath) {
     this.appId = appId;
     this.jobName = jobName;
     this.flowExecId = flowExecId;
@@ -45,8 +45,8 @@ public class AppworxJobExecRecord extends AbstractRecord {
   }
 
   public AppworxJobExecRecord(Integer appId, Long flowId, String flowPath, Integer sourceVersion, Long flowExecId,
-    Long jobId, String jobName, String jobPath, Long jobExecId,  String jobExecStatus,
-    Integer attemptId, Integer startTime, Integer endTime, Long whExecId) {
+      Long jobId, String jobName, String jobPath, Long jobExecId, String jobExecStatus, Integer attemptId,
+      Integer startTime, Integer endTime, Long whExecId) {
     this.appId = appId;
     this.flowId = flowId;
     this.flowPath = flowPath;
@@ -83,13 +83,10 @@ public class AppworxJobExecRecord extends AbstractRecord {
     return allFields;
   }
 
-  public void setJobExecId(Long jobExecId) {
-    this.jobExecId = jobExecId;
-  }
-
   public Integer getAppId() {
     return appId;
   }
+
   public Long getFlowExecId() {
     return flowExecId;
   }
@@ -100,6 +97,10 @@ public class AppworxJobExecRecord extends AbstractRecord {
 
   public Long getJobExecId() {
     return jobExecId;
+  }
+
+  public void setJobExecId(Long jobExecId) {
+    this.jobExecId = jobExecId;
   }
 
   public String getJobExecStatus() {
@@ -123,6 +124,7 @@ public class AppworxJobExecRecord extends AbstractRecord {
    * @return
    */
   public String toString() {
-    return "appId:" + this.appId + "\tflowPath:" + this.flowPath + "\tflowExecId:" + this.flowExecId + "\tjobname:" + this.jobName;
+    return "appId:" + this.appId + "\tflowPath:" + this.flowPath + "\tflowExecId:" + this.flowExecId + "\tjobname:"
+        + this.jobName;
   }
 }

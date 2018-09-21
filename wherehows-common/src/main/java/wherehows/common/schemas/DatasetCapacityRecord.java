@@ -27,18 +27,18 @@ public class DatasetCapacityRecord extends AbstractRecord {
   Double capacityHigh;
   Long modifiedTime;
 
+  public DatasetCapacityRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "capacity_name", "capacity_type", "capacity_unit",
-        "capacity_low", "capacity_high", "modified_time"};
+    return new String[]{"dataset_id", "dataset_urn", "capacity_name", "capacity_type", "capacity_unit", "capacity_low",
+        "capacity_high", "modified_time"};
   }
 
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetCapacityRecord() {
   }
 
   public Integer getDatasetId() {

@@ -30,8 +30,6 @@ public class DatasetPath {
   public String partitionType;
   public int layoutId;
 
-
-
   /**
    * Use pattern match to separate the comma string.
    * because we need to exclude edge case : /data/path/{2015/10/20,2015/10/21,2015/10/22}

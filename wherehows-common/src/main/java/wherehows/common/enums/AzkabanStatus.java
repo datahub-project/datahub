@@ -37,10 +37,6 @@ public enum AzkabanStatus {
     this.numVal = numVal;
   }
 
-  public int getNumVal() {
-    return numVal;
-  }
-
   public static AzkabanStatus fromInteger(int x) {
     switch (x) {
       case 10:
@@ -97,5 +93,9 @@ public enum AzkabanStatus {
       default:
         return false;
     }
+  }
+
+  public int getNumVal() {
+    return numVal;
   }
 }

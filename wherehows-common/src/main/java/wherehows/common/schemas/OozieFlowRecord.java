@@ -31,7 +31,7 @@ public class OozieFlowRecord extends AbstractRecord {
   Long whExecId;
 
   public OozieFlowRecord(Integer appId, String flowName, String flowPath, Integer flowLevel, String sourceVersion,
-    Long sourceCreatedTime, Long sourceModifiedTime, Long whExecId) {
+      Long sourceCreatedTime, Long sourceModifiedTime, Long whExecId) {
     this.appId = appId;
     this.flowName = flowName;
     this.flowPath = flowPath;
