@@ -74,6 +74,7 @@ import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
 import { service } from '@ember-decorators/service';
+import { bool } from '@ember-decorators/object/computed';
 
 const {
   complianceDataException,
@@ -224,9 +225,8 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  isCompliancePolicyAvailable = computed('complianceInfo', function(): boolean {
-    return !!this.complianceInfo;
-  });
+  @bool('complianceInfo')
+  isCompliancePolicyAvailable: ComputedProperty<boolean>;
 
   /**
    * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
