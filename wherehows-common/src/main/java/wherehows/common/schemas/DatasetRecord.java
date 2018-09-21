@@ -73,7 +73,7 @@ public class DatasetRecord extends AbstractRecord {
     allFields.add(sourceCreatedTime);
     allFields.add(sourceModifiedTime);
     // add the created_date, modified_date and wh_etl_exec_id
-    allFields.add(System.currentTimeMillis()/1000);
+    allFields.add(System.currentTimeMillis() / 1000);
     allFields.add(null);
     allFields.add(null);
     return allFields;

@@ -38,14 +38,14 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class DictDatasetDao extends BaseDao {
 
-  public DictDatasetDao(@Nonnull EntityManagerFactory factory) {
-    super(factory);
-  }
-
   private static final String SET_DATASET_DEPRECATION =
       "UPDATE DictDataset SET isDeprecated = :deprecated WHERE id = :datasetId";
 
   private static final String SET_DATASET_ACTIVE = "UPDATE DictDataset SET isActive = :active WHERE urn = :datasetUrn";
+
+  public DictDatasetDao(@Nonnull EntityManagerFactory factory) {
+    super(factory);
+  }
 
   public DictDataset findByUrn(@Nonnull String urn) {
     return findBy(DictDataset.class, "urn", urn);

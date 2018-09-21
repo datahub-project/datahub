@@ -20,27 +20,8 @@ package wherehows.common.enums;
 import java.util.HashSet;
 import java.util.Set;
 
+
 public class AzkabanPermission {
-  public enum Type {
-    READ(0x0000001),
-    WRITE(0x0000002),
-    EXECUTE(0x0000004),
-    SCHEDULE(0x0000008),
-    METRICS(0x0000010),
-    CREATEPROJECTS(0x40000000), // Only used for roles
-    ADMIN(0x8000000);
-
-    private int numVal;
-
-    Type(int numVal) {
-      this.numVal = numVal;
-    }
-
-    public int getFlag() {
-      return numVal;
-    }
-  }
-
   private Set<Type> permissions = new HashSet<Type>();
 
   public AzkabanPermission(int flags) {
@@ -75,7 +56,6 @@ public class AzkabanPermission {
     }
   }
 
-
   public Set<Type> getTypes() {
     return permissions;
   }
@@ -88,6 +68,26 @@ public class AzkabanPermission {
     }
 
     return sb.substring(0, sb.length() - 1);
+  }
+
+  public enum Type {
+    READ(0x0000001),
+    WRITE(0x0000002),
+    EXECUTE(0x0000004),
+    SCHEDULE(0x0000008),
+    METRICS(0x0000010),
+    CREATEPROJECTS(0x40000000), // Only used for roles
+    ADMIN(0x8000000);
+
+    private int numVal;
+
+    Type(int numVal) {
+      this.numVal = numVal;
+    }
+
+    public int getFlag() {
+      return numVal;
+    }
   }
 }
 

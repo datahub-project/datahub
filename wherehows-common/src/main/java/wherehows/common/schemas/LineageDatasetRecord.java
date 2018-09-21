@@ -14,7 +14,6 @@
 package wherehows.common.schemas;
 
 import java.util.List;
-import java.util.Map;
 
 
 public class LineageDatasetRecord extends AbstractRecord {
@@ -29,12 +28,12 @@ public class LineageDatasetRecord extends AbstractRecord {
   String operation;
   String sourceTargetType;
 
+  public LineageDatasetRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public LineageDatasetRecord() {
   }
 
   public Integer getDatasetId() {

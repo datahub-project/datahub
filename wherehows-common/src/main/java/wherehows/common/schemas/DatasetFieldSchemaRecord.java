@@ -14,8 +14,6 @@
 package wherehows.common.schemas;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 
 
@@ -49,12 +47,15 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   Integer defaultCommentId;
   String commentIds;
 
+  public DatasetFieldSchemaRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "position", "parent_field_position", "field_json_path", "field_path", "parent_path",
-        "field_name", "label", "aliases", "type", "logical_type", "semantic_type", "abstract_type", "description",
-        "nullable", "default_value", "max_byte_length", "max_char_length", "char_type", "precision", "scale",
-        "is_recursive", "partitioned", "indexed", "namespace", "default_comment_id", "comment_ids"};
+    return new String[]{"dataset_id", "position", "parent_field_position", "field_json_path", "field_path",
+        "parent_path", "field_name", "label", "aliases", "type", "logical_type", "semantic_type", "abstract_type",
+        "description", "nullable", "default_value", "max_byte_length", "max_char_length", "char_type", "precision",
+        "scale", "is_recursive", "partitioned", "indexed", "namespace", "default_comment_id", "comment_ids"};
   }
 
   @Override
@@ -73,11 +74,8 @@ public class DatasetFieldSchemaRecord extends AbstractRecord {
   public Object[] getFieldDetailValues() {
     return new Object[]{datasetId, position, parentFieldPosition, parentPath, fieldName, 0, label, type, maxCharLength,
         precision, scale, nullable != null && nullable ? "Y" : "N", indexed != null && indexed ? "Y" : "N",
-        partitioned != null && partitioned ? "Y" : "N", isRecursive != null && isRecursive ? "Y" : "N",
-        defaultValue, namespace, defaultCommentId, commentIds};
-  }
-
-  public DatasetFieldSchemaRecord() {
+        partitioned != null && partitioned ? "Y" : "N", isRecursive != null && isRecursive ? "Y" : "N", defaultValue,
+        namespace, defaultCommentId, commentIds};
   }
 
   public Integer getDatasetId() {

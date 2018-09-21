@@ -13,22 +13,14 @@
  */
 package wherehows.common.enums;
 
-
 public enum OwnerType {
   // the precedence (from high to low) is: OWNER, PRODUCER, DELEGATE, STAKEHOLDER
-  OWNER(20),
-  PRODUCER(40),
-  DELEGATE(60),
-  STAKEHOLDER(80);
+  OWNER(20), PRODUCER(40), DELEGATE(60), STAKEHOLDER(80);
 
   private int numVal;
 
   OwnerType(int numVal) {
     this.numVal = numVal;
-  }
-
-  public int value() {
-    return numVal;
   }
 
   /**
@@ -51,5 +43,9 @@ public enum OwnerType {
     }
 
     return type1value <= type2value ? type1 : type2;
+  }
+
+  public int value() {
+    return numVal;
   }
 }

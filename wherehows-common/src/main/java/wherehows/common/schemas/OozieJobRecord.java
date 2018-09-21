@@ -30,7 +30,7 @@ public class OozieJobRecord extends AbstractRecord {
   Long whExecId;
 
   public OozieJobRecord(Integer appId, String flowPath, String sourceVersion, String jobName, String jobPath,
-    String jobType, Long whExecId) {
+      String jobType, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.sourceVersion = sourceVersion;

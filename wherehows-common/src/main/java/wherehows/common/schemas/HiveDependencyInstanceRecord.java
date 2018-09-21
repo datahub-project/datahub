@@ -35,9 +35,8 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
   String mappedObjectUrn;
 
   public HiveDependencyInstanceRecord(String objectType, String objectSubType, String objectName, String objectUrn,
-                               String mapPhrase, String isIdentialMap, String mappedObjectType,
-                               String mappedObjectSubType, String mappedObjectName,
-                               String mappedObjectUrn, String description) {
+      String mapPhrase, String isIdentialMap, String mappedObjectType, String mappedObjectSubType,
+      String mappedObjectName, String mappedObjectUrn, String description) {
     this.objectType = objectType;
     this.objectSubType = objectSubType;
     this.objectName = objectName;
@@ -67,6 +66,4 @@ public class HiveDependencyInstanceRecord extends AbstractRecord {
     allFields.add(description);
     return allFields;
   }
-
-
 }

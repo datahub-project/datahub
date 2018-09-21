@@ -21,12 +21,12 @@ public class LineageDatasetMapRecord extends AbstractRecord {
   String mapDirectionType;
   List<LineageFieldRecord> fieldLineage;
 
+  public LineageDatasetMapRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public LineageDatasetMapRecord() {
   }
 
   public String getMapDirectionType() {

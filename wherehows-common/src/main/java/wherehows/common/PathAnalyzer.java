@@ -37,8 +37,7 @@ public class PathAnalyzer {
    * @param connection
    * @throws SQLException
    */
-  public synchronized static void initialize(Connection connection)
-    throws SQLException {
+  public synchronized static void initialize(Connection connection) throws SQLException {
     if (_layoutsInfo != null && _filePattherns != null) {
       return;
     }
@@ -47,9 +46,9 @@ public class PathAnalyzer {
     _layoutsInfo = new ArrayList<>();
     while (resultSet.next()) {
       Layout layout =
-        new Layout(resultSet.getInt("layout_id"), resultSet.getString("regex"), resultSet.getString("mask"),
-          resultSet.getInt("leading_path_index"), resultSet.getInt("partition_index"),
-          resultSet.getString("partition_pattern_group"));
+          new Layout(resultSet.getInt("layout_id"), resultSet.getString("regex"), resultSet.getString("mask"),
+              resultSet.getInt("leading_path_index"), resultSet.getInt("partition_index"),
+              resultSet.getString("partition_pattern_group"));
       _layoutsInfo.add(layout);
     }
 
@@ -60,7 +59,6 @@ public class PathAnalyzer {
       _filePattherns.add(fpRs.getString("regex"));
     }
   }
-
 
   /**
    * Analyze the path and extract the abstract level info from path.
@@ -77,7 +75,7 @@ public class PathAnalyzer {
     Pattern daliPattern = Pattern.compile("(dalids|hive):///(\\w.*/)?(\\w.*)(\\.|/)(\\w.*)$");
     Matcher daliMatcher = daliPattern.matcher(fullPath);
     if (daliMatcher.matches()) {
-      fullPath = String.format( "/%s/%s", daliMatcher.group(3), daliMatcher.group(5) );
+      fullPath = String.format("/%s/%s", daliMatcher.group(3), daliMatcher.group(5));
     }
 
     // remove the "hdfs://.../" header
@@ -144,7 +142,7 @@ public class PathAnalyzer {
     String partitionPatternGroup;
 
     public Layout(int layoutId, String regex, String mask, int leadingPathIndex, int partitionIndex,
-      String partitionPatternGroup) {
+        String partitionPatternGroup) {
       this.layoutId = layoutId;
       this.regex = regex;
       this.mask = mask;

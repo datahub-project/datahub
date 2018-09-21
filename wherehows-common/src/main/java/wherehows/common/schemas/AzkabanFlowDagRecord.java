@@ -29,7 +29,7 @@ public class AzkabanFlowDagRecord extends AbstractRecord {
   Long whExecId;
 
   public AzkabanFlowDagRecord(Integer appId, String flowPath, Integer flowVersion, String sourceJobPath,
-    String targetJobPath, Long whExecId) {
+      String targetJobPath, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.flowVersion = flowVersion;

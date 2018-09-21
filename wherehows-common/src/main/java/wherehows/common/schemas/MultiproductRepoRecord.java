@@ -32,8 +32,8 @@ public class MultiproductRepoRecord extends AbstractRecord {
   String namespace;
   Long whExecId;
 
-  public MultiproductRepoRecord(Integer appId, String scmRepoFullname, String scmType, Integer repoId,
-      String project, String ownerType, String ownerName, Long whExecId) {
+  public MultiproductRepoRecord(Integer appId, String scmRepoFullname, String scmType, Integer repoId, String project,
+      String ownerType, String ownerName, Long whExecId) {
     this.appId = appId;
     this.scmRepoFullname = scmRepoFullname;
     this.scmType = scmType;
@@ -44,8 +44,8 @@ public class MultiproductRepoRecord extends AbstractRecord {
     this.whExecId = whExecId;
   }
 
-  public void setMultiproductInfo(String multiproductName, String productType,
-      String productVersion, String namespace) {
+  public void setMultiproductInfo(String multiproductName, String productType, String productVersion,
+      String namespace) {
     this.multiproductName = multiproductName;
     this.productType = productType;
     this.productVersion = productVersion;

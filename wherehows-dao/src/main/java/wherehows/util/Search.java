@@ -28,17 +28,12 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 public class Search {
 
-  private Search() {
-  }
-
   private static final ObjectMapper _OM = new ObjectMapper();
-
   private final static String DATASET_CATEGORY = "datasets";
   private final static String METRIC_CATEGORY = "metrics";
   private final static String COMMENT_CATEGORY = "comments";
   private final static String FLOW_CATEGORY = "flows";
   private final static String JOB_CATEGORY = "jobs";
-
   private static final String WHZ_ELASTICSEARCH_DATASET_QUERY_FILE =
       System.getenv("WHZ_ELASTICSEARCH_DATASET_QUERY_TEMPLATE");
   private static final String WHZ_ELASTICSEARCH_METRIC_QUERY_FILE =
@@ -54,6 +49,8 @@ public class Search {
   private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE = System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT");
   private static final String WHZ_ELASTICSEARCH_FILTER_UNIT_FILE_FABRIC =
       System.getenv("WHZ_ELASTICSEARCH_FILTER_UNIT_FABRIC");
+  private Search() {
+  }
 
   public static String readJsonQueryFile(String jsonFile) {
     try {

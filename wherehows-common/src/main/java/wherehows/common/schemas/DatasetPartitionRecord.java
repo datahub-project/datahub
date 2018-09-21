@@ -28,18 +28,18 @@ public class DatasetPartitionRecord extends AbstractRecord {
   String timePartitionExpression;
   Long modifiedTime;
 
+  public DatasetPartitionRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
-    return new String[]{"dataset_id", "dataset_urn", "total_partition_level", "partition_spec_text", "has_time_partition",
-        "has_hash_partition", "partition_keys", "time_partition_expression", "modified_time"};
+    return new String[]{"dataset_id", "dataset_urn", "total_partition_level", "partition_spec_text",
+        "has_time_partition", "has_hash_partition", "partition_keys", "time_partition_expression", "modified_time"};
   }
 
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetPartitionRecord() {
   }
 
   public Integer getDatasetId() {

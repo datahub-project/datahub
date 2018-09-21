@@ -31,7 +31,7 @@ public class AppworxJobRecord extends AbstractRecord {
   Long whExecId;
 
   public AppworxJobRecord(Integer appId, Long flowId, String flowPath, Integer sourceVersion, Long jobId,
-                          String jobName, String jobPath, String jobType, Character isCurrent, Long whExecId) {
+      String jobName, String jobPath, String jobType, Character isCurrent, Long whExecId) {
     this.appId = appId;
     this.flowId = flowId;
     this.flowPath = flowPath;

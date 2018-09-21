@@ -87,8 +87,8 @@ public class Constant {
   public static final String AW_DB_PASSWORD_KEY = "aw.db.password";
   public static final String AW_DB_NAME_KEY = "aw.db.name";
   public static final String AW_DB_DRIVER_KEY = "aw.db.driver";
-  public static final String AW_DB_PORT_KEY =  "aw.db.port";
-  public static final String AW_ARCHIVE_DIR =  "aw.archive.dir";
+  public static final String AW_DB_PORT_KEY = "aw.db.port";
+  public static final String AW_ARCHIVE_DIR = "aw.archive.dir";
   public static final String AW_REMOTE_HADOOP_SCRIPT_DIR = "aw.remote_hadoop_script_dir";
   public static final String AW_LOCAL_SCRIPT_PATH = "aw.local_script_path";
   public static final String AW_REMOTE_SCRIPT_PATH = "aw.remote_script_path";
@@ -288,5 +288,4 @@ public class Constant {
   public static final String ELASTICSEARCH_URL_REQUEST_TIMEOUT = "elasticsearch.url.request.timeout";
   public static final String WH_DB_MAX_RETRY_TIMES = "wh.db.max.retry.times";
   public static final String WH_ELASTICSEARCH_INDEX_MAPPING_FILE = "wh.elasticsearch.index.mapping.file";
-
 }

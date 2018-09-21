@@ -21,12 +21,12 @@ public class DatasetGeographicAffinityRecord extends AbstractRecord {
   String affinity;
   List<DatasetLocaleRecord> locations;
 
+  public DatasetGeographicAffinityRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetGeographicAffinityRecord() {
   }
 
   public String getAffinity() {

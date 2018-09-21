@@ -27,6 +27,9 @@ public class DatasetSecurityRecord extends AbstractRecord {
   DatasetGeographicAffinityRecord geographicAffinity;
   Long modifiedTime;
 
+  public DatasetSecurityRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "classification", "record_owner_type", "retention_policy",
@@ -36,9 +39,6 @@ public class DatasetSecurityRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetSecurityRecord() {
   }
 
   public Integer getDatasetId() {

@@ -37,8 +37,6 @@ public class Launcher {
   /** command line config file location parameter key */
   private static final String CONFIG_FILE_LOCATION_KEY = "config";
 
-
-
   /**
    * Read config file location from command line. Read all configuration from command line, execute the job.
    * Example command line : java -Dconfig=/path/to/config/file -cp "lib/*" wherehows.common.jobs.Launcher

@@ -32,7 +32,7 @@ public class AzkabanJobRecord extends AbstractRecord {
   Long whExecId;
 
   public AzkabanJobRecord(Integer appId, String flowPath, Integer sourceVersion, String jobName, String jobPath,
-    String jobType, Character isCurrent, Long whExecId) {
+      String jobType, Character isCurrent, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.sourceVersion = sourceVersion;

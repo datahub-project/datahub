@@ -21,11 +21,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
 import wherehows.common.DatasetPath;
 import wherehows.common.LineageCombiner;
 import wherehows.common.PathAnalyzer;
@@ -42,8 +40,7 @@ public class LineageCombinerTest {
   Properties testProp;
 
   @BeforeTest
-  public void setUp()
-      throws SQLException, IOException {
+  public void setUp() throws SQLException, IOException {
     InputStream inputStream = this.getClass().getResourceAsStream(TEST_PROP_FILE_NAME);
     testProp = new Properties();
     if (inputStream != null) {

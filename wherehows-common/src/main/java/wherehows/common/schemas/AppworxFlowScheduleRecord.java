@@ -28,7 +28,7 @@ public class AppworxFlowScheduleRecord extends AbstractRecord {
   Long whExecId;
 
   public AppworxFlowScheduleRecord(Integer appId, String flowPath, String unit, Integer frequency,
-    Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
+      Long effectiveStartTime, Long effectiveEndTime, String refId, Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.unit = unit;

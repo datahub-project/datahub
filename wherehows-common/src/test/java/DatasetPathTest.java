@@ -11,6 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  */
+
 import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -24,14 +25,14 @@ public class DatasetPathTest {
 
   @Test
   public void separatedDataset() {
-    String sample = "/jobs/search/search-metrics/core-metrics/sessions/daily/{2015/10/20,2017}/desktop, /data/something/{1232,422}, /qfewfs/afasd/zxc";
+    String sample =
+        "/jobs/search/search-metrics/core-metrics/sessions/daily/{2015/10/20,2017}/desktop, /data/something/{1232,422}, /qfewfs/afasd/zxc";
     List<String> result = DatasetPath.separatedDataset(sample);
     String[] expecteddResult = {"/jobs/search/search-metrics/core-metrics/sessions/daily/{2015/10/20,2017}/desktop",
-    "/data/something/{1232,422}", "/qfewfs/afasd/zxc"};
+        "/data/something/{1232,422}", "/qfewfs/afasd/zxc"};
     for (int i = 0; i < result.size(); i++) {
       Assert.assertEquals(result.get(i), expecteddResult[i]);
     }
-
   }
 
   @Test

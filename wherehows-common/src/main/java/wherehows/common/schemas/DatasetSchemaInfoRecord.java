@@ -35,6 +35,9 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
   List<DatasetFieldPathRecord> auditFields;
   Long modifiedTime;
 
+  public DatasetSchemaInfoRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "is_backward_compatible", "is_field_name_case_sensitive",
@@ -45,9 +48,6 @@ public class DatasetSchemaInfoRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetSchemaInfoRecord() {
   }
 
   public Integer getDatasetId() {
