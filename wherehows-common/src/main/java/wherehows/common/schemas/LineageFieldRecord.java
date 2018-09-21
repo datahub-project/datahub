@@ -21,12 +21,12 @@ public class LineageFieldRecord extends AbstractRecord {
   String fieldPath;
   List<LineageFieldMapRecord> mappedToFields;
 
+  public LineageFieldRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public LineageFieldRecord() {
   }
 
   public String getFieldPath() {

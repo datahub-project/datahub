@@ -16,7 +16,6 @@ package wherehows.dao;
 import com.linkedin.events.metadata.DatasetSchema;
 import com.linkedin.events.metadata.FieldSchema;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import org.testng.annotations.Test;
 import wherehows.dao.table.FieldDetailDao;

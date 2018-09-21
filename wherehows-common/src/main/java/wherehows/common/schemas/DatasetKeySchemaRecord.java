@@ -22,12 +22,12 @@ public class DatasetKeySchemaRecord extends AbstractRecord {
   String format;
   String text;
 
+  public DatasetKeySchemaRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetKeySchemaRecord() {
   }
 
   public String getKeyType() {

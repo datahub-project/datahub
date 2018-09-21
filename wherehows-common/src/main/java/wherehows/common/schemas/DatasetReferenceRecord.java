@@ -25,6 +25,9 @@ public class DatasetReferenceRecord extends AbstractRecord {
   List<String> referenceList;
   Long modifiedTime;
 
+  public DatasetReferenceRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "reference_type", "reference_format", "reference_list",
@@ -34,9 +37,6 @@ public class DatasetReferenceRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetReferenceRecord() {
   }
 
   public Integer getDatasetId() {

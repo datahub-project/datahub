@@ -35,13 +35,6 @@ import static wherehows.util.UrnUtil.*;
 @Slf4j
 public class DatasetViewDao extends BaseViewDao {
 
-  private final DictDatasetDao _dictDatasetDao;
-
-  public DatasetViewDao(@Nonnull EntityManagerFactory factory) {
-    super(factory);
-    _dictDatasetDao = new DictDatasetDao(factory);
-  }
-
   private static final String GET_DATASET_COLUMNS_BY_DATASET_ID =
       "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
           + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
@@ -52,7 +45,6 @@ public class DatasetViewDao extends BaseViewDao {
           + "  where field_id = dfd.field_id and is_default = true) "
           + "LEFT JOIN field_comments c ON c.id = ddfc.comment_id "
           + "WHERE dfd.dataset_id = :datasetId ORDER BY dfd.sort_id";
-
   private static final String GET_DATASET_COLUMN_BY_DATASETID_AND_COLUMNID =
       "SELECT dfd.field_id, dfd.sort_id, dfd.parent_sort_id, dfd.parent_path, dfd.field_name, dfd.data_type, "
           + "dfd.is_nullable as nullable, dfd.is_indexed as indexed, dfd.is_partitioned as partitioned, "
@@ -62,6 +54,13 @@ public class DatasetViewDao extends BaseViewDao {
           + "FROM dict_field_detail dfd LEFT JOIN dict_dataset_field_comment ddfc ON "
           + "(ddfc.field_id = dfd.field_id AND ddfc.is_default = true) LEFT JOIN comments c ON "
           + "c.id = ddfc.comment_id WHERE dfd.dataset_id = :datasetId AND dfd.field_id = :columnId ORDER BY dfd.sort_id";
+
+  private final DictDatasetDao _dictDatasetDao;
+
+  public DatasetViewDao(@Nonnull EntityManagerFactory factory) {
+    super(factory);
+    _dictDatasetDao = new DictDatasetDao(factory);
+  }
 
   /**
    * Get dataset view from dict dataset.

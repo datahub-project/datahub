@@ -31,7 +31,7 @@ public class DatasetJsonRecord implements Record {
   String data_source;
 
   public DatasetJsonRecord(String schema, String abstractPath, Long modificationTime, String owner, String group,
-    String permission, String codec, String storage, String data_source) {
+      String permission, String codec, String storage, String data_source) {
     this.schemaString = schema;
     this.abstractPath = abstractPath;
     this.modificationTime = modificationTime;
@@ -46,17 +46,12 @@ public class DatasetJsonRecord implements Record {
   @Override
   public String toCsvString() {
     // TODO avro and orc are different
-    String result = (schemaString.substring(0, schemaString.length() - 1) + ", " +
-      "\"uri\":\"hdfs://" + abstractPath + "\",\"attributes\": {" +
-      "\"modification_time\":" + modificationTime + "," +
-      "\"owner\":\"" + owner + "\"," +
-      "\"group\":\"" + group + "\"," +
-      "\"file_permission\":\"" + permission + "\"," +
-      // "\"size\":" + data_size + "," +
-      "\"codec\": \"" + codec + "\"," +
-      "\"storage_type\": \"" + storage + "\"," +
-      "\"source\":\"" + data_source + "\"}" +
-      "}");
+    String result = (schemaString.substring(0, schemaString.length() - 1) + ", " + "\"uri\":\"hdfs://" + abstractPath
+        + "\",\"attributes\": {" + "\"modification_time\":" + modificationTime + "," + "\"owner\":\"" + owner + "\","
+        + "\"group\":\"" + group + "\"," + "\"file_permission\":\"" + permission + "\"," +
+        // "\"size\":" + data_size + "," +
+        "\"codec\": \"" + codec + "\"," + "\"storage_type\": \"" + storage + "\"," + "\"source\":\"" + data_source
+        + "\"}" + "}");
     return result;
   }
 

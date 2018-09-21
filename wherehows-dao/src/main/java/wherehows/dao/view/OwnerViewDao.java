@@ -25,16 +25,16 @@ import wherehows.models.view.DatasetOwnership;
 
 public class OwnerViewDao extends BaseViewDao {
 
-  public OwnerViewDao(EntityManagerFactory factory) {
-    super(factory);
-  }
-
   private final static String GET_DATASET_OWNERS_BY_ID =
       "SELECT o.owner_id, u.display_name, o.sort_id, o.owner_type, o.namespace, o.owner_id_type, o.owner_source, "
           + "o.owner_sub_type, o.confirmed_by, u.email, u.is_active, is_group, o.modified_time "
           + "FROM dataset_owner o "
           + "LEFT JOIN dir_external_user_info u on (o.owner_id = u.user_id and u.app_id = 300) "
           + "WHERE o.dataset_urn = :datasetUrn and (o.is_deleted is null OR o.is_deleted != 'Y') ORDER BY o.sort_id";
+
+  public OwnerViewDao(EntityManagerFactory factory) {
+    super(factory);
+  }
 
   /**
    * Get dataset owner list by WH dataset URN

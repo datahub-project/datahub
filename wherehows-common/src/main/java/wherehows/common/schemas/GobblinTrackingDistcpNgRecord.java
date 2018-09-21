@@ -37,24 +37,11 @@ public class GobblinTrackingDistcpNgRecord extends AbstractRecord {
   int flowExecId;
   long logEventTime;
 
-  @Override
-  public String[] getDbColumnNames() {
-    final String[] columnNames = {"cluster", "dataset", "partition_type", "partition_name",
-        "upsteam_timestamp", "origin_timestamp", "source_path", "target_path", "job_context",
-        "project_name", "flow_name", "job_name", "flow_exec_id", "log_event_time"};
-    return columnNames;
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
-
   public GobblinTrackingDistcpNgRecord() {
   }
 
-  public GobblinTrackingDistcpNgRecord(long timestamp, String jobContext, String cluster,
-      String projectName, String flowId, String jobId, int execId) {
+  public GobblinTrackingDistcpNgRecord(long timestamp, String jobContext, String cluster, String projectName,
+      String flowId, String jobId, int execId) {
     this.logEventTime = timestamp;
     this.jobContext = jobContext;
     this.cluster = cluster;
@@ -62,6 +49,20 @@ public class GobblinTrackingDistcpNgRecord extends AbstractRecord {
     this.flowName = flowId;
     this.jobName = jobId;
     this.flowExecId = execId;
+  }
+
+  @Override
+  public String[] getDbColumnNames() {
+    final String[] columnNames =
+        {"cluster", "dataset", "partition_type", "partition_name", "upsteam_timestamp", "origin_timestamp",
+            "source_path", "target_path", "job_context", "project_name", "flow_name", "job_name", "flow_exec_id",
+            "log_event_time"};
+    return columnNames;
+  }
+
+  @Override
+  public List<Object> fillAllFields() {
+    return null;
   }
 
   public void setDatasetUrn(String dataset, String partitionType, String partitionName) {

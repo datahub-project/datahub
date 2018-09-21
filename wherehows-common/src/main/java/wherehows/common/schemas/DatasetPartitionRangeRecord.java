@@ -23,12 +23,12 @@ public class DatasetPartitionRangeRecord extends AbstractRecord {
   String maxPartitionValue;
   String listPartitionValue;
 
+  public DatasetPartitionRangeRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetPartitionRangeRecord() {
   }
 
   public String getPartitionType() {

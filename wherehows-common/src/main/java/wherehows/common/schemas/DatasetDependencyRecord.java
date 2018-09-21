@@ -33,8 +33,8 @@ public class DatasetDependencyRecord extends AbstractRecord {
   }
 
   public DatasetDependencyRecord(Long dataset_id, String database_name, String type, String table_name,
-                               Integer level_from_root, Integer next_level_dependency_count, String topology_sort_id,
-                               String ref_obj_type, String ref_obj_location, String high_watermark) {
+      Integer level_from_root, Integer next_level_dependency_count, String topology_sort_id, String ref_obj_type,
+      String ref_obj_location, String high_watermark) {
     this.dataset_id = dataset_id;
     this.database_name = database_name;
     this.type = type;
@@ -62,6 +62,4 @@ public class DatasetDependencyRecord extends AbstractRecord {
     allFields.add(high_watermark);
     return allFields;
   }
-
-
 }

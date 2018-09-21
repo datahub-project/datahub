@@ -23,12 +23,12 @@ public class DatasetOriginalSchemaRecord extends AbstractRecord {
   String text;
   Map<String, String> checksum;
 
+  public DatasetOriginalSchemaRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetOriginalSchemaRecord() {
   }
 
   public String getFormat() {

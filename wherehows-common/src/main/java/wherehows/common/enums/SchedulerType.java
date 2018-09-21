@@ -17,8 +17,5 @@ package wherehows.common.enums;
  * Created by zechen on 10/8/15.
  */
 public enum SchedulerType {
-  GENERIC,
-  AZKABAN,
-  OOZIE,
-  APPWORX
+  GENERIC, AZKABAN, OOZIE, APPWORX
 }

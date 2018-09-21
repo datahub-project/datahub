@@ -37,17 +37,20 @@ public class JobExecutionRecord extends AbstractRecord {
   String state;
   Long logTime;
 
-  @Override
-  public String[] getDbColumnNames() {
-    return new String[]{"app_id", "job_name", "node", "server", "job_id", "job_exec_id", "job_exec_uuid", "flow_name",
-        "flow_id", "flow_exec_id", "flow_exec_uuid", "attempt_id", "start_time", "end_time", "job_exec_status",
-        "created_time"};
+  public JobExecutionRecord() {
   }
 
   @JsonIgnore
   public static String[] dbColumns() {
     return new String[]{"app_id", "job_name", "job_id", "job_exec_id", "job_exec_uuid", "flow_id", "flow_exec_id",
         "attempt_id", "start_time", "end_time", "job_exec_status", "created_time"};
+  }
+
+  @Override
+  public String[] getDbColumnNames() {
+    return new String[]{"app_id", "job_name", "node", "server", "job_id", "job_exec_id", "job_exec_uuid", "flow_name",
+        "flow_id", "flow_exec_id", "flow_exec_uuid", "attempt_id", "start_time", "end_time", "job_exec_status",
+        "created_time"};
   }
 
   @JsonIgnore
@@ -59,9 +62,6 @@ public class JobExecutionRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public JobExecutionRecord() {
   }
 
   public Integer getAppId() {

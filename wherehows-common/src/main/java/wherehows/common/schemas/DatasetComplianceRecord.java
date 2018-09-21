@@ -24,6 +24,9 @@ public class DatasetComplianceRecord extends AbstractRecord {
   List<DatasetPurgeEntityRecord> compliancePurgeEntities;
   Long modifiedTime;
 
+  public DatasetComplianceRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "compliance_purge_type", "compliance_purge_entities",
@@ -33,9 +36,6 @@ public class DatasetComplianceRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetComplianceRecord() {
   }
 
   public Integer getDatasetId() {

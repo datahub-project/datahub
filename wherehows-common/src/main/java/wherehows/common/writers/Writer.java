@@ -13,12 +13,11 @@
  */
 package wherehows.common.writers;
 
-import java.sql.SQLException;
-import wherehows.common.schemas.Record;
-
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import wherehows.common.schemas.Record;
 
 
 /**
@@ -37,8 +36,7 @@ public abstract class Writer {
    * Write a record to the writer
    * @param record
    */
-  public synchronized void append(Record record)
-    throws IOException, SQLException {
+  public synchronized void append(Record record) throws IOException, SQLException {
     records.add(record);
     // check if the size meet the threhold, flush it
     if (AUTO_WRITE && records.size() > MAX_LENGTH) {
@@ -46,9 +44,7 @@ public abstract class Writer {
     }
   }
 
-  public abstract boolean flush()
-    throws IOException, SQLException;
+  public abstract boolean flush() throws IOException, SQLException;
 
-  public abstract void close()
-    throws IOException, SQLException;
+  public abstract void close() throws IOException, SQLException;
 }
