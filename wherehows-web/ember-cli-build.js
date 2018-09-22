@@ -112,7 +112,6 @@ module.exports = function (defaults) {
   app.import('node_modules/jquery-treegrid/js/jquery.treegrid.js');
   app.import('node_modules/json-human/src/json.human.js');
   app.import('node_modules/jquery-jsonview/dist/jquery.jsonview.js');
-  app.import('vendor/typeahead.jquery.js');
   app.import('node_modules/marked/marked.min.js');
   app.import('node_modules/scrollmonitor/scrollMonitor.js');
   app.import('vendor/shims/scrollmonitor.js');

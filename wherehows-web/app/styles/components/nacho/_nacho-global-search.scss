@@ -6,6 +6,29 @@ $app-search-bar-height: 40px;
 
   &__text-input {
     height: $app-search-bar-height;
+
+    // trying to be more specific than other rule
+    &.form-control:not(:first-child):not(:last-child),
+    & {
+      border-radius: 2px 0 0 2px;
+    }
+
+    input {
+      border: 1px solid white;
+      transition-duration: 334ms;
+      transition-property: border-color, box-shadow;
+      box-sizing: border-box;
+      border-radius: 2px 0 0 2px;
+
+      &:focus {
+        border-color: get-color(blue7);
+        box-shadow: 0 0 0 1px get-color(blue7);
+      }
+    }
+  }
+
+  .input-group-btn:last-child > .btn {
+    margin-left: 0px;
   }
 
   /**
