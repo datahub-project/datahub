@@ -30,6 +30,9 @@ public class DatasetConstraintRecord extends AbstractRecord {
   Map<String, String> additionalReferences;
   Long modifiedTime;
 
+  public DatasetConstraintRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "constraint_type", "constraint_sub_type", "constraint_name",
@@ -39,9 +42,6 @@ public class DatasetConstraintRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetConstraintRecord() {
   }
 
   public Integer getDatasetId() {

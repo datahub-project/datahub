@@ -42,8 +42,9 @@ public class DatasetFieldRecord implements Record {
   List<Object> allFields;
   char SEPR = 0x001A;
 
-  public DatasetFieldRecord(String urn, Integer sortId, Integer parentSortId, String parentPath, String fieldName, String fieldLabel,
-    String dataType, String isNullable, String isIndexed, String isPartitioned, String defaultValue, Integer dataSize, String namespace, String description) {
+  public DatasetFieldRecord(String urn, Integer sortId, Integer parentSortId, String parentPath, String fieldName,
+      String fieldLabel, String dataType, String isNullable, String isIndexed, String isPartitioned,
+      String defaultValue, Integer dataSize, String namespace, String description) {
 
     this.urn = urn;
     this.sortId = sortId;

@@ -44,7 +44,6 @@ import org.jsoup.select.Elements;
  */
 
 public class GitUtil {
-  private final static String DEFAULT_HOST = "gitli.corp.linkedin.com";
   public static final String HTTPS_PROTOCAL = "https";
   public static final String GIT_PROTOCAL = "git";
   public static final String GIT_SUBFIX = ".git";

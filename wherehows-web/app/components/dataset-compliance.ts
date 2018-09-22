@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
 import ComputedProperty, { not, or, alias } from '@ember/object/computed';
 import { run, schedule, next } from '@ember/runloop';
-import { classify } from '@ember/string';
+import { classify, htmlSafe } from '@ember/string';
 import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
@@ -39,7 +39,8 @@ import {
   TagFilter,
   tagSuggestionNeedsReview,
   ComplianceEdit,
-  buildFieldSuggestionsLookupTable
+  buildFieldSuggestionsLookupTable,
+  tagsPassingReview
 } from 'wherehows-web/constants';
 import { arrayFilter, arrayMap, arrayReduce, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
 import { identity, noop } from 'wherehows-web/utils/helpers/functions';
@@ -257,6 +258,12 @@ export default class DatasetCompliance extends Component {
 
   notifyOnChangeSetRequiresReview: (hasChangeSetDrift: boolean) => void;
 
+  /**
+   * External action to handle compliance filter change
+   * @type {(tagFilter: TagFilter) => TagFilter}
+   */
+  onComplianceTagFilterChange: (tagFilter: TagFilter) => TagFilter;
+
   classNames = ['compliance-container'];
 
   classNameBindings = ['isEditing:compliance-container--edit-mode'];
@@ -301,11 +308,11 @@ export default class DatasetCompliance extends Component {
   classifiers: Array<ISecurityClassificationOption> = getSecurityClassificationDropDownOptions();
 
   /**
-   * Default to show all fields to review
-   * @type {string}
+   * Specifies the filter to be applied on the list of fields shown in the compliance policy table
+   * @type {TagFilter}
    * @memberof DatasetCompliance
    */
-  fieldReviewOption: TagFilter = TagFilter.showAll;
+  fieldReviewOption!: TagFilter;
 
   /**
    * Computes a cta string for the selected field review filter option
@@ -323,7 +330,8 @@ export default class DatasetCompliance extends Component {
       [TagFilter.showAll]: '',
       [TagFilter.showReview]: '? Please select at least one type for each field',
       [TagFilter.showSuggested]:
-        '! Please review suggestions and click thumbs up or down, based on the accuracy of the suggestion'
+        '! Please review suggestions and click thumbs up or down, based on the accuracy of the suggestion',
+      [TagFilter.showCompleted]: ''
     })[fieldReviewOption];
 
     return foldedChangeSet.length ? hint : '';
@@ -530,13 +538,15 @@ export default class DatasetCompliance extends Component {
 
   /**
    * A list of ui values and labels for review filter drop-down
-   * @type {Array<{value: string, label:string}>}
+   * @type {Array<{value: TagFilter, label:string}>}
    * @memberof DatasetCompliance
    */
   fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
     { value: TagFilter.showAll, label: '  Show all fields' },
     { value: TagFilter.showReview, label: '? Show fields missing a data type' },
-    { value: TagFilter.showSuggested, label: '! Show fields that need review' }
+    { value: TagFilter.showSuggested, label: '! Show fields that need review' },
+    //@ts-ignore htmlSafe type definition is incorrect in @types/ember contains TODO: to return Handlebars.SafeStringStatic
+    { value: TagFilter.showCompleted, label: <string>htmlSafe(`&#10003; Show completed fields`) }
   ];
 
   didReceiveAttrs(): void {
@@ -820,11 +830,12 @@ export default class DatasetCompliance extends Component {
         [TagFilter.showAll]: identity,
         [TagFilter.showReview]: tagsRequiringReview(complianceDataTypes, {
           checkSuggestions: false,
-          suggestionConfidenceThreshold
+          suggestionConfidenceThreshold: 0
         }),
         [TagFilter.showSuggested]: arrayFilter((tag: IComplianceChangeSet) =>
           tagSuggestionNeedsReview({ ...tag, suggestionConfidenceThreshold })
-        )
+        ),
+        [TagFilter.showCompleted]: tagsPassingReview(complianceDataTypes)
       })[get(this, 'fieldReviewOption')];
 
       return changeSetFilter(changeSet);
@@ -1322,15 +1333,12 @@ export default class DatasetCompliance extends Component {
     },
 
     /**
-     * Updates the fieldReviewOption with the user selected value
+     * Invokes the external action to update the tagFilter query
      * @param {{value: TagFilter}} { value }
      * @returns {TagFilter}
      */
     onFieldReviewChange(this: DatasetCompliance, { value }: { value: TagFilter }): TagFilter {
-      const option = set(this, 'fieldReviewOption', value);
-      get(this, 'foldChangeSetTask').perform();
-
-      return option;
+      return this.onComplianceTagFilterChange(value);
     },
 
     /**

@@ -13,11 +13,7 @@
  */
 package wherehows.common.schemas;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 public class DatasetInventoryPropertiesRecord extends AbstractRecord {
@@ -27,6 +23,9 @@ public class DatasetInventoryPropertiesRecord extends AbstractRecord {
   String uri;
   DatasetCaseSensitiveRecord caseSensitivity;
 
+  public DatasetInventoryPropertiesRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"change_audit_stamp", "native_type", "uri", "case_sensitivity"};
@@ -35,9 +34,6 @@ public class DatasetInventoryPropertiesRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetInventoryPropertiesRecord() {
   }
 
   public DatasetChangeAuditStamp getChangeAuditStamp() {

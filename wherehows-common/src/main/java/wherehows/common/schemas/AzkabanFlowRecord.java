@@ -31,8 +31,8 @@ public class AzkabanFlowRecord extends AbstractRecord {
   Character isActive;
   Long whExecId;
 
-  public AzkabanFlowRecord(Integer appId, String flowName, String flowGroup, String flowPath, Integer flowLevel, Long sourceModifiedTime,
-    Integer sourceVersion, Character isActive, Long whExecId) {
+  public AzkabanFlowRecord(Integer appId, String flowName, String flowGroup, String flowPath, Integer flowLevel,
+      Long sourceModifiedTime, Integer sourceVersion, Character isActive, Long whExecId) {
     this.appId = appId;
     this.flowName = flowName;
     this.flowGroup = flowGroup;

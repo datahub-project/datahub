@@ -23,12 +23,12 @@ public class DatasetPropertyRecord extends AbstractRecord {
   String uri;
   DatasetCaseSensitiveRecord caseSensitivity;
 
+  public DatasetPropertyRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetPropertyRecord() {
   }
 
   public ChangeAuditStamp getChangeAuditStamp() {

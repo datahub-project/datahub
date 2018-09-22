@@ -13,11 +13,10 @@
  */
 package wherehows.common.schemas;
 
-import wherehows.common.DatasetPath;
-import wherehows.common.utils.StringUtil;
-
 import java.util.ArrayList;
 import java.util.List;
+import wherehows.common.DatasetPath;
+import wherehows.common.utils.StringUtil;
 
 
 /**
@@ -61,8 +60,19 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
     this.jobExecId = jobExecId;
   }
 
+  public static String[] dbColumns() {
+    return new String[]{"app_id", "flow_exec_id", "job_exec_id", "job_exec_uuid", "flow_path", "job_name",
+        "job_start_unixtime", "job_finished_unixtime", "abstracted_object_name", "full_object_name", "partition_start",
+        "partition_end", "partition_type", "layout_id", "storage_type", "source_target_type", "srl_no", "source_srl_no",
+        "operation", "created_date"};
+  }
+
   public String getFullObjectName() {
     return fullObjectName;
+  }
+
+  public void setFullObjectName(String fullObjectName) {
+    this.fullObjectName = fullObjectName;
   }
 
   /**
@@ -78,7 +88,7 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
   }
 
   public void setOperationInfo(String sourceTargetType, String operation, Long recordCount, Long insertCount,
-    Long deleteCount, Long updateCount, Integer jobStartTime, Integer jobEndTime, String flowPath) {
+      Long deleteCount, Long updateCount, Integer jobStartTime, Integer jobEndTime, String flowPath) {
     this.sourceTargetType = sourceTargetType;
     this.operation = operation;
     this.recordCount = recordCount;
@@ -134,13 +144,6 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
     return sb.toString();
   }
 
-  public static String[] dbColumns() {
-    return new String[]{"app_id", "flow_exec_id", "job_exec_id", "job_exec_uuid", "flow_path", "job_name",
-        "job_start_unixtime", "job_finished_unixtime", "abstracted_object_name", "full_object_name", "partition_start",
-        "partition_end", "partition_type", "layout_id", "storage_type", "source_target_type",
-        "srl_no", "source_srl_no", "operation", "created_date"};
-  }
-
   public Object[] dbValues() {
     return new Object[]{appId, flowExecId, jobExecId, jobExecUUID, flowPath, jobName, jobStartTime, jobEndTime,
         abstractObjectName, fullObjectName, partitionStart, partitionEnd, partitionType, layoutId, storageType,
@@ -164,18 +167,18 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
   }
 
   public void merge(LineageRecord theOtherlr) {
-    assert (theOtherlr.abstractObjectName
-      .equals(this.abstractObjectName)); // abstract path must be the same, otherwise can't merge
+    assert (theOtherlr.abstractObjectName.equals(
+        this.abstractObjectName)); // abstract path must be the same, otherwise can't merge
     if (this.partitionStart != null && theOtherlr.partitionStart != null) {
       this.partitionStart = ((this.partitionStart.compareTo(theOtherlr.partitionStart)) < 0) ? this.partitionStart
-        : theOtherlr.partitionStart;
+          : theOtherlr.partitionStart;
     } else {
       this.partitionStart = (this.partitionStart == null) ? theOtherlr.partitionStart : this.partitionStart;
     }
 
     if (this.partitionEnd != null && theOtherlr.partitionEnd != null) {
       this.partitionEnd =
-        ((this.partitionEnd.compareTo(theOtherlr.partitionEnd)) > 0) ? this.partitionEnd : theOtherlr.partitionEnd;
+          ((this.partitionEnd.compareTo(theOtherlr.partitionEnd)) > 0) ? this.partitionEnd : theOtherlr.partitionEnd;
     } else {
       this.partitionEnd = (this.partitionEnd == null) ? theOtherlr.partitionEnd : this.partitionEnd;
     }
@@ -221,10 +224,6 @@ public class LineageRecord implements Record, Comparable<LineageRecord> {
 
   public void setAbstractObjectName(String abstractObjectName) {
     this.abstractObjectName = abstractObjectName;
-  }
-
-  public void setFullObjectName(String fullObjectName) {
-    this.fullObjectName = fullObjectName;
   }
 
   public String getPartitionStart() {

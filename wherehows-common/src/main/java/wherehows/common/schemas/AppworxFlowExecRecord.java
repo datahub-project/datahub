@@ -31,10 +31,9 @@ public class AppworxFlowExecRecord extends AbstractRecord {
   Long endTime;
   Long whExecId;
 
-  public AppworxFlowExecRecord(Integer appId, Long flowId, String flowName, String flowPath,
-                               Integer sourceVersion, Integer flowExecId,
-                               String flowExecStatus, Integer attemptId, String executedBy,
-                               Long startTime, Long endTime, Long whExecId) {
+  public AppworxFlowExecRecord(Integer appId, Long flowId, String flowName, String flowPath, Integer sourceVersion,
+      Integer flowExecId, String flowExecStatus, Integer attemptId, String executedBy, Long startTime, Long endTime,
+      Long whExecId) {
     this.appId = appId;
     this.flowId = flowId;
     this.flowName = flowName;

@@ -27,7 +27,7 @@ public class AppworxFlowDagRecord extends AbstractRecord {
   Long whExecId;
 
   public AppworxFlowDagRecord(Integer appId, Long flowId, String flowPath, Integer flowVersion, String sourceJobPath,
-    String targetJobPath, Long whExecId) {
+      String targetJobPath, Long whExecId) {
     this.appId = appId;
     this.flowId = flowId;
     this.flowPath = flowPath;

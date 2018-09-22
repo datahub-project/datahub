@@ -378,7 +378,7 @@ export default class DatasetComplianceContainer extends Component {
    * Resets the compliance information for the dataset with the previously persisted properties
    */
   @action
-  resetPrivacyCompliancePolicy() {
+  resetPrivacyCompliancePolicy(): void {
     get(this, 'getComplianceTask').perform();
   }
 
@@ -394,7 +394,7 @@ export default class DatasetComplianceContainer extends Component {
   }: {
     isNewComplianceInfo: boolean;
     fromUpstream: boolean;
-  }) {
+  }): void {
     this.setOnComplianceType({ isNewComplianceInfo, fromUpstream });
   }
 
@@ -403,7 +403,7 @@ export default class DatasetComplianceContainer extends Component {
    * @param {boolean} hasDrift
    */
   @action
-  onCompliancePolicyChangeSetDrift(hasDrift: boolean) {
+  onCompliancePolicyChangeSetDrift(hasDrift: boolean): void {
     this.setOnChangeSetDrift(hasDrift);
   }
 
@@ -413,7 +413,7 @@ export default class DatasetComplianceContainer extends Component {
    * @param {SuggestionIntent} feedback
    */
   @action
-  onSuggestionsComplianceFeedback(uid: string | null = null, feedback: SuggestionIntent) {
+  onSuggestionsComplianceFeedback(uid: string | null = null, feedback: SuggestionIntent): void {
     saveDatasetComplianceSuggestionFeedbackByUrn(get(this, 'urn'), uid, feedback);
   }
 

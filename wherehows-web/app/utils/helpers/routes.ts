@@ -1,7 +1,10 @@
+import { arrayReduce } from 'wherehows-web/utils/array';
+
 /**
  * For each given query param, creates an object with `refreshModel` set to true
  * @param {Array<string>} [params=[]]
- * @returns {{}}
+ * @returns {Record<string, { refreshModel: true }>}
  */
-export const refreshModelQueryParams = (params: Array<string> = []): {} =>
-  params.reduce((queryParams, param) => ({ ...queryParams, [param]: { refreshModel: true } }), {});
+
+export const refreshModelForQueryParams = (params: Array<string> = []): Record<string, { refreshModel: true }> =>
+  arrayReduce((queryParams, param: string) => ({ ...queryParams, [param]: { refreshModel: true } }), {})(params);

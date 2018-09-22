@@ -33,7 +33,6 @@ public class DatabaseWriter extends Writer {
   JdbcTemplate jdbcTemplate;
   String tableName;
 
-
   public DatabaseWriter(JdbcTemplate jdbcTemplate, String tableName) {
     this.jdbcTemplate = jdbcTemplate;
     this.tableName = tableName;
@@ -44,8 +43,7 @@ public class DatabaseWriter extends Writer {
     this.tableName = tableName;
   }
 
-  public DatabaseWriter(String connectionUrl, String username, String password, String tableName)
-      throws SQLException {
+  public DatabaseWriter(String connectionUrl, String username, String password, String tableName) throws SQLException {
     DriverManagerDataSource dataSource = new DriverManagerDataSource(connectionUrl, username, password);
     this.jdbcTemplate = new JdbcTemplate(dataSource);
     this.tableName = tableName;
@@ -64,8 +62,7 @@ public class DatabaseWriter extends Writer {
 
   //TODO: this insert sql is too ambitious, need add column names
   @Override
-  public synchronized boolean flush()
-      throws SQLException {
+  public synchronized boolean flush() throws SQLException {
     if (records.size() == 0) {
       return false;
     }
@@ -90,8 +87,7 @@ public class DatabaseWriter extends Writer {
   }
 
   @Override
-  public void close()
-      throws SQLException {
+  public void close() throws SQLException {
     this.flush();
   }
 
@@ -101,8 +97,7 @@ public class DatabaseWriter extends Writer {
    * @return boolean if the insert is successful
    * @throws SQLException
    */
-  public boolean insert()
-      throws SQLException {
+  public boolean insert() throws SQLException {
     if (records.size() == 0 || !(records.get(0) instanceof AbstractRecord)) {
       log.debug("DatabaseWriter no record to insert or unknown record Class.");
       return false;
@@ -161,8 +156,7 @@ public class DatabaseWriter extends Writer {
    * @param sql String, command with placeholders
    * @param values Object[]
    */
-  public synchronized void execute(String sql, Object[] values)
-      throws DataAccessException {
+  public synchronized void execute(String sql, Object[] values) throws DataAccessException {
     // logger.debug("SQL: " + sql + ", values: " + Arrays.toString(values));
     jdbcTemplate.update(sql, values);
   }

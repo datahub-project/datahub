@@ -21,14 +21,12 @@ import java.io.IOException;
  */
 public class AvroWriter extends Writer {
   @Override
-  public boolean flush()
-    throws IOException {
+  public boolean flush() throws IOException {
     return false;
   }
 
   @Override
-  public void close()
-    throws IOException {
+  public void close() throws IOException {
 
   }
 }

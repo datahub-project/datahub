@@ -22,12 +22,12 @@ public class DatasetIdentifier extends AbstractRecord {
   String nativeName;
   String dataOrigin;
 
+  public DatasetIdentifier() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetIdentifier() {
   }
 
   public String getDataPlatformUrn() {

@@ -95,6 +95,8 @@ public class Application extends Controller {
       Play.application().configuration().getString("links.wiki.exportPolicy", "");
   private static final String WHZ_WIKI_LINKS__METADATA_HEALTH =
       Play.application().configuration().getString("links.wiki.metadataHealth", "");
+  private static final String WHZ_WIKI_LINKS__PURGE_KEY =
+      Play.application().configuration().getString("links.wiki.purgeKey", "");
 
   private static final String WHZ_LINKS__JIT_ACL_CONTACT =
       Play.application().configuration().getString("links.jitAcl.contact", "");
@@ -269,6 +271,7 @@ public class Application extends Controller {
     wikiLinks.put("metadataCustomRegex", WHZ_WIKI_LINKS__METADATA_CUSTOM_REGEX);
     wikiLinks.put("exportPolicy", WHZ_WIKI_LINKS__EXPORT_POLICY);
     wikiLinks.put("metadataHealth", WHZ_WIKI_LINKS__METADATA_HEALTH);
+    wikiLinks.put("purgeKey", WHZ_WIKI_LINKS__PURGE_KEY);
 
     return wikiLinks;
   }

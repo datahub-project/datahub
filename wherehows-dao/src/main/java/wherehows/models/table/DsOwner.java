@@ -96,13 +96,6 @@ public class DsOwner {
   @Column(name = "confirmed_on")
   private Integer confirmedOn;
 
-  public static class PrimaryKey implements Serializable {
-    private int datasetId;
-    private String ownerId;
-    private int appId;
-    private String ownerSource;
-  }
-
   @PreUpdate
   @PrePersist
   void prePersist() {
@@ -111,5 +104,12 @@ public class DsOwner {
     if (this.createdTime == null) {
       this.createdTime = timestamp;
     }
+  }
+
+  public static class PrimaryKey implements Serializable {
+    private int datasetId;
+    private String ownerId;
+    private int appId;
+    private String ownerSource;
   }
 }

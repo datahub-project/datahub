@@ -21,12 +21,12 @@ public class DatasetConfidentialEntityRecord extends AbstractRecord {
   String identifierField;
   String logicalType;
 
+  public DatasetConfidentialEntityRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetConfidentialEntityRecord() {
   }
 
   public String getIdentifierField() {

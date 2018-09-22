@@ -13,11 +13,7 @@
  */
 package wherehows.common.schemas;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 
 public class DatasetCaseSensitiveRecord extends AbstractRecord {
@@ -29,6 +25,9 @@ public class DatasetCaseSensitiveRecord extends AbstractRecord {
   Boolean dataContent;
   Long modifiedTime;
 
+  public DatasetCaseSensitiveRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "dataset_name", "field_name", "data_content", "modified_time"};
@@ -37,9 +36,6 @@ public class DatasetCaseSensitiveRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetCaseSensitiveRecord() {
   }
 
   public Integer getDatasetId() {

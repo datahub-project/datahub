@@ -35,7 +35,7 @@ public class AzkabanJobExecRecord extends AbstractRecord {
   Long whExecId;
 
   public AzkabanJobExecRecord(Integer appId, String jobName, Long flowExecId, Integer startTime, Integer endTime,
-    String jobExecStatus, String flowPath) {
+      String jobExecStatus, String flowPath) {
     this.appId = appId;
     this.jobName = jobName;
     this.flowExecId = flowExecId;
@@ -45,9 +45,9 @@ public class AzkabanJobExecRecord extends AbstractRecord {
     this.flowPath = flowPath;
   }
 
-  public AzkabanJobExecRecord(Integer appId, String flowPath, Integer sourceVersion, Long flowExecId,
-    String jobName, String jobPath, Long jobExecId,  String jobExecStatus,
-    Integer attemptId, Integer startTime, Integer endTime, Long whExecId) {
+  public AzkabanJobExecRecord(Integer appId, String flowPath, Integer sourceVersion, Long flowExecId, String jobName,
+      String jobPath, Long jobExecId, String jobExecStatus, Integer attemptId, Integer startTime, Integer endTime,
+      Long whExecId) {
     this.appId = appId;
     this.flowPath = flowPath;
     this.sourceVersion = sourceVersion;
@@ -80,13 +80,10 @@ public class AzkabanJobExecRecord extends AbstractRecord {
     return allFields;
   }
 
-  public void setJobExecId(Long jobExecId) {
-    this.jobExecId = jobExecId;
-  }
-
   public Integer getAppId() {
     return appId;
   }
+
   public Long getFlowExecId() {
     return flowExecId;
   }
@@ -97,6 +94,10 @@ public class AzkabanJobExecRecord extends AbstractRecord {
 
   public Long getJobExecId() {
     return jobExecId;
+  }
+
+  public void setJobExecId(Long jobExecId) {
+    this.jobExecId = jobExecId;
   }
 
   public String getJobExecStatus() {
@@ -120,6 +121,7 @@ public class AzkabanJobExecRecord extends AbstractRecord {
    * @return
    */
   public String toString() {
-    return "appId:" + this.appId + "\tflowPath:" + this.flowPath + "\tflowExecId:" + this.flowExecId + "\tjobname:" + this.jobName;
+    return "appId:" + this.appId + "\tflowPath:" + this.flowPath + "\tflowExecId:" + this.flowExecId + "\tjobname:"
+        + this.jobName;
   }
 }

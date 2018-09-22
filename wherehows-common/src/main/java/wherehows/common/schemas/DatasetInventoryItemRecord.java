@@ -25,6 +25,16 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
   String dataPlatformUrn;
   String eventDate;
 
+  public DatasetInventoryItemRecord() {
+  }
+
+  @JsonIgnore
+  public static String[] getInventoryItemColumns() {
+    return new String[]{"native_name", "data_origin", "data_platform", "event_date", "change_actor_urn", "change_type",
+        "change_time", "change_note", "native_type", "uri", "dataset_name_case_sensitivity",
+        "field_name_case_sensitivity", "data_content_case_sensitivity"};
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"native_name", "data_origin", "dataset_properties", "data_platform", "event_date"};
@@ -33,13 +43,6 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  @JsonIgnore
-  public static String[] getInventoryItemColumns() {
-    return new String[]{"native_name", "data_origin", "data_platform", "event_date", "change_actor_urn", "change_type",
-        "change_time", "change_note", "native_type", "uri", "dataset_name_case_sensitivity",
-        "field_name_case_sensitivity", "data_content_case_sensitivity"};
   }
 
   @JsonIgnore
@@ -54,9 +57,6 @@ public class DatasetInventoryItemRecord extends AbstractRecord {
           changes.getTime(), changes.getNote(), datasetProperties.getNativeType(), datasetProperties.getUri(),
           cases.getDatasetName(), cases.getFieldName(), cases.getDataContent()};
     }
-  }
-
-  public DatasetInventoryItemRecord() {
   }
 
   public String getNativeName() {

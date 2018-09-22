@@ -29,8 +29,8 @@ public class PartitionLayout {
   public PartitionLayout() {
   }
 
-  public PartitionLayout(Integer layoutId, String regex, String mask, Integer leadingPathIndex,
-    Integer partitionIndex, Integer secondPartitionIndex, Integer sortId, String partitionPatternGroup) {
+  public PartitionLayout(Integer layoutId, String regex, String mask, Integer leadingPathIndex, Integer partitionIndex,
+      Integer secondPartitionIndex, Integer sortId, String partitionPatternGroup) {
     this.layoutId = layoutId;
     this.regex = regex;
     this.mask = mask;
@@ -104,6 +104,4 @@ public class PartitionLayout {
   public void setPartitionPatternGroup(String partitionPatternGroup) {
     this.partitionPatternGroup = partitionPatternGroup;
   }
-
-
 }

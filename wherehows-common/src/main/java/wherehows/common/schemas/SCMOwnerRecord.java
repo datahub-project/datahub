@@ -16,6 +16,7 @@ package wherehows.common.schemas;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class SCMOwnerRecord extends AbstractRecord {
 
   String scmUrl;
@@ -35,7 +36,6 @@ public class SCMOwnerRecord extends AbstractRecord {
     this.filePath = filePath;
     this.committers = committers;
     this.scmType = scmType;
-
   }
 
   @Override

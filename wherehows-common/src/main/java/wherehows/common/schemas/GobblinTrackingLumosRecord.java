@@ -13,9 +13,6 @@
  */
 package wherehows.common.schemas;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -46,25 +43,11 @@ public class GobblinTrackingLumosRecord extends AbstractRecord {
   int flowExecId;
   long logEventTime;
 
-  @Override
-  public String[] getDbColumnNames() {
-    final String[] columnNames = {"cluster", "dataset", "location", "partition_type", "partition_name",
-        "subpartition_type", "subpartition_name", "max_data_date_epoch3", "max_data_key", "record_count",
-        "source_datacenter", "source_deployment_env", "source_database", "source_table",
-        "job_context", "project_name", "flow_name", "job_name", "flow_exec_id", "log_event_time"};
-    return columnNames;
-  }
-
-  @Override
-  public List<Object> fillAllFields() {
-    return null;
-  }
-
   public GobblinTrackingLumosRecord() {
   }
 
-  public GobblinTrackingLumosRecord(long timestamp, String cluster, String jobContext,
-      String projectName, String flowId, String jobId, int execId) {
+  public GobblinTrackingLumosRecord(long timestamp, String cluster, String jobContext, String projectName,
+      String flowId, String jobId, int execId) {
     this.logEventTime = timestamp;
     this.cluster = cluster;
     this.jobContext = jobContext;
@@ -72,6 +55,21 @@ public class GobblinTrackingLumosRecord extends AbstractRecord {
     this.flowName = flowId;
     this.jobName = jobId;
     this.flowExecId = execId;
+  }
+
+  @Override
+  public String[] getDbColumnNames() {
+    final String[] columnNames =
+        {"cluster", "dataset", "location", "partition_type", "partition_name", "subpartition_type", "subpartition_name",
+            "max_data_date_epoch3", "max_data_key", "record_count", "source_datacenter", "source_deployment_env",
+            "source_database", "source_table", "job_context", "project_name", "flow_name", "job_name", "flow_exec_id",
+            "log_event_time"};
+    return columnNames;
+  }
+
+  @Override
+  public List<Object> fillAllFields() {
+    return null;
   }
 
   public void setDatasetUrn(String dataset, String location, String partitionType, String partitionName,
@@ -89,8 +87,8 @@ public class GobblinTrackingLumosRecord extends AbstractRecord {
     this.maxDataKey = maxDataKey;
   }
 
-  public void setSource(String sourceDatacenter, String sourceDeploymentEnv,
-      String sourceDatabase, String sourceTable) {
+  public void setSource(String sourceDatacenter, String sourceDeploymentEnv, String sourceDatabase,
+      String sourceTable) {
     this.sourceDatacenter = sourceDatacenter;
     this.sourceDeploymentEnv = sourceDeploymentEnv;
     this.sourceDatabase = sourceDatabase;

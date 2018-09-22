@@ -124,8 +124,9 @@ public class JobsUtilTest {
   public void testMultipleLinesSameProperties() throws IOException, ConfigurationException {
     String dir = "/tmp/";
     String propertyStr =
-        "var1=com.mysql.jdbc.driver\n" + "var1=username\n" + "var1=password\n" + "var2=3301\n" + "var2=1000\n" + "var3=http://wherehows.com\n" + "var1=mysql\n"
-            + "var4=wherehows\n" + "var5=1000,10,3\n" + "var5=true\n";;
+        "var1=com.mysql.jdbc.driver\n" + "var1=username\n" + "var1=password\n" + "var2=3301\n" + "var2=1000\n"
+            + "var3=http://wherehows.com\n" + "var1=mysql\n" + "var4=wherehows\n" + "var5=1000,10,3\n" + "var5=true\n";
+    ;
     Properties props = new Properties();
     Path path = createPropertiesFile(propertyStr);
 

@@ -26,6 +26,9 @@ public class DatasetIndexRecord extends AbstractRecord {
   List<DatasetFieldIndexRecord> indexedFields;
   Long modifiedTime;
 
+  public DatasetIndexRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "index_type", "index_name", "is_unique", "indexed_fields",
@@ -35,9 +38,6 @@ public class DatasetIndexRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetIndexRecord() {
   }
 
   public Integer getDatasetId() {

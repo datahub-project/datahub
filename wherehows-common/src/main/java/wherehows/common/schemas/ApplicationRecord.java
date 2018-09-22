@@ -23,12 +23,12 @@ public class ApplicationRecord extends AbstractRecord {
   DeploymentRecord deploymentDetail; // not using the dataset info in DeploymentRecord
   String uri;
 
+  public ApplicationRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public ApplicationRecord() {
   }
 
   public String getType() {

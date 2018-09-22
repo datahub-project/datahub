@@ -22,12 +22,12 @@ public class DatasetRetentionRecord extends AbstractRecord {
   Long retentionWindow;
   String retentionWindowUnit;
 
+  public DatasetRetentionRecord() {
+  }
+
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DatasetRetentionRecord() {
   }
 
   public String getRetentionType() {

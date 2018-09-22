@@ -31,6 +31,9 @@ public class DeploymentRecord extends AbstractRecord {
   Map<String, String> additionalDeploymentInfo;
   Long modifiedTime;
 
+  public DeploymentRecord() {
+  }
+
   @Override
   public String[] getDbColumnNames() {
     return new String[]{"dataset_id", "dataset_urn", "deployment_tier", "datacenter", "region", "zone", "cluster",
@@ -40,9 +43,6 @@ public class DeploymentRecord extends AbstractRecord {
   @Override
   public List<Object> fillAllFields() {
     return null;
-  }
-
-  public DeploymentRecord() {
   }
 
   public Integer getDatasetId() {
