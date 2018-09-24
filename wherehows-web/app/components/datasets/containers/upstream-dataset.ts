@@ -3,7 +3,6 @@ import { task, TaskInstance } from 'ember-concurrency';
 import { get, set, computed, setProperties, getProperties } from '@ember/object';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { assert } from '@ember/debug';
-import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { IUpstreamWithComplianceMetadata } from 'wherehows-web/typings/app/datasets/lineage';
 import { datasetsWithComplianceMetadata } from 'wherehows-web/constants/datasets/lineage';
 import { arraySome } from 'wherehows-web/utils/array';
@@ -18,6 +17,7 @@ import Notifications, { NotificationEvent } from 'wherehows-web/services/notific
 import { IComplianceInfo } from 'wherehows-web/typings/api/datasets/compliance';
 import { service } from '@ember-decorators/service';
 import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
+import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 
 /**
  * Aliases the yieldable values for the container task
@@ -68,10 +68,10 @@ export default class UpstreamDatasetContainer extends Component {
   supportedPurgePolicies: Array<PurgePolicy> = [];
 
   /**
-   * The list of upstream datasets for the related urn
+   * The list of upstream datasets for the related urn, passed in from parent container
    * @type {LineageList}
    */
-  upstreamDatasets: LineageList = [];
+  upstreamLineage: LineageList;
 
   /**
    * List of metadata properties for upstream datasets
@@ -135,7 +135,7 @@ export default class UpstreamDatasetContainer extends Component {
    */
   getUpstreamDatasetsTask = task(function*(this: UpstreamDatasetContainer): IterableIterator<Promise<LineageList>> {
     const upstreamDatasets: LineageList = yield readUpstreamDatasetsByUrn(get(this, 'urn'));
-    return set(this, 'upstreamDatasets', upstreamDatasets);
+    return set(this, 'upstreamLineage', upstreamDatasets);
   });
 
   /**
@@ -146,7 +146,9 @@ export default class UpstreamDatasetContainer extends Component {
   getUpstreamMetadataTask = task(function*(
     this: UpstreamDatasetContainer
   ): IterableIterator<TaskInstance<Promise<LineageList>> | Promise<Array<IUpstreamWithComplianceMetadata>>> {
-    const upstreamLineage: LineageList = yield get(this, 'getUpstreamDatasetsTask').perform();
+    // Fallback logic, if we have lineage then use that otherwise get upstreams again
+    const upstreamLineage =
+      get(this, 'upstreamLineage') || <LineageList>yield get(this, 'getUpstreamDatasetsTask').perform();
     const upstreamMetadataPromises = datasetsWithComplianceMetadata(upstreamLineage.map(lineage => lineage.dataset));
     const upstreamsMetadata: Array<IUpstreamWithComplianceMetadata> = yield Promise.all(upstreamMetadataPromises);
 

@@ -13,10 +13,10 @@
   <div class="upstream-dataset">
     <span class="upstream-dataset__compliance-status">
       {{tooltip-on-element
-        text=(if parent.hasCompliance "Compliance completed for parent dataset" "Please complete the Compliance on this parent dataset")
+        text=(if hasResolvedCompliance "Compliance completed for parent dataset" "Please complete the Compliance on this parent dataset")
       }}
 
-      {{#if parent.hasCompliance}}
+      {{#if hasResolvedCompliance}}
         {{fa-icon "check" class="upstream-dataset__compliance-status__complete"}}
       {{else}}
         {{fa-icon "exclamation" class="upstream-dataset__compliance-status__incomplete"}}
