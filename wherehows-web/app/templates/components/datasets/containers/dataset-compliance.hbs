@@ -10,11 +10,14 @@
 
 {{else}}
 
-  {{#if complianceInfo.fromUpstream}}
+  {{!-- {{#if complianceInfo.fromUpstream}} --}}
+  {{#if upstreams.length}}
 
     {{datasets/containers/upstream-dataset
       urn=urn
       platform=platform
+      upstreamLineage=upstreams
+      hasResolvedCompliance=complianceInfo.fromUpstream
       upstreamComplianceType=complianceInfo.complianceType
     }}
 
