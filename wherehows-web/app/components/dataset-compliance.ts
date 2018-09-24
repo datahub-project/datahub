@@ -7,7 +7,7 @@ import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
 import { readPlatforms } from 'wherehows-web/utils/api/list/platforms';
-import { task, waitForProperty, TaskInstance } from 'ember-concurrency';
+import { task, waitForProperty } from 'ember-concurrency';
 import {
   getSecurityClassificationDropDownOptions,
   DatasetClassifiers,
@@ -109,7 +109,6 @@ export default class DatasetCompliance extends Component {
   searchTerm: string;
   _hasBadData: boolean;
   platform: IDatasetView['platform'];
-  isCompliancePolicyAvailable: boolean = false;
   showAllDatasetMemberData: boolean;
   complianceInfo: undefined | IComplianceInfo;
 
@@ -218,6 +217,17 @@ export default class DatasetCompliance extends Component {
   showAdvancedEditApplyStep = computed('showGuidedComplianceEditMode', function(this: DatasetCompliance): boolean {
     return !get(this, 'showGuidedComplianceEditMode');
   });
+
+  /**
+   * Flag indicating if we have compliance available. It's based on whether we receive a compliance info object from the
+   * server
+   * @type {ComputedProperty<boolean>}
+   * @memberof DatasetCompliance
+   */
+  // We used to use supportedPurgePolicies.length to calculate this flag's state. Since that is not applicable anymore,
+  // setting to always true for now. If a condition appears where we should show no compliance user message, then this
+  // should be modified by a task or turned into a computed property
+  isCompliancePolicyAvailable: true;
 
   /**
    * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
@@ -555,7 +565,7 @@ export default class DatasetCompliance extends Component {
   }
 
   didInsertElement(): void {
-    get(this, 'complianceAvailabilityTask').perform();
+    get(this, 'getPlatformPoliciesTask').perform();
     get(this, 'columnFieldsToCompliancePolicyTask').perform();
     get(this, 'foldChangeSetTask').perform();
   }
@@ -564,20 +574,6 @@ export default class DatasetCompliance extends Component {
     get(this, 'columnFieldsToCompliancePolicyTask').perform();
     get(this, 'foldChangeSetTask').perform();
   }
-
-  /**
-   * Parent task to determine if a compliance policy can be created or updated for the dataset
-   * @type {Task<TaskInstance<Promise<Array<IDataPlatform>>>, () => TaskInstance<TaskInstance<Promise<Array<IDataPlatform>>>>>}
-   * @memberof DatasetCompliance
-   */
-  complianceAvailabilityTask = task(function*(
-    this: DatasetCompliance
-  ): IterableIterator<TaskInstance<Promise<Array<IDataPlatform>>>> {
-    yield get(this, 'getPlatformPoliciesTask').perform();
-
-    const supportedPurgePolicies = get(this, 'supportedPurgePolicies');
-    set(this, 'isCompliancePolicyAvailable', !!supportedPurgePolicies.length);
-  }).restartable();
 
   /**
    * Task to retrieve platform policies and set supported policies for the current platform
