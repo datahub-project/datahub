@@ -147,8 +147,8 @@ export default class UpstreamDatasetContainer extends Component {
     this: UpstreamDatasetContainer
   ): IterableIterator<TaskInstance<Promise<LineageList>> | Promise<Array<IUpstreamWithComplianceMetadata>>> {
     // Fallback logic, if we have lineage then use that otherwise get upstreams again
-    const upstreamLineage =
-      get(this, 'upstreamLineage') || <LineageList>yield get(this, 'getUpstreamDatasetsTask').perform();
+    // prettier-ignore
+    const upstreamLineage = get(this, 'upstreamLineage') || <LineageList>(yield get(this, 'getUpstreamDatasetsTask').perform());
     const upstreamMetadataPromises = datasetsWithComplianceMetadata(upstreamLineage.map(lineage => lineage.dataset));
     const upstreamsMetadata: Array<IUpstreamWithComplianceMetadata> = yield Promise.all(upstreamMetadataPromises);
 
