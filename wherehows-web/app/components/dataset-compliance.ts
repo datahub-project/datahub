@@ -74,7 +74,6 @@ import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
 import { service } from '@ember-decorators/service';
-import { bool } from '@ember-decorators/object/computed';
 
 const {
   complianceDataException,
@@ -225,8 +224,10 @@ export default class DatasetCompliance extends Component {
    * @type {ComputedProperty<boolean>}
    * @memberof DatasetCompliance
    */
-  @bool('complianceInfo')
-  isCompliancePolicyAvailable: ComputedProperty<boolean>;
+  // We used to use supportedPurgePolicies.length to calculate this flag's state. Since that is not applicable anymore,
+  // setting to always true for now. If a condition appears where we should show no compliance user message, then this
+  // should be modified by a task or turned into a computed property
+  isCompliancePolicyAvailable: true;
 
   /**
    * Flag indicating the readonly confirmation dialog should not be shown again for this compliance form
