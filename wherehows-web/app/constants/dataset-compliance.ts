@@ -1,4 +1,5 @@
 import { setProperties } from '@ember/object';
+import moment from 'moment';
 import { IdLogicalType, PurgePolicy } from 'wherehows-web/constants/index';
 import {
   IComplianceEntity,
@@ -189,6 +190,20 @@ const suggestedIdentifierTypesInList = (suggestion: ISuggestedFieldTypeValues | 
   identifierType: IComplianceEntity['identifierType']
 ): Array<IComplianceEntity['identifierType']> =>
   suggestion && suggestion.identifierType === identifierType ? [...list, identifierType] : list;
+
+/**
+ * The number of milliseconds determined as the recency window for annotation edits
+ * @type {number}
+ */
+const recencyWindow = moment.duration(1, 'hours').asMilliseconds();
+
+/**
+ * Determines if a policy modification time is within the recencyWindow
+ * @param {IComplianceInfo['modifiedTime']} policyModificationTime the time the compliance was annotated
+ * @returns {boolean}
+ */
+const isRecentlyUpdatedPolicy = (policyModificationTime: IComplianceInfo['modifiedTime']): boolean =>
+  policyModificationTime ? moment().diff(moment(policyModificationTime)) <= recencyWindow : false;
 
 /**
  * Checks if a tag (IComplianceChangeSet) instance should be reviewed for conflict with the suggested value
@@ -446,10 +461,12 @@ const fieldTagsRequiringReview = (
 const complianceEntityWithSuggestions = (suggestionMap: ISchemaFieldsToSuggested) => (
   entity: IComplianceEntityWithMetadata
 ): IComplianceChangeSet => {
-  const { identifierField } = entity;
+  const { identifierField, policyModificationTime } = entity;
   const suggestion = suggestionMap[identifierField];
+  // Check if the policy was recently saved and disregard suggested annotations
+  const isNotRecentlyUpdatedPolicy = not(isRecentlyUpdatedPolicy)(policyModificationTime);
 
-  return suggestion ? { ...entity, suggestion } : entity;
+  return suggestion && isNotRecentlyUpdatedPolicy ? { ...entity, suggestion } : entity;
 };
 
 /**
