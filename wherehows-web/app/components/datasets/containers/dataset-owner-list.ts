@@ -1,18 +1,20 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
-import { task } from 'ember-concurrency';
-import { assert } from '@ember/debug';
+import { classNames } from '@ember-decorators/component';
 import { computed } from '@ember-decorators/object';
+import { assert } from '@ember/debug';
+import { task } from 'ember-concurrency';
 import { readDatasetOwnersByUrn } from 'wherehows-web/utils/api/datasets/owners';
-import { arrayMap } from 'wherehows-web/utils/array';
+import { arrayMap, arrayPipe } from 'wherehows-web/utils/array';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
-import { confirmedOwners } from 'wherehows-web/constants/datasets/owner';
+import { confirmedOwners, avatarWithDropDownOption } from 'wherehows-web/constants/datasets/owner';
 import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
 import { isLiUrn } from 'wherehows-web/utils/validators/urn';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
+@classNames('dataset-owner-list')
 @containerDataSource('getOwnersTask')
 export default class DatasetOwnerListContainer extends Component {
   constructor() {
@@ -57,7 +59,7 @@ export default class DatasetOwnerListContainer extends Component {
   @computed('owners')
   get avatars(): Array<IAvatar> {
     const { avatarEntityProps, owners } = this;
-    return arrayMap(getAvatarProps(avatarEntityProps))(owners);
+    return arrayPipe(arrayMap(getAvatarProps(avatarEntityProps)), arrayMap(avatarWithDropDownOption))(owners);
   }
 
   /**

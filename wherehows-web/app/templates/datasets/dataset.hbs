@@ -56,16 +56,14 @@
             </div>
           {{/datasets/containers/dataset-fabrics}}
 
-          {{datasets/containers/dataset-owner-list
-            urn=encodedUrn
-            avatarEntityProps=avatarEntityProps
-            class="dataset-owner-list"}}
-
           {{#link-to "datasets.dataset.health" encodedUrn}}
             {{datasets/containers/health-score-gauge urn=encodedUrn wikiLinks=wikiLinks}}
           {{/link-to}}
         </div>
 
+        {{datasets/containers/dataset-owner-list
+          urn=encodedUrn
+          avatarEntityProps=avatarEntityProps}}
       </div>
     </div>
 
