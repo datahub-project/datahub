@@ -6,9 +6,11 @@ declare module '@ember/service' {
   import Notifications from 'wherehows-web/services/notifications';
   import UserLookup from 'wherehows-web/services/user-lookup';
   import HotKeys from 'wherehows-web/services/hot-keys';
+  import Search from 'wherehows-web/services/search';
 
   // eslint-disable-next-line typescript/interface-name-prefix
   interface Registry {
+    search: Search;
     session: Session;
     metrics: Metrics;
     banners: BannerService;
