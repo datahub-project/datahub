@@ -44,6 +44,8 @@ import { containerDataSource } from 'wherehows-web/utils/components/containers/d
 import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
 import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
 import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
+import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
+import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 
 /**
  * Type alias for the response when container data items are batched
@@ -53,7 +55,8 @@ type BatchComplianceResponse = [
   Array<IComplianceDataType>,
   IComplianceSuggestion,
   IDatasetSchema,
-  IDatasetExportPolicy | null
+  IDatasetExportPolicy | null,
+  LineageList
 ];
 
 /**
@@ -127,6 +130,13 @@ export default class DatasetComplianceContainer extends Component {
   complianceInfo: IComplianceInfo | void;
 
   /**
+   * List object containing a list of lineage objects that include upstream dataests and lineage
+   * metainformation
+   * @type {LineageList}
+   */
+  upstreams: LineageList = [];
+
+  /**
    * Object containing the fields for the export policy for this dataset
    * @type {IDatasetExportPolicy}
    */
@@ -190,13 +200,15 @@ export default class DatasetComplianceContainer extends Component {
       complianceDataTypes,
       complianceSuggestion,
       { columns, schemaless },
-      exportPolicy
+      exportPolicy,
+      upstreams
     ]: BatchComplianceResponse = await Promise.all([
       readDatasetComplianceByUrn(urn),
       readComplianceDataTypes(),
       readDatasetComplianceSuggestionByUrn(urn),
       readDatasetSchemaByUrn(urn),
-      readDatasetExportPolicyByUrn(urn)
+      readDatasetExportPolicyByUrn(urn),
+      readUpstreamDatasetsByUrn(urn)
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
@@ -218,7 +230,8 @@ export default class DatasetComplianceContainer extends Component {
       complianceSuggestion,
       schemaFieldNamesMappedToDataTypes,
       schemaless,
-      exportPolicy
+      exportPolicy,
+      upstreams
     });
   }
 
