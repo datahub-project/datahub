@@ -136,7 +136,7 @@ export default class UpstreamDatasetContainer extends Component {
   getUpstreamDatasetsTask = task(function*(this: UpstreamDatasetContainer): IterableIterator<Promise<LineageList>> {
     const upstreamDatasets: LineageList = yield readUpstreamDatasetsByUrn(get(this, 'urn'));
     return set(this, 'upstreamLineage', upstreamDatasets);
-  });
+  }).restartable();
 
   /**
    * Task to get and set upstream metadata for upstream datasets
