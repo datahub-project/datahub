@@ -158,7 +158,7 @@
             missingPolicyText="This dataset does not have a current compliance purge policy."
             supportedPurgePolicies=supportedPurgePolicies
             purgeNote=complianceInfo.compliancePurgeNote
-            purgePolicy=(readonly complianceInfo.complianceType)
+            purgePolicy=(readonly (if retentionPolicy retentionPolicy.purgeType complianceInfo.complianceType))
             onPolicyChange=(action "onDatasetPurgePolicyChange")
           }}
 
