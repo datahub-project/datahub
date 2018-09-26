@@ -41,9 +41,9 @@ import Configurator from 'wherehows-web/services/configurator';
 import { typeOf } from '@ember/utils';
 import { service } from '@ember-decorators/service';
 import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
-import { saveDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
+import { saveDatasetRetentionByUrn, readDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
 import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
-import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
+import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
 import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 
@@ -56,7 +56,8 @@ type BatchComplianceResponse = [
   IComplianceSuggestion,
   IDatasetSchema,
   IDatasetExportPolicy | null,
-  LineageList
+  LineageList,
+  IGetDatasetRetentionResponse | null
 ];
 
 /**
@@ -143,6 +144,12 @@ export default class DatasetComplianceContainer extends Component {
   exportPolicy: IDatasetExportPolicy | null;
 
   /**
+   * Object containing the fields for the retention policy of the dataset, retrieved by task GET
+   * /retention api response
+   */
+  retentionPolicy: IDatasetRetention | null;
+
+  /**
    * The platform / db that the dataset is persisted
    * @type {IDatasetView.platform}
    */
@@ -201,14 +208,16 @@ export default class DatasetComplianceContainer extends Component {
       complianceSuggestion,
       { columns, schemaless },
       exportPolicy,
-      upstreams
+      upstreams,
+      retentionResponse
     ]: BatchComplianceResponse = await Promise.all([
       readDatasetComplianceByUrn(urn),
       readComplianceDataTypes(),
       readDatasetComplianceSuggestionByUrn(urn),
       readDatasetSchemaByUrn(urn),
       readDatasetExportPolicyByUrn(urn),
-      readUpstreamDatasetsByUrn(urn)
+      readUpstreamDatasetsByUrn(urn),
+      readDatasetRetentionByUrn(urn)
     ]);
     const schemaFieldNamesMappedToDataTypes = await iterateArrayAsync(columnDataTypesAndFieldNames)(columns);
     const { containingPersonalData, fromUpstream } = complianceInfo;
@@ -231,7 +240,8 @@ export default class DatasetComplianceContainer extends Component {
       schemaFieldNamesMappedToDataTypes,
       schemaless,
       exportPolicy,
-      upstreams
+      upstreams,
+      retentionPolicy: retentionResponse && retentionResponse.retentionPolicy
     });
   }
 
