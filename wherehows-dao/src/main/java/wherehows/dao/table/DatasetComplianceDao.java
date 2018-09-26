@@ -175,7 +175,7 @@ public class DatasetComplianceDao extends BaseDao {
     throw new UnsupportedOperationException("Not implemented yet");
   }
 
-  @Nullable
+  @Nonnull
   public DatasetRetention getDatasetRetention(@Nonnull String datasetUrn) throws Exception {
     throw new UnsupportedOperationException("Not implemented yet");
   }

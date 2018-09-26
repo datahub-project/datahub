@@ -435,9 +435,6 @@ public class Dataset extends Controller {
       return Promise.promise(() -> internalServerError(errorResponse(e)));
     }
 
-    if (record == null) {
-      return Promise.promise(() -> notFound(_EMPTY_RESPONSE));
-    }
     return Promise.promise(() -> ok(Json.newObject().set("retentionPolicy", Json.toJson(record))));
   }
 
