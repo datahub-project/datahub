@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { get, set, getProperties, setProperties } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
-import { action } from '@ember-decorators/object';
+import { action, computed } from '@ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
 import { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
@@ -29,13 +29,13 @@ export default class DatasetOwnershipContainer extends Component {
    * List of owners for the dataset
    * @type {Array<IOwner>}
    */
-  owners: Array<IOwner>;
+  owners: Array<IOwner> = [];
 
   /**
    * List of suggested owners for the dataset
    * @type {Array<IOwner>}
    */
-  suggestedOwners: Array<IOwner>;
+  suggestedOwners: Array<IOwner> = [];
 
   /**
    * List of types available for a dataset owner
@@ -107,6 +107,29 @@ export default class DatasetOwnershipContainer extends Component {
 
     setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
   });
+
+  /**
+   * Retrieves metadata about the current ownership records including modificationTime and actor
+   * @readonly
+   * @type {(Record<'actor' | 'modificationTime', string>)}
+   * @memberof DatasetOwnershipContainer
+   */
+  @computed('owners.[]')
+  get ownershipMetadata(): Record<'actor' | 'modificationTime', string> {
+    const {
+      owners: [owner]
+    } = this;
+    const ownershipMetadata = { actor: '', modificationTime: '' };
+
+    if (owner) {
+      const { confirmedBy, modifiedTime } = owner;
+      const modificationTime = modifiedTime ? String(modifiedTime) : '';
+
+      return { ...ownershipMetadata, actor: confirmedBy || '', modificationTime };
+    }
+
+    return ownershipMetadata;
+  }
 
   /**
    * Fetches the suggested owners for this dataset
