@@ -1,0 +1,12 @@
+.last-saved-by {
+  display: inline-flex;
+  align-items: center;
+
+  &__title {
+    margin-right: item-spacing(1);
+  }
+
+  &__conjunction {
+    margin: item-spacing(0 1);
+  }
+}
