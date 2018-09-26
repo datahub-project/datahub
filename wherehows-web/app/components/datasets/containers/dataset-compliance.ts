@@ -42,7 +42,6 @@ import { typeOf } from '@ember/utils';
 import { service } from '@ember-decorators/service';
 import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
 import { saveDatasetRetentionByUrn, readDatasetRetentionByUrn } from 'wherehows-web/utils/api/datasets/retention';
-import { extractRetentionFromComplianceInfo } from 'wherehows-web/utils/datasets/retention';
 import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
 import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
@@ -246,6 +245,14 @@ export default class DatasetComplianceContainer extends Component {
   }
 
   /**
+   * Resets the retention policy to the persisted state
+   * @type {() => void}
+   */
+  resetRetentionPolicy(): void {
+    get(this, 'getRetentionPolicyTask').perform();
+  }
+
+  /**
    * Reads the compliance properties for the dataset
    * @type {Task<Promise<IReadComplianceResult>, (a?: any) => TaskInstance<Promise<IReadComplianceResult>>>}
    */
@@ -262,6 +269,19 @@ export default class DatasetComplianceContainer extends Component {
     this.onCompliancePolicyStateChange({ isNewComplianceInfo, fromUpstream: !!fromUpstream });
     setProperties(this, { isNewComplianceInfo, complianceInfo });
   });
+
+  /**
+   * Reads the retention policy for the dataset and saves items to a property on the container
+   * @type {Task<Promise<IGetDatasetRetentionResponse>, () => TaskInstance<Promise<IGetDatasetRetentionResponse>>>}
+   */
+  getRetentionPolicyTask = task(function*(
+    this: DatasetComplianceContainer
+  ): IterableIterator<Promise<IGetDatasetRetentionResponse | null>> {
+    const retentionResponse = yield readDatasetRetentionByUrn(get(this, 'urn'));
+
+    const retentionPolicy = retentionResponse && retentionResponse.retentionPolicy;
+    set(this, 'retentionPolicy', retentionPolicy);
+  }).restartable();
 
   /**
    * Reads the export policy properties for the dataset
@@ -366,22 +386,12 @@ export default class DatasetComplianceContainer extends Component {
    */
   @action
   async saveRetentionPolicy(this: DatasetComplianceContainer): Promise<void> {
-    const complianceInfo = get(this, 'complianceInfo');
-    if (complianceInfo) {
-      const { complianceEntities } = complianceInfo;
+    const retentionPolicy = get(this, 'retentionPolicy');
 
-      await this.notifyOnSave<IDatasetRetention>(
-        saveDatasetRetentionByUrn(
-          this.urn,
-          extractRetentionFromComplianceInfo({
-            ...complianceInfo,
-            // filter out readonly entities, then omit readonly attribute from remaining entities before save
-            complianceEntities: removeReadonlyAttr(editableTags(complianceEntities))
-          })
-        )
-      );
+    if (retentionPolicy) {
+      await this.notifyOnSave<IDatasetRetention>(saveDatasetRetentionByUrn(this.urn, retentionPolicy));
 
-      this.resetPrivacyCompliancePolicy.call(this);
+      this.resetRetentionPolicy();
     }
   }
 
@@ -403,6 +413,15 @@ export default class DatasetComplianceContainer extends Component {
   @action
   resetPrivacyCompliancePolicy(): void {
     get(this, 'getComplianceTask').perform();
+  }
+
+  /**
+   * Calls the reset on all compliance related actions
+   */
+  @action
+  resetAll(): void {
+    this.actions.resetPrivacyCompliancePolicy.call(this);
+    this.resetRetentionPolicy();
   }
 
   /**
