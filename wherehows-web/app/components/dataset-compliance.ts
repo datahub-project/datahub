@@ -74,6 +74,7 @@ import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/
 import { typeOf } from '@ember/utils';
 import { pick } from 'wherehows-web/utils/object';
 import { service } from '@ember-decorators/service';
+import { IDatasetRetention } from 'wherehows-web/typings/api/datasets/retention';
 
 const {
   complianceDataException,
@@ -140,6 +141,12 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   showGuidedComplianceEditMode: boolean = true;
+
+  /**
+   * Pass through object containing the retention policy
+   * @type {IDatasetRetention | null}
+   */
+  retentionPolicy: IDatasetRetention | null;
 
   /**
    * Pass through value for the dataset export policy, to be used by one of our child components on
@@ -1450,14 +1457,10 @@ export default class DatasetCompliance extends Component {
     onDatasetPurgePolicyChange(
       this: DatasetCompliance,
       purgePolicy: PurgePolicy
-    ): IComplianceInfo['complianceType'] | null {
-      const complianceInfo = get(this, 'complianceInfo');
+    ): IDatasetRetention['purgeType'] | null {
+      const retentionPolicy = get(this, 'retentionPolicy');
 
-      if (!complianceInfo) {
-        return null;
-      }
-      // directly set the complianceType to the updated value
-      return set(complianceInfo, 'complianceType', purgePolicy);
+      return retentionPolicy ? set(retentionPolicy, 'purgeType', purgePolicy) : null;
     },
 
     /**
