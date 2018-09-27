@@ -3,10 +3,42 @@ import { module, test } from 'qunit';
 
 module('Unit | Utility | build url', function() {
   const baseUrl = 'https://www.linkedin.com';
+  const unEncodedString = 'string@string';
+  const encodedString = encodeURIComponent(unEncodedString);
 
   test('baseUrl', function(assert) {
-    let result = buildUrl();
-    assert.equal(result, '', 'returns an empty string when no arguments are passed');
+    let result = buildUrl(baseUrl);
+    assert.equal(result, baseUrl, 'it returns the base url when no other arguments are passed');
+
+    result = buildUrl(baseUrl, {});
+    assert.equal(result, baseUrl, 'it returns the base url when an empty object is supplied as query parameter');
+
+    result = buildUrl(baseUrl, '');
+    assert.equal(result, baseUrl, 'it returns the base url when an empty string is supplied as query parameter');
+
+    result = buildUrl(baseUrl, '', true);
+    assert.equal(
+      result,
+      baseUrl,
+      'it returns the base url when the queryParam is an empty string and the useEncoding is set'
+    );
+
+    result = buildUrl(baseUrl, 'query', true);
+    assert.equal(
+      result,
+      `${baseUrl}?query=true`,
+      'it returns the base url with a query key set to true when true is passed as a query value'
+    );
+
+    result = buildUrl(baseUrl, 'query', unEncodedString, true);
+    assert.equal(
+      result,
+      `${baseUrl}?query=${encodedString}`,
+      'it returns the encoded value when the useEncoding flag is true'
+    );
+
+    result = buildUrl(baseUrl, { query: unEncodedString }, true);
+    assert.equal(result, `${baseUrl}?query=${encodedString}`, 'it returns the encoded string on a queryParams object');
 
     result = buildUrl(baseUrl, '', '');
     assert.equal(result, baseUrl, 'returns the baseUrl when no query parameter is supplied');
