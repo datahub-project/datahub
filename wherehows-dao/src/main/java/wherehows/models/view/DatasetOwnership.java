@@ -29,4 +29,8 @@ public class DatasetOwnership {
   private Boolean fromUpstream;
 
   private String datasetUrn;
+
+  private Long lastModified;
+
+  private String actor;
 }
