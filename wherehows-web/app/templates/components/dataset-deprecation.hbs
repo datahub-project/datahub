@@ -82,13 +82,33 @@
       </strong>
     </p>
 
+    <span>
+      {{input
+        type="checkbox"
+        name="deprecated.acknowledge"
+        id="acknowledge-deprecation"
+        checked=(readonly isDeprecationAcknowledged)
+        change=(action "onAcknowledgeDeprecationNotice")}}
+
+      <label for="acknowledge-deprecation">
+        <p>By checking this box, you acknowledge that you must keep this dataset compliant even after it is deprecated.</p>
+        <p>
+          For more information on how to decommission your dataset, please follow this link:
+          <a href={{wikiLinks.datasetDecommission}} target="_blank">
+            Dataset Decommission
+          </a>
+        </p>
+      </label>
+    </span>
+
+
   {{/if}}
 
   <div class="dataset-deprecation-toggle__actions">
     <button
       type="submit"
       class="nacho-button--large nacho-button--secondary"
-      disabled={{and deprecatedAlias (not decommissionTime)}}>
+      disabled={{and deprecatedAlias (or (not decommissionTime) (not isDeprecationNoticeAcknowledged))}}>
       Update Deprecation Status
     </button>
   </div>
