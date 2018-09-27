@@ -21,7 +21,7 @@
           renderInPlace=true
           onSelect=(action "onAvatarOptionSelected" avatar) as |dd|}}
 
-          {{#dd.trigger class="avatar-item--trigger"}}
+          {{#dd.trigger class="avatar-item__trigger"}}
             {{avatars/avatar-image avatar=avatar
                                    class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")}}
           {{/dd.trigger}}

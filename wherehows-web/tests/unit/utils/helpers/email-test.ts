@@ -10,8 +10,8 @@ module('Unit | Utility | helpers/email', function(): void {
   test('buildMailToUrl generates expected url values', function(assert): void {
     assert.expect(emailMailToAsserts.length);
 
-    emailMailToAsserts.forEach(({ __expected__, __args__, __assert_msg__ }) => {
-      assert.equal(buildMailToUrl(__args__), __expected__, __assert_msg__);
+    emailMailToAsserts.forEach(({ expected, args, assertMsg }) => {
+      assert.equal(buildMailToUrl(args), expected, assertMsg);
     });
   });
 });

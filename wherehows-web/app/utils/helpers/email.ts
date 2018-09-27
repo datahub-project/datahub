@@ -1,6 +1,5 @@
-import { arrayReduce } from 'wherehows-web/utils/array';
 import buildUrl from 'wherehows-web/utils/build-url';
-import { IMailHeaderRecord, MailerHeaderValue } from 'wherehows-web/typings/app/helpers/email';
+import { IMailHeaderRecord } from 'wherehows-web/typings/app/helpers/email';
 
 /**
  * Constructs a `mailto:` address with supplied email headers as query parameters
@@ -9,14 +8,9 @@ import { IMailHeaderRecord, MailerHeaderValue } from 'wherehows-web/typings/app/
  */
 const buildMailToUrl = (headers: IMailHeaderRecord = {}): string => {
   const { to = '', ...otherHeaders } = headers;
-  const [...otherHeaderPairs] = Object.entries(otherHeaders);
-  const mailTo = `mailto:${to}`;
+  const mailTo = `mailto:${encodeURIComponent(to)}`;
 
-  return arrayReduce(
-    (mailTo: string, [headerName, headerValue = '']: [string, MailerHeaderValue]) =>
-      buildUrl(mailTo, headerName, String(headerValue)),
-    mailTo
-  )([...otherHeaderPairs]);
+  return buildUrl(mailTo, otherHeaders);
 };
 
 export { buildMailToUrl };

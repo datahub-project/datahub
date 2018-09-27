@@ -9,7 +9,7 @@ type MailerHeaders = 'to' | 'cc' | 'bcc' | 'subject' | 'body';
  * Alias for a string of list of string email header values
  * @alias
  */
-export type MailerHeaderValue = Maybe<string | Array<string>>;
+export type MailerHeaderValue = Maybe<string>;
 
 /**
  * An optional record of email headers to it's value - MailerHeaderValue
