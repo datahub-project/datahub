@@ -1,18 +1,24 @@
 import { encode, decode } from 'wherehows-web/utils/encode-decode-uri-component-with-space';
 import { isBlank } from '@ember/utils';
+import { isObject } from 'wherehows-web/utils/object';
 
 /**
  * Construct a url by appending a query pair (?key=value | &key=value) to a base url and
  *   encoding the query value in the pair
- * @param {String} baseUrl the base or original url that will be appended with a query string
- * @param {String} queryParam
- * @param {String} queryValue
+ * @param baseUrl the base or original url that will be appended with a query string
+ * @param queryParamOrMap a map of query keys to values or a single query param key
+ * @param queryValue if a queryParam is supplied, then a queryValue can be expected
+ * @param useEncoding flag indicating if the query values should be encoded
  * @returns {string}
  */
-function buildUrl(): string;
-function buildUrl(baseUrl: string, mapParams: Record<string, any>): string;
-function buildUrl(baseUrl: string, queryKey: string, queryValue: string): string;
-function buildUrl(baseUrl?: string, queryParamOrMap?: string | Record<string, string>, queryValue?: string): string {
+function buildUrl(baseUrl: string, queryParamOrMap?: {}, useEncoding?: boolean): string;
+function buildUrl(baseUrl: string, queryParamOrMap?: string, queryValue?: string, useEncoding?: boolean): string;
+function buildUrl(
+  baseUrl: string,
+  queryParamOrMap: string | Record<string, any> = {},
+  queryValue?: string | boolean,
+  useEncoding: boolean = true
+): string {
   if (!baseUrl) {
     return '';
   }
@@ -21,16 +27,24 @@ function buildUrl(baseUrl?: string, queryParamOrMap?: string | Record<string, st
     return baseUrl;
   }
 
-  let paramMap: { [x: string]: string };
+  let paramMap: Record<string, any> = {};
+
+  // queryParamOrMap is a string then, reify paramMap object with supplied value
   if (typeof queryParamOrMap === 'string') {
     paramMap = {
-      [queryParamOrMap]: queryValue || ''
+      [queryParamOrMap]: queryValue
     };
-  } else {
-    paramMap = queryParamOrMap;
   }
 
-  return Object.keys(paramMap).reduce((url, paramKey) => {
+  if (isObject(queryParamOrMap)) {
+    paramMap = queryParamOrMap;
+
+    if (typeof queryValue === 'boolean') {
+      useEncoding = queryValue;
+    }
+  }
+
+  return Object.keys(paramMap).reduce((url: string, paramKey: string): string => {
     // If the query string already contains the initial question mark append
     //   kv-pair with ampersand
     const separator = String(url).includes('?') ? '&' : '?';
@@ -44,21 +58,23 @@ function buildUrl(baseUrl?: string, queryParamOrMap?: string | Record<string, st
       return url;
     }
 
-    // Malformed URL will cause decodeURIComponent to throw
-    //   handle and encode queryValue in such instance
-    try {
-      // Check if queryValue is already encoded,
-      //   otherwise encode queryValue before composing url
-      //   e.g. if user directly enters query in location bar
-      if (decode(paramValue) === queryValue) {
-        paramValue = encode(paramValue);
-      }
-    } catch (err) {
-      if (err instanceof URIError) {
-        paramValue = encode(paramValue);
-      }
+    if (useEncoding) {
+      // Malformed URL will cause decodeURIComponent to throw
+      //   handle and encode queryValue in such instance
+      try {
+        // Check if queryValue is already encoded,
+        //   otherwise encode queryValue before composing url
+        //   e.g. if user directly enters query in location bar
+        if (decode(paramValue) === paramValue) {
+          paramValue = encode(paramValue);
+        }
+      } catch (err) {
+        if (err instanceof URIError) {
+          paramValue = encode(paramValue);
+        }
 
-      throw err;
+        throw err;
+      }
     }
 
     return `${url}${separator}${paramKey}=${paramValue}`;
