@@ -37,6 +37,15 @@ const arrayMap = <T, U>(predicate: (param: T) => U): ((array: Array<T>) => Array
   array.map(predicate);
 
 /**
+ * Iteratee-first data-last each function
+ * @template T type of elements in array
+ * @param {(param: T) => void} predicate iteratee
+ * @returns {((array: Array<T>) => void)}
+ */
+const arrayEach = <T>(predicate: (param: T) => void): ((array: Array<T>) => void) => (array = []) =>
+  array.forEach(predicate);
+
+/**
  * Partitions an array into a tuple containing elements that meet the predicate in the zeroth index,
  * and excluded elements in the next
  * `iterate-first data-last` function
@@ -253,6 +262,7 @@ export {
   take,
   arrayMap,
   arrayPipe,
+  arrayEach,
   arrayFilter,
   arrayReduce,
   arrayPartition,
