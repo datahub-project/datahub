@@ -41,7 +41,7 @@ module('Integration | Component | dataset deprecation', function(hooks) {
 
   test('decommissionTime', async function(assert) {
     let isDisabled;
-    assert.expect(2);
+    assert.expect(3);
 
     this.set('decommissionTime', void 0);
     this.set('deprecated', true);
@@ -55,7 +55,12 @@ module('Integration | Component | dataset deprecation', function(hooks) {
     await fillIn('.comment-new__content', 'text');
 
     isDisabled = this.$('.dataset-deprecation-toggle__actions [type=submit]').is(':disabled');
-    assert.notOk(isDisabled, 'submit button is not disabled');
+    assert.ok(isDisabled, 'submit button is disabled if we only fill in decomissionTime');
+
+    await click('#acknowledge-deprecation');
+
+    isDisabled = this.$('.dataset-deprecation-toggle__actions [type=submit]').is(':disabled');
+    assert.notOk(isDisabled, 'submit button is disabled if we only fill in decomissionTime');
   });
 
   test('triggers the onUpdateDeprecation action when submitted', async function(assert) {
@@ -76,6 +81,8 @@ module('Integration | Component | dataset deprecation', function(hooks) {
     await click('#dataset-is-deprecated');
 
     assert.equal(this.$('#dataset-is-deprecated').is(':checked'), true, 'deprecation checkbox is checked');
+
+    await click('#acknowledge-deprecation');
     await click('.dataset-deprecation-toggle__actions [type=submit]');
 
     assert.equal(submitActionCallCount, 1, 'action is called once');
