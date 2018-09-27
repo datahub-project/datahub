@@ -42,7 +42,14 @@ import {
   buildFieldSuggestionsLookupTable,
   tagsPassingReview
 } from 'wherehows-web/constants';
-import { arrayFilter, arrayMap, arrayReduce, isListUnique, iterateArrayAsync } from 'wherehows-web/utils/array';
+import {
+  arrayEach,
+  arrayFilter,
+  arrayMap,
+  arrayReduce,
+  isListUnique,
+  iterateArrayAsync
+} from 'wherehows-web/utils/array';
 import { identity, noop } from 'wherehows-web/utils/helpers/functions';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
@@ -67,7 +74,6 @@ import {
 } from 'wherehows-web/typings/app/dataset-compliance';
 import { uniqBy } from 'lodash';
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
-import { NonIdLogicalType } from 'wherehows-web/constants/datasets/compliance';
 import { trackableEvent, TrackableEventCategory } from 'wherehows-web/constants/analytics/event-tracking';
 import { notificationDialogActionFactory } from 'wherehows-web/utils/notifications/notifications';
 import { isMetadataObject, jsonValuesMatch } from 'wherehows-web/utils/datasets/compliance/metadata-schema';
@@ -928,19 +934,14 @@ export default class DatasetCompliance extends Component {
 
   /**
    * Sets the identifierType attribute on IComplianceChangeSetFields without an identifierType to ComplianceFieldIdValue.None
-   * @returns {Promise<Array<IComplianceChangeSet>>}
+   * @type {Task<void, (a?: void) => TaskInstance<void>>}
    */
-  setUnspecifiedTagsAsNoneTask = task(function*(
-    this: DatasetCompliance
-  ): IterableIterator<Promise<Array<ComplianceFieldIdValue | NonIdLogicalType>>> {
+  setUnspecifiedTagsAsNoneTask = task(function*(this: DatasetCompliance): IterableIterator<void> {
     const unspecifiedTags = get(this, 'unspecifiedTags');
-    // const setTagIdentifier = (value: ComplianceFieldIdValue | NonIdLogicalType) => (tag: IComplianceChangeSet) =>
-    //   set(tag, 'identifierType', value);
-
-    // yield iterateArrayAsync(arrayMap(setTagIdentifier(ComplianceFieldIdValue.None)))(unspecifiedTags);
-    unspecifiedTags.forEach(tag => {
+    const annotateIdentifierTypeAsNone = (tag: IComplianceChangeSet) =>
       set(tag, 'identifierType', ComplianceFieldIdValue.None);
-    });
+
+    arrayEach(annotateIdentifierTypeAsNone)(unspecifiedTags);
   }).drop();
 
   /**
