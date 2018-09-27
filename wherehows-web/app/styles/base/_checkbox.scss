@@ -58,3 +58,22 @@ input[type='checkbox'] {
     }
   }
 }
+
+input[type='checkbox'] + label.checkbox-input__wrapper {
+  $checkbox-width: 28px;
+  $container-margin: item-spacing(4);
+  display: flex;
+  padding: item-spacing(2) $container-margin item-spacing(2) ($container-margin + $checkbox-width);
+  box-sizing: content-box;
+  margin: 0 (-1 * $container-margin);
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  &:before,
+  &:after {
+    left: $container-margin;
+    top: item-spacing(2) - 1;
+  }
+}
