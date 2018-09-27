@@ -11,7 +11,7 @@ import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owner
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 import { confirmedOwners, avatarWithDropDownOption } from 'wherehows-web/constants/datasets/owner';
 import { containerDataSource } from 'wherehows-web/utils/components/containers/data-source';
-import { isLiUrn } from 'wherehows-web/utils/validators/urn';
+import { decodeUrn, isLiUrn } from 'wherehows-web/utils/validators/urn';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 
 @classNames('dataset-owner-list')
@@ -59,7 +59,12 @@ export default class DatasetOwnerListContainer extends Component {
   @computed('owners')
   get avatars(): Array<IAvatar> {
     const { avatarEntityProps, owners } = this;
-    return arrayPipe(arrayMap(getAvatarProps(avatarEntityProps)), arrayMap(avatarWithDropDownOption))(owners);
+    const [getAvatarProperties, augmentAvatarsWithDropDownOption] = [
+      arrayMap(getAvatarProps(avatarEntityProps)),
+      arrayMap(avatarWithDropDownOption)
+    ];
+
+    return arrayPipe(getAvatarProperties, augmentAvatarsWithDropDownOption)(owners);
   }
 
   /**
@@ -69,7 +74,7 @@ export default class DatasetOwnerListContainer extends Component {
   getOwnersTask = task(function*(this: DatasetOwnerListContainer): IterableIterator<Promise<IOwnerResponse>> {
     const { urn } = this;
 
-    if (isLiUrn(urn)) {
+    if (isLiUrn(decodeUrn(urn))) {
       const { owners = [] }: IOwnerResponse = yield readDatasetOwnersByUrn(urn);
 
       set(this, 'owners', confirmedOwners(owners));

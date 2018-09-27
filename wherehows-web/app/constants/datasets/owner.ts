@@ -165,7 +165,7 @@ const avatarWithDropDownOption = (avatar: IAvatar): IAvatar & Required<Pick<IAva
     avatarOptions: [
       {
         // if the owner avatar does not have an email then a null value is returned with no action performed
-        value: ({ email = '' }: IAvatar): Window | null =>
+        value: ({ email }: IAvatar): Window | null =>
           email ? window.open(buildMailToUrl({ to: email || '' }), '_blank') : null,
         label: email
       }
