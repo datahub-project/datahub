@@ -31,6 +31,7 @@ import { getDatasetDownstreams } from 'wherehows-web/mirage/helpers/dataset-down
 import { getBrowsePlatforms } from 'wherehows-web/mirage/helpers/browse-platforms';
 import { getSearchResults } from 'wherehows-web/mirage/helpers/search';
 import { getDatasetExportPolicy } from 'wherehows-web/mirage/helpers/export-policy';
+import { getAutocompleteDatasets } from 'wherehows-web/mirage/helpers/autocomplete-datasets';
 
 export default function(this: IMirageServer) {
   this.get('/config', getConfig);
@@ -253,6 +254,8 @@ export default function(this: IMirageServer) {
    */
   this.post('/acl', aclAuth);
   this.get('/search', getSearchResults);
+
+  this.get('/autocomplete/datasets', getAutocompleteDatasets);
 }
 
 export function testConfig(this: IMirageServer) {}
