@@ -2369,12 +2369,6 @@ core-util-is@1.0.2, core-util-is@~1.0.0:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/core-util-is/-/core-util-is-1.0.2.tgz#b5fd54220aa2bc5ab57aab7140c940754503c1a7"
 
-corejs-typeahead@^1.2.1:
-  version "1.2.1"
-  resolved "https://registry.yarnpkg.com/corejs-typeahead/-/corejs-typeahead-1.2.1.tgz#345a8afe664cc494075b59b64777807f0b3f132b"
-  dependencies:
-    jquery ">=1.11"
-
 cosmiconfig@^5.0.2:
   version "5.0.6"
   resolved "https://registry.yarnpkg.com/cosmiconfig/-/cosmiconfig-5.0.6.tgz#dca6cf680a0bd03589aff684700858c81abeeb39"
@@ -2690,25 +2684,6 @@ ember-ast-helpers@0.3.5:
   dependencies:
     "@glimmer/compiler" "^0.27.0"
     "@glimmer/syntax" "^0.27.0"
-
-ember-aupac-control@^1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/ember-aupac-control/-/ember-aupac-control-1.2.0.tgz#9ae49d5c8d0d9a6e2888ebec3c5354b0547829bb"
-  dependencies:
-    bootstrap "3.3.7"
-    ember-cli-babel "^6.6.0"
-    ember-cli-htmlbars "^2.0.1"
-
-ember-aupac-typeahead@3.1.0:
-  version "3.1.0"
-  resolved "https://registry.yarnpkg.com/ember-aupac-typeahead/-/ember-aupac-typeahead-3.1.0.tgz#4b2c741fd0b65ea7e1befcf8823fc793e41a21ad"
-  dependencies:
-    broccoli-funnel "^2.0.1"
-    broccoli-merge-trees "^2.0.0"
-    corejs-typeahead "^1.2.1"
-    ember-aupac-control "^1.2.0"
-    ember-cli-babel "^6.6.0"
-    ember-cli-htmlbars "^2.0.1"
 
 ember-basic-dropdown@^1.0.0:
   version "1.0.3"
@@ -5639,7 +5614,7 @@ jquery-treegrid@^0.3.0:
   version "0.3.0"
   resolved "https://registry.yarnpkg.com/jquery-treegrid/-/jquery-treegrid-0.3.0.tgz#e445d4e789cbd85ec045ed467192d70b2ab189d3"
 
-jquery@>=1.11, jquery@^3.3.0, jquery@^3.3.1:
+jquery@^3.3.0, jquery@^3.3.1:
   version "3.3.1"
   resolved "https://registry.yarnpkg.com/jquery/-/jquery-3.3.1.tgz#958ce29e81c9790f31be7792df5d4d95fc57fbca"
 

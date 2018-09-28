@@ -10,7 +10,13 @@
           Search for datasets
         </header>
         <section class="nacho-hero__content">
-          {{search-bar-form selection=keyword didSearch=(action "didSearch")}}
+          {{#search/containers/search-box as |keyword placeholder onUserType onSearch|}}
+            {{search/search-box
+              placeholder=placeholder
+              text=(readonly keyword)
+              onUserType=(action onUserType)
+              onSearch=(action onSearch)}}
+          {{/search/containers/search-box}}
         </section>
       {{/hero-container}}
 
