@@ -14,4 +14,15 @@ export interface IPowerSelectAPI<T> {
   searchText: string; // Contains the text of the current search
   selected: Array<T>; // Contains the resolved selected option (or options in multiple selects)
   uniqueId: string; // Contains the unique of this instance of EmberPowerSelect. It's of the form `ember1234`.
+  actions: {
+    choose(option: T): void; // Chooses the given options if it's not disabled (slight different than `select`)
+    close(): void; // Closes the select
+    highlight(option: T): void; // Highlights the given option (if it's not disabled)
+    open(): void; // Opens the select
+    reposition(): void; // Repositions the dropdown (noop if renderInPlace=true)
+    scrollTo(option: T): void; // Scrolls the given option into the viewport
+    search(term: string): void; // Performs a search
+    select(option: T): void; // Selects the given option (if it's not disabled)
+    toggle(): void;
+  };
 }
