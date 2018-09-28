@@ -13,6 +13,7 @@ import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
 import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import moment from 'moment';
 
 /**
  * Returns the number of days in milliseconds, default is 1 day
@@ -25,9 +26,11 @@ const millisecondDays = (day = 1) => day * 24 * 60 * 60 * 1000;
  * at least 1 day from now
  * @type {Date}
  */
-// Making min selectable date to be an hour from the current time allows the user to select the
-// next day on the calendar but normally not the current day unless it's 11PM
-const minSelectableExpirationDate = new Date(Date.now() + millisecondDays(1 / 24));
+const minSelectableExpirationDate = new Date(
+  moment()
+    .endOf('day')
+    .valueOf()
+);
 
 /**
  * Date object with the maximum selectable date for acl request expiration,
