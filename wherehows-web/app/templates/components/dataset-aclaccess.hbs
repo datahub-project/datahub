@@ -1,9 +1,4 @@
-<div>
-  {{more-info
-    link=@aclMoreInfoLink
-    tooltip="Click for more information on ACL Access"
-  }}
-</div>
+
 
 <header class="acl-permission__header">
   {{#if userHasAclAccess}}
@@ -43,7 +38,13 @@
   <hr class="acl-permission__separator">
 
   <form class="acl-form" {{action (perform requestAccessAndCheckAccessTask) on="submit"}}>
-    <h4 class=" acl-form__meta acl-form__header">Request Access</h4>
+    <h4 class=" acl-form__meta acl-form__header">
+      Request Access
+      {{more-info
+        link=@aclMoreInfoLink
+        tooltip="Click for more information on ACL Access"
+      }}
+    </h4>
     <div class="acl-form__meta">
       <h4 class="acl-form__meta__header">Why do you need access?</h4>
       <p class="acl-form__meta__content ">Please add the business reason why you need to access this data.</p>
@@ -98,7 +99,7 @@
                 {{moment-format calendar.center 'MMMM YYYY'}}
 
                 <p>
-                  {{if hasValidExpiration (concat "Expires in " (moment-from-now calendar.selected))}}
+                  {{if hasValidExpiration (concat "Expires " (moment-from-now calendar.selected))}}
                 </p>
 
               </div>
