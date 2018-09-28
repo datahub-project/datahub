@@ -9,7 +9,6 @@ import {
   IFacetSelections
 } from 'wherehows-web/typings/app/search/facets';
 import { ISearchResponse, ISearchApiParams } from 'wherehows-web/typings/api/search/search';
-
 /**
  * Convert backend static structure into a dynamic facet count structure
  */
@@ -21,7 +20,6 @@ export const facetToDynamicCounts = (result: ISearchResponse['result']): IFacets
     return counts;
   }, {});
 };
-
 /**
  * Converts IFacetsSelectionsMap into IFacetsSelectionsArray
  * @param selections
@@ -39,7 +37,6 @@ export const toFacetSelectionsArray = (selections: IFacetsSelectionsMap): IFacet
     }
     return newSelections;
   }, {});
-
 /**
  * Converts IFacetsSelectionsArray into IFacetsSelectionsMap
  * @param selections
@@ -52,7 +49,6 @@ export const toFacetSelectionsMap = (selections: IFacetsSelectionsArray): IFacet
     }, {});
     return newSelections;
   }, {});
-
 /**
  * Transform IFacetsSelectionsMap into this string: (source:List(hive, hdfs))
  * @param selections
@@ -60,7 +56,6 @@ export const toFacetSelectionsMap = (selections: IFacetsSelectionsArray): IFacet
 export const facetToParamUrl = (selections: IFacetsSelectionsMap) => {
   return toRestli(toFacetSelectionsArray(selections));
 };
-
 /**
  * Transform (source:List(hive, hdfs)) into IFacetsSelectionsMap
  * @param selections
@@ -68,14 +63,12 @@ export const facetToParamUrl = (selections: IFacetsSelectionsMap) => {
 export const facetFromParamUrl = (value: string = '') => {
   return toFacetSelectionsMap(fromRestli(value));
 };
-
 /**
  * Build search url
  */
 export const searchUrl = ({ facets, ...params }: ISearchApiParams): string => {
   return buildUrl(`${getApiRoot()}/search`, { ...params, ...fromRestli(facets || '') });
 };
-
 /**
  * Fetch Search from API
  */
