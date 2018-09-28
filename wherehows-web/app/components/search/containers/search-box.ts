@@ -1,10 +1,18 @@
 import Component from '@ember/component';
-import { readSuggestions, ISuggestionsResponse } from 'wherehows-web/utils/api/search/suggestions';
+import { readSuggestions } from 'wherehows-web/utils/api/search/suggestions';
 import { RouterService } from 'ember';
 import { service } from '@ember-decorators/service';
 import { task, timeout } from 'ember-concurrency';
 import { computed } from '@ember-decorators/object';
 import SearchService from 'wherehows-web/services/search';
+import { ISuggestionsResponse } from 'wherehows-web/typings/app/search/suggestions';
+import { isEmpty } from '@ember/utils';
+
+/**
+ * Runtime cache of recently seen typeahead results
+ * @type {Object.<Object>} a hash of urls to results
+ */
+const keywordResultsCache: Record<string, Array<string>> = {};
 
 export default class SearchBoxContainer extends Component {
   @service
@@ -22,8 +30,13 @@ export default class SearchBoxContainer extends Component {
 
   onUserType = task(function*(this: SearchBoxContainer, text: string) {
     if (text.length > 2) {
+      const cachedKeywords = keywordResultsCache[String(text)];
+      if (!isEmpty(cachedKeywords)) {
+        return yield cachedKeywords;
+      }
       yield timeout(200);
       const response: ISuggestionsResponse = yield readSuggestions({ input: text });
+      keywordResultsCache[String(text)] = response.source;
       return response.source;
     } else {
       return yield [];

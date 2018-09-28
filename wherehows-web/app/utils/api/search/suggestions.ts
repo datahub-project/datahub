@@ -1,14 +1,7 @@
 import { getJSON } from 'wherehows-web/utils/api/fetcher';
 import { getApiRoot } from 'wherehows-web/utils/api/shared';
 import buildUrl from 'wherehows-web/utils/build-url';
-
-export interface ISuggestionsApi {
-  input: string;
-}
-export interface ISuggestionsResponse {
-  input: string;
-  source: Array<string>;
-}
+import { ISuggestionsApi, ISuggestionsResponse } from 'wherehows-web/typings/app/search/suggestions';
 
 /**
  * Build search url

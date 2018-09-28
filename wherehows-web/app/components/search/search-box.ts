@@ -3,20 +3,25 @@ import { set, setProperties } from '@ember/object';
 import { TaskInstance } from 'ember-concurrency';
 import { IPowerSelectAPI } from 'wherehows-web/typings/modules/power-select';
 
-type PromiseOrTask<T> = PromiseLike<T> | TaskInstance<T>;
+type PromiseOrTask<T> = PromiseLike<T> | TaskInstance<T> | undefined;
 
-function isTask<T>(obj: PromiseLike<T> | TaskInstance<T> | undefined): obj is TaskInstance<T> {
+function isTask<T>(obj: PromiseOrTask<T>): obj is TaskInstance<T> {
   return typeof obj !== 'undefined' && (<TaskInstance<T>>obj).cancel !== undefined;
 }
 
 export default class SearchBox extends Component {
   text!: string;
+  onSearch!: (q: string) => void;
+  onUserType!: (text: string) => PromiseOrTask<Array<string>>;
+
   inputText: string;
+  suggestions: Array<string>;
   powerSelectApi?: IPowerSelectAPI<string>;
   searchTask?: PromiseOrTask<Array<string>>;
-  suggestions: Array<string>;
-  onSearch: (q: string) => void;
-  onUserType: (text: string) => PromiseOrTask<Array<string>>;
+
+  didReceiveAttrs() {
+    set(this, 'inputText', this.text);
+  }
 
   cancelSearchTask() {
     if (isTask(this.searchTask)) {
@@ -62,11 +67,11 @@ export default class SearchBox extends Component {
     }
   }
 
-  onopen(pws: IPowerSelectAPI<string>) {
+  onOpen(pws: IPowerSelectAPI<string>) {
     set(this, 'powerSelectApi', pws);
   }
 
-  onclose() {
+  onClose() {
     set(this, 'powerSelectApi', undefined);
   }
 
