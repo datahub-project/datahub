@@ -67,6 +67,14 @@ export default class DatasetDeprecation extends Component {
   deprecationNoteAlias: ComputedProperty<DatasetDeprecation['deprecationNote']> = oneWay('deprecationNote');
 
   /**
+   * Before a user can update the deprecation status to deprecated, they must acknowledge that even if the
+   * dataset is deprecated they must still keep it compliant.
+   * @memberof DatasetDeprecation
+   * @type {boolean}
+   */
+  isDeprecationNoticeAcknowledged: boolean = false;
+
+  /**
    * Checks the working / aliased copies of the deprecation properties diverge from the
    * saved versions i.e. deprecationNoteAlias and deprecationAlias
    * @type {ComputedProperty<boolean>}
@@ -122,6 +130,15 @@ export default class DatasetDeprecation extends Component {
   @action
   onDecommissionDateChange(this: DatasetDeprecation, decommissionTime: Date) {
     set(this, 'decommissionTime', new Date(decommissionTime).getTime());
+  }
+
+  /**
+   * When a user clicks the checkbox to acknowledge or cancel acknowledgement of the notice for
+   * deprecating a dataset
+   */
+  @action
+  onAcknowledgeDeprecationNotice(this: DatasetDeprecation) {
+    this.toggleProperty('isDeprecationNoticeAcknowledged');
   }
 
   /**
