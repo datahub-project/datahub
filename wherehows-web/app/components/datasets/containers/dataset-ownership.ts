@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { get, set, getProperties, setProperties } from '@ember/object';
 import { task, TaskInstance } from 'ember-concurrency';
-import { action, computed } from '@ember-decorators/object';
+import { action } from '@ember-decorators/object';
 import Notifications from 'wherehows-web/services/notifications';
 import { NotificationEvent } from 'wherehows-web/services/notifications';
 import { IOwner, IOwnerResponse } from 'wherehows-web/typings/api/datasets/owners';
@@ -70,6 +70,12 @@ export default class DatasetOwnershipContainer extends Component {
   avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
+   * Metadata related to the ownership properties for the dataset
+   * @type {{ actor: string, lastModified: number }}
+   * @memberof DatasetOwnershipContainer
+   */
+  ownershipMetadata: { actor: string; lastModified: number } = { actor: '', lastModified: 0 };
+  /**
    * An async parent task to group all data tasks for this container component
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
@@ -103,33 +109,12 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
   getDatasetOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
-    const { owners = [], fromUpstream, datasetUrn }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
+    const { owners = [], fromUpstream, datasetUrn, lastModified, actor }: IOwnerResponse = yield readDatasetOwnersByUrn(
+      this.urn
+    );
 
-    setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
+    setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn, ownershipMetadata: { lastModified, actor } });
   });
-
-  /**
-   * Retrieves metadata about the current ownership records including modificationTime and actor
-   * @readonly
-   * @type {(Record<'actor' | 'modificationTime', string>)}
-   * @memberof DatasetOwnershipContainer
-   */
-  @computed('owners.[]')
-  get ownershipMetadata(): Record<'actor' | 'modificationTime', string> {
-    const {
-      owners: [owner]
-    } = this;
-    const ownershipMetadata = { actor: '', modificationTime: '' };
-
-    if (owner) {
-      const { confirmedBy, modifiedTime } = owner;
-      const modificationTime = modifiedTime ? String(modifiedTime) : '';
-
-      return { ...ownershipMetadata, actor: confirmedBy || '', modificationTime };
-    }
-
-    return ownershipMetadata;
-  }
 
   /**
    * Fetches the suggested owners for this dataset

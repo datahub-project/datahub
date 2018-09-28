@@ -103,14 +103,18 @@ const ownersWithModifiedTimeAsDate = arrayMap(ownerWithModifiedTimeAsDate);
 const readDatasetOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
   let owners: Array<IOwner> = [],
     fromUpstream = false,
-    datasetUrn = '';
+    datasetUrn = '',
+    lastModified = 0,
+    actor = '';
 
   try {
-    ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({ url: datasetOwnersUrlByUrn(urn) }));
-    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
+    ({ owners = [], fromUpstream, datasetUrn, actor, lastModified } = await getJSON<IOwnerResponse>({
+      url: datasetOwnersUrlByUrn(urn)
+    }));
+    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn, actor, lastModified };
   } catch (e) {
     if (isNotFoundApiError(e)) {
-      return { owners, fromUpstream, datasetUrn };
+      return { owners, fromUpstream, datasetUrn, actor, lastModified };
     } else {
       throw e;
     }
@@ -125,16 +129,18 @@ const readDatasetOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
 const readDatasetSuggestedOwnersByUrn = async (urn: string): Promise<IOwnerResponse> => {
   let owners: Array<IOwner> = [],
     fromUpstream = false,
-    datasetUrn = '';
+    datasetUrn = '',
+    lastModified = 0,
+    actor = '';
 
   try {
-    ({ owners = [], fromUpstream, datasetUrn } = await getJSON<IOwnerResponse>({
+    ({ owners = [], fromUpstream, datasetUrn, actor, lastModified } = await getJSON<IOwnerResponse>({
       url: datasetSuggestedOwnersUrlByUrn(urn)
     }));
-    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn };
+    return { owners: ownersWithModifiedTimeAsDate(owners), fromUpstream, datasetUrn, actor, lastModified };
   } catch (e) {
     if (isNotFoundApiError(e)) {
-      return { owners, fromUpstream, datasetUrn };
+      return { owners, fromUpstream, datasetUrn, actor, lastModified };
     } else {
       throw e;
     }
