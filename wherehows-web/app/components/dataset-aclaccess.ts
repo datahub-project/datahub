@@ -25,7 +25,9 @@ const millisecondDays = (day = 1) => day * 24 * 60 * 60 * 1000;
  * at least 1 day from now
  * @type {Date}
  */
-const minSelectableExpirationDate = new Date(Date.now() + millisecondDays());
+// Making min selectable date to be an hour from the current time allows the user to select the
+// next day on the calendar but normally not the current day unless it's 11PM
+const minSelectableExpirationDate = new Date(Date.now() + millisecondDays(1 / 24));
 
 /**
  * Date object with the maximum selectable date for acl request expiration,
