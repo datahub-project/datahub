@@ -41,7 +41,9 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
   }
 
   @action
-  willTransition() {
-    set(this.search, 'keyword', '');
+  willTransition(transition: import('ember').Ember.Transition & { targetName: string }) {
+    if (transition.targetName !== 'search') {
+      set(this.search, 'keyword', '');
+    }
   }
 }

@@ -15,8 +15,6 @@ export default class SearchBoxContainer extends Component {
 
   placeholder: string = 'Search datasets by keywords... e.g. pagekey';
 
-  suggestions: Array<string>;
-
   @computed('search.keyword')
   get keyword(): string {
     return this.search.keyword;
@@ -24,9 +22,11 @@ export default class SearchBoxContainer extends Component {
 
   onUserType = task(function*(this: SearchBoxContainer, text: string) {
     if (text.length > 2) {
-      yield timeout(500);
+      yield timeout(200);
       const response: ISuggestionsResponse = yield readSuggestions({ input: text });
       return response.source;
+    } else {
+      return yield [];
     }
   }).restartable();
 
