@@ -27,6 +27,10 @@ interface IOwnerResponse {
   owners?: Array<IOwner>;
   fromUpstream: boolean;
   datasetUrn: string;
+  // date the ownership information was last modified
+  lastModified: number;
+  // entity that performed the modification
+  actor: string;
 }
 
 /**
