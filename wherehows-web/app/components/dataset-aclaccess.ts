@@ -16,12 +16,6 @@ import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
 import moment from 'moment';
 
 /**
- * Returns the number of days in milliseconds, default is 1 day
- * @param {number} [day=1] the number of days to scale
- */
-const millisecondDays = (day = 1) => day * 24 * 60 * 60 * 1000;
-
-/**
  * Date object with the minimum selectable date for acl request expiration,
  * at least 1 day from now
  * @type {Date}
@@ -37,7 +31,11 @@ const minSelectableExpirationDate = new Date(
  * up to 7 days from now
  * @type {Date}
  */
-const maxSelectableExpirationDate = new Date(Date.now() + millisecondDays(7));
+const maxSelectableExpirationDate = new Date(
+  moment()
+    .add(7, 'days')
+    .valueOf()
+);
 
 export default class DatasetAclAccess extends Component {
   /**
