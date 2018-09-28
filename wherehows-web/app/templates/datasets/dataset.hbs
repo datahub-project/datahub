@@ -77,7 +77,7 @@
 
         {{#unless isPinot}}
           {{#tablist.tab tabIds.Properties on-select=(action "tabSelectionChanged")}}
-            Properties
+            Status
           {{/tablist.tab}}
         {{/unless}}
 
@@ -123,6 +123,7 @@
         urn=encodedUrn
         deprecated=model.deprecated
         deprecationNote=model.deprecationNote
+        wikiLinks=wikiLinks
       }}
     {{/tabs.tabpanel}}
 
