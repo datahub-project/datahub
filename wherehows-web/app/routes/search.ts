@@ -40,6 +40,11 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
     });
   }
 
+  /**
+   * In order to keep the service up date with the state. The router pass
+   * the keyword from the queryParams to the service.
+   * @param transition Ember transition
+   */
   @action
   willTransition(transition: import('ember').Ember.Transition & { targetName: string }) {
     if (transition.targetName !== 'search') {

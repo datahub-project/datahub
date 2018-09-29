@@ -14,6 +14,10 @@ import { isEmpty } from '@ember/utils';
  */
 const keywordResultsCache: Record<string, Array<string>> = {};
 
+/**
+ * Search box container that handle all the data part for
+ * the search box
+ */
 export default class SearchBoxContainer extends Component {
   @service
   router: RouterService;
@@ -21,13 +25,24 @@ export default class SearchBoxContainer extends Component {
   @service
   search: SearchService;
 
+  /**
+   * Placeholder for input
+   */
   placeholder: string = 'Search datasets by keywords... e.g. pagekey';
 
+  /**
+   * Search route will update the service with current keywords
+   * since url will contain keyword
+   */
   @computed('search.keyword')
   get keyword(): string {
     return this.search.keyword;
   }
 
+  /**
+   * Suggestions handle. Will debounce, cache suggestions requests
+   * @param  {string} text suggestion for this text
+   */
   onUserType = task(function*(this: SearchBoxContainer, text: string) {
     if (text.length > 2) {
       const cachedKeywords = keywordResultsCache[String(text)];
@@ -43,6 +58,10 @@ export default class SearchBoxContainer extends Component {
     }
   }).restartable();
 
+  /**
+   * When search actually happens, then we transition to a new route.
+   * @param text search term
+   */
   onSearch(text: string) {
     this.router.transitionTo('search', {
       queryParams: {
