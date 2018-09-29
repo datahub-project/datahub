@@ -50,6 +50,6 @@ module('Acceptance | search', function(hooks) {
 
     await click(getCheckboxSelector('ei'));
 
-    assert.equal(currentURL(), '/search?facets=(fabric%3AList(prod%2Ccorp%2Cei))&keyword=car&page=1');
+    assert.equal(currentURL(), '/search?facets=(fabric%3AList(prod%2Ccorp%2Cei))&keyword=car');
   });
 });

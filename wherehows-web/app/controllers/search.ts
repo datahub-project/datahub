@@ -1,7 +1,7 @@
 import Controller from '@ember/controller';
 import { computed } from '@ember-decorators/object';
 import { debounce } from '@ember-decorators/runloop';
-import { facetToParamUrl, facetFromParamUrl, facetToDynamicCounts } from 'wherehows-web/utils/api/search';
+import { facetToParamUrl, facetFromParamUrl, facetToDynamicCounts } from 'wherehows-web/utils/api/search/search';
 import { IFacetsSelectionsMap, IFacetsCounts } from 'wherehows-web/typings/app/search/facets';
 import { set, setProperties, get } from '@ember/object';
 

@@ -1,7 +1,7 @@
 /**
  * Page constant for typeahead input on the search bar
  */
-export const searchBarSelector = 'input.nacho-global-search__text-input.tt-input';
+export const searchBarSelector = '.nacho-global-search__text-input input';
 
 /**
  * Page constant for search button

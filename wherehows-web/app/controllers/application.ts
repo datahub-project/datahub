@@ -1,10 +1,8 @@
 import Controller from '@ember/controller';
 import Session from 'ember-simple-auth/services/session';
-import Search from 'wherehows-web/services/search';
 import UserLookup from 'wherehows-web/services/user-lookup';
 import Notifications from 'wherehows-web/services/notifications';
 import BannerService from 'wherehows-web/services/banners';
-import { action } from '@ember-decorators/object';
 import { service } from '@ember-decorators/service';
 
 export default class Application extends Controller {
@@ -14,13 +12,6 @@ export default class Application extends Controller {
    */
   @service
   session: Session;
-
-  /**
-   * Injected global search service
-   * @type {Search}
-   */
-  @service
-  search: Search;
 
   /**
    * Looks up user names and properties from the partyEntities api
@@ -44,25 +35,9 @@ export default class Application extends Controller {
   @service('banners')
   banners: BannerService;
 
-  /**
-   * Keyword of the current search to pass it down to the search bar
-   */
-  keyword: string;
-
   constructor() {
     super(...arguments);
 
     this.ldapUsers.fetchUserNames();
-  }
-
-  /**
-   * Invokes the search service api to transition to the
-   *   search results page with the search parameters
-   * @param {String} [keyword] the search string to search for
-   * @param {String} [category] restrict search to results found here
-   */
-  @action
-  didSearch({ keyword, category }: { keyword: string; category: string }) {
-    this.search.showSearchResults({ keyword, category });
   }
 }
