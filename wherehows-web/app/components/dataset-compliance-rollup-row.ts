@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import ComputedProperty, { alias, equal, bool, mapBy } from '@ember/object/computed';
+import ComputedProperty, { equal, bool, mapBy } from '@ember/object/computed';
 import { get, getWithDefault, getProperties, computed } from '@ember/object';
 import { action } from '@ember-decorators/object';
 import {
@@ -21,8 +21,9 @@ import { getTagSuggestions } from 'wherehows-web/utils/datasets/compliance-sugge
 import { IColumnFieldProps } from 'wherehows-web/typings/app/dataset-columns';
 import { fieldTagsHaveIdentifierType } from 'wherehows-web/constants/dataset-compliance';
 import { IComplianceDataType } from 'wherehows-web/typings/api/list/compliance-datatypes';
-import { arrayReduce } from 'wherehows-web/utils/array';
+import { arrayEach, arrayReduce } from 'wherehows-web/utils/array';
 import { IComplianceEntity } from 'wherehows-web/typings/api/datasets/compliance';
+import { alias } from '@ember-decorators/object/computed';
 
 export default class DatasetComplianceRollupRow extends Component.extend({
   tagName: ''
@@ -118,7 +119,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {ComputedProperty<string>}
    * @memberof DatasetComplianceRollupRow
    */
-  identifierField: ComputedProperty<string> = alias('field.firstObject');
+  @alias('field.firstObject')
+  identifierField: string;
 
   /**
    * References the second item in the IdentifierFieldWithFieldChangeSetTuple type, this is the list of tags
@@ -126,7 +128,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {ComputedProperty<Array<IComplianceChangeSet>>}
    * @memberof DatasetComplianceRollupRow
    */
-  fieldChangeSet: ComputedProperty<Array<IComplianceChangeSet>> = alias('field.1');
+  @alias('field.1')
+  fieldChangeSet: Array<IComplianceChangeSet>;
 
   /**
    * References the first tag in the change set, this is the primary tag for the field and should not be deleted
@@ -134,7 +137,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {ComputedProperty<IComplianceChangeSet>}
    * @memberof DatasetComplianceRollupRow
    */
-  fieldProps: ComputedProperty<IComplianceChangeSet> = alias('fieldChangeSet.firstObject');
+  @alias('fieldChangeSet.firstObject')
+  fieldProps: IComplianceChangeSet;
 
   /**
    * Aliases the dataType property on the first item in the field change set, this should available
@@ -142,7 +146,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {ComputedProperty<string>}
    * @memberof DatasetComplianceRollupRow
    */
-  dataType: ComputedProperty<string> = alias('fieldProps.dataType');
+  @alias('fieldProps.dataType')
+  dataType: string;
 
   /**
    * Checks if the field has only one tag
@@ -178,9 +183,8 @@ export default class DatasetComplianceRollupRow extends Component.extend({
    * @type {(ComputedProperty<SuggestionIntent | void>)}
    * @memberof DatasetComplianceRollupRow
    */
-  suggestionAuthority: ComputedProperty<IComplianceChangeSet['suggestionAuthority']> = alias(
-    'fieldProps.suggestionAuthority'
-  );
+  @alias('fieldProps.suggestionAuthority')
+  suggestionAuthority: IComplianceChangeSet['suggestionAuthority'];
 
   /**
    * Extracts the field suggestions into a cached computed property, if a suggestion exists
@@ -352,17 +356,19 @@ export default class DatasetComplianceRollupRow extends Component.extend({
       // Field has only one tag, that tag has an identifierType
       const updateDefault = hasSingleTag && fieldTagsHaveIdentifierType(get(this, 'fieldChangeSet'));
 
-      // Identifier type and changeSet does not already have suggested type
+      // Suggested identifierType exists but changeSet does not already have the suggested type
       if (identifierType && !suggestedValuesInChangeSet.includes(identifierType)) {
         if (updateDefault) {
           get(this, 'onTagIdentifierTypeChange')(get(this, 'fieldProps'), {
             value: <ComplianceFieldIdValue>identifierType
           });
         } else {
-          // If suggested value is ComplianceFieldIdValue.None then do not add
-          if (identifierType !== ComplianceFieldIdValue.None) {
-            this.actions.onAddFieldTag.call(this, { identifierType, logicalType });
+          // If suggested value is ComplianceFieldIdValue.None, remove all other annotations first before tagging field as none
+          if (identifierType === ComplianceFieldIdValue.None) {
+            arrayEach(this.actions.onRemoveFieldTag.bind(this))(this.fieldChangeSet);
           }
+
+          this.actions.onAddFieldTag.call(this, { identifierType, logicalType });
         }
       }
     }
