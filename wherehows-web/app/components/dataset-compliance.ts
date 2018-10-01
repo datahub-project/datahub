@@ -300,12 +300,6 @@ export default class DatasetCompliance extends Component {
    * @memberof DatasetCompliance
    */
   schemaless: boolean;
-  /**
-   * Tracks the current index of the compliance policy update wizard flow
-   * @type {number}
-   * @memberof DatasetCompliance
-   */
-  editStepIndex: number;
 
   /**
    * List of complianceDataType values
@@ -393,7 +387,6 @@ export default class DatasetCompliance extends Component {
     super(...arguments);
 
     //sets default values for class fields
-    this.editStepIndex = initialStepIndex;
     this.sortColumnWithName || set(this, 'sortColumnWithName', 'identifierField');
     this.filterBy || set(this, 'filterBy', '0'); // first element in field type is identifierField
     this.sortDirection || set(this, 'sortDirection', 'asc');
@@ -403,20 +396,6 @@ export default class DatasetCompliance extends Component {
     typeOf(this.suggestionConfidenceThreshold) === 'number' ||
       set(this, 'suggestionConfidenceThreshold', lowQualitySuggestionConfidenceThreshold);
   }
-
-  /**
-   * Lists the compliance wizard edit steps based on the datasets schemaless property
-   * @memberof DatasetCompliance
-   */
-  editSteps = computed('schemaless', function(this: DatasetCompliance): Array<{ name: string }> {
-    const hasSchema = !getWithDefault(this, 'schemaless', false);
-    const steps = getComplianceSteps(hasSchema);
-
-    // Ensure correct step ordering
-    return Object.keys(steps)
-      .sort()
-      .map((key: string): { name: string } => steps[+key]);
-  });
 
   /**
    * Reads the complianceDataTypes property and transforms into a list of drop down options for the field
@@ -489,78 +468,6 @@ export default class DatasetCompliance extends Component {
       ...insertDividers(getFieldIdentifierOptions(indexedDataTypes.sort(dataTypeComparator)))
     ];
   });
-
-  /**
-   * e-c Task to update the current edit step in the wizard flow.
-   * Handles the transitions between steps, including performing each step's
-   * post processing action once a user has completed a step, or reverting the step
-   * and stepping backward if the post process fails
-   * @type {Task<void, (a?: void) => TaskInstance<void>>}
-   * @memberof DatasetCompliance
-   */
-  updateEditStepTask = (function() {
-    // initialize the previous action with a no-op function
-    let previousAction = noop;
-    // initialize the last seen index to the same value as editStepIndex
-    let lastIndex = initialStepIndex;
-
-    return task(function*(this: DatasetCompliance): IterableIterator<void> {
-      const { editStepIndex: currentIndex, editSteps } = getProperties(this, ['editStepIndex', 'editSteps']);
-      // the current step in the edit sequence
-      const editStep = editSteps[currentIndex] || { name: '' };
-      const { name } = editStep;
-
-      if (name) {
-        // using the steps name, construct a reference to the step process handler
-        const nextAction = this.actions[`did${classify(name)}`];
-        let previousActionResult: void;
-
-        // if the transition is backward, then the previous action is ignored
-        currentIndex > lastIndex && (previousActionResult = previousAction.call(this));
-        lastIndex = currentIndex;
-
-        try {
-          yield previousActionResult;
-          // if the previous action is resolved successfully, then replace with the next processor
-          previousAction = typeof nextAction === 'function' ? nextAction : noop;
-
-          set(this, 'editStep', editStep);
-        } catch {
-          // if the previous action settles in a rejected state, replace with no-op before
-          // invoking the previousStep action to go back in the sequence
-          // batch previousStep invocation in a afterRender queue due to editStepIndex update
-          previousAction = noop;
-          run(
-            (): void => {
-              if (this.isDestroyed || this.isDestroying) {
-                return;
-              }
-              schedule('afterRender', this, this.actions.previousStep);
-            }
-          );
-        }
-      }
-    }).enqueue();
-  })();
-
-  /**
-   * Holds a reference to the current step in the compliance edit wizard flow
-   * @type {{ name: string }}
-   */
-  editStep: { name: string } = { name: '' };
-
-  /**
-   * A list of ui values and labels for review filter drop-down
-   * @type {Array<{value: TagFilter, label:string}>}
-   * @memberof DatasetCompliance
-   */
-  fieldReviewOptions: Array<{ value: DatasetCompliance['fieldReviewOption']; label: string }> = [
-    { value: TagFilter.showAll, label: '  Show all fields' },
-    { value: TagFilter.showReview, label: '? Show fields missing a data type' },
-    { value: TagFilter.showSuggested, label: '! Show fields that need review' },
-    //@ts-ignore htmlSafe type definition is incorrect in @types/ember contains TODO: to return Handlebars.SafeStringStatic
-    { value: TagFilter.showCompleted, label: <string>htmlSafe(`&#10003; Show completed fields`) }
-  ];
 
   didReceiveAttrs(): void {
     // Perform validation step on the received component attributes
