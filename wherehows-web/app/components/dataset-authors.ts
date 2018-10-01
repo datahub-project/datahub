@@ -22,7 +22,7 @@ import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners'
 import Notifications, { NotificationEvent } from 'wherehows-web/services/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
-import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
 import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 
 type Comparator = -1 | 0 | 1;
@@ -177,7 +177,7 @@ export default class DatasetAuthors extends Component {
     return {
       owner,
       avatar: avatarProperties
-        ? getAvatarProps(avatarProperties)({ userName: owner.userName })
+        ? makeAvatar(avatarProperties)({ userName: owner.userName })
         : { imageUrl: '', imageUrlFallback: '/assets/assets/images/default_avatar.png' }
     };
   };
