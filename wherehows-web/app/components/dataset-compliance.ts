@@ -1,8 +1,7 @@
 import Component from '@ember/component';
 import { computed, set, get, setProperties, getProperties, getWithDefault } from '@ember/object';
 import ComputedProperty, { not, or, alias } from '@ember/object/computed';
-import { run, schedule, next } from '@ember/runloop';
-import { classify, htmlSafe } from '@ember/string';
+import { run, next } from '@ember/runloop';
 import { assert } from '@ember/debug';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { IDataPlatform } from 'wherehows-web/typings/api/list/platforms';
@@ -14,7 +13,6 @@ import {
   getFieldIdentifierOptions,
   getDefaultSecurityClassification,
   compliancePolicyStrings,
-  getComplianceSteps,
   isExempt,
   ComplianceFieldIdValue,
   IDatasetClassificationOption,
@@ -100,12 +98,6 @@ const datasetClassificationKey = 'complianceInfo.datasetClassification';
  * @type {Array<keyof typeof DatasetClassifiers>}
  */
 const datasetClassifiersKeys = <Array<keyof typeof DatasetClassifiers>>Object.keys(DatasetClassifiers);
-
-/**
- * The initial state of the compliance step for a zero based array
- * @type {number}
- */
-const initialStepIndex = -1;
 
 export default class DatasetCompliance extends Component {
   isNewComplianceInfo: boolean;
