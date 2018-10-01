@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IAvatar, IAvatarDropDownAction } from 'wherehows-web/typings/app/avatars';
+import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { action, computed } from '@ember-decorators/object';
 import { IDropDownOption } from 'wherehows-web/typings/app/dataset-compliance';
 import { classNames } from '@ember-decorators/component';
@@ -17,6 +17,12 @@ export default class StackedAvatarsList extends Component {
    * @type {Array<IAvatar>}
    */
   avatars: Array<IAvatar>;
+
+  /**
+   * External action to selection of an avatar's menu option
+   * @type {(avatar: IAvatar, option?: IDropDownOption<any>) => any}
+   */
+  handleAvatarOptionSelection: (avatar: IAvatar, option?: IDropDownOption<any>) => any;
 
   constructor() {
     super(...arguments);
@@ -64,13 +70,11 @@ export default class StackedAvatarsList extends Component {
   /**
    * Handler to invoke IAvatarDropDownAction instance when the drop down option is selected
    * @param {IAvatar} avatar the avatar item selected from the list
-   * @param {(IDropDownOption<IAvatarDropDownAction> | void)} selectedOption drop down option selected
+   * @param {(IDropDownOption<any>)} [selectedOption] drop down option selected
    * @memberof StackedAvatarsList
    */
   @action
-  onAvatarOptionSelected(avatar: IAvatar, selectedOption: IDropDownOption<IAvatarDropDownAction> | void): void {
-    const { value } = selectedOption || { value: (a: IAvatar) => a };
-
-    value(avatar);
+  onAvatarOptionSelected(avatar: IAvatar, selectedOption?: IDropDownOption<any>): void {
+    this.handleAvatarOptionSelection(avatar, selectedOption);
   }
 }

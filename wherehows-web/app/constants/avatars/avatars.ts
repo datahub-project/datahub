@@ -9,7 +9,7 @@ import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator'
  * @param {IAppConfig.userEntityProps.aviUrlFallback} aviUrlFallback
  * @return {IAvatar}
  */
-const getAvatarProps = ({ aviUrlPrimary, aviUrlFallback = '' }: IAppConfig['userEntityProps']) => (
+const makeAvatar = ({ aviUrlPrimary, aviUrlFallback = '' }: IAppConfig['userEntityProps']) => (
   object: Partial<IAvatar>
 ): IAvatar => {
   const props = pick(object, ['email', 'userName', 'name']);
@@ -22,4 +22,4 @@ const getAvatarProps = ({ aviUrlPrimary, aviUrlFallback = '' }: IAppConfig['user
   };
 };
 
-export { getAvatarProps };
+export { makeAvatar };

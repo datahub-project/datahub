@@ -3,6 +3,7 @@ import { get, set } from '@ember/object';
 import ComputedProperty, { gte } from '@ember/object/computed';
 import { TaskInstance, TaskProperty } from 'ember-concurrency';
 import { action, computed } from '@ember-decorators/object';
+import moment from 'moment';
 import {
   IAccessControlAccessTypeOption,
   IAccessControlEntry,
@@ -12,8 +13,7 @@ import { getDefaultRequestAccessControlEntry } from 'wherehows-web/utils/dataset
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { arrayMap } from 'wherehows-web/utils/array';
 import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
-import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
-import moment from 'moment';
+import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
 
 /**
  * Date object with the minimum selectable date for acl request expiration,
@@ -141,7 +141,7 @@ export default class DatasetAclAccess extends Component {
     const { acls, avatarProperties } = this;
     const aclWithAvatar = (acl: IAccessControlEntry): IAccessControlEntry & Record<'avatar', IAvatar> => ({
       ...acl,
-      avatar: getAvatarProps(avatarProperties!)({ userName: acl.principal })
+      avatar: makeAvatar(avatarProperties!)({ userName: acl.principal })
     });
 
     return avatarProperties ? arrayMap(aclWithAvatar)(acls) : [];
