@@ -6,9 +6,9 @@
 }
 
 .dataset-name {
-  max-width: item-spacing(9) * 10;
+  max-width: item-spacing(8) * 11;
   padding-right: item-spacing(3);
-  overflow: hidden;
+  word-wrap: break-word;
   text-overflow: ellipsis;
   margin: 0;
 }
