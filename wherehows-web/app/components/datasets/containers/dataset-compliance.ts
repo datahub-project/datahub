@@ -278,7 +278,7 @@ export default class DatasetComplianceContainer extends Component {
   getRetentionPolicyTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<Promise<IGetDatasetRetentionResponse | null>> {
-    const urn = get(this, 'urn');
+    const urn = this.urn;
     const retentionResponse = yield readDatasetRetentionByUrn(urn);
 
     const retentionPolicy = retentionResponse && retentionResponse.retentionPolicy;
