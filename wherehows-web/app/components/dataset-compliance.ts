@@ -1411,7 +1411,7 @@ export default class DatasetCompliance extends Component {
         return this.needsPurgePolicyType();
       }
 
-      if (isExempt(<PurgePolicy>retentionPolicy.purgeType)) {
+      if (isExempt(retentionPolicy.purgeType)) {
         return this.showPurgeExemptionWarning();
       }
 
