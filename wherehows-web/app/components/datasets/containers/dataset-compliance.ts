@@ -45,6 +45,7 @@ import { saveDatasetRetentionByUrn, readDatasetRetentionByUrn } from 'wherehows-
 import { IDatasetRetention, IGetDatasetRetentionResponse } from 'wherehows-web/typings/api/datasets/retention';
 import { readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
+import { retentionObjectFactory } from 'wherehows-web/constants/datasets/retention';
 
 /**
  * Type alias for the response when container data items are batched
@@ -240,7 +241,7 @@ export default class DatasetComplianceContainer extends Component {
       schemaless,
       exportPolicy,
       upstreams,
-      retentionPolicy: retentionResponse && retentionResponse.retentionPolicy
+      retentionPolicy: (retentionResponse && retentionResponse.retentionPolicy) || retentionObjectFactory(urn)
     });
   }
 
@@ -277,10 +278,11 @@ export default class DatasetComplianceContainer extends Component {
   getRetentionPolicyTask = task(function*(
     this: DatasetComplianceContainer
   ): IterableIterator<Promise<IGetDatasetRetentionResponse | null>> {
-    const retentionResponse = yield readDatasetRetentionByUrn(get(this, 'urn'));
+    const urn = this.urn;
+    const retentionResponse = yield readDatasetRetentionByUrn(urn);
 
     const retentionPolicy = retentionResponse && retentionResponse.retentionPolicy;
-    set(this, 'retentionPolicy', retentionPolicy);
+    set(this, 'retentionPolicy', retentionPolicy || retentionObjectFactory(urn));
   }).restartable();
 
   /**
