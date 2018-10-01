@@ -77,20 +77,8 @@
       {{/if}}
 
       <div class="secondary-actions">
-        <div class="policy-last-saved">
-          Last saved:
-          {{#if isNewComplianceInfo}}
-            <span class="policy-last-saved__saved">Never</span>
-          {{else}}
-            <span class="policy-last-saved__saved">
-              {{moment-from-now complianceInfo.modifiedTime}}
-            </span>
-            by
-            <span class="policy-last-saved__saved" title="{{complianceInfo.modifiedBy}}">
-              {{tooltip-on-element text=complianceInfo.modifiedBy}}
-              {{split-text complianceInfo.modifiedBy 30}}
-            </span>
-          {{/if}}
+        <div class="last-saved-by-container">
+          {{last-saved-by actor=complianceInfo.modifiedBy time=complianceInfo.modifiedTime}}
         </div>
       </div>
 

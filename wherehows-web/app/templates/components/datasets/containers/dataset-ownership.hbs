@@ -30,6 +30,10 @@
 
     {{else}}
 
+      <div class="last-saved-by-container">
+        {{last-saved-by actor=ownershipMetadata.actor time=ownershipMetadata.lastModified}}
+      </div>
+
       {{dataset-authors
         owners=owners
         suggestedOwners=suggestedOwners

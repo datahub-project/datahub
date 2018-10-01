@@ -29,13 +29,13 @@ export default class DatasetOwnershipContainer extends Component {
    * List of owners for the dataset
    * @type {Array<IOwner>}
    */
-  owners: Array<IOwner>;
+  owners: Array<IOwner> = [];
 
   /**
    * List of suggested owners for the dataset
    * @type {Array<IOwner>}
    */
-  suggestedOwners: Array<IOwner>;
+  suggestedOwners: Array<IOwner> = [];
 
   /**
    * List of types available for a dataset owner
@@ -70,6 +70,12 @@ export default class DatasetOwnershipContainer extends Component {
   avatarProperties: IAppConfig['userEntityProps'] | undefined;
 
   /**
+   * Metadata related to the ownership properties for the dataset
+   * @type {{ actor: string, lastModified: number }}
+   * @memberof DatasetOwnershipContainer
+   */
+  ownershipMetadata: { actor: string; lastModified: number } = { actor: '', lastModified: 0 };
+  /**
    * An async parent task to group all data tasks for this container component
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
@@ -103,9 +109,11 @@ export default class DatasetOwnershipContainer extends Component {
    * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
   getDatasetOwnersTask = task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
-    const { owners = [], fromUpstream, datasetUrn }: IOwnerResponse = yield readDatasetOwnersByUrn(get(this, 'urn'));
+    const { owners = [], fromUpstream, datasetUrn, lastModified, actor }: IOwnerResponse = yield readDatasetOwnersByUrn(
+      this.urn
+    );
 
-    setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn });
+    setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn, ownershipMetadata: { lastModified, actor } });
   });
 
   /**
