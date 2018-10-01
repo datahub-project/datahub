@@ -1087,6 +1087,10 @@ export default class DatasetCompliance extends Component {
      */
     onCancel(this: DatasetCompliance): void {
       this.toggleEditing(false, <any>undefined);
+
+      // Note: [REFACTOR-COMPLIANCE] This should no longer be necessary once we separate the items into
+      // their own components
+      this.onReset();
     },
 
     /**
@@ -1300,13 +1304,13 @@ export default class DatasetCompliance extends Component {
      * @returns {(Promise<void>)}
      */
     didEditPurgePolicy(this: DatasetCompliance): Promise<void> {
-      const { complianceType = null } = get(this, 'complianceInfo') || {};
+      const retentionPolicy = get(this, 'retentionPolicy');
 
-      if (!complianceType) {
+      if (!retentionPolicy || !retentionPolicy.purgeType) {
         return this.needsPurgePolicyType();
       }
 
-      if (isExempt(complianceType)) {
+      if (isExempt(retentionPolicy.purgeType)) {
         return this.showPurgeExemptionWarning();
       }
 
