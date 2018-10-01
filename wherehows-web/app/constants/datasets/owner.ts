@@ -3,7 +3,6 @@ import { IOwner } from 'wherehows-web/typings/api/datasets/owners';
 import { OwnerIdType, OwnerSource, OwnerType, OwnerUrnNamespace } from 'wherehows-web/utils/api/datasets/owners';
 import { arrayFilter, isListUnique } from 'wherehows-web/utils/array';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
-import { buildMailToUrl } from 'wherehows-web/utils/helpers/email';
 
 /**
  * Initial user name for candidate owners
@@ -164,9 +163,7 @@ const avatarWithDropDownOption = (avatar: IAvatar): IAvatar & Required<Pick<IAva
     ...avatar,
     avatarOptions: [
       {
-        // if the owner avatar does not have an email then a null value is returned with no action performed
-        value: ({ email }: IAvatar): Window | null =>
-          email ? window.open(buildMailToUrl({ to: email || '' }), '_blank') : null,
+        value: email,
         label: email
       }
     ]

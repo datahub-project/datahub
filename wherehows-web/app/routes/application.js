@@ -5,7 +5,7 @@ import { get } from '@ember/object';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
 import { feedback, avatar } from 'wherehows-web/constants';
 import Configurator from 'wherehows-web/services/configurator';
-import { getAvatarProps } from 'wherehows-web/constants/avatars/avatars';
+import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
 
 const { mail, subject, title } = feedback;
 
@@ -48,7 +48,7 @@ export default Route.extend(ApplicationRouteMixin, {
       getConfig('userEntityProps')
     ];
     const { userName, email, name } = get(this, 'sessionUser.currentUser') || {};
-    const avatar = getAvatarProps(avatarEntityProps)({ userName, email, name });
+    const avatar = makeAvatar(avatarEntityProps)({ userName, email, name });
 
     /**
      * properties for the navigation link to allow a user to provide feedback
