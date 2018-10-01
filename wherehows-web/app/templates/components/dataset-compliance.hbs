@@ -25,7 +25,7 @@
               {{#if showAdvancedEditApplyStep}}
 
                 {{#track-ui-event category=trackableCategory.Compliance action=trackableEvent.Compliance.ManualApply
-                                  name=editStep.name as |metrics|}}
+                                  name=editTarget as |metrics|}}
                   <button
                     class="nacho-button nacho-button--large-inverse action-bar__item"
                     title="Apply JSON"
@@ -172,7 +172,19 @@
       {{else}}
 
         {{#if (or isReadOnly (eq editTarget ComplianceEdit.CompliancePolicy))}}
-          {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+          {{#datasets/compliance/schema-entities
+            isEditing=(readonly isEditing)
+            wikiLinks=(readonly wikiLinks)
+            fieldReviewOption=(readonly fieldReviewOption)
+            foldedChangeSet=(readonly foldedChangeSet)
+            unspecifiedTags=(readonly unspecifiedTags)
+            setUnspecifiedTagsAsNoneTask=setUnspecifiedTagsAsNoneTask
+            toggleEditing=toggleEditing
+            showGuidedEditMode=(action "onShowGuidedEditMode")
+            fieldReviewChange=(action "onFieldReviewChange")}}
+            {{partial "datasets/dataset-compliance/dataset-compliance-entities"}}
+          {{/datasets/compliance/schema-entities}}
+
         {{/if}}
 
       {{/if}}
