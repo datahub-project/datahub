@@ -1,1 +1,92 @@
+<section class="metadata-prompt">
+  <header class="metadata-prompt__header">
+    <p>
+      {{if isEditing
+      "Does any field in the schema contain an IDs (e.g. Member ID, Enterprise Profile ID etc) or other PII
+      information?"
+      "IDs and PII in the schema"}}
+
+      {{more-info
+      link=@wikiLinks.gdprPii
+      tooltip="Click for more information on Schema field format and types"
+      }}
+
+    </p>
+  </header>
+</section>
+
+<section class="compliance-entities-meta">
+  <button
+    class="nacho-button nacho-button{{if showGuidedComplianceEditMode '--inverse' '--secondary'}}"
+    onclick={{action "onShowGuidedEditMode" true}}>
+    {{tooltip-on-element
+      text="Show Guided View"
+    }}
+
+    {{fa-icon "table" aria-label="Show Guided View"}}
+  </button>
+
+  <button
+    class="nacho-button nacho-button{{if showGuidedComplianceEditMode '--secondary' '--inverse'}}"
+    onclick={{action "onShowGuidedEditMode" false}}>
+    {{tooltip-on-element
+      text="Show Advanced View"
+    }}
+
+    {{fa-icon "code" aria-label="Show Advanced View"}}
+  </button>
+</section>
+
+<section class="compliance-entities-meta">
+  {{#if showGuidedComplianceEditMode}}
+    {{ember-selector
+      values=fieldReviewOptions
+      selected=(readonly fieldReviewOption)
+      selectionDidChange=(action "onFieldReviewChange")
+    }}
+
+    <span class="dataset-compliance-fields__filter-count">
+      {{pluralize foldedChangeSet.length "field"}}
+    </span>
+  {{/if}}
+
+  {{#if isEditing}}
+
+    <div class="compliance-entities-meta__secondary">
+      {{#if (and unspecifiedTags showGuidedComplianceEditMode)}}
+        <p class="set-fields-to-none-text">Set all unspecified field types to {{ComplianceFieldIdValue.None}}</p>
+
+        {{#track-ui-event category=trackableCategory.Compliance
+                          action=trackableEvent.Compliance.SetUnspecifiedAsNone as |metrics|}}
+          <button
+            class="nacho-button nacho-button--large nacho-button--secondary action-bar__item"
+            onclick={{action metrics.trackOnAction (perform setUnspecifiedTagsAsNoneTask)}}>
+
+            {{#if setUnspecifiedTagsAsNoneTask.isRunning}}
+              {{pendulum-ellipsis-animation}}
+            {{else}}
+              Set {{pluralize unspecifiedTags.length "tag"}} to {{ComplianceFieldIdValue.None}}
+            {{/if}}
+
+          </button>
+        {{/track-ui-event}}
+      {{/if}}
+    </div>
+
+  {{else}}
+
+    <div class="compliance-entities-meta__secondary">
+      <button
+        class="nacho-button nacho-button--tertiary"
+        onclick={{action toggleEditing true ComplianceEdit.CompliancePolicy}}>
+
+        <i class="fa fa-pencil" aria-label="Edit Compliance Policy"></i>
+
+        Edit
+      </button>
+    </div>
+
+  {{/if}}
+</section>
+
 {{yield}}
