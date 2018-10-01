@@ -78,6 +78,10 @@ export default class ComplianceExportPolicy extends Component.extend({
    */
   exportPolicyData: IDatasetExportPolicy | undefined;
 
+  /**
+   * Calculates whether we should show "no export policy defined for this dataset"
+   * @type {ComputedProperty<boolean>}
+   */
   @computed('exportPolicyData', 'isEditing')
   get showExportPolicyUndefined(): boolean {
     return !get(this, 'isEditing') && !get(this, 'exportPolicyData');
