@@ -10,7 +10,7 @@ import { typeInSearch } from 'ember-power-select/test-support/helpers';
 interface ISearchBoxContract {
   placeholder: string;
   text?: string;
-  onUserType: () => PromiseLike<Array<string>>;
+  onTypeahead: () => PromiseLike<Array<string>>;
   onSearch: (text: string) => void;
 }
 
@@ -38,7 +38,7 @@ const getBaseTest = async (test: ISearchBoxTestContext, override: ISearchBoxCont
   const props: ISearchBoxContract = {
     placeholder: 'this is my placeholder',
     text: undefined,
-    onUserType: async () => [],
+    onTypeahead: async () => [],
     onSearch: () => {},
     ...override
   };
@@ -49,7 +49,7 @@ const getBaseTest = async (test: ISearchBoxTestContext, override: ISearchBoxCont
     {{#search/search-box
       placeholder=(readonly placeholder)
       text=(readonly text)
-      onUserType=(action onUserType)
+      onTypeahead=(action onTypeahead)
       onSearch=(action onSearch) as |suggestion|}}
       {{suggestion}}
     {{/search/search-box}}
@@ -96,7 +96,7 @@ module('Integration | Component | search/search-box', function(hooks) {
 
   test('show list when text present and focus', async function(this: ISearchBoxTestContext, assert) {
     const searchOptions = ['one', 'two'];
-    await getBaseTest(this, { text: 'search this', onUserType: async () => searchOptions });
+    await getBaseTest(this, { text: 'search this', onTypeahead: async () => searchOptions });
 
     await focusInput();
     const domOptions = querySelectorAll(this, optionSelector);
@@ -128,7 +128,7 @@ module('Integration | Component | search/search-box', function(hooks) {
   test('request not completed, will be cancelled on blur', async function(this: ISearchBoxTestContext, assert) {
     let cancelled = false;
     // Does not ever resolve
-    const onUserType = () => {
+    const onTypeahead = () => {
       return {
         cancel: () => {
           cancelled = true;
@@ -136,7 +136,7 @@ module('Integration | Component | search/search-box', function(hooks) {
       };
     };
 
-    await getBaseTest(this, { onUserType });
+    await getBaseTest(this, { onTypeahead });
     await typeInSearch('something');
     await blurInput();
 
@@ -145,7 +145,7 @@ module('Integration | Component | search/search-box', function(hooks) {
 
   test('when suggestions opens, no suggestion is selected', async function(this: ISearchBoxTestContext, assert) {
     const searchOptions = ['one', 'two'];
-    await getBaseTest(this, { text: 'search this', onUserType: async () => searchOptions });
+    await getBaseTest(this, { text: 'search this', onTypeahead: async () => searchOptions });
     await focusInput();
 
     assert.equal(querySelectorAll(this, '.ember-power-select-option[aria-current=true]').length, 0);
@@ -158,7 +158,7 @@ module('Integration | Component | search/search-box', function(hooks) {
       searchedWord = word;
     };
     const searchOptions = ['one', 'two'];
-    await getBaseTest(this, { text: expectedSearch, onUserType: async () => searchOptions, onSearch });
+    await getBaseTest(this, { text: expectedSearch, onTypeahead: async () => searchOptions, onSearch });
     await focusInput();
 
     await click('.ember-power-select-option:first-child');
@@ -177,7 +177,7 @@ module('Integration | Component | search/search-box', function(hooks) {
       searchedWord = word;
     };
 
-    await getBaseTest(this, { text: expectedSearch, onSearch, onUserType: async () => searchOptions });
+    await getBaseTest(this, { text: expectedSearch, onSearch, onTypeahead: async () => searchOptions });
     await focusInput();
     await triggerEvent('form', 'submit');
     await assert.equal(searchedWord, expectedSearch);

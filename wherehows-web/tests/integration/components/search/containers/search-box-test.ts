@@ -27,7 +27,7 @@ const containerComponentTest = (test: TestContext, testFn: (me: Component) => vo
 };
 
 interface IContainerStub extends Component {
-  onUserType: (word: string) => TaskInstance<Array<string>>;
+  onTypeahead: (word: string) => TaskInstance<Array<string>>;
 }
 
 module('Integration | Component | search/containers/search-box', function(hooks) {
@@ -35,7 +35,7 @@ module('Integration | Component | search/containers/search-box', function(hooks)
 
   test('it renders', async function(assert) {
     await render(hbs`
-      {{#search/containers/search-box  as |keyword placeholder onUserType onSearch|}}
+      {{#search/containers/search-box  as |keyword placeholder onTypeahead onSearch|}}
         template block text
       {{/search/containers/search-box}}
     `);
@@ -43,35 +43,35 @@ module('Integration | Component | search/containers/search-box', function(hooks)
     assert.equal(getText(this).trim(), 'template block text');
   });
 
-  test('onUserType', async function(this: ITestWithMirageContext, assert) {
+  test('onTypeahead', async function(this: ITestWithMirageContext, assert) {
     const apiHandler = getMirageHandle(this, '/api/v1/autocomplete/datasets', 'get');
     assert.expect(6);
 
     containerComponentTest(this, async (component: IContainerStub) => {
       // dont return anything with less than 3
-      const results1 = await component.onUserType('h');
+      const results1 = await component.onTypeahead('h');
       assert.equal(results1.length, 0);
 
       // return list
-      const results2 = await component.onUserType('hol');
+      const results2 = await component.onTypeahead('hol');
       assert.ok(results2.length > 0);
 
       // cache return
-      const results3 = await component.onUserType('hol');
+      const results3 = await component.onTypeahead('hol');
       assert.ok(results3.length > 0);
       assert.equal(apiHandler.numberOfCalls, 1, 'cached return');
 
       // debounce
-      component.onUserType('hola');
-      component.onUserType('hola ');
-      const results4 = await component.onUserType('hola nacho');
+      component.onTypeahead('hola');
+      component.onTypeahead('hola ');
+      const results4 = await component.onTypeahead('hola nacho');
       assert.ok(results4.length > 0);
       assert.equal(apiHandler.numberOfCalls, 2, 'App debounces calls');
     });
 
     await render(hbs`
-      {{#search/containers/search-box  as |keyword placeholder onUserType onSearch|}}
-        {{container-stub onUserType=(action onUserType)}}
+      {{#search/containers/search-box  as |keyword placeholder onTypeahead onSearch|}}
+        {{container-stub onTypeahead=(action onTypeahead)}}
       {{/search/containers/search-box}}
     `);
   });

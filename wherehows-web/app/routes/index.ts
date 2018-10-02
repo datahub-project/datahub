@@ -22,10 +22,10 @@ export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {
 
   /**
    * Perform post model operations
-   * @param {import('ember').Ember.Transition} transition
+   * @param {EmberTransition} transition
    * @return {Promise}
    */
-  async beforeModel(transition: import('ember').Ember.Transition) {
+  async beforeModel(transition: EmberTransition) {
     super.beforeModel(transition);
 
     await this._trackCurrentUser();
