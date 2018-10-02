@@ -1,7 +1,7 @@
-{{#dataset-table fields=filteredRelationships as |relationTable|}}
+{{#dataset-table fields=filteredRelationships class="relationship-table" as |relationTable|}}
   {{#relationTable.head as |head|}}
-    {{#head.column}}Dataset{{/head.column}}
-    {{#head.column}}
+    {{#head.column class="relationship-table__dataset"}}Dataset{{/head.column}}
+    {{#head.column class="relationship-table__type"}}
 
       {{#nacho/dropdown/hover-dropdown
         dropDownItems=relationshipTypes
@@ -11,8 +11,9 @@
       {{/nacho/dropdown/hover-dropdown}}
 
     {{/head.column}}
-    {{#head.column}}Actor{{/head.column}}
-    {{#head.column}}Last Modified{{/head.column}}
+    {{#head.column class="relationship-table__platform"}}Platform{{/head.column}}
+    {{#head.column class="relationship-table__actor"}}Actor{{/head.column}}
+    {{#head.column class="relationship-table__modified"}}Last Modified{{/head.column}}
   {{/relationTable.head}}
 
   {{#relationTable.body as |body|}}
@@ -27,6 +28,9 @@
         {{/row.cell}}
         {{#row.cell}}
           {{titleize lineage.type}}
+        {{/row.cell}}
+        {{#row.cell}}
+          {{titleize lineage.dataset.platform}}
         {{/row.cell}}
         {{#row.cell}}
           {{lineage.actor}}
