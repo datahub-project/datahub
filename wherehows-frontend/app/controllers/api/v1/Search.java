@@ -40,12 +40,18 @@ public class Search extends Controller {
   private static final String AUTOCOMPLETE_DATASET_KEY = "autocomplete.dataset";
   private static final int DEFAULT_AUTOCOMPLETE_SIZE = 20;
   private static final int DEFAULT_AUTOCOMPLETE_CACHE_TIME = 3600; // cache for an hour
+  private static final String DEFAULT_AUTOCOMPLETE_FIELD = "name";
 
   private static final SearchDao SEARCH_DAO = Application.DAO_FACTORY.getSearchDao();
 
   public static Result getSearchAutoComplete() {
-    // if not input, then get all search names (without limit).
+
     String input = request().getQueryString("input");
+    String facet = request().getQueryString("facet");
+    if (isBlank(facet)) {
+      facet = DEFAULT_AUTOCOMPLETE_FIELD;
+    }
+
     int size = 0;  // size 0 means no limit
     if (isNotBlank(input)) {
       size = NumberUtils.toInt(request().getQueryString("size"), DEFAULT_AUTOCOMPLETE_SIZE);
@@ -54,7 +60,7 @@ public class Search extends Controller {
     String cacheKey = AUTOCOMPLETE_ALL_KEY + (isNotBlank(input) ? "." + input : "-all");
     List<String> names = (List<String>) Cache.get(cacheKey);
     if (names == null || names.size() == 0) {
-      names = SEARCH_DAO.getAutoCompleteList(ELASTICSEARCH_DATASET_URL, input, size);
+      names = SEARCH_DAO.getAutoCompleteList(ELASTICSEARCH_DATASET_URL, input, facet, size);
       Cache.set(cacheKey, names, DEFAULT_AUTOCOMPLETE_CACHE_TIME);
     }
 
@@ -66,9 +72,14 @@ public class Search extends Controller {
   }
 
   public static Result getSearchAutoCompleteForDataset() {
-    // if not input, then get all search names (without limit).
     String input = request().getQueryString("input");
-    int size = 0;  // size 0 means no limit
+
+    String facet = request().getQueryString("facet");
+    if (isBlank(facet)) {
+      facet = DEFAULT_AUTOCOMPLETE_FIELD;
+    }
+
+    int size = 0;  // 0 means no limit
     if (isNotBlank(input)) {
       size = NumberUtils.toInt(request().getQueryString("size"), DEFAULT_AUTOCOMPLETE_SIZE);
     }
@@ -76,7 +87,7 @@ public class Search extends Controller {
     String cacheKey = AUTOCOMPLETE_DATASET_KEY + (isNotBlank(input) ? "." + input : "-all");
     List<String> names = (List<String>) Cache.get(cacheKey);
     if (names == null || names.size() == 0) {
-      names = SEARCH_DAO.getAutoCompleteListDataset(ELASTICSEARCH_DATASET_URL, input, size);
+      names = SEARCH_DAO.getAutoCompleteListDataset(ELASTICSEARCH_DATASET_URL, input, facet, size);
       Cache.set(cacheKey, names, DEFAULT_AUTOCOMPLETE_CACHE_TIME);
     }
 

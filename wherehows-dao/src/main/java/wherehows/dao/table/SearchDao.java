@@ -34,20 +34,20 @@ public class SearchDao {
 
   private static final ObjectMapper _OM = new ObjectMapper();
 
-  public List<String> getAutoCompleteList(String elasticSearchUrl, String input, int limit) {
-    return getAutoCompleteListDataset(elasticSearchUrl, input, limit / 3);
+  public List<String> getAutoCompleteList(String elasticSearchUrl, String input, String facet, int limit) {
+    return getAutoCompleteListDataset(elasticSearchUrl, input, facet, limit / 3);
   }
 
-  public List<String> getAutoCompleteListDataset(String elasticSearchUrl, String input, int limit) {
-    String fieldName = "name_suggest";
-    return getAutoCompleteListbyES(elasticSearchUrl, fieldName, input, limit);
+  public List<String> getAutoCompleteListDataset(String elasticSearchUrl, String input, String facet, int limit) {
+    return getAutoCompleteListbyES(elasticSearchUrl, input, facet, limit);
   }
 
-  public List<String> getAutoCompleteListbyES(String elasticSearchUrl, String fieldName, String input, int limit) {
+  public List<String> getAutoCompleteListbyES(String elasticSearchUrl, String input, String fieldName, int limit) {
     // use elastic search completion suggester, ES will validate the input and limit
     List<String> completionSuggestionList = new ArrayList<>();
     Set<String> completionSuggestionSet = new HashSet<>();
 
+    fieldName = "name_suggest";
     ObjectNode keywordNode = generateElasticSearchCompletionSuggesterQuery(fieldName, input, limit);
     log.info("The completion suggester query sent to Elastic Search was: " + keywordNode);
 
