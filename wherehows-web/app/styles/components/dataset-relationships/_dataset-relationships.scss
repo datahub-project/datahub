@@ -1,5 +1,23 @@
 .dataset-relationships-container {
   margin-top: item-spacing(5);
+
+  .relationship-table {
+    &__type {
+      width: 180px;
+    }
+
+    &__platform {
+      width: 114px;
+    }
+
+    &__actor {
+      width: 228px;
+    }
+
+    &__modified {
+      width: 200px;
+    }
+  }
 }
 
 .dataset-relationships {
