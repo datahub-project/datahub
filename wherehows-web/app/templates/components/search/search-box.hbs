@@ -1,0 +1,28 @@
+<form class="form-group nacho-global-search" {{action onSubmit on="submit"}}>
+  <div class="input-group">
+    <label for="search-input" class="sr-only">Search</label>
+
+    {{#power-select-typeahead
+      selected=text
+      placeholder=placeholder
+      defaultHighlighted=(action defaultHighlighted)
+      loadingMessage=''
+      noMatchesMessage=''
+      renderInPlace=true
+      search=(action typeahead)
+      oninput=(action onInput)
+      onchange=(action onChange)
+      onblur=(action onBlur)
+      onfocus=(action onFocus)
+      dropdownClass="nacho-global-search__dropdown"
+      triggerClass="form-control nacho-global-search__text-input" as |suggestion|}}
+      {{suggestion}}
+    {{/power-select-typeahead}}
+
+    <span class="input-group-btn">
+      <button class="btn btn-default nacho-button--large search-button" type="submit" id="global-search-button">
+        <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+      </button>
+    </span>
+  </div>
+</form>

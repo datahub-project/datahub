@@ -72,7 +72,7 @@ export default class DatasetRoute extends Route {
     throw new TypeError(`Could not parse identifier ${dataset_id}. Please ensure format is valid.`);
   }
 
-  afterModel(resolvedModel: object, transition: import('ember').Ember.Transition): void {
+  afterModel(resolvedModel: object, transition: EmberTransition): void {
     const { dataset_id } = transition.params['datasets.dataset'];
 
     // Check is dataset_id is a number, and replace with urn

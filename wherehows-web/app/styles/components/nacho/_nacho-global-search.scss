@@ -6,22 +6,57 @@ $app-search-bar-height: 40px;
 
   &__text-input {
     height: $app-search-bar-height;
+    background: transparent;
+
+    // trying to be more specific than other rule
+    &.form-control:not(:first-child):not(:last-child),
+    & {
+      border-radius: 2px 0 0 2px;
+    }
+
+    input {
+      border: 0;
+      transition-duration: 334ms;
+      transition-property: border-color, box-shadow;
+      box-sizing: border-box;
+      border-radius: 2px 0 0 2px;
+
+      &:focus {
+        border: 0;
+        box-shadow: 0px 0px 2px 1px get-color(blue7) inset;
+      }
+    }
   }
 
-  /**
-   *  Rules for the search bar filter component
-   */
-  &__filter {
-    width: 75px;
-    display: inline-flex;
-    white-space: nowrap;
-    overflow: hidden;
-    justify-content: flex-end;
+  .input-group-btn:last-child > .btn {
+    margin-left: 0px;
   }
 
   .search-button {
     border: 1px solid $secondary-color;
     background-color: $secondary-color;
     color: $text-color;
+  }
+
+  &__trigger {
+    border-radius: 2px 0 0 2px;
+  }
+
+  &__dropdown {
+    &.ember-power-select-dropdown.ember-basic-dropdown-content--in-place {
+      top: $app-search-bar-height;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+      border: 0px;
+    }
+
+    .ember-power-select-options {
+      max-height: 300px;
+      border: 1px solid get-color(gray3);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+
+      &:empty {
+        border: 0;
+      }
+    }
   }
 }
