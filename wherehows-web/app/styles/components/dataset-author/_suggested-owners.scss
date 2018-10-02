@@ -113,6 +113,9 @@
       }
 
       &__profile {
+        $max-profile-width: 108px;
+        display: flex;
+
         &__pic {
           float: left;
           margin-right: 6px;
@@ -121,10 +124,10 @@
 
         &__name {
           float: left;
-          max-width: 108px;
+          max-width: $max-profile-width;
 
           &__full {
-            max-width: 108px;
+            max-width: $max-profile-width;
             font-size: 16px;
             font-weight: 400;
             white-space: nowrap;
@@ -135,6 +138,9 @@
 
           &__username {
             font-size: 14px;
+            max-width: $max-profile-width;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
         }
       }
