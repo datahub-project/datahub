@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { get, computed, setProperties, getProperties } from '@ember/object';
+import { computed, setProperties, getProperties, get } from '@ember/object';
 import { task } from 'ember-concurrency';
 import ComputedProperty from '@ember/object/computed';
 import { IChartDatum } from 'wherehows-web/typings/app/visualization/charts';
@@ -145,7 +145,7 @@ export default class DatasetHealthContainer extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getContainerDataTask = task(function*(this: DatasetHealthContainer): IterableIterator<Promise<IDatasetHealth>> {
-    const health: IDatasetHealth = yield readDatasetHealthByUrn(get(this, 'urn'));
+    const health: IDatasetHealth = yield readDatasetHealthByUrn(this.urn);
 
     const details = health.validations || [];
     const total = details.length;
