@@ -1,18 +1,8 @@
 import Component from '@ember/component';
 import { set, setProperties } from '@ember/object';
-import { TaskInstance } from 'ember-concurrency';
 import { IPowerSelectAPI } from 'wherehows-web/typings/modules/power-select';
-
-type PromiseOrTask<T> = PromiseLike<T> | TaskInstance<T> | undefined;
-
-/**
- * Will check if the type is a promise or a task. The difference is that
- * a task is cancellable where as a promise not (for now).
- * @param obj the object to check
- */
-function isTask<T>(obj: PromiseOrTask<T>): obj is TaskInstance<T> {
-  return typeof obj !== 'undefined' && (<TaskInstance<T>>obj).cancel !== undefined;
-}
+import { isTask } from 'wherehows-web/utils/helpers/functions';
+import { PromiseOrTask } from 'wherehows-web/typings/generic';
 
 /**
  * Presentation component that renders a search box
@@ -77,45 +67,12 @@ export default class SearchBox extends Component {
   }
 
   /**
-   * Will blur the input
-   */
-  blur() {
-    this.close();
-
-    if (this.element) {
-      const input = this.element.querySelector('input');
-      if (input) {
-        input.blur();
-      }
-    }
-  }
-
-  /**
-   * Will open the suggestion box if power select is available
-   */
-  open() {
-    if (this.powerSelectApi) {
-      this.powerSelectApi.actions.open();
-    }
-  }
-
-  /**
-   * Will close the suggestion box if power select is available
-   */
-  close() {
-    if (this.powerSelectApi) {
-      this.powerSelectApi.actions.close();
-    }
-  }
-
-  /**
    * When the input transitioned from focus->blur
    * Reset suggestions, save text and cancel previous search.
    */
   onBlur() {
-    set(this, 'text', this.inputText);
     this.cancelSearchTask();
-    set(this, 'suggestions', []);
+    set(this, 'text', this.inputText);
   }
 
   /**
@@ -123,25 +80,14 @@ export default class SearchBox extends Component {
    * Restore inputText value from text, open suggestions, and search latest term
    */
   onFocus(pws: IPowerSelectAPI<string>) {
-    set(this, 'inputText', this.text);
+    setProperties(this, {
+      inputText: this.text,
+      powerSelectApi: pws
+    });
     if (this.text) {
       pws.actions.search(this.text);
       pws.actions.open();
     }
-  }
-
-  /**
-   * When suggestion box opens
-   */
-  onOpen(pws: IPowerSelectAPI<string>) {
-    set(this, 'powerSelectApi', pws);
-  }
-
-  /**
-   * When suggestion box closes
-   */
-  onClose() {
-    set(this, 'powerSelectApi', undefined);
   }
 
   /**
@@ -153,13 +99,13 @@ export default class SearchBox extends Component {
     this.cancelSearchTask();
 
     const searchTask = this.onUserType(text);
-    setProperties(this, { searchTask });
+    set(this, 'searchTask', searchTask);
     return searchTask;
   }
 
   /**
-   * Power select forces us to return undefined so
-   * highlighted is undefined.
+   * Power select forces us to return undefined to prevent to select
+   * the first item on the list.
    */
   defaultHighlighted() {
     return;
@@ -178,9 +124,11 @@ export default class SearchBox extends Component {
    */
   onChange(selected: string) {
     if (selected && selected.trim().length > 0) {
-      set(this, 'text', selected);
+      setProperties(this, {
+        text: selected,
+        inputText: selected
+      });
       this.onSearch(selected);
-      this.blur();
     }
   }
 
@@ -189,8 +137,12 @@ export default class SearchBox extends Component {
    */
   onSubmit() {
     if (this.inputText && this.inputText.trim().length > 0) {
+      // this will prevent search text from jitter
+      set(this, 'text', this.inputText);
       this.onSearch(this.inputText);
-      this.blur();
+      if (this.powerSelectApi) {
+        this.powerSelectApi.actions.close();
+      }
     }
   }
 }

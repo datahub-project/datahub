@@ -1,3 +1,5 @@
+import { TaskInstance } from 'ember-concurrency';
+
 /**
  * Create a generic String-Union key -> value mapping constraint
  * where the string union must be keys on the map and values
@@ -18,4 +20,10 @@ interface IObject<T> {
   [K: string]: T;
 }
 
-export { StringUnionKeyToValue, StringEnumKeyToEnumValue, IObject };
+/**
+ * A task can be used instead of a promise in some cases, but a task
+ * has the advantage of being cancellable. See ember-concurrency.
+ */
+type PromiseOrTask<T> = PromiseLike<T> | TaskInstance<T> | undefined;
+
+export { StringUnionKeyToValue, StringEnumKeyToEnumValue, IObject, PromiseOrTask };
