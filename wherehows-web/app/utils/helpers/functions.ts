@@ -1,3 +1,6 @@
+import { PromiseOrTask } from 'wherehows-web/typings/generic';
+import { TaskInstance } from 'ember-concurrency';
+
 /**
  * Negates a boolean function
  * @param {(arg: T) => boolean} fn the boolean function to negate
@@ -18,4 +21,13 @@ const identity = <T>(x: T): T => x;
  */
 const noop: (...args: Array<any>) => any = () => {};
 
-export { not, identity, noop };
+/**
+ * Will check if the type is a promise or a task. The difference is that
+ * a task is cancellable where as a promise not (for now).
+ * @param obj the object to check
+ */
+function isTask<T>(obj: PromiseOrTask<T>): obj is TaskInstance<T> {
+  return typeof obj !== 'undefined' && (<TaskInstance<T>>obj).cancel !== undefined;
+}
+
+export { not, identity, noop, isTask };

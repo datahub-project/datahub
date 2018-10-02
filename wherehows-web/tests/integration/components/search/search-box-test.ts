@@ -142,4 +142,46 @@ module('Integration | Component | search/search-box', function(hooks) {
 
     assert.ok(cancelled);
   });
+
+  test('when suggestions opens, no suggestion is selected', async function(this: ISearchBoxTestContext, assert) {
+    const searchOptions = ['one', 'two'];
+    await getBaseTest(this, { text: 'search this', onUserType: async () => searchOptions });
+    await focusInput();
+
+    assert.equal(querySelectorAll(this, '.ember-power-select-option[aria-current=true]').length, 0);
+  });
+
+  test('click on suggestion should work', async function(this: ISearchBoxTestContext, assert) {
+    const expectedSearch = 'expected search';
+    let searchedWord = '';
+    const onSearch = (word: string) => {
+      searchedWord = word;
+    };
+    const searchOptions = ['one', 'two'];
+    await getBaseTest(this, { text: expectedSearch, onUserType: async () => searchOptions, onSearch });
+    await focusInput();
+
+    await click('.ember-power-select-option:first-child');
+
+    assert.equal(searchedWord, searchOptions[0]);
+  });
+
+  test('pressing enter should trigger search and suggestion box should go away', async function(
+    this: ISearchBoxTestContext,
+    assert
+  ) {
+    const searchOptions = ['one', 'two'];
+    const expectedSearch = 'expected search';
+    let searchedWord = '';
+    const onSearch = (word: string) => {
+      searchedWord = word;
+    };
+
+    await getBaseTest(this, { text: expectedSearch, onSearch, onUserType: async () => searchOptions });
+    await focusInput();
+    await triggerEvent('form', 'submit');
+    await assert.equal(searchedWord, expectedSearch);
+
+    assert.equal(querySelectorAll(this, '.ember-power-select-option').length, 0);
+  });
 });
