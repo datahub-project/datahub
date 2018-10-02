@@ -2,20 +2,22 @@
   margin-top: item-spacing(5);
 
   .relationship-table {
+    $cell-spacing: item-spacing(8);
+
     &__type {
-      width: 180px;
+      width: $cell-spacing * 3;
     }
 
     &__platform {
-      width: 114px;
+      width: $cell-spacing * 2;
     }
 
     &__actor {
-      width: 228px;
+      width: $cell-spacing * 3;
     }
 
     &__modified {
-      width: 200px;
+      width: $cell-spacing * 3;
     }
   }
 }
