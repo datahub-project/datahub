@@ -1,5 +1,5 @@
 .dataset-pill {
-  & + & {
+  & {
     > a {
       @include on-event(true) {
         color: inherit;
