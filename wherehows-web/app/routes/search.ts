@@ -32,7 +32,7 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    * Add spinner when model is loading
    */
   @action
-  loading(transition: import('ember').Ember.Transition): void {
+  loading(transition: EmberTransition): void {
     let controller = this.controllerFor('search');
     set(controller, 'searchLoading', true);
     transition.promise!.finally(function() {
@@ -46,7 +46,7 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    * @param transition Ember transition
    */
   @action
-  willTransition(transition: import('ember').Ember.Transition & { targetName: string }) {
+  willTransition(transition: EmberTransition & { targetName: string }) {
     if (transition.targetName !== 'search') {
       set(this.search, 'keyword', '');
     }

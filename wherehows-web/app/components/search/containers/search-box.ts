@@ -3,10 +3,10 @@ import { readSuggestions } from 'wherehows-web/utils/api/search/suggestions';
 import { RouterService } from 'ember';
 import { service } from '@ember-decorators/service';
 import { task, timeout } from 'ember-concurrency';
-import { computed } from '@ember-decorators/object';
 import SearchService from 'wherehows-web/services/search';
 import { ISuggestionsResponse } from 'wherehows-web/typings/app/search/suggestions';
 import { isEmpty } from '@ember/utils';
+import { alias } from '@ember-decorators/object/computed';
 
 /**
  * Runtime cache of recently seen typeahead results
@@ -34,27 +34,28 @@ export default class SearchBoxContainer extends Component {
    * Search route will update the service with current keywords
    * since url will contain keyword
    */
-  @computed('search.keyword')
-  get keyword(): string {
-    return this.search.keyword;
-  }
+  @alias('search.keyword')
+  keyword: string;
 
   /**
    * Suggestions handle. Will debounce, cache suggestions requests
    * @param  {string} text suggestion for this text
    */
-  onUserType = task(function*(this: SearchBoxContainer, text: string) {
+  onTypeahead = task<Array<string> | Promise<ISuggestionsResponse | void>, string>(function*(text: string) {
     if (text.length > 2) {
       const cachedKeywords = keywordResultsCache[String(text)];
       if (!isEmpty(cachedKeywords)) {
-        return yield cachedKeywords;
+        return cachedKeywords;
       }
+
+      // debounce: see https://ember-power-select.com/cookbook/debounce-searches/
       yield timeout(200);
+
       const response: ISuggestionsResponse = yield readSuggestions({ input: text });
       keywordResultsCache[String(text)] = response.source;
       return response.source;
     } else {
-      return yield [];
+      return [];
     }
   }).restartable();
 
@@ -62,7 +63,7 @@ export default class SearchBoxContainer extends Component {
    * When search actually happens, then we transition to a new route.
    * @param text search term
    */
-  onSearch(text: string) {
+  onSearch(text: string): void {
     this.router.transitionTo('search', {
       queryParams: {
         keyword: text,
