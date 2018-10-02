@@ -136,7 +136,14 @@ export default class SearchBox extends Component {
    */
   onSubmit(): void {
     if (this.inputText && this.inputText.trim().length > 0) {
-      // this will prevent search text from jitter
+      // this will prevent search text from jitter,
+      // since inputText may differ from text, PWS will try to restore
+      // text since there was not a selection, but we will set text from the route
+      // at a later point. That will cause the search box to show  for example:
+      // => car // press enter
+      // => somethingelse //after onSubmit
+      // => car // route sets car
+
       set(this, 'text', this.inputText);
       this.onSearch(this.inputText);
       if (this.powerSelectApi) {
