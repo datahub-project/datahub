@@ -33,7 +33,7 @@ export default class HealthScoreGauge extends Component {
    * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   getHealthScoreTask = task(function*(this: HealthScoreGauge): IterableIterator<Promise<IDatasetHealth>> {
-    const health: IDatasetHealth = yield readDatasetHealthByUrn(get(this, 'urn'));
+    const health: IDatasetHealth = yield readDatasetHealthByUrn(this.urn);
     set(this, 'healthScore', health.score * 100 || 0);
   }).restartable();
 }
