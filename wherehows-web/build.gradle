@@ -1,4 +1,4 @@
-apply from: '../gradle/scripts/ember.gradle'
+apply from: 'ember.gradle'
 
 configurations {
   assets
