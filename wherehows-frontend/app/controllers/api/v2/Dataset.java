@@ -100,7 +100,7 @@ public class Dataset extends Controller {
             .collect(Collectors.toList()))));
       }
 
-      List<String> names = DATASET_VIEW_DAO.listSegments(platform, "PROD", getPlatformPrefix(platform, prefix));
+      List<String> names = DATASET_VIEW_DAO.listSegments(platform, "PROD", prefix);
 
       // if prefix is a dataset name, then return empty list
       if (names.size() == 1 && names.get(0).equalsIgnoreCase(prefix)) {
