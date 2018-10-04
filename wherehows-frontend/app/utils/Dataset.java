@@ -13,91 +13,14 @@
  */
 package utils;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import org.apache.commons.lang3.StringUtils;
-import play.Logger;
-import play.cache.Cache;
 import wherehows.models.table.User;
 
 
 public class Dataset {
 
   private Dataset() {
-  }
-
-  public static final String URNIDMAPKey = "impactUrnIDMap";
-  private static Cache currentCache = null;
-
-  public static Cache getChacheInstance() {
-    if (currentCache == null) {
-      currentCache = new Cache();
-    }
-    return currentCache;
-  }
-
-  public static JsonNode addDatasetIDtoImpactAnalysisResult(JsonNode impacts) {
-    if (impacts == null || (!impacts.isArray())) {
-      return impacts;
-    }
-
-    try {
-      Map<String, Integer> urnIDMap = new HashMap<String, Integer>();
-      if (getChacheInstance().get("URNIDMAPKey") != null) {
-        urnIDMap = (Map<String, Integer>) getChacheInstance().get("URNIDMAPKey");
-      } else {
-        FileReader fr = new FileReader("/var/tmp/wherehows/resource/dataset_urn_list.txt");
-        BufferedReader br = new BufferedReader(fr);
-        String line;
-
-        while ((line = br.readLine()) != null) {
-          String record = line.substring(0, line.length());
-          String[] values = record.split("\t");
-          if (values != null && values.length == 2) {
-            String urn = values[0];
-            Integer id = Integer.parseInt(values[1]);
-            if (StringUtils.isNotBlank(urn) && id != null && id != 0) {
-              urnIDMap.put(urn, id);
-            }
-          }
-        }
-        if (urnIDMap != null && urnIDMap.size() > 0) {
-          getChacheInstance().set(URNIDMAPKey, urnIDMap);
-        }
-      }
-
-      if (urnIDMap != null && urnIDMap.size() > 0) {
-        Iterator<JsonNode> arrayIterator = impacts.elements();
-        if (arrayIterator != null) {
-          while (arrayIterator.hasNext()) {
-            JsonNode node = arrayIterator.next();
-            if (node.isContainerNode() && node.has("urn")) {
-              String urn = node.get("urn").asText();
-              ObjectNode objectNode = (ObjectNode) node;
-              int index = urn.lastIndexOf("/");
-              String name = urn.substring(index + 1);
-              objectNode.put("name", name);
-              if (urnIDMap.containsKey(urn)) {
-                Integer id = urnIDMap.get(urn);
-                objectNode.put("id", id);
-              }
-            }
-          }
-        }
-      }
-    } catch (Exception e) {
-      Logger.error(e.getMessage());
-    }
-    return impacts;
   }
 
   public static List<User> fillDatasetOwnerList(String[] owners, String[] ownerNames, String[] ownerEmails) {
@@ -114,35 +37,5 @@ public class Dataset {
       }
     }
     return users;
-  }
-
-  /**
-   * Generate prefix for dataset name segment search. Append '.' or '/' according to platform.
-   * @param platform String
-   * @param name original prefix name
-   * @return prefix to be used in next listNames
-   */
-  public static String getPlatformPrefix(@Nonnull String platform, @Nullable String name) {
-    String delim = "HDFS".equalsIgnoreCase(platform) ? "/" : ".";
-
-    if (StringUtils.isBlank(name)) {
-      return "HDFS".equalsIgnoreCase(platform) ? "/" : "";
-    }
-    if (!name.endsWith(delim)) {
-      return name + delim;
-    }
-    return name;
-  }
-
-  /**
-   * Check if the prefix is dataset name or not (segment)
-   */
-  public static boolean listNamePrefixIsDataset(@Nonnull String platform, @Nullable String prefix) {
-    if (StringUtils.isBlank(prefix)) {
-      return false;
-    }
-
-    String delim = "HDFS".equalsIgnoreCase(platform) ? "/" : ".";
-    return !prefix.endsWith(delim);
   }
 }
