@@ -27,4 +27,8 @@ public class DatasetExportPolicy {
   private boolean containsUserActionGeneratedContent;
 
   private boolean containsUserDerivedContent;
+
+  private String modifiedBy;
+
+  private Long modifiedTime;
 }
