@@ -1,10 +1,12 @@
+apply plugin: 'distribution'
 apply from: 'ember.gradle'
 
 configurations {
   assets
 }
 
-task distZip(type: Zip, dependsOn: emberBuild) {
+distZip {
+  dependsOn emberBuild
   baseName 'wherehows-web'
   from 'dist'
 }
