@@ -33,6 +33,12 @@
       </button>
     {{/if}}
   </header>
+
+  <section>
+    <div class="last-saved-by-container last-saved-by-container--no-padding">
+      {{last-saved-by actor=exportPolicyData.modifiedBy time=exportPolicyData.modifiedTime}}
+    </div>
+  </section>
 </section>
 
 {{#if isEditing}}

@@ -144,6 +144,8 @@ export interface IDatasetExportPolicy {
   containsUserGeneratedContent: boolean;
   containsUserActionGeneratedContent: boolean;
   containsUserDerivedContent: boolean;
+  modifiedBy?: string;
+  modifiedTime?: number;
 }
 
 /**
