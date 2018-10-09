@@ -15,4 +15,8 @@
   text-align: right;
   margin-left: auto;
   padding: item-spacing(3 0);
+
+  &--no-padding {
+    padding: 0;
+  }
 }

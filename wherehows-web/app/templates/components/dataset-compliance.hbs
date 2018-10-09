@@ -76,12 +76,6 @@
         </section>
       {{/if}}
 
-      <div class="secondary-actions">
-        <div class="last-saved-by-container">
-          {{last-saved-by actor=complianceInfo.modifiedBy time=complianceInfo.modifiedTime}}
-        </div>
-      </div>
-
       {{#if (or isReadOnly (eq editTarget ComplianceEdit.ExportPolicy))}}
         {{datasets/compliance/export-policy
           exportPolicyData=exportPolicy
@@ -138,6 +132,12 @@
                 </div>
               {{/unless}}
             </header>
+
+            <section>
+              <div class="last-saved-by-container last-saved-by-container--no-padding">
+                {{last-saved-by actor=retentionPolicy.modifiedBy time=retentionPolicy.modifiedTime}}
+              </div>
+            </section>
           </section>
 
           {{purge-policy
@@ -178,6 +178,7 @@
             fieldReviewOption=(readonly fieldReviewOption)
             foldedChangeSet=(readonly foldedChangeSet)
             unspecifiedTags=(readonly unspecifiedTags)
+            complianceInfo=complianceInfo
             setUnspecifiedTagsAsNoneTask=setUnspecifiedTagsAsNoneTask
             toggleEditing=(action toggleEditing)
             showGuidedEditMode=(action "onShowGuidedEditMode")
