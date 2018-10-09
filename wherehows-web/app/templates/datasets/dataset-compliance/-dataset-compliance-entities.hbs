@@ -1,7 +1,9 @@
 <div class="dataset-compliance-fields__subtitle">
-  <div class="dataset-compliance-fields__review-hint">
-    {{fieldReviewHint}}
-  </div>
+  {{#if fieldReviewHint}}
+    <div class="dataset-compliance-fields__review-hint">
+      {{fieldReviewHint}}
+    </div>
+  {{/if}}
 </div>
 
 {{#if showGuidedComplianceEditMode}}
