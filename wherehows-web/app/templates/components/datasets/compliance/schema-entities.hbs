@@ -89,4 +89,10 @@
   {{/if}}
 </section>
 
+<section>
+  <div class="last-saved-by-container last-saved-by-container--no-padding">
+    {{last-saved-by actor=complianceInfo.modifiedBy time=complianceInfo.modifiedTime}}
+  </div>
+</section>
+
 {{yield}}
