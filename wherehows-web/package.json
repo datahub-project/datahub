@@ -14,7 +14,6 @@
     "build": "ember build",
     "start": "ember serve",
     "test": "./node_modules/.bin/ember test --launch Chrome",
-    "precommit": "lint-staged",
     "coverage": "COVERAGE=true npm run test && ./node_modules/.bin/codecov -f coverage/coverage-final.json",
     "eslint-check-prettier-conflict": "./node_modules/.bin/eslint --print-config .eslintrc.js | ./node_modules/.bin/eslint-config-prettier-check"
   },
@@ -91,7 +90,7 @@
     "eyeglass": "^1.3.0",
     "eyeglass-restyle": "^1.1.0",
     "highcharts": "^6.1.1",
-    "husky": "^0.14.3",
+    "husky": "^1.1.2",
     "ivy-tabs": "^3.1.0",
     "lint-staged": "^7.1.0",
     "loader.js": "^4.2.3",
@@ -141,5 +140,10 @@
     "paths": [
       "lib/ember-nearley"
     ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
   }
 }
