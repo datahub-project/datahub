@@ -3,11 +3,11 @@
     position: absolute;
     top: 0;
     left: 0;
+    width: 100%;
 
     .ember-power-select-typeahead-input {
       color: get-color(black, 0.5);
       border: none;
-      width: 178px;
       box-sizing: border-box;
     }
   }
@@ -17,6 +17,7 @@
 
     .ember-power-select-typeahead-trigger {
       background: transparent;
+      border: 1px solid get-color(gray4);
 
       .ember-power-select-typeahead-input {
         background: transparent;
