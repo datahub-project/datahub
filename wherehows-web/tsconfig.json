@@ -16,8 +16,14 @@
     "inlineSources": true,
     "baseUrl": ".",
     "module": "es6",
-    "lib": ["es2017.object", "es2016", "dom", "dom.iterable", "scripthost"],
-    "listEmittedFiles": true,
+    "lib": [
+      "es2017.object",
+      "es2016",
+      "dom",
+      "dom.iterable",
+      "scripthost"
+    ],
+    "listEmittedFiles": false,
     "experimentalDecorators": true,
     "downlevelIteration": true,
     "paths": {
@@ -25,10 +31,23 @@
         "tests/*"
       ],
       "wherehows-web/*": [
-        "app/*"
+        "app/*",
+        "lib/ember-nearley/app/*"
       ],
       "wherehows-web/mirage/*": [
         "mirage/*"
+      ],
+      "ember-nearley": [
+        "lib/ember-nearley/addon"
+      ],
+      "ember-nearley/*": [
+        "lib/ember-nearley/addon/*"
+      ],
+      "ember-nearley/test-support": [
+        "lib/ember-nearley/addon-test-support"
+      ],
+      "ember-nearley/test-support/*": [
+        "lib/ember-nearley/addon-test-support/*"
       ]
     }
   },

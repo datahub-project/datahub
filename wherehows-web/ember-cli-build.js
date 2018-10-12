@@ -2,7 +2,6 @@
 
 const EmberApp = require('ember-cli/lib/broccoli/ember-app');
 const Funnel = require('broccoli-funnel');
-const MergeTrees = require('broccoli-merge-trees');
 
 module.exports = function (defaults) {
   const app = new EmberApp(defaults, {
@@ -116,6 +115,12 @@ module.exports = function (defaults) {
   app.import('node_modules/scrollmonitor/scrollMonitor.js');
   app.import('vendor/shims/scrollmonitor.js');
 
+  app.import('node_modules/nearley/lib/nearley.js', {
+    using: [
+      { transformation: 'cjs', as: 'nearley' }
+    ]
+  });
+
   app.import('node_modules/restliparams/lib/index.js', {
     using: [{
       transformation: 'cjs',
@@ -123,5 +128,5 @@ module.exports = function (defaults) {
     }]
   });
 
-  return app.toTree(new MergeTrees([faFontTree, bsFontTree, treegridImgTree]));
+  return app.toTree([faFontTree, bsFontTree, treegridImgTree]);
 };
