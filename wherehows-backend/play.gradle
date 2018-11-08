@@ -1,0 +1,53 @@
+apply plugin: 'play'
+
+// Change this to listen on a different port
+project.ext.httpPort = 19001
+project.ext.playBinaryBaseName = "wherehows-backend"
+
+tasks.withType(PlayRun) {
+  httpPort = project.ext.httpPort
+}
+
+dependencies {
+  // User defined libraries (will be copied to lib/ before `play compile`)
+  play project(":wherehows-common")
+  play project(":wherehows-etl")
+  play project(":wherehows-dao")
+
+  play externalDependency.play_java_jdbc
+  play externalDependency.slf4j_api
+  play externalDependency.jasypt
+
+  playTest externalDependency.systemRules
+  playTest externalDependency.festAssert
+  playTest externalDependency.mockito
+}
+
+model {
+  components {
+    play {
+      platform play: '2.4.6', scala: '2.11', java: '1.8'
+
+      binaries.all {
+        tasks.withType(PlatformScalaCompile) {
+          scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
+        }
+      }
+
+    }
+  }
+  distributions {
+    playBinary {
+
+      baseName = project.ext.playBinaryBaseName
+      contents {
+        from("jobs") {
+          into "jobs"
+        }
+        from("../wherehows-data-model/ELASTICSEARCH") {
+          into "ELASTICSEARCH"
+        }
+      }
+    }
+  }
+}
