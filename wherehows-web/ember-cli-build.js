@@ -78,12 +78,6 @@ module.exports = function (defaults) {
     destDir: '/'
   });
 
-  const bsFontTree = new Funnel('node_modules/bootstrap/dist/fonts', {
-    srcDir: '/',
-    include: ['**/*.woff2', '**/*.woff', '**/*.ttf'],
-    destDir: '/assets/fonts'
-  });
-
   const treegridImgTree = new Funnel('node_modules/jquery-treegrid/img', {
     srcDir: '/',
     include: ['**/*.png'],
@@ -128,5 +122,5 @@ module.exports = function (defaults) {
     }]
   });
 
-  return app.toTree([faFontTree, bsFontTree, treegridImgTree]);
+  return app.toTree([faFontTree, treegridImgTree]);
 };

@@ -99,7 +99,7 @@
     "typescript": "^3.0.1"
   },
   "dependencies": {
-    "bootstrap": "3.3.7",
+    "bootstrap": "^4.2.1",
     "dynamic-link": "^0.2.3",
     "ember-cli-mirage": "^0.4.9",
     "ember-cli-string-helpers": "^1.4.0",
