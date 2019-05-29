@@ -14,15 +14,15 @@ repositories {
   }
   maven { // this is required for hive
     name "conjars-maven-release"
-    url 'http://conjars.org/repo'
+    url 'https://conjars.org/repo'
   }
   maven { // this is required by confluent kafka common
     name "confluent-maven-release"
-    url 'http://packages.confluent.io/maven/'
+    url 'https://packages.confluent.io/maven/'
   }
   maven { // this is required by various gradle plugins
     name "gradle-plugins"
-    url 'http://plugins.gradle.org/m2/'
+    url 'https://plugins.gradle.org/m2/'
   }
 }
 
