@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "MetadataGraphEvent",
+  "namespace": "com.linkedin.mxe",
+  "doc": "Kafka event for capturing update made to a list of entities and relationships.",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "doc": "Kafka audit header. See go/kafkaauditheader for more info.",
+      "type": "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
+      "optional": true
+    },
+    {
+      "name": "upsertedEntities",
+      "doc": "A list of entity updates-or-inserts. Only fields updated are set in the case of partial update.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.entity.Entity"
+      }
+    },
+    {
+      "name": "removedRelationships",
+      "doc": "A list of removed relationships. Only fields used to identify the relationships to remove are set.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.relationship.Relationship"
+      }
+    },
+    {
+      "name": "upsertedRelationships",
+      "doc": "A list of relationship updates-or-inserts.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.relationship.Relationship"
+      }
+    }
+  ]
+}

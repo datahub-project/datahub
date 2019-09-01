@@ -7,7 +7,7 @@
 *.iml
 *.iws
 *.ipr
-**/mxe
+**/resources/**/mxe
 
 # Pegasus & Avro
 **/src/mainGenerated*

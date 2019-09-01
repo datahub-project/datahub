@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "MetadataSearchEvent",
+  "namespace": "com.linkedin.mxe",
+  "doc": "Kafka event for capturing update made to a list of search documents.",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "doc": "Kafka audit header. See go/kafkaauditheader for more info.",
+      "type": "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
+      "optional": true
+    },
+    {
+      "name": "upsertedDocuments",
+      "doc": "A list of search document updates-or-inserts. Only fields updated are set in the case of partial update.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.search.Document"
+      }
+    }
+  ]
+}
