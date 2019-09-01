@@ -9,12 +9,10 @@ import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipSuggestion;
 import com.linkedin.common.OwnershipType;
-import com.linkedin.common.RegisteredSchemaType;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetGroupUrn;
 import com.linkedin.common.urn.DatasetUrn;
-import com.linkedin.common.urn.RegisteredSchemaUrn;
 import com.linkedin.common.urn.Urn;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -43,11 +41,6 @@ public class TestUtils {
   @Nonnull
   public static DatasetGroupUrn makeDatasetGroupUrn(@Nonnull String name) {
     return new DatasetGroupUrn("foo", name);
-  }
-
-  @Nonnull
-  public static RegisteredSchemaUrn makeRegisteredSchemaUrn(@Nonnull String name) {
-    return new RegisteredSchemaUrn(RegisteredSchemaType.KAFKA, name);
   }
 
   @Nonnull
