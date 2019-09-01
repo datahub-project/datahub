@@ -91,15 +91,15 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Client for handling Avro MetadataChangeEvent_v4")
+    parser = argparse.ArgumentParser(description="Client for handling Avro MetadataChangeEvent")
     parser.add_argument('-b', dest="bootstrap_servers",
                         default="localhost:9092", help="Bootstrap broker(s) (localhost[:port])")
     parser.add_argument('-s', dest="schema_registry",
                         default="http://localhost:8081", help="Schema Registry (http(s)://localhost[:port]")
-    parser.add_argument('-t', dest="topic", default="MetadataChangeEvent_v4",
+    parser.add_argument('-t', dest="topic", default="MetadataChangeEvent",
                         help="Topic name")
     parser.add_argument('mode', choices=['produce', 'consume'],
                         help="Execution mode (produce | consume)")
-    parser.add_argument('-g', dest="group", default="MetadataChangeEvent_v4",
+    parser.add_argument('-g', dest="group", default="MetadataChangeEvent",
                         help="Consumer group; required if running 'consumer' mode")
     main(parser.parse_args())
