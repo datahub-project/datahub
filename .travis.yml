@@ -4,5 +4,5 @@ jdk:
   - openjdk8
 
 script:
-  - ./gradlew check assemble
+  - ./gradlew check assemble -Prest.model.compatibility=ignore
   - ./gradlew emberCoverage
