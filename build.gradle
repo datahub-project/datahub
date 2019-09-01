@@ -1,43 +1,85 @@
-version = '1.0'
-
 buildscript {
-  apply from: 'gradle/scripts/repositories.gradle'
-
+  apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
-
   dependencies {
-    classpath 'gradle.plugin.com.palantir:jacoco-coverage:0.3.0'
-    classpath 'gradle.plugin.nl.javadude.gradle.plugins:license-gradle-plugin:0.13.1'
-    classpath 'org.kt3k.gradle.plugin:coveralls-gradle-plugin:2.8.1'
-    classpath 'com.moowork.gradle:gradle-node-plugin:1.2.0'
+    classpath 'com.linkedin.pegasus:gradle-plugins:23.0.19'
+    classpath 'com.moowork.gradle:gradle-node-plugin:1.3.1'
   }
+}
+
+final pegasusVersion = '23.0.19'
+project.ext.spec = [
+    'product' : [
+        'pegasus' : [
+            'd2' : 'com.linkedin.pegasus:d2:' + pegasusVersion,
+            'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
+            'dataAvro1_6' : 'com.linkedin.pegasus:data-avro-1_6:' + pegasusVersion,
+            'restliCommon' : 'com.linkedin.pegasus:restli-common:' + pegasusVersion,
+            'restliClient' : 'com.linkedin.pegasus:restli-client:' + pegasusVersion,
+            'restliServer' : 'com.linkedin.pegasus:restli-server:' + pegasusVersion,
+            'restliSpringBridge': 'com.linkedin.pegasus:restli-spring-bridge:' + pegasusVersion,
+        ]
+    ]
+]
+
+project.ext.externalDependency = [
+    'avro_1_7': 'org.apache.avro:avro:1.7.7',
+    'avroMigrationHelper': 'com.linkedin.avroutil:avro-migration-helper:0.1.0',
+    'cacheApi' : 'javax.cache:cache-api:1.1.0',
+    'commonsIo': 'commons-io:commons-io:2.4',
+    'commonsLang': 'commons-lang:commons-lang:2.6',
+    'ebean': 'io.ebean:ebean:11.33.3',
+    'ebeanAgent': 'io.ebean:ebean-agent:11.27.1',
+    'elasticSearchRest': 'org.elasticsearch.client:elasticsearch-rest-high-level-client:5.6.8',
+    'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
+    'guice': 'com.google.inject:guice:4.2.2',
+    'guava': 'com.google.guava:guava:27.0.1-jre',
+    'h2': 'com.h2database:h2:1.4.196',
+    'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
+    'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
+    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.7',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.7',
+    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
+    'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
+    'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
+    'junit': 'junit:junit:4.12',
+    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.2.2',
+    'kafkaClients': 'org.apache.kafka:kafka-clients:2.2.1',
+    'kafkaSchemaRegistry': 'io.confluent:kafka-schema-registry-client:3.3.1',
+    'kafkaSerializers': 'io.confluent:kafka-avro-serializer:3.3.1',
+    'kafkaStreams': 'org.apache.kafka:kafka-streams:2.2.1',
+    'logbackClassic': 'ch.qos.logback:logback-classic:1.2.3',
+    'lombok': 'org.projectlombok:lombok:1.18.8',
+    'mockito': 'org.mockito:mockito-core:3.0.0',
+    'mysqlConnector': 'mysql:mysql-connector-java:5.1.47',
+    'parseqTest': 'com.linkedin.parseq:parseq:3.0.7:test',
+    'playDocs': 'com.typesafe.play:play-docs_2.11:2.6.18',
+    'playGuice': 'com.typesafe.play:play-guice_2.11:2.6.18',
+    'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
+    'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
+    'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
+    'springBeans': 'org.springframework:spring-beans:3.2.9.RELEASE',
+    'springContext': 'org.springframework:spring-context:3.2.9.RELEASE',
+    'springCore': 'org.springframework:spring-core:3.2.9.RELEASE',
+    'springJdbc': 'org.springframework:spring-jdbc:4.1.9.RELEASE',
+    'springWeb': 'org.springframework:spring-web:3.2.9.RELEASE',
+    'testng': 'org.testng:testng:6.9.9'
+]
+
+allprojects {
+  apply plugin: 'idea'
+  apply plugin: 'eclipse'
 }
 
 subprojects {
-  task excludegroup(type: Test) {
-    useTestNG() {
-      excludeGroups 'needConfig'
-    }
+  apply plugin: 'maven'
 
-    testLogging {
-      showStandardStreams = true
+  afterEvaluate {
+    if (project.plugins.hasPlugin('pegasus')) {
+      dependencies {
+        dataTemplateCompile spec.product.pegasus.data
+        restClientCompile spec.product.pegasus.restliClient
+      }
     }
   }
-}
-
-apply from: 'gradle/scripts/coverage.gradle'
-apply from: 'gradle/scripts/dependency.gradle'
-apply from: 'gradle/scripts/logging.gradle'
-apply from: 'gradle/scripts/ide.gradle'
-apply from: 'gradle/scripts/license.gradle'
-
-task wrapper(type: Wrapper) {
-  gradleVersion = '4.9'
-}
-
-if (project.hasProperty('overrideBuildEnvironment')) {
-  //The property is automatically passed to the Gradle build when the project is built at LinkedIn
-  //The property contains the file path to a script plugin that 'adapts' this OS project to LinkedIn
-  //In order to adapt the project, we need to apply this script plugin:
-  apply from: project.overrideBuildEnvironment
 }

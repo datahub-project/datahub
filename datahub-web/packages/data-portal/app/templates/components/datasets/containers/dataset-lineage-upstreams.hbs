@@ -1,0 +1,10 @@
+{{#if getDatasetUpstreamsTask.isRunning}}
+  {{pendulum-ellipsis-animation}}
+{{else}}
+  {{yield
+    (hash
+      upstreams=upstreams
+      urn=urn
+    )
+  }}
+{{/if}}

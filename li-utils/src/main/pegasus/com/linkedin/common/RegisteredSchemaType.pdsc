@@ -1,0 +1,18 @@
+{
+  "name": "RegisteredSchemaType",
+  "namespace": "com.linkedin.common",
+  "type": "enum",
+  "symbols": [
+    "KAFKA",
+    "ESPRESSO_DOCUMENT",
+    "ESPRESSO_KEY",
+    "DATA_DERIVED"
+  ],
+  "doc": "Type of registered schema, e.g. Kafka schema or Espresso Document schema. Name length of the enum is limited to 20.",
+  "symbolDocs": {
+    "KAFKA": "Schema for Kafka topics",
+    "ESPRESSO_DOCUMENT": "Schema for Espresso Document",
+    "ESPRESSO_KEY": "Schema for Espresso Key",
+    "DATA_DERIVED": "Schema for /data/derived HDFS datasets"
+  }
+}

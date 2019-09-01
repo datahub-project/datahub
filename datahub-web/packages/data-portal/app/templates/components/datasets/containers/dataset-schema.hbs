@@ -1,0 +1,13 @@
+<ConcurrencyTaskStateHandler @task={{getDatasetSchemaTask}}>
+  {{#if isEmpty}}
+    <EmptyState
+      @heading="There is no schema on this dataset"
+    />
+  {{else}}
+    {{dataset-schema
+      json=json
+      schemas=schemas
+      lastModified=lastModifiedString
+    }}
+  {{/if}}
+</ConcurrencyTaskStateHandler>

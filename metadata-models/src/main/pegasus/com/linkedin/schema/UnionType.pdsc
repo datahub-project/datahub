@@ -1,0 +1,17 @@
+{
+  "type" : "record",
+  "name" : "UnionType",
+  "namespace" : "com.linkedin.schema",
+  "doc" : "Union field type.",
+  "fields" : [
+    {
+      "name": "nestedTypes",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "List of types in union type.",
+      "optional": true
+    }
+  ]
+}

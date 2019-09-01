@@ -1,0 +1,20 @@
+{
+  "name": "Value",
+  "type": "record",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "fields": [
+    {
+      "name": "foo",
+      "type": "AspectFoo",
+      "doc": "For unit tests",
+      "optional": true
+    },
+    {
+      "name": "bar",
+      "type": "AspectBar",
+      "doc": "For unit tests",
+      "optional": true
+    }
+  ]
+}

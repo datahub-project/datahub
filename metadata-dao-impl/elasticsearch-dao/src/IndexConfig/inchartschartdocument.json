@@ -1,0 +1,86 @@
+{
+  "inchartschartdocument": {
+    "mappings": {
+      "doc": {
+        "_all": {
+          "enabled": false
+        },
+        "properties": {
+          "urn": {
+            "type": "text",
+            "analyzer": "lowercase_keyword"
+          },
+          "metric": {
+            "type": "text",
+            "analyzer": "lowercase_keyword_ngram"
+          },
+          "title": {
+            "type": "text",
+            "analyzer": "delimit"
+          },
+          "protocol": {
+            "type": "text",
+            "analyzer": "delimit"
+          },
+          "description": {
+            "type": "text",
+            "analyzer": "delimit"
+          }
+        },
+        "owners": {
+          "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "lowercase_keyword_ngram"
+            }
+          },
+          "analyzer": "lowercase_keyword"
+        }
+      }
+    },
+    "settings": {
+      "analysis": {
+        "filter": {
+          "autocomplete_filter": {
+            "type": "edge_ngram",
+            "min_gram": "3",
+            "max_gram": "50"
+          },
+          "custom_delimiter": {
+            "split_on_numerics": "false",
+            "split_on_case_change": "false",
+            "type": "word_delimiter",
+            "preserve_original": "true",
+            "catenate_words": "false"
+          }
+        },
+        "analyzer": {
+          "delimit": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "lowercase_keyword": {
+            "filter": [
+              "lowercase"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          },
+          "lowercase_keyword_ngram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          }
+        }
+      }
+    }
+  }
+}
+

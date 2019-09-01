@@ -1,0 +1,12 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(':metadata-dao')
+
+  compileOnly externalDependency.lombok
+  compileOnly externalDependency.findbugsAnnotations
+
+  testCompile externalDependency.testng
+  testCompile externalDependency.mockito
+  testCompile project(':metadata-test-utils')
+}

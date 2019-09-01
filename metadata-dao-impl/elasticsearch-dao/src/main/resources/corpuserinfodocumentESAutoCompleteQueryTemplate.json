@@ -1,0 +1,12 @@
+{
+  "query_string": {
+    "query": "$INPUT",
+    "fields": [
+      "$FIELD^4",
+      "$FIELD.ngram"
+    ],
+    "default_operator": "and",
+    "analyzer": "lowercase_keyword",
+    "minimum_should_match": "100%"
+  }
+}

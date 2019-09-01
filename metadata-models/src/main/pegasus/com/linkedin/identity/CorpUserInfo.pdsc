@@ -1,0 +1,72 @@
+{
+  "type": "record",
+  "name": "CorpUserInfo",
+  "namespace": "com.linkedin.identity",
+  "doc": "Linkedin corp user information",
+  "fields": [
+    {
+      "name": "active",
+      "type": "boolean",
+      "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+    },
+    {
+      "name": "displayName",
+      "type": "string",
+      "doc": "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
+      "optional": true
+    },
+    {
+      "name": "email",
+      "type": "com.linkedin.common.EmailAddress",
+      "doc": "email address of this user"
+    },
+    {
+      "name": "title",
+      "type": "string",
+      "doc": "title of this user",
+      "optional": true
+    },
+    {
+      "name": "managerUrn",
+      "type": "com.linkedin.common.CorpuserUrn",
+      "doc": "direct manager of this user",
+      "optional": true
+    },
+    {
+      "name": "departmentId",
+      "type": "long",
+      "doc": "department id this user belong to",
+      "optional": true
+    },
+    {
+      "name": "departmentName",
+      "type": "string",
+      "doc": "department name this user belong to",
+      "optional": true
+    },
+    {
+      "name": "firstName",
+      "type": "string",
+      "doc": "first name of this user",
+      "optional": true
+    },
+    {
+      "name": "lastName",
+      "type": "string",
+      "doc": "last name of this user",
+      "optional": true
+    },
+    {
+      "name": "fullName",
+      "type": "string",
+      "doc": "Common name of this user, format is firstName + lastName (split by a whitespace)",
+      "optional": true
+    },
+    {
+      "name": "countryCode",
+      "type": "string",
+      "doc": "two uppercase letters country code. e.g.  US",
+      "optional": true
+    }
+  ]
+}

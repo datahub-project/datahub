@@ -1,9 +1,0 @@
-{
-  "name": "ember-nearley",
-  "keywords": [
-    "ember-addon"
-  ],
-  "devDependencies": {
-    "ember-cli-typescript": "*"
-  }
-}

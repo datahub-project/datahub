@@ -1,0 +1,14 @@
+{
+  "query_string": {
+    "query": "$INPUT",
+    "fields": [
+      "fullName^4",
+      "ldap^2",
+      "title",
+      "managerLdap"
+    ],
+    "default_operator": "and",
+    "analyzer": "standard",
+    "minimum_should_match": "100%"
+  }
+}

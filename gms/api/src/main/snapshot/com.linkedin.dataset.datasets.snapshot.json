@@ -1,0 +1,1407 @@
+{
+  "models" : [ {
+    "type" : "record",
+    "name" : "AuditStamp",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+    "fields" : [ {
+      "name" : "time",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Time",
+        "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+        "ref" : "long"
+      },
+      "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+    }, {
+      "name" : "actor",
+      "type" : {
+        "type" : "typeref",
+        "name" : "Urn",
+        "ref" : "string",
+        "java" : {
+          "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
+          "class" : "com.linkedin.common.urn.Urn"
+        }
+      },
+      "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+    }, {
+      "name" : "impersonator",
+      "type" : "Urn",
+      "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "ChangeAuditStamps",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
+    "fields" : [ {
+      "name" : "created",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource"
+    }, {
+      "name" : "lastModified",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the last modification of this resource/association/sub-resource. If no modification has happened since creation, lastModified should be the same as created"
+    }, {
+      "name" : "deleted",
+      "type" : "AuditStamp",
+      "doc" : "An AuditStamp corresponding to the deletion of this resource/association/sub-resource. Logically, deleted MUST have a later timestamp than creation. It may or may not have the same time as lastModified depending upon the resource/association/sub-resource semantics.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "typeref",
+    "name" : "DataPlatformUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized data platforms available",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.DataPlatformUrnCoercer",
+      "class" : "com.linkedin.common.urn.DataPlatformUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "dataPlatform",
+        "owningTeam" : "urn:li:internalTeam:wherehows",
+        "constructable" : true,
+        "name" : "DataPlatform",
+        "namespace" : "li",
+        "doc" : "Standardized data platforms available",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "platformName",
+          "doc" : "data platform name i.e. hdfs, oracle, espresso",
+          "type" : "string",
+          "maxLength" : 25
+        } ],
+        "maxLength" : 45
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "DatasetUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Standardized dataset identifier.",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.DatasetUrnCoercer",
+      "class" : "com.linkedin.common.urn.DatasetUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "dataset",
+        "owningTeam" : "urn:li:internalTeam:datahub",
+        "constructable" : true,
+        "name" : "Dataset",
+        "namespace" : "li",
+        "doc" : "Standardized dataset identifier.",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "platform",
+          "doc" : "Standardized platform urn where dataset is defined.",
+          "type" : "com.linkedin.common.urn.DataPlatformUrn"
+        }, {
+          "name" : "datasetName",
+          "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+          "type" : "string",
+          "maxLength" : 210
+        }, {
+          "name" : "origin",
+          "doc" : "Fabric type where dataset belongs to or where it was generated.",
+          "type" : "com.linkedin.common.FabricType"
+        } ],
+        "maxLength" : 284
+      }
+    }
+  }, {
+    "type" : "enum",
+    "name" : "FabricType",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Fabric group type of Linkedin internal data center fabrics; For example, according to Linkedin, ei1 and ei2 are both type of EI. We are currently using a name length limit of 10 for FabricType.",
+    "symbols" : [ "DEV", "EI", "PROD", "CORP", "LIT", "PRIME", "MANDA", "AZURECONTROL", "AZUREPROD", "AZUREEI" ],
+    "symbolDocs" : {
+      "DEV" : "Designates DEV fabrics, although it could be machines in EI physical fabric like EI1",
+      "EI" : "Designates Early-Integration fabrics, such EI1, EI2 etc.",
+      "PROD" : "Designates production fabrics, such as prod-ltx1, prod-lva1 etc.",
+      "CORP" : "Designates corperation fabrics, such as corp-eat1, corp-lca1 etc.",
+      "LIT" : "Designates infrastructure testing fabrics, such as lit-lca1-1.",
+      "PRIME" : "Designates Prime fabric group for project Einstein within Linkedin.",
+      "MANDA" : "Designates production fabrics deployed in the Mergers and Acquisitions network (MANDA).",
+      "AZURECONTROL" : "Designates production fabrics deployed in the Azure control plane.",
+      "AZUREPROD" : "Designates production fabrics deployed in the Azure.",
+      "AZUREEI" : "Designates Early-Integration fabrics deployed in Azure."
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "FabricUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.FabricUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "entityType" : "fabric",
+        "owningTeam" : "urn:li:internalTeam:Tools",
+        "name" : "Fabric",
+        "namespace" : "li",
+        "doc" : "Should match the forms used in configs: envInfoFinder.envToEnvByteMap. PROD-ELA4, PROD-ECH3, EI, EI2, prod-lva1, etc",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "fabricName",
+          "doc" : "",
+          "type" : "string",
+          "maxLength" : 36
+        } ],
+        "maxLength" : 50
+      }
+    }
+  }, {
+    "type" : "record",
+    "name" : "InstitutionalMemory",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Institutional memory of an entity. This is a way to link to relevant documentation and provide description of the documentation. Institutional or tribal knowledge is very important for users to leverage the entity.",
+    "fields" : [ {
+      "name" : "elements",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "InstitutionalMemoryMetadata",
+          "doc" : "Metadata corresponding to a record of institutional memory.",
+          "fields" : [ {
+            "name" : "url",
+            "type" : {
+              "type" : "typeref",
+              "name" : "Url",
+              "ref" : "string",
+              "java" : {
+                "coercerClass" : "com.linkedin.common.url.UrlCoercer",
+                "class" : "com.linkedin.common.url.Url"
+              }
+            },
+            "doc" : "Link to an engineering design document or a wiki page."
+          }, {
+            "name" : "description",
+            "type" : "string",
+            "doc" : "Description of the link."
+          }, {
+            "name" : "createStamp",
+            "type" : "AuditStamp",
+            "doc" : "Audit stamp associated with creation of this record"
+          } ]
+        }
+      },
+      "doc" : "List of records that represent institutional memory of an entity. Each record consists of a link, description, creator and timestamps associated with that record."
+    } ]
+  }, "com.linkedin.common.InstitutionalMemoryMetadata", {
+    "type" : "record",
+    "name" : "Owner",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Ownership information",
+    "fields" : [ {
+      "name" : "owner",
+      "type" : "Urn",
+      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name"
+    }, {
+      "name" : "type",
+      "type" : {
+        "type" : "enum",
+        "name" : "OwnershipType",
+        "doc" : "Owner category or owner role",
+        "symbols" : [ "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+        "symbolDocs" : {
+          "DEVELOPER" : "A person or group that is in charge of developing the code",
+          "DATAOWNER" : "A person or group that is owning the data",
+          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.",
+          "PRODUCER" : "A person, group, or service that produces/generates the data",
+          "CONSUMER" : "A person, group, or service that consumes the data",
+          "STAKEHOLDER" : "A person or a group that has direct business interest"
+        }
+      },
+      "doc" : "The type of the ownership"
+    }, {
+      "name" : "source",
+      "type" : {
+        "type" : "record",
+        "name" : "OwnershipSource",
+        "doc" : "Source/provider of the ownership information",
+        "fields" : [ {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "OwnershipSourceType",
+            "symbols" : [ "AUDIT", "DATABASE", "FILE_SYSTEM", "ISSUE_TRACKING_SYSTEM", "MANUAL", "SERVICE", "SOURCE_CONTROL", "OTHER" ],
+            "symbolDocs" : {
+              "AUDIT" : "Auditing system or audit logs",
+              "DATABASE" : "Database, e.g. GRANTS table",
+              "FILE_SYSTEM" : "File system, e.g. file/directory owner",
+              "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
+              "MANUAL" : "Manually provided by a user",
+              "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
+              "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN",
+              "OTHER" : "Other sources"
+            }
+          },
+          "doc" : "The type of the source"
+        }, {
+          "name" : "url",
+          "type" : "string",
+          "doc" : "A reference URL for the source",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Source information for the ownership",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Ownership",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Ownership information of an entity.",
+    "fields" : [ {
+      "name" : "owners",
+      "type" : {
+        "type" : "array",
+        "items" : "Owner"
+      },
+      "doc" : "List of owners of the entity."
+    }, {
+      "name" : "lastModified",
+      "type" : "AuditStamp",
+      "doc" : "Audit stamp containing who last modified the record and when."
+    } ]
+  }, "com.linkedin.common.OwnershipSource", "com.linkedin.common.OwnershipSourceType", "com.linkedin.common.OwnershipType", {
+    "type" : "record",
+    "name" : "Status",
+    "namespace" : "com.linkedin.common",
+    "doc" : "The status metadata of an entity, e.g. dataset, metric, feature, etc.",
+    "fields" : [ {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the entity is removed or not",
+      "default" : false
+    } ]
+  }, "com.linkedin.common.Time", {
+    "type" : "typeref",
+    "name" : "Uri",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "class" : "java.net.URI"
+    }
+  }, "com.linkedin.common.Url", "com.linkedin.common.Urn", {
+    "type" : "record",
+    "name" : "VersionTag",
+    "namespace" : "com.linkedin.common",
+    "doc" : "A resource-defined string representing the resource state for the purpose of concurrency control",
+    "fields" : [ {
+      "name" : "versionTag",
+      "type" : "string",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "DataLocation",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "DataLocation describes where dataset is located within LinkedIn environment. Location is identified with fabric:cluster pair.",
+    "fields" : [ {
+      "name" : "fabricGroup",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Fabric group type of Linkedin internal data center fabrics."
+    }, {
+      "name" : "fabric",
+      "type" : "com.linkedin.common.FabricUrn",
+      "doc" : "Designated fabric where dataset is located such as prod-ltx1, ei-lva1 etc.",
+      "optional" : true
+    }, {
+      "name" : "cluster",
+      "type" : "string",
+      "doc" : "Designated cluster where dataset is located such as kafka-tracking-cluster, queuing, etc."
+    }, {
+      "name" : "region",
+      "type" : "string",
+      "doc" : "Standardized geographical region where dataset is deployed.",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Dataset",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent",
+    "include" : [ {
+      "type" : "record",
+      "name" : "DatasetKey",
+      "doc" : "Key for dataset resource",
+      "fields" : [ {
+        "name" : "platform",
+        "type" : "com.linkedin.common.DataPlatformUrn",
+        "doc" : "Standardized platform urn where dataset is defined. The data platform Urn (urn:li:platform:{platform_name})",
+        "validate" : {
+          "com.linkedin.dataset.rest.validator.DataPlatformValidator" : { }
+        }
+      }, {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Dataset native name e.g. {db}.{table}, /dir/subdir/{name}, or {name}",
+        "validate" : {
+          "strlen" : {
+            "min" : 1,
+            "max" : 500
+          }
+        }
+      }, {
+        "name" : "origin",
+        "type" : "com.linkedin.common.FabricType",
+        "doc" : "Fabric type where dataset belongs to or where it was generated."
+      } ]
+    }, "com.linkedin.common.ChangeAuditStamps", "com.linkedin.common.VersionTag" ],
+    "fields" : [ {
+      "name" : "id",
+      "type" : "long",
+      "doc" : "Dataset unique identifier. System assigned value when a new dataset is created.",
+      "default" : 0
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Description for dataset",
+      "default" : ""
+    }, {
+      "name" : "platformNativeType",
+      "type" : {
+        "type" : "enum",
+        "name" : "PlatformNativeType",
+        "symbols" : [ "TABLE", "VIEW", "DIRECTORY", "STREAM", "BUCKET" ],
+        "symbolDocs" : {
+          "TABLE" : "Table",
+          "VIEW" : "View",
+          "DIRECTORY" : "Directory in file system",
+          "STREAM" : "Stream",
+          "BUCKET" : "Bucket in key value store"
+        }
+      },
+      "doc" : "The native format for the data platform",
+      "optional" : true
+    }, {
+      "name" : "uri",
+      "type" : "com.linkedin.common.Uri",
+      "doc" : "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
+      "optional" : true
+    }, {
+      "name" : "deploymentInfos",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "DeploymentInfo",
+          "doc" : "Deployment information of a dataset. Locations were dataset is deployed.",
+          "fields" : [ {
+            "name" : "dataLocation",
+            "type" : "DataLocation",
+            "doc" : "Deployment location"
+          }, {
+            "name" : "additionalDeploymentInfo",
+            "type" : {
+              "type" : "map",
+              "values" : "string"
+            },
+            "doc" : "Additional deployment info, such as Zookeeper, Connection, Graphite URL, native reference ID or KEY",
+            "optional" : true
+          } ]
+        }
+      },
+      "doc" : "List of dataset instances for this dataset",
+      "default" : [ ]
+    }, {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "tags for searching dataset",
+      "default" : [ ]
+    }, {
+      "name" : "properties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "A key-value map of platform-specific properties",
+      "optional" : true
+    }, {
+      "name" : "removed",
+      "type" : "boolean",
+      "doc" : "whether the dataset is removed or not",
+      "default" : false
+    }, {
+      "name" : "deprecation",
+      "type" : {
+        "type" : "record",
+        "name" : "DatasetDeprecation",
+        "doc" : "Dataset deprecation status",
+        "fields" : [ {
+          "name" : "deprecated",
+          "type" : "boolean",
+          "doc" : "Whether the dataset is deprecated by owner."
+        }, {
+          "name" : "decommissionTime",
+          "type" : "long",
+          "doc" : "The time user plan to decommission this dataset.",
+          "optional" : true
+        }, {
+          "name" : "note",
+          "type" : "string",
+          "doc" : "Additional information about the dataset deprecation plan, such as the wiki, doc, RB."
+        }, {
+          "name" : "actor",
+          "type" : "com.linkedin.common.Urn",
+          "doc" : "The corpuser URN which will be credited for modifying this deprecation content.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "The dataset deprecation status",
+      "optional" : true
+    } ]
+  }, "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetKey", {
+    "type" : "enum",
+    "name" : "DatasetLineageType",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "The various types of supported dataset lineage",
+    "symbols" : [ "COPY", "TRANSFORMED", "VIEW" ],
+    "symbolDocs" : {
+      "COPY" : "Direct copy without modification",
+      "TRANSFORMED" : "Transformed data with modification (format or content change)",
+      "VIEW" : "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+    }
+  }, {
+    "type" : "record",
+    "name" : "DatasetProperties",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Properties associated with a Dataset",
+    "fields" : [ {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Documentation of the dataset",
+      "optional" : true
+    }, {
+      "name" : "uri",
+      "type" : "com.linkedin.common.Uri",
+      "doc" : "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
+      "optional" : true
+    }, {
+      "name" : "tags",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "tags for the dataset",
+      "default" : [ ]
+    }, {
+      "name" : "customProperties",
+      "type" : {
+        "type" : "map",
+        "values" : "string"
+      },
+      "doc" : "A key-value map to capture any other non-standardized properties for the dataset",
+      "default" : { }
+    } ]
+  }, "com.linkedin.dataset.DeploymentInfo", {
+    "type" : "record",
+    "name" : "Downstream",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Downstream lineage information about a dataset including the source reporting the lineage",
+    "fields" : [ {
+      "name" : "auditStamp",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who reported the lineage and when"
+    }, {
+      "name" : "dataset",
+      "type" : "com.linkedin.common.DatasetUrn",
+      "doc" : "The downstream dataset the lineage points to"
+    }, {
+      "name" : "type",
+      "type" : "DatasetLineageType",
+      "doc" : "The type of the lineage"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "DownstreamLineage",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Downstream lineage of a dataset",
+    "fields" : [ {
+      "name" : "downstreams",
+      "type" : {
+        "type" : "array",
+        "items" : "Downstream"
+      },
+      "doc" : "List of downstream dataset lineage information"
+    } ]
+  }, "com.linkedin.dataset.PlatformNativeType", {
+    "type" : "typeref",
+    "name" : "SchemaFieldPath",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Schema field path as described by schema normalizations rules: http://go/tms-schema",
+    "ref" : "string"
+  }, {
+    "type" : "record",
+    "name" : "Upstream",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Upstream lineage information about a dataset including the source reporting the lineage",
+    "fields" : [ {
+      "name" : "auditStamp",
+      "type" : "com.linkedin.common.AuditStamp",
+      "doc" : "Audit stamp containing who reported the lineage and when"
+    }, {
+      "name" : "dataset",
+      "type" : "com.linkedin.common.DatasetUrn",
+      "doc" : "The upstream dataset the lineage points to"
+    }, {
+      "name" : "type",
+      "type" : "DatasetLineageType",
+      "doc" : "The type of the lineage"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "UpstreamLineage",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Upstream lineage of a dataset",
+    "fields" : [ {
+      "name" : "upstreams",
+      "type" : {
+        "type" : "array",
+        "items" : "Upstream"
+      },
+      "doc" : "List of upstream dataset lineage information"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "UpstreamLineageDelta",
+    "namespace" : "com.linkedin.dataset",
+    "doc" : "Describes a delta change to a dataset upstream lineage",
+    "fields" : [ {
+      "name" : "upstreamsToUpdate",
+      "type" : {
+        "type" : "array",
+        "items" : "Upstream"
+      },
+      "doc" : "The list of upstream lineages to be updated for a dataset"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AspectVersion",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A tuple of a specific metadata aspect and its version.",
+    "fields" : [ {
+      "name" : "aspect",
+      "type" : "string",
+      "doc" : "The FQCN of the metadata aspect, e.g. com.linkedin.common.Ownership"
+    }, {
+      "name" : "version",
+      "type" : "long",
+      "doc" : "The version of the metadata aspect"
+    } ]
+  }, {
+    "type" : "typeref",
+    "name" : "DatasetAspect",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A union of all supported metadata aspects for a Dataset",
+    "ref" : [ "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
+      "type" : "record",
+      "name" : "SchemaMetadata",
+      "namespace" : "com.linkedin.schema",
+      "doc" : "SchemaMetadata to describe metadata related to store schema",
+      "include" : [ {
+        "type" : "record",
+        "name" : "SchemaMetadataKey",
+        "doc" : "Key to retrieve schema metadata.",
+        "fields" : [ {
+          "name" : "schemaName",
+          "type" : "string",
+          "doc" : "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
+          "validate" : {
+            "strlen" : {
+              "min" : 1,
+              "max" : 500
+            }
+          }
+        }, {
+          "name" : "platform",
+          "type" : "com.linkedin.common.DataPlatformUrn",
+          "doc" : "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})"
+        }, {
+          "name" : "version",
+          "type" : "long",
+          "doc" : "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
+        } ]
+      }, "com.linkedin.common.ChangeAuditStamps" ],
+      "fields" : [ {
+        "name" : "dataset",
+        "type" : "com.linkedin.common.DatasetUrn",
+        "doc" : "Dataset this schema metadata is associated with.",
+        "optional" : true
+      }, {
+        "name" : "cluster",
+        "type" : "string",
+        "doc" : "The cluster this schema metadata resides from",
+        "optional" : true
+      }, {
+        "name" : "hash",
+        "type" : "string",
+        "doc" : "the SHA1 hash of the schema content"
+      }, {
+        "name" : "platformSchema",
+        "type" : [ {
+          "type" : "record",
+          "name" : "EspressoSchema",
+          "doc" : "Schema text of an espresso table schema.",
+          "fields" : [ {
+            "name" : "documentSchema",
+            "type" : "string",
+            "doc" : "The native espresso document schema."
+          }, {
+            "name" : "tableSchema",
+            "type" : "string",
+            "doc" : "The espresso table schema definition."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "OracleDDL",
+          "doc" : "Schema holder for oracle data definition language that describes an oracle table.",
+          "fields" : [ {
+            "name" : "tableSchema",
+            "type" : "string",
+            "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "MySqlDDL",
+          "doc" : "Schema holder for MySql data definition language that describes an MySql table.",
+          "fields" : [ {
+            "name" : "tableSchema",
+            "type" : "string",
+            "doc" : "The native schema in the dataset's platform. This is a human readable (json blob) table schema."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "PrestoDDL",
+          "doc" : "Schema holder for presto data definition language that describes a presto view.",
+          "fields" : [ {
+            "name" : "rawSchema",
+            "type" : "string",
+            "doc" : "The raw schema in the dataset's platform. This includes the DDL and the columns extracted from DDL."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "KafkaSchema",
+          "doc" : "Schema holder for kafka schema.",
+          "fields" : [ {
+            "name" : "documentSchema",
+            "type" : "string",
+            "doc" : "The native kafka document schema. This is a human readable avro document schema."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "BinaryJsonSchema",
+          "doc" : "Schema text of binary JSON schema.",
+          "fields" : [ {
+            "name" : "schema",
+            "type" : "string",
+            "doc" : "The native schema text for binary JSON file format."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "OrcSchema",
+          "doc" : "Schema text of an ORC schema.",
+          "fields" : [ {
+            "name" : "schema",
+            "type" : "string",
+            "doc" : "The native schema for ORC file format."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "Schemaless",
+          "doc" : "The dataset has no specific schema associated with it",
+          "fields" : [ ]
+        }, {
+          "type" : "record",
+          "name" : "KeyValueSchema",
+          "doc" : "Schema text of a key-value store schema.",
+          "fields" : [ {
+            "name" : "keySchema",
+            "type" : "string",
+            "doc" : "The raw schema for the key in the key-value store."
+          }, {
+            "name" : "valueSchema",
+            "type" : "string",
+            "doc" : "The raw schema for the value in the key-value store."
+          } ]
+        }, {
+          "type" : "record",
+          "name" : "OtherSchema",
+          "doc" : "Schema holder for undefined schema types.",
+          "fields" : [ {
+            "name" : "rawSchema",
+            "type" : "string",
+            "doc" : "The native schema in the dataset's platform."
+          } ]
+        } ],
+        "doc" : "The native schema in the dataset's platform."
+      }, {
+        "name" : "fields",
+        "type" : {
+          "type" : "array",
+          "items" : {
+            "type" : "record",
+            "name" : "SchemaField",
+            "doc" : "SchemaField to describe metadata related to dataset schema. Schema normalization rules: http://go/tms-schema",
+            "fields" : [ {
+              "name" : "fieldPath",
+              "type" : "com.linkedin.dataset.SchemaFieldPath",
+              "doc" : "Flattened name of the field. Field is computed from jsonPath field. For data translation rules refer to wiki page above."
+            }, {
+              "name" : "jsonPath",
+              "type" : "string",
+              "doc" : "Flattened name of a field in JSON Path notation.",
+              "optional" : true
+            }, {
+              "name" : "nullable",
+              "type" : "boolean",
+              "doc" : "Indicates if this field is optional or nullable",
+              "default" : false
+            }, {
+              "name" : "description",
+              "type" : "string",
+              "doc" : "Description",
+              "optional" : true
+            }, {
+              "name" : "type",
+              "type" : {
+                "type" : "record",
+                "name" : "SchemaFieldDataType",
+                "doc" : "Schema field data types",
+                "fields" : [ {
+                  "name" : "type",
+                  "type" : [ {
+                    "type" : "record",
+                    "name" : "BooleanType",
+                    "doc" : "Boolean field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "FixedType",
+                    "doc" : "Fixed field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "StringType",
+                    "doc" : "String field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "BytesType",
+                    "doc" : "Bytes field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "NumberType",
+                    "doc" : "Number data type: long, integer, short, etc..",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "EnumType",
+                    "doc" : "Enum field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "NullType",
+                    "doc" : "Null field type.",
+                    "fields" : [ ]
+                  }, {
+                    "type" : "record",
+                    "name" : "MapType",
+                    "doc" : "Map field type.",
+                    "fields" : [ {
+                      "name" : "keyType",
+                      "type" : "string",
+                      "doc" : "Key type in a map",
+                      "optional" : true
+                    }, {
+                      "name" : "valueType",
+                      "type" : "string",
+                      "doc" : "Type of the value in a map",
+                      "optional" : true
+                    } ]
+                  }, {
+                    "type" : "record",
+                    "name" : "ArrayType",
+                    "doc" : "Array field type.",
+                    "fields" : [ {
+                      "name" : "nestedType",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "string"
+                      },
+                      "doc" : "List of types this array holds.",
+                      "optional" : true
+                    } ]
+                  }, {
+                    "type" : "record",
+                    "name" : "UnionType",
+                    "doc" : "Union field type.",
+                    "fields" : [ {
+                      "name" : "nestedTypes",
+                      "type" : {
+                        "type" : "array",
+                        "items" : "string"
+                      },
+                      "doc" : "List of types in union type.",
+                      "optional" : true
+                    } ]
+                  }, {
+                    "type" : "record",
+                    "name" : "RecordType",
+                    "doc" : "Record field type.",
+                    "fields" : [ ]
+                  } ],
+                  "doc" : "Data platform specific types"
+                } ]
+              },
+              "doc" : "Platform independent field type of the field."
+            }, {
+              "name" : "nativeDataType",
+              "type" : "string",
+              "doc" : "The native type of the field in the dataset's platform as declared by platform schema."
+            }, {
+              "name" : "recursive",
+              "type" : "boolean",
+              "doc" : "There are use cases when a field in type B references type A. A field in A references field of type B. In such cases, we will mark the first field as recursive.",
+              "default" : false
+            } ]
+          }
+        },
+        "doc" : "Client provided a list of fields from document schema."
+      }, {
+        "name" : "primaryKeys",
+        "type" : {
+          "type" : "array",
+          "items" : "com.linkedin.dataset.SchemaFieldPath"
+        },
+        "doc" : "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.",
+        "optional" : true
+      }, {
+        "name" : "foreignKeysSpecs",
+        "type" : {
+          "type" : "map",
+          "values" : {
+            "type" : "record",
+            "name" : "ForeignKeySpec",
+            "doc" : "Description of a foreign key in a schema.",
+            "fields" : [ {
+              "name" : "foreignKey",
+              "type" : [ {
+                "type" : "record",
+                "name" : "DatasetFieldForeignKey",
+                "doc" : "For non-urn based foregin keys.",
+                "fields" : [ {
+                  "name" : "parentDataset",
+                  "type" : "com.linkedin.common.DatasetUrn",
+                  "doc" : "dataset that stores the resource."
+                }, {
+                  "name" : "currentFieldPaths",
+                  "type" : {
+                    "type" : "array",
+                    "items" : "com.linkedin.dataset.SchemaFieldPath"
+                  },
+                  "doc" : "List of fields in hosting(current) SchemaMetadata that conform a foreign key. List can contain a single entry or multiple entries if several entries in hosting schema conform a foreign key in a single parent dataset."
+                }, {
+                  "name" : "parentField",
+                  "type" : "com.linkedin.dataset.SchemaFieldPath",
+                  "doc" : "SchemaField@fieldPath that uniquely identify field in parent dataset that this field references."
+                } ]
+              }, {
+                "type" : "record",
+                "name" : "UrnForeignKey",
+                "doc" : "If SchemaMetadata fields make any external references and references are of type com.linkeidn.common.Urn or any children, this models can be used to mark it.",
+                "fields" : [ {
+                  "name" : "currentFieldPath",
+                  "type" : "com.linkedin.dataset.SchemaFieldPath",
+                  "doc" : "Field in hosting(current) SchemaMetadata."
+                } ]
+              } ],
+              "doc" : "Foreign key definition in metadata schema."
+            } ]
+          }
+        },
+        "doc" : "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+        "optional" : true
+      } ]
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AggregationMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "The name of the aggregation, e.g, platform, origin"
+    }, {
+      "name" : "aggregations",
+      "type" : {
+        "type" : "map",
+        "values" : "long"
+      },
+      "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AutoCompleteResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the auto complete result",
+    "fields" : [ {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "The original chars typed by user"
+    }, {
+      "name" : "suggestions",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of typeahead suggestions"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "BrowseResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the result of a browse query",
+    "fields" : [ {
+      "name" : "entities",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "BrowseResultEntity",
+          "doc" : "Data model for an entity returned as part of a browse query",
+          "fields" : [ {
+            "name" : "name",
+            "type" : "string",
+            "doc" : "Name of the entity",
+            "optional" : true
+          }, {
+            "name" : "urn",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "URN of the entity"
+          } ]
+        }
+      },
+      "doc" : "A list of entities under the queried path"
+    }, {
+      "name" : "metadata",
+      "type" : {
+        "type" : "record",
+        "name" : "BrowseResultMetadata",
+        "doc" : "The model for browse result metadata",
+        "fields" : [ {
+          "name" : "path",
+          "type" : "string",
+          "doc" : "Path that is being browsed"
+        }, {
+          "name" : "groups",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "BrowseResultGroup",
+              "fields" : [ {
+                "name" : "name",
+                "type" : "string",
+                "doc" : "Name of the group"
+              }, {
+                "name" : "count",
+                "type" : "long",
+                "doc" : "Number of entities that can be reached from this path"
+              } ]
+            }
+          },
+          "doc" : "A list of groups and total number of entities inside those groups under the queried path",
+          "default" : [ ]
+        }, {
+          "name" : "totalNumEntities",
+          "type" : "long",
+          "doc" : "Total number of entities we can reach from path"
+        } ]
+      },
+      "doc" : "Metadata specific to the browse result of the queried path"
+    }, {
+      "name" : "from",
+      "type" : "int",
+      "doc" : "Offset of the first entity in the result"
+    }, {
+      "name" : "pageSize",
+      "type" : "int",
+      "doc" : "Size of each page in the result"
+    }, {
+      "name" : "numEntities",
+      "type" : "int",
+      "doc" : "The total number of entities directly under queried path"
+    } ]
+  }, "com.linkedin.metadata.query.BrowseResultEntity", "com.linkedin.metadata.query.BrowseResultGroup", "com.linkedin.metadata.query.BrowseResultMetadata", {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "EQUAL", "START_WITH", "END_WITH", "CONTAIN" ],
+    "symbolDocs" : {
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Criterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "A criterion for matching a field with given value",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that the criterion refers to"
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "The value of the intended field"
+    }, {
+      "name" : "condition",
+      "type" : "Condition",
+      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+      "default" : "EQUAL"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The filter for finding an record or a collection of records",
+    "fields" : [ {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "Criterion"
+      },
+      "doc" : "A list of criteria the filter applies to the query"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SearchResultMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the search result",
+    "fields" : [ {
+      "name" : "searchResultMetadatas",
+      "type" : {
+        "type" : "array",
+        "items" : "AggregationMetadata"
+      },
+      "doc" : "A list of search result metadata such as aggregations"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "DatasetSnapshot",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "A metadata snapshot for a specific dataset entity.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.DatasetUrn",
+      "doc" : "URN for the entity the metadata snapshot is associated with."
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.DatasetAspect"
+      },
+      "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SnapshotKey",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "The Key for a metadata Snapshot.",
+    "fields" : [ {
+      "name" : "aspectVersions",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.AspectVersion"
+      },
+      "doc" : "A list of metadata aspects in the Snapshot and their versions"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EmptyRecord",
+    "namespace" : "com.linkedin.restli.common",
+    "doc" : "An literally empty record.  Intended as a marker to indicate the absence of content where a record type is required.  If used the underlying DataMap *must* be empty, EmptyRecordValidator is provided to help enforce this.  For example,  CreateRequest extends Request<EmptyRecord> to indicate it has no response body.   Also, a ComplexKeyResource implementation that has no ParamKey should have a signature like XyzResource implements ComplexKeyResource<XyzKey, EmptyRecord, Xyz>.",
+    "fields" : [ ],
+    "validate" : {
+      "com.linkedin.restli.common.EmptyRecordValidator" : { }
+    }
+  }, "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey" ],
+  "schema" : {
+    "name" : "datasets",
+    "namespace" : "com.linkedin.dataset",
+    "path" : "/datasets",
+    "schema" : "com.linkedin.dataset.Dataset",
+    "doc" : "generated from: com.linkedin.dataset.rest.resources.Datasets",
+    "collection" : {
+      "identifier" : {
+        "name" : "dataset",
+        "type" : "com.linkedin.dataset.DatasetKey",
+        "params" : "com.linkedin.restli.common.EmptyRecord"
+      },
+      "supports" : [ "batch_get", "get" ],
+      "methods" : [ {
+        "method" : "get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      }, {
+        "method" : "batch_get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      } ],
+      "finders" : [ {
+        "name" : "search",
+        "parameters" : [ {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        } ],
+        "metadata" : {
+          "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+        },
+        "pagingSupported" : true
+      } ],
+      "actions" : [ {
+        "name" : "autocomplete",
+        "parameters" : [ {
+          "name" : "query",
+          "type" : "string"
+        }, {
+          "name" : "field",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+      }, {
+        "name" : "browse",
+        "parameters" : [ {
+          "name" : "path",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.BrowseResult"
+      }, {
+        "name" : "getBrowsePaths",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "com.linkedin.common.Urn"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      } ],
+      "entity" : {
+        "path" : "/datasets/{dataset}",
+        "subresources" : [ {
+          "name" : "deprecation",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/deprecation",
+          "schema" : "com.linkedin.dataset.DatasetDeprecation",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.dataset.rest.resources.DeprecationResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "deprecationId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/deprecation/{deprecationId}"
+            }
+          }
+        }, {
+          "name" : "downstreamLineage",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/downstreamLineage",
+          "schema" : "com.linkedin.dataset.DownstreamLineage",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.DownstreamLineageResource",
+          "simple" : {
+            "supports" : [ "get" ],
+            "methods" : [ {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/downstreamLineage"
+            }
+          }
+        }, {
+          "name" : "institutionalMemory",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/institutionalMemory",
+          "schema" : "com.linkedin.common.InstitutionalMemory",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.dataset.rest.resources.InstitutionalMemoryResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "institutionalMemoryId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/institutionalMemory/{institutionalMemoryId}"
+            }
+          }
+        }, {
+          "name" : "rawOwnership",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/rawOwnership",
+          "schema" : "com.linkedin.common.Ownership",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.dataset.rest.resources.OwnershipResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "rawOwnershipId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/rawOwnership/{rawOwnershipId}"
+            }
+          }
+        }, {
+          "name" : "schema",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/schema",
+          "schema" : "com.linkedin.schema.SchemaMetadata",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.dataset.rest.resources.SchemaResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "schemaId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/schema/{schemaId}"
+            }
+          }
+        }, {
+          "annotations" : {
+            "createOnly" : {
+              "value" : [ "urn" ]
+            }
+          },
+          "name" : "snapshot",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/snapshot",
+          "schema" : "com.linkedin.metadata.snapshot.DatasetSnapshot",
+          "doc" : "Rest.li entry point: /dataset/{datasetKey}/snapshot\n\ngenerated from: com.linkedin.dataset.rest.resources.DatasetsSnapshot",
+          "collection" : {
+            "identifier" : {
+              "name" : "snapshotId",
+              "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
+              "params" : "com.linkedin.restli.common.EmptyRecord"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "actions" : [ {
+              "name" : "backfill",
+              "parameters" : [ {
+                "name" : "aspectNames",
+                "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+              } ],
+              "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/snapshot/{snapshotId}"
+            }
+          }
+        }, {
+          "name" : "upstreamLineage",
+          "namespace" : "com.linkedin.dataset",
+          "path" : "/datasets/{dataset}/upstreamLineage",
+          "schema" : "com.linkedin.dataset.UpstreamLineage",
+          "doc" : "Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.UpstreamLineageResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "upstreamLineageId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "actions" : [ {
+              "name" : "deltaUpdate",
+              "parameters" : [ {
+                "name" : "delta",
+                "type" : "com.linkedin.dataset.UpstreamLineageDelta"
+              } ],
+              "returns" : "com.linkedin.dataset.UpstreamLineage"
+            } ],
+            "entity" : {
+              "path" : "/datasets/{dataset}/upstreamLineage/{upstreamLineageId}"
+            }
+          }
+        } ]
+      }
+    }
+  }
+}

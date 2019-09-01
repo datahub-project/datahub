@@ -1,0 +1,132 @@
+$search-result-label-width: 124px;
+
+.search-results {
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid get-color(gray2);
+    padding: item-spacing(2 0);
+    margin: 0;
+  }
+
+  &__header-description {
+    color: get-color(gray8);
+  }
+
+  &__title {
+    font-weight: 400;
+    margin: 0;
+  }
+
+  &__pagination {
+    margin: item-spacing(0 -4 -4 -4);
+    border-top: 1px solid get-color(gray2);
+  }
+}
+
+.search-result {
+  // Spacing value between secondary action components
+  $action-item-spacing: item-spacing(4);
+
+  border-bottom: 1px solid get-color(gray1);
+  padding: item-spacing(4 0);
+
+  &:last-child {
+    border: 0;
+  }
+
+  &__title {
+    display: flex;
+    font-size: 18px;
+    font-weight: 400;
+    margin: 0;
+    align-items: center;
+
+    &__icon {
+      color: $link-color;
+    }
+
+    .nacho-pill--link {
+      background: rgba(199, 209, 216, 0.45);
+      color: rgba(0, 0, 0, 0.75);
+      font-size: 14px;
+      line-height: 20px;
+      border: 0;
+      cursor: auto;
+    }
+  }
+
+  &__title-link {
+    margin-right: item-spacing(2);
+  }
+
+  &__urn {
+    color: get-color(gray6);
+    padding: 0;
+    margin: item-spacing(0 0 2 0);
+  }
+
+  &__description {
+    margin-top: item-spacing(3);
+  }
+
+  &__fields {
+    margin-top: item-spacing(3);
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  &__field {
+    margin-top: item-spacing(1);
+    display: flex;
+    flex-basis: 100%;
+  }
+
+  &__field-value-list {
+    margin: 0;
+    padding: 0;
+  }
+
+  &__field-value-list-item {
+    display: inline;
+    padding: 0;
+    margin: 0;
+
+    &:after {
+      content: ', ';
+    }
+
+    &:last-child::after {
+      content: '';
+    }
+
+    // for 3 items or less, show as list
+    &:first-child:nth-last-child(1),
+    &:first-child:nth-last-child(2),
+    &:first-child:nth-last-child(2) ~ li,
+    &:first-child:nth-last-child(3),
+    &:first-child:nth-last-child(3) ~ li {
+      display: block;
+      &:after {
+        content: '';
+      }
+    }
+  }
+
+  &__field-name {
+    flex-basis: $search-result-label-width;
+    min-width: $search-result-label-width;
+    font-weight: 400;
+  }
+
+  // Secondary actions for search results are contained within this element
+  &__action-bar {
+    margin-left: auto;
+    display: flex;
+
+    button + button {
+      margin-left: $action-item-spacing;
+    }
+  }
+}

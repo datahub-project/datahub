@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "DownstreamLineage",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Downstream lineage of a dataset",
+  "fields": [
+    {
+      "name": "downstreams",
+      "type": {
+        "type": "array",
+        "items": "Downstream"
+      },
+      "doc": "List of downstream dataset lineage information"
+    }
+  ]
+}

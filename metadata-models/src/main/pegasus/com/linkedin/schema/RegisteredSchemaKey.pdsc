@@ -1,0 +1,24 @@
+{
+  "name": "RegisteredSchemaKey",
+  "type": "record",
+  "namespace": "com.linkedin.schema",
+  "doc": "Key for Registered Schema resource",
+  "fields": [
+    {
+      "name": "type",
+      "type": "com.linkedin.common.RegisteredSchemaType",
+      "doc": "Type of the registered schema, e.g. Kafka, Espresso Documnet."
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Name of the registered schema, e.g. <schemaName> for kafka, <Database>.<Table> for Espresso",
+      "validate": {
+        "strlen": {
+          "min": 1,
+          "max": 300
+        }
+      }
+    }
+  ]
+}

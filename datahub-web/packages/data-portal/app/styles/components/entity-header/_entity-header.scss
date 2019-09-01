@@ -1,0 +1,28 @@
+.entity-header {
+  background-color: white;
+}
+
+.entity-tabs {
+  $entity-tab-offset: $application-navbar-static-height + $application-navigation-breadcrumbs-static-height;
+  border-bottom: 1px solid get-color(gray2);
+  background-color: white;
+  position: sticky;
+  height: $application-navigation-tab-static-height;
+  top: $entity-tab-offset;
+  z-index: z('above');
+
+  &--with-banner-offset {
+    top: $banner-alerts-height + $entity-tab-offset;
+  }
+
+  ///overrides library styles to match design spec
+  .ivy-tabs-tablist[role='tablist'] {
+    border: 0;
+    border-top: 1px solid get-color(gray2);
+    margin: 0;
+
+    .ivy-tabs-tab[role='tab'] {
+      line-height: ($application-navigation-tab-static-height / 2) + 2;
+    }
+  }
+}

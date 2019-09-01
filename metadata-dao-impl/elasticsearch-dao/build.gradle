@@ -1,0 +1,25 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(':metadata-dao')
+
+  compile externalDependency.elasticSearchRest
+  compile externalDependency.guava
+  compile externalDependency.lombok
+  compile externalDependency.commonsIo
+  compile externalDependency.commonsLang
+  compile externalDependency.jacksonCore
+  compile externalDependency.jacksonDataBind
+
+  testCompile project(':metadata-test-utils')
+  testCompile externalDependency.testng
+}
+
+tasks.withType(Test) {
+  useTestNG() {
+    excludeGroups 'metricSearchIntegration'
+    excludeGroups 'featureSearchIntegration'
+    excludeGroups 'browseIntegration'
+    excludeGroups 'inchartsChartSearchIntegration'
+  }
+}

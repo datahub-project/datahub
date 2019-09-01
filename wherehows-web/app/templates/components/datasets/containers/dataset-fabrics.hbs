@@ -1,7 +1,0 @@
-{{#if getFabricsTask.isRunning}}
-  {{pendulum-ellipsis-animation}}
-{{else}}
-  {{yield (hash
-            fabrics=fabrics
-            urn=urn)}}
-{{/if}}

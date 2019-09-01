@@ -1,0 +1,20 @@
+{
+  "type": "enum",
+  "name": "OwnerCategory",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Owner category or owner role",
+  "symbols": [
+    "DATA_OWNER",
+    "PRODUCER",
+    "DELEGATE",
+    "STAKEHOLDER",
+    "CONSUMER"
+  ],
+  "symbolDocs": {
+    "DATA_OWNER": "Who owns the schema or DDL",
+    "PRODUCER": "Service or code owner of the service which produces/generates data records",
+    "DELEGATE": "DBA, SRE, ETL Replicator who can setup and modify the data storage",
+    "STAKEHOLDER": "Business owner or product manager/owner",
+    "CONSUMER": "Service or code owner of the service which consumes data records"
+  }
+}

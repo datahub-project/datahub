@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "Upstream",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Upstream lineage information about a dataset including the source reporting the lineage",
+  "fields": [
+    {
+      "name": "auditStamp",
+      "type": "com.linkedin.common.AuditStamp",
+      "doc": "Audit stamp containing who reported the lineage and when"
+    },
+    {
+      "name": "dataset",
+      "type": "com.linkedin.common.DatasetUrn",
+      "doc": "The upstream dataset the lineage points to"
+    },
+    {
+      "name": "type",
+      "type": "DatasetLineageType",
+      "doc": "The type of the lineage"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "type": "typeref",
+  "name": "Snapshot",
+  "namespace": "com.linkedin.metadata.snapshot",
+  "doc": "A union of all supported metadata snapshot types.",
+  "ref": [
+    "CorpUserSnapshot",
+    "DatasetSnapshot"
+  ]
+}

@@ -1,0 +1,17 @@
+apply plugin: 'java'
+apply plugin: 'pegasus'
+
+dependencies {
+  dataModel project(':li-utils')
+
+  compile project(':li-utils')
+  compile project(':metadata-dao')
+  compile spec.product.pegasus.restliServer
+
+  compileOnly externalDependency.lombok
+
+  testCompile project(':metadata-test-utils')
+  testCompile externalDependency.parseqTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
+}

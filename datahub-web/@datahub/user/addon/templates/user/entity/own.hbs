@@ -1,0 +1,22 @@
+<section class="user-entity-ownership-container">
+  <nav class={{concat "user-ownership-subnav " (with-banner-offset "nacho-breadcrumbs-container")}}>
+    {{#let this.model.entity as |entity|}}
+      <section class="container ">
+        {{#link-to "browse.entity" entity}}
+          <strong>Browse all {{capitalize entity}}</strong>
+        {{/link-to}}
+      </section>
+    {{/let}}
+  </nav>
+
+  {{search/search-main
+    fields=this.model.fields
+    trackPrefix=(concat this.model.entity "iown")
+    title=(concat (capitalize this.model.entity) " I Own")
+    keyword=(concat "owners:" this.model.userName)
+    facets=this.model.facets
+    page=this.model.page
+    entity=this.model.entity
+    noResultMsg=(concat "You don't own any " (capitalize this.model.entity))
+  }}
+</section>

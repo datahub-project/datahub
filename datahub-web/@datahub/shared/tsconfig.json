@@ -1,0 +1,28 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "../../",
+    "paths": {
+      "dummy/tests/*": ["tests/*"],
+      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "@datahub/shared": ["addon"],
+      "@datahub/shared/*": ["addon/*"],
+      "@datahub/shared/test-support": ["addon-test-support"],
+      "@datahub/shared/test-support/*": ["addon-test-support/*"],
+      "@datahub/utils": ["../../@datahub/utils/addon"],
+      "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "*": ["types/*"],
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*",
+    "../../@datahub/utils/addon/**/*",
+    "../../@datahub/utils/types/**/*"
+  ]
+}

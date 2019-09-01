@@ -1,0 +1,94 @@
+{
+  "settings": {
+    "index": {
+      "analysis": {
+        "filter": {
+          "autocomplete_filter": {
+            "type": "edge_ngram",
+            "min_gram": "3",
+            "max_gram": "20"
+          },
+          "custom_delimiter": {
+            "split_on_numerics": "false",
+            "split_on_case_change": "false",
+            "type": "word_delimiter",
+            "preserve_original": "true",
+            "catenate_words": "false"
+          }
+        },
+        "analyzer": {
+          "delimit": {
+            "filter": [
+              "lowercase",
+              "custom_delimiter",
+              "autocomplete_filter"
+            ],
+            "tokenizer": "whitespace"
+          },
+          "lowercase_keyword": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "type": "custom",
+            "tokenizer": "keyword"
+          }
+        }
+      }
+    }
+  },
+  "mappings": {
+    "doc": {
+      "properties": {
+        "aboutMe": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "fullName": {
+          "type": "text",
+          "analyzer": "delimit"
+        },
+        "ldap": {
+          "type": "text",
+          "analyzer": "lowercase_keyword"
+        },
+        "managerLdap": {
+          "type": "text",
+          "analyzer": "lowercase_keyword"
+        },
+        "skills": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "teams": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "title": {
+          "type": "text",
+          "analyzer": "delimit",
+          "fielddata": true
+        },
+        "urn": {
+          "type": "text",
+          "analyzer": "lowercase_keyword"
+        }
+      }
+    }
+  }
+}

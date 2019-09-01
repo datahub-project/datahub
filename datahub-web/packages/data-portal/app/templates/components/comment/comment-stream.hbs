@@ -1,0 +1,13 @@
+{{yield
+  (hash
+    header=(component "comment/comment-header"
+      comments=comments)
+    new=(component "comment/comment-new"
+      commentTypes=commentTypes
+      createComment=(action "handleStreamComment" commentActions.create))
+    item=(component "comment/comment-item"
+      updateComment=(action "handleStreamComment" commentActions.update)
+      deleteComment=(action "handleStreamComment" commentActions.destroy))
+    comments=comments
+  )
+}}

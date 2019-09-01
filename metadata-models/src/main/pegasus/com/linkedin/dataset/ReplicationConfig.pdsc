@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "ReplicationConfig",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Configurations for dataset replication",
+  "fields": [
+    {
+      "name": "gobblinConfig",
+      "type": "string",
+      "doc": "The raw gobblin HOCON configuration as a string",
+      "optional": true
+    }
+  ]
+}

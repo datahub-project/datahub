@@ -1,0 +1,24 @@
+{
+  "name": "DatasetGroupKey",
+  "type": "record",
+  "namespace": "com.linkedin.datasetGroup",
+  "doc": "Key for group resource defined as a combination of group name and group namespace",
+  "fields": [
+    {
+      "name": "namespace",
+      "type": "string",
+      "doc": "Arbitrary string identifying logically related groups. Namespace group belongs to eg. 'com.linkedin.dqf'. "
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Arbitrary group name (e.g. 'feed') which makes sense in the context of group consumer",
+      "validate": {
+        "strlen": {
+          "min": 3,
+          "max": 50
+        }
+      }
+    }
+  ]
+}

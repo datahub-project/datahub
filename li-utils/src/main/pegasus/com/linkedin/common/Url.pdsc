@@ -1,0 +1,10 @@
+{
+  "type":"typeref",
+  "name":"Url",
+  "namespace":"com.linkedin.common",
+  "ref":"string",
+  "java": {
+    "class":"com.linkedin.common.url.Url",
+    "coercerClass":"com.linkedin.common.url.UrlCoercer"
+  }
+}

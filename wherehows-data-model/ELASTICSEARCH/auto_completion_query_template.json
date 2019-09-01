@@ -1,9 +1,0 @@
-{
-  "wh-suggest": {
-    "text": "$SEARCHKEYWORD",
-    "completion": {
-      "field": "$FIELD",
-      "size": "$LIMIT"
-    }
-  }
-}

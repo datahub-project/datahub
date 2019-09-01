@@ -1,0 +1,12 @@
+apply plugin: 'pegasus'
+
+dependencies {
+  compile spec.product.pegasus.data
+  compile project(':li-utils')
+  dataModel project(':li-utils')
+
+  testCompile externalDependency.guava
+  testCompile externalDependency.testng
+}
+
+pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]

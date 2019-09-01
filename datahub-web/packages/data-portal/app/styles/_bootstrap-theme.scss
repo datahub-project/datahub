@@ -1,0 +1,34 @@
+// The intent of this file is to change some of the default variables in bootstrap.
+// Although we are trying to remove bootstrap from our codebase and replace it
+// entirely with @nacho-ui, we are still using it for some aspects.
+
+// ------------ START Disabling Responsive Layout -------------------------------------
+// Disabling resposive layout since we are not really responsive, and it does not
+// really work for us at this time. Instead of resizing components we will show a
+// scroll bar at bottom which will make the page usable using scroll bars.
+// This change is in conjunction with `/styles/base/_base.scss` removing `overflow-x: hidden;`
+// to allow page to scroll horizontally.
+
+// Extra small screen / phone
+$screen-xs: 1px;
+$screen-xs-min: $screen-xs;
+$screen-phone: $screen-xs-min;
+
+// Small screen / tablet
+$screen-sm: 2px;
+$screen-sm-min: $screen-sm;
+$screen-tablet: $screen-sm-min;
+
+// Medium screen / desktop
+$screen-md: 3px;
+$screen-md-min: $screen-md;
+$screen-desktop: $screen-md-min;
+
+// Large screen / wide desktop
+$screen-lg: 4px;
+$screen-lg-min: $screen-lg;
+$screen-lg-desktop: $screen-lg-min;
+
+// ------------ END Disabling Responsive Layout -------------------------------------
+
+$icon-font-path: '/assets/fonts/bootstrap/';

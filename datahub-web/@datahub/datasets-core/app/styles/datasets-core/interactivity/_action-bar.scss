@@ -1,0 +1,67 @@
+// Styles the basic interaction bar component that can appear when the user performs actions on a screen and
+// need to take an additional action that affects those on screen actions such as save/confirm/cancel/navigate
+.interaction-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-width: 1px 0 0;
+  background-color: #f8f8f8;
+  z-index: z(dropdown) - 1;
+  width: 100%;
+  box-sizing: border-box;
+
+  &__content {
+    max-height: 50px;
+    padding: item-spacing(1);
+    white-space: nowrap;
+    vertical-align: top;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 0 auto;
+    width: $max-container-width;
+
+    &__error-messages {
+      display: inline-flex;
+      align-items: center;
+      color: get-color(red5);
+      margin-left: item-spacing(2);
+      padding-right: item-spacing(2);
+    }
+  }
+
+  &__actionable-content {
+    display: flex;
+    flex-direction: row-reverse;
+    margin-left: auto;
+  }
+
+  &__info-content {
+    display: flex;
+    align-items: center;
+  }
+
+  &__expand-btn {
+    background: transparent;
+    border: none;
+    font-weight: 600;
+    color: get-color(blue5);
+    cursor: pointer;
+    margin-left: item-spacing(2);
+  }
+
+  &__item + &__item {
+    margin-right: 10px;
+  }
+
+  &__expanded-content {
+    margin: 0 auto;
+    width: $max-container-width;
+  }
+
+  &__item:disabled {
+    cursor: not-allowed;
+    opacity: 0.25;
+  }
+}

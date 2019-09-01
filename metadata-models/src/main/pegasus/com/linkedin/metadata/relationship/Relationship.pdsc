@@ -1,0 +1,11 @@
+{
+  "type": "typeref",
+  "name": "Relationship",
+  "namespace": "com.linkedin.metadata.relationship",
+  "doc": "A union of all supported relationship types.",
+  "ref": [
+    "Contains",
+    "IsPartOf",
+    "OwnedBy"
+  ]
+}

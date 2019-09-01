@@ -1,0 +1,114 @@
+.notifications {
+  $wrapper--vertical-space: item-spacing(5) * 5.5;
+
+  &__toast-wrapper {
+    position: fixed;
+    left: item-spacing(6);
+    bottom: 0;
+    z-index: z('toast');
+    height: $wrapper--vertical-space;
+  }
+
+  // Defines the styles for the notification toast component
+  // Contains the states --info, --success, --error
+  // Also includes a __dismiss element when applicable i.e.shown
+  &__toast {
+    $right-index: 7;
+    $right-region-width: item-spacing($right-index);
+
+    position: absolute;
+    text-align: left;
+    top: $wrapper--vertical-space;
+    border-radius: 2px;
+    display: block;
+    width: item-spacing(1) * 100;
+    z-index: z('toast');
+    background: get-color(white);
+    padding: 0;
+    overflow: hidden;
+    height: item-spacing(5) * 5;
+    box-shadow: 0 0 0 1px get-color(black, 0.1), 0 6px 9px get-color(black, 0.2);
+
+    &__content {
+      overflow: hidden;
+      height: 100%;
+      padding: item-spacing(5 $right-index 5 8);
+
+      &::before {
+        content: '';
+        height: 100%;
+        width: 48px;
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 2;
+      }
+
+      &__msg {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        margin: 0;
+      }
+
+      &--info {
+        &::before {
+          background-color: get-color(slate5);
+        }
+      }
+
+      &--error {
+        &::before {
+          background-color: get-color(red5);
+        }
+      }
+
+      &--success {
+        &::before {
+          background-color: get-color(green5);
+        }
+      }
+    }
+
+    &__dismiss {
+      background-color: transparent;
+      border-radius: 0;
+      border: 0;
+      height: 100%;
+      position: absolute;
+      right: 0;
+      top: 0;
+      padding: 0;
+      z-index: 1;
+      width: $right-region-width;
+      font-size: item-spacing(6);
+      cursor: pointer;
+      outline: 0;
+
+      &:hover {
+        background-color: get-color(black, 0.05);
+      }
+    }
+
+    &__content-detail {
+      &#{&} {
+        position: absolute;
+        bottom: 0;
+        right: $right-region-width;
+      }
+    }
+
+    &--visible {
+      transition: top 0.1s ease-in 0.3s, opacity 0s;
+      top: 0;
+      opacity: 1;
+    }
+
+    &--hidden {
+      $viewport-offset: item-spacing(2);
+      transition: top 0.2s ease-out 0.3s, opacity 0s linear 0.6s;
+      top: $wrapper--vertical-space + $viewport-offset;
+      opacity: 0;
+    }
+  }
+}

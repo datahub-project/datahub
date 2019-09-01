@@ -1,0 +1,25 @@
+<section class="upstream-owners-banner__content">
+  <div class="upstream-owners-banner__informational">
+    {{fa-icon
+      "info-circle"
+      size="2x"
+    }}
+
+    <p class="upstream-owners-banner__informational__text">
+      Ownership metadata for this dataset is inherited from a parent dataset.
+      <br>
+      To make modifications, please update the Ownership on the parent dataset.
+      <br>
+    </p>
+  </div>
+
+  <header class="upstream-owners-banner__title">
+    Parent Dataset Name:
+    {{#link-to
+      "datasets.dataset"
+      upstreamUrn
+    }}
+      <strong>{{nativeName}}</strong>
+    {{/link-to}}
+  </header>
+</section>

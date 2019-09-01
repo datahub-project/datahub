@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "Ownership",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Ownership of a dataset.",
+  "include": [
+    "OwnershipKey",
+    "com.linkedin.common.ChangeAuditStamps"
+  ],
+  "fields": [
+    {
+      "name": "owners",
+      "doc": "List of owners of a dataset.",
+      "type": {
+        "type": "array",
+        "items": "Owner"
+      }
+    }
+  ]
+}

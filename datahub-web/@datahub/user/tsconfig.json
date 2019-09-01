@@ -1,0 +1,40 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "../../",
+    "paths": {
+      "dummy/tests/*": ["tests/*"],
+      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "@datahub/user": ["addon"],
+      "@datahub/user/*": ["addon/*"],
+      "@datahub/user/test-support": ["addon-test-support"],
+      "@datahub/user/test-support/*": ["addon-test-support/*"],
+      "@datahub/data-models": ["../../@datahub/data-models/addon"],
+      "@datahub/data-models/*": ["../../@datahub/data-models/addon/*"],
+      "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
+      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "@datahub/shared": ["../../@datahub/shared/addon"],
+      "@datahub/shared/*": ["../../@datahub/shared/addon/*"],
+      "@datahub/utils": ["../../@datahub/utils/addon"],
+      "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "*": ["types/*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*",
+    "../../@datahub/data-models/addon/**/*",
+    "../../@datahub/data-models/types/**/*",
+    "../../@datahub/metadata-types/addon/**/*",
+    "../../@datahub/metadata-types/types/**/*",
+    "../../@datahub/shared/addon/**/*",
+    "../../@datahub/shared/types/**/*",
+    "../../@datahub/utils/addon/**/*",
+    "../../@datahub/utils/types/**/*",
+  ]
+}

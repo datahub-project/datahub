@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "AutoCompleteResult",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The model for the auto complete result",
+  "fields": [
+    {
+      "name": "query",
+      "type": "string",
+      "doc": "The original chars typed by user"
+    },
+    {
+      "name": "suggestions",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "A list of typeahead suggestions"
+    }
+  ]
+}

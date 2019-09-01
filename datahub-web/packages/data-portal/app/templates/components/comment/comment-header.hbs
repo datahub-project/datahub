@@ -1,0 +1,11 @@
+<header>
+  {{#if hasBlock}}
+    {{yield}}
+  {{else}}
+    {{#if comments.length}}
+      {{fa-icon "comment-alt" title="Comment Count"}}
+
+      {{comments.length}}
+    {{/if}}
+  {{/if}}
+</header>

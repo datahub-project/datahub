@@ -1,29 +1,23 @@
-build/
-target/
-repos/
-tmp/
-bin/
-.gradle/
-.settings
+# Gradle & Avro
 .project
+.settings
 .classpath
-*.swp
-*.jar
-*.idea
+.gradle
+.idea
 *.iml
-*.class
-*.ipr
 *.iws
-/RUNNING_PID
-wherehows-etl/src/main/resources/application.properties
-**/test/resources/*.properties
-logs/
-.DS_Store
-# See https://help.github.com/ignore-files/ for more about ignoring files.
+*.ipr
+**/mxe
 
-# compiled output
-dist/
-out/
-/commit
-/.vscode/
-*/src/generated/
+# Pegasus & Avro
+**/src/mainGenerated*
+**/src/testGenerated*
+
+# Added by mp-maker
+**/build
+/config
+*/i18n
+/out
+
+# Mac OS
+**/.DS_Store

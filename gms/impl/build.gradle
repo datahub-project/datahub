@@ -1,0 +1,29 @@
+apply plugin: 'java'
+apply plugin: 'pegasus'
+
+dependencies {
+  compile project(':gms:api')
+  compile project(path: ':gms:api', configuration: 'dataTemplate')
+  compile project(':li-utils')
+  compile project(':metadata-models')
+  compile project(':metadata-dao-impl:ebean-dao')
+  compile project(':metadata-dao-impl:elasticsearch-dao')
+  compile project(':metadata-test-utils')
+  compile spec.product.pegasus.restliServer
+  compile project(':metadata-restli-resource')
+
+  compileOnly externalDependency.lombok
+
+  testCompile externalDependency.parseqTest
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
+}
+
+// Generate IDLs
+pegasus.main.idlOptions.addIdlItem([
+        'com.linkedin.dataset.rest',
+        'com.linkedin.identity.rest',
+        'com.linkedin.metric.rest'
+])
+
+ext.apiProject = project(':gms:api')
