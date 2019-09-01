@@ -12,7 +12,7 @@ task copyRenamedAvsc(type: Copy, dependsOn: copyOriginalAvsc) {
 }
 
 task renameNamespace(type: Exec, dependsOn: copyRenamedAvsc) {
-  commandLine 'sh', './rename-namespace.sh'
+  commandLine './rename-namespace.sh'
 }
 
 build.dependsOn renameNamespace
