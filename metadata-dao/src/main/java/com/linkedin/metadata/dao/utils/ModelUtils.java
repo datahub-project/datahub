@@ -1,0 +1,387 @@
+package com.linkedin.metadata.dao.utils;
+
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.UnionDataSchema;
+import com.linkedin.data.template.DataTemplate;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.data.template.WrappingArrayTemplate;
+import com.linkedin.metadata.aspect.AspectVersion;
+import com.linkedin.metadata.delta.Delta;
+import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.validator.AspectValidator;
+import com.linkedin.metadata.validator.DeltaValidator;
+import com.linkedin.metadata.validator.DocumentValidator;
+import com.linkedin.metadata.validator.InvalidSchemaException;
+import com.linkedin.metadata.validator.RelationshipValidator;
+import com.linkedin.metadata.validator.SnapshotValidator;
+import com.linkedin.metadata.validator.ValidationUtils;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import javax.annotation.Nonnull;
+
+
+public class ModelUtils {
+
+  private static final ClassLoader CLASS_LOADER = Snapshot.class.getClassLoader();
+
+  private ModelUtils() {
+    // Util class
+  }
+
+  /**
+   * Gets the corresponding aspect name for a specific aspect type.
+   *
+   * @param aspectClass the aspect type
+   * @param <T> must be a valid aspect type
+   * @return the corresponding aspect name, which is actually the FQCN of type
+   */
+  public static <T extends DataTemplate> String getAspectName(@Nonnull Class<T> aspectClass) {
+    return aspectClass.getCanonicalName();
+  }
+
+  /**
+   * Gets the corresponding {@link Class} for a given aspect name.
+   *
+   * @param aspectName the name returned from {@link #getAspectName(Class)}
+   * @return the corresponding {@link Class}
+   */
+  @Nonnull
+  public static Class<? extends RecordTemplate> getAspectClass(@Nonnull String aspectName) {
+    return getClassFromName(aspectName, RecordTemplate.class);
+  }
+
+  /**
+   * Returns all supported aspects from an aspect union.
+   *
+   * @param aspectUnionClass the aspect union type to extract supported aspects from
+   * @param <ASPECT_UNION> must be a valid aspect union defined in com.linkedin.metadata.aspect
+   * @return a set of supported aspects
+   */
+  @Nonnull
+  public static <ASPECT_UNION extends UnionTemplate> Set<Class<? extends RecordTemplate>> getValidAspectTypes(
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
+
+    AspectValidator.validateSchema(aspectUnionClass);
+
+    Set<Class<? extends RecordTemplate>> validTypes = new HashSet<>();
+    for (UnionDataSchema.Member member : ValidationUtils.getUnionSchema(aspectUnionClass).getMembers()) {
+      if (member.getType().getType() == DataSchema.Type.RECORD) {
+        String fqcn = ((RecordDataSchema) member.getType()).getBindingName();
+        try {
+          validTypes.add(CLASS_LOADER.loadClass(fqcn).asSubclass(RecordTemplate.class));
+        } catch (ClassNotFoundException | ClassCastException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+
+    return validTypes;
+  }
+
+  /**
+   * Gets a {@link Class} from its FQCN.
+   */
+  @Nonnull
+  public static <T> Class<? extends T> getClassFromName(@Nonnull String className, @Nonnull Class<T> parentClass) {
+    try {
+      return CLASS_LOADER.loadClass(className).asSubclass(parentClass);
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Gets a snapshot class given its FQCN
+   *
+   * @param className FQCN of snapshot class
+   * @return snapshot class that extends {@link RecordTemplate}, associated with className
+   */
+  @Nonnull
+  public static Class<? extends RecordTemplate> getMetadataSnapshotClassFromName(@Nonnull String className) {
+    Class<? extends RecordTemplate> snapshotClass = getClassFromName(className, RecordTemplate.class);
+    SnapshotValidator.validateSchema(snapshotClass);
+    return snapshotClass;
+  }
+
+  /**
+   * Extracts the "urn" field from a snapshot
+   *
+   * @param snapshot the snapshot to extract urn from
+   * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
+   * @return the extracted {@link Urn}
+   */
+  @Nonnull
+  public static <SNAPSHOT extends RecordTemplate> Urn getUrnFromSnapshot(@Nonnull SNAPSHOT snapshot) {
+    SnapshotValidator.validateSchema(snapshot.getClass());
+    return RecordUtils.getRecordTemplateField(snapshot, "urn", urnClassForSnapshot(snapshot.getClass()));
+  }
+
+  /**
+   * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead
+   */
+  @Nonnull
+  public static Urn getUrnFromSnapshotUnion(@Nonnull Snapshot snapshotUnion) {
+    return getUrnFromSnapshot(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
+  }
+
+  /**
+   * Extracts the "urn" field from a delta
+   *
+   * @param delta the delta to extract urn from
+   * @param <DELTA> must be a valid delta model defined in com.linkedin.metadata.delta
+   * @return the extracted {@link Urn}
+   */
+  @Nonnull
+  public static <DELTA extends RecordTemplate> Urn getUrnFromDelta(@Nonnull DELTA delta) {
+    DeltaValidator.validateSchema(delta.getClass());
+    return RecordUtils.getRecordTemplateField(delta, "urn", urnClassForDelta(delta.getClass()));
+  }
+
+  /**
+   * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead
+   */
+  @Nonnull
+  public static Urn getUrnFromDeltaUnion(@Nonnull Delta deltaUnion) {
+    return getUrnFromDelta(RecordUtils.getSelectedRecordTemplateFromUnion(deltaUnion));
+  }
+
+  /**
+   * Extracts the "urn" field from a search document
+   *
+   * @param document the document to extract urn from
+   * @param <DOCUMENT> must be a valid document model defined in com.linkedin.metadata.search
+   * @return the extracted {@link Urn}
+   */
+  @Nonnull
+  public static <DOCUMENT extends RecordTemplate> Urn getUrnFromDocument(@Nonnull DOCUMENT document) {
+    DocumentValidator.validateSchema(document.getClass());
+    return RecordUtils.getRecordTemplateField(document, "urn", urnClassForDocument(document.getClass()));
+  }
+
+  /**
+   * Extracts the list of aspects in a snapshot.
+   *
+   * @param snapshot the snapshot to extract aspects from
+   * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
+   * @return the extracted list of aspects
+   */
+  @Nonnull
+  public static <SNAPSHOT extends RecordTemplate> List<RecordTemplate> getAspectsFromSnapshot(
+      @Nonnull SNAPSHOT snapshot) {
+
+    SnapshotValidator.validateSchema(snapshot.getClass());
+    return getAspects(snapshot);
+  }
+
+  /**
+   * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead
+   */
+  @Nonnull
+  public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull Snapshot snapshotUnion) {
+    return getAspects(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
+  }
+
+  @Nonnull
+  private static List<RecordTemplate> getAspects(@Nonnull RecordTemplate snapshot) {
+    final Class<? extends WrappingArrayTemplate> clazz = getAspectsArrayClass(snapshot.getClass());
+
+    WrappingArrayTemplate aspectArray = RecordUtils.getRecordTemplateWrappedField(snapshot, "aspects", clazz);
+
+    final List<RecordTemplate> aspects = new ArrayList<>();
+    aspectArray.forEach(item -> aspects.add(RecordUtils.getSelectedRecordTemplateFromUnion((UnionTemplate) item)));
+    return aspects;
+  }
+
+  /**
+   * Creates a snapshot with its urn field set
+   *
+   * @param snapshotClass the type of snapshot to create
+   * @param urn value for the urn field
+   * @param aspects value for the aspects field
+   * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
+   * @param <ASPECT_UNION> must be a valid aspect union defined in com.linkedin.metadata.aspect
+   * @param <URN> must be a valid URN type
+   * @return the created snapshot
+   */
+  @Nonnull
+  public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn> SNAPSHOT newSnapshot(
+      @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull URN urn, @Nonnull List<ASPECT_UNION> aspects) {
+
+    SnapshotValidator.validateSchema(snapshotClass);
+
+    final Class<? extends WrappingArrayTemplate> aspectArrayClass = getAspectsArrayClass(snapshotClass);
+
+    try {
+      final SNAPSHOT snapshot = snapshotClass.newInstance();
+      RecordUtils.setRecordTemplatePrimitiveField(snapshot, "urn", urn.toString());
+      WrappingArrayTemplate aspectArray = aspectArrayClass.newInstance();
+      aspectArray.addAll(aspects);
+      RecordUtils.setRecordTemplateComplexField(snapshot, "aspects", aspectArray);
+      return snapshot;
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Nonnull
+  private static <SNAPSHOT extends RecordTemplate> Class<? extends WrappingArrayTemplate> getAspectsArrayClass(
+      @Nonnull Class<SNAPSHOT> snapshotClass) {
+
+    try {
+      return snapshotClass.getMethod("getAspects").getReturnType().asSubclass(WrappingArrayTemplate.class);
+    } catch (NoSuchMethodException | ClassCastException e) {
+      throw new RuntimeException((e));
+    }
+  }
+
+  /**
+   * Creates an aspect union with a specific aspect set.
+   *
+   * @param aspectUnionClass the type of aspect union to create
+   * @param aspect the aspect to set
+   * @param <ASPECT_UNION> must be a valid aspect union defined in com.linkedin.metadata.aspect
+   * @param <ASPECT> must be a supported aspect type in ASPECT_UNION
+   * @return the created aspect union
+   */
+  @Nonnull
+  public static <ASPECT_UNION extends UnionTemplate, ASPECT extends RecordTemplate> ASPECT_UNION newAspectUnion(
+      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull ASPECT aspect) {
+
+    AspectValidator.validateSchema(aspectUnionClass);
+
+    try {
+      ASPECT_UNION aspectUnion = aspectUnionClass.newInstance();
+      RecordUtils.setSelectedRecordTemplateInUnion(aspectUnion, aspect);
+      return aspectUnion;
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Creates a new {@link AspectVersion}.
+   */
+  @Nonnull
+  public static <ASPECT extends RecordTemplate> AspectVersion newAspectVersion(@Nonnull Class<ASPECT> aspectClass,
+      long version) {
+    AspectVersion aspectVersion = new AspectVersion();
+    aspectVersion.setAspect(ModelUtils.getAspectName(aspectClass));
+    aspectVersion.setVersion(version);
+    return aspectVersion;
+  }
+
+  /**
+   * Gets the expected aspect class for a specific kind of snapshot.
+   */
+  @Nonnull
+  public static Class<? extends UnionTemplate> aspectClassForSnapshot(
+      @Nonnull Class<? extends RecordTemplate> snapshotClass) {
+    SnapshotValidator.validateSchema(snapshotClass);
+
+    String aspectClassName = ((TyperefDataSchema) ((ArrayDataSchema) ValidationUtils.getRecordSchema(snapshotClass)
+        .getField("aspects")
+        .getType()).getItems()).getBindingName();
+
+    return getClassFromName(aspectClassName, UnionTemplate.class);
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for a specific kind of snapshot.
+   */
+  @Nonnull
+  public static Class<? extends Urn> urnClassForSnapshot(@Nonnull Class<? extends RecordTemplate> snapshotClass) {
+    SnapshotValidator.validateSchema(snapshotClass);
+    return urnClassForField(snapshotClass, "urn");
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for a specific kind of delta.
+   */
+  @Nonnull
+  public static Class<? extends Urn> urnClassForDelta(@Nonnull Class<? extends RecordTemplate> deltaClass) {
+    DeltaValidator.validateSchema(deltaClass);
+    return urnClassForField(deltaClass, "urn");
+  }
+
+  /**
+   * Gets the expected {@link Urn} class for a specific kind of search document.
+   */
+  @Nonnull
+  public static Class<? extends Urn> urnClassForDocument(@Nonnull Class<? extends RecordTemplate> documentClass) {
+    DocumentValidator.validateSchema(documentClass);
+    return urnClassForField(documentClass, "urn");
+  }
+
+  @Nonnull
+  private static Class<? extends Urn> urnClassForField(@Nonnull Class<? extends RecordTemplate> recordClass,
+      @Nonnull String fieldName) {
+    String urnClassName = ((DataMap) ValidationUtils.getRecordSchema(recordClass)
+        .getField(fieldName)
+        .getType()
+        .getProperties()
+        .get("java")).getString("class");
+
+    return getClassFromName(urnClassName, Urn.class);
+  }
+
+  /**
+   * Validates a specific snapshot-aspect combination.
+   */
+  public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate> void validateSnapshotAspect(
+      @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
+    SnapshotValidator.validateSchema(snapshotClass);
+    AspectValidator.validateSchema(aspectUnionClass);
+
+    // Make sure that SNAPSHOT's "aspects" array field contains ASPECT_UNION type.
+    if (!aspectClassForSnapshot(snapshotClass).equals(aspectUnionClass)) {
+      throw new InvalidSchemaException(aspectUnionClass.getCanonicalName() + " is not a supported aspect class of "
+          + snapshotClass.getCanonicalName());
+    }
+  }
+
+  /**
+   * Validates a specific snapshot-URN combination.
+   */
+  public static <SNAPSHOT extends RecordTemplate, URN extends Urn> void validateSnapshotUrn(
+      @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<URN> urnClass) {
+    SnapshotValidator.validateSchema(snapshotClass);
+
+    // Make sure that SNAPSHOT's "urn" field uses the correct class
+    if (!urnClassForSnapshot(snapshotClass).equals(urnClass)) {
+      throw new InvalidSchemaException(
+          urnClass.getCanonicalName() + " is not a supported URN class of " + snapshotClass.getCanonicalName());
+    }
+  }
+
+  /**
+   * Creates a relationship union with a specific relationship set.
+   *
+   * @param relationshipUnionClass the type of relationship union to create
+   * @param relationship the relationship to set
+   * @param <RELATIONSHIP_UNION> must be a valid relationship union defined in com.linkedin.metadata.relationship
+   * @param <RELATIONSHIP> must be a supported relationship type in ASPECT_UNION
+   * @return the created relationship union
+   */
+  @Nonnull
+  public static <RELATIONSHIP_UNION extends UnionTemplate, RELATIONSHIP extends RecordTemplate> RELATIONSHIP_UNION newRelationshipUnion(
+      @Nonnull Class<RELATIONSHIP_UNION> relationshipUnionClass, @Nonnull RELATIONSHIP relationship) {
+
+    RelationshipValidator.validateRelationshipUnionSchema(relationshipUnionClass);
+
+    try {
+      RELATIONSHIP_UNION relationshipUnion = relationshipUnionClass.newInstance();
+      RecordUtils.setSelectedRecordTemplateInUnion(relationshipUnion, relationship);
+      return relationshipUnion;
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+}

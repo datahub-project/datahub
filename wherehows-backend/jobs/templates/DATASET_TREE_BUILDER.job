@@ -1,5 +1,0 @@
-# Rebuild dataset tree
-job.type=tree
-job.script=jython/DatasetTreeBuilder.py
-
-tree.dataset.file=/var/tmp/wherehows/resource/dataset.json

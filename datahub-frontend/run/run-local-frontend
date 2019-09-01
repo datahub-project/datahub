@@ -1,0 +1,20 @@
+#!/bin/bash
+
+CURRENT_DIR=$(pwd)
+BUILD_DIR=../build/stage/datahub-frontend
+CONF_DIR=$BUILD_DIR/conf
+
+set -a
+source frontend.env
+set +a
+
+export JAVA_OPTS="
+	-Xms512m
+	-Xmx1024m
+	-Dhttp.port=9001
+	-Dconfig.file=$CONF_DIR/application.conf
+	-Djava.security.auth.login.config=$CONF_DIR/jaas.conf
+	-Dlogback.configurationFile=$CURRENT_DIR/logback.xml
+	-Dlogback.debug=true"
+
+$BUILD_DIR/bin/playBinary

@@ -1,0 +1,9 @@
+{
+  "type": "typeref",
+  "name": "CorpGroupAspect",
+  "namespace": "com.linkedin.metadata.aspect",
+  "doc": "A union of all supported metadata aspects for a CorpGroup",
+  "ref": [
+    "com.linkedin.identity.CorpGroupInfo"
+  ]
+}

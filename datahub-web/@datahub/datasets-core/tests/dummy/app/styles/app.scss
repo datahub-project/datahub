@@ -1,0 +1,115 @@
+// TODO: [META-7912] Migrate this to open source nacho-core
+/// Applies rules to render an element with a tag shape
+/// @param {Color} $bg-color the background color for the tag
+/// @param {Color} $color font/text color
+/// @param {Color} $border-color=$bg-color the color to apply to the tag border
+///@example - Usage
+/// .foo {
+///   @include tag(get-color(gray1), get-color(gray6));
+/// }
+@mixin tag($bg-color, $color, $border-color: $bg-color) {
+  border-radius: 32px;
+  background-color: $bg-color;
+  border: 1px solid $border-color;
+  color: $color;
+  display: inline-block;
+  line-height: item-spacing(3);
+  padding: 1px 10px;
+}
+
+@import 'datahub-utils';
+@import 'nacho-table';
+@import 'nacho-animations';
+@import 'nacho-pill';
+@import 'nacho-dropdown';
+
+@import 'datasets-core';
+
+html {
+  font-family: 'Source Sans Pro';
+}
+
+.testing-table {
+  &__container {
+    width: $max-container-width;
+    margin: 0 auto;
+  }
+
+  thead {
+    padding: 16px 24px;
+    background-color: get-color(gray4);
+  }
+
+  &__status {
+    width: 196px;
+  }
+}
+
+th {
+  padding: 16px 24px;
+}
+
+td {
+  border-top: 1px get-color(gray2) solid;
+  border-bottom: 1px get-color(gray2) solid;
+  padding: 16px 24px;
+}
+
+// Expected to be part of the host application, should be exported to a nacho component to be imported into our sass
+.nacho-button {
+  font-weight: 600;
+  font-family: inherit;
+  overflow: hidden;
+  outline-width: 2px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  transition-duration: 167ms;
+  transition-property: background-color, box-shadow, color;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  border-radius: 2px;
+  vertical-align: middle;
+  z-index: 0;
+  box-sizing: border-box;
+  display: inline-block;
+  cursor: pointer;
+
+  @mixin large-button() {
+    font-size: 18px;
+    line-height: 40px;
+    height: 40px;
+    padding: 0 24px;
+  }
+
+  @mixin inverse-button() {
+    background-color: get-color(blue5);
+    color: get-color(white);
+  }
+
+  @mixin secondary() {
+    background-color: get-color(black, 0);
+    border: 0;
+    color: get-color(blue5);
+    cursor: pointer;
+    padding: 0 16px;
+    box-shadow: inset 0 0 0 1px get-color(blue5), inset 0 0 0 2px transparent, inset 0 0 0 3px transparent;
+  }
+
+  &--large-inverse {
+    @include large-button();
+    @include inverse-button();
+  }
+
+  &--large {
+    @include large-button();
+  }
+
+  &--secondary {
+    @include secondary();
+  }
+}
+
+.placeholder-table-global {
+  width: 100%;
+  padding: 16px 0;
+}

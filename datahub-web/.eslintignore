@@ -1,0 +1,41 @@
+# unconventional js
+/blueprints/*/files/
+/vendor/
+
+# compiled output
+/dist/
+/tmp/
+**/tmp/
+**/dist/
+
+# dependencies
+/bower_components/
+/node_modules/
+**/node_modules/
+
+# misc
+/coverage/
+!.*
+
+# ember-try
+/.node_modules.ember-try/
+/bower.json.ember-try
+/package.json.ember-try
+
+# generated addon sources for publishing
+**/@datahub/*/addon/**/*.js
+**/@datahub/*/addon/**/*.js
+**/@datahub/*/app/**/*.js
+**/@datahub/*/app/**/*.js
+**/@datahub/*/components/**/*.d.ts
+**/@datahub/*/components/**/*.d.ts
+**/@datahub/*/constants/**/*.d.ts
+**/@datahub/*/entity/**/*.d.ts
+**/@datahub/*/utils/**/*.d.ts
+**/@datahub/*/array/**/*.d.ts
+**/@datahub/*/validators/**/*.d.ts
+**/@datahub/*/api/**/*.d.ts
+**/@datahub/*/placeholder/**/*.d.ts
+
+
+testem.js

@@ -1,0 +1,9 @@
+{{#if hasBlock}}
+  {{yield}}
+{{else}}
+  {{#if this.segments}}
+    {{#dynamic-link params=link class="data-search-hierarchy nacho-button nacho-button--tertiary" }}
+      {{this.cta}}
+    {{/dynamic-link}}
+  {{/if}}
+{{/if}}

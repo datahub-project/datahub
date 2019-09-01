@@ -1,0 +1,10 @@
+{
+  "type": "typeref",
+  "name": "Entity",
+  "namespace": "com.linkedin.metadata.entity",
+  "doc": "A union of all supported entity types.",
+  "ref": [
+    "CorpUserEntity",
+    "DatasetEntity"
+  ]
+}

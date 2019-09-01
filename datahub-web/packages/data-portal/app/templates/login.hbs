@@ -1,0 +1,24 @@
+<section class="wh-login-container">
+  <section class="nacho-login">
+
+    <img
+      src="/assets/images/landing-logo.png"
+      class="landing-logo"
+      alt="Data Hub Logo"
+    >
+    <h1 class="nacho-login__header">DATA HUB</h1>
+    <p>
+      Connecting you to the data that matters.
+    </p>
+    {{login-form
+      username=this.username
+      password=this.password
+      vipToken=this.vipToken
+      isInternal=this.model.isInternal
+      errorMessage=this.errorMessage
+      showTokenCredentialInput=this.model.isInternal
+      onSubmit=(action "authenticateUser")
+    }}
+  </section>
+</section>
+{{outlet}}

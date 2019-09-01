@@ -1,0 +1,23 @@
+apply plugin: 'java'
+
+
+task copyOriginalAvsc(type: Copy, dependsOn: ':metadata-models:build') {
+  from("../../metadata-models/src/mainGeneratedAvroSchema/avro")
+  into file("src/original/avro")
+}
+
+task copyRenamedAvsc(type: Copy, dependsOn: copyOriginalAvsc) {
+  from("src/original/avro")
+  into file("src/renamed/avro")
+}
+
+task renameNamespace(type: Exec, dependsOn: copyRenamedAvsc) {
+  commandLine 'sh', './rename-namespace.sh'
+}
+
+build.dependsOn renameNamespace
+
+clean {
+  project.delete('src/original/avro')
+  project.delete('src/renamed/avro')
+}

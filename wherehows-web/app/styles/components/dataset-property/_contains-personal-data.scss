@@ -1,9 +1,0 @@
-.pii-dataset {
-  @include pill(get-color(orange5), get-color(white));
-  line-height: item-spacing(5);
-
-  &--small {
-    font-size: 12px;
-    line-height: 18px;
-  }
-}

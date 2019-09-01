@@ -1,0 +1,17 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(':gms:impl')
+  compile project(':metadata-dao-impl:kafka-producer')
+
+  compile externalDependency.elasticSearchRest
+  compile externalDependency.kafkaSerializers
+  compile externalDependency.lombok
+  compile externalDependency.servletApi
+  compile externalDependency.springBeans
+  compile externalDependency.springContext
+  compile externalDependency.springCore
+  compile externalDependency.springWeb
+
+  compile spec.product.pegasus.restliSpringBridge
+}

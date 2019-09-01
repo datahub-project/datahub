@@ -1,0 +1,2 @@
+{"auditHeader": None, "proposedSnapshot": {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}, "proposedDelta": None}
+{"auditHeader": None, "proposedSnapshot": {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}, "proposedDelta": None}

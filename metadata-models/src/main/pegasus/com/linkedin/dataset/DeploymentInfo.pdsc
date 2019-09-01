@@ -1,0 +1,50 @@
+{
+  "type": "record",
+  "name": "DeploymentInfo",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Deployment information of a dataset. Locations were dataset is deployed.",
+  "fields": [
+    {
+      "name": "dataLocation",
+      "doc": "Deployment location",
+      "type": {
+        "type": "record",
+        "name": "DataLocation",
+        "doc": "DataLocation describes where dataset is located within LinkedIn environment. Location is identified with fabric:cluster pair.",
+        "fields": [
+          {
+            "name": "fabricGroup",
+            "type": "com.linkedin.common.FabricType",
+            "doc": "Fabric group type of Linkedin internal data center fabrics."
+          },
+          {
+            "name": "fabric",
+            "type": "com.linkedin.common.FabricUrn",
+            "doc": "Designated fabric where dataset is located such as prod-ltx1, ei-lva1 etc.",
+            "optional": true
+          },
+          {
+            "name": "cluster",
+            "type": "string",
+            "doc": "Designated cluster where dataset is located such as kafka-tracking-cluster, queuing, etc."
+          },
+          {
+            "name": "region",
+            "type": "string",
+            "doc": "Standardized geographical region where dataset is deployed.",
+            "optional": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "additionalDeploymentInfo",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "optional": true,
+      "doc": "Additional deployment info, such as Zookeeper, Connection, Graphite URL, native reference ID or KEY"
+    }
+  ]
+}

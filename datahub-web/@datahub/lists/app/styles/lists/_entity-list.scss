@@ -1,0 +1,90 @@
+/// Defines the rules for the entity list component layout
+.entity-list {
+  $entity-list-left-gutter: item-spacing(8);
+  $entity-list-left-gutter-midpoint: $entity-list-left-gutter / 2;
+  $cta-spacing: item-spacing(4);
+  $spacing-above-container: item-spacing(7);
+
+  margin-top: $spacing-above-container;
+
+  &#{&} {
+    padding-left: $entity-list-left-gutter;
+    padding-right: $entity-list-left-gutter-midpoint;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    margin: 0;
+  }
+
+  & header {
+    display: flex;
+    align-items: center;
+    height: item-spacing(6);
+  }
+
+  &__page-meta {
+    margin: 0;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+
+    button + button {
+      margin-left: $cta-spacing;
+    }
+  }
+
+  /// ui indicator element for count of selected entities
+  &__selection-meta {
+    /// spacing between adjacent title element
+    margin-left: item-spacing(2);
+  }
+
+  &__checkbox {
+    $checkbox-label-width: 22px; // value from base _checkbox styles
+    $checkbox-label-width-midpoint: $checkbox-label-width / 2;
+    $left-offset-checkbox-centrally-in-gutter: -($entity-list-left-gutter-midpoint + $checkbox-label-width-midpoint);
+
+    &#{&}#{&} {
+      // align element within gutter
+      margin-left: $left-offset-checkbox-centrally-in-gutter;
+      // overrides default padding on checkbox
+      padding: item-spacing(0 0 4);
+    }
+
+    &::before {
+      width: $checkbox-label-width;
+    }
+  }
+
+  &__item {
+    &:first-of-type {
+      border-top: 1px solid get-color(gray1);
+      margin-top: item-spacing(4);
+    }
+
+    .search-result__title {
+      display: flex;
+      align-items: center;
+    }
+
+    .search-result__field-name {
+      flex-basis: 130px;
+    }
+
+    .search-result__field {
+      flex-basis: 100%;
+      line-height: 22px;
+    }
+
+    &__action-bar {
+      margin-left: auto;
+      display: flex;
+
+      button + button {
+        margin-left: $cta-spacing;
+      }
+    }
+  }
+}

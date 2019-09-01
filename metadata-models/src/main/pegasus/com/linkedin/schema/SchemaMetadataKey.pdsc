@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "SchemaMetadataKey",
+  "namespace": "com.linkedin.schema",
+  "doc": "Key to retrieve schema metadata.",
+  "fields": [
+    {
+      "name": "schemaName",
+      "type": "string",
+      "doc": "Schema name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking",
+      "validate": {
+        "strlen": {
+          "min": 1,
+          "max": 500
+        }
+      }
+    },
+    {
+      "name": "platform",
+      "type": "com.linkedin.common.DataPlatformUrn",
+      "doc": "Standardized platform urn where schema is defined. The data platform Urn (urn:li:platform:{platform_name})"
+    },
+    {
+      "name": "version",
+      "type": "long",
+      "doc": "Every change to SchemaMetadata in the resource results in a new version. Version is server assigned. This version is differ from platform native schema version."
+    }
+  ]
+}

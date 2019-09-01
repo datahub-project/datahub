@@ -1,19 +1,26 @@
-def modules = [
-    "wherehows-backend",
-    "wherehows-common",
-    "wherehows-dao",
-    "wherehows-data-model",
-    "wherehows-etl",
-    "wherehows-frontend",
-    "wherehows-hadoop",
-    "wherehows-ingestion",
-    "wherehows-kafka",
-    "wherehows-web",
-]
-
-modules.each { module ->
-  if (!file("${rootDir}/${module}").directory) {
-    throw new GradleException("Module '$module' specified in the settings.gradle file must be a valid directory in the root project.")
-  }
-  include "${module}"
-}
+include 'datahub-dao'
+include 'datahub-frontend'
+include 'datahub-web'
+include 'gms:api'
+include 'gms:client'
+include 'gms:factories'
+include 'gms:impl'
+include 'gms:war'
+include 'li-utils'
+include 'metadata-builders'
+include 'metadata-dao'
+include 'metadata-dao-impl:ebean-dao'
+include 'metadata-dao-impl:elasticsearch-dao'
+include 'metadata-dao-impl:kafka-producer'
+include 'metadata-dao-impl:restli-dao'
+include 'metadata-events:mxe-avro-1.7'
+include 'metadata-events:mxe-registration'
+include 'metadata-events:mxe-schemas'
+include 'metadata-events:mxe-utils-avro-1.7'
+include 'metadata-ingestion'
+include 'metadata-jobs:elasticsearch-index-job'
+include 'metadata-jobs:mce-consumer-job'
+include 'metadata-models'
+include 'metadata-restli-resource'
+include 'metadata-test-utils'
+include 'metadata-utils'

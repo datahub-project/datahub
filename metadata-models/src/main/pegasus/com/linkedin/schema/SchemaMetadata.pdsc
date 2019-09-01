@@ -1,0 +1,71 @@
+{
+  "type": "record",
+  "name": "SchemaMetadata",
+  "namespace": "com.linkedin.schema",
+  "doc": "SchemaMetadata to describe metadata related to store schema",
+  "include": [
+    "SchemaMetadataKey",
+    "com.linkedin.common.ChangeAuditStamps"
+  ],
+  "fields": [
+    {
+      "name": "dataset",
+      "type": "com.linkedin.common.DatasetUrn",
+      "doc": "Dataset this schema metadata is associated with.",
+      "optional": true
+    },
+    {
+      "name": "cluster",
+      "type": "string",
+      "doc": "The cluster this schema metadata resides from",
+      "optional": true
+    },
+    {
+      "name": "hash",
+      "type": "string",
+      "doc": "the SHA1 hash of the schema content"
+    },
+    {
+      "name": "platformSchema",
+      "type": [
+        "EspressoSchema",
+        "OracleDDL",
+        "MySqlDDL",
+        "PrestoDDL",
+        "KafkaSchema",
+        "BinaryJsonSchema",
+        "OrcSchema",
+        "Schemaless",
+        "KeyValueSchema",
+        "OtherSchema"
+      ],
+      "doc": "The native schema in the dataset's platform."
+    },
+    {
+      "name": "fields",
+      "type": {
+        "type": "array",
+        "items": "SchemaField"
+      },
+      "doc": "Client provided a list of fields from document schema."
+    },
+    {
+      "name": "primaryKeys",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.dataset.SchemaFieldPath"
+      },
+      "doc": "Client provided list of fields that define primary keys to access record. Field order defines hierarchical espresso keys. Empty lists indicates absence of primary key access patter. Value is a SchemaField@fieldPath.",
+      "optional": true
+    },
+    {
+      "name": "foreignKeysSpecs",
+      "type": {
+        "type": "map",
+        "values": "ForeignKeySpec"
+      },
+      "doc": "Map captures all the references schema makes to external datasets. Map key is ForeignKeySpecName typeref.",
+      "optional": true
+    }
+  ]
+}

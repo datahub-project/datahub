@@ -1,0 +1,48 @@
+#!/bin/bash
+set -x -e
+
+BIN_PATH="$( cd "$( dirname "$0" )" && pwd )"
+BASEDIR="$( cd "${BIN_PATH}/.." && pwd )"
+
+if [ -f $BASEDIR/var/env_conf.sh ]; then
+  source $BASEDIR/var/env_conf.sh
+fi
+
+LOG=$BASEDIR/logs/$APPNAME.out
+PID=$BASEDIR/logs/$APPNAME.pid
+
+JVML="jvm-launcher"
+
+case $1 in
+  start)
+    rm -rf $PID
+
+    pushd $BASEDIR
+    $JVML $SERVICENAME-app-def-$APPVERSION.xml \
+        var/env.cfg appsConfig/$SERVICENAME/application.cfg > $LOG 2>&1 &
+    popd
+
+    sleep 4
+    echo "PID =" `cat $PID`
+  ;;
+  stop)
+    kill -9 `cat $PID`
+    rm $PID
+    echo "Stopped"
+  ;;
+  status)
+    if [ ! -e "$PID" ]; then
+      echo "[$APPNAME] not running!"
+    else
+      P=$(cat "$PID" | sed 's/[\r\n]//')
+      echo "[$APPNAME] running - PID: $P"
+    fi
+  ;;
+  install|configure)
+    # no-op
+  ;;
+  *)
+    echo "$0: Unknown argument $1"
+    exit 1
+  ;;
+esac

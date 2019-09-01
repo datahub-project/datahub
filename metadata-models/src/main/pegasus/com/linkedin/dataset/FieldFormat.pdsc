@@ -1,0 +1,26 @@
+{
+  "type": "enum",
+  "name": "FieldFormat",
+  "namespace": "com.linkedin.dataset",
+  "symbols": [
+    "NUMERIC",
+    "URN",
+    "REVERSED_URN",
+    "COMPOSITE_URN",
+    "RAW",
+    "CUSTOM",
+    "ENCODED",
+    "HASHED"
+  ],
+  "symbolDocs": {
+    "NUMERIC": "Numerical format, e.g. 12345, that can either be stored a fixed point number or a string",
+    "URN": "URN format, urn:li:member:12345",
+    "REVERSED_URN": "Reversed URN format, 12345:member:li:urn",
+    "COMPOSITE_URN": "[Deprecated] Use CUSTOM format + pattern instead",
+    "RAW": "Any unencoded string-based field that is neither numeric nor a URN, e.g. alphanumeric strings, GUID etc.",
+    "CUSTOM": "Any other non-standard format. A pattern for the value is expected to be provided",
+    "ENCODED": "Data is stored in reversible encoded/serialized/encrypted format",
+    "HASHED": "Data is stored in irreversible hashed format"
+  },
+  "doc": "The field format"
+}

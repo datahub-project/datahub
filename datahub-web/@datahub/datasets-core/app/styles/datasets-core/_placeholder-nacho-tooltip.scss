@@ -1,0 +1,64 @@
+// TODO: [META-8295] This is a placeholder that should be migrated and imported from a nacho component, currently
+// lives in data-portal package and not shareable
+.nacho-tooltip {
+  @mixin tooltip-transition() {
+    transition-duration: 167ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    transition-delay: 0s;
+  }
+
+  cursor: pointer;
+  position: relative;
+  min-width: item-spacing(1) / 2;
+  min-height: item-spacing(1) / 2;
+
+  &::before,
+  &::after {
+    @include tooltip-transition;
+    white-space: normal;
+    pointer-events: none;
+    visibility: hidden;
+    opacity: 0;
+    font-style: normal;
+  }
+
+  &::before {
+    position: absolute;
+    bottom: 150%;
+    left: 50%;
+    margin-bottom: item-spacing(1);
+    margin-left: -(item-spacing(7));
+    padding: item-spacing(2);
+    width: item-spacing(7) * 2;
+    border-radius: item-spacing(1);
+    background-color: get-color(black, 0.9);
+    color: white;
+    content: attr(data-title);
+    text-align: center;
+    line-height: 1.2;
+    font-size: item-spacing(3);
+  }
+
+  &::after {
+    position: absolute;
+    bottom: 150%;
+    left: 50%;
+    margin-left: -(item-spacing(1));
+    width: 0;
+    border-top: item-spacing(1) solid get-color(black, 0.9);
+    border-right: item-spacing(1) solid transparent;
+    border-left: item-spacing(1) solid transparent;
+    content: ' ';
+    font-size: 0;
+    line-height: 0;
+  }
+
+  &:hover {
+    &::before,
+    &::after {
+      @include tooltip-transition;
+      visibility: visible;
+      opacity: 1;
+    }
+  }
+}

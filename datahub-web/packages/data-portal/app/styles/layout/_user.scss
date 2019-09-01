@@ -1,0 +1,9 @@
+.user-entity-ownership-container {
+  margin-top: $application-navigation-breadcrumbs-static-height;
+}
+
+.user-ownership-subnav {
+  height: $application-navigation-breadcrumbs-static-height;
+  display: flex;
+  align-items: center;
+}

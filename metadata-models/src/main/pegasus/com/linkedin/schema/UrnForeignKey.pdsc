@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "UrnForeignKey",
+  "namespace": "com.linkedin.schema",
+  "doc": "If SchemaMetadata fields make any external references and references are of type com.linkeidn.common.Urn or any children, this models can be used to mark it.",
+  "fields": [
+    {
+      "name": "currentFieldPath",
+      "type": "com.linkedin.dataset.SchemaFieldPath",
+      "doc": "Field in hosting(current) SchemaMetadata."
+    }
+  ]
+}

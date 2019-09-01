@@ -1,0 +1,258 @@
+{
+  "name" : "datasets",
+  "namespace" : "com.linkedin.dataset",
+  "path" : "/datasets",
+  "schema" : "com.linkedin.dataset.Dataset",
+  "doc" : "generated from: com.linkedin.dataset.rest.resources.Datasets",
+  "collection" : {
+    "identifier" : {
+      "name" : "dataset",
+      "type" : "com.linkedin.dataset.DatasetKey",
+      "params" : "com.linkedin.restli.common.EmptyRecord"
+    },
+    "supports" : [ "batch_get", "get" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    } ],
+    "finders" : [ {
+      "name" : "search",
+      "parameters" : [ {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      } ],
+      "metadata" : {
+        "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+      },
+      "pagingSupported" : true
+    } ],
+    "actions" : [ {
+      "name" : "autocomplete",
+      "parameters" : [ {
+        "name" : "query",
+        "type" : "string"
+      }, {
+        "name" : "field",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
+      "name" : "browse",
+      "parameters" : [ {
+        "name" : "path",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.BrowseResult"
+    }, {
+      "name" : "getBrowsePaths",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "com.linkedin.common.Urn"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    } ],
+    "entity" : {
+      "path" : "/datasets/{dataset}",
+      "subresources" : [ {
+        "name" : "deprecation",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/deprecation",
+        "schema" : "com.linkedin.dataset.DatasetDeprecation",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/deprecation\n\ngenerated from: com.linkedin.dataset.rest.resources.DeprecationResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "deprecationId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/deprecation/{deprecationId}"
+          }
+        }
+      }, {
+        "name" : "downstreamLineage",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/downstreamLineage",
+        "schema" : "com.linkedin.dataset.DownstreamLineage",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/downstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.DownstreamLineageResource",
+        "simple" : {
+          "supports" : [ "get" ],
+          "methods" : [ {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/downstreamLineage"
+          }
+        }
+      }, {
+        "name" : "institutionalMemory",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/institutionalMemory",
+        "schema" : "com.linkedin.common.InstitutionalMemory",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/institutionalMemory\n\ngenerated from: com.linkedin.dataset.rest.resources.InstitutionalMemoryResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "institutionalMemoryId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/institutionalMemory/{institutionalMemoryId}"
+          }
+        }
+      }, {
+        "name" : "rawOwnership",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/rawOwnership",
+        "schema" : "com.linkedin.common.Ownership",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/rawOwnership\n\ngenerated from: com.linkedin.dataset.rest.resources.OwnershipResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "rawOwnershipId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/rawOwnership/{rawOwnershipId}"
+          }
+        }
+      }, {
+        "name" : "schema",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/schema",
+        "schema" : "com.linkedin.schema.SchemaMetadata",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/schema\n\ngenerated from: com.linkedin.dataset.rest.resources.SchemaResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "schemaId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/schema/{schemaId}"
+          }
+        }
+      }, {
+        "annotations" : {
+          "createOnly" : {
+            "value" : [ "urn" ]
+          }
+        },
+        "name" : "snapshot",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/snapshot",
+        "schema" : "com.linkedin.metadata.snapshot.DatasetSnapshot",
+        "doc" : "Rest.li entry point: /dataset/{datasetKey}/snapshot\n\ngenerated from: com.linkedin.dataset.rest.resources.DatasetsSnapshot",
+        "collection" : {
+          "identifier" : {
+            "name" : "snapshotId",
+            "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
+            "params" : "com.linkedin.restli.common.EmptyRecord"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "actions" : [ {
+            "name" : "backfill",
+            "parameters" : [ {
+              "name" : "aspectNames",
+              "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+            } ],
+            "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/snapshot/{snapshotId}"
+          }
+        }
+      }, {
+        "name" : "upstreamLineage",
+        "namespace" : "com.linkedin.dataset",
+        "path" : "/datasets/{dataset}/upstreamLineage",
+        "schema" : "com.linkedin.dataset.UpstreamLineage",
+        "doc" : "Rest.li entry point: /datasets/{datasetKey}/upstreamLineage\n\ngenerated from: com.linkedin.dataset.rest.resources.UpstreamLineageResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "upstreamLineageId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "actions" : [ {
+            "name" : "deltaUpdate",
+            "parameters" : [ {
+              "name" : "delta",
+              "type" : "com.linkedin.dataset.UpstreamLineageDelta"
+            } ],
+            "returns" : "com.linkedin.dataset.UpstreamLineage"
+          } ],
+          "entity" : {
+            "path" : "/datasets/{dataset}/upstreamLineage/{upstreamLineageId}"
+          }
+        }
+      } ]
+    }
+  }
+}

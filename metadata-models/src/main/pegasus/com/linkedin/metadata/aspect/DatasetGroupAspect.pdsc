@@ -1,0 +1,10 @@
+{
+  "type": "typeref",
+  "name": "DatasetGroupAspect",
+  "namespace": "com.linkedin.metadata.aspect",
+  "doc": "A union of all supported metadata aspects for a dataset group",
+  "ref": [
+    "com.linkedin.datasetGroup.DatasetGroupInfo",
+    "com.linkedin.datasetGroup.DatasetGroupMembership"
+  ]
+}

@@ -1,0 +1,19 @@
+{{#if properties.length}}
+
+  {{#each properties as |item|}}
+    <div class="prop-row group">
+      <div class="prop-label">{{item.key}}:</div>
+      {{#if item.isSelectController}}
+        <div class="prop-value-query">{{item.value}}</div>
+      {{else}}
+        <div class="prop-value">{{item.value}}</div>
+      {{/if}}
+    </div>
+  {{/each}}
+
+{{else}}
+  <EmptyState
+    @heading="No properties found"
+    @subHead="We could not find properties for this dataset. An error may have occurred or we dont have it yet..."
+  />
+{{/if}}

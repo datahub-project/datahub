@@ -1,0 +1,38 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.common.urn.DatasetUrn",
+    "coercerClass": "com.linkedin.common.urn.DatasetUrnCoercer"
+  },
+  "name" : "DatasetUrn",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Standardized dataset identifier.",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "accessible" : true,
+      "entityType" : "dataset",
+      "owningTeam" : "urn:li:internalTeam:datahub",
+      "constructable" : true,
+      "name" : "Dataset",
+      "namespace" : "li",
+      "doc" : "Standardized dataset identifier.",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "platform",
+        "doc" : "Standardized platform urn where dataset is defined.",
+        "type" : "com.linkedin.common.urn.DataPlatformUrn"
+      }, {
+        "name" : "datasetName",
+        "doc" : "Dataset native name e.g. <db>.<table>, /dir/subdir/<name>, or <name>",
+        "type" : "string",
+        "maxLength" : 210
+      }, {
+        "name" : "origin",
+        "doc" : "Fabric type where dataset belongs to or where it was generated.",
+        "type" : "com.linkedin.common.FabricType"
+      } ],
+      "maxLength" : 284
+    }
+  }
+}

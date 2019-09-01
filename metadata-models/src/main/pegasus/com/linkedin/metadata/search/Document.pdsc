@@ -1,0 +1,10 @@
+{
+  "type": "typeref",
+  "name": "Document",
+  "namespace": "com.linkedin.metadata.search",
+  "doc": "A union of all supported document types.",
+  "ref": [
+    "CorpUserInfoDocument",
+    "DatasetDocument"
+  ]
+}

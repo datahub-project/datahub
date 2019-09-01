@@ -1,0 +1,41 @@
+{{#basic-dropdown as |switcher|}}
+  {{#switcher.trigger
+    onMouseDown=(action "prevent")
+    onMouseEnter=(action "showFabrics")
+    onMouseLeave=(action "hideFabrics")
+  }}
+
+    <strong class="dataset-fabric-switcher__fabric">{{uppercase fabric}}</strong>
+
+    {{#if fabric}}
+      <span class="dataset-fabric-switcher__fabric__toggle">
+        {{fa-icon (if isExpanded "caret-up" "caret-down")}}
+      </span>
+    {{/if}}
+
+  {{/switcher.trigger}}
+
+  {{#switcher.content
+    onMouseEnter=(action "showFabrics")
+    onMouseLeave=(action "hideFabrics")
+  }}
+    <ul class="dataset-fabric-switcher__fabrics">
+      {{#each fabricUrns as |fabricOpt|}}
+        {{#link-to "datasets.dataset" fabricOpt.urn}}
+          {{#let
+            (if (eq fabric fabricOpt.fabric) "dataset-fabric-switcher__fabrics__fabric--selected")
+          as |selectedClass|
+          }}
+            <li
+              class="dataset-fabric-switcher__fabrics__fabric {{selectedClass}}"
+            >
+              <strong>
+                {{fabricOpt.fabric}}
+              </strong>
+            </li>
+          {{/let}}
+        {{/link-to}}
+      {{/each}}
+    </ul>
+  {{/switcher.content}}
+{{/basic-dropdown}}

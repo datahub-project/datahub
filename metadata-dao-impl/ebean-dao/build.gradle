@@ -1,0 +1,31 @@
+apply plugin: 'java'
+
+configurations {
+  enhance
+}
+
+dependencies {
+  compile project(':metadata-dao')
+  compile externalDependency.ebean
+  compile externalDependency.jsonSimple
+  compile externalDependency.guava
+
+  compileOnly externalDependency.ebeanAgent
+  compileOnly externalDependency.lombok
+
+  testCompile project(':metadata-test-utils')
+  testCompile externalDependency.h2
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
+
+  enhance externalDependency.ebeanAgent
+}
+
+project.compileJava {
+  doLast {
+    ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
+        classpath: project.configurations.enhance.asPath)
+    ant.ebean(classSource: project.sourceSets.main.output.classesDir, packages: 'com.linkedin.metadata.dao',
+        transformArgs: 'debug=1')
+  }
+}

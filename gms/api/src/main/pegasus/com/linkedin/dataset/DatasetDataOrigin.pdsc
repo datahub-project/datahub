@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "DatasetDataOrigin",
+  "namespace": "com.linkedin.dataset",
+  "doc": "All available Data Origins for a Dataset. The Data Origin is the list of (fabricType, displayTitle)",
+  "fields": [
+    {
+      "name": "dataOrigins",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "DataOrigin",
+          "namespace": "com.linkedin.dataset",
+          "fields": [
+            {
+              "name": "origin",
+              "type": "com.linkedin.common.FabricType",
+              "doc": "origin data"
+            },
+            {
+              "name": "displayTitle",
+              "type": "string",
+              "doc": "display name for origin"
+            }
+          ]
+        }
+      },
+      "doc": "a list of data origins. The Data Origin is the list of (fabricType, displayTitle)"
+    }
+  ]
+}

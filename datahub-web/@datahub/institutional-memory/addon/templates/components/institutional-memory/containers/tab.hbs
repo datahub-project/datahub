@@ -1,0 +1,8 @@
+<ConcurrencyTaskStateHandler @task={{getContainerDataTask}}>
+  {{institutional-memory/wiki/url-list
+    listData=institutionalMemoryList
+    entityDisplayName=entity.displayName
+    addInstitutionalMemoryLink=(action "addInstitutionalMemoryLink")
+    removeInstitutionalMemoryLink=(action "removeInstitutionalMemoryLink")
+  }}
+</ConcurrencyTaskStateHandler>

@@ -1,0 +1,40 @@
+{{! TODO: META-8742 Add this as a component in the Nacho Component library as part of NachoHoverDropdown }}
+{{#basic-dropdown renderInPlace=@renderInPlace as |bd|}}
+  {{#if (not-eq @wrappedTriggerComponent true)}}
+    {{#bd.trigger
+      class="nacho-drop-down__trigger"
+      onMouseDown=(action this.prevent)
+      onMouseEnter=(action this.showDropDown)
+      onMouseLeave=(action this.hideDropDown)
+    }}
+      <strong class="nacho-drop-down__active">
+        {{this.selectedDropDown.label}}
+      </strong>
+
+      {{#if selectedDropDown}}
+        <span class="nacho-drop-down__active__toggle">
+          {{fa-icon (if this.isExpanded "caret-up" "caret-down")}}
+        </span>
+      {{/if}}
+    {{/bd.trigger}}
+  {{/if}}
+
+  {{yield
+    (hash
+      trigger=(component bd.trigger
+        onMouseDown=(action this.prevent)
+        onMouseEnter=(action this.showDropDown)
+        onMouseLeave=(action this.hideDropDown)
+      )
+      isExpanded=this.isExpanded
+      content=(component "nacho-hover-dropdown/dropdown-content"
+        baseComponent=bd.content
+        onMouseEnter=(action this.showDropDown)
+        onMouseLeave=(action this.hideDropDown)
+        onSelect=(action this.onDropDownSelect)
+        selectedOption=this.selectedDropDown
+        options=this.dropDownItems
+      )
+    )
+  }}
+{{/basic-dropdown}}

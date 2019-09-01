@@ -1,0 +1,166 @@
+/// Search bar height
+$app-search-bar-height: 32px;
+$app-search-bar-background: white;
+// as per design specs
+$app-search-bar-select-width: 192px;
+$app-search-bar-input-width: 489px;
+$app-search-bar-disabled-color: get-color(black, 0.2);
+
+.nacho-global-search {
+  color: $text-color;
+  margin: item-spacing(0 5);
+
+  &__layout {
+    display: flex;
+  }
+
+  &__input-container {
+    flex-grow: 1;
+  }
+
+  &__entity-select {
+    background: $app-search-bar-background;
+    height: $app-search-bar-height;
+    border-radius: 2px;
+    margin-right: item-spacing(3);
+  }
+
+  &__entity-select select {
+    height: $app-search-bar-height;
+    display: block;
+    background: $app-search-bar-background;
+    border: 0;
+    min-width: $app-search-bar-select-width;
+  }
+
+  &__text-input {
+    height: $app-search-bar-height;
+    border-radius: 2px 0 0 2px;
+    min-width: $app-search-bar-input-width;
+
+    &.ember-power-select-trigger[aria-disabled='true'] {
+      background: $app-search-bar-background;
+    }
+
+    &::before {
+      display: none;
+    }
+
+    input {
+      border: 0;
+      background: transparent;
+      transition-duration: 334ms;
+      transition-property: border-color, box-shadow;
+      box-sizing: border-box;
+      border-radius: 2px 0 0 2px;
+      padding-left: item-spacing(3);
+
+      &:focus {
+        border: 0;
+        box-shadow: 0px 0px 2px 1px get-color(blue7) inset;
+      }
+
+      &:disabled {
+        color: $app-search-bar-disabled-color;
+        &::placeholder {
+          color: $app-search-bar-disabled-color;
+        }
+      }
+    }
+  }
+
+  &__button {
+    border: 0;
+    border-radius: 0 2px 2px 0;
+    background-color: $app-search-bar-background;
+    border-left: 1px solid get-color(gray3);
+    color: $text-color;
+    height: $app-search-bar-height;
+    line-height: $app-search-bar-height;
+
+    &:hover,
+    &:active,
+    &:focus {
+      background-color: darken($app-search-bar-background, 10%);
+      opacity: 1;
+      outline: 0;
+    }
+
+    &:disabled {
+      &,
+      &:hover,
+      &:active,
+      &:focus {
+        border-left: 1px solid rgba(0, 0, 0, 0.15);
+        background-color: $app-search-bar-background;
+        color: $app-search-bar-disabled-color;
+        opacity: 1;
+      }
+    }
+  }
+
+  &__trigger {
+    border-radius: 2px 0 0 2px;
+  }
+
+  &__suggestion-title {
+    padding: 0;
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.1;
+    display: block;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    padding-bottom: item-spacing(1);
+    white-space: nowrap;
+  }
+
+  &__suggestion-description {
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    color: get-color(gray4);
+    line-height: 1.1;
+    display: block;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  &__dropdown {
+    &.ember-power-select-dropdown.ember-basic-dropdown-content--in-place {
+      top: $app-search-bar-height;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+      border: 0px;
+    }
+
+    .ember-power-select-option {
+      padding: item-spacing(2 5);
+    }
+
+    .ember-power-select-options {
+      overflow: hidden;
+    }
+
+    .ember-power-select-group {
+      border-bottom: 1px solid get-color(gray1);
+      overflow: hidden;
+
+      .ember-power-select-group-name {
+        padding-left: item-spacing(3);
+      }
+    }
+
+    &.ember-basic-dropdown-content > .ember-power-select-options {
+      max-height: 500px;
+      border: 1px solid get-color(gray3);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+      overflow-y: auto;
+      overflow-x: hidden;
+
+      &:empty {
+        border: 0;
+      }
+    }
+  }
+}

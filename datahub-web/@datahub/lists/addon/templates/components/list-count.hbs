@@ -1,0 +1,9 @@
+{{#if this.entityType}}
+  <span class={{concat this.baseComponentClass "__value"}}>
+    {{#link-to "lists.entity" this.entityType.displayName}}
+      <strong>
+        {{this.displayName}} ({{this.count}})
+      </strong>
+    {{/link-to}}
+  </span>
+{{/if}}

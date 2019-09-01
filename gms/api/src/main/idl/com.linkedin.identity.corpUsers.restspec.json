@@ -1,0 +1,112 @@
+{
+  "name" : "corpUsers",
+  "namespace" : "com.linkedin.identity",
+  "path" : "/corpUsers",
+  "schema" : "com.linkedin.identity.CorpUser",
+  "doc" : "generated from: com.linkedin.identity.rest.resources.CorpUsers",
+  "collection" : {
+    "identifier" : {
+      "name" : "corpUser",
+      "type" : "com.linkedin.identity.CorpUserKey",
+      "params" : "com.linkedin.restli.common.EmptyRecord"
+    },
+    "supports" : [ "batch_get", "get", "get_all" ],
+    "methods" : [ {
+      "method" : "get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "batch_get",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ]
+    }, {
+      "method" : "get_all",
+      "parameters" : [ {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      } ]
+    } ],
+    "finders" : [ {
+      "name" : "search",
+      "parameters" : [ {
+        "name" : "input",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter",
+        "optional" : true
+      } ],
+      "metadata" : {
+        "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+      },
+      "pagingSupported" : true
+    } ],
+    "entity" : {
+      "path" : "/corpUsers/{corpUser}",
+      "subresources" : [ {
+        "name" : "editableInfo",
+        "namespace" : "com.linkedin.identity",
+        "path" : "/corpUsers/{corpUser}/editableInfo",
+        "schema" : "com.linkedin.identity.CorpUserEditableInfo",
+        "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/editableInfo\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersEditableInfoResource",
+        "collection" : {
+          "identifier" : {
+            "name" : "editableInfoId",
+            "type" : "long"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/corpUsers/{corpUser}/editableInfo/{editableInfoId}"
+          }
+        }
+      }, {
+        "annotations" : {
+          "createOnly" : {
+            "value" : [ "urn" ]
+          }
+        },
+        "name" : "snapshot",
+        "namespace" : "com.linkedin.identity.corpuser",
+        "path" : "/corpUsers/{corpUser}/snapshot",
+        "schema" : "com.linkedin.metadata.snapshot.CorpUserSnapshot",
+        "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersSnapshot",
+        "collection" : {
+          "identifier" : {
+            "name" : "snapshotId",
+            "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
+            "params" : "com.linkedin.restli.common.EmptyRecord"
+          },
+          "supports" : [ "create", "get" ],
+          "methods" : [ {
+            "method" : "create"
+          }, {
+            "method" : "get"
+          } ],
+          "entity" : {
+            "path" : "/corpUsers/{corpUser}/snapshot/{snapshotId}"
+          }
+        }
+      } ]
+    }
+  }
+}

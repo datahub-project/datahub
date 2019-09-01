@@ -1,0 +1,33 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.common.urn.RegisteredSchemaUrn"
+  },
+  "name" : "RegisteredSchemaUrn",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Standardized identifier for registered schema metadata. Examples include Kafka, Espresso and Oracle schemas.",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "accessible" : true,
+      "entityType" : "registeredSchema",
+      "owningTeam" : "urn:li:internalTeam:datahub",
+      "constructable" : true,
+      "name" : "RegisteredSchema",
+      "namespace" : "li",
+      "doc" : "Standardized identifier for registered schema metadata. Examples include Kafka, Espresso and Oracle schemas.",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "type",
+        "doc" : "Type of the registered schema, e.g. Kafka, Espresso Documnet.",
+        "type" : "com.linkedin.common.RegisteredSchemaType"
+      }, {
+        "name" : "name",
+        "doc" : "Name of the registered schema, e.g. <schemaName> for kafka, <Database>.<Table> for Espresso",
+        "type" : "string",
+        "maxLength" : 300
+      } ],
+      "maxLength" : 347
+    }
+  }
+}

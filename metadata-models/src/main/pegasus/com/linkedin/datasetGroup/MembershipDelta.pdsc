@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "MembershipDelta",
+  "namespace": "com.linkedin.datasetGroup",
+  "doc": "Describes a delta change to a dataset group's membership.",
+  "fields": [
+    {
+      "name": "membersToAdd",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "The list of dataset to be added to the group"
+    },
+    {
+      "name": "membersToRemove",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "The list of dataset to be removed from the group"
+    }
+  ]
+}
