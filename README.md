@@ -1,3 +1,5 @@
+# Data Hub [![Build Status](https://travis-ci.org/linkedin/WhereHows.svg?branch=datahub)](https://travis-ci.org/linkedin/WhereHows) [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/linkedin/datahub)
+
 ## Pre-requisites
 Be sure to have JDK installed on your machine.
 
