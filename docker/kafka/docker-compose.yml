@@ -1,5 +1,5 @@
 ---
-version: '2'
+version: '3.5'
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:5.2.1
@@ -78,3 +78,7 @@ services:
       PROXY: 'true'
     depends_on:
       - schema-registry
+
+networks:
+  default:
+    name: datahub_network
