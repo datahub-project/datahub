@@ -42,6 +42,4 @@
     <url-pattern>/*</url-pattern>
   </servlet-mapping>
 
-  <context:property-placeholder location="classpath:gms.properties" />
-
 </web-app>
