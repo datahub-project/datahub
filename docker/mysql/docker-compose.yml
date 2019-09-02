@@ -1,8 +1,9 @@
 ---
-version: '3.3'
+version: '3.5'
 services:
   mysql:
     container_name: mysql
+    hostname: mysql
     image: mysql:latest
     restart: always
     environment:
@@ -11,8 +12,10 @@ services:
       MYSQL_PASSWORD: 'datahub'
       MYSQL_ROOT_PASSWORD: 'datahub'
     ports:
-      - '3308:3306'
-    expose:
-      - '3308'
+      - '3306:3306'
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+networks:
+  default:
+    name: datahub_network
