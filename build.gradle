@@ -58,11 +58,11 @@ project.ext.externalDependency = [
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
     'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
     'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'springBeans': 'org.springframework:spring-beans:3.2.9.RELEASE',
-    'springContext': 'org.springframework:spring-context:3.2.9.RELEASE',
-    'springCore': 'org.springframework:spring-core:3.2.9.RELEASE',
+    'springBeans': 'org.springframework:spring-beans:4.1.9.RELEASE',
+    'springContext': 'org.springframework:spring-context:4.1.9.RELEASE',
+    'springCore': 'org.springframework:spring-core:4.1.9.RELEASE',
     'springJdbc': 'org.springframework:spring-jdbc:4.1.9.RELEASE',
-    'springWeb': 'org.springframework:spring-web:3.2.9.RELEASE',
+    'springWeb': 'org.springframework:spring-web:4.1.9.RELEASE',
     'testng': 'org.testng:testng:6.9.9'
 ]
 
