@@ -136,6 +136,18 @@ services:
       - mysql
       - schema-registry
 
+  datahub-frontend:
+    image: keremsahin/datahub-frontend:latest
+    hostname: datahub-frontend
+    container_name: datahub-frontend
+    ports:
+      - "9001:9001"
+    environment:
+      - DATAHUB_GMS_HOST=datahub-gms
+      - DATAHUB_GMS_PORT=8080
+    depends_on:
+      - datahub-gms
+
 networks:
   default:
     name: datahub_network
