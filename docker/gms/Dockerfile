@@ -13,5 +13,5 @@ RUN wget https://github.com/vishnubob/wait-for-it/blob/master/wait-for-it.sh
 
 EXPOSE 8080
 
-CMD ["./wait-for-it.sh", "$DATAHUB_MYSQL_HOST:$DATAHUB_MYSQL_PORT"]
+CMD ["./wait-for-it.sh", "$DATAHUB_MYSQL_HOST", "$DATAHUB_KAFKA_BROKER_HOST", "$DATAHUB_ELASTICSEARCH_HOST"]
 CMD ["java", "-jar", "jetty-runner-9.4.20.v20190813.jar", "gms.war"]
