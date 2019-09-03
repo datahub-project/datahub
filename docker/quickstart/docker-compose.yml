@@ -128,8 +128,9 @@ services:
       - kafka.schemaRegistryUrl=http://schema-registry:8081
       - elasticsearch.hosts=elasticsearch
       - elasticsearch.port=9200
-      - DATAHUB_MYSQL_HOST=mysql
-      - DATAHUB_MYSQL_PORT=3306
+      - DATAHUB_MYSQL_HOST=mysql:3306
+      - DATAHUB_KAFKA_BROKER_HOST=broker:29092
+      - DATAHUB_ELASTICSEARCH_HOST=elasticsearch:9200
     depends_on:
       - elasticsearch
       - broker
