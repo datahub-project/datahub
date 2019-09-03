@@ -3,7 +3,8 @@ FROM openjdk:8
 MAINTAINER Kerem Sahin ksahin@linkedin.com
 
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :gms:war:build -Prest.model.compatibility=ignore
+RUN cd datahub-src && ./gradlew :gms:war:build -Prest.model.compatibility=ignore \
+    && cp gms/war/build/libs/war.war ../gms.war && cd .. && rm -rf datahub-src
 
 RUN apt-get update && apt-get install -y wget
 
@@ -13,4 +14,4 @@ RUN wget https://github.com/vishnubob/wait-for-it/blob/master/wait-for-it.sh
 EXPOSE 8080
 
 CMD ["./wait-for-it.sh", "$DATAHUB_MYSQL_HOST:$DATAHUB_MYSQL_PORT"]
-CMD ["java", "-jar", "jetty-runner-9.4.20.v20190813.jar", "datahub-src/gms/war/build/libs/war.war"]
+CMD ["java", "-jar", "jetty-runner-9.4.20.v20190813.jar", "gms.war"]
