@@ -11,10 +11,8 @@ import java.util.Properties;
 
 public class DaoFactory {
 
-  private static final Properties CFG = Configuration.loadProperties("dao.properties");
-
-  public DaoFactory() {
-  }
+  private static final String GMS_HOST_ENV_VAR = "DATAHUB_GMS_HOST";
+  private static final String GMS_PORT_ENV_VAR = "DATAHUB_GMS_PORT";
 
   private static GmsDao _gmsDao;
   private static DocumentSearchDao datasetDocumentSearchDao;
@@ -26,10 +24,13 @@ public class DaoFactory {
   private static DatasetsDao datasetsDao;
   private static LineageDao lineageDao;
 
+  public DaoFactory() {
+  }
+
   private static GmsDao getGmsDao() {
     if (_gmsDao == null) {
-      _gmsDao = new GmsDao(CFG.getProperty("restLiServerHost"),
-              Integer.valueOf(CFG.getProperty("restLiServerPort")));
+      _gmsDao = new GmsDao(Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR),
+              Integer.valueOf(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR)));
     }
     return _gmsDao;
   }
