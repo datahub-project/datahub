@@ -2,12 +2,16 @@ FROM openjdk:8
 
 MAINTAINER Kerem Sahin ksahin@linkedin.com
 
+RUN apt-get update && apt-get install -y wget \
+    && wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && dpkg -i google-chrome-stable_current_amd64.deb; apt-get -fy install
+
+ENV CI=true
+
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist \
+RUN cd datahub-src && ./gradlew :datahub-frontend:dist -Prest.model.compatibility=ignore \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
-
-RUN apt-get update && apt-get install -y wget
 
 RUN wget https://github.com/vishnubob/wait-for-it/blob/master/wait-for-it.sh
 
