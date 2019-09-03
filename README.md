@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/linkedin/WhereHows.svg?branch=datahub)](https://travis-ci.org/linkedin/WhereHows)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/linkedin/datahub)
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-gms)](https://cloud.docker.com/repository/docker/keremsahin/datahub-gms/)
+[![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-frontend)](https://cloud.docker.com/repository/docker/keremsahin/datahub-frontend/)
 
 ## Pre-requisites
 Be sure to have JDK installed on your machine.
