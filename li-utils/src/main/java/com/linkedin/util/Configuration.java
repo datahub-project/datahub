@@ -14,4 +14,8 @@ public class Configuration {
         }
         return configuration;
     }
+
+    public static String getEnvironmentVariable(String envVar) {
+        return System.getenv(envVar);
+    }
 }
