@@ -19,8 +19,12 @@ EXPOSE 9001
 
 CMD ["./wait-for-it.sh", "$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT"]
 
-CMD ["datahub-frontend/bin/playBinary", "-Xms512m", "-Xmx1024m", "-Dhttp.port=9001", \
-    "-Dconfig.file=datahub-frontend/conf/application.conf", \
-    "-Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf", \
-    "-Dlogback.configurationFile=datahub-frontend/conf/logback.xml", \
-    "-Dlogback.debug=true"]
+ENV JAVA_OPTS=" \
+	-Xms512m \
+	-Xmx1024m \
+	-Dhttp.port=9001 \
+	-Dconfig.file=datahub-frontend/conf/application.conf \
+	-Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf \
+	-Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
+	-Dlogback.debug=true"
+CMD ["datahub-frontend/bin/playBinary"]
