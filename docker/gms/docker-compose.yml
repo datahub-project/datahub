@@ -18,11 +18,6 @@ services:
       - elasticsearch.port=9200
       - DATAHUB_MYSQL_HOST=mysql
       - DATAHUB_MYSQL_PORT=3306
-    depends_on:
-      - elasticsearch
-      - broker
-      - mysql
-      - schema-registry
 
 networks:
   default:
