@@ -1,7 +1,7 @@
 import argparse
 from confluent_kafka import avro
 
-record_schema = avro.load("../../metadata-events/mxe-schemas/src/original/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
+record_schema = avro.load("../../metadata-models/src/mainGeneratedAvroSchema/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 
 class MetadataChangeEvent(object):
 

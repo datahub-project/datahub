@@ -13,8 +13,7 @@
     {
       "name": "proposedSnapshot",
       "doc": "Snapshot of the proposed metadata change. Include only the aspects affected by the change in the snapshot.",
-      "type": "com.linkedin.metadata.snapshot.Snapshot",
-      "optional": true
+      "type": "com.linkedin.metadata.snapshot.Snapshot"
     },
     {
       "name": "proposedDelta",
