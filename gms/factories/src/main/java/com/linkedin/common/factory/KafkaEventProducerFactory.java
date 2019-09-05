@@ -7,28 +7,28 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.core.env.Environment;
 
 import java.util.Properties;
 
 @Configuration
-@PropertySource(value = "classpath:gms.properties", ignoreResourceNotFound = true)
 public class KafkaEventProducerFactory {
 
-  @Autowired
-  private Environment env;
+  @Value("${KAFKA_BOOTSTRAP_SERVER:localhost:9092}")
+  private String kafkaBootstrapServers;
+
+  @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
+  private String kafkaSchemaRegistryUrl;
 
   @Bean(name = "kafkaEventProducer")
   protected Producer<String, IndexedRecord> createInstance() {
     Properties props = new Properties();
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, env.getRequiredProperty("kafka.bootstrapServers"));
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBootstrapServers);
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
     props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName());
-    props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, env.getRequiredProperty("kafka.schemaRegistryUrl"));
+    props.put(AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, kafkaSchemaRegistryUrl);
 
     return new KafkaProducer(props);
   }

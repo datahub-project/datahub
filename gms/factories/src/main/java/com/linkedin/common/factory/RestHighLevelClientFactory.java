@@ -8,29 +8,37 @@ import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.core.env.Environment;
 
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:gms.properties", ignoreResourceNotFound = true)
 public class RestHighLevelClientFactory {
 
-  @Autowired
-  private Environment env;
+  @Value("${ELASTICSEARCH_HOST:localhost}")
+  private String elasticSearchHost;
+
+  @Value("${ELASTICSEARCH_PORT:9200}")
+  private Integer elasticSearchPort;
+
+  @Value("${ELASTICSEARCH_THREAD_COUNT:1}")
+  private Integer elasticSearchThreadCount;
+
+  @Value("${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:0}")
+  private Integer elasticSearchConectionRequestTimeout;
 
   @Bean(name = "elasticSearchRestHighLevelClient")
   @Nonnull
   protected RestHighLevelClient createInstance() {
     try {
-      RestClient restClient = loadRestHttpClient(env.getRequiredProperty("elasticsearch.hosts").split(","),
-              Integer.valueOf(env.getRequiredProperty("elasticsearch.port")),
-              Integer.valueOf(env.getProperty("elasticsearch.threadCount", "1")),
-              Integer.valueOf(env.getProperty("elasticsearch.connectionRequestTimeout", "0")));
+      RestClient restClient = loadRestHttpClient(
+              elasticSearchHost,
+              elasticSearchPort,
+              elasticSearchThreadCount,
+              elasticSearchConectionRequestTimeout
+      );
 
       return new RestHighLevelClient(restClient);
     } catch (Exception e) {
@@ -39,19 +47,12 @@ public class RestHighLevelClientFactory {
   }
 
   @Nonnull
-  private static RestClient loadRestHttpClient(@Nonnull String[] hosts, int port, int threadCount,
+  private static RestClient loadRestHttpClient(@Nonnull String host, int port, int threadCount,
                                                int connectionRequestTimeout) throws Exception {
-
-    HttpHost[] httpHosts = new HttpHost[hosts.length];
-    for (int h = 0; h < hosts.length; h++) {
-      httpHosts[h] = new HttpHost(hosts[h], port, "http");
-    }
-
-    RestClientBuilder builder;
-
-    builder = RestClient.builder(httpHosts).setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
-        // Configure number of threads for clients
-        .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+    RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
+            .setHttpClientConfigCallback(httpAsyncClientBuilder ->
+                    httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom()
+                            .setIoThreadCount(threadCount).build()));
 
     builder.setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder.
             setConnectionRequestTimeout(connectionRequestTimeout));
