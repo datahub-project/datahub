@@ -8,17 +8,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - ebean.datasourceUsername=datahub
-      - ebean.datasourcePassword=datahub
-      - ebean.datasourceUrl=jdbc:mysql://mysql:3306/datahub
-      - ebean.datasourceDriver=com.mysql.jdbc.Driver
-      - kafka.bootstrapServers=broker:29092
-      - kafka.schemaRegistryUrl=http://schema-registry:8081
-      - elasticsearch.hosts=elasticsearch
-      - elasticsearch.port=9200
-      - DATAHUB_MYSQL_HOST=mysql:3306
-      - DATAHUB_KAFKA_BROKER_HOST=broker:29092
-      - DATAHUB_ELASTICSEARCH_HOST=elasticsearch:9200
+      - EBEAN_DATASOURCE_USERNAME=datahub
+      - EBEAN_DATASOURCE_PASSWORD=datahub
+      - EBEAN_DATASOURCE_HOST=mysql:3306
+      - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub
+      - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
 
 networks:
   default:
