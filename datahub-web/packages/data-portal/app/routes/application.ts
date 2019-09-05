@@ -91,8 +91,8 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
       getConfig('wikiLinks')
     ];
     const sessionUser = this.sessionUser || {};
-    const { userName = '', email = '', name = '' } = sessionUser.currentUser || {};
-    const avatar = makeAvatar(avatarEntityProps)({ userName, email, name });
+    const { userName = '', email = '', name = '', pictureLink = '' } = sessionUser.currentUser || {};
+    const avatar = makeAvatar(avatarEntityProps)({ userName, email, name, imageUrl: pictureLink });
 
     return {
       showStagingBanner,
