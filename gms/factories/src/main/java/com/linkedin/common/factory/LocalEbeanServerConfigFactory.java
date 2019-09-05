@@ -3,39 +3,62 @@ package com.linkedin.common.factory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
-import org.springframework.core.env.Environment;
 
 @Slf4j
 @Configuration
-@PropertySource(value = "classpath:gms.properties", ignoreResourceNotFound = true)
 public class LocalEbeanServerConfigFactory {
 
-  @Autowired
-  private Environment env;
+  @Value("${EBEAN_DATASOURCE_USERNAME:datahub}")
+  private String ebeanDatasourceUsername;
+
+  @Value("${EBEAN_DATASOURCE_PASSWORD:datahub}")
+  private String ebeanDatasourcePassword;
+
+  @Value("${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub}")
+  private String ebeanDatasourceUrl;
+
+  @Value("${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver}")
+  private String ebeanDatasourceDriver;
+
+  @Value("${EBEAN_MIN_CONNECTIONS:2}")
+  private Integer ebeanMinConnections;
+
+  @Value("${EBEAN_MAX_CONNECTIONS:50}")
+  private Integer ebeanMaxConnections;
+
+  @Value("${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}")
+  private Integer ebeanMaxInactiveTimeSecs;
+
+  @Value("${EBEAN_MAX_AGE_MINUTES:120}")
+  private Integer ebeanMaxAgeMinutes;
+
+  @Value("${EBEAN_LEAK_TIME_MINUTES:15}")
+  private Integer ebeanLeakTimeMinutes;
+
+  @Value("${EBEAN_AUTOCREATE:false}")
+  private Boolean ebeanAutoCreate;
 
   @Bean(name = "gmsEbeanServiceConfig")
   protected ServerConfig createInstance() {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
-    dataSourceConfig.setUsername(env.getRequiredProperty("ebean.datasourceUsername"));
-    dataSourceConfig.setPassword(env.getRequiredProperty("ebean.datasourcePassword"));
-    dataSourceConfig.setUrl(env.getRequiredProperty("ebean.datasourceUrl"));
-    dataSourceConfig.setDriver(env.getRequiredProperty("ebean.datasourceDriver"));
-    dataSourceConfig.setMinConnections(Integer.valueOf(env.getProperty("ebean.minConnections", "2")));
-    dataSourceConfig.setMaxConnections(Integer.valueOf(env.getProperty("ebean.maxConnections", "50")));
-    dataSourceConfig.setMaxInactiveTimeSecs(Integer.valueOf(env.getProperty("ebean.maxInactiveTimeSecs", "120")));
-    dataSourceConfig.setMaxAgeMinutes(Integer.valueOf(env.getProperty("ebean.maxAgeMinutes", "120")));
-    dataSourceConfig.setLeakTimeMinutes(Integer.valueOf(env.getProperty("ebean.leakTimeMinutes", "15")));
+    dataSourceConfig.setUsername(ebeanDatasourceUsername);
+    dataSourceConfig.setPassword(ebeanDatasourcePassword);
+    dataSourceConfig.setUrl(ebeanDatasourceUrl);
+    dataSourceConfig.setDriver(ebeanDatasourceDriver);
+    dataSourceConfig.setMinConnections(ebeanMinConnections);
+    dataSourceConfig.setMaxConnections(ebeanMaxConnections);
+    dataSourceConfig.setMaxInactiveTimeSecs(ebeanMaxInactiveTimeSecs);
+    dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
+    dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
 
     ServerConfig serverConfig = new ServerConfig();
     serverConfig.setName("gmsEbeanServiceConfig");
     serverConfig.setDataSourceConfig(dataSourceConfig);
-    serverConfig.setDdlGenerate(Boolean.valueOf(env.getProperty("ebean.autoCreate", "false")));
-    serverConfig.setDdlRun(Boolean.valueOf(env.getProperty("ebean.autoCreate", "false")));
-
+    serverConfig.setDdlGenerate(ebeanAutoCreate);
+    serverConfig.setDdlRun(ebeanAutoCreate);
     return serverConfig;
   }
 }
