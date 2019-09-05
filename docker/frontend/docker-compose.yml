@@ -10,9 +10,9 @@ services:
     environment:
       - DATAHUB_GMS_HOST=datahub-gms
       - DATAHUB_GMS_PORT=8080
-      - DHUB_SECRET=YouKnowNothing
-      - DHUB_APP_VERSION=1.0
-      - DHUB_PLAY_MEM_BUFFER_SIZE=10MB
+      - DATAHUB_SECRET=YouKnowNothing
+      - DATAHUB_APP_VERSION=1.0
+      - DATAHUB_PLAY_MEM_BUFFER_SIZE=10MB
 
 networks:
   default:
