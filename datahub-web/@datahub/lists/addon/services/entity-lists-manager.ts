@@ -7,6 +7,7 @@ import { computed } from '@ember/object';
 import { supportedListEntities, SupportedListEntity } from '@datahub/lists/constants/entity/shared';
 import { noop } from '@datahub/utils/function/noop';
 import { IStoredEntityAttrs } from '@datahub/lists/types/list';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 // Map of List Entity displayName to list of instances
 type ManagedListEntities = Record<SupportedListEntity['displayName'], ReadonlyArray<IStoredEntityAttrs>>;
@@ -40,19 +41,19 @@ export default class EntityListsManager extends Service {
   @computed('entityStorageProxy.[]')
   get entities(): ManagedListEntities {
     // Initialize with empty lists, these will be overridden in the reduction over supportedListEntities
-    // const entityMap = {
-    // };
-    // const entityList = this.entityStorageProxy;
+    const entityMap = {
+      [PersonEntity.displayName]: []
+    };
+    const entityList = this.entityStorageProxy;
 
-    // return this.supportedListEntities.reduce((entityMap, EntityType: SupportedListEntity): ManagedListEntities => {
-    //   // entityList is a single list of all supported entity instances
-    //   // Filter out entities that match the EntityType
-    //   // Create a new instance to hydrate with the saved snapshot and baseEntity
-    //   const storedEntities = entityList.filter((storedEntity): boolean => storedEntity.type === EntityType.displayName);
+    return this.supportedListEntities.reduce((entityMap, EntityType: SupportedListEntity): ManagedListEntities => {
+      // entityList is a single list of all supported entity instances
+      // Filter out entities that match the EntityType
+      // Create a new instance to hydrate with the saved snapshot and baseEntity
+      const storedEntities = entityList.filter((storedEntity): boolean => storedEntity.type === EntityType.displayName);
 
-    //   return { ...entityMap, [EntityType.displayName]: Object.freeze(storedEntities) };
-    // }, entityMap);
-    return {};
+      return { ...entityMap, [EntityType.displayName]: Object.freeze(storedEntities) };
+    }, entityMap);
   }
 
   /**

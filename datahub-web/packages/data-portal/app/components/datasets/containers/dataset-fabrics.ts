@@ -1,11 +1,12 @@
 import Component from '@ember/component';
 import { get } from '@ember/object';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';
 import { DatasetOrigins } from 'wherehows-web/typings/api/datasets/origins';
 import { readDatasetOriginsByUrn } from 'wherehows-web/utils/api/datasets/origins';
 import { isArray } from '@ember/array';
 import { containerDataSource } from '@datahub/utils/api/data-source';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @containerDataSource('getFabricsTask', ['urn'])
 export default class DatasetFabricsContainer extends Component {
@@ -26,7 +27,6 @@ export default class DatasetFabricsContainer extends Component {
   /**
    * Reads the fabrics available for the dataset with this urn and sets the value of
    * the related list of available Fabrics
-   * @type {Task<Promise<DatasetOrigins>, (a?: any) => TaskInstance<Promise<DatasetOrigins>>>}
    */
   @task(function*(this: DatasetFabricsContainer): IterableIterator<Promise<DatasetOrigins>> {
     if (isLiUrn(this.urn)) {
@@ -37,5 +37,5 @@ export default class DatasetFabricsContainer extends Component {
       }
     }
   })
-  getFabricsTask!: Task<Promise<DatasetOrigins>, () => Promise<DatasetOrigins>>;
+  getFabricsTask!: ETaskPromise<DatasetOrigins>;
 }

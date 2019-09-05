@@ -1,16 +1,16 @@
 import Route from '@ember/routing/route';
 import { run } from '@ember/runloop';
 import ApplicationRouteMixin from 'ember-simple-auth/mixins/application-route-mixin';
-import Configurator from 'wherehows-web/services/configurator';
+import Configurator, { getConfig } from 'wherehows-web/services/configurator';
 import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
 import { inject as service } from '@ember/service';
 import { UnWrapPromise } from 'wherehows-web/typings/generic';
 import CurrentUser from '@datahub/shared/services/current-user';
-import Metrics from 'ember-metrics';
 import BannerService from 'wherehows-web/services/banners';
 import Controller from '@ember/controller';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
+import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
 
 /**
  * Quick alias of the type of the return of the model hook
@@ -26,7 +26,7 @@ const { scheduleOnce } = run;
 const initMarked = (marked: Window['marked']): void => {
   const markedRendererOverride = new marked.Renderer();
 
-  markedRendererOverride.link = (href: string, title: string, text: string) =>
+  markedRendererOverride.link = (href: string, title: string, text: string): string =>
     `<a href='${href}' title='${title || text}' target='_blank'>${text}</a>`;
 
   marked.setOptions({
@@ -45,23 +45,27 @@ interface IApplicationRouteModel {
 }
 
 export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin) {
-  // Injected Ember#Service for the current user
+  /**
+   * Injected service to manage the operations related to currently logged in user
+   * On app load, avatar creation and loading user attributes are handled via this service
+   */
   @service('current-user')
   sessionUser: CurrentUser;
 
   /**
-   * Metrics tracking service
-   * @type {Metrics}
+   * References the application tracking service which is used for analytics activation, setup, and management
    */
-  @service
-  metrics: Metrics;
+  @service('unified-tracking')
+  trackingService: UnifiedTracking;
 
   /**
    * Banner alert service
-   * @type {Ember.Service}
    */
   @service
   banners: BannerService;
+
+  @service
+  configurator: Configurator;
 
   /**
    * Attempt to load the current user and application configuration options
@@ -79,12 +83,12 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * @override
    */
   model(): IApplicationRouteModel {
-    const { getConfig } = Configurator;
-    const [showStagingBanner, showLiveDataWarning, showChangeManagement, avatarEntityProps] = [
+    const [showStagingBanner, showLiveDataWarning, showChangeManagement, avatarEntityProps, wikiLinks] = [
       getConfig('isStagingBanner', { useDefault: true, default: false }),
       getConfig('isLiveDataWarning', { useDefault: true, default: false }),
       getConfig('showChangeManagement', { useDefault: true, default: false }),
-      getConfig('userEntityProps')
+      getConfig('userEntityProps'),
+      getConfig('wikiLinks')
     ];
     const sessionUser = this.sessionUser || {};
     const { userName = '', email = '', name = '' } = sessionUser.currentUser || {};
@@ -95,7 +99,7 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
       showLiveDataWarning,
       showChangeManagement,
       avatar,
-      helpResources: []
+      helpResources: [{ link: wikiLinks['appHelp'], label: 'DataHub Wiki' }]
     };
   }
 
@@ -123,12 +127,16 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * Internal method to invoke the currentUser service's load method
    *   If an exception occurs during the load for the current user,
    *   invalidate the session.
-   * @returns {Promise<T, V>|RSVP.Promise<any>|Ember.RSVP.Promise<any, any>|Promise.<T>}
    * @private
    */
-  _loadCurrentUser(): Promise<void> {
+  private async _loadCurrentUser(): Promise<void> {
     const { sessionUser } = this;
-    return sessionUser.load().catch(() => sessionUser.invalidateSession());
+
+    try {
+      await sessionUser.load();
+    } catch {
+      sessionUser.invalidateSession();
+    }
   }
 
   /**
@@ -136,35 +144,17 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * @return {Promise.<any>|void}
    * @private
    */
-  _loadConfig(): Promise<IAppConfig> {
-    return Configurator.load();
+  private _loadConfig(): Promise<IAppConfig> {
+    return this.configurator.load();
   }
 
   /**
-   * Requests app configuration props then if enabled, sets up metrics
-   *   tracking using the supported trackers
-   * @return {Promise.<T>}
+   * Delegates to the tracking service methods to activate tracking adapters
    * @private
    */
-  async _setupMetricsTrackers(): Promise<void> {
-    const tracking = await Configurator.getConfig('tracking');
-
-    if (tracking.isEnabled) {
-      const metrics = this.metrics;
-      const { trackers } = tracking;
-      const { piwikSiteId, piwikUrl } = trackers.piwik;
-
-      metrics.activateAdapters([
-        {
-          name: 'Piwik',
-          environments: ['all'],
-          config: {
-            piwikUrl,
-            siteId: piwikSiteId
-          }
-        }
-      ]);
-    }
+  private async _setupMetricsTrackers(): Promise<void> {
+    const tracking = await getConfig('tracking');
+    this.trackingService.setupTrackers(tracking);
   }
 
   /**
@@ -172,13 +162,9 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
    * @return {Promise.<isEnabled|((feature:string)=>boolean)|*>}
    * @private
    */
-  async _trackCurrentUser(): Promise<void> {
-    const tracking = await Configurator.getConfig('tracking');
-    const { sessionUser, metrics } = this;
-
-    // Check if tracking is enabled prior to invoking
-    // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service
-    tracking.isEnabled && sessionUser.trackCurrentUser((userId: string) => metrics.identify({ userId }));
+  private async _trackCurrentUser(): Promise<void> {
+    const tracking = await getConfig('tracking');
+    this.trackingService.setCurrentUser(tracking);
   }
 
   init(): void {
@@ -196,7 +182,7 @@ export default class ApplicationRoute extends Route.extend(ApplicationRouteMixin
     super.renderTemplate.apply(this, arguments);
     const { showStagingBanner, showLiveDataWarning, showChangeManagement } = model;
     const { banners } = this;
-    scheduleOnce('afterRender', this, () =>
+    scheduleOnce('afterRender', this, (): void =>
       banners.appInitialBanners([showStagingBanner, showLiveDataWarning, showChangeManagement])
     );
   }

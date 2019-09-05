@@ -1,9 +1,9 @@
 import Service from '@ember/service';
-import Configurator from 'wherehows-web/services/configurator';
 import { bannerAnimationSpeed } from '@datahub/utils/constants/notifications';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { delay } from 'wherehows-web/utils/promise-delay';
 import { computed } from '@ember/object';
+import { getConfig } from 'wherehows-web/services/configurator';
 
 /**
  * Expected properties to be found on a basic banner object added to our list
@@ -59,8 +59,6 @@ export default class BannerService extends Service {
   }
 
   appInitialBanners([showStagingBanner, showLiveDataWarning, showChangeManagement]: Array<boolean>): void {
-    const { getConfig } = Configurator;
-
     if (showStagingBanner) {
       this.addBanner(
         'You are viewing/editing in the staging environment. Changes made here will not reflect in production',
@@ -128,7 +126,7 @@ export default class BannerService extends Service {
     const { banners } = this;
 
     const removalIndex = banners.reduce(
-      (index, banner, currIndex) => (banner.content === content && banner.type === type ? currIndex : index),
+      (index, banner, currIndex): number => (banner.content === content && banner.type === type ? currIndex : index),
       -1
     );
 

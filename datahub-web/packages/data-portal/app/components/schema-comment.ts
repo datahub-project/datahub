@@ -14,7 +14,8 @@ import Notifications from '@datahub/utils/services/notifications';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { action } from '@ember/object';
 import { inject as service } from '@ember/service';
-import { TaskInstance, task, Task } from 'ember-concurrency';
+import { TaskInstance, task } from 'ember-concurrency';
+import { ETask } from '@datahub/utils/types/concurrency';
 
 enum SchemaCommentActions {
   modify = 'modify',
@@ -51,7 +52,6 @@ export class SchemaComment extends Component {
   /**
    * Task to get related schema comments
    * TODO: refactor move to container component
-   * @type {"ember-concurrency".Task<Promise<Array<IDatasetComment>>, (a?: IGetCommentsTaskArgs) => "ember-concurrency".TaskInstance<Promise<Array<IDatasetComment>>>>}
    */
   @task(function*({
     datasetId,
@@ -69,10 +69,7 @@ export class SchemaComment extends Component {
       comments.setObjects.call(comments, withHtmlComments);
     }
   })
-  getCommentsTask!: Task<
-    TaskInstance<Promise<Array<IDatasetComment>>>,
-    (p: IGetCommentsTaskArgs) => TaskInstance<Promise<Array<IDatasetComment>>>
-  >;
+  getCommentsTask!: ETask<Promise<Array<IDatasetComment>>, IGetCommentsTaskArgs>;
 
   @action
   showComments(): TaskInstance<Promise<Array<IDatasetComment>>> {

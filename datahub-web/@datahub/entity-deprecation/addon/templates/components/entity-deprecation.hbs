@@ -20,11 +20,11 @@
 
   {{#if isDeprecatedAlias}}
 
-    {{medium-editor
-      deprecationNoteAlias
-      options=editorOptions
+    <MediumEditor
       class="entity-deprecation__note-editor"
-      onChange=(action (mut deprecationNoteAlias))}}
+      @value={{deprecationNoteAlias}}
+      @options={{editorOptions}}
+      @onInput={{action (mut deprecationNoteAlias)}} />
 
     <h4 class="dataset-deprecation__header">When should this {{entityName}} be decommissioned?</h4>
 
@@ -40,9 +40,9 @@
 
       {{#dropdown.content class="entity-deprecation__cal-dropdown"}}
         <PowerCalendar
+          class="entity-deprecation__decommission-calendar"
           @selected={{selectedDate}}
           @center={{centeredDate}}
-          @class="entity-deprecation__decommission-calendar"
           @onSelect={{action "onDecommissionDateChange" value="date"}}
           @onCenterChange={{action (mut centeredDate) value="date"}} as |calendar|>
 

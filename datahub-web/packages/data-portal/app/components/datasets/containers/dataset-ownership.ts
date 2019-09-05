@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, set, setProperties } from '@ember/object';
-import { TaskInstance, Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import UserLookup from 'wherehows-web/services/user-lookup';
 import Notifications from '@datahub/utils/services/notifications';
@@ -14,10 +14,11 @@ import {
   updateDatasetOwnersByUrn
 } from 'wherehows-web/utils/api/datasets/owners';
 import { inject as service } from '@ember/service';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
-import Configurator from 'wherehows-web/services/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
+import { getConfig } from 'wherehows-web/services/configurator';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { IPartyProps } from 'wherehows-web/typings/api/datasets/party-entities';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @containerDataSource('getContainerDataTask', ['urn'])
 export default class DatasetOwnershipContainer extends Component {
@@ -86,7 +87,6 @@ export default class DatasetOwnershipContainer extends Component {
   ownershipMetadata: { actor: string; lastModified: number } = { actor: '', lastModified: 0 };
   /**
    * An async parent task to group all data tasks for this container component
-   * @type {Task<TaskInstance<Promise<any>>, (a?: any) => TaskInstance<TaskInstance<Promise<any>>>>}
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<unknown> | unknown> {
     const {
@@ -105,18 +105,17 @@ export default class DatasetOwnershipContainer extends Component {
     ];
     yield* tasks.map((task): Promise<unknown> | unknown => task.perform());
   })
-  getContainerDataTask!: Task<TaskInstance<Promise<unknown>>, () => TaskInstance<Promise<unknown>>>;
+  getContainerDataTask!: ETaskPromise<unknown>;
   /**
    * Fetches & sets avatar props to build owner avatar images
    * @memberof DatasetOwnershipContainer
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<IAppConfig['userEntityProps']> {
-    return set(this, 'avatarProperties', Configurator.getConfig('userEntityProps'));
+    return set(this, 'avatarProperties', getConfig('userEntityProps'));
   })
-  getAvatarProperties!: Task<IAppConfig['userEntityProps'], () => IAppConfig['userEntityProps']>;
+  getAvatarProperties!: ETaskPromise<IAppConfig['userEntityProps']>;
   /**
    * Reads the owners for this dataset
-   * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
     const { owners = [], fromUpstream, datasetUrn, lastModified, actor }: IOwnerResponse = yield readDatasetOwnersByUrn(
@@ -125,33 +124,31 @@ export default class DatasetOwnershipContainer extends Component {
 
     setProperties(this, { owners, fromUpstream, upstreamUrn: datasetUrn, ownershipMetadata: { lastModified, actor } });
   })
-  getDatasetOwnersTask!: Task<Promise<IOwnerResponse>, () => Promise<IOwnerResponse>>;
+  getDatasetOwnersTask!: ETaskPromise<IOwnerResponse>;
   /**
    * Fetches the suggested owners for this dataset
-   * @type {Task<Promise<Array<IOwner>>, (a?: any) => TaskInstance<Promise<IOwnerResponse>>>}
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IOwnerResponse>> {
     const { owners = [] }: IOwnerResponse = yield readDatasetSuggestedOwnersByUrn(this.urn);
 
     setProperties(this, { suggestedOwners: owners });
   })
-  getSuggestedOwnersTask!: Task<Promise<IOwnerResponse>, () => Promise<IOwnerResponse>>;
+  getSuggestedOwnersTask!: ETaskPromise<IOwnerResponse>;
   /**
    * Reads the owner types available
-   * @type {Task<Promise<Array<OwnerType>>, (a?: any) => TaskInstance<Promise<Array<OwnerType>>>>}
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<Array<OwnerType>>> {
     const ownerTypes: Array<OwnerType> = yield readDatasetOwnerTypesWithoutConsumer();
     set(this, 'ownerTypes', ownerTypes);
   })
-  getDatasetOwnerTypesTask!: Task<Promise<Array<OwnerType>>, () => Promise<Array<OwnerType>>>;
+  getDatasetOwnerTypesTask!: ETaskPromise<Array<OwnerType>>;
   /**
    * Fetches and caches the list of users available to be added as owner
    */
   @task(function*(this: DatasetOwnershipContainer): IterableIterator<Promise<IPartyProps>> {
     yield this.ldapUsers.fetchUserNames();
   })
-  getUserEntitiesTask!: Task<Promise<IPartyProps>, () => Promise<IPartyProps>>;
+  getUserEntitiesTask!: ETaskPromise<IPartyProps>;
   /**
    * Handles user notifications when save succeeds or fails
    * @template T the return type for the save request

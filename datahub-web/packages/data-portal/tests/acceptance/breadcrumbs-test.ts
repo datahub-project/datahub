@@ -2,23 +2,12 @@ import { module, test } from 'qunit';
 import { visit, currentURL, findAll, click, waitFor } from '@ember/test-helpers';
 import { setupApplicationTest } from 'ember-qunit';
 import appLogin from 'wherehows-web/tests/helpers/login/test-login';
-import { setMockConfig, resetConfig } from 'wherehows-web/services/configurator';
 import defaultScenario from 'wherehows-web/mirage/scenarios/default';
 import { IMirageTestContext } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
 import { getTextNoSpacesFromElements } from '@datahub/utils/test-helpers/dom-helpers';
 
 module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
   setupApplicationTest(hooks);
-
-  hooks.beforeEach(function() {
-    setMockConfig({
-      showUmp: false
-    });
-  });
-
-  hooks.afterEach(function() {
-    resetConfig();
-  });
 
   test('Breadcrumbs Smoke Test', async function(this: IMirageTestContext, assert) {
     const categoryLinkClass = '.browse-category__link';
@@ -84,6 +73,7 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
     assert.equal(getTextNoSpacesFromElements(categoryLinks), 'adataset1adataset2', 'Text match');
     assert.equal(breadcrumbs.length, 6, 'There are 6 links in breadcrumb');
     assert.equal(getTextNoSpacesFromElements(breadcrumbs), 'Datasetshdfssomepathwithdirectories', 'Text match');
+
     // path adataset1
     await click(`${categoryLinkClass}:first-child`);
     breadcrumbs = findAll(breadcrumbsClass);

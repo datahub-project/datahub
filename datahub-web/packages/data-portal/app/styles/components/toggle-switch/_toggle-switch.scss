@@ -19,6 +19,8 @@
     &::before {
       position: relative;
       display: block;
+      margin: 0;
+      top: 0;
       content: '';
       width: 50%;
       height: 100%;

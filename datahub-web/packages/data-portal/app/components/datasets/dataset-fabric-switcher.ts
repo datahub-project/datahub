@@ -8,11 +8,12 @@ import {
   getDatasetUrnParts
 } from '@datahub/data-models/entity/dataset/utils/urn';
 import { arrayMap, arrayReduce } from 'wherehows-web/utils/array';
-import { TaskInstance, timeout, task, Task } from 'ember-concurrency';
+import { TaskInstance, timeout, task } from 'ember-concurrency';
 import { DatasetOrigins, IDatasetOrigin } from 'wherehows-web/typings/api/datasets/origins';
 import { classNames } from '@ember-decorators/component';
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
+import { ETask } from '@datahub/utils/types/concurrency';
 
 /**
  * Params to show dropdown
@@ -59,7 +60,10 @@ export default class DatasetFabricSwitcher extends Component {
   @computed('fabrics')
   get fabricsMap(): Record<FabricType, string> {
     return arrayReduce(
-      (fabricMap: Partial<Record<FabricType, string>>, fabric: IDatasetOrigin) => ({
+      (
+        fabricMap: Partial<Record<FabricType, string>>,
+        fabric: IDatasetOrigin
+      ): Partial<Record<FabricType, string>> => ({
         ...fabricMap,
         [fabric.origin]: fabric.displayTitle
       }),
@@ -99,7 +103,7 @@ export default class DatasetFabricSwitcher extends Component {
       const [, platform, segment] = match;
 
       // Creates a map of fabric, and urn string
-      return arrayMap((origin: IDatasetOrigin) => ({
+      return arrayMap((origin: IDatasetOrigin): { fabric: string; urn: string } => ({
         fabric: origin.displayTitle,
         urn: buildDatasetLiUrn(platform as DatasetPlatform, segment, origin.origin)
       }))(fabrics);
@@ -132,7 +136,7 @@ export default class DatasetFabricSwitcher extends Component {
     set(this, 'isExpanded', true);
     dropdown.actions.open();
   })
-  showFabricsTask: Task<void, (dropdown: IShowDropdownParams) => void>;
+  showFabricsTask: ETask<void, IShowDropdownParams>;
 
   /**
    * EC task triggers the occluding of the list of dataset Fabrics
@@ -149,7 +153,7 @@ export default class DatasetFabricSwitcher extends Component {
     yield timeout(200);
     dropdown.actions.close();
   })
-  hideFabricsTask: Task<Promise<void>, (dropdown: IHideDropdownParams) => TaskInstance<Promise<void>>>;
+  hideFabricsTask: ETask<Promise<void>, IHideDropdownParams>;
 
   /**
    * Handles the DOM onmouseenter event to show list of Fabrics

@@ -2,11 +2,8 @@ import Component from '@ember/component';
 import { set } from '@ember/object';
 import { computed } from '@ember/object';
 import { facetFromParamUrl, readSearchV2, facetToParamUrl } from 'wherehows-web/utils/api/search/search';
-import { trackContentImpressions, getPiwikActivityQueue } from 'wherehows-web/utils/analytics/piwik';
-import { adapterStrategy, trackSiteSearch } from 'wherehows-web/utils/analytics/search/track-site-search';
-import { TrackSearchAdapter } from 'wherehows-web/constants/analytics/site-search-tracking/adapters';
 import { IFacetsCounts, IFacetsSelectionsMap } from '@datahub/data-models/types/entity/facets';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { debounce } from '@ember/runloop';
 import { IDataModelEntitySearchResult, ISearchDataWithMetadata } from '@datahub/data-models/types/entity/search';
 import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
@@ -20,6 +17,8 @@ import { inject as service } from '@ember/service';
 import RouterService from '@ember/routing/router-service';
 import { fromRestli } from 'restliparams';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
 
 @containerDataSource('searchTask', ['keyword', 'page', 'facets', 'entity'])
 export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Component {
@@ -28,6 +27,12 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    */
   @service
   router: RouterService;
+
+  /**
+   * References the application tracking service which is used for analytics activation, setup, and management
+   */
+  @service('unified-tracking')
+  trackingService: UnifiedTracking;
 
   /**
    * User provided keyword search string
@@ -62,7 +67,7 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
   /**
    * If we wish to enable track or not
    */
-  trackingEnabled: boolean = false;
+  shouldCollectSearchTelemetry: boolean = false;
 
   /**
    * Fields of the entity to render in search/facets/autocomplete
@@ -73,13 +78,6 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    * Search result data
    */
   result?: IDataModelEntitySearchResult<T>;
-
-  /**
-   * Track search activity using the Piwik adapter
-   * @type {ReturnType<typeof adapterStrategy[TrackSearchAdapter.Piwik]>}
-   * @memberof SearchController
-   */
-  trackSearchOnPiwik: ReturnType<typeof adapterStrategy[TrackSearchAdapter.Piwik]>;
 
   /**
    * Flag indicating that the search facets have changed and a search will be performed
@@ -93,15 +91,6 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
    */
   @alias('result.facets')
   facetCounts: IFacetsCounts;
-
-  init(): void {
-    super.init();
-
-    if (this.trackingEnabled) {
-      // Augments controller instance with the piwik tracking function
-      set(this, 'trackSearchOnPiwik', trackSiteSearch(TrackSearchAdapter.Piwik)(getPiwikActivityQueue()));
-    }
-  }
 
   /**
    * Determines if this controller is busy querying the search endpoint of performing a related task async.
@@ -192,12 +181,12 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
   @(task(function*(this: SearchEntityTaskContainer<T>): IterableIterator<Promise<void>> {
     return yield this.searchEntities();
   }).restartable())
-  searchTask!: Task<Promise<void>, () => Promise<void>>;
+  searchTask!: ETaskPromise<void>;
   /**
    * Will perform a search for all types of entities (except datasets at the moment)
    */
   async searchEntities(): Promise<void> {
-    const { keyword, page, facetsApiParams, entity, pageSize, trackingEnabled } = this;
+    const { keyword, page, facetsApiParams, entity, pageSize, shouldCollectSearchTelemetry } = this;
 
     const searchApiParams: ISearchEntityApiParams = {
       facets: facetsApiParams,
@@ -226,11 +215,11 @@ export default class SearchEntityTaskContainer<T extends IBaseEntity> extends Co
         facets: searchResultMetasToFacetCounts(searchResultProxy.searchResultMetadatas, facetsApiParams)
       });
 
-      if (trackingEnabled) {
+      if (shouldCollectSearchTelemetry) {
         // Allow analytics service to track content impressions
-        trackContentImpressions();
+        this.trackingService.trackContentImpressions();
         // Capture search activity once search query is complete and results / no results are returned
-        this.trackSearchOnPiwik({ keyword, entity, searchCount: total });
+        this.trackingService.trackSiteSearch({ keyword, entity, searchCount: total });
       }
 
       return;

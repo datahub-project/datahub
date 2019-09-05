@@ -6,8 +6,8 @@ import { get } from '@ember/object';
 import { set } from '@ember/object';
 import { setProperties } from '@ember/object';
 import { next } from '@ember/runloop';
-import Configurator from 'wherehows-web/services/configurator';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { getConfig } from 'wherehows-web/services/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 import { inject as service } from '@ember/service';
 import RouterService from '@ember/routing/router-service';
 import { classNames } from '@ember-decorators/component';
@@ -18,7 +18,8 @@ import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rend
 import { encodeUrn } from '@datahub/utils/validators/urn';
 import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { task, TaskInstance, Task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * This file is a replacement of the DatasetController. Still there is too much
@@ -95,20 +96,13 @@ export default class DatasetMainContainer extends Component {
    * References the collection of help links with references to external pages of help information
    * @type {IAppConfig.wikiLinks}
    */
-  wikiLinks: IAppConfig['wikiLinks'] = Configurator.getConfig('wikiLinks') || {};
+  wikiLinks: IAppConfig['wikiLinks'] = getConfig('wikiLinks') || {};
 
   /**
    * References a collection of properties for avatar properties
    * @type {IAppConfig.avatarEntityProps}
    */
-  avatarEntityProps: IAppConfig['userEntityProps'] = Configurator.getConfig('userEntityProps');
-
-  jitAclConfig = Configurator.getConfig('jitAcl');
-
-  /**
-   * Show UMP operations tab
-   */
-  showUmpFlows: IAppConfig['showUmpFlows'] = Configurator.getConfig('showUmpFlows');
+  avatarEntityProps: IAppConfig['userEntityProps'] = getConfig('userEntityProps');
 
   /**
    * Flag indicating the dataset policy is derived from an upstream source
@@ -122,7 +116,7 @@ export default class DatasetMainContainer extends Component {
    * @type {boolean}
    * @memberof DatasetMainContainer
    */
-  isInternal: boolean = Boolean(Configurator.getConfig('isInternal'));
+  isInternal: boolean = Boolean(getConfig('isInternal'));
 
   /**
    * Flag indicating whether or not we are in the staging environment, which is useful for determining whether
@@ -130,34 +124,20 @@ export default class DatasetMainContainer extends Component {
    * @type {boolean}
    * @memberof DatasetMainContainer
    */
-  isStaging: boolean = Configurator.getConfig('isStagingBanner') || false;
+  isStaging: boolean = getConfig('isStagingBanner') || false;
 
   /**
    * Flags the lineage feature for datasets
    * @type {boolean}
    * @memberof DatasetMainContainer
    */
-  shouldShowDatasetLineage: boolean = Configurator.getConfig('shouldShowDatasetLineage');
-
-  /**
-   * Flags the new version of the compliance tab for datasets
-   * @memberof DatasetMainContainer
-   */
-  shouldShowComplianceBeta: boolean = Configurator.getConfig('showComplianceBeta');
+  shouldShowDatasetLineage: boolean = getConfig('shouldShowDatasetLineage');
 
   /**
    * Flags the institutional memory feature for entities, in this case datasets
    * @memberof DatasetMainContainer
    */
-  shouldShowInstitutionalMemory: boolean = Configurator.getConfig('showInstitutionalMemory');
-
-  /**
-   * Flags the health feature for datasets, which is currently in the development stage so we should not
-   * have it appear in production
-   * @type {boolean}
-   * @memberof DatasetMainContainer
-   */
-  shouldShowDatasetHealth: boolean = Configurator.getConfig('shouldShowDatasetHealth');
+  shouldShowInstitutionalMemory: boolean = getConfig('showInstitutionalMemory');
 
   /**
    * Whether or not we have met the dataset ownership count requirements
@@ -211,7 +191,7 @@ export default class DatasetMainContainer extends Component {
   @(task(function*(this: DatasetMainContainer): IterableIterator<Promise<DatasetEntity | boolean>> {
     yield this.reifyEntityTask.perform();
   }).restartable())
-  containerDataTask!: Task<Promise<DatasetEntity | boolean>, () => TaskInstance<Promise<DatasetEntity | boolean>>>;
+  containerDataTask!: ETaskPromise<DatasetEntity | boolean>;
 
   /**
    * Materializes the DatasetEntity instance
@@ -226,7 +206,7 @@ export default class DatasetMainContainer extends Component {
       set(this, 'entity', entity);
     }
   }).restartable())
-  reifyEntityTask!: Task<Promise<DatasetEntity>, () => Promise<DatasetEntity>>;
+  reifyEntityTask!: ETaskPromise<DatasetEntity>;
 
   /**
    * Converts the uri on a model to a usable URN format

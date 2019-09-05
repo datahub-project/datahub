@@ -35,6 +35,6 @@
     "../../@datahub/shared/addon/**/*",
     "../../@datahub/shared/types/**/*",
     "../../@datahub/utils/addon/**/*",
-    "../../@datahub/utils/types/**/*",
+    "../../@datahub/utils/types/**/*"
   ]
 }

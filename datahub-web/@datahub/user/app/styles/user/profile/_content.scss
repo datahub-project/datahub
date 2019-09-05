@@ -1,0 +1,58 @@
+.user-profile-content {
+  $application-navbar-static-height: item-spacing(8) !default;
+  $banner-alerts-height: 52px !default;
+
+  margin-top: item-spacing(6);
+
+  .user-profile-tabs {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    width: $max-container-width;
+    margin: 0 auto;
+
+    &__tabslist {
+      &.ivy-tabs-tablist {
+        height: fit-content;
+
+        &[role='tablist'] {
+          box-sizing: border-box;
+          border-top: none;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          width: 264px;
+          position: sticky;
+          top: $application-navbar-static-height;
+          background-color: get-color(white);
+          margin: item-spacing(2 0);
+
+          .user-profile-tabs__tab {
+            &.ivy-tabs-tab {
+              &[role='tab'] {
+                $set-padding: item-spacing(4);
+
+                margin-left: item-spacing(0);
+                padding: item-spacing(3) $set-padding;
+                width: 100%;
+
+                &:first-child {
+                  padding-left: $set-padding;
+                }
+
+                &[aria-selected='true'] {
+                  color: get-color(black, 0.6);
+                  background-color: get-color(slate3, 0.25);
+
+                  &:before {
+                    background-color: transparent;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

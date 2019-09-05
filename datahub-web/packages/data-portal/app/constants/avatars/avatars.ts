@@ -1,6 +1,6 @@
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { pick } from 'lodash';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 
 type AvatarCreatorFunc = (obj: Partial<IAvatar>) => IAvatar;
 

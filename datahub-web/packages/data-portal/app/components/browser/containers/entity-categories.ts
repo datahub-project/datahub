@@ -8,9 +8,10 @@ import { computed } from '@ember/object';
 import { alias, or } from '@ember/object/computed';
 import BrowseEntity from 'wherehows-web/routes/browse/entity';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { Task, task } from 'ember-concurrency';
-import Configurator from 'wherehows-web/services/configurator';
+import { task } from 'ember-concurrency';
+import { getConfig } from 'wherehows-web/services/configurator';
 import { BaseEntity } from '@datahub/data-models/entity/base-entity';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Defines the container component to fetch nodes for a given entity constrained by category, or prefix, etc
@@ -34,7 +35,7 @@ export default class EntityCategoriesContainer extends Component {
   /**
    * Flag to say whether we are using the new api for datasets
    */
-  useNewBrowseDataset: boolean = Configurator.getConfig('useNewBrowseDataset');
+  useNewBrowseDataset: boolean = getConfig('useNewBrowseDataset');
 
   /**
    * References the current DataModelEntity class if applicable
@@ -110,7 +111,7 @@ export default class EntityCategoriesContainer extends Component {
       });
     }
   }).restartable())
-  getEntityCategoriesNodesTask!: Task<Promise<IBrowsePath>, () => Promise<IBrowsePath>>;
+  getEntityCategoriesNodesTask!: ETaskPromise<IBrowsePath>;
   /**
    * Closure action for big-list onFinished for entity list
    *

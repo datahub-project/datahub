@@ -2,9 +2,9 @@ import Route from '@ember/routing/route';
 import { get } from '@ember/object';
 import { inject as service } from '@ember/service';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
-import Configurator from 'wherehows-web/services/configurator';
 import CurrentUser from '@datahub/shared/services/current-user';
 import Metrics from 'ember-metrics';
+import { getConfig } from 'wherehows-web/services/configurator';
 import Transition from '@ember/routing/-private/transition';
 
 export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {
@@ -48,7 +48,7 @@ export default class IndexRoute extends Route.extend(AuthenticatedRouteMixin) {
    * @private
    */
   async _trackCurrentUser(): Promise<false | void> {
-    const { tracking } = await Configurator.getConfig<undefined>();
+    const { tracking } = await getConfig<undefined>();
 
     // Check if tracking is enabled prior to invoking
     // Passes an anonymous function to track the currently logged in user using the singleton `current-user` service

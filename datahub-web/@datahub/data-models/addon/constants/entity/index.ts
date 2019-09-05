@@ -1,4 +1,5 @@
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Defines the interface for the DataModelEntity enum below.
@@ -6,6 +7,7 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
  */
 interface IDataModelEntity {
   [DatasetEntity.displayName]: typeof DatasetEntity;
+  [PersonEntity.displayName]: typeof PersonEntity;
 }
 
 /**
@@ -13,7 +15,8 @@ interface IDataModelEntity {
  * Serves as the primary resource map of all DataModelEntity available classes
  */
 export const DataModelEntity: IDataModelEntity = {
-  [DatasetEntity.displayName]: DatasetEntity
+  [DatasetEntity.displayName]: DatasetEntity,
+  [PersonEntity.displayName]: PersonEntity
 };
 
 /**

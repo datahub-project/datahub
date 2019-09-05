@@ -14,8 +14,6 @@ export interface ISearchEntityRenderProps {
   showInFacets: boolean;
   // Flag indicating that this search entity attribute should be shown as a search result tag or not
   showAsTag?: boolean;
-  // Component that can serve different purposes when default rendering options are not enough
-  component?: string;
   // An alternative string representation of the fieldName attribute that's more human-friendly e.g. Data Origin
   displayName: string;
   // A description of the search attribute
@@ -38,4 +36,10 @@ export interface ISearchEntityRenderProps {
   iconName?: string;
   // Optional text that is shown over hovering of the element, to provide more meaning and context
   hoverText?: string;
+  // Component that can serve different purposes when default rendering options are not enough
+  // attributes is an optional object used to provide additional rendering information about the component
+  component?: {
+    name: string;
+    attrs?: Record<string, unknown>;
+  };
 }

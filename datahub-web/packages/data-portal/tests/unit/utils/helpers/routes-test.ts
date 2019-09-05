@@ -1,6 +1,7 @@
-import { resolveDynamicRouteName, mapOfRouteNamesToResolver } from 'wherehows-web/utils/helpers/routes';
 import { module, test } from 'qunit';
 import { RouteInfoStub } from 'wherehows-web/tests/stubs/routes/route-info';
+import { resolveDynamicRouteName } from '@datahub/utils/routes/routing';
+import { mapOfRouteNamesToResolver } from '@datahub/data-models/utils/entity-route-name-resolver';
 
 module('Unit | Utility | helpers/routes', function() {
   test('resolveDynamicRouteName utility resolves RouteInfo attributes correctly', function(assert) {

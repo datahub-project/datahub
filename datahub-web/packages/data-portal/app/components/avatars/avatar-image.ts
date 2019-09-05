@@ -3,8 +3,9 @@ import { IAvatar } from 'wherehows-web/typings/app/avatars';
 import { alias } from '@ember/object/computed';
 import { set } from '@ember/object';
 import { classNames, tagName, attribute } from '@ember-decorators/component';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { run } from '@ember/runloop';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @tagName('img')
 @classNames('avatar')
@@ -44,11 +45,10 @@ export default class AvatarImage extends Component {
 
   /**
    * Task to set the fallback image for an avatar
-   * @type Task<void, (a?: {}) => TaskInstance<void>>
    * @memberof AvatarImage
    */
   @task(function*(this: AvatarImage): IterableIterator<void> {
     set(this, 'src', this.avatar.imageUrlFallback);
   })
-  onImageFallback!: Task<void, () => void>;
+  onImageFallback!: ETaskPromise<void>;
 }

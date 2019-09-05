@@ -20,7 +20,7 @@
     {{#each @resultFields as |field|}}
       {{#let (get @result field.fieldName) as |value|}}
         {{#if (and field.showAsTag field.component)}}
-          {{component field.component entity=@meta.instance}}
+          {{component field.component.name entity=@meta.instance field=field value=value}}
         {{else if (and field.showAsTag value)}}
           {{#if (and field.showAsIcon field.iconName)}}
             <span class="search-result__title__icon">

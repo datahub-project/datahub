@@ -108,7 +108,7 @@
     "ember-inflector": "^3.0.0",
     "ember-lodash": "^4.18.0",
     "ember-math-helpers": "^2.7.1",
-    "ember-medium-editor-fix": "^0.0.2",
+    "ember-medium-editor-fix": "^0.0.3",
     "ember-metrics": "^0.13.0",
     "ember-modal-dialog": "^3.0.0-beta.0",
     "ember-moment": "^7.8.1",

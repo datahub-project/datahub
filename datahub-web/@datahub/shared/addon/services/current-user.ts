@@ -13,8 +13,7 @@ let _hasUserBeenTracked = false;
 
 /**
  * The current user service can be injected into our various datahub addons to give reference
- * whenever necessary to the current logged in user based on the ember simple auth authenticated
- * service
+ * whenever necessary to the current logged in user
  */
 export default class CurrentUser extends Service {
   /**

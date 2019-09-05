@@ -1,8 +1,8 @@
 import { visit, click } from '@ember/test-helpers';
 import { TestContext } from 'ember-test-helpers';
 import { getQueue } from 'wherehows-web/tests/helpers/analytics';
-import { IBaseTrackingEvent } from 'wherehows-web/typings/app/analytics/event-tracking';
-import TrackingService from 'wherehows-web/services/tracking';
+import { IBaseTrackingEvent } from '@datahub/tracking/types/event-tracking';
+import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
 
 /**
  * Asynchronously navigates to a url and clicks on a search result item
@@ -24,10 +24,10 @@ export const mockTrackingEventQueue = (
   testContext: TestContext,
   queue: ReturnType<typeof getQueue>
 ): ReturnType<typeof getQueue> => {
-  const trackingService: TrackingService = testContext.owner.lookup('service:tracking');
+  const trackingService: UnifiedTracking = testContext.owner.lookup('service:unified-tracking');
 
   // Stub tracking service with trackEvent stub function that adds seen events to supplied queue
-  trackingService.trackEvent = ({ action, category, name = '' }: IBaseTrackingEvent) => {
+  trackingService.trackEvent = ({ action, category, name = '' }: IBaseTrackingEvent): void => {
     // Push new events onto the queue. The the same queue needs to be mutated as expectation by the implementation
     queue.push([action, category, name]);
   };

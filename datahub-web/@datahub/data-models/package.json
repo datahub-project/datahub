@@ -24,6 +24,7 @@
     "postpublish": "ember ts:clean"
   },
   "dependencies": {
+    "@datahub/metadata-types": "0.0.0",
     "@datahub/utils": "0.0.0",
     "ember-cli-babel": "^7.8.0",
     "ember-cli-typescript": "^2.0.2",
@@ -32,7 +33,6 @@
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",
-    "@datahub/metadata-types": "0.0.0",
     "@ember/optional-features": "^0.7.0",
     "@types/ember": "^3.1.0",
     "@types/ember-qunit": "^3.4.6",

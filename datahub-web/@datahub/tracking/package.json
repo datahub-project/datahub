@@ -21,6 +21,8 @@
     "postpublish": "ember ts:clean"
   },
   "dependencies": {
+    "@datahub/data-models": "0.0.0",
+    "@datahub/shared": "0.0.0",
     "@datahub/utils": "0.0.0",
     "ember-cli-babel": "^7.8.0",
     "ember-cli-htmlbars": "^3.0.0",
@@ -36,6 +38,7 @@
     "@types/ember__test-helpers": "^0.7.8",
     "@types/qunit": "^2.5.4",
     "@types/rsvp": "^4.0.2",
+    "@types/sinon": "^7.0.13",
     "broccoli-asset-rev": "^3.0.0",
     "ember-cli": "~3.11.0",
     "ember-cli-dependency-checker": "^3.1.0",
@@ -48,13 +51,16 @@
     "ember-load-initializers": "^2.0.0",
     "ember-lodash": "^4.19.4",
     "ember-maybe-import-regenerator": "^0.1.6",
+    "ember-metrics": "^0.13.0",
     "ember-qunit": "^4.4.0",
     "ember-resolver": "^5.0.1",
+    "ember-sinon": "^4.0.0",
+    "ember-sinon-qunit": "^3.4.0",
     "ember-source": "~3.11.1",
     "ember-source-channel-url": "^1.1.0",
     "ember-try": "^1.0.0",
     "loader.js": "^4.7.0",
-    "qunit-dom": "^0.8.4",
+    "qunit-dom": "^0.8.5",
     "typescript": "^3.5.3"
   },
   "engines": {

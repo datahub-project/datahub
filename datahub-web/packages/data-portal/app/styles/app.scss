@@ -7,6 +7,7 @@
 @import 'datahub-utils';
 @import 'entity-header';
 @import 'entity-deprecation';
+@import 'datahub-shared';
 @import 'entity-lists';
 
 @import 'abstracts/all';
@@ -15,8 +16,10 @@
 
 @import 'nacho-table';
 @import 'nacho-pill';
+@import 'nacho-avatars';
 @import 'datasets-core';
 @import 'institutional-memory';
+@import 'user-entity';
 @import 'components/all';
 @import 'layout/all';
 @import 'shame';

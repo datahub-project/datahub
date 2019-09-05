@@ -1,7 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-declare module '@ember-decorators/runloop';
-
 declare module 'wherehows-web/app';
 
 declare module 'ember-simple-auth/mixins/application-route-mixin' {
@@ -91,10 +89,6 @@ interface Window {
       }
     ): Element;
   };
-
-  // global array for piwik tracking
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  _paq: ArrayLike<any> & { push: (...items: Array<any>) => number };
 }
 
 /**

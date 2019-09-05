@@ -1,11 +1,11 @@
 {{#if isEditing}}
   <form {{action "publishComment" on="submit"}}>
-    {{medium-content-editable
-      comment.text
-      options=editorOptions
+    <MediumEditor
       class="comment-new__content"
-      onChange=(action (mut comment.text))
-    }}
+      @value={{comment.text}}
+      @options={{editorOptions}}
+      @onInput={{action (mut comment.text)}}
+    />
 
     {{ember-selector
       values=commentTypes

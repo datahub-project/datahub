@@ -19,12 +19,13 @@ import {
 import { OwnerSource, OwnerType } from 'wherehows-web/utils/api/datasets/owners';
 import Notifications from '@datahub/utils/services/notifications';
 import { noop } from 'wherehows-web/utils/helpers/functions';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 import { makeAvatar } from 'wherehows-web/constants/avatars/avatars';
 import { OwnerWithAvatarRecord } from 'wherehows-web/typings/app/datasets/owners';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 type Comparator = -1 | 0 | 1;
 
@@ -217,7 +218,7 @@ export default class DatasetAuthors extends Component {
   get commonOwners(): Array<IOwner> {
     const { confirmedOwners, systemGeneratedOwners } = this;
 
-    return confirmedOwners.reduce((common, owner) => {
+    return confirmedOwners.reduce((common, owner): Array<IOwner> => {
       const { userName } = owner;
       return systemGeneratedOwners.findBy('userName', userName) ? [...common, owner] : common;
     }, []);
@@ -248,13 +249,12 @@ export default class DatasetAuthors extends Component {
   systemGeneratedOwnersWithAvatars: Array<OwnerWithAvatarRecord>;
   /**
    * Invokes the external action as a dropping task
-   * @type {Task<Promise<Array<IOwner>>, void>}
    * @memberof DatasetAuthors
    */
   @(task(function*(this: DatasetAuthors): IterableIterator<Promise<Array<IOwner>>> {
     yield this.save(this.owners);
   }).drop())
-  saveOwners!: Task<Promise<Array<IOwner>>, () => Promise<Array<IOwner>>>;
+  saveOwners!: ETaskPromise<Array<IOwner>>;
   /**
    * Adds the component owner record to the list of owners with default props
    * @returns {Array<IOwner> | void}

@@ -8,8 +8,9 @@ import { readDatasetSnapshot } from 'wherehows-web/utils/api/datasets/dataset';
 import { set } from '@ember/object';
 import { IDatasetSnapshot } from '@datahub/metadata-types/types/metadata/dataset-snapshot';
 import { tagName } from '@ember-decorators/component';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Retrieves snapshot data for a specific ump dataset if the platform meets the condition of being a ump dataset
@@ -44,7 +45,6 @@ export default class DatasetSnapshotContainer extends Component {
 
   /**
    * Container task will fetch and set snapshot data for this.dataset
-   * @type Task<Promise<IDatasetSnapshot>, (a?: {} | undefined) => TaskInstance<Promise<IDatasetSnapshot>>>
    * @memberof DatasetSnapshotContainer
    */
   @(task(function*(this: DatasetSnapshotContainer): IterableIterator<Promise<IDatasetSnapshot>> {
@@ -61,5 +61,5 @@ export default class DatasetSnapshotContainer extends Component {
       }
     }
   }).restartable())
-  getContainerDataTask!: Task<Promise<IDatasetSnapshot>, () => Promise<IDatasetSnapshot>>;
+  getContainerDataTask!: ETaskPromise<IDatasetSnapshot>;
 }

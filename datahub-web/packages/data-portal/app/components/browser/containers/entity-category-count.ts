@@ -1,9 +1,10 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { tagName } from '@ember-decorators/component';
 import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 // TODO META-8863 remove once dataset is migrated
 @tagName('')
@@ -22,12 +23,11 @@ export default class EntityCategoryContainer extends Component {
 
   /**
    * Task to request the data platform's count
-   * @type {(Task<Promise<number>, (a?: any) => TaskInstance<Promise<number>>>)}
    */
   @task(function*(this: EntityCategoryContainer): IterableIterator<Promise<number>> {
     const { entity, category } = this;
     const modelEntity: DataModelEntity = DataModelEntity[entity];
     set(this, 'count', yield modelEntity.readCategoriesCount(category));
   })
-  getEntityCountTask!: Task<Promise<number>, () => Promise<number>>;
+  getEntityCountTask!: ETaskPromise<number>;
 }

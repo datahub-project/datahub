@@ -1,5 +1,5 @@
 import { ITabProperties, Tab } from '@datahub/data-models/constants/entity/shared/tabs';
-import { Task } from 'ember-concurrency';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Defines expected container properties and methods for an Entity Container Component
@@ -17,5 +17,5 @@ export interface IEntityContainer<T> {
   // Tabs that are available for the entity
   tabs: Array<ITabProperties>;
   // concurrency task to materialize the related underlying IEntity
-  reifyEntityTask: Task<Promise<T>, () => Promise<T>>;
+  reifyEntityTask: ETaskPromise<T>;
 }

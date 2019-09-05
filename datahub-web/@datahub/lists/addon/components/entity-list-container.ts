@@ -17,7 +17,8 @@ import { setProperties } from '@ember/object';
 import Notifications from '@datahub/utils/services/notifications';
 import { inject as service } from '@ember/service';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
-import { task, Task, TaskInstance } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETask } from '@datahub/utils/types/concurrency';
 
 /**
  * Defines the interface for the output of the EntityList mapping predicate function
@@ -239,7 +240,7 @@ export default class EntityListContainer extends WithEntityLists {
 
     return set(this, 'instances', []);
   }).restartable())
-  hydrateEntitiesTask!: Task<void, () => TaskInstance<void>>;
+  hydrateEntitiesTask!: ETask<void>;
 
   /**
    * On initialization, hydrate the entities list with data serialized in persistent storage

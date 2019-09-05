@@ -1,9 +1,10 @@
 import Component from '@ember/component';
 import { set } from '@ember/object';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { readDownstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { LineageList } from 'wherehows-web/typings/api/datasets/relationships';
 import { containerDataSource } from '@datahub/utils/api/data-source';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @containerDataSource('getDatasetDownstreamsTask', ['urn'])
 export default class DatasetLineageDownstreamsContainer extends Component {
@@ -35,5 +36,5 @@ export default class DatasetLineageDownstreamsContainer extends Component {
       set(this, 'downstreams', downstreams);
     }
   })
-  getDatasetDownstreamsTask!: Task<Promise<LineageList>, () => Promise<LineageList>>;
+  getDatasetDownstreamsTask!: ETaskPromise<LineageList>;
 }
