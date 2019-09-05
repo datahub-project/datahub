@@ -26,7 +26,8 @@
     "ember-cli-htmlbars": "^3.0.0",
     "ember-cli-typescript": "^2.0.2",
     "ember-moment": "^7.8.1",
-    "ember-simple-auth": "^1.8.2"
+    "ember-simple-auth": "^1.8.2",
+    "ember-cli-string-helpers": "^2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",

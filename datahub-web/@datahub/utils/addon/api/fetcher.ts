@@ -130,7 +130,7 @@ export const returnDefaultIfNotFound = async <T>(request: Promise<T>, defaultVal
  * @param arg
  */
 const argToString = (arg: unknown): string => {
-  // @ts-ignore
+  // @ts-ignore https://github.com/typed-ember/ember-cli-typescript/issues/799
   if (typeOf(arg) === 'object') {
     return JSON.stringify(arg);
   } else {

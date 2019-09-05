@@ -4,10 +4,10 @@ import { inject as service } from '@ember/service';
 import Search from 'wherehows-web/services/search';
 import { set } from '@ember/object';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import Configurator from 'wherehows-web/services/configurator';
 import { unGuardedEntities } from 'wherehows-web/utils/entity/flag-guard';
 import { IDynamicLinkNode } from 'wherehows-web/typings/app/browse/dynamic-link';
 import { capitalize } from '@ember/string';
+import { getConfig } from 'wherehows-web/services/configurator';
 
 /**
  * Links for browse entity. It needs the name of the string, and also it will
@@ -39,7 +39,7 @@ export default class BrowseIndexRoute extends Route.extend(AuthenticatedRouteMix
   }
 
   model(): IBrowseIndexModel {
-    const entities: IBrowseIndexModel['entities'] = unGuardedEntities(Configurator).map(
+    const entities: IBrowseIndexModel['entities'] = unGuardedEntities(getConfig).map(
       (entity: DataModelEntity): IBrowseEntityLink => ({
         title: capitalize(entity.displayName),
         text: '',

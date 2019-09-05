@@ -31,8 +31,8 @@ export enum ApiResponseStatus {
  * @param {Error} e
  * @return {boolean}
  */
-// @ts-ignore
-const isApiError = (e: Error): e is ApiError => typeOf((e as ApiError).status) !== 'undefined';
+const isApiError = (e: Error): e is ApiError =>
+  typeOf(((e as unknown) as Record<string, unknown>).status) !== 'undefined';
 
 /**
  * Convenience function to ascertain if an api error is a not found code

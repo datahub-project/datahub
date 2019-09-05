@@ -27,7 +27,7 @@
     "ember-cli-moment-shim": "^3.7.1",
     "ember-cli-string-helpers": "^2.0.0",
     "ember-cli-typescript": "^2.0.2",
-    "ember-medium-editor-fix": "^0.0.2",
+    "ember-medium-editor-fix": "^0.0.3",
     "ember-moment": "^7.8.1",
     "ember-power-calendar": "^0.14.0",
     "ember-power-calendar-moment": "^0.1.7",

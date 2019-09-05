@@ -1,5 +1,6 @@
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETaskPromise } from 'concurrency';
 
 class PretendComponent {
   didInsertElement(): void {}
@@ -17,5 +18,5 @@ export default class TestForDecoratorsDataSourceComponent extends PretendCompone
   @task(function*(this: TestForDecoratorsDataSourceComponent): IterableIterator<Promise<void>> {
     this.assert && this.assert.ok(true, this.message);
   })
-  getContainerDataTask!: Task<Promise<void>, () => Promise<void>>;
+  getContainerDataTask!: ETaskPromise<void>;
 }

@@ -81,7 +81,7 @@ module('Integration | Component | search/search-box', function(hooks) {
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function() {
-    setMockConfig();
+    setMockConfig({ showPeople: false });
   });
 
   hooks.afterEach(function() {

@@ -3,8 +3,9 @@ import { set } from '@ember/object';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
 
 import { action } from '@ember/object';
-import { TaskInstance, Task, task, timeout } from 'ember-concurrency';
+import { TaskInstance, task, timeout } from 'ember-concurrency';
 import { classNames } from '@ember-decorators/component';
+import { ETask } from '@datahub/utils/types/concurrency';
 
 /**
  * Params to show dropdown
@@ -58,19 +59,13 @@ export default class HoverDropDown<T> extends Component {
 
   /**
    * Task triggers the rendering of the list of drop-down options
-   * @type TaskProperty<void> & {
-    perform: (a?: {
-        actions: {
-            open: () => void;
-        };
-    } | undefined) => TaskInstance<void>}
    * @memberof HoverDropDown
    */
   @task(function*(this: HoverDropDown<T>, dd: IShowDropdownParams): IterableIterator<void> {
     set(this, 'isExpanded', true);
     dd.actions.open();
   })
-  showDropDownTask!: Task<void, (dd: IShowDropdownParams) => void>;
+  showDropDownTask!: ETask<void, IShowDropdownParams>;
 
   /**
    * Task triggers the occluding of the list of drop-down options
@@ -87,7 +82,7 @@ export default class HoverDropDown<T> extends Component {
     yield timeout(200);
     dd.actions.close();
   })
-  hideDropDownTask!: Task<Promise<void>, (dd: IHideDropdownParams) => TaskInstance<Promise<void>>>;
+  hideDropDownTask!: ETask<Promise<void>, IHideDropdownParams>;
 
   /**
    * Action handler to prevent bubbling DOM event action

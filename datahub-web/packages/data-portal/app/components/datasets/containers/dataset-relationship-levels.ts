@@ -1,11 +1,12 @@
 import Component from '@ember/component';
-import { Task, task } from 'ember-concurrency';
+import { task, Task } from 'ember-concurrency';
 import { LineageList, IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
 import { readDownstreamDatasetsByUrn, readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import GraphDb, { INode } from 'wherehows-web/utils/graph-db';
 import { action } from '@ember/object';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Container component for the lineage graph. Will use upstream and downstream to generate the graph
@@ -24,26 +25,6 @@ export default class DatasetRelationshipLevels extends Component {
    */
   dataset!: IDatasetView;
 
-  /**
-   * It will create the first node using the dataset passed, and invoke upstream and downstream tasks
-   */
-  @task(function*(this: DatasetRelationshipLevels): IterableIterator<Promise<LineageList>> {
-    const rootNode = this.graphDb.addNode({
-      dataset: this.dataset,
-      type: '',
-      actor: ''
-    });
-
-    yield this.getLineageDataTask.perform(rootNode.id);
-
-    yield this.getLineageDataTask.perform(rootNode.id, true);
-
-    //select first node
-    this.graphDb.setNodeAttrs(rootNode.id, {
-      selected: true
-    });
-  })
-  firstLoadTask!: Task<Promise<LineageList>, () => Promise<LineageList>>;
   /**
    * This task will fetch lineage data for a node. If a node is downtream, it will load children
    * If the node is upstream, it will fetch its parents.
@@ -67,7 +48,28 @@ export default class DatasetRelationshipLevels extends Component {
       });
     }
   })
-  getLineageDataTask: Task<Promise<LineageList>, (id: number, upstream?: boolean) => Promise<LineageList>>;
+  getLineageDataTask: Task<Promise<LineageList>, (a: number, b?: boolean) => Promise<LineageList>>;
+
+  /**
+   * It will create the first node using the dataset passed, and invoke upstream and downstream tasks
+   */
+  @task(function*(this: DatasetRelationshipLevels): IterableIterator<Promise<LineageList>> {
+    const rootNode = this.graphDb.addNode({
+      dataset: this.dataset,
+      type: '',
+      actor: ''
+    });
+
+    yield this.getLineageDataTask.perform(rootNode.id, false);
+
+    yield this.getLineageDataTask.perform(rootNode.id, true);
+
+    //select first node
+    this.graphDb.setNodeAttrs(rootNode.id, {
+      selected: true
+    });
+  })
+  firstLoadTask!: ETaskPromise<LineageList>;
 
   /**
    * When we select a node, we need to toggle it and load it if necessary

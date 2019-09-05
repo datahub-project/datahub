@@ -3,7 +3,7 @@
   list-style-type: none;
   margin-top: item-spacing(4);
 
-  &__content {
+  &__content .ember-medium-editor__container {
     min-height: item-spacing(6) * 4;
     outline: none;
     padding: item-spacing(1);

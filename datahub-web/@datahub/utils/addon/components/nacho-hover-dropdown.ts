@@ -5,12 +5,13 @@ import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../templates/components/nacho-hover-dropdown';
 import { set } from '@ember/object';
-import { TaskInstance, timeout, task, Task } from 'ember-concurrency';
+import { TaskInstance, timeout, task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import { classNames, layout } from '@ember-decorators/component';
 import { noop } from 'lodash';
 import { assert } from '@ember/debug';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { ETask } from '@datahub/utils/types/concurrency';
 
 /**
  * Params to show dropdown
@@ -55,7 +56,7 @@ export default class NachoHoverDropdown<T> extends Component {
   /**
    * References the most recent TaskInstance to hide the drop-down options
    */
-  mostRecentHideTask?: TaskInstance<Promise<void>>;
+  mostRecentHideTask?: TaskInstance<Promise<void> | void>;
 
   /**
    * Task triggers the rendering of the list of drop-down options
@@ -64,7 +65,7 @@ export default class NachoHoverDropdown<T> extends Component {
     set(this, 'isExpanded', true);
     dd.actions.open();
   })
-  showDropDownTask!: Task<void, (dd: IShowDropdownParams) => void>;
+  showDropDownTask!: ETask<void, IShowDropdownParams>;
 
   /**
    * Task triggers the occluding of the list of drop-down options
@@ -74,7 +75,7 @@ export default class NachoHoverDropdown<T> extends Component {
     yield timeout(200);
     dd.actions.close();
   })
-  hideDropDownTask!: Task<void, (dd: IHideDropdownParams) => TaskInstance<Promise<void>>>;
+  hideDropDownTask!: ETask<Promise<void>, IHideDropdownParams>;
 
   /**
    * Action handler to prevent bubbling DOM event action

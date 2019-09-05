@@ -2,7 +2,7 @@ import Service from '@ember/service';
 import { INotification, IToast, IConfirmOptions } from '@datahub/utils/types/notifications/service';
 import { NotificationEvent, NotificationType } from '@datahub/utils/constants/notifications';
 import { setProperties, set } from '@ember/object';
-import { timeout, task, Task } from 'ember-concurrency';
+import { timeout, task } from 'ember-concurrency';
 import { action, computed } from '@ember/object';
 import {
   notificationDialogActionFactory,
@@ -10,6 +10,7 @@ import {
   isAConfirmationModal
 } from '@datahub/utils/lib/notifications';
 import { noop } from '@datahub/utils/function/noop';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Defines the Notifications Service which handles the co-ordination and manages rendering of notification components in the
@@ -74,7 +75,7 @@ export default class Notifications extends Service {
       }
     }
   }).restartable())
-  setCurrentNotificationTask!: Task<Promise<void>, (notification: INotification) => Promise<void>>;
+  setCurrentNotificationTask!: ETaskPromise<void, INotification>;
 
   /**
    * Takes a notification instance and sets a reference to the current notification on the service,

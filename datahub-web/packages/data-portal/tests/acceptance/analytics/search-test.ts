@@ -3,15 +3,14 @@ import { visit, currentURL } from '@ember/test-helpers';
 import { setupApplicationTest } from 'ember-qunit';
 import appLogin from 'wherehows-web/tests/helpers/login/test-login';
 import searchResponse from 'wherehows-web/mirage/fixtures/search-response';
-import { getPiwikActivityQueue } from 'wherehows-web/utils/analytics/piwik';
 import { delay } from 'wherehows-web/utils/promise-delay';
 import { getQueue, findInQueue } from 'wherehows-web/tests/helpers/analytics';
 import {
   navigateToSearchAndClickResult,
   mockTrackingEventQueue
 } from 'wherehows-web/tests/helpers/search/search-acceptance';
-import { searchTrackingEvent } from 'wherehows-web/constants/analytics/event-tracking/search';
-import { IMirageTestContext } from '@datahub/utils/addon/types/vendor/ember-cli-mirage-deprecated';
+import { searchTrackingEvent } from '@datahub/tracking/constants/event-tracking/search';
+import { getPiwikActivityQueue } from '@datahub/tracking/utils/piwik';
 
 // Local test constants
 const searchUrl = `/search?facets=()&keyword=${searchResponse.result.keywords}`;
@@ -36,13 +35,9 @@ module('Acceptance | analytics/search', function(hooks): void {
     window._paq = paqBk;
   });
 
-  test('analytics activity queue correctly tracks search result impressions', async function(this: IMirageTestContext, assert): Promise<
-    void
-  > {
+  test('analytics activity queue correctly tracks search result impressions', async function(assert): Promise<void> {
     const piwikContentImpressionActivityIdentifier = 'trackAllContentImpressions';
     const queue = getQueue();
-    const { server } = this;
-    server.create('dataset-view');
 
     /**
      * Checks if the queue has the piwik content impression activity id
@@ -60,7 +55,6 @@ module('Acceptance | analytics/search', function(hooks): void {
     await visit(searchUrl);
 
     assert.equal(currentURL(), searchUrl, `expected current url to be ${searchUrl}`);
-
     assert.ok(document.querySelector('[data-track-content]'), 'expected trackable content to be rendered');
     assert.ok(
       queueHasImpressionActivityId(queue),

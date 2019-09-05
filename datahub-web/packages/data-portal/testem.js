@@ -1,2 +1,1 @@
-const testemConf = require('../../configs/testem-base');
-module.exports = testemConf;
+module.exports = require('../../configs/testem-base');

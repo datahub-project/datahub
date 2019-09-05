@@ -9,11 +9,12 @@ import {
   IFacetsSelectionsMap,
   IFacetsCounts
 } from '@datahub/data-models/types/entity/facets';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
 import { readDataPlatforms } from '@datahub/data-models/api/dataset/platforms';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Container component for search facets
@@ -68,7 +69,7 @@ export default class SearchFacetsContainer extends Component {
 
     get(this, '_sources').setObjects(dataPlatforms);
   })
-  getPlatformsTask!: Task<Promise<Array<IDataPlatform>>, () => Promise<Array<IDataPlatform>>>;
+  getPlatformsTask!: ETaskPromise<Array<IDataPlatform>>;
 
   /**
    * I will convert a string into a facet option with counts
@@ -89,7 +90,7 @@ export default class SearchFacetsContainer extends Component {
    */
   @computed('_sources.[]', 'counts')
   get sources(): Array<ISearchFacetOption> {
-    return this._sources.map(source => this.stringToFacetOption(source));
+    return this._sources.map((source): ISearchFacetOption => this.stringToFacetOption(source));
   }
 
   /**
@@ -99,23 +100,27 @@ export default class SearchFacetsContainer extends Component {
   @computed('counts', 'fields')
   get facets(): Array<ISearchFacet> {
     const counts: IFacetsCounts = this.counts || {};
-    const facets = this.fields
+    const facets: Array<ISearchFacet> = this.fields
       .filterBy('showInFacets')
-      .map(field => {
-        const fieldCounts = counts[field.fieldName] || {};
-        return {
-          name: field.fieldName,
-          displayName: field.displayName,
-          values: Object.keys(fieldCounts)
-            .map(value => ({
-              ...this.stringToFacetOption(value),
-              count: fieldCounts[value]
-            }))
-            .sortBy('count')
-            .reverse()
-        };
-      })
-      .filter(field => field.values.length > 0);
+      .map(
+        (field): ISearchFacet => {
+          const fieldCounts = counts[field.fieldName] || {};
+          return {
+            name: field.fieldName,
+            displayName: field.displayName,
+            values: Object.keys(fieldCounts)
+              .map(
+                (value): ISearchFacetOption => ({
+                  ...this.stringToFacetOption(value),
+                  count: fieldCounts[value]
+                })
+              )
+              .sortBy('count')
+              .reverse()
+          };
+        }
+      )
+      .filter((field): boolean => field.values.length > 0);
 
     return facets;
   }

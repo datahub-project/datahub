@@ -9,7 +9,6 @@ module.exports = {
     'ember-fetch': '^6.0.0 || 5.1.1', //https://github.com/simplabs/ember-simple-auth/issues/1705,
     'ember-inflector': '^3.0.0 || 2.3.0',
     'ember-maybe-in-element': '0.1.3 || 0.2.0',
-    /*'ember-lodash': '4.18.0 || 4.19.4',*/
     'ember-sinon': '2.2.0 || ^3.1.0' // TODO: META-8261 bump some sub deps
   }
 };

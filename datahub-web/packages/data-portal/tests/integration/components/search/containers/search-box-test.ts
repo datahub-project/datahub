@@ -56,7 +56,7 @@ module('Integration | Component | search/containers/search-box', function(hooks)
   setupRenderingTest(hooks);
 
   hooks.beforeEach(function(): void {
-    setMockConfig();
+    setMockConfig({});
   });
 
   hooks.afterEach(function(): void {

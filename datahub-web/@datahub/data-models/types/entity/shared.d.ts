@@ -4,7 +4,7 @@ import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 /**
  * String literal of available entity routes
  */
-export type EntityRoute = 'browse.entity' | 'features.feature' | 'datasets.dataset' | 'metrics.metric';
+export type EntityRoute = string;
 
 /**
  * Properties that enable a dynamic link to the entity or category

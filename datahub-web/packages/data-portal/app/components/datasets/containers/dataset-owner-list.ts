@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { set } from '@ember/object';
 import { classNames } from '@ember-decorators/component';
 import { computed, action } from '@ember/object';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { readDatasetOwnersByUrn } from 'wherehows-web/utils/api/datasets/owners';
 import { arrayMap, arrayPipe } from 'wherehows-web/utils/array';
 import { IAvatar } from 'wherehows-web/typings/app/avatars';
@@ -14,12 +14,13 @@ import {
   avatarWithProfileLink
 } from 'wherehows-web/constants/datasets/owner';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { IAppConfig } from 'wherehows-web/typings/api/configurator/configurator';
+import { IAppConfig } from '@datahub/shared/types/configurator/configurator';
 import { buildMailToUrl } from 'wherehows-web/utils/helpers/email';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
 
 import { decodeUrn } from '@datahub/utils/validators/urn';
 import { isLiUrn } from '@datahub/data-models/entity/dataset/utils/urn';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @classNames('dataset-owner-list')
 @containerDataSource('getOwnersTask', ['urn'])
@@ -58,7 +59,7 @@ export default class DatasetOwnerListContainer extends Component {
       arrayMap(avatarWithDropDownOption),
       arrayMap(avatarWithProfileLink)
     ];
-    const activeOwners = owners.filter(owner => owner.isActive);
+    const activeOwners = owners.filter((owner): boolean => owner.isActive);
 
     return arrayPipe(makeAvatars, augmentAvatarsWithDropDownOption, augmentAvatarsWithProfileLink)(activeOwners);
   }
@@ -81,7 +82,6 @@ export default class DatasetOwnerListContainer extends Component {
 
   /**
    * Reads the owners for this dataset
-   * @type {Task<Promise<Array<IOwnerResponse>>, () => TaskInstance<Promise<IOwnerResponse>>>}
    */
   @(task(function*(this: DatasetOwnerListContainer): IterableIterator<Promise<IOwnerResponse>> {
     const { urn } = this;
@@ -92,5 +92,5 @@ export default class DatasetOwnerListContainer extends Component {
       set(this, 'owners', confirmedOwners(owners));
     }
   }).restartable())
-  getOwnersTask!: Task<Promise<IOwnerResponse>, () => Promise<IOwnerResponse>>;
+  getOwnersTask!: ETaskPromise<IOwnerResponse>;
 }

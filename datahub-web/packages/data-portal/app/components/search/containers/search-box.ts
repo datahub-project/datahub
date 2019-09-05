@@ -13,7 +13,8 @@ import {
 } from '@datahub/data-models/entity/utils/facets';
 import { facetToParamUrl } from 'wherehows-web/utils/api/search/search';
 import RouterService from '@ember/routing/router-service';
-import { task, Task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 /**
  * Search box container that handle all the data part for
@@ -56,16 +57,10 @@ export default class SearchBoxContainer extends Component {
    * @returns {(IterableIterator<Promise<Array<ISuggestionGroup>>>)}
    * @memberof SearchBoxContainer
    */
-  @task(function*(
-    query: string = '',
-    entity?: DataModelEntity['displayName']
-  ): IterableIterator<Promise<Array<ISuggestionGroup>>> {
+  @task(function*(query: string = '', entity?: DataModelName): IterableIterator<Promise<Array<ISuggestionGroup>>> {
     return yield typeaheadQueryProcessor(query, entity, grammarProcessingSteps);
   })
-  onSearchInputTask: Task<
-    Promise<Array<ISuggestionGroup>>,
-    (query?: string, entity?: DataModelEntity['displayName']) => Promise<Array<ISuggestionGroup>>
-  >;
+  onSearchInputTask: ETaskPromise<Array<ISuggestionGroup>>;
 
   /**
    * When search actually happens, then we transition to a new route.

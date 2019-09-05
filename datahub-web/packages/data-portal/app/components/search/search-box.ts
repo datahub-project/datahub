@@ -2,14 +2,13 @@ import Component from '@ember/component';
 import { set, setProperties } from '@ember/object';
 import { IPowerSelectAPI } from 'wherehows-web/typings/modules/power-select';
 import { ISuggestion, ISuggestionGroup } from 'wherehows-web/utils/parsers/autocomplete/types';
-import Configurator from 'wherehows-web/services/configurator';
 import { inject as service } from '@ember/service';
 import HotKeys from 'wherehows-web/services/hot-keys';
 import { Keyboard } from 'wherehows-web/constants/keyboard';
 import { later, cancel } from '@ember/runloop';
 import { computed } from '@ember/object';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
-import { Task, TaskInstance, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { EmberRunTimer } from '@ember/runloop/types';
 import { cancelInflightTask } from 'wherehows-web/utils/search/typeahead';
 import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
@@ -17,30 +16,37 @@ import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entit
 import { capitalize } from '@ember/string';
 import { stringListOfEntities } from '@datahub/data-models/entity/utils/entities';
 import { unGuardedEntities } from 'wherehows-web/utils/entity/flag-guard';
+import { getConfig } from 'wherehows-web/services/configurator';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
-type TypeaheadTask = Task<Array<ISuggestionGroup>, (a?: string, b?: string) => TaskInstance<Array<ISuggestionGroup>>>;
+const initProps = (): {
+  entities: Array<INachoDropdownOption<string>>;
+} => {
+  /**
+   * List of entities converted into nacho dropdown format
+   */
+  const nachoDropdownOptions: Array<INachoDropdownOption<string>> = unGuardedEntities(getConfig).map(
+    (dataModel): INachoDropdownOption<DataModelName> => ({
+      label: capitalize(dataModel.displayName),
+      value: dataModel.displayName
+    })
+  );
 
-/**
- * List of entities converted into nacho dropdown format
- */
-const nachoDropdownOptions: Array<INachoDropdownOption<string>> = unGuardedEntities(Configurator).map(
-  (dataModel): INachoDropdownOption<DataModelName> => ({
-    label: capitalize(dataModel.displayName),
-    value: dataModel.displayName
-  })
-);
+  /**
+   * List of entities and empty selection item when there is no selection available
+   */
+  const nachoDropdownOptionsWithSelect: Array<INachoDropdownOption<string>> = [
+    {
+      label: 'Select entity type',
+      value: ''
+    },
+    ...nachoDropdownOptions
+  ];
 
-/**
- * List of entities and empty selection item when there is no selection available
- */
-const nachoDropdownOptionsWithSelect: Array<INachoDropdownOption<string>> = [
-  {
-    label: 'Select entity type',
-    value: ''
-  },
-  ...nachoDropdownOptions
-];
-
+  return {
+    entities: nachoDropdownOptionsWithSelect
+  };
+};
 /**
  * Presentation component that renders a search box
  */
@@ -66,14 +72,13 @@ export default class SearchBox extends Component {
   /**
    * HBS Expected Parameter
    * Action when the user types into the input, so we can show suggestions
-   * @type {TypeaheadTask}
    */
-  onTypeahead!: TypeaheadTask;
+  onTypeahead!: ETaskPromise<Array<ISuggestionGroup>, string, string>;
 
   /**
    * List of entities to render inside the dropdown
    */
-  entities: Array<INachoDropdownOption<string>> = nachoDropdownOptionsWithSelect;
+  entities: Array<INachoDropdownOption<string>>;
 
   /**
    * Selected entity in the entity dropdown
@@ -114,13 +119,9 @@ export default class SearchBox extends Component {
    */
   tooltipTimeout: EmberRunTimer;
 
-  /**
-   * Flag indicating if Features feature is available for the is env
-   * @readonly
-   */
-  @computed()
-  get showFeatures(): boolean {
-    return Configurator.getConfig('showFeatures');
+  init(): void {
+    setProperties(this, initProps());
+    super.init();
   }
 
   /**
@@ -129,10 +130,6 @@ export default class SearchBox extends Component {
    */
   @computed()
   get triggerClassName(): string {
-    const showUmp = Configurator.getConfig('showUmp');
-    if (showUmp) {
-      return 'nacho-global-search__text-input--show-ump';
-    }
     return '';
   }
 
@@ -153,7 +150,7 @@ export default class SearchBox extends Component {
     const { searchDisabled, selectedEntity } = this;
 
     if (searchDisabled) {
-      return `Select ${stringListOfEntities(unGuardedEntities(Configurator))}`;
+      return `Select ${stringListOfEntities(unGuardedEntities(getConfig))}`;
     }
     if (selectedEntity) {
       return DataModelEntity[selectedEntity].renderProps.search.placeholder;
@@ -175,12 +172,12 @@ export default class SearchBox extends Component {
    * the selected entity is changed
    * @returns {IterableIterator<TaskInstance<Array<ISuggestionGroup>>>}
    */
-  @task(function*(this: SearchBox): IterableIterator<TaskInstance<Array<ISuggestionGroup>>> {
+  @task(function*(this: SearchBox): IterableIterator<Promise<Array<ISuggestionGroup>>> {
     const { selectedEntity = DatasetEntity.displayName } = this;
     const initialSuggestions: Array<ISuggestionGroup> = yield this.onTypeahead.perform('', selectedEntity);
     set(this, 'initialSuggestions', initialSuggestions || []);
   })
-  setInitialSuggestionsTask!: Task<TaskInstance<Array<ISuggestionGroup>>, () => TaskInstance<Array<ISuggestionGroup>>>;
+  setInitialSuggestionsTask!: ETaskPromise<Array<ISuggestionGroup>>;
 
   /**
    * Performs the external task to process the user entered query and related attributes and yields
@@ -188,13 +185,10 @@ export default class SearchBox extends Component {
    * @param {string} query user query input string
    * @returns {IterableIterator<TaskInstance<Array<ISuggestionGroup>>>}
    */
-  @(task(function*(this: SearchBox, query: string = ''): IterableIterator<TaskInstance<Array<ISuggestionGroup>>> {
+  @(task(function*(this: SearchBox, query: string = ''): IterableIterator<Promise<Array<ISuggestionGroup>>> {
     return yield this.onTypeahead.perform(query, this.selectedEntity || DatasetEntity.displayName);
   }).restartable())
-  onTypeaheadTask!: Task<
-    TaskInstance<Array<ISuggestionGroup>>,
-    (query: string) => TaskInstance<Array<ISuggestionGroup>>
-  >;
+  onTypeaheadTask!: ETaskPromise<Array<ISuggestionGroup>>;
 
   didInsertElement(): void {
     super.didInsertElement();

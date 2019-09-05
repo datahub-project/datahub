@@ -1,9 +1,10 @@
 import Component from '@ember/component';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { get, set } from '@ember/object';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { readDatasetByUrn } from 'wherehows-web/utils/api/datasets/dataset';
 import { containerDataSource } from '@datahub/utils/api/data-source';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @containerDataSource('getUpstreamPropertiesTask', ['upstreamUrn'])
 export default class UpstreamOwners extends Component {
@@ -23,12 +24,11 @@ export default class UpstreamOwners extends Component {
 
   /**
    * Task to get properties for the upstream dataset
-   * @type {Task<Promise<IDatasetView>>, (a?: {} | undefined) => TaskInstance<Promise<IDatasetView>>>}
    * @memberof UpstreamOwners
    */
   @task(function*(this: UpstreamOwners): IterableIterator<Promise<IDatasetView>> {
     const { nativeName }: IDatasetView = yield readDatasetByUrn(get(this, 'upstreamUrn'));
     set(this, 'nativeName', nativeName);
   })
-  getUpstreamPropertiesTask!: Task<Promise<IDatasetView>, () => Promise<IDatasetView>>;
+  getUpstreamPropertiesTask!: ETaskPromise<IDatasetView>;
 }

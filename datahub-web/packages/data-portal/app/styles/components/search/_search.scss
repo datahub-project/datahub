@@ -59,6 +59,8 @@ $search-result-label-width: 124px;
 
   &__title-link {
     margin-right: item-spacing(2);
+    text-overflow: ellipsis;
+    overflow: hidden;
   }
 
   &__urn {
@@ -124,7 +126,7 @@ $search-result-label-width: 124px;
   &__action-bar {
     margin-left: auto;
     display: flex;
-
+    flex-shrink: 0;
     button + button {
       margin-left: $action-item-spacing;
     }

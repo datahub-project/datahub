@@ -1,0 +1,9 @@
+.entity-pill {
+  cursor: auto;
+  &__tier {
+    &--generic {
+      color: get-color(black);
+      background: get-color(slate2, 0.45);
+    }
+  }
+}

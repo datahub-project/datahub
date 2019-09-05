@@ -1,16 +1,15 @@
-import TrackingService from './tracking';
 import { inject as service } from '@ember/service';
 import RouterService from '@ember/routing/router-service';
-import DwellTime from 'wherehows-web/utils/analytics/search/dwell-time';
-import { SuccessfulDwellTimeLength, searchRouteName } from 'wherehows-web/constants/analytics/site-search-tracking';
-import Transition, { RouteInfo } from 'wherehows-web/typings/modules/routerjs';
-import { Route } from '@ember/routing';
+import DwellTime from '@datahub/tracking/utils/dwell-time';
 import { Time } from '@datahub/metadata-types/types/common/time';
 import { action } from '@ember/object';
-import { searchTrackingEvent } from 'wherehows-web/constants/analytics/event-tracking/search';
-import { isRouteEntityPageRoute } from 'wherehows-web/utils/helpers/routes';
+import { searchTrackingEvent } from '@datahub/tracking/constants/event-tracking/search';
 import { DataModelName } from '@datahub/data-models/constants/entity';
 import Service from '@ember/service';
+import { isRouteEntityPageRoute } from '@datahub/data-models/utils/entity-route-name-resolver';
+import { SuccessfulDwellTimeLength, searchRouteName } from '@datahub/tracking/constants/site-search-tracking';
+import Transition from '@ember/routing/-private/transition';
+import UnifiedTracking from '@datahub/tracking/services/unified-tracking';
 
 /**
  * Search service is used to maintain the same
@@ -43,19 +42,15 @@ export default class Search extends Service {
 
   /**
    * References the application service to track user events, metrics and interaction
-   * @type {TrackingService}
-   * @memberof Search
    */
-  @service
-  tracking: TrackingService;
+  @service('unified-tracking')
+  tracking: UnifiedTracking;
 
   /**
    * Router service used in tracking dwell time
-   * @type {(RouterService & { currentRoute: RouteInfo })}
-   * @memberof Search
    */
   @service
-  router: RouterService & { currentRoute: RouteInfo };
+  router: RouterService;
 
   /**
    * Performs a set of operation when a search result is clicked
@@ -87,7 +82,7 @@ export default class Search extends Service {
    * @returns boolean
    */
   @action
-  trackSatClick(dwellTime: number, transition: Transition<Route>): boolean {
+  trackSatClick(dwellTime: number, transition: Transition): boolean {
     const isSATClick = this.isSATClick(dwellTime, transition);
 
     if (isSATClick) {
@@ -107,11 +102,9 @@ export default class Search extends Service {
   /**
    * Determines if the click can be judged as a satisfied click
    * @param {Time} dwellTime the amount of time in milliseconds the user has dwelled on the page
-   * @param {Transition<Route>} { to, from } the current ember transition object
-   * @returns boolean
-   * @memberof Search
+   * @param {Transition} { to, from } the current ember transition object containing the RouteInfo object being transitioned to or from
    */
-  isSATClick(dwellTime: Time, { to, from }: Transition<Route>): boolean {
+  isSATClick(dwellTime: Time, { to, from }: Transition): boolean {
     const isReturningToSearch = Boolean(to && to.name === searchRouteName);
     // If the user is returning to the search page, check if the dwellTime is meets or exceeds what is considered a successful amount of time
     const isSufficientDwellTimeOnSearchReturn = isReturningToSearch && dwellTime >= this.successfulDwellTimeLength;

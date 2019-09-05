@@ -5,7 +5,6 @@ import BannerService from 'wherehows-web/services/banners';
 import UserLookup from 'wherehows-web/services/user-lookup';
 import HotKeys from 'wherehows-web/services/hot-keys';
 import Search from 'wherehows-web/services/search';
-import TrackingService from 'wherehows-web/services/tracking';
 
 declare module '@ember/service' {
   // eslint-disable-next-line @typescript-eslint/interface-name-prefix
@@ -14,7 +13,6 @@ declare module '@ember/service' {
     session: Session;
     metrics: Metrics;
     banners: BannerService;
-    tracking: TrackingService;
     'current-user': CurrentUser;
     'user-lookup': UserLookup;
     'hot-keys': HotKeys;

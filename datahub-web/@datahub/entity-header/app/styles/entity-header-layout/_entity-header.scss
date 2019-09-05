@@ -11,5 +11,9 @@
     flex-direction: column;
     justify-content: space-between;
     width: 100%;
+
+    .entity-pill {
+      margin-right: item-spacing(2);
+    }
   }
 }

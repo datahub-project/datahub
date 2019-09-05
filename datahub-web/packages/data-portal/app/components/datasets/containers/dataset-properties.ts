@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { get, setProperties } from '@ember/object';
-import { Task, task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
 import { action } from '@ember/object';
 import Notifications from '@datahub/utils/services/notifications';
 import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
@@ -9,6 +9,7 @@ import { updateDatasetDeprecationByUrn } from 'wherehows-web/utils/api/datasets/
 import { inject as service } from '@ember/service';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { NotificationEvent } from '@datahub/utils/constants/notifications';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @containerDataSource('getDeprecationPropertiesTask', ['urn'])
 export default class DatasetPropertiesContainer extends Component {
@@ -52,13 +53,12 @@ export default class DatasetPropertiesContainer extends Component {
 
   /**
    * Reads the persisted deprecation properties for the dataset
-   * @type {Task<Promise<IDatasetView>, (a?: any) => TaskInstance<Promise<IDatasetView>>>}
    */
   @task(function*(this: DatasetPropertiesContainer): IterableIterator<Promise<IDatasetView>> {
     const { deprecated, deprecationNote, decommissionTime }: IDatasetView = yield readDatasetByUrn(this.urn);
     setProperties(this, { deprecated, deprecationNote, decommissionTime });
   })
-  getDeprecationPropertiesTask!: Task<Promise<IDatasetView>, () => Promise<IDatasetView>>;
+  getDeprecationPropertiesTask!: ETaskPromise<IDatasetView>;
   /**
    * Persists the changes to the dataset deprecation properties upstream
    * @param {boolean} isDeprecated

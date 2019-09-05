@@ -7,7 +7,7 @@ module('Acceptance | tracking', function(hooks) {
   /**
    * Local piwik event queue
    */
-  let paq: Array<Array<string>>;
+  let paq: Window['_paq'];
 
   /**
    * Real piwik event queue stored to be restored at a later point

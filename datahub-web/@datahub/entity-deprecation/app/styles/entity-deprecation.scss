@@ -71,7 +71,7 @@
     }
   }
 
-  &__note-editor {
+  &__note-editor .ember-medium-editor__container {
     min-height: item-spacing(6) * 4;
     outline: none;
     padding: item-spacing(1);

@@ -8,7 +8,8 @@ import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-fact
 import { isEqual } from 'lodash';
 import { InstitutionalMemory, InstitutionalMemories } from '@datahub/data-models/models/aspects/institutional-memory';
 import { run, schedule } from '@ember/runloop';
-import { task, Task } from 'ember-concurrency';
+import { task } from 'ember-concurrency';
+import { ETaskPromise } from '@datahub/utils/types/concurrency';
 
 @layout(template)
 @containerDataSource('getContainerDataTask', ['entity'])
@@ -52,7 +53,7 @@ export default class InstitutionalMemoryContainersTab extends Component {
       });
     });
   }).drop())
-  getContainerDataTask!: Task<Promise<InstitutionalMemories>, () => Promise<InstitutionalMemories>>;
+  getContainerDataTask!: ETaskPromise<InstitutionalMemories>;
   /**
    * This task is used to actually save user changes to the entity's institutional memory list
    */
@@ -67,7 +68,7 @@ export default class InstitutionalMemoryContainersTab extends Component {
 
     yield this.getContainerDataTask.perform();
   }).drop())
-  writeContainerDataTask!: Task<Promise<InstitutionalMemories | void>, () => Promise<InstitutionalMemories | void>>;
+  writeContainerDataTask!: ETaskPromise<InstitutionalMemories | void>;
   /**
    * Triggers the task to save the institutional memory state
    */
