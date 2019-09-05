@@ -13,6 +13,7 @@ export interface IUser {
   id: number;
   name: string;
   userName: string;
+  pictureLink: string;
   userSetting: null | {
     defaultWatch: string;
     detailDefaultView: string;
