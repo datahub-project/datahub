@@ -102,6 +102,16 @@ public class Application extends Controller {
   }
 
   /**
+   * Generic not found response
+   * @param path
+   * @return
+   */
+  @Nonnull
+  public Result apiNotFound(@Nullable String path) {
+    return badRequest("{\"error\": \"API endpoint does not exist\"}");
+  }
+
+  /**
    * Creates a wrapping ObjectNode containing config information
    *
    * @return Http Result instance with app configuration attributes
@@ -112,7 +122,6 @@ public class Application extends Controller {
     config.put("appVersion", _config.getString("app.version"));
     config.put("isInternal", _config.getBoolean("linkedin.internal"));
     config.put("shouldShowDatasetLineage", _config.getBoolean("linkedin.show.dataset.lineage"));
-    config.put("shouldShowDatasetHealth", _config.getBoolean("linkedin.show.dataset.health"));
     config.put("suggestionConfidenceThreshold",
         Integer.valueOf(_config.getString("linkedin.suggestion.confidence.threshold")));
     config.set("wikiLinks", wikiLinks());
@@ -122,6 +131,8 @@ public class Application extends Controller {
     config.put("isStagingBanner", _config.getBoolean("ui.show.staging.banner"));
     config.put("isLiveDataWarning", _config.getBoolean("ui.show.live.data.banner"));
     config.put("showChangeManagement", _config.getBoolean("ui.show.CM.banner"));
+    // Flag to enable people entity elements
+    config.put("showPeople", _config.getBoolean("ui.show.people"));
     config.put("changeManagementLink", _config.getString("ui.show.CM.link"));
     // Flag set in order to warn users that search is experiencing issues
     config.put("isStaleSearch", _config.getBoolean("ui.show.stale.search"));
