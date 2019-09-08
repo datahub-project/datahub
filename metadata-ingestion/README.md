@@ -1,0 +1,43 @@
+# Metadata Ingestion
+
+## Prerequisites
+1. Before running any metadata ingestion job, you should make sure that Data Hub backend services are all running. Easiest
+way to do that is through [Docker images](../docker).
+2. You also need to build the `metadata-models` module as below.
+    ```
+    ./gradlew :metadata-models:build
+    ```
+    This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic. This
+    stream is the entry point for any metadata CRUD operation for Data Hub.
+    
+## MCE Producer/Consumer CLI
+`mce_cli.py` script provides a convenient way to produce a list of MCEs from a data file. 
+Every MCE in the data file should be in a single line. It also supports consuming from 
+`MetadataChangeEvent` topic.
+
+```
+➜  python mce_cli.py --help
+usage: mce_cli.py [-h] [-b BOOTSTRAP_SERVERS] [-s SCHEMA_REGISTRY]
+                  [-d DATA_FILE]
+                  {produce,consume}
+
+Client for producing/consuming MetadataChangeEvent
+
+positional arguments:
+  {produce,consume}     Execution mode (produce | consume)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -b BOOTSTRAP_SERVERS  Kafka broker(s) (localhost[:port])
+  -s SCHEMA_REGISTRY    Schema Registry (http(s)://localhost[:port]
+  -d DATA_FILE          MCE data file; required if running 'producer' mode
+```
+
+## Bootstrapping Data Hub
+```
+➜  python mce_cli.py produce -d bootstrap_mce.dat
+Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
+  MCE1: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:foo", "aspects": [{"active": True,"email": "foo@linkedin.com"}]}), "proposedDelta": None}
+  MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
+Flushing records...
+```
