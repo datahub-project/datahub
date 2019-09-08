@@ -16,6 +16,5 @@ RUN apt-get update && apt-get install -y wget \
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 CMD dockerize -wait tcp://$KAFKA_BOOTSTRAP_SERVER \
-            -wait http://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT \
             -timeout 60s \
             elasticsearch-index-job/bin/elasticsearch-index-job
