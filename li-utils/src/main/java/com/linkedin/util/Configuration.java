@@ -1,11 +1,14 @@
 package com.linkedin.util;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
 import java.util.Properties;
 
 public class Configuration {
-    public static Properties loadProperties(String configFile) {
+    @Nonnull
+    public static Properties loadProperties(@Nonnull String configFile) {
         Properties configuration = new Properties();
         try (InputStream inputStream = Configuration.class.getClassLoader().getResourceAsStream(configFile)) {
             configuration.load(inputStream);
@@ -15,7 +18,13 @@ public class Configuration {
         return configuration;
     }
 
-    public static String getEnvironmentVariable(String envVar) {
+    @Nonnull
+    public static String getEnvironmentVariable(@Nonnull String envVar) {
         return System.getenv(envVar);
+    }
+
+    @Nonnull
+    public static String getEnvironmentVariable(@Nonnull String envVar, @Nonnull String defaultVal) {
+        return Optional.ofNullable(System.getenv(envVar)).orElse(defaultVal);
     }
 }
