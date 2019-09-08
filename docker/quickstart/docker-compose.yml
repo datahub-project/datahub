@@ -177,6 +177,21 @@ services:
     command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
               echo kafka-setup done! && ./elasticsearch-index-job/bin/elasticsearch-index-job'"
 
+  datahub-mce-consumer:
+    image: keremsahin/datahub-mce-consumer:latest
+    hostname: datahub-mce-consumer
+    container_name: datahub-mce-consumer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - GMS_HOST=datahub-gms
+      - GMS_PORT=8080
+    depends_on:
+      - kafka-setup
+      - datahub-gms
+    command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
+              echo kafka-setup done! && ./mce-consumer-job/bin/mce-consumer-job'"
+
 networks:
   default:
     name: datahub_network
