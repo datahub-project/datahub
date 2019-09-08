@@ -27,15 +27,21 @@ import java.util.Properties;
 
 @Slf4j
 public class MceStreamTask {
-  private static final Properties CFG = Configuration.loadProperties("task.properties");
+
+  private static final String DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeEvent";
+  private static final String DEFAULT_GMS_HOST = "localhost";
+  private static final String DEFAULT_GMS_PORT = "8080";
+  private static final String DEFAULT_KAFKA_BOOTSTRAP_SERVER = "localhost:9092";
+  private static final String DEFAULT_KAFKA_SCHEMAREGISTRY_URL = "http://localhost:8081";
 
   private static BaseRemoteWriterDAO _remoteWriterDAO;
 
   public static void main(final String[] args) {
     log.info("Creating MCE consumer task");
-    final Client restClient = Boolean.valueOf(CFG.getProperty("isRestLiClientUseD2")) ?
-            DefaultRestliClientFactory.getRestLiD2Client(CFG.getProperty("restLiClientD2ZkHost"), CFG.getProperty("restLiClientD2ZkPath")) :
-        DefaultRestliClientFactory.getRestLiClient(CFG.getProperty("restLiServerHost"), Integer.parseInt(CFG.getProperty("restLiServerPort")));
+    final Client restClient = DefaultRestliClientFactory.getRestLiClient(
+            Configuration.getEnvironmentVariable("GMS_HOST", DEFAULT_GMS_HOST),
+            Integer.parseInt(Configuration.getEnvironmentVariable("GMS_PORT", DEFAULT_GMS_PORT))
+    );
     _remoteWriterDAO = new RestliRemoteWriterDAO(restClient);
     log.info("RemoteWriterDAO built successfully");
 
@@ -69,17 +75,18 @@ public class MceStreamTask {
     streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "mce-consuming-job");
     streamsConfiguration.put(StreamsConfig.CLIENT_ID_CONFIG, "mce-consuming-job-client");
     // Where to find Kafka broker(s).
-    streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, CFG.getProperty("kafkaBootstrapServers"));
+    streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG,
+            Configuration.getEnvironmentVariable("KAFKA_BOOTSTRAP_SERVER", DEFAULT_KAFKA_BOOTSTRAP_SERVER));
     // Specify default (de)serializers for record keys and for record values.
     streamsConfiguration.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
     streamsConfiguration.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, GenericAvroSerde.class.getName());
-    streamsConfiguration.put("schema.registry.url", CFG.getProperty("kafkaSchemaRegistry"));
+    streamsConfiguration.put("schema.registry.url",
+            Configuration.getEnvironmentVariable("KAFKA_SCHEMAREGISTRY_URL", DEFAULT_KAFKA_SCHEMAREGISTRY_URL));
     // Continue handling events after exception
     streamsConfiguration.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
         LogAndContinueExceptionHandler.class);
     // Records will be flushed every 10 seconds.
-    streamsConfiguration.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG,
-        Integer.valueOf(CFG.getProperty("kafkaStreamsCommitIntervalInSeconds")) * 1000);
+    streamsConfiguration.put(StreamsConfig.COMMIT_INTERVAL_MS_CONFIG, Integer.valueOf(10000));
     // Disable record caches.
     streamsConfiguration.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, 0);
     return streamsConfiguration;
@@ -93,7 +100,9 @@ public class MceStreamTask {
   static void createProcessingTopology(final StreamsBuilder builder) {
     // Construct a `KStream` from the input topic.
     // The default key and value serdes will be used.
-    final KStream<String, GenericData.Record> messages = builder.stream(CFG.getProperty("kafkaTopic"));
+    final KStream<String, GenericData.Record> messages = builder.stream(
+            Configuration.getEnvironmentVariable("KAFKA_TOPIC_NAME", DEFAULT_KAFKA_TOPIC_NAME)
+    );
     messages.foreach((k, v) -> processSingleMCE(v));
   }
 
