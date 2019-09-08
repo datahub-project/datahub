@@ -1,0 +1,16 @@
+---
+version: '3.5'
+services:
+  datahub-mae-consumer:
+    image: keremsahin/datahub-mae-consumer:latest
+    hostname: datahub-mae-consumer
+    container_name: datahub-mae-consumer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+
+networks:
+  default:
+    name: datahub_network
