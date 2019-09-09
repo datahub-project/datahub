@@ -16,6 +16,11 @@
       "default": 0
     },
     {
+      "name": "urn",
+      "type": "com.linkedin.common.DatasetUrn",
+      "doc": "Dataset urn"
+    },
+    {
       "name": "description",
       "type": "string",
       "doc": "Description for dataset",

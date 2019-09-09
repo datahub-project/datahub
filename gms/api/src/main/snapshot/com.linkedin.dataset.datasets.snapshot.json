@@ -366,6 +366,10 @@
       "doc" : "Dataset unique identifier. System assigned value when a new dataset is created.",
       "default" : 0
     }, {
+      "name" : "urn",
+      "type" : "com.linkedin.common.DatasetUrn",
+      "doc" : "Dataset urn"
+    }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Description for dataset",
