@@ -6,7 +6,7 @@ responsibility of this service for the Data Hub.
 
 ## Build
 ```
-docker image build -t keremsahin/datahub-frontend -f docker/datahub-frontend/Dockerfile .
+docker image build -t keremsahin/datahub-frontend -f docker/frontend/Dockerfile .
 ```
 This command will build and deploy the image in your local store.
 
