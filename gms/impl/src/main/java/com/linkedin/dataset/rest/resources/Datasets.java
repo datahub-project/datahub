@@ -104,7 +104,8 @@ public final class Datasets extends BaseBrowsableEntityResource<
         final Dataset value = new Dataset()
                 .setPlatform(snapshot.getUrn().getPlatformEntity())
                 .setName(snapshot.getUrn().getDatasetNameEntity())
-                .setOrigin(snapshot.getUrn().getOriginEntity());
+                .setOrigin(snapshot.getUrn().getOriginEntity())
+                .setUrn(snapshot.getUrn());
 
         ModelUtils.getAspectsFromSnapshot(snapshot).forEach(aspect -> {
             if (aspect instanceof DatasetProperties) {
