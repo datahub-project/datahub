@@ -36,6 +36,7 @@ public class OwnerUtil {
     dsOwner.setSource("UI");
     dsOwner.setType(OWNER_CATEGORY_MAP_INV.get(owner.getType()));
     dsOwner.setUserName(corpUser.getUsername());
+    dsOwner.setPictureLink(corpUser.getEditableInfo().getPictureLink().toString());
 
     return dsOwner;
   }
