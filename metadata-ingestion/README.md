@@ -3,9 +3,9 @@
 ## Prerequisites
 1. Before running any metadata ingestion job, you should make sure that Data Hub backend services are all running. Easiest
 way to do that is through [Docker images](../docker).
-2. You also need to build the `metadata-models` module as below.
+2. You also need to build the `mxe-schemas` module as below.
     ```
-    ./gradlew :metadata-models:build
+    ./gradlew :metadata-events:mxe-schemas:build
     ```
     This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic. This
     stream is the entry point for any metadata CRUD operation for Data Hub.
@@ -34,6 +34,7 @@ optional arguments:
 ```
 
 ## Bootstrapping Data Hub
+If you want to quickly ingest lots of sample data and test Data Hub in action, you can run below command:
 ```
 ➜  python mce_cli.py produce -d bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
@@ -41,3 +42,4 @@ Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
   MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
 Flushing records...
 ```
+This will bootstrap Data Hub with sample datasets and sample users.
