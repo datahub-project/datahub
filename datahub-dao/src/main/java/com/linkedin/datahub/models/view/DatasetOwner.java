@@ -35,6 +35,8 @@ public class DatasetOwner {
 
   private Long modifiedTime;
 
+  private String pictureLink;
+
   static class DatasetOwnerKey implements Serializable {
     private String userName;
     private String source;
