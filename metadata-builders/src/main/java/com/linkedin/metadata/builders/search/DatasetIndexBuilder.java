@@ -27,7 +27,7 @@ public class DatasetIndexBuilder extends BaseIndexBuilder<DatasetDocument> {
     @Nonnull
     private static String buildBrowsePath(@Nonnull DatasetUrn urn) {
         return ("/" + urn.getOriginEntity() + "/"  + urn.getPlatformEntity().getPlatformNameEntity() + "/" + urn.getDatasetNameEntity())
-                .replace('.', '/');
+                .replace('.', '/').toLowerCase();
     }
 
     /**
