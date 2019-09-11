@@ -48,13 +48,19 @@ This will bootstrap Data Hub with sample datasets and sample users.
 The ldap_etl.py provides you ETL channel to communicate with your LDAP server.
 ```
 ➜  Config your LDAP server environmental variable in the file
-    LDAPSERVER   # Your server host.
-    BASEDN       # Base dn as a container location.
-    LDAPUSER     # Your credential.
-    LDAPPASSWORD # Your password.
-    PAGESIZE     # Pagination size.
-    ATTRLIST     # Return attributes relate to your model.
-    SEARCHFILTER # Filter to build the search query.
+    LDAPSERVER    # Your server host.
+    BASEDN        # Base dn as a container location.
+    LDAPUSER      # Your credential.
+    LDAPPASSWORD  # Your password.
+    PAGESIZE      # Pagination size.
+    ATTRLIST      # Return attributes relate to your model.
+    SEARCHFILTER  # Filter to build the search query.
+    
+➜  Config your Kafka broker environmental variable in the file
+    AVROLOADPATH   # Your model event in avro format.
+    KAFKATOPIC =   # Your event topic.
+    BOOTSTRAP =    # Kafka bootstrap server.
+    SCHEMAREGISTRY # Kafka schema registry host.
 
 ➜  python ldap_etl.py
 ```
