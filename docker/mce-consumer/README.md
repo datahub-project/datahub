@@ -12,7 +12,7 @@ This command will build and deploy the image in your local store.
 
 ## Run container
 ```
-cd docker/mce-consumer && docker-compose up
+cd docker/mce-consumer && docker-compose pull && docker-compose up
 ```
 This command will start the container. If you have the image available in your local store, this image will be used
 for the container otherwise it will download the `latest` image from Docker Hub and then start that.
