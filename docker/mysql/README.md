@@ -7,7 +7,7 @@ any modification.
 ## Run Docker container
 Below command will start the MySQL container.
 ```
-cd docker/mysql && docker-compose up
+cd docker/mysql && docker-compose pull && docker-compose up
 ```
 
 An initialization script [init.sql](init.sql) is provided to container. This script initializes `metadata-aspect` table

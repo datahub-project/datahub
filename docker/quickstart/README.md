@@ -1,7 +1,7 @@
 # Data Hub Quickstart
 To start all Docker containers at once, please run below command:
 ```
-cd docker/quickstart && docker-compose up
+cd docker/quickstart && docker-compose pull && docker-compose up
 ```
 After containers are initialized, we need to create the `dataset` and `users` search indices by running below command:
 ```

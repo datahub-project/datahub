@@ -7,7 +7,7 @@ any modification.
 ## Run Docker container
 Below command will start all Kafka related containers.
 ```
-cd docker/kafka && docker-compose up
+cd docker/kafka && docker-compose pull && docker-compose up
 ```
 As part of `docker-compose`, we also initialize a container called `kafka-setup` to create `MetadataAuditEvent` and 
 `MetadataChangeEvent` topics. The only thing this container does is creating Kafka topics after Kafka broker is ready.

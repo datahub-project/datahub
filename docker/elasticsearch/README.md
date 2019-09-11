@@ -8,7 +8,7 @@ any modification.
 Below command will start the Elasticsearch and Kibana containers. `Data Hub` uses Elasticsearch release `5.6.8`. Newer
 versions of Elasticsearch are not tested and you might experience compatibility issues.
 ```
-cd docker/elasticsearch && docker-compose up
+cd docker/elasticsearch && docker-compose pull && docker-compose up
 ```
 After containers are initialized, we need to create the `dataset` and `users` search indices by running below command:
 ```
