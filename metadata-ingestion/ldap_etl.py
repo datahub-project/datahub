@@ -6,13 +6,18 @@ from distutils.version import LooseVersion
 
 LDAP24API = LooseVersion(ldap.__version__) >= LooseVersion('2.4')
 
-LDAPSERVER='LDAPSERVER'
-BASEDN='BASEDN'
+LDAPSERVER ='LDAPSERVER'
+BASEDN ='BASEDN'
 LDAPUSER = 'LDAPUSER'
 LDAPPASSWORD = 'LDAPPASSWORD'
-PAGESIZE = 1000
+PAGESIZE = PAGESIZE
 ATTRLIST = ['cn', 'title', 'mail', 'sAMAccountName', 'department','manager']
-SEARCHFILTER='objectClass=Person'
+SEARCHFILTER='SEARCHFILTER'
+
+AVROLOADPATH = 'AVROLOADPATH'
+KAFKATOPIC = 'KAFKATOPIC'
+BOOTSTRAP = 'BOOTSTRAP'
+SCHEMAREGISTRY = 'SCHEMAREGISTRY'
 
 def create_controls(pagesize):
     """
@@ -79,13 +84,13 @@ def produce_corp_user_mce(mce):
     from confluent_kafka import avro
     from confluent_kafka.avro import AvroProducer
 
-    conf = {'bootstrap.servers': 'localhost:9092',
-            'schema.registry.url': 'http://localhost:8081'}
-    record_schema = avro.load('../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc')
+    conf = {'bootstrap.servers': BOOTSTRAP,
+            'schema.registry.url': SCHEMAREGISTRY}
+    record_schema = avro.load(AVROLOADPATH)
     producer = AvroProducer(conf, default_value_schema=record_schema)
 
     try:
-        producer.produce(topic='MetadataChangeEvent', value=mce)
+        producer.produce(topic=KAFKATOPIC, value=mce)
         producer.poll(0)
         sys.stdout.write('\n %s has been successfully produced!' % mce)
     except ValueError as e:
