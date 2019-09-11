@@ -43,3 +43,19 @@ Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
 Flushing records...
 ```
 This will bootstrap Data Hub with sample datasets and sample users.
+
+## Ingest metadata from LDAP server to Data Hub
+The ldap_etl.py provides you ETL channel to communicate with your LDAP server.
+```
+➜  Config your LDAP server environmental variable in the file
+    LDAPSERVER   # Your server host.
+    BASEDN       # Base dn as a container location.
+    LDAPUSER     # Your credential.
+    LDAPPASSWORD # Your password.
+    PAGESIZE     # Pagination size.
+    ATTRLIST     # Return attributes relate to your model.
+    SEARCHFILTER # Filter to build the search query.
+
+➜  python ldap_etl.py
+```
+This will bootstrap Data Hub with your metadata in the LDAP server as a User entity.
