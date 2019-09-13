@@ -10,10 +10,6 @@ versions of Elasticsearch are not tested and you might experience compatibility 
 ```
 cd docker/elasticsearch && docker-compose pull && docker-compose up
 ```
-After containers are initialized, we need to create the `dataset` and `users` search indices by running below command:
-```
-cd docker/elasticsearch && bash init.sh
-```
 You can connect to Kibana on your web browser to monitor Elasticsearch via below link:
 ```
 http://localhost:5601
