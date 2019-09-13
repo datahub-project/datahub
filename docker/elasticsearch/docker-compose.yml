@@ -20,6 +20,18 @@ services:
     depends_on:
       - elasticsearch
 
+  # This "container" is a workaround to pre-create search indices
+  elasticsearch-setup:
+    build:
+      context: .
+    hostname: elasticsearch-setup
+    container_name: elasticsearch-setup
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+
 networks:
   default:
     name: datahub_network
