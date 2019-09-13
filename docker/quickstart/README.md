@@ -3,10 +3,6 @@ To start all Docker containers at once, please run below command:
 ```
 cd docker/quickstart && docker-compose pull && docker-compose up
 ```
-After containers are initialized, we need to create the `dataset` and `users` search indices by running below command:
-```
-cd docker/elasticsearch && bash init.sh
-```
 At this point, all containers are ready and Data Hub can be considered up and running. Check specific containers guide
 for details:
 * [Elasticsearch & Kibana](../elasticsearch)
