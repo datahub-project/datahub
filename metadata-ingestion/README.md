@@ -8,7 +8,10 @@ way to do that is through [Docker images](../docker).
     ./gradlew :metadata-events:mxe-schemas:build
     ```
     This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic. This
-    stream is the entry point for any metadata CRUD operation for Data Hub.
+3. Before launching each ETL ingestion pipeline, you can install/verify the library versions as below.
+    ```
+    pip install -r requirements.txt
+    ```
     
 ## MCE Producer/Consumer CLI
 `mce_cli.py` script provides a convenient way to produce a list of MCEs from a data file. 
