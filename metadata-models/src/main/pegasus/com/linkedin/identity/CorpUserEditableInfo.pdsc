@@ -32,7 +32,7 @@
       "name": "pictureLink",
       "type": "com.linkedin.common.Url",
       "doc": "A URL which points to a picture which user wants to set as a profile photo",
-      "default": "https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg"
+      "default": "https://raw.githubusercontent.com/linkedin/WhereHows/datahub/docs/imgs/datahublogo.png"
     }
   ]
 }
