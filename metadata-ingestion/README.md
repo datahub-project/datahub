@@ -34,7 +34,7 @@ optional arguments:
 ```
 
 ## Bootstrapping Data Hub
-If you want to quickly ingest lots of sample data and test Data Hub in action, you can run below command:
+Leverage the mce-cli to quickly ingest lots of sample data and test Data Hub in action, you can run below command:
 ```
 ➜  python mce_cli.py produce -d bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
@@ -45,7 +45,7 @@ Flushing records...
 This will bootstrap Data Hub with sample datasets and sample users.
 
 ## Ingest metadata from LDAP server to Data Hub
-The ldap_etl.py provides you ETL channel to communicate with your LDAP server.
+The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 ➜  Config your LDAP server environmental variable in the file
     LDAPSERVER    # Your server host.

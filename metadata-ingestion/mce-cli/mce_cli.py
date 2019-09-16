@@ -1,7 +1,8 @@
+#! /usr/bin/python
 import argparse
 from confluent_kafka import avro
 
-record_schema = avro.load("../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
+record_schema = avro.load("../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 topic = "MetadataChangeEvent"
 
 class MetadataChangeEvent(object):
