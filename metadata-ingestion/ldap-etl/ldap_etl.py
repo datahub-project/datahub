@@ -14,10 +14,10 @@ PAGESIZE = PAGESIZE
 ATTRLIST = ['cn', 'title', 'mail', 'sAMAccountName', 'department','manager']
 SEARCHFILTER='SEARCHFILTER'
 
-AVROLOADPATH = 'AVROLOADPATH'
-KAFKATOPIC = 'KAFKATOPIC'
-BOOTSTRAP = 'BOOTSTRAP'
-SCHEMAREGISTRY = 'SCHEMAREGISTRY'
+AVROLOADPATH = '../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc'
+KAFKATOPIC = 'MetadataChangeEvent'
+BOOTSTRAP = 'localhost:9092'
+SCHEMAREGISTRY = 'http://localhost:8081'
 
 def create_controls(pagesize):
     """
