@@ -50,7 +50,7 @@ This will bootstrap Data Hub with sample datasets and sample users.
 ## Ingest metadata from LDAP server to Data Hub
 The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
-➜  Config your LDAP server environmental variable in the file
+➜  Config your LDAP server environmental variable in the file.
     LDAPSERVER    # Your server host.
     BASEDN        # Base dn as a container location.
     LDAPUSER      # Your credential.
@@ -59,12 +59,28 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
     ATTRLIST      # Return attributes relate to your model.
     SEARCHFILTER  # Filter to build the search query.
     
-➜  Config your Kafka broker environmental variable in the file
+➜  Config your Kafka broker environmental variable in the file.
     AVROLOADPATH   # Your model event in avro format.
-    KAFKATOPIC =   # Your event topic.
-    BOOTSTRAP =    # Kafka bootstrap server.
+    KAFKATOPIC     # Your event topic.
+    BOOTSTRAP      # Kafka bootstrap server.
     SCHEMAREGISTRY # Kafka schema registry host.
 
 ➜  python ldap_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the LDAP server as a User entity.
+This will bootstrap Data Hub with your metadata in the LDAP server as an user entity.
+
+## Ingest metadata from hive store to Data Hub
+The hive_etl provides you ETL channel to communicate with your hive store.
+```
+➜  Config your hive store environmental variable in the file.
+    HIVESTORE      # Your store host.
+    
+➜  Config your Kafka broker environmental variable in the file.
+    AVROLOADPATH   # Your model event in avro format.
+    KAFKATOPIC     # Your event topic.
+    BOOTSTRAP      # Kafka bootstrap server.
+    SCHEMAREGISTRY # Kafka schema registry host.
+
+➜  python hive_etl.py
+```
+This will bootstrap Data Hub with your metadata in the hive store as a dataset entity.
