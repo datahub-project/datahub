@@ -8,12 +8,12 @@ import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/da
 export const fields: Array<ISearchEntityRenderProps> = [
   {
     showInAutoCompletion: true,
-    fieldName: 'dataorigin',
+    fieldName: 'origin',
     showInResultsPreview: true,
-    displayName: 'Data Origin',
+    displayName: 'Origin',
     showInFacets: true,
-    desc: 'The data origin of the dataset',
-    example: 'dataorigin:PROD'
+    desc: 'The origin of the dataset',
+    example: 'origin:PROD'
   },
   {
     showInAutoCompletion: true,
@@ -23,7 +23,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     showInFacets: false,
     desc: 'The name of the dataset',
     example: 'name:TRACKING.PageViewEvent',
-    compute(dataset: IDatasetApiView) {
+    compute(dataset: IDatasetApiView): string {
       const name = dataset.nativeName;
       const platform: DatasetPlatform = dataset.platform;
       // UMP datasets have been defined as <bucket>.<datasetName> format, so we want to extract out only
