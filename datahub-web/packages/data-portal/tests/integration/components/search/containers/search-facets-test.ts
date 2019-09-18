@@ -24,7 +24,7 @@ module('Integration | Component | search/containers/search-facets', function(hoo
     setProperties(this, {
       fields: DatasetEntity.renderProps.search.attributes,
       counts: {
-        dataorigin: {
+        origin: {
           PROD: 1,
           CORP: 10
         }
@@ -52,8 +52,8 @@ module('Integration | Component | search/containers/search-facets', function(hoo
       getText(this)
         .replace(/\s/gi, '')
         .trim(),
-      'dataorigin-2CORPPROD',
-      'Should show just dataorigin but not platform and sorted'
+      'origin-2CORPPROD',
+      'Should show just origin but not platform and sorted'
     );
   });
 });
