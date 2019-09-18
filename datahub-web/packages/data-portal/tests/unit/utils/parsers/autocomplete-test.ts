@@ -40,9 +40,9 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
           groupName: 'Filter By',
           options: [
             {
-              description: 'The data origin of the dataset, e.g.: dataorigin:PROD',
-              text: 'dataorigin:',
-              title: 'dataorigin:'
+              description: 'The origin of the dataset, e.g.: origin:PROD',
+              text: 'origin:',
+              title: 'origin:'
             },
             {
               description: 'The name of the dataset, e.g.: name:TRACKING.PageViewEvent',
@@ -189,7 +189,7 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
     {
       entity: DatasetEntity.displayName,
       description: 'Dataset with filter fabric',
-      text: 'dataorigin:co',
+      text: 'origin:co',
       results: [
         {
           groupName: 'Filter By',
@@ -296,9 +296,9 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
           groupName: 'Filter By',
           options: [
             {
-              description: 'The data origin of the dataset, e.g.: dataorigin:PROD',
-              text: 'something dataorigin:',
-              title: 'dataorigin:'
+              description: 'The origin of the dataset, e.g.: origin:PROD',
+              text: 'something origin:',
+              title: 'origin:'
             },
             {
               description: 'The name of the dataset, e.g.: name:TRACKING.PageViewEvent',

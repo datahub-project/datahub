@@ -118,7 +118,7 @@ const tests = [
   },
   {
     description: 'Facets 2',
-    text: '   (name:dataset1 AND platform:something) OR ( dataorigin:corp AND dataset4 )',
+    text: '   (name:dataset1 AND platform:something) OR ( origin:corp AND dataset4 )',
     result: [
       [
         {
@@ -134,7 +134,7 @@ const tests = [
       'OR',
       [
         {
-          facetName: 'dataorigin',
+          facetName: 'origin',
           facetValue: 'corp'
         },
         'AND',
