@@ -57,7 +57,7 @@ def produce_hive_dataset_mce(mce):
     try:
         producer.produce(topic=KAFKATOPIC, value=mce)
         producer.poll(0)
-        sys.stdout.write('\n %s has been successfully produced!' % mce)
+        sys.stdout.write('\n%s has been successfully produced!\n' % mce)
     except ValueError as e:
         sys.stdout.write('Message serialization failed %s' % e)
     producer.flush()
