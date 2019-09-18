@@ -6,17 +6,17 @@ import hbs from 'htmlbars-inline-precompile';
 const componentClassName = '.nacho-breadcrumbs-container';
 const breadcrumbsListClassName = '.nacho-breadcrumbs';
 
-module('Integration | Component | browser/entity-breadcrumbs', function(hooks) {
+module('Integration | Component | browser/entity-breadcrumbs', function(hooks): void {
   setupRenderingTest(hooks);
 
-  test('Breadcrumbs component rendering', async function(assert) {
+  test('Breadcrumbs component rendering', async function(assert): Promise<void> {
     const entity = 'Test Entity';
     let segments: Array<string> = [];
 
     this.setProperties({ segments, entity });
 
     await render(hbs`
-      {{browser/entity-breadcrumbs segments=segments entity=entity}}
+      <Browser::EntityBreadcrumbs @segments={{segments}} @entity={{entity}} />
     `);
 
     assert.dom(componentClassName).isVisible();

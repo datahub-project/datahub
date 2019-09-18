@@ -1,6 +1,5 @@
 import getActorFromUrn from '@datahub/data-models/utils/get-actor-from-urn';
 import { computed } from '@ember/object';
-import { profileLinkBase } from '@datahub/data-models/constants/entity/person/links';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared';
 import {
   getRenderProps,
@@ -51,7 +50,7 @@ export class PersonEntity extends BaseEntity<IBaseEntity> {
    * TODO: [META-9698] Migrate to using LiPersonEntity
    */
   static profileLinkFromUsername(username: string): string {
-    return `${profileLinkBase}${username}`;
+    return `${username}`;
   }
 
   /**

@@ -47,6 +47,7 @@
     "ember-cli-sri": "^2.1.1",
     "ember-cli-typescript-blueprints": "^2.0.0",
     "ember-cli-uglify": "^2.1.0",
+    "ember-concurrency": "^1.0.0",
     "ember-export-application-global": "^2.0.0",
     "ember-load-initializers": "^2.0.0",
     "ember-maybe-import-regenerator": "^0.1.6",

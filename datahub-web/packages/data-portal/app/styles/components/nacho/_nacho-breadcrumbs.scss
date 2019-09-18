@@ -115,6 +115,7 @@ $nacho-breadcrumbs-arrow-padding: 20px;
     top: $application-navbar-static-height;
     z-index: z('nav') + z('below'); // To give precendence to tooltip and dropdown
     width: 100%;
+    min-height: $nacho-breadcrumbs-height;
 
     &--with-banner-offset {
       top: $banner-alerts-height + $application-navbar-static-height;

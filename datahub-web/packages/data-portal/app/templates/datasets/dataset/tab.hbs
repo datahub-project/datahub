@@ -8,11 +8,16 @@ as |container|
   as |snapshot|
   }}
     <div id="dataset" class="entity-header">
-      {{browser/entity-breadcrumbs
-        class=(with-banner-offset "nacho-breadcrumbs-container")
-        entity=(or (lowercase container.entity.displayName) "--")
-        segments=container.entity.hierarchySegments
-      }}
+      <WaitPromiseContainer
+        class={{with-banner-offset "nacho-breadcrumbs-container"}}
+        @promise={{container.paths}} as |paths|>
+        <Browser::EntityBreadcrumbs
+          @tagName=""
+          @entity={{or (lowercase container.entity.displayName) "--"}}
+          @segments={{paths}}
+        />
+      </WaitPromiseContainer>
+
       <div class="container">
         {{component
           container.headerComponent

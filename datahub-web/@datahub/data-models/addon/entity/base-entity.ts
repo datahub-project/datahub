@@ -13,7 +13,7 @@ import {
   IEntityLinkAttrsWithCount
 } from '@datahub/data-models/types/entity/shared';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared/index';
-import { readBrowse } from '@datahub/data-models/api/browse';
+import { readBrowse, readBrowsePath } from '@datahub/data-models/api/browse';
 import { getFacetDefaultValueForEntity } from '@datahub/data-models/entity/utils/facets';
 import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
 
@@ -198,6 +198,31 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   }
 
   /**
+   * Workaround to get the current static instance
+   * This makes sense if you want to get a static property only
+   * implemented in a subclass, therefore, the same static
+   * class is needed
+   */
+  get staticInstance(): IBaseEntityStatics<T> {
+    return (this.constructor as unknown) as IBaseEntityStatics<T>;
+  }
+
+  /**
+   * Will read the current path for an entity
+   */
+  get readPath(): Promise<Array<string>> {
+    const entityName = this.staticInstance.renderProps.search.apiName;
+    return readBrowsePath({
+      type: entityName,
+      urn: this.urn
+    }).then(
+      (paths): Array<string> => {
+        return paths && paths.length > 0 ? paths[0].split('/').filter(Boolean) : [];
+      }
+    );
+  }
+
+  /**
    * Asynchronously resolves with an instance of T
    * @readonly
    * @type {Promise<T>}
@@ -219,15 +244,6 @@ export abstract class BaseEntity<T extends IBaseEntity> {
     throw new Error(NotImplementedError);
   }
 
-  /**
-   *
-   * @readonly
-   * @type {Array<string>}
-   * @memberof BaseEntity
-   */
-  get hierarchySegments(): Array<string> {
-    throw new Error(NotImplementedError);
-  }
   /**
    * Class properties common across instances
    * Dictates how visual ui components should be rendered

@@ -6,7 +6,6 @@ import { getTabPropertiesFor } from '@datahub/data-models/entity/utils';
 /**
  * Class properties common across instances
  * Dictates how visual ui components should be rendered
- * Implemented as a getter to ensure that reads are idempotent
  * @readonly
  * @static
  * @type {IEntityRenderProps}
