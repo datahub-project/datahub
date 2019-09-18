@@ -48,22 +48,6 @@
       {{/if}}
     </div>
 
-    <div class="dataset-header-meta">
-      {{#datasets/containers/dataset-fabrics
-        class="dataset-fabric-row-container"
-        urn=model.uri
-      as |fabricsContainer|
-      }}
-        <div class="dataset-fabric-entity-container">
-          <strong>Fabric:</strong>
-          {{datasets/dataset-fabric-switcher
-            urn=fabricsContainer.urn
-            fabrics=fabricsContainer.fabrics
-          }}
-        </div>
-      {{/datasets/containers/dataset-fabrics}}
-    </div>
-
     {{datasets/containers/dataset-owner-list
       urn=encodedUrn
       avatarEntityProps=avatarEntityProps

@@ -10,9 +10,6 @@ import { oneWay } from '@ember/object/computed';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
 import { decodeUrn } from '@datahub/utils/validators/urn';
 import { readCategories } from '@datahub/data-models/entity/dataset/read-categories';
-import { computed } from '@ember/object';
-import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
-import { readDataPlatforms } from '@datahub/data-models/api/dataset/platforms';
 import { getPrefix } from '@datahub/data-models/entity/dataset/utils/segments';
 import { readDatasetsCount } from '@datahub/data-models/api/dataset/count';
 import { setProperties } from '@ember/object';
@@ -72,6 +69,17 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
   }
 
   /**
+   * Creates a link for this specific entity instance, useful for generating a dynamic link from a
+   * single particular dataset entity
+   */
+  get linkForEntity(): IEntityLinkAttrs {
+    return DatasetEntity.getLinkForEntity({
+      entityUrn: this.urn,
+      displayName: this.name
+    });
+  }
+
+  /**
    * Reads the snapshots for a list of Dataset urns
    * @static
    */
@@ -109,15 +117,10 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
   /**
    * Reference to the data entity's native name, should not be something that is editable but gives us a
    * more human readable form for the dataset vs the urn
-   * @type {string}
    */
-  @oneWay('entity.nativeName')
-  name!: string;
-
-  /**
-   * Reference to the constructed data platform once it is fetched from api
-   */
-  currentDataPlatform?: IDataPlatform;
+  get name(): string {
+    return this.entity ? this.entity.nativeName : '';
+  }
 
   /**
    * Retrieves the value of the Dataset entity identified by this.urn
@@ -205,26 +208,6 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
   }
 
   /**
-   * Produces an array of strings depicting the hierarchy of a Feature Entity
-   * @readonly
-   * @type {Array<string>}
-   * @memberof FeatureEntity
-   */
-  @computed('entity')
-  get hierarchySegments(): Array<string> {
-    const { entity } = this;
-    const { currentDataPlatform } = this;
-    const separator = (currentDataPlatform && currentDataPlatform.datasetNameDelimiter) || '.';
-
-    if (entity) {
-      const { platform, nativeName } = entity;
-      return [platform, ...nativeName.split(separator).filter(Boolean)];
-    }
-
-    return [];
-  }
-
-  /**
    * Interim implementation to read categories for datasets
    * TODO META-8863
    */
@@ -287,14 +270,10 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
 export const createDatasetEntity = async (urn: string, fetchedEntity?: IDatasetApiView): Promise<DatasetEntity> => {
   const dataset = new DatasetEntity(urn);
   const entity = fetchedEntity || (await dataset.readEntity);
-  // TODO: [META-8652] Find way to separate this from the createDatasetEntity as the concern of creating a dataset
-  // entity should not be related to the concern of reading data platforms
-  const dataPlatforms: Array<IDataPlatform> = await readDataPlatforms();
-  const currentDataPlatform = dataPlatforms.find((platform): boolean => platform.name === entity.platform);
 
   setProperties(dataset, {
-    entity,
-    currentDataPlatform
+    entity
   });
+
   return dataset;
 };

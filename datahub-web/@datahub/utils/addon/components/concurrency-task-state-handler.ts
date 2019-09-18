@@ -1,12 +1,12 @@
 import Component from '@ember/component';
 // @ts-ignore: Ignore import of compiled template
 import template from '../templates/components/concurrency-task-state-handler';
-import { layout, classNames } from '@ember-decorators/component';
+import { layout, tagName } from '@ember-decorators/component';
 import { action } from '@ember/object';
 import { Task, task } from 'ember-concurrency';
 
 @layout(template)
-@classNames('concurrency-task-state-handler')
+@tagName('')
 export default class ConcurrencyTaskStateHandler<T> extends Component {
   /**
    * List of arguments to be passed to the task when performed. The array is spread into the task invocation

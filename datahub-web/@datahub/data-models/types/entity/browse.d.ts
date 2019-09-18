@@ -26,3 +26,11 @@ export interface IBrowseResponse {
     groups: Array<{ name: string; count: number }>;
   };
 }
+
+/**
+ * Path for bowse paths
+ */
+export interface IBrowsePathParams {
+  type: string;
+  urn: string;
+}

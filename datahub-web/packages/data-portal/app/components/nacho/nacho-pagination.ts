@@ -1,7 +1,7 @@
 import Component from '@ember/component';
 import { computed } from '@ember/object';
 import { tagName } from '@ember-decorators/component';
-import { IDynamicLinkNode } from 'wherehows-web/typings/app/browse/dynamic-link';
+import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 
 /**
  * Query params with pages for routes

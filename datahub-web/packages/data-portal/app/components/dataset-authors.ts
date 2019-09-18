@@ -296,7 +296,7 @@ export default class DatasetAuthors extends Component {
   @action
   confirmSuggestedOwner(this: DatasetAuthors, owner: IOwner): Array<IOwner> | void {
     const suggestedOwner = { ...owner, source: OwnerSource.Ui };
-    return this.actions.addOwner.call(this, suggestedOwner);
+    return this.addOwner.call(this, suggestedOwner);
   }
 
   /**
