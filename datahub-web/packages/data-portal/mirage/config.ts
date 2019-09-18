@@ -23,6 +23,7 @@ import { browse } from 'wherehows-web/mirage/helpers/browse';
 import searchResponse from 'wherehows-web/mirage/fixtures/search-response';
 import { getSamplePageViewResponse } from 'wherehows-web/mirage/helpers/search/pageview-response';
 import { getEntitySearchResults } from 'wherehows-web/mirage/helpers/search/entity';
+import { browsePaths } from 'wherehows-web/mirage/helpers/browse-paths';
 
 export default function(this: IMirageServer): void {
   this.get('/config', getConfig);
@@ -36,6 +37,8 @@ export default function(this: IMirageServer): void {
   this.get('/autocomplete', getAutocomplete);
 
   this.get('/browse', browse);
+
+  this.get('/browsePaths', browsePaths);
 
   this.get('/datasets/:identifier/', getDatasetView);
 

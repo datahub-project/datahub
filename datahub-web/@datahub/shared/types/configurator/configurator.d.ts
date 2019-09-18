@@ -1,6 +1,6 @@
 import { ITrackingConfig } from '@datahub/shared/types/configurator/tracking';
 import Service from '@ember/service';
-import { ApiStatus } from '@datahub/utils/addon/api/shared';
+import { ApiStatus } from '@datahub/utils/api/shared';
 
 /**
  * Describes the interface for the configuration endpoint response object.

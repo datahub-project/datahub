@@ -19,6 +19,7 @@ export function populateMockPersonEntity(
   entity.linkedinProfile = 'https://www.linkedin.com/in/ash-ketchum-b212502a/';
   entity.slackLink = 'aketchum';
   entity.skills = ['training', 'catching', 'battling'];
+
   const managerEntity = new personEntity(personEntity.urnFromUsername('pikachu'));
   managerEntity.name = 'Pikachu';
   managerEntity.profilePictureUrl = 'https://pokemonletsgo.pokemon.com/assets/img/common/char-pikachu.png';

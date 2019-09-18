@@ -1,5 +1,5 @@
 import Component from '@ember/component';
-import { IDynamicLinkNode } from 'wherehows-web/typings/app/browse/dynamic-link';
+import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 
 /**
  * Card component. It is used in the home page of the app to
