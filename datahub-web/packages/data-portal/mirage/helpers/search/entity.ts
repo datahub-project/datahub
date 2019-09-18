@@ -1,12 +1,7 @@
 import { IFunctionRouteHandler } from '@datahub/utils/types/vendor/ember-cli-mirage-deprecated';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import searchResponse from 'wherehows-web/mirage/fixtures/search-response';
-import { IEntitySearchResult } from 'wherehows-web/typings/api/search/entity';
-
-interface ISearchResultMetadata {
-  name: string;
-  aggregations: {};
-}
+import { IEntitySearchResult, IAggregationMetadata } from 'wherehows-web/typings/api/search/entity';
 
 export const getEntitySearchResults = function(
   this: IFunctionRouteHandler,
@@ -40,7 +35,7 @@ export const getEntitySearchResults = function(
       return entity;
     });
 
-  let metas: Array<ISearchResultMetadata> = [];
+  let metas: Array<IAggregationMetadata> = [];
 
   return {
     elements: data,
