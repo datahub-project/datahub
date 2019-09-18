@@ -30,7 +30,9 @@
 
 {{else}}
   {{#if @task.isRunning}}
-    {{pendulum-ellipsis-animation}}
+    <div class="concurrency-task-state-handler">
+      {{pendulum-ellipsis-animation}}
+    </div>
   {{else}}
     {{yield}}
   {{/if}}

@@ -11,14 +11,15 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
 
   test('Breadcrumbs Smoke Test', async function(this: IMirageTestContext, assert) {
     const categoryLinkClass = '.browse-category__link';
-    const breadcrumbsClass = '.nacho-breadcrumbs__crumb';
+    const breadCrumbClass = '.nacho-breadcrumbs';
+    const breadCrumbsClass = `${breadCrumbClass}__crumb`;
     defaultScenario(this.server);
     await appLogin();
     await visit('/');
     await visit('/browse/datasets?path=hdfs');
     await waitFor(categoryLinkClass);
     let categoryLinks = findAll(categoryLinkClass);
-    let breadcrumbs = findAll(breadcrumbsClass);
+    let breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(currentURL(), '/browse/datasets?path=hdfs');
     assert.equal(categoryLinks.length, 1, 'There is 1 folder in root hdfs');
@@ -30,7 +31,7 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
     await click(`${categoryLinkClass}:first-child`);
     await waitFor(categoryLinkClass);
     categoryLinks = findAll(categoryLinkClass);
-    breadcrumbs = findAll(breadcrumbsClass);
+    breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(currentURL(), '/browse/datasets?path=hdfs%2Fsome');
     assert.equal(categoryLinks.length, 1, 'There is 1 folder in path');
@@ -42,7 +43,7 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
     await click(`${categoryLinkClass}:first-child`);
     await waitFor(categoryLinkClass);
     categoryLinks = findAll(categoryLinkClass);
-    breadcrumbs = findAll(breadcrumbsClass);
+    breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(currentURL(), '/browse/datasets?path=hdfs%2Fsome%2Fpath');
     assert.equal(categoryLinks.length, 1, 'There is 1 folder in path');
@@ -54,7 +55,7 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
     await click(`${categoryLinkClass}:first-child`);
     await waitFor(categoryLinkClass, { count: 2 });
     categoryLinks = findAll(categoryLinkClass);
-    breadcrumbs = findAll(breadcrumbsClass);
+    breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(currentURL(), '/browse/datasets?path=hdfs%2Fsome%2Fpath%2Fwith');
     assert.equal(categoryLinks.length, 2, 'There are 2 folder in path');
@@ -66,7 +67,7 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
     await click(`${categoryLinkClass}:first-child`);
     await waitFor(categoryLinkClass, { count: 2 });
     categoryLinks = findAll(categoryLinkClass);
-    breadcrumbs = findAll(breadcrumbsClass);
+    breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(currentURL(), '/browse/datasets?path=hdfs%2Fsome%2Fpath%2Fwith%2Fdirectories');
     assert.equal(categoryLinks.length, 2, 'There is only 2 datasets in path');
@@ -76,29 +77,13 @@ module('Acceptance | breadcrumbs-smoke-test', function(hooks) {
 
     // path adataset1
     await click(`${categoryLinkClass}:first-child`);
-    breadcrumbs = findAll(breadcrumbsClass);
+    breadcrumbs = findAll(breadCrumbsClass);
 
     assert.equal(
       currentURL(),
       '/datasets/urn:li:dataset:(urn:li:dataPlatform:hdfs,%2Fsome%2Fpath%2Fwith%2Fdirectories%2Fadataset1,PROD)/schema'
     );
-    assert.equal(breadcrumbs.length, 7, 'There are 7 links in breadcrumb');
-    assert.equal(
-      getTextNoSpacesFromElements(breadcrumbs),
-      'Datasetshdfssomepathwithdirectoriesadataset1',
-      'Text match'
-    );
-
-    // path /some/path/with/directories
-    await click(`${breadcrumbsClass}:nth-child(6) a`);
-    await waitFor(categoryLinkClass, { count: 2 });
-    categoryLinks = findAll(categoryLinkClass);
-    breadcrumbs = findAll(breadcrumbsClass);
-
-    assert.equal(currentURL(), '/browse/datasets?page=1&path=hdfs%2Fsome%2Fpath%2Fwith%2Fdirectories');
-    assert.equal(categoryLinks.length, 2, 'There is only 2 datasets in path');
-    assert.equal(getTextNoSpacesFromElements(categoryLinks), 'adataset1adataset2', 'Text match');
-    assert.equal(breadcrumbs.length, 6, 'There are 6 links in breadcrumb');
-    assert.equal(getTextNoSpacesFromElements(breadcrumbs), 'Datasetshdfssomepathwithdirectories', 'Text match');
+    assert.equal(breadcrumbs.length, 8, 'There are 8 links in breadcrumb');
+    assert.dom(breadCrumbClass).hasText('Datasets PROD hdfs some path with directories adataset1');
   });
 });

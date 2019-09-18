@@ -5,7 +5,7 @@ import Search from 'wherehows-web/services/search';
 import { set } from '@ember/object';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { unGuardedEntities } from 'wherehows-web/utils/entity/flag-guard';
-import { IDynamicLinkNode } from 'wherehows-web/typings/app/browse/dynamic-link';
+import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 import { capitalize } from '@ember/string';
 import { getConfig } from 'wherehows-web/services/configurator';
 

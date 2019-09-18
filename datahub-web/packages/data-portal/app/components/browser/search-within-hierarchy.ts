@@ -2,7 +2,7 @@ import Component from '@ember/component';
 import { tagName } from '@ember-decorators/component';
 import { computed } from '@ember/object';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import { IDynamicLinkNode } from 'wherehows-web/typings/app/browse/dynamic-link';
+import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 
 /**
  * Indicates the total number of entities within a category and on user interaction

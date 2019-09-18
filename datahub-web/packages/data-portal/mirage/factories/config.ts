@@ -47,8 +47,9 @@ export default Factory.extend({
   userEntityProps() {
     return {
       aviUrlPrimary:
-        'https://cinco.corp.linkedin.com/api/profile/[username]/picture?access_token=2rzmbzEMGlHsszQktFY-B1TxUic',
-      aviUrlFallback: 'https://static.licdn-ei.com/sc/h/djzv59yelk5urv2ujlazfyvrk'
+        'https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png',
+      aviUrlFallback:
+        'https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png'
     };
   }
 });

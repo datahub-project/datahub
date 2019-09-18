@@ -200,13 +200,29 @@ export default class DatasetMainContainer extends Component {
     // TODO should fetch the dataset itself, but right now dataset is fetched at route level
     const { dataset } = this;
 
-    //TODO: META-8267 Container notifications decorator
     if (dataset) {
       const entity: DatasetEntity = yield createDatasetEntity(this.dataset.uri, this.dataset as IDatasetApiView);
+
       set(this, 'entity', entity);
     }
   }).restartable())
   reifyEntityTask!: ETaskPromise<DatasetEntity>;
+
+  /**
+   * This will return the paths for an entity. We should be able to consume entity.readPath
+   * direcly but since datasets are not migrated we need to flag guard it.
+   *
+   * TODO META-8863 Interim implementation to read categories for datasets
+   */
+  @computed('entity')
+  get paths(): Promise<Array<string>> {
+    const { entity } = this;
+    if (!entity) {
+      return Promise.resolve([]);
+    }
+
+    return entity.readPath;
+  }
 
   /**
    * Converts the uri on a model to a usable URN format

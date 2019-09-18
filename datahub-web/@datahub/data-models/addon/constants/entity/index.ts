@@ -5,7 +5,7 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
  * Defines the interface for the DataModelEntity enum below.
  * This allows each entry in the enum to be indexable
  */
-interface IDataModelEntity {
+export interface IDataModelEntity {
   [DatasetEntity.displayName]: typeof DatasetEntity;
   [PersonEntity.displayName]: typeof PersonEntity;
 }
