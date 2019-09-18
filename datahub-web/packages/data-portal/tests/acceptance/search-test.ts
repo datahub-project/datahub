@@ -55,9 +55,9 @@ module('Acceptance | search', function(hooks): void {
 
   test('visiting /search and restoring facet selections', async function(assert): Promise<void> {
     await appLogin();
-    await visit('/search?facets=(dataorigin%3AList(prod%2Ccorp))&keyword=car');
+    await visit('/search?facets=(origin%3AList(prod%2Ccorp))&keyword=car');
 
-    assert.equal(currentURL(), '/search?facets=(dataorigin%3AList(prod%2Ccorp))&keyword=car');
+    assert.equal(currentURL(), '/search?facets=(origin%3AList(prod%2Ccorp))&keyword=car');
 
     const { prod, corp } = getCheckboxes(this);
     const searchBar = find(searchBarSelector) as HTMLInputElement;
@@ -68,7 +68,7 @@ module('Acceptance | search', function(hooks): void {
 
     await click(getCheckboxSelector('corp'));
 
-    assert.equal(currentURL(), '/search?entity=datasets&facets=(dataorigin%3AList(prod))&keyword=car&page=1');
+    assert.equal(currentURL(), '/search?entity=datasets&facets=(origin%3AList(prod))&keyword=car&page=1');
   });
 
   test('visiting /search and getting no results', async function(assert): Promise<void> {
