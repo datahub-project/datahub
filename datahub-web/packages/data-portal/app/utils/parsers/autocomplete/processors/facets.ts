@@ -3,7 +3,8 @@ import {
   AutocompleteRuleNames,
   ISuggestionBuilder,
   IState,
-  INodeFacetProcessor
+  INodeFacetProcessor,
+  ISuggestion
 } from 'wherehows-web/utils/parsers/autocomplete/types';
 import { dataToString } from 'wherehows-web/utils/parsers/autocomplete/utils';
 import { platform } from 'wherehows-web/utils/parsers/autocomplete/processors/facets/platform';
@@ -55,7 +56,7 @@ const getFacetValueFromStateRule = (state: IState): string => {
  */
 export const facetNameProcessor: INodeFacetProcessor = {
   platform,
-  dataorigin: fabric
+  origin: fabric
 };
 
 export const facetsProcessor: INodeProcessor = {
@@ -65,16 +66,20 @@ export const facetsProcessor: INodeProcessor = {
   [AutocompleteRuleNames.FacetName]: (builder: ISuggestionBuilder, ruleState: IState): Promise<ISuggestionBuilder> => {
     const allFields: Array<ISearchEntityRenderProps> = DataModelEntity[builder.entity].renderProps.search.attributes;
     const facetName = getFacetNameFromStateRule(ruleState);
-    const fields = allFields.filter(field => field.fieldName.indexOf(facetName) >= 0 && field.showInAutoCompletion);
+    const fields = allFields.filter(
+      (field): boolean => field.fieldName.indexOf(facetName) >= 0 && field.showInAutoCompletion
+    );
     return Promise.resolve({
       ...builder,
       facetNames: [
         ...builder.facetNames,
-        ...fields.map(field => ({
-          title: `${field.fieldName}:`,
-          text: `${builder.textPrevious}${field.fieldName}:`,
-          description: `${field.desc}, e.g.: ${field.example}`
-        }))
+        ...fields.map(
+          (field): ISuggestion => ({
+            title: `${field.fieldName}:`,
+            text: `${builder.textPrevious}${field.fieldName}:`,
+            description: `${field.desc}, e.g.: ${field.example}`
+          })
+        )
       ]
     });
   },
@@ -106,10 +111,12 @@ export const facetsProcessor: INodeProcessor = {
       ...builder,
       facetNames: [
         ...builder.facetNames,
-        ...(suggestions || []).map(value => ({
-          title: `${facetName}:${value}`,
-          text: `${builder.textPrevious}${facetName}:${value} `
-        }))
+        ...(suggestions || []).map(
+          (value): ISuggestion => ({
+            title: `${facetName}:${value}`,
+            text: `${builder.textPrevious}${facetName}:${value} `
+          })
+        )
       ]
     };
   }
