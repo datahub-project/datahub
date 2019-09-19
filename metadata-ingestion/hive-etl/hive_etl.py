@@ -30,16 +30,19 @@ def build_hive_dataset_mce(dataset_name, schema, metadata):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, type, created_time, upstreams_dataset = "urn:li:corpuser:" + metadata[2][7:], metadata[-1][11:-1], metadata[3][12:], metadata[-28][10:]
-    owners = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":time.time(),"actor":actor}}
-    upstreams = {"upstreams":[{"auditStamp":{"time":time.time(),"actor":actor},"dataset":"urn:li:dataset:(urn:li:dataPlatform:hive," + upstreams_dataset + ",PROD)","type":type}]}
-    elements = {"elements":[{"url":HIVESTORE,"description":"sample doc to describe upstreams","createStamp":{"time":time.time(),"actor":actor}}]}
+    actor, type, created_time, upstreams_dataset, sys_time = "urn:li:corpuser:" + metadata[2][7:], str(metadata[-1][11:-1]), long(metadata[3][12:]), metadata[-28][10:], long(time.time())
+    owners = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":sys_time,"actor":actor}}
+    upstreams = {"upstreams":[{"auditStamp":{"time":sys_time,"actor":actor},"dataset":"urn:li:dataset:(urn:li:dataPlatform:hive," + upstreams_dataset + ",PROD)","type":type}]}
+    elements = {"elements":[{"url":HIVESTORE,"description":"sample doc to describe upstreams","createStamp":{"time":sys_time,"actor":actor}}]}
     schema_name = {"schemaName":dataset_name,"platform":"urn:li:dataPlatform:hive","version":0,"created":{"time":created_time,"actor":actor},
-                  "lastModified":{"time":time.time(),"actor":actor},"platformSchema":{"OtherSchema": schema}}
+                  "lastModified":{"time":sys_time,"actor":actor},"hash":"","platformSchema":{"OtherSchema": schema},
+                   "fields":[{"fieldPath":"","description":"","nativeDataType":"string","type":{"type":{"com.linkedin.pegasus2avro.schema.StringType":{}}}}]}
+
     mce = {"auditHeader": None,
            "proposedSnapshot":("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
                                {"urn": "urn:li:dataset:(urn:li:dataPlatform:hive,"+ dataset_name +",PROD)","aspects": [owners, upstreams, elements, schema_name]}),
            "proposedDelta": None}
+
     produce_hive_dataset_mce(mce)
 
 def produce_hive_dataset_mce(mce):
