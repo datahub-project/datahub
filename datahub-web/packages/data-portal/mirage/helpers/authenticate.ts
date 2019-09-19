@@ -19,7 +19,7 @@ const getAuth = (_schema: {}, { requestBody }: { requestBody: string }) => {
     return new Response(400, textContentHeader, 'Missing or invalid [credentials]');
   }
 
-  if (password === 'invalidPassword' || password === 'invalidPassword123456' || password === 'validPasswordWithNoVip') {
+  if (password === 'invalidPassword' || password === 'invalidPassword123456') {
     return new Response(401, textContentHeader, 'Invalid Password');
   }
 
