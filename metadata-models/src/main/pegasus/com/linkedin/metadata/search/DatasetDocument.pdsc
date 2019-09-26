@@ -68,6 +68,15 @@
       "type": "long",
       "doc": "Lineage information represented by the number of immediate downstream datasets of this dataset.",
       "optional": true
+    },
+    {
+      "name": "upstreams",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.DatasetUrn"
+      },
+      "doc": "List of upstreams for this dataset",
+      "optional": true
     }
   ]
 }
