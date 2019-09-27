@@ -1,7 +1,5 @@
 package com.linkedin.metadata.validator;
 
-import com.linkedin.data.schema.ArrayDataSchema;
-import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import java.util.Collections;
@@ -41,12 +39,8 @@ public class DocumentValidator {
     }
 
     ValidationUtils.fieldsUsingInvalidType(schema, ValidationUtils.PRIMITIVE_TYPES).forEach(field -> {
-      if (field.getType().getType() == DataSchema.Type.ARRAY) {
-        validateArrayType(field, className);
-      } else {
-        ValidationUtils.invalidSchema("Document '%s' contains a field '%s' that makes use of a disallowed type '%s'.",
-            className, field.getName(), field.getType().getType());
-      }
+      ValidationUtils.invalidSchema("Document '%s' contains a field '%s' that makes use of a disallowed type '%s'.",
+              className, field.getName(), field.getType().getType());
     });
 
     ValidationUtils.nonOptionalFields(schema, NON_OPTIONAL_FIELDS).forEach(field -> {
@@ -64,14 +58,5 @@ public class DocumentValidator {
 
     validateSchema(ValidationUtils.getRecordSchema(clazz));
     VALIDATED.add(clazz);
-  }
-
-  private static void validateArrayType(@Nonnull RecordDataSchema.Field field, String className) {
-    DataSchema.Type type = ((ArrayDataSchema) field.getType()).getItems().getType();
-
-    if (!ValidationUtils.PRIMITIVE_TYPES.contains(type)) {
-      ValidationUtils.invalidSchema("Document '%s' contains an array field '%s' that uses a disallowed type '%s'.",
-          className, field.getName(), type);
-    }
   }
 }
