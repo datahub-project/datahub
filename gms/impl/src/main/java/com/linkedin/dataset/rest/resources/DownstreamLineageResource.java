@@ -21,6 +21,7 @@ import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -52,7 +53,7 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
     final Filter filter = SearchUtils.getFilter(Collections.singletonMap("upstreams", datasetUrn.toString()));
 
     return RestliUtils.toTask(() -> {
-      final SearchResult<DatasetDocument> searchResult = _searchDAO.search("*", filter, 0, Integer.MAX_VALUE);
+      final SearchResult<DatasetDocument> searchResult = _searchDAO.search("*", filter, 0, 10000);
       final Set<DatasetUrn> downstreamDatasets = searchResult.getDocumentList()
               .stream()
               .map(d -> (DatasetUrn) ModelUtils.getUrnFromDocument(d))
@@ -60,11 +61,16 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
       final DownstreamArray downstreamArray = new DownstreamArray(downstreamDatasets.stream()
               .map(ds -> {
                 final UpstreamLineage upstreamLineage = (UpstreamLineage) _localDAO.get(UpstreamLineage.class, ds).get();
-                final Upstream upstream = upstreamLineage.getUpstreams().stream()
+                final List<Upstream> upstreams = upstreamLineage.getUpstreams().stream()
                         .filter(us -> us.getDataset().equals(datasetUrn))
-                        .collect(Collectors.toList())
-                        .get(0);
-                return new Downstream().setDataset(ds).setType(upstream.getType()).setAuditStamp(upstream.getAuditStamp());
+                        .collect(Collectors.toList());
+                if (upstreams.size() != 1) {
+                  throw new RuntimeException(String.format("There is no relation or more than 1 relation between the datasets!"));
+                }
+                return new Downstream()
+                        .setDataset(ds)
+                        .setType(upstreams.get(0).getType())
+                        .setAuditStamp(upstreams.get(0).getAuditStamp());
               })
               .collect(Collectors.toList())
       );

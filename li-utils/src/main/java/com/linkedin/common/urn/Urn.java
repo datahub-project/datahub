@@ -1,5 +1,6 @@
 package com.linkedin.common.urn;
 
+import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -67,5 +68,14 @@ public class Urn {
   @Override
   public String toString() {
     return _urn;
+  }
+
+  public static boolean isUrn(@Nonnull String urn) {
+    try {
+      final Urn dummy = Urn.createFromString(urn);
+      return true;
+    } catch(URISyntaxException e) {
+      return false;
+    }
   }
 }
