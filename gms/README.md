@@ -302,3 +302,48 @@ the application directly from command line after a successful [build](#build):
   "hash": ""
 }
 ```
+
+### Get upstream datasets
+```
+➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/upstreamLineage/0' | jq
+{
+  "upstreams": [
+    {
+      "auditStamp": {
+        "actor": "urn:li:corpuser:fbar",
+        "time": 0
+      },
+      "type": "COPY",
+      "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,TRACKING.PageViewEvent,PROD)"
+    }
+  ]
+}
+```
+
+### Get downstream datasets
+```
+➜ curl -H 'X-RestLi-Protocol-Version:2.0.0' -H 'X-RestLi-Method: get' 'http://localhost:8080/datasets/($params:(),name:data.tracking.PageViewEvent,origin:PROD,platform:urn%3Ali%3AdataPlatform%3Ahdfs)/downstreamLineage' | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   359  100   359    0     0   8855      0 --:--:-- --:--:-- --:--:--  8975
+{
+  "downstreams": [
+    {
+      "auditStamp": {
+        "actor": "urn:li:corpuser:fbar",
+        "time": 1556564531534
+      },
+      "type": "VIEW",
+      "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,tracking_deduped.pageviewevent,PROD)"
+    },
+    {
+      "auditStamp": {
+        "actor": "urn:li:corpuser:fbar",
+        "time": 1556564531534
+      },
+      "type": "VIEW",
+      "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,tracking.pageviewevent,PROD)"
+    }
+  ]
+}
+```
