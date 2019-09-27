@@ -222,6 +222,10 @@
         "urn": {
           "type": "keyword",
           "normalizer": "my_normalizer"
+        },
+        "upstreams": {
+          "type": "keyword",
+          "normalizer": "my_normalizer"
         }
       }
     }
