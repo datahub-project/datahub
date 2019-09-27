@@ -2,6 +2,7 @@ package com.linkedin.metadata.validator;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.ArrayDataSchema;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
@@ -20,17 +21,17 @@ import javax.annotation.Nonnull;
 public class ValidationUtils {
 
   public static final Set<DataSchema.Type> PRIMITIVE_TYPES =
-      Collections.unmodifiableSet(new HashSet<DataSchema.Type>() {
-        {
-          add(DataSchema.Type.BOOLEAN);
-          add(DataSchema.Type.INT);
-          add(DataSchema.Type.LONG);
-          add(DataSchema.Type.FLOAT);
-          add(DataSchema.Type.DOUBLE);
-          add(DataSchema.Type.STRING);
-          add(DataSchema.Type.ENUM);
-        }
-      });
+          Collections.unmodifiableSet(new HashSet<DataSchema.Type>() {
+            {
+              add(DataSchema.Type.BOOLEAN);
+              add(DataSchema.Type.INT);
+              add(DataSchema.Type.LONG);
+              add(DataSchema.Type.FLOAT);
+              add(DataSchema.Type.DOUBLE);
+              add(DataSchema.Type.STRING);
+              add(DataSchema.Type.ENUM);
+            }
+          });
 
   private ValidationUtils() {
     // Util class
@@ -76,7 +77,7 @@ public class ValidationUtils {
    * Returns true if the supply schema has exactly one field matching the predicate.
    */
   public static boolean schemaHasExactlyOneSuchField(@Nonnull RecordDataSchema schema,
-      @Nonnull Predicate<RecordDataSchema.Field> predicate) {
+                                                     @Nonnull Predicate<RecordDataSchema.Field> predicate) {
     return schema.getFields().stream().filter(predicate).count() == 1;
   }
 
@@ -85,7 +86,7 @@ public class ValidationUtils {
    */
   public static boolean isValidUrnField(@Nonnull RecordDataSchema.Field field, @Nonnull String fieldName) {
     return field.getName().equals(fieldName) && !field.getOptional()
-        && field.getType().getType() == DataSchema.Type.TYPEREF && Urn.class.isAssignableFrom(getUrnClass(field));
+            && field.getType().getType() == DataSchema.Type.TYPEREF && Urn.class.isAssignableFrom(getUrnClass(field));
   }
 
   /**
@@ -111,7 +112,7 @@ public class ValidationUtils {
    */
   @Nonnull
   public static List<RecordDataSchema.Field> nonOptionalFields(@Nonnull RecordDataSchema schema,
-      @Nonnull Set<String> whitelistedFields) {
+                                                               @Nonnull Set<String> whitelistedFields) {
     return schema.getFields().stream().filter(field -> {
       if (!whitelistedFields.contains(field.getName())) {
         if (!field.getOptional()) {
@@ -127,7 +128,7 @@ public class ValidationUtils {
    */
   @Nonnull
   public static List<RecordDataSchema.Field> optionalFields(@Nonnull RecordDataSchema schema,
-      @Nonnull Set<String> whitelistedFields) {
+                                                            @Nonnull Set<String> whitelistedFields) {
     return schema.getFields().stream().filter(field -> {
       if (!whitelistedFields.contains(field.getName())) {
         if (field.getOptional()) {
@@ -143,11 +144,11 @@ public class ValidationUtils {
    */
   @Nonnull
   public static List<RecordDataSchema.Field> fieldsUsingInvalidType(@Nonnull RecordDataSchema schema,
-      @Nonnull Set<DataSchema.Type> allowedTypes) {
+                                                                    @Nonnull Set<DataSchema.Type> allowedTypes) {
     return schema.getFields()
-        .stream()
-        .filter(field -> !allowedTypes.contains(getFieldType(field)))
-        .collect(Collectors.toList());
+            .stream()
+            .filter(field -> !allowedTypes.contains(getFieldType(field)))
+            .collect(Collectors.toList());
   }
 
   public static boolean isUnionWithOnlyComplexMembers(UnionDataSchema unionDataSchema) {
@@ -156,7 +157,8 @@ public class ValidationUtils {
 
   @Nonnull
   private static DataSchema.Type getFieldType(@Nonnull RecordDataSchema.Field field) {
-    DataSchema type = field.getType();
+    DataSchema type = field.getType().getType() == DataSchema.Type.ARRAY
+            ? ((ArrayDataSchema) field.getType()).getItems() : field.getType();
     if (type.getType() == DataSchema.Type.TYPEREF) {
       return type.getDereferencedType();
     }
