@@ -1,7 +1,8 @@
 {
   "ref" : "string",
   "java" : {
-    "class" : "com.linkedin.common.urn.CorpGroupUrn"
+    "class" : "com.linkedin.common.urn.CorpGroupUrn",
+    "coercerClass": "com.linkedin.common.urn.CorpGroupUrnCoercer"
   },
   "name" : "CorpGroupUrn",
   "namespace" : "com.linkedin.common",

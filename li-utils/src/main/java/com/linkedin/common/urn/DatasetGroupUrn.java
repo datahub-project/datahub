@@ -1,5 +1,9 @@
 package com.linkedin.common.urn;
 
+import java.net.URISyntaxException;
+
+import static com.linkedin.common.urn.UrnUtils.toFabricType;
+
 public final class DatasetGroupUrn extends Urn {
 
   public static final String ENTITY_TYPE = "datasetGroup";
@@ -22,5 +26,15 @@ public final class DatasetGroupUrn extends Urn {
 
   public String getNameEntity() {
     return nameEntity;
+  }
+
+  public static DatasetGroupUrn createFromString(String rawUrn) throws URISyntaxException {
+    String content = new Urn(rawUrn).getContent();
+    String[] parts = content.substring(1, content.length()-1).split(",");
+    return new DatasetGroupUrn(parts[0], parts[1]);
+  }
+
+  public static DatasetGroupUrn deserialize(String rawUrn) throws URISyntaxException {
+    return createFromString(rawUrn);
   }
 }

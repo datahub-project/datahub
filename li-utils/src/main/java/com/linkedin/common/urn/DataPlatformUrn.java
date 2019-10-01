@@ -22,4 +22,8 @@ public final class DataPlatformUrn extends Urn {
     String platformName = new Urn(rawUrn).getContent();
     return new DataPlatformUrn(platformName);
   }
+
+  public static DataPlatformUrn deserialize(String rawUrn) throws URISyntaxException {
+    return createFromString(rawUrn);
+  }
 }

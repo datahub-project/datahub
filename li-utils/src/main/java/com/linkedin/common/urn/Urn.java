@@ -78,4 +78,8 @@ public class Urn {
       return false;
     }
   }
+
+  public static Urn deserialize(String rawUrn) throws URISyntaxException {
+    return createFromString(rawUrn);
+  }
 }

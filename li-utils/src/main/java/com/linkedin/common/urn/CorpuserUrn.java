@@ -38,4 +38,8 @@ public final class CorpuserUrn extends Urn {
       throw new URISyntaxException(urn.toString(), "CorpuserUrn syntax error");
     }
   }
+
+  public static CorpuserUrn deserialize(String rawUrn) throws URISyntaxException {
+    return createFromString(rawUrn);
+  }
 }
