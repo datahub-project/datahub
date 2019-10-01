@@ -42,4 +42,8 @@ public final class DatasetUrn extends Urn {
     String[] parts = content.substring(1, content.length()-1).split(",");
     return new DatasetUrn(DataPlatformUrn.createFromString(parts[0]), parts[1], toFabricType(parts[2]));
   }
+
+  public static DatasetUrn deserialize(String rawUrn) throws URISyntaxException {
+    return createFromString(rawUrn);
+  }
 }
