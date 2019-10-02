@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.utils.elasticsearch.ElasticsearchConnectorFactory;
 import com.linkedin.metadata.utils.elasticsearch.MCEElasticEvent;
 import com.linkedin.mxe.MetadataAuditEvent;
+import com.linkedin.mxe.Topics;
 import com.linkedin.util.Configuration;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +30,7 @@ import java.util.*;
 public class ElasticSearchStreamTask {
     private static final String DOC_TYPE = "doc";
 
-    private static final String DEFAULT_KAFKA_TOPIC_NAME = "MetadataAuditEvent";
+    private static final String DEFAULT_KAFKA_TOPIC_NAME = Topics.METADATA_AUDIT_EVENT;
     private static final String DEFAULT_ELASTICSEARCH_HOST = "localhost";
     private static final String DEFAULT_ELASTICSEARCH_PORT = "9200";
     private static final String DEFAULT_KAFKA_BOOTSTRAP_SERVER = "localhost:9092";
