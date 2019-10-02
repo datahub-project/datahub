@@ -5,6 +5,7 @@ import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.Filter;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -25,7 +26,7 @@ public abstract class BaseBrowseDAO {
    * @return a {@link BrowseResult} that contains a list of groups/entities
    */
   @Nonnull
-  public abstract BrowseResult browse(@Nonnull String path, @Nonnull Filter requestParams, int from, int size);
+  public abstract BrowseResult browse(@Nonnull String path, @Nullable Filter requestParams, int from, int size);
 
   /**
    * Gets a list of paths for a given urn

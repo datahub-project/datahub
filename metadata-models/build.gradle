@@ -5,6 +5,7 @@ dependencies {
   compile project(':li-utils')
   dataModel project(':li-utils')
 
+  testCompile project(':metadata-validators')
   testCompile externalDependency.guava
   testCompile externalDependency.testng
 }

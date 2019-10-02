@@ -29,6 +29,7 @@ public class CorpUserInfoIndexBuilderTest {
     assertEquals(actualDocs.size(), 1);
     assertEquals(actualDocs.get(0).getUrn(), corpuserUrn);
     assertEquals(actualDocs.get(0).getTitle(), "fooBarEng");
+    assertTrue(actualDocs.get(0).isActive());
 
     CorpUserEditableInfo corpUserEditableInfo1 = new CorpUserEditableInfo().setAboutMe("An Engineer")
         .setSkills(new StringArray(Arrays.asList("skill1", "skill2", "skill3")));

@@ -23,10 +23,10 @@ public class SchemaCompatibilityTests {
       + "************************************************************************\n";
 
   private static final AvroCompatibilityChecker AVRO_BACKWARD_COMPATIBILITY_CHECKER =
-          AvroCompatibilityChecker.BACKWARD_CHECKER;
+      AvroCompatibilityChecker.BACKWARD_CHECKER;
 
   private static final AvroCompatibilityChecker AVRO_FORWARD_COMPATIBILITY_CHECKER =
-          AvroCompatibilityChecker.FORWARD_CHECKER;
+      AvroCompatibilityChecker.FORWARD_CHECKER;
 
   @Test
   public void testBackwardCompatibility() {
@@ -41,11 +41,11 @@ public class SchemaCompatibilityTests {
 
       // Check backward compatibility, i.e. can new schema fits old data
       assertTrue(AVRO_BACKWARD_COMPATIBILITY_CHECKER.isCompatible(schema, olderSchema),
-              "New schema is backward incompatible with the current schema \n\n");
+          "New schema is backward incompatible with the current schema \n\n");
 
       // Check forward compatibility, i.e. can new data fits old schema
       assertTrue(AVRO_FORWARD_COMPATIBILITY_CHECKER.isCompatible(schema, olderSchema),
-              FORWARD_INCOMPATIBILITY_WARNING + "\n\n");
+          FORWARD_INCOMPATIBILITY_WARNING + "\n\n");
     });
   }
 

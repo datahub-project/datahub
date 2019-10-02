@@ -4,15 +4,18 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.SearchResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.annotations.Finder;
+import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
@@ -47,19 +50,20 @@ public abstract class BaseSearchDocumentResource<DOCUMENT extends RecordTemplate
    */
   @Finder("search")
   @Nonnull
-  protected abstract Task<CollectionResult<DOCUMENT, SearchResultMetadata>> search(@QueryParam(PARAM_INPUT) @Nonnull String input,
-      @QueryParam(PARAM_FILTER) @Nonnull Filter filter, @PagingContextParam @Nonnull PagingContext pagingContext);
+  protected abstract Task<CollectionResult<DOCUMENT, SearchResultMetadata>> search(
+      @QueryParam(PARAM_INPUT) @Nonnull String input, @QueryParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @PagingContextParam @Nonnull PagingContext pagingContext);
 
   @Nonnull
   protected Task<CollectionResult<DOCUMENT, SearchResultMetadata>> getSearchDocuments(@Nonnull String input,
-      @Nonnull Filter filter, @Nonnull PagingContext pagingContext) {
+      @Nullable Filter filter, @Nullable SortCriterion sortCriterion, @Nonnull PagingContext pagingContext) {
     return RestliUtils.toTask(() -> {
       final SearchResult<DOCUMENT> searchResult =
-          getSearchDAO().search(input, filter, pagingContext.getStart(), pagingContext.getCount());
+          getSearchDAO().search(input, filter, sortCriterion, pagingContext.getStart(), pagingContext.getCount());
 
-
-      return new CollectionResult<>(searchResult.getDocumentList(),
-          searchResult.getTotalCount(), searchResult.getSearchResultMetadata());
+      return new CollectionResult<>(searchResult.getDocumentList(), searchResult.getTotalCount(),
+          searchResult.getSearchResultMetadata());
     });
   }
 }

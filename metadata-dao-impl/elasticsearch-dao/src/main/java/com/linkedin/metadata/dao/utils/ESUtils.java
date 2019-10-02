@@ -1,11 +1,8 @@
 package com.linkedin.metadata.dao.utils;
 
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 import javax.annotation.Nonnull;
-
-import com.linkedin.common.urn.Urn;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
@@ -29,8 +26,7 @@ public class ESUtils {
     BoolQueryBuilder boolFilter = new BoolQueryBuilder();
     for (Map.Entry<String, String> entry : requestMap.entrySet()) {
       BoolQueryBuilder filters = new BoolQueryBuilder();
-      // TODO: Remove checking for urn after solving META-10102
-      Arrays.stream(Urn.isUrn(entry.getValue()) ? new String[]{entry.getValue()} : entry.getValue().split(","))
+      Arrays.stream(entry.getValue().split(","))
           .forEach(elem -> filters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
       boolFilter.must(filters);
     }

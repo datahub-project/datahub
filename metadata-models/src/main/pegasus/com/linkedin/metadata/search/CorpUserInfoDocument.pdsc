@@ -59,6 +59,12 @@
       },
       "doc": "Skills that the user possesses e.g. Machine Learning",
       "optional": true
+    },
+    {
+      "name": "active",
+      "type": "boolean",
+      "doc": "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools",
+      "optional": true
     }
   ]
 }

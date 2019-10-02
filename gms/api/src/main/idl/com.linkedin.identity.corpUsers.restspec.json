@@ -35,7 +35,12 @@
         "name" : "filter",
         "type" : "com.linkedin.metadata.query.Filter",
         "optional" : true
-      } ]
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
+      } ],
+      "pagingSupported" : true
     } ],
     "finders" : [ {
       "name" : "search",
@@ -50,11 +55,60 @@
         "name" : "filter",
         "type" : "com.linkedin.metadata.query.Filter",
         "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
       } ],
       "metadata" : {
         "type" : "com.linkedin.metadata.query.SearchResultMetadata"
       },
       "pagingSupported" : true
+    } ],
+    "actions" : [ {
+      "name" : "autocomplete",
+      "parameters" : [ {
+        "name" : "query",
+        "type" : "string"
+      }, {
+        "name" : "field",
+        "type" : "string"
+      }, {
+        "name" : "filter",
+        "type" : "com.linkedin.metadata.query.Filter"
+      }, {
+        "name" : "limit",
+        "type" : "int"
+      } ],
+      "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
+      "name" : "backfill",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+    }, {
+      "name" : "ingest",
+      "parameters" : [ {
+        "name" : "snapshot",
+        "type" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+      } ]
     } ],
     "entity" : {
       "path" : "/corpUsers/{corpUser}",
@@ -83,6 +137,9 @@
         "annotations" : {
           "createOnly" : {
             "value" : [ "urn" ]
+          },
+          "deprecated" : {
+            "doc" : "Use corresponding action methods in /corpUsers"
           }
         },
         "name" : "snapshot",

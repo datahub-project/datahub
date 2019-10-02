@@ -38,7 +38,7 @@ public class ElasticsearchConnector {
   private static final long DEFAULT_RETRY_INTERVAL = 1L;
 
   public ElasticsearchConnector(List<String> hosts, Integer port, Integer threadCount, Integer bulkRequestsLimit,
-                                Integer bulkFlushPeriod) {
+      Integer bulkFlushPeriod) {
 
     _esPort = port;
     _esHosts = hosts.toArray(new String[0]);

@@ -12,7 +12,7 @@ dependencies {
   compile externalDependency.commonsIo
 
   testCompile project(':metadata-dao')
-  testCompile project(':metadata-test-utils')
+  testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.testng
 
   avroOriginal project(path: ':metadata-models', configuration: 'avroSchema')

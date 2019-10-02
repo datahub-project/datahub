@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -22,17 +23,17 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 @Slf4j
 public class ESAutoCompleteQueryForHighCardinalityFields extends BaseESAutoCompleteQuery {
   private static final Integer DEFAULT_AUTOCOMPLETE_QUERY_SIZE =  100;
-  private String _indexName;
+  private BaseSearchConfig _config;
 
-  ESAutoCompleteQueryForHighCardinalityFields(String indexName) {
-    this._indexName = indexName;
+  ESAutoCompleteQueryForHighCardinalityFields(BaseSearchConfig config) {
+    this._config = config;
   }
 
   @Nonnull
   SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
-      @Nonnull Filter requestParams) {
+      @Nullable Filter requestParams) {
 
-    SearchRequest searchRequest = new SearchRequest(_indexName);
+    SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
@@ -54,14 +55,9 @@ public class ESAutoCompleteQueryForHighCardinalityFields extends BaseESAutoCompl
    */
   @Nonnull
   QueryBuilder buildAutoCompleteQueryString(@Nonnull String input, @Nonnull String field) {
-    String query = SearchUtils.readResourceFile(getAutocompleteQueryTemplate());
+    String query = _config.getAutocompleteQueryTemplate();
     query = query.replace("$INPUT", input).replace("$FIELD", field);
     return QueryBuilders.wrapperQuery(query);
-  }
-
-  @Nonnull
-  String getAutocompleteQueryTemplate() {
-    return _indexName + "ESAutoCompleteQueryTemplate.json";
   }
 
 

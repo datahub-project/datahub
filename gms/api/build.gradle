@@ -1,6 +1,7 @@
 apply plugin: 'pegasus'
 
 dependencies {
+  dataModel project(':metadata-dao')
   dataModel project(':metadata-models')
   dataModel spec.product.pegasus.restliCommon
 

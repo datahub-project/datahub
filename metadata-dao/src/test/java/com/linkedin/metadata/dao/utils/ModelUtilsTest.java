@@ -1,66 +1,221 @@
 package com.linkedin.metadata.dao.utils;
 
-import com.linkedin.common.Ownership;
-import com.linkedin.common.urn.DatasetGroupUrn;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.delta.DatasetGroupDelta;
-import com.linkedin.metadata.delta.Delta;
-import com.linkedin.metadata.search.Document;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.validator.InvalidSchemaException;
+import com.linkedin.testing.AspectBar;
+import com.linkedin.testing.AspectFoo;
+import com.linkedin.testing.DeltaUnion;
+import com.linkedin.testing.EntityAspectUnion;
+import com.linkedin.testing.EntityAspectUnionArray;
+import com.linkedin.testing.EntityDelta;
+import com.linkedin.testing.EntityDocument;
+import com.linkedin.testing.EntitySnapshot;
+import com.linkedin.testing.InvalidAspectUnion;
+import com.linkedin.testing.RelationshipFoo;
+import com.linkedin.testing.RelationshipUnion;
+import com.linkedin.testing.SnapshotUnion;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Set;
 import org.testng.annotations.Test;
+import org.testng.collections.Lists;
 
-import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.testing.TestUtils.*;
 import static org.testng.Assert.*;
 
 
 public class ModelUtilsTest {
 
+  class ChildUrn extends Urn {
+
+    public ChildUrn(String rawUrn) throws URISyntaxException {
+      super(rawUrn);
+    }
+  }
+
   @Test
   public void testGetAspectName() {
-    String aspectName = ModelUtils.getAspectName(Ownership.class);
-    assertEquals(aspectName, "com.linkedin.common.Ownership");
+    String aspectName = ModelUtils.getAspectName(AspectFoo.class);
+    assertEquals(aspectName, "com.linkedin.testing.AspectFoo");
   }
 
   @Test
   public void testGetAspectClass() {
-    Class ownershipClass = ModelUtils.getAspectClass("com.linkedin.common.Ownership");
-    assertEquals(ownershipClass, Ownership.class);
+    Class aspectClass = ModelUtils.getAspectClass("com.linkedin.testing.AspectFoo");
+    assertEquals(aspectClass, AspectFoo.class);
   }
 
   @Test(expectedExceptions = ClassCastException.class)
   public void testGetInvalidAspectClass() {
-    ModelUtils.getAspectClass(Document.class.getCanonicalName());
+    ModelUtils.getAspectClass(EntityAspectUnion.class.getCanonicalName());
+  }
+
+  @Test
+  public void testGetValidAspectTypes() {
+    Set<Class<? extends RecordTemplate>> validTypes = ModelUtils.getValidAspectTypes(EntityAspectUnion.class);
+
+    assertEquals(validTypes, ImmutableSet.of(AspectFoo.class, AspectBar.class));
+  }
+
+  @Test
+  public void testGetValidSnapshotClassFromName() {
+    Class<? extends RecordTemplate> actualClass =
+        ModelUtils.getMetadataSnapshotClassFromName(EntitySnapshot.class.getCanonicalName());
+    assertEquals(actualClass, EntitySnapshot.class);
   }
 
   @Test(expectedExceptions = InvalidSchemaException.class)
   public void testGetInvalidSnapshotClassFromName() {
-    ModelUtils.getMetadataSnapshotClassFromName(Ownership.class.getCanonicalName());
+    ModelUtils.getMetadataSnapshotClassFromName(AspectFoo.class.getCanonicalName());
+  }
+
+  @Test
+  public void testGetUrnFromSnapshot() {
+    Urn expected = makeUrn(1);
+    EntitySnapshot snapshot = new EntitySnapshot().setUrn(expected);
+
+    Urn urn = ModelUtils.getUrnFromSnapshot(snapshot);
+    assertEquals(urn, expected);
+  }
+
+  @Test
+  public void testGetUrnFromSnapshotUnion() {
+    Urn expected = makeUrn(1);
+    EntitySnapshot snapshot = new EntitySnapshot().setUrn(expected);
+    SnapshotUnion snapshotUnion = new SnapshotUnion();
+    snapshotUnion.setEntitySnapshot(snapshot);
+
+    Urn urn = ModelUtils.getUrnFromSnapshotUnion(snapshotUnion);
+    assertEquals(urn, expected);
   }
 
   @Test
   public void testGetUrnFromDelta() {
-    DatasetGroupUrn datasetGroupUrn = makeDatasetGroupUrn("foo");
-    DatasetGroupDelta delta = new DatasetGroupDelta().setUrn(datasetGroupUrn);
+    Urn expected = makeUrn(1);
+    EntityDelta delta = new EntityDelta().setUrn(expected);
 
     Urn urn = ModelUtils.getUrnFromDelta(delta);
-    assertEquals(urn.getClass(), DatasetGroupUrn.class);
-    assertEquals(urn, datasetGroupUrn);
+    assertEquals(urn, expected);
   }
 
   @Test
   public void testGetUrnFromDeltaUnion() {
-    DatasetGroupUrn datasetGroupUrn = makeDatasetGroupUrn("foo");
-    DatasetGroupDelta delta = new DatasetGroupDelta().setUrn(datasetGroupUrn);
-    Delta deltaUnion = new Delta();
-    deltaUnion.setDatasetGroupDelta(delta);
+    Urn expected = makeUrn(1);
+    EntityDelta delta = new EntityDelta().setUrn(expected);
+    DeltaUnion deltaUnion = new DeltaUnion();
+    deltaUnion.setEntityDelta(delta);
 
     Urn urn = ModelUtils.getUrnFromDeltaUnion(deltaUnion);
-    assertEquals(urn.getClass(), DatasetGroupUrn.class);
-    assertEquals(urn, datasetGroupUrn);
+    assertEquals(urn, expected);
+  }
+
+  @Test
+  public void testGetUrnFromDocument() {
+    Urn expected = makeUrn(1);
+    EntityDocument document = new EntityDocument().setUrn(expected);
+
+    Urn urn = ModelUtils.getUrnFromDocument(document);
+    assertEquals(urn, expected);
+  }
+
+  @Test
+  public void testGetAspectsFromSnapshot() throws IOException {
+    EntitySnapshot snapshot = new EntitySnapshot();
+    snapshot.setAspects(new EntityAspectUnionArray());
+    snapshot.getAspects().add(new EntityAspectUnion());
+    AspectFoo foo = new AspectFoo();
+    snapshot.getAspects().get(0).setAspectFoo(foo);
+
+    List<? extends RecordTemplate> aspects = ModelUtils.getAspectsFromSnapshot(snapshot);
+
+    assertEquals(aspects.size(), 1);
+    assertEquals(aspects.get(0), foo);
+  }
+
+  @Test
+  public void testGetAspectsFromSnapshotUnion() throws IOException {
+    EntitySnapshot snapshot = new EntitySnapshot();
+    snapshot.setAspects(new EntityAspectUnionArray());
+    snapshot.getAspects().add(new EntityAspectUnion());
+    AspectFoo foo = new AspectFoo();
+    snapshot.getAspects().get(0).setAspectFoo(foo);
+    SnapshotUnion snapshotUnion = new SnapshotUnion();
+    snapshotUnion.setEntitySnapshot(snapshot);
+
+    List<? extends RecordTemplate> aspects = ModelUtils.getAspectsFromSnapshotUnion(snapshotUnion);
+
+    assertEquals(aspects.size(), 1);
+    assertEquals(aspects.get(0), foo);
+  }
+
+  @Test
+  public void testNewSnapshot() {
+    Urn urn = makeUrn(1);
+    AspectFoo foo = new AspectFoo().setValue("foo");
+    EntityAspectUnion aspectUnion = new EntityAspectUnion();
+    aspectUnion.setAspectFoo(foo);
+
+    EntitySnapshot snapshot = ModelUtils.newSnapshot(EntitySnapshot.class, urn, Lists.newArrayList(aspectUnion));
+
+    assertEquals(snapshot.getUrn(), urn);
+    assertEquals(snapshot.getAspects().size(), 1);
+    assertEquals(snapshot.getAspects().get(0).getAspectFoo(), foo);
+  }
+
+  @Test
+  public void testNewAspect() {
+    AspectFoo foo = new AspectFoo().setValue("foo");
+
+    EntityAspectUnion aspectUnion = ModelUtils.newAspectUnion(EntityAspectUnion.class, foo);
+
+    assertEquals(aspectUnion.getAspectFoo(), foo);
+  }
+
+  @Test
+  public void testAspectClassForSnapshot() {
+    assertEquals(ModelUtils.aspectClassForSnapshot(EntitySnapshot.class), EntityAspectUnion.class);
+  }
+
+  @Test
+  public void testUrnClassForSnapshot() {
+    assertEquals(ModelUtils.urnClassForSnapshot(EntitySnapshot.class), Urn.class);
   }
 
   @Test
   public void testUrnClassForDelta() {
-    assertEquals(ModelUtils.urnClassForDelta(DatasetGroupDelta.class), DatasetGroupUrn.class);
+    assertEquals(ModelUtils.urnClassForDelta(EntityDelta.class), Urn.class);
+  }
+
+  @Test
+  public void testUrnClassForDocument() {
+    assertEquals(ModelUtils.urnClassForDocument(EntityDocument.class), Urn.class);
+  }
+
+  @Test(expectedExceptions = InvalidSchemaException.class)
+  public void testValidateIncorrectAspectForSnapshot() {
+    ModelUtils.validateSnapshotAspect(EntitySnapshot.class, InvalidAspectUnion.class);
+  }
+
+  @Test
+  public void testValidateCorrectAspectForSnapshot() {
+    ModelUtils.validateSnapshotAspect(EntitySnapshot.class, EntityAspectUnion.class);
+  }
+
+  @Test
+  public void testValidateCorrectUrnForSnapshot() {
+    ModelUtils.validateSnapshotUrn(EntitySnapshot.class, Urn.class);
+    ModelUtils.validateSnapshotUrn(EntitySnapshot.class, ChildUrn.class);
+  }
+
+  @Test
+  public void testNewRelatioshipUnion() {
+    RelationshipFoo foo = new RelationshipFoo().setDestination(makeUrn(1)).setSource(makeUrn(2));
+
+    RelationshipUnion relationshipUnion = ModelUtils.newRelationshipUnion(RelationshipUnion.class, foo);
+
+    assertEquals(relationshipUnion.getRelationshipFoo(), foo);
   }
 }

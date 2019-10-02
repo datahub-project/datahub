@@ -53,26 +53,26 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
     final Filter filter = SearchUtils.getFilter(Collections.singletonMap("upstreams", datasetUrn.toString()));
 
     return RestliUtils.toTask(() -> {
-      final SearchResult<DatasetDocument> searchResult = _searchDAO.search("*", filter, 0, 10000);
+      final SearchResult<DatasetDocument> searchResult = _searchDAO.search("*", filter, null, 0, 10000);
       final Set<DatasetUrn> downstreamDatasets = searchResult.getDocumentList()
-              .stream()
-              .map(d -> (DatasetUrn) ModelUtils.getUrnFromDocument(d))
-              .collect(Collectors.toSet());
+          .stream()
+          .map(d -> (DatasetUrn) ModelUtils.getUrnFromDocument(d))
+          .collect(Collectors.toSet());
       final DownstreamArray downstreamArray = new DownstreamArray(downstreamDatasets.stream()
-              .map(ds -> {
-                final UpstreamLineage upstreamLineage = (UpstreamLineage) _localDAO.get(UpstreamLineage.class, ds).get();
-                final List<Upstream> upstreams = upstreamLineage.getUpstreams().stream()
-                        .filter(us -> us.getDataset().equals(datasetUrn))
-                        .collect(Collectors.toList());
-                if (upstreams.size() != 1) {
-                  throw new RuntimeException(String.format("There is no relation or more than 1 relation between the datasets!"));
-                }
-                return new Downstream()
-                        .setDataset(ds)
-                        .setType(upstreams.get(0).getType())
-                        .setAuditStamp(upstreams.get(0).getAuditStamp());
-              })
-              .collect(Collectors.toList())
+          .map(ds -> {
+            final UpstreamLineage upstreamLineage = (UpstreamLineage) _localDAO.get(UpstreamLineage.class, ds).get();
+            final List<Upstream> upstreams = upstreamLineage.getUpstreams().stream()
+                .filter(us -> us.getDataset().equals(datasetUrn))
+                .collect(Collectors.toList());
+            if (upstreams.size() != 1) {
+              throw new RuntimeException(String.format("There is no relation or more than 1 relation between the datasets!"));
+            }
+            return new Downstream()
+                .setDataset(ds)
+                .setType(upstreams.get(0).getType())
+                .setAuditStamp(upstreams.get(0).getAuditStamp());
+          })
+          .collect(Collectors.toList())
       );
       return new DownstreamLineage().setDownstreams(downstreamArray);
     });

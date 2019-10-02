@@ -22,7 +22,7 @@ public class ModelValidation {
   @Test
   public void validateEntities() throws Exception {
     getClassesInPackage("com.linkedin.metadata.entity", IGNORED_ENTITY_CLASSES).forEach(
-        EntityValidator::validateSchema);
+        EntityValidator::validateEntitySchema);
   }
 
   @Test
@@ -34,19 +34,19 @@ public class ModelValidation {
   @Test
   public void validateDocuments() throws Exception {
     getClassesInPackage("com.linkedin.metadata.search", IGNORED_DOCUMENT_CLASSES).forEach(
-        DocumentValidator::validateSchema);
+        DocumentValidator::validateDocumentSchema);
   }
 
   @Test
   public void validateAspects() throws Exception {
     getClassesInPackage("com.linkedin.metadata.aspect", IGNORED_ASPECT_CLASSES).forEach(
-        AspectValidator::validateSchema);
+        AspectValidator::validateAspectUnionSchema);
   }
 
   @Test
   public void validateSnapshots() throws Exception {
     getClassesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES).forEach(
-        SnapshotValidator::validateSchema);
+        SnapshotValidator::validateSnapshotSchema);
 
     SnapshotValidator.validateUniqueUrn(
         getClassesInPackage("com.linkedin.metadata.snapshot", IGNORED_SNAPSHOT_CLASSES).collect(Collectors.toList()));
@@ -54,7 +54,7 @@ public class ModelValidation {
 
   @Test
   public void validateDeltas() throws Exception {
-    getClassesInPackage("com.linkedin.metadata.delta", IGNORED_DELTA_CLASSES).forEach(DeltaValidator::validateSchema);
+    getClassesInPackage("com.linkedin.metadata.delta", IGNORED_DELTA_CLASSES).forEach(DeltaValidator::validateDeltaSchema);
   }
 
   private Stream<? extends Class> getClassesInPackage(@Nonnull String packageName, @Nonnull Set<Class> ignoreClasses)

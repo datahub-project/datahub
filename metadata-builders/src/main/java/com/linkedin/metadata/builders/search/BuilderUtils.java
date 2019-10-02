@@ -18,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class BuilderUtils {
 
+  public static final String BROWSE_HIEARCHY_SEPARATOR = "/";
+
   private BuilderUtils() {
     // Util class should not have public constructor
   }
@@ -56,4 +58,14 @@ public final class BuilderUtils {
     return multiLocaleString.getLocalized().get(locale);
   }
 
+  /**
+   * Get normalized browse field by replacing special browse hiearchy seperator's with a replacement
+   * @param field browse field
+   * @param replacement the value which will replace special browse hiearchy seperator
+   * @return normalized browse field
+   */
+  @Nonnull
+  public static String getNormalizedBrowseField(@Nonnull String field, @Nonnull String replacement) {
+    return field.replace(BROWSE_HIEARCHY_SEPARATOR, replacement);
+  }
 }

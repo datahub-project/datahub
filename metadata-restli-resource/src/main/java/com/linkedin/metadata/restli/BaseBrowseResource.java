@@ -18,6 +18,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import java.util.LinkedList;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -43,7 +44,7 @@ public abstract class BaseBrowseResource extends CollectionResourceTaskTemplate<
    */
   @Finder("path")
   public Task<CollectionResult<BrowseResultEntity, BrowseResultMetadata>> browse(
-      @QueryParam("inputPath") @Nonnull String inputPath, @QueryParam("filter") @Nonnull Filter filter,
+      @QueryParam("inputPath") @Nonnull String inputPath, @QueryParam("filter") @Nullable Filter filter,
       @PagingContextParam @Nonnull PagingContext pagingContext) {
     return RestliUtils.toTask(() -> {
       final BrowseResult browseResult =

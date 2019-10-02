@@ -14,21 +14,25 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AggregationMetadata;
 import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.query.SortOrder;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.restli.server.CollectionResult;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.ResourceContext;
-import com.linkedin.testing.Aspect;
-import com.linkedin.testing.AspectArray;
 import com.linkedin.testing.AspectBar;
 import com.linkedin.testing.AspectFoo;
-import com.linkedin.testing.Document;
-import com.linkedin.testing.Key;
-import com.linkedin.testing.Snapshot;
-import com.linkedin.testing.Value;
+import com.linkedin.testing.EntityAspectUnion;
+import com.linkedin.testing.EntityAspectUnionArray;
+import com.linkedin.testing.EntityDocument;
+import com.linkedin.testing.EntityKey;
+import com.linkedin.testing.EntitySnapshot;
+import com.linkedin.testing.EntityValue;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -36,26 +40,28 @@ import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.restli.TestUtils.*;
+import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
 public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
-  private BaseLocalDAO<Aspect, Urn> _mockLocalDAO;
-  private BaseSearchDAO<Document> _mockSearchDAO;
+  private BaseLocalDAO<EntityAspectUnion, Urn> _mockLocalDAO;
+  private BaseSearchDAO<EntityDocument> _mockSearchDAO;
   private TestResource _resource = new TestResource();
 
-  class TestResource extends BaseSearchableEntityResource<Key, Value, Urn, Snapshot, Aspect, Document> {
+  class TestResource extends BaseSearchableEntityResource<
+      // format
+      EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
 
     public TestResource() {
-      super(Snapshot.class, Aspect.class);
+      super(EntitySnapshot.class, EntityAspectUnion.class);
     }
 
     @Nonnull
     @Override
-    protected BaseLocalDAO<Aspect, Urn> getLocalDAO() {
+    protected BaseLocalDAO<EntityAspectUnion, Urn> getLocalDAO() {
       return _mockLocalDAO;
     }
 
@@ -67,20 +73,30 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected Urn toUrn(@Nonnull Key key) {
+    protected Urn createUrnFromString(@Nonnull String urnString) {
+      try {
+        return Urn.createFromString(urnString);
+      } catch (URISyntaxException e) {
+        throw RestliUtils.badRequestException("Invalid URN: " + urnString);
+      }
+    }
+
+    @Nonnull
+    @Override
+    protected Urn toUrn(@Nonnull EntityKey key) {
       return makeUrn(key.getId());
     }
 
     @Nonnull
     @Override
-    protected Key toKey(@Nonnull Urn urn) {
-      return new Key().setId(urn.getIdAsLong());
+    protected EntityKey toKey(@Nonnull Urn urn) {
+      return new EntityKey().setId(urn.getIdAsLong());
     }
 
     @Nonnull
     @Override
-    protected Value toValue(@Nonnull Snapshot snapshot) {
-      Value value = new Value();
+    protected EntityValue toValue(@Nonnull EntitySnapshot snapshot) {
+      EntityValue value = new EntityValue();
       ModelUtils.getAspectsFromSnapshot(snapshot).forEach(a -> {
         if (a instanceof AspectFoo) {
           value.setFoo(AspectFoo.class.cast(a));
@@ -93,14 +109,14 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected Snapshot toSnapshot(@Nonnull Value value, @Nonnull Urn urn) {
-      Snapshot snapshot = new Snapshot().setUrn(urn);
-      AspectArray aspects = new AspectArray();
+    protected EntitySnapshot toSnapshot(@Nonnull EntityValue value, @Nonnull Urn urn) {
+      EntitySnapshot snapshot = new EntitySnapshot().setUrn(urn);
+      EntityAspectUnionArray aspects = new EntityAspectUnionArray();
       if (value.hasFoo()) {
-        aspects.add(ModelUtils.newAspectUnion(Aspect.class, value.getFoo()));
+        aspects.add(ModelUtils.newAspectUnion(EntityAspectUnion.class, value.getFoo()));
       }
       if (value.hasBar()) {
-        aspects.add(ModelUtils.newAspectUnion(Aspect.class, value.getBar()));
+        aspects.add(ModelUtils.newAspectUnion(EntityAspectUnion.class, value.getBar()));
       }
       snapshot.setAspects(aspects);
       return snapshot;
@@ -129,36 +145,38 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     SearchResultMetadata searchResultMetadata = makeSearchResultMetadata(new AggregationMetadata().setName("agg")
         .setAggregations(new LongMap(ImmutableMap.of("bucket1", 1L, "bucket2", 2L))));
 
-    when(_mockSearchDAO.search("bar", filter, 1, 2)).thenReturn(
-        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), searchResultMetadata));
+    when(_mockSearchDAO.search("bar", filter, null, 1, 2)).thenReturn(
+        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, searchResultMetadata));
 
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
     when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2))).thenReturn(
         ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.empty()));
 
-    CollectionResult<Value, SearchResultMetadata> searchResult =
-        runAndWait(_resource.search("bar", aspectNames, filter, new PagingContext(1, 2)));
+    CollectionResult<EntityValue, SearchResultMetadata> searchResult =
+        runAndWait(_resource.search("bar", aspectNames, filter, null, new PagingContext(1, 2)));
 
-    List<Value> values = searchResult.getElements();
+    List<EntityValue> values = searchResult.getElements();
     assertEquals(values.size(), 2);
     assertEquals(values.get(0).getFoo(), foo);
     assertFalse(values.get(0).hasBar());
     assertFalse(values.get(1).hasFoo());
     assertFalse(values.get(1).hasBar());
 
+    assertEquals(searchResult.getTotal().intValue(), 2);
     assertEquals(searchResult.getMetadata(), searchResultMetadata);
   }
 
-  private SearchResult<Document> makeSearchResult(List<Document> documents, SearchResultMetadata searchResultMetadata) {
-    return SearchResult.<Document>builder()
-        .documentList(documents)
+  private SearchResult<EntityDocument> makeSearchResult(List<EntityDocument> documents, int totalCount,
+      SearchResultMetadata searchResultMetadata) {
+    return SearchResult.<EntityDocument>builder().documentList(documents)
         .searchResultMetadata(searchResultMetadata)
+        .totalCount(totalCount)
         .build();
   }
 
   private SearchResultMetadata makeSearchResultMetadata(AggregationMetadata... aggregationMetadata) {
-    return new SearchResultMetadata()
-        .setSearchResultMetadatas(new AggregationMetadataArray(Arrays.asList(aggregationMetadata)));
+    return new SearchResultMetadata().setSearchResultMetadatas(
+        new AggregationMetadataArray(Arrays.asList(aggregationMetadata)));
   }
 
   @Test
@@ -175,6 +193,49 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     assertEquals(result.getSuggestions().get(0), "foo0");
     assertEquals(result.getSuggestions().get(1), "foo1");
     assertEquals(result.getSuggestions().get(2), "foo2");
+  }
+
+  @Test
+  public void testGetAll() {
+    Urn urn1 = makeUrn(1);
+    Urn urn2 = makeUrn(2);
+    AspectFoo foo = new AspectFoo().setValue("foo");
+    AspectKey<Urn, AspectFoo> aspectKey1 = new AspectKey<>(AspectFoo.class, urn1, BaseLocalDAO.LATEST_VERSION);
+    AspectKey<Urn, AspectFoo> aspectKey2 = new AspectKey<>(AspectFoo.class, urn2, BaseLocalDAO.LATEST_VERSION);
+
+    Filter filter1 = new Filter().setCriteria(new CriterionArray());
+    filter1.getCriteria().add(new Criterion().setField("removed").setValue("false"));
+    SortCriterion sortCriterion1 = new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
+
+    when(_mockSearchDAO.search("*", filter1, sortCriterion1, 1, 2)).thenReturn(
+        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, new SearchResultMetadata()));
+
+    String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
+    when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2))).thenReturn(
+        ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.empty()));
+
+    // test with null filter and null sort criterion
+    List<EntityValue> values =
+        runAndWait(_resource.getAll(new PagingContext(1, 2), aspectNames, null, null));
+    assertEquals(values.size(), 2);
+    assertEquals(values.get(0).getFoo(), foo);
+    assertFalse(values.get(0).hasBar());
+    assertFalse(values.get(1).hasFoo());
+    assertFalse(values.get(1).hasBar());
+
+    // test with filter that contains removed = true, with non-null sort criterion
+    Filter filter2 = new Filter().setCriteria(new CriterionArray());
+    filter2.getCriteria().add(new Criterion().setField("removed").setValue("true"));
+    SortCriterion sortCriterion2 = new SortCriterion().setField("urn").setOrder(SortOrder.DESCENDING);
+    when(_mockSearchDAO.search("*", filter2, sortCriterion2, 1, 2)).thenReturn(
+        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, new SearchResultMetadata()));
+    values =
+        runAndWait(_resource.getAll(new PagingContext(1, 2), aspectNames, filter2, sortCriterion2));
+    assertEquals(values.size(), 2);
+    assertEquals(values.get(0).getFoo(), foo);
+    assertFalse(values.get(0).hasBar());
+    assertFalse(values.get(1).hasFoo());
+    assertFalse(values.get(1).hasBar());
   }
 
   private AutoCompleteResult makeAutoCompleteResult(String query, List<String> suggestions) {

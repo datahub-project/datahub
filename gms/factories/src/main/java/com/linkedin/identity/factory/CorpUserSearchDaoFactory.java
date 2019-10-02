@@ -1,6 +1,6 @@
 package com.linkedin.identity.factory;
 
-import com.linkedin.identity.dao.search.CorpUserSearchConfig;
+import com.linkedin.metadata.configs.CorpUserSearchConfig;
 import com.linkedin.metadata.dao.search.ESSearchDAO;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -14,14 +14,14 @@ import javax.annotation.Nonnull;
 
 @Configuration
 public class CorpUserSearchDaoFactory {
-    @Autowired
-    ApplicationContext applicationContext;
+  @Autowired
+  ApplicationContext applicationContext;
 
-    @Bean(name = "corpUserSearchDao")
-    @DependsOn({"elasticSearchRestHighLevelClient"})
-    @Nonnull
-    protected ESSearchDAO createInstance() {
-        return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), CorpUserInfoDocument.class,
-                new CorpUserSearchConfig());
-    }
+  @Bean(name = "corpUserSearchDao")
+  @DependsOn({"elasticSearchRestHighLevelClient"})
+  @Nonnull
+  protected ESSearchDAO createInstance() {
+    return new ESSearchDAO(applicationContext.getBean(RestHighLevelClient.class), CorpUserInfoDocument.class,
+        new CorpUserSearchConfig());
+  }
 }

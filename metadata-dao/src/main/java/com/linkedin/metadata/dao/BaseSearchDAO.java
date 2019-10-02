@@ -5,8 +5,10 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SortCriterion;
 import com.linkedin.metadata.validator.DocumentValidator;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -22,7 +24,7 @@ public abstract class BaseSearchDAO<DOCUMENT extends RecordTemplate> {
   protected final Class<DOCUMENT> _documentClass;
 
   public BaseSearchDAO(Class<DOCUMENT> documentClass) {
-    DocumentValidator.validateSchema(documentClass);
+    DocumentValidator.validateDocumentSchema(documentClass);
     _documentClass = documentClass;
   }
 
@@ -31,13 +33,14 @@ public abstract class BaseSearchDAO<DOCUMENT extends RecordTemplate> {
    *
    * @param input the search input text
    * @param requestParams the request map with fields and values as filters
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
    * @param size the number of search hits to return
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  public abstract SearchResult<DOCUMENT> search(@Nonnull String input, @Nonnull Filter requestParams, int from,
-      int size);
+  public abstract SearchResult<DOCUMENT> search(@Nonnull String input, @Nullable Filter requestParams,
+      @Nullable SortCriterion sortCriterion, int from, int size);
 
   /**
    * Returns a list of suggestions given type ahead query
@@ -51,8 +54,8 @@ public abstract class BaseSearchDAO<DOCUMENT extends RecordTemplate> {
    * @return A list of suggestions as string
    */
   @Nonnull
-  public abstract AutoCompleteResult autoComplete(@Nonnull String query, @Nonnull String field,
-      @Nonnull Filter requestParams, int limit);
+  public abstract AutoCompleteResult autoComplete(@Nonnull String query, @Nullable String field,
+      @Nullable Filter requestParams, int limit);
 
 
   @Nonnull

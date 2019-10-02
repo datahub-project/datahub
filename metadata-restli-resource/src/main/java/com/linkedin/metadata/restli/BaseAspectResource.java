@@ -28,6 +28,8 @@ import javax.annotation.Nonnull;
  * @param <URN> must be a valid {@link Urn} type
  * @param <ASPECT_UNION> must be a valid union of aspect models defined in com.linkedin.metadata.aspect
  * @param <ASPECT> must be a valid aspect type inside ASPECT_UNION
+ *
+ * @deprecated Use {@link BaseVersionedAspectResource} instead.
  */
 public abstract class BaseAspectResource<
     // @formatter:off

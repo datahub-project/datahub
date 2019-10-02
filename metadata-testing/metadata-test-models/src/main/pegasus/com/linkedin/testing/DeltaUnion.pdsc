@@ -1,0 +1,9 @@
+{
+  "type": "typeref",
+  "name": "DeltaUnion",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "ref": [
+    "EntityDelta"
+  ]
+}

@@ -12,8 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.data.template.WrappingArrayTemplate;
 import com.linkedin.metadata.aspect.AspectVersion;
-import com.linkedin.metadata.delta.Delta;
-import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.dummy.DummySnapshot;
 import com.linkedin.metadata.validator.AspectValidator;
 import com.linkedin.metadata.validator.DeltaValidator;
 import com.linkedin.metadata.validator.DocumentValidator;
@@ -30,7 +29,7 @@ import javax.annotation.Nonnull;
 
 public class ModelUtils {
 
-  private static final ClassLoader CLASS_LOADER = Snapshot.class.getClassLoader();
+  private static final ClassLoader CLASS_LOADER = DummySnapshot.class.getClassLoader();
 
   private ModelUtils() {
     // Util class
@@ -69,7 +68,7 @@ public class ModelUtils {
   public static <ASPECT_UNION extends UnionTemplate> Set<Class<? extends RecordTemplate>> getValidAspectTypes(
       @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
 
-    AspectValidator.validateSchema(aspectUnionClass);
+    AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     Set<Class<? extends RecordTemplate>> validTypes = new HashSet<>();
     for (UnionDataSchema.Member member : ValidationUtils.getUnionSchema(aspectUnionClass).getMembers()) {
@@ -107,7 +106,7 @@ public class ModelUtils {
   @Nonnull
   public static Class<? extends RecordTemplate> getMetadataSnapshotClassFromName(@Nonnull String className) {
     Class<? extends RecordTemplate> snapshotClass = getClassFromName(className, RecordTemplate.class);
-    SnapshotValidator.validateSchema(snapshotClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
     return snapshotClass;
   }
 
@@ -120,7 +119,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static <SNAPSHOT extends RecordTemplate> Urn getUrnFromSnapshot(@Nonnull SNAPSHOT snapshot) {
-    SnapshotValidator.validateSchema(snapshot.getClass());
+    SnapshotValidator.validateSnapshotSchema(snapshot.getClass());
     return RecordUtils.getRecordTemplateField(snapshot, "urn", urnClassForSnapshot(snapshot.getClass()));
   }
 
@@ -128,7 +127,7 @@ public class ModelUtils {
    * Similar to {@link #getUrnFromSnapshot(RecordTemplate)} but extracts from a Snapshot union instead
    */
   @Nonnull
-  public static Urn getUrnFromSnapshotUnion(@Nonnull Snapshot snapshotUnion) {
+  public static Urn getUrnFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
     return getUrnFromSnapshot(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
   }
 
@@ -141,7 +140,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static <DELTA extends RecordTemplate> Urn getUrnFromDelta(@Nonnull DELTA delta) {
-    DeltaValidator.validateSchema(delta.getClass());
+    DeltaValidator.validateDeltaSchema(delta.getClass());
     return RecordUtils.getRecordTemplateField(delta, "urn", urnClassForDelta(delta.getClass()));
   }
 
@@ -149,7 +148,7 @@ public class ModelUtils {
    * Similar to {@link #getUrnFromDelta(RecordTemplate)} but extracts from a delta union instead
    */
   @Nonnull
-  public static Urn getUrnFromDeltaUnion(@Nonnull Delta deltaUnion) {
+  public static Urn getUrnFromDeltaUnion(@Nonnull UnionTemplate deltaUnion) {
     return getUrnFromDelta(RecordUtils.getSelectedRecordTemplateFromUnion(deltaUnion));
   }
 
@@ -162,7 +161,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static <DOCUMENT extends RecordTemplate> Urn getUrnFromDocument(@Nonnull DOCUMENT document) {
-    DocumentValidator.validateSchema(document.getClass());
+    DocumentValidator.validateDocumentSchema(document.getClass());
     return RecordUtils.getRecordTemplateField(document, "urn", urnClassForDocument(document.getClass()));
   }
 
@@ -177,7 +176,7 @@ public class ModelUtils {
   public static <SNAPSHOT extends RecordTemplate> List<RecordTemplate> getAspectsFromSnapshot(
       @Nonnull SNAPSHOT snapshot) {
 
-    SnapshotValidator.validateSchema(snapshot.getClass());
+    SnapshotValidator.validateSnapshotSchema(snapshot.getClass());
     return getAspects(snapshot);
   }
 
@@ -185,7 +184,7 @@ public class ModelUtils {
    * Similar to {@link #getAspectsFromSnapshot(RecordTemplate)} but extracts from a snapshot union instead
    */
   @Nonnull
-  public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull Snapshot snapshotUnion) {
+  public static List<RecordTemplate> getAspectsFromSnapshotUnion(@Nonnull UnionTemplate snapshotUnion) {
     return getAspects(RecordUtils.getSelectedRecordTemplateFromUnion(snapshotUnion));
   }
 
@@ -215,7 +214,7 @@ public class ModelUtils {
   public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate, URN extends Urn> SNAPSHOT newSnapshot(
       @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull URN urn, @Nonnull List<ASPECT_UNION> aspects) {
 
-    SnapshotValidator.validateSchema(snapshotClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
 
     final Class<? extends WrappingArrayTemplate> aspectArrayClass = getAspectsArrayClass(snapshotClass);
 
@@ -255,7 +254,7 @@ public class ModelUtils {
   public static <ASPECT_UNION extends UnionTemplate, ASPECT extends RecordTemplate> ASPECT_UNION newAspectUnion(
       @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull ASPECT aspect) {
 
-    AspectValidator.validateSchema(aspectUnionClass);
+    AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     try {
       ASPECT_UNION aspectUnion = aspectUnionClass.newInstance();
@@ -284,7 +283,7 @@ public class ModelUtils {
   @Nonnull
   public static Class<? extends UnionTemplate> aspectClassForSnapshot(
       @Nonnull Class<? extends RecordTemplate> snapshotClass) {
-    SnapshotValidator.validateSchema(snapshotClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
 
     String aspectClassName = ((TyperefDataSchema) ((ArrayDataSchema) ValidationUtils.getRecordSchema(snapshotClass)
         .getField("aspects")
@@ -298,7 +297,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static Class<? extends Urn> urnClassForSnapshot(@Nonnull Class<? extends RecordTemplate> snapshotClass) {
-    SnapshotValidator.validateSchema(snapshotClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
     return urnClassForField(snapshotClass, "urn");
   }
 
@@ -307,7 +306,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static Class<? extends Urn> urnClassForDelta(@Nonnull Class<? extends RecordTemplate> deltaClass) {
-    DeltaValidator.validateSchema(deltaClass);
+    DeltaValidator.validateDeltaSchema(deltaClass);
     return urnClassForField(deltaClass, "urn");
   }
 
@@ -316,7 +315,7 @@ public class ModelUtils {
    */
   @Nonnull
   public static Class<? extends Urn> urnClassForDocument(@Nonnull Class<? extends RecordTemplate> documentClass) {
-    DocumentValidator.validateSchema(documentClass);
+    DocumentValidator.validateDocumentSchema(documentClass);
     return urnClassForField(documentClass, "urn");
   }
 
@@ -337,8 +336,8 @@ public class ModelUtils {
    */
   public static <SNAPSHOT extends RecordTemplate, ASPECT_UNION extends UnionTemplate> void validateSnapshotAspect(
       @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
-    SnapshotValidator.validateSchema(snapshotClass);
-    AspectValidator.validateSchema(aspectUnionClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
+    AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     // Make sure that SNAPSHOT's "aspects" array field contains ASPECT_UNION type.
     if (!aspectClassForSnapshot(snapshotClass).equals(aspectUnionClass)) {
@@ -352,10 +351,10 @@ public class ModelUtils {
    */
   public static <SNAPSHOT extends RecordTemplate, URN extends Urn> void validateSnapshotUrn(
       @Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<URN> urnClass) {
-    SnapshotValidator.validateSchema(snapshotClass);
+    SnapshotValidator.validateSnapshotSchema(snapshotClass);
 
-    // Make sure that SNAPSHOT's "urn" field uses the correct class
-    if (!urnClassForSnapshot(snapshotClass).equals(urnClass)) {
+    // Make sure that SNAPSHOT's "urn" field uses the correct class or subclasses
+    if (!urnClassForSnapshot(snapshotClass).isAssignableFrom(urnClass)) {
       throw new InvalidSchemaException(
           urnClass.getCanonicalName() + " is not a supported URN class of " + snapshotClass.getCanonicalName());
     }

@@ -16,21 +16,22 @@ import javax.annotation.Nonnull;
 @RestLiCollection(name = "editableInfo", namespace = "com.linkedin.identity", parent = CorpUsers.class)
 public final class CorpUsersEditableInfoResource extends BaseCorpUsersAspectResource<CorpUserEditableInfo> {
 
-    public CorpUsersEditableInfoResource() {
-        super(CorpUserEditableInfo.class);
-    }
+  public CorpUsersEditableInfoResource() {
+    super(CorpUserEditableInfo.class);
+  }
 
-    @Nonnull
-    @Override
-    @RestMethod.Create
-    public Task<CreateResponse> create(@Nonnull CorpUserEditableInfo corpUserEditableInfo) {
-        return super.create(corpUserEditableInfo);
-    }
+  @Nonnull
+  @Override
+  @RestMethod.Create
+  public Task<CreateResponse> create(@Nonnull CorpUserEditableInfo corpUserEditableInfo) {
+    return super.create(corpUserEditableInfo);
+  }
 
-    @Nonnull
-    @Override
-    @RestMethod.Get
-    public Task<CorpUserEditableInfo> get(@QueryParam("version") @Optional("0") @Nonnull Long version) {
-        return super.get(version);
-    }
+  @Nonnull
+  @Override
+  @RestMethod.Get
+  public Task<CorpUserEditableInfo> get(@QueryParam("version") @Optional("0") @Nonnull Long version) {
+    return super.get(version);
+  }
+
 }

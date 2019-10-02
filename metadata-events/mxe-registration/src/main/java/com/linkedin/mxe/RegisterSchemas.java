@@ -27,7 +27,7 @@ public class RegisterSchemas {
     CachedSchemaRegistryClient client = createClient(schemaRegistryUrl);
     Schema schema = Configs.TOPIC_SCHEMA_MAP.get(topic);
     System.out.println(String.format("Registering %s using registry %s (size: %d)", topic, schemaRegistryUrl,
-            schema.toString(false).length()));
+        schema.toString(false).length()));
     registerSchema(topic, schema, client);
   }
 
@@ -35,7 +35,7 @@ public class RegisterSchemas {
     final String url = args.length == 1 ? args[0] : DEFAULT_SCHEMA_REGISTRY_URL;
     Configs.TOPIC_SCHEMA_MAP.forEach((topic, schema) -> {
       System.out.println(String.format("Registering %s using registry %s (size: %d)", topic,
-              url, schema.toString(false).length()));
+          url, schema.toString(false).length()));
       registerSchema(topic, url);
     });
   }

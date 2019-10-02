@@ -23,4 +23,13 @@ public abstract class BaseSearchConfig<DOCUMENT extends RecordTemplate> {
 
   @Nonnull
   public abstract Class<DOCUMENT> getSearchDocument();
+
+  @Nonnull
+  public abstract String getDefaultAutocompleteField();
+
+  @Nonnull
+  public abstract String getSearchQueryTemplate();
+
+  @Nonnull
+  public abstract String getAutocompleteQueryTemplate();
 }

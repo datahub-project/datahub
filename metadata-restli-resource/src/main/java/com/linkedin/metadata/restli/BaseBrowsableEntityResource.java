@@ -12,7 +12,6 @@ import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
-import java.time.Clock;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -45,13 +44,8 @@ public abstract class BaseBrowsableEntityResource<
   private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
 
   public BaseBrowsableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
-      @Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull BaseRestliAuditor auditor) {
-    super(snapshotClass, aspectUnionClass, auditor);
-  }
-
-  public BaseBrowsableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
-    this(snapshotClass, aspectUnionClass, new DummyRestliAuditor(Clock.systemUTC()));
+    super(snapshotClass, aspectUnionClass);
   }
 
   /**
@@ -63,14 +57,15 @@ public abstract class BaseBrowsableEntityResource<
   @Action(name = ACTION_BROWSE)
   @Nonnull
   public Task<BrowseResult> browse(@ActionParam(PARAM_PATH) @Nonnull String path,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) @Nonnull int start,
-      @ActionParam(PARAM_LIMIT) @Nonnull int limit) {
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_START) int start,
+      @ActionParam(PARAM_LIMIT) int limit) {
 
     final Filter browseFilter = filter == null ? EMPTY_FILTER : filter;
     return RestliUtils.toTask(() -> getBrowseDAO().browse(path, browseFilter, start, limit));
   }
 
   @Action(name = ACTION_GET_BROWSE_PATHS)
+  @Nonnull
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = "urn", typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
 

@@ -6,9 +6,11 @@ dependencies {
   compile project(path: ':gms:api', configuration: 'dataTemplate')
   compile project(':li-utils')
   compile project(':metadata-models')
+  compile project(':metadata-dao')
+  compile project(path: ':metadata-dao', configuration: 'dataTemplate')
   compile project(':metadata-dao-impl:ebean-dao')
   compile project(':metadata-dao-impl:elasticsearch-dao')
-  compile project(':metadata-test-utils')
+  compile project(':metadata-testing:metadata-test-utils')
   compile spec.product.pegasus.restliServer
   compile project(':metadata-restli-resource')
 
@@ -21,9 +23,8 @@ dependencies {
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([
-        'com.linkedin.dataset.rest',
-        'com.linkedin.identity.rest',
-        'com.linkedin.metric.rest'
+    'com.linkedin.dataset.rest',
+    'com.linkedin.identity.rest'
 ])
 
 ext.apiProject = project(':gms:api')
