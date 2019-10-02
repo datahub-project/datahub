@@ -23,7 +23,7 @@ public abstract class BaseReadDAO<ASPECT_UNION extends UnionTemplate, URN extend
   private final Set<Class<? extends RecordTemplate>> _validMetadataAspects;
 
   public BaseReadDAO(@Nonnull Class<ASPECT_UNION> aspectUnionClass) {
-    AspectValidator.validateSchema(aspectUnionClass);
+    AspectValidator.validateAspectUnionSchema(aspectUnionClass);
 
     _validMetadataAspects = ModelUtils.getValidAspectTypes(aspectUnionClass);
   }

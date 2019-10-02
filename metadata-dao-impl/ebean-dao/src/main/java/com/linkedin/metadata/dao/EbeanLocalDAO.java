@@ -137,7 +137,7 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   @Nullable
   protected <ASPECT extends RecordTemplate> AspectEntry getLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass) {
-    final PrimaryKey key = new PrimaryKey(urn.toString(), ModelUtils.getAspectName(aspectClass), BaseLocalDAO.LATEST_VERSION);
+    final PrimaryKey key = new PrimaryKey(urn.toString(), ModelUtils.getAspectName(aspectClass), 0L);
     final EbeanMetadataAspect latest = _server.find(EbeanMetadataAspect.class, key);
     if (latest == null) {
       return null;
@@ -247,9 +247,10 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
 
   /**
    * Checks if an {@link AspectKey} and a {@link PrimaryKey} for Ebean are equivalent
+   * @param aspectKey Urn needs to do a ignore case match
    */
   private boolean matchKeys(@Nonnull AspectKey<URN, ? extends RecordTemplate> aspectKey, @Nonnull PrimaryKey pk) {
-    return aspectKey.getUrn().toString().equals(pk.getUrn()) && aspectKey.getVersion() == pk.getVersion()
+    return aspectKey.getUrn().toString().equalsIgnoreCase(pk.getUrn()) && aspectKey.getVersion() == pk.getVersion()
         && ModelUtils.getAspectName(aspectKey.getAspectClass()).equals(pk.getAspect());
   }
 

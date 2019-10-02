@@ -1,8 +1,8 @@
 package com.linkedin.metadata.dao.utils;
 
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.dao.BaseReadDAO;
+import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class QueryUtils {
@@ -33,7 +34,11 @@ public class QueryUtils {
 
   // Converts query parameters to Filter, remove null-valued parameters.
   @Nonnull
-  public static Filter newFilter(@Nonnull Map<String, String> params) {
+  public static Filter newFilter(@Nullable Map<String, String> params) {
+    if (params == null) {
+      return new Filter();
+    }
+
     CriterionArray criteria = params.entrySet()
         .stream()
         .filter(e -> Objects.nonNull(e.getValue()))

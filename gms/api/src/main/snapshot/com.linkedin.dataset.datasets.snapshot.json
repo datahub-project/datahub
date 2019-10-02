@@ -1109,8 +1109,38 @@
         "items" : "AggregationMetadata"
       },
       "doc" : "A list of search result metadata such as aggregations"
+    }, {
+      "name" : "urns",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
     } ]
   }, {
+    "type" : "record",
+    "name" : "SortCriterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that sorting has to be applied to"
+    }, {
+      "name" : "order",
+      "type" : {
+        "type" : "enum",
+        "name" : "SortOrder",
+        "doc" : "The order used to sort the results",
+        "symbols" : [ "ASCENDING", "DESCENDING" ],
+        "symbolDocs" : {
+          "ASCENDING" : "If results need to be sorted in ascending order",
+          "DESCENDING" : "If results need to be sorted in descending order"
+        }
+      },
+      "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
+    } ]
+  }, "com.linkedin.metadata.query.SortOrder", {
     "type" : "record",
     "name" : "DatasetSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
@@ -1191,6 +1221,10 @@
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
           "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
         } ],
         "metadata" : {
           "type" : "com.linkedin.metadata.query.SearchResultMetadata"
@@ -1207,13 +1241,23 @@
           "type" : "string"
         }, {
           "name" : "filter",
-          "type" : "com.linkedin.metadata.query.Filter",
-          "optional" : true
+          "type" : "com.linkedin.metadata.query.Filter"
         }, {
           "name" : "limit",
           "type" : "int"
         } ],
         "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+      }, {
+        "name" : "backfill",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
       }, {
         "name" : "browse",
         "parameters" : [ {
@@ -1238,6 +1282,23 @@
           "type" : "com.linkedin.common.Urn"
         } ],
         "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "getSnapshot",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+      }, {
+        "name" : "ingest",
+        "parameters" : [ {
+          "name" : "snapshot",
+          "type" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+        } ]
       } ],
       "entity" : {
         "path" : "/datasets/{dataset}",

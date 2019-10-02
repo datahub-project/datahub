@@ -1,0 +1,15 @@
+{
+  "size" : 100,
+  "query" : {
+    "wrapper" : {
+      "query" : "$ENCODED_QUERY"
+    }
+  },
+  "post_filter" : {
+    "bool" : {
+      "disable_coord" : false,
+      "adjust_pure_negative" : true,
+      "boost" : 1.0
+    }
+  }
+}

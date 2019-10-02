@@ -39,6 +39,10 @@
         "name" : "filter",
         "type" : "com.linkedin.metadata.query.Filter",
         "optional" : true
+      }, {
+        "name" : "sort",
+        "type" : "com.linkedin.metadata.query.SortCriterion",
+        "optional" : true
       } ],
       "metadata" : {
         "type" : "com.linkedin.metadata.query.SearchResultMetadata"
@@ -55,13 +59,23 @@
         "type" : "string"
       }, {
         "name" : "filter",
-        "type" : "com.linkedin.metadata.query.Filter",
-        "optional" : true
+        "type" : "com.linkedin.metadata.query.Filter"
       }, {
         "name" : "limit",
         "type" : "int"
       } ],
       "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+    }, {
+      "name" : "backfill",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
     }, {
       "name" : "browse",
       "parameters" : [ {
@@ -86,6 +100,23 @@
         "type" : "com.linkedin.common.Urn"
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+    }, {
+      "name" : "getSnapshot",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "aspects",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "default" : "[]"
+      } ],
+      "returns" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+    }, {
+      "name" : "ingest",
+      "parameters" : [ {
+        "name" : "snapshot",
+        "type" : "com.linkedin.metadata.snapshot.DatasetSnapshot"
+      } ]
     } ],
     "entity" : {
       "path" : "/datasets/{dataset}",

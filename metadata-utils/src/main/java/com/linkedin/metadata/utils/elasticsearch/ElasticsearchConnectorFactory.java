@@ -15,8 +15,8 @@ public class ElasticsearchConnectorFactory {
 
   public static ElasticsearchConnector createInstance(@Nonnull String host, @Nonnull int port) {
     return new ElasticsearchConnector(Arrays.asList(host), port,
-            DEFAULT_ES_THREAD_COUNT,
-            DEFAULT_ES_BULK_REQUESTS_LIMIT,
-            DEFAULT_ES_BULK_FLUSH_PERIOD);
+        DEFAULT_ES_THREAD_COUNT,
+        DEFAULT_ES_BULK_REQUESTS_LIMIT,
+        DEFAULT_ES_BULK_FLUSH_PERIOD);
   }
 }

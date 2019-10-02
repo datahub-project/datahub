@@ -13,18 +13,20 @@ import com.linkedin.metadata.validator.ValidationUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.CollectionResult;
+import com.linkedin.restli.server.CreateKVResponse;
 import com.linkedin.restli.server.CreateResponse;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.PathKeys;
-import com.linkedin.restli.server.UpdateResponse;
 import com.linkedin.restli.server.annotations.PagingContextParam;
 import com.linkedin.restli.server.annotations.RestMethod;
+import com.linkedin.restli.server.annotations.ReturnEntity;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import java.time.Clock;
 import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.metadata.dao.BaseReadDAO.*;
 
 /**
  * A base class for an aspect rest.li subresource with versioning support.
@@ -38,16 +40,11 @@ import javax.annotation.Nonnull;
 public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION extends UnionTemplate, ASPECT extends RecordTemplate>
     extends CollectionResourceTaskTemplate<Long, ASPECT> {
 
+  private static final BaseRestliAuditor DUMMY_AUDITOR = new DummyRestliAuditor(Clock.systemUTC());
+
   private final Class<ASPECT> _aspectClass;
-  private final BaseRestliAuditor _auditor;
 
-  public BaseVersionedAspectResource(@Nonnull Class<ASPECT_UNION> aspectUnionClass,
-      @Nonnull Class<ASPECT> aspectClass) {
-    this(aspectUnionClass, aspectClass, new DummyRestliAuditor(Clock.systemUTC()));
-  }
-
-  public BaseVersionedAspectResource(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Class<ASPECT> aspectClass,
-      @Nonnull BaseRestliAuditor auditor) {
+  public BaseVersionedAspectResource(@Nonnull Class<ASPECT_UNION> aspectUnionClass, @Nonnull Class<ASPECT> aspectClass) {
     super();
 
     if (!ModelUtils.getValidAspectTypes(aspectUnionClass).contains(aspectClass)) {
@@ -56,7 +53,14 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
     }
 
     this._aspectClass = aspectClass;
-    this._auditor = auditor;
+  }
+
+  /**
+   * Returns a {@link BaseRestliAuditor} for this resource.
+   */
+  @Nonnull
+  protected BaseRestliAuditor getAuditor() {
+    return DUMMY_AUDITOR;
   }
 
   /**
@@ -97,10 +101,11 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
 
   @RestMethod.Create
   @Override
+  @Nonnull
   public Task<CreateResponse> create(@Nonnull ASPECT aspect) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());
-      final AuditStamp auditStamp = _auditor.requestAuditStamp(getContext().getRawRequestContext());
+      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
       getLocalDAO().add(urn, aspect, auditStamp);
       return new CreateResponse(HttpStatus.S_201_CREATED);
     });
@@ -110,13 +115,32 @@ public abstract class BaseVersionedAspectResource<URN extends Urn, ASPECT_UNION 
    * Similar to {@link #create(RecordTemplate)} but uses a create lambda instead
    */
   @Nonnull
-  public Task<UpdateResponse> create(@Nonnull Class<ASPECT> aspectClass,
+  public Task<CreateResponse> create(@Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> createLambda) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());
-      final AuditStamp auditStamp = _auditor.requestAuditStamp(getContext().getRawRequestContext());
+      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
       getLocalDAO().add(urn, aspectClass, createLambda, auditStamp);
-      return new UpdateResponse(HttpStatus.S_201_CREATED);
+      return new CreateResponse(HttpStatus.S_201_CREATED);
+    });
+  }
+
+  /**
+   * Creates using the provided default value only if the aspect is not set already
+   *
+   * @param defaultValue provided default value
+   * @return {@link CreateKVResponse} containing lastest version and created aspect
+   */
+  @RestMethod.Create
+  @ReturnEntity
+  @Nonnull
+  public Task<Optional<CreateKVResponse<Long, ASPECT>>> createIfAbsent(@Nonnull ASPECT defaultValue) {
+    return RestliUtils.toTask(() -> {
+      final URN urn = getUrn(getContext().getPathKeys());
+      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
+      final Optional<ASPECT> newValue = (Optional<ASPECT>) getLocalDAO().add(urn, (Class<ASPECT>) defaultValue.getClass(),
+          ignored -> ignored.orElse(defaultValue), auditStamp);
+      return newValue.map(val -> new CreateKVResponse<>(LATEST_VERSION, val));
     });
   }
 }

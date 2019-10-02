@@ -151,6 +151,7 @@ public abstract class BaseSnapshotResource<
    * @return a snapshot that includes the aspects for which a backfill MAE has been emitted
    */
   @Action(name = BACKFILL_ACTION_NAME)
+  @Nonnull
   public Task<SNAPSHOT> backfill(@ActionParam(ASPECT_NAMES_PARAM_NAME) @Nonnull String[] aspectNames) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());

@@ -140,8 +140,10 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
    * @param urn the URN for the entity the aspect is attached to
    * @param auditStamp the audit stamp for the operation
    * @param updateLambda a lambda expression that takes the previous version of aspect and returns the new version
+   * @return {@link RecordTemplate} of the new value of aspect, empty if the transaction fails
    */
-  public <ASPECT extends RecordTemplate> void add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
       int maxTransactionRetry) {
 
@@ -184,22 +186,25 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
     if (result != null) {
       _producer.produceMetadataAuditEvent(urn, result.getOldValue(), result.getNewValue());
     }
+    return Optional.ofNullable(result).map(r -> result.getNewValue());
   }
 
   /**
    * Similar to {@link #add(Urn, Class, Function, AuditStamp, int)} but uses the default maximum transaction retry.
    */
-  public <ASPECT extends RecordTemplate> void add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp) {
-    add(urn, aspectClass, updateLambda, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
+    return add(urn, aspectClass, updateLambda, auditStamp, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   /**
    * Similar to {@link #add(Urn, Class, Function, AuditStamp)} but takes the new value directly.
    */
-  public <ASPECT extends RecordTemplate> void add(@Nonnull URN urn, @Nonnull ASPECT newValue,
+  @Nonnull
+  public <ASPECT extends RecordTemplate> Optional<RecordTemplate> add(@Nonnull URN urn, @Nonnull ASPECT newValue,
       @Nonnull AuditStamp auditStamp) {
-    add(urn, newValue.getClass(), ignored -> newValue, auditStamp);
+    return add(urn, newValue.getClass(), ignored -> newValue, auditStamp);
   }
 
   private <ASPECT extends RecordTemplate> void applyRetention(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,

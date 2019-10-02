@@ -5,6 +5,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -27,7 +28,7 @@ public abstract class BaseESAutoCompleteQuery {
    */
   @Nonnull
   abstract SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
-      @Nonnull Filter requestParams);
+      @Nullable Filter requestParams);
 
   /**
    * Gets a list of suggestions out of raw search hits

@@ -1,0 +1,12 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(':metadata-dao')
+  compile externalDependency.neo4jJavaDriver
+
+  compileOnly externalDependency.lombok
+
+  testCompile project(':metadata-testing:metadata-test-models')
+  testCompile externalDependency.neo4jHarness
+  testCompile externalDependency.testng
+}

@@ -1,0 +1,9 @@
+{
+  "type": "typeref",
+  "name": "SnapshotUnion",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit testing",
+  "ref": [
+    "EntitySnapshot"
+  ]
+}

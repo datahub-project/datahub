@@ -62,7 +62,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
    */
   @Override
   @Nonnull
-  public BrowseResult browse(@Nonnull String path, @Nonnull Filter requestParams, int from, int size) {
+  public BrowseResult browse(@Nonnull String path, @Nullable Filter requestParams, int from, int size) {
     Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
 
     try {
@@ -292,7 +292,14 @@ public class ESBrowseDAO extends BaseBrowseDAO {
       log.error("Get paths from urn query failed: " + e.getMessage());
       throw new ESQueryException("Get paths from urn query failed: ", e);
     }
-    return searchHits.length == 0 ? Collections.emptyList()
-        : (List<String>) searchHits[0].getSourceAsMap().get(_config.getBrowsePathFieldName());
+
+    if (searchHits.length == 0) {
+      return Collections.emptyList();
+    }
+    final Map sourceMap = searchHits[0].getSourceAsMap();
+    if (!sourceMap.containsKey(_config.getBrowsePathFieldName())) {
+      return Collections.emptyList();
+    }
+    return (List<String>) sourceMap.get(_config.getBrowsePathFieldName());
   }
 }

@@ -52,6 +52,8 @@ project.ext.externalDependency = [
     'lombok': 'org.projectlombok:lombok:1.18.8',
     'mockito': 'org.mockito:mockito-core:3.0.0',
     'mysqlConnector': 'mysql:mysql-connector-java:5.1.47',
+    "neo4jHarness": "org.neo4j.test:neo4j-harness:3.4.11",
+    "neo4jJavaDriver": "org.neo4j.driver:neo4j-java-driver:1.7.2",
     'parseqTest': 'com.linkedin.parseq:parseq:3.0.7:test',
     'playDocs': 'com.typesafe.play:play-docs_2.11:2.6.18',
     'playGuice': 'com.typesafe.play:play-guice_2.11:2.6.18',

@@ -1,13 +1,34 @@
 package com.linkedin.metadata.dao.browse;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.testing.TestUtils;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
 public class BrowseDAOTest {
+  private BaseBrowseConfig _browseConfig;
+  private RestHighLevelClient _mockClient;
+  private ESBrowseDAO _mockBrowseDAO;
+
+  @BeforeMethod
+  public void setup() {
+    _browseConfig = new TestBrowseConfig();
+    _mockClient = mock(RestHighLevelClient.class);
+    _mockBrowseDAO = new ESBrowseDAO(_mockClient, _browseConfig);
+  }
+
   @Test
   public void testMatchingPaths() {
     List<String> browsePaths = Arrays.asList("/all/subscriptions/premium_new_signups_v2/subs_new_bookings",
@@ -44,5 +65,38 @@ public class BrowseDAOTest {
     String path6 = "/School/Characteristics/General/Embedding";
     assertEquals(ESBrowseDAO.getNextLevelPath(browsePaths, path6),
         "/School/Characteristics/General/Embedding/network_standardized_school_embeddings_v3");
+  }
+
+  @Test
+  public void testGetBrowsePath() throws Exception {
+    SearchResponse mockSearchResponse = mock(SearchResponse.class);
+    SearchHits mockSearchHits = mock(SearchHits.class);
+    SearchHit mockSearchHit = mock(SearchHit.class);
+    Urn dummyUrn = TestUtils.makeUrn(0);
+    Map mockSourceMap = mock(Map.class);
+
+    // Test when there is no search hit for getBrowsePaths
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(_mockClient.search(any())).thenReturn(mockSearchResponse);
+    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 0);
+
+    // Test the case of single search hit & browsePaths field doesn't exist
+    when(mockSourceMap.containsKey(_browseConfig.getBrowsePathFieldName())).thenReturn(false);
+    when(mockSearchHit.getSourceAsMap()).thenReturn(mockSourceMap);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[]{mockSearchHit});
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(_mockClient.search(any())).thenReturn(mockSearchResponse);
+    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 0);
+
+    // Test the case of single search hit & browsePaths field exists
+    when(mockSourceMap.containsKey(_browseConfig.getBrowsePathFieldName())).thenReturn(true);
+    when(mockSourceMap.get(_browseConfig.getBrowsePathFieldName())).thenReturn(Collections.singletonList("foo"));
+    when(mockSearchHit.getSourceAsMap()).thenReturn(mockSourceMap);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[]{mockSearchHit});
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(_mockClient.search(any())).thenReturn(mockSearchResponse);
+    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).size(), 1);
+    assertEquals(_mockBrowseDAO.getBrowsePaths(dummyUrn).get(0), "foo");
   }
 }

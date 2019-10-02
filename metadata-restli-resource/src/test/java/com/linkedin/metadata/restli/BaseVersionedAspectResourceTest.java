@@ -12,47 +12,42 @@ import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.parseq.BaseEngineTest;
 import com.linkedin.restli.server.CollectionResult;
+import com.linkedin.restli.server.CreateKVResponse;
 import com.linkedin.restli.server.PagingContext;
 import com.linkedin.restli.server.PathKeys;
 import com.linkedin.restli.server.ResourceContext;
-import com.linkedin.testing.Aspect;
 import com.linkedin.testing.AspectFoo;
-import java.net.URISyntaxException;
+import com.linkedin.testing.EntityAspectUnion;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import org.mockito.invocation.InvocationOnMock;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.dao.BaseReadDAO.*;
 import static com.linkedin.metadata.utils.TestUtils.*;
+import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 
 public class BaseVersionedAspectResourceTest extends BaseEngineTest {
 
-  private BaseLocalDAO<Aspect, Urn> _mockLocalDAO;
+  private BaseLocalDAO<EntityAspectUnion, Urn> _mockLocalDAO;
   private TestResource _resource = new TestResource();
 
-  private static final Urn ENTITY_URN;
+  private static final Urn ENTITY_URN = makeUrn(1234);
 
-  static {
-    try {
-      ENTITY_URN = new Urn("urn:li:test:foo");
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  class TestResource extends BaseVersionedAspectResource<Urn, Aspect, AspectFoo> {
+  class TestResource extends BaseVersionedAspectResource<Urn, EntityAspectUnion, AspectFoo> {
 
     public TestResource() {
-      super(Aspect.class, AspectFoo.class);
+      super(EntityAspectUnion.class, AspectFoo.class);
     }
 
     @Override
-    protected BaseLocalDAO<Aspect, Urn> getLocalDAO() {
+    protected BaseLocalDAO<EntityAspectUnion, Urn> getLocalDAO() {
       return _mockLocalDAO;
     }
 
@@ -124,5 +119,42 @@ public class BaseVersionedAspectResourceTest extends BaseEngineTest {
 
     verify(_mockLocalDAO, times(1)).add(eq(ENTITY_URN), eq(AspectFoo.class), eq(createLambda), any(AuditStamp.class));
     verifyNoMoreInteractions(_mockLocalDAO);
+  }
+
+  @Test
+  public void testCreateIfAbsentWithoutExistingValue() {
+    AspectFoo defaultValue = new AspectFoo().setValue("foo");
+    when(_mockLocalDAO.add(eq(ENTITY_URN), eq(AspectFoo.class), any(), any())).thenAnswer((InvocationOnMock invocation) -> {
+        Object[] args = invocation.getArguments();
+        assertTrue(args[2] instanceof Function);
+        Function<Optional<RecordTemplate>, RecordTemplate> lambda = (Function<Optional<RecordTemplate>, RecordTemplate>) args[2];
+        return Optional.of(lambda.apply(Optional.empty()));
+    });
+
+    Optional<CreateKVResponse<Long, AspectFoo>> response = runAndWait(_resource.createIfAbsent(defaultValue));
+
+    assertTrue(response.isPresent());
+    assertEquals(response.get().getStatus().getCode(), 201);
+    assertEquals(response.get().getEntity(), defaultValue);
+    assertEquals(response.get().getId(), Long.valueOf(LATEST_VERSION));
+  }
+
+  @Test
+  public void testCreateIfAbsentWithExistingValue() {
+    AspectFoo oldVal = new AspectFoo().setValue("foo");
+    AspectFoo defaultValue = new AspectFoo().setValue("defaultFoo");
+    when(_mockLocalDAO.add(eq(ENTITY_URN), eq(AspectFoo.class), any(), any())).thenAnswer((InvocationOnMock invocation) -> {
+      Object[] args = invocation.getArguments();
+      assertTrue(args[2] instanceof Function);
+      Function<Optional<RecordTemplate>, RecordTemplate> lambda = (Function<Optional<RecordTemplate>, RecordTemplate>) args[2];
+      return Optional.of(lambda.apply(Optional.of(oldVal)));
+    });
+
+    Optional<CreateKVResponse<Long, AspectFoo>> response = runAndWait(_resource.createIfAbsent(defaultValue));
+
+    assertTrue(response.isPresent());
+    assertEquals(response.get().getStatus().getCode(), 201);
+    assertEquals(response.get().getEntity(), oldVal);
+    assertEquals(response.get().getId(), Long.valueOf(LATEST_VERSION));
   }
 }

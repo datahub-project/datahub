@@ -5,10 +5,12 @@ import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 
@@ -27,7 +29,11 @@ public class SearchUtils {
    * @return a request map
    */
   @Nonnull
-  public static Map<String, String> getRequestMap(@Nonnull Filter requestParams) {
+  public static Map<String, String> getRequestMap(@Nullable Filter requestParams) {
+
+    if (requestParams == null) {
+      return Collections.emptyMap();
+    }
 
     if (requestParams.getCriteria()
         .stream()
@@ -47,8 +53,8 @@ public class SearchUtils {
   @Nonnull
   public static Filter getFilter(@Nonnull Map<String, String> requestMap) {
     List<Criterion> criterionList = requestMap.entrySet().stream()
-            .map(entry -> new Criterion().setField(entry.getKey()).setValue(entry.getValue()))
-            .collect(Collectors.toList());
+        .map(entry -> new Criterion().setField(entry.getKey()).setValue(entry.getValue()))
+        .collect(Collectors.toList());
     return new Filter().setCriteria(new CriterionArray(criterionList));
   }
 
@@ -62,14 +68,12 @@ public class SearchUtils {
   }
 
   @Nonnull
-  public static String readResourceFile(@Nonnull String filePath) {
-    String query;
-    try (InputStream inputStream = SearchUtils.class.getClassLoader().getResourceAsStream(filePath)) {
-      query = IOUtils.toString(inputStream);
+  public static String readResourceFile(@Nonnull Class clazz, @Nonnull String filePath) {
+    try (InputStream inputStream = clazz.getClassLoader().getResourceAsStream(filePath)) {
+      return IOUtils.toString(inputStream);
     } catch (IOException e) {
       log.error("Can't read file: " + filePath);
       throw new RuntimeException("Can't read file: " + filePath);
     }
-    return query;
   }
 }

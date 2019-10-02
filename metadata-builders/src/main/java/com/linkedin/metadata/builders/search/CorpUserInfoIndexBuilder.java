@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocument> {
 
   public CorpUserInfoIndexBuilder() {
-    super(Collections.singletonList(CorpUserSnapshot.class));
+    super(Collections.singletonList(CorpUserSnapshot.class), CorpUserInfoDocument.class);
   }
 
   @Nonnull
@@ -32,6 +32,7 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
         .setLdap(urn.getUsernameEntity())
         .setFullName(fullName)
         .setTitle(title)
+        .setActive(corpUserInfo.isActive())
         .setManagerLdap(managerLdap);
   }
 

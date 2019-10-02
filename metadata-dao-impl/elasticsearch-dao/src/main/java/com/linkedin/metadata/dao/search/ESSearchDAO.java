@@ -1,6 +1,7 @@
 package com.linkedin.metadata.dao.search;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.LongMap;
@@ -16,6 +17,8 @@ import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
+import com.linkedin.metadata.query.SortCriterion;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -32,13 +35,18 @@ import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.ScoreSortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 
 
 /**
@@ -48,6 +56,8 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<DOCUMENT> {
 
   private static final Integer DEFAULT_TERM_BUCKETS_SIZE_100 = 100;
+  private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
+  private static final String URN_FIELD = "urn";
 
   private RestHighLevelClient _client;
   private BaseSearchConfig _config;
@@ -61,13 +71,8 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     super(documentClass);
     _client = esClient;
     _config = config;
-    _autoCompleteQueryForLowCardFields = new ESAutoCompleteQueryForLowCardinalityFields(_config.getIndexName());
-    _autoCompleteQueryForHighCardFields = new ESAutoCompleteQueryForHighCardinalityFields(_config.getIndexName());
-  }
-
-  @Nonnull
-  protected String getSearchQueryTemplate() {
-    return _config.getIndexName() + "ESSearchQueryTemplate.json";
+    _autoCompleteQueryForLowCardFields = new ESAutoCompleteQueryForLowCardinalityFields(_config);
+    _autoCompleteQueryForHighCardFields = new ESAutoCompleteQueryForHighCardinalityFields(_config);
   }
 
   @Nonnull
@@ -78,11 +83,6 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     return _autoCompleteQueryForHighCardFields;
   }
 
-  @Nonnull
-  protected String getAutocompleteQueryTemplate() {
-    return _autoCompleteQueryForHighCardFields.getAutocompleteQueryTemplate();
-  }
-
   /**
    * Constructs the base query string given input
    *
@@ -91,8 +91,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    */
   @Nonnull
   QueryBuilder buildQueryString(@Nonnull String input) {
-    String query = SearchUtils.readResourceFile(getSearchQueryTemplate());
-    query = query.replace("$INPUT", input);
+    final String query = _config.getSearchQueryTemplate().replace("$INPUT", input);
     return QueryBuilders.wrapperQuery(query);
   }
 
@@ -101,11 +100,12 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    */
   @Override
   @Nonnull
-  public SearchResult<DOCUMENT> search(@Nonnull String input, @Nonnull Filter requestParams, int from, int size) {
+  public SearchResult<DOCUMENT> search(@Nonnull String input, @Nullable Filter requestParams,
+      @Nullable SortCriterion sortCriterion, int from, int size) {
     try {
       // Step 0: TODO: Add type casting if needed and  add request params validation against the model
       // Step 1: construct the query
-      SearchRequest req = constructSearchQuery(input, requestParams, from, size);
+      SearchRequest req = constructSearchQuery(input, requestParams, sortCriterion, from, size);
       // Step 2: execute the query
       SearchResponse searchResponse = _client.search(req);
       // Step 3: extract results, validated against document model as well
@@ -127,7 +127,8 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
    */
   @Nonnull
-  SearchRequest constructSearchQuery(@Nonnull String input, @Nonnull Filter requestParams, int from, int size) {
+  public SearchRequest constructSearchQuery(@Nonnull String input, @Nullable Filter requestParams,
+      @Nullable SortCriterion sortCriterion, int from, int size) {
 
     SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -140,6 +141,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     searchSourceBuilder.query(buildQueryString(input));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(requestMap));
     buildAggregations(searchSourceBuilder, requestMap);
+    buildSortOrder(searchSourceBuilder, sortCriterion);
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
@@ -208,9 +210,8 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    */
   @Nonnull
   List<DOCUMENT> getDocuments(@Nonnull SearchResponse searchResponse) {
-    return (Arrays.stream(searchResponse.getHits().getHits())).map(hit -> {
-      return newDocument(buildDocumentsDataMap(hit.getSourceAsMap()));
-    }).collect(Collectors.toList());
+    return (Arrays.stream(searchResponse.getHits().getHits())).map(hit ->
+      newDocument(buildDocumentsDataMap(hit.getSourceAsMap()))).collect(Collectors.toList());
   }
 
   /**
@@ -220,13 +221,13 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
    * @return a data map
    */
   @Nonnull
-  private DataMap buildDocumentsDataMap(@Nonnull Map<String, Object> objectMap) {
+  DataMap buildDocumentsDataMap(@Nonnull Map<String, Object> objectMap) {
 
     final DataMap dataMap = new DataMap();
     for (Map.Entry<String, Object> entry : objectMap.entrySet()) {
       if (entry.getValue() instanceof ArrayList) {
         dataMap.put(entry.getKey(), new DataList((ArrayList<String>) entry.getValue()));
-      } else {
+      } else if (entry.getValue() != null) {
         dataMap.put(entry.getKey(), entry.getValue());
       }
     }
@@ -235,8 +236,11 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
 
   @Override
   @Nonnull
-  public AutoCompleteResult autoComplete(@Nonnull String query, @Nonnull String field, @Nonnull Filter requestParams,
+  public AutoCompleteResult autoComplete(@Nonnull String query, @Nullable String field, @Nullable Filter requestParams,
       int limit) {
+    if (field == null) {
+      field = _config.getDefaultAutocompleteField();
+    }
     try {
       SearchRequest req = constructAutoCompleteQuery(query, field, requestParams);
       SearchResponse searchResponse = _client.search(req);
@@ -247,39 +251,55 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     }
   }
 
-  @VisibleForTesting
   @Nonnull
-  AutoCompleteResult extractAutoCompleteResult(@Nonnull SearchResponse searchResponse, @Nonnull String input,
+  public AutoCompleteResult extractAutoCompleteResult(@Nonnull SearchResponse searchResponse, @Nonnull String input,
       @Nonnull String field, int limit) {
     return getAutocompleteQueryGenerator(field).extractAutoCompleteResult(searchResponse, input, field, limit);
   }
 
   @Nonnull
-  SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
-      @Nonnull Filter requestParams) {
+  public SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
+      @Nullable Filter requestParams) {
     return getAutocompleteQueryGenerator(field).constructAutoCompleteQuery(input, field, requestParams);
   }
 
   /**
    * Extracts SearchResultMetadata section
    *
-   * @param searchResponse the raw search response from search engine
-   * @return SearchResultMetadata with aggregation information for a given search request
+   * @param searchResponse the raw {@link SearchResponse} as obtained from the search engine
+   * @return {@link SearchResultMetadata} with aggregation and list of urns obtained from {@link SearchResponse}
    */
   @Nonnull
   SearchResultMetadata extractSearchResultMetadata(@Nonnull SearchResponse searchResponse) {
+    final SearchResultMetadata searchResultMetadata =
+        new SearchResultMetadata().setSearchResultMetadatas(new AggregationMetadataArray()).setUrns(new UrnArray());
+
+    try {
+      // populate the urns from search response
+      if (searchResponse.getHits() != null && searchResponse.getHits().getHits() != null) {
+        searchResultMetadata.setUrns(Arrays.stream(searchResponse.getHits().getHits())
+            .map(this::getUrnFromSearchHit)
+            .collect(Collectors.toCollection(UrnArray::new)));
+      }
+    } catch (NullPointerException e) {
+      throw new RuntimeException("Missing urn field in search document " + e);
+    }
+
+    final Aggregations aggregations = searchResponse.getAggregations();
+    if (aggregations == null) {
+      return searchResultMetadata;
+    }
 
     final AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
-    Map<String, Aggregation> aggregations = searchResponse.getAggregations().getAsMap();
 
-    for (Map.Entry<String, Aggregation> entry : aggregations.entrySet()) {
-      Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
-      AggregationMetadata aggregationMetadata =
+    for (Map.Entry<String, Aggregation> entry : aggregations.getAsMap().entrySet()) {
+      final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
+      final AggregationMetadata aggregationMetadata =
           new AggregationMetadata().setName(entry.getKey()).setAggregations(new LongMap(oneTermAggResult));
       aggregationMetadataArray.add(aggregationMetadata);
     }
 
-    return new SearchResultMetadata().setSearchResultMetadatas(aggregationMetadataArray);
+    return searchResultMetadata.setSearchResultMetadatas(aggregationMetadataArray);
   }
 
   /**
@@ -325,4 +345,40 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
 
     return parsedFilter;
   }
+
+  /**
+   * Populates source field of search query with the sort order as per the criterion provided
+   *
+   * <p>
+   * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
+   * Furthermore to resolve conflicts, the results are further sorted by ascending order of urn
+   * If the input sort criterion is urn itself, then no additional sort criterion is applied as there will be no conflicts.
+   * </p>
+   *
+   * @param searchSourceBuilder {@link SearchSourceBuilder} that needs to be populated with sort order
+   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   */
+  private void buildSortOrder(@Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SortCriterion sortCriterion) {
+    if (sortCriterion == null) {
+      searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
+    } else {
+      final SortOrder esSortOrder = (sortCriterion.getOrder() == com.linkedin.metadata.query.SortOrder.ASCENDING)
+          ? SortOrder.ASC
+          : SortOrder.DESC;
+      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder));
+    }
+    if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
+      searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
+    }
+  }
+
+  @Nonnull
+  private Urn getUrnFromSearchHit(@Nonnull SearchHit hit) {
+    try {
+      return Urn.createFromString(hit.getSourceAsMap().get(URN_FIELD).toString());
+    } catch (URISyntaxException e) {
+      throw new RuntimeException("Invalid urn in search document " + e);
+    }
+  }
+
 }

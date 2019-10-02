@@ -1,0 +1,275 @@
+{
+  "models" : [ {
+    "type" : "typeref",
+    "name" : "CorpGroupUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Corporate group's AD/LDAP login",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.CorpGroupUrnCoercer",
+      "class" : "com.linkedin.common.urn.CorpGroupUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "corpGroup",
+        "owningTeam" : "urn:li:internalTeam:security",
+        "constructable" : true,
+        "name" : "CorpGroup",
+        "namespace" : "li",
+        "doc" : "Corporate group's AD/LDAP login",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "groupName",
+          "doc" : "The name of the AD/LDAP group.",
+          "type" : "string",
+          "maxLength" : 64
+        } ],
+        "maxLength" : 81
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "CorpuserUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Corporate user's AD/LDAP login",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.CorpuserUrnCoercer",
+      "class" : "com.linkedin.common.urn.CorpuserUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "corpuser",
+        "owningTeam" : "urn:li:internalTeam:security",
+        "constructable" : true,
+        "name" : "Corpuser",
+        "namespace" : "li",
+        "doc" : "Corporate user's AD/LDAP login",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "username",
+          "doc" : "The name of the AD/LDAP user.",
+          "type" : "string",
+          "maxLength" : 20
+        } ],
+        "maxLength" : 36
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "EmailAddress",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string"
+  }, {
+    "type" : "record",
+    "name" : "CorpGroup",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Metadata for a corp group",
+    "include" : [ {
+      "type" : "record",
+      "name" : "CorpGroupKey",
+      "doc" : "Key for CorpGroup resource",
+      "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "group name e.g. wherehows-dev, ask_metadata ",
+        "validate" : {
+          "strlen" : {
+            "min" : 1,
+            "max" : 50
+          }
+        }
+      } ]
+    } ],
+    "fields" : [ {
+      "name" : "info",
+      "type" : {
+        "type" : "record",
+        "name" : "CorpGroupInfo",
+        "doc" : "group of corpUser, it may contains nested group",
+        "fields" : [ {
+          "name" : "email",
+          "type" : "com.linkedin.common.EmailAddress",
+          "doc" : "email of this group"
+        }, {
+          "name" : "admins",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.CorpuserUrn"
+          },
+          "doc" : "owners of this group"
+        }, {
+          "name" : "members",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.CorpuserUrn"
+          },
+          "doc" : "List of ldap urn in this group."
+        }, {
+          "name" : "groups",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.CorpGroupUrn"
+          },
+          "doc" : "List of groups in this group."
+        } ]
+      },
+      "doc" : "Information of the corp group",
+      "optional" : true
+    } ]
+  }, "com.linkedin.identity.CorpGroupInfo", "com.linkedin.identity.CorpGroupKey", {
+    "type" : "record",
+    "name" : "AspectVersion",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A tuple of a specific metadata aspect and its version.",
+    "fields" : [ {
+      "name" : "aspect",
+      "type" : "string",
+      "doc" : "The FQCN of the metadata aspect, e.g. com.linkedin.common.Ownership"
+    }, {
+      "name" : "version",
+      "type" : "long",
+      "doc" : "The version of the metadata aspect"
+    } ]
+  }, {
+    "type" : "typeref",
+    "name" : "CorpGroupAspect",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A union of all supported metadata aspects for a CorpGroup",
+    "ref" : [ "com.linkedin.identity.CorpGroupInfo" ]
+  }, {
+    "type" : "record",
+    "name" : "CorpGroupSnapshot",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "A metadata snapshot for a specific CorpGroup entity.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.CorpGroupUrn",
+      "doc" : "URN for the entity the metadata snapshot is associated with."
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.CorpGroupAspect"
+      },
+      "doc" : "The list of metadata aspects associated with the LdapUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SnapshotKey",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "The Key for a metadata Snapshot.",
+    "fields" : [ {
+      "name" : "aspectVersions",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.AspectVersion"
+      },
+      "doc" : "A list of metadata aspects in the Snapshot and their versions"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EmptyRecord",
+    "namespace" : "com.linkedin.restli.common",
+    "doc" : "An literally empty record.  Intended as a marker to indicate the absence of content where a record type is required.  If used the underlying DataMap *must* be empty, EmptyRecordValidator is provided to help enforce this.  For example,  CreateRequest extends Request<EmptyRecord> to indicate it has no response body.   Also, a ComplexKeyResource implementation that has no ParamKey should have a signature like XyzResource implements ComplexKeyResource<XyzKey, EmptyRecord, Xyz>.",
+    "fields" : [ ],
+    "validate" : {
+      "com.linkedin.restli.common.EmptyRecordValidator" : { }
+    }
+  } ],
+  "schema" : {
+    "name" : "corpGroups",
+    "namespace" : "com.linkedin.identity",
+    "path" : "/corpGroups",
+    "schema" : "com.linkedin.identity.CorpGroup",
+    "doc" : "generated from: com.linkedin.identity.rest.resources.CorpGroups",
+    "collection" : {
+      "identifier" : {
+        "name" : "corpGroup",
+        "type" : "com.linkedin.identity.CorpGroupKey",
+        "params" : "com.linkedin.restli.common.EmptyRecord"
+      },
+      "supports" : [ "batch_get", "get" ],
+      "methods" : [ {
+        "method" : "get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      }, {
+        "method" : "batch_get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      } ],
+      "actions" : [ {
+        "name" : "backfill",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "getSnapshot",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot"
+      }, {
+        "name" : "ingest",
+        "parameters" : [ {
+          "name" : "snapshot",
+          "type" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot"
+        } ]
+      } ],
+      "entity" : {
+        "path" : "/corpGroups/{corpGroup}",
+        "subresources" : [ {
+          "annotations" : {
+            "createOnly" : {
+              "value" : [ "urn" ]
+            },
+            "deprecated" : {
+              "doc" : "Use corresponding action methods in /corpGroups"
+            }
+          },
+          "name" : "snapshot",
+          "namespace" : "com.linkedin.identity.corpgroup",
+          "path" : "/corpGroups/{corpGroup}/snapshot",
+          "schema" : "com.linkedin.metadata.snapshot.CorpGroupSnapshot",
+          "doc" : "Rest.li entry point: /corpGroups/{corpGroupKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpGroupsSnapshot",
+          "collection" : {
+            "identifier" : {
+              "name" : "snapshotId",
+              "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
+              "params" : "com.linkedin.restli.common.EmptyRecord"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/corpGroups/{corpGroup}/snapshot/{snapshotId}"
+            }
+          }
+        } ]
+      }
+    }
+  }
+}

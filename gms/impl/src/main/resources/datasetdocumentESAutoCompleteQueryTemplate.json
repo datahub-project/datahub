@@ -1,0 +1,83 @@
+{
+  "function_score": {
+    "query": {
+      "bool": {
+        "should": [
+          {
+            "match": {
+              "$FIELD.ngram": {
+                "query": "$INPUT",
+                "analyzer": "custom_keyword",
+                "boost": 0.125
+              }
+            }
+          },
+          {
+            "match_phrase": {
+              "$FIELD.delimited": {
+                "query": "$INPUT",
+                "analyzer": "delimit",
+                "boost": 1
+              }
+            }
+          },
+          {
+            "match": {
+              "$FIELD.pattern": {
+                "query": "$INPUT",
+                "analyzer": "custom_keyword",
+                "boost": 4
+              }
+            }
+          },
+          {
+            "match": {
+              "$FIELD": {
+                "query": "$INPUT",
+                "analyzer": "custom_keyword",
+                "boost": 1000000
+              }
+            }
+          }
+        ]
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "deprecated": true
+          }
+        },
+        "weight": 0.01
+      },
+      {
+        "filter": {
+          "match": {
+            "origin": "EI"
+          }
+        },
+        "weight": 0.01
+      },
+      {
+        "filter": {
+          "range": {
+            "num_downstream_datasets": {
+              "gte": 12
+            }
+          }
+        },
+        "weight": 2
+      },
+      {
+        "filter": {
+          "term": {
+            "num_downstream_datasets": 0
+          }
+        },
+        "weight": 0.5
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

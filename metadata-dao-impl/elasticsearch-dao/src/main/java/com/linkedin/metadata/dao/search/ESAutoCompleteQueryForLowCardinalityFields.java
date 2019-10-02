@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -24,17 +25,17 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 public class ESAutoCompleteQueryForLowCardinalityFields extends BaseESAutoCompleteQuery {
 
   private static final String DEFAULT_QUERY_ANALYZER = "lowercase_keyword";
-  private String _indexName;
+  private BaseSearchConfig _config;
 
-  ESAutoCompleteQueryForLowCardinalityFields(String indexName) {
-    this._indexName = indexName;
+  ESAutoCompleteQueryForLowCardinalityFields(BaseSearchConfig config) {
+    this._config = config;
   }
 
   @Nonnull
   SearchRequest constructAutoCompleteQuery(@Nonnull String input, @Nonnull String field,
-      @Nonnull Filter requestParams) {
+      @Nullable Filter requestParams) {
 
-    SearchRequest searchRequest = new SearchRequest(_indexName);
+    SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);

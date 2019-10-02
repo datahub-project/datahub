@@ -1,6 +1,7 @@
 package com.linkedin.metadata.builders.search;
 
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.validator.DocumentValidator;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -20,8 +21,10 @@ public abstract class BaseIndexBuilder<DOCUMENT extends RecordTemplate> {
    * Constructor
    *
    * @param snapshotsInterested List of metadata snapshot classes the document index builder is interested in
+   * @param documentClass class of DOCUMENT that should have a valid schema
    */
-  BaseIndexBuilder(@Nonnull List<Class<? extends RecordTemplate>> snapshotsInterested) {
+  BaseIndexBuilder(@Nonnull List<Class<? extends RecordTemplate>> snapshotsInterested, @Nonnull Class<DOCUMENT> documentClass) {
+    DocumentValidator.validateDocumentSchema(documentClass);
     _snapshotsInterested = Collections.unmodifiableList(snapshotsInterested);
   }
 

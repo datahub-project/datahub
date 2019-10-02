@@ -2,8 +2,8 @@ package com.linkedin.metadata.dao.producer;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.CorpUserAspect;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
+import com.linkedin.metadata.dummy.DummyAspect;
+import com.linkedin.metadata.dummy.DummySnapshot;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -12,10 +12,10 @@ import javax.annotation.Nullable;
  * A dummy metadata event producer that doesn't actually produce any events.
  */
 public class DummyMetadataEventProducer<URN extends Urn>
-    extends BaseMetadataEventProducer<CorpUserSnapshot, CorpUserAspect, URN> {
+    extends BaseMetadataEventProducer<DummySnapshot, DummyAspect, URN> {
 
   public DummyMetadataEventProducer() {
-    super(CorpUserSnapshot.class, CorpUserAspect.class);
+    super(DummySnapshot.class, DummyAspect.class);
   }
 
   @Override

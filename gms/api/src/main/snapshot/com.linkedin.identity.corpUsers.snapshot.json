@@ -43,6 +43,15 @@
       "class" : "com.linkedin.common.url.Url"
     }
   }, {
+    "type" : "typeref",
+    "name" : "Urn",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
     "type" : "record",
     "name" : "CorpUser",
     "namespace" : "com.linkedin.identity",
@@ -145,7 +154,7 @@
           "name" : "pictureLink",
           "type" : "com.linkedin.common.Url",
           "doc" : "A URL which points to a picture which user wants to set as a profile photo",
-          "default" : "https://content.linkedin.com/content/dam/me/business/en-us/amp/brand-site/v2/bg/LI-Bug.svg.original.svg"
+          "default" : "https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
         } ]
       },
       "doc" : "Editable information of the corp user",
@@ -204,6 +213,23 @@
       "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
     } ]
   }, {
+    "type" : "record",
+    "name" : "AutoCompleteResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the auto complete result",
+    "fields" : [ {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "The original chars typed by user"
+    }, {
+      "name" : "suggestions",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of typeahead suggestions"
+    } ]
+  }, {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query",
@@ -259,8 +285,38 @@
         "items" : "AggregationMetadata"
       },
       "doc" : "A list of search result metadata such as aggregations"
+    }, {
+      "name" : "urns",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
     } ]
   }, {
+    "type" : "record",
+    "name" : "SortCriterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that sorting has to be applied to"
+    }, {
+      "name" : "order",
+      "type" : {
+        "type" : "enum",
+        "name" : "SortOrder",
+        "doc" : "The order used to sort the results",
+        "symbols" : [ "ASCENDING", "DESCENDING" ],
+        "symbolDocs" : {
+          "ASCENDING" : "If results need to be sorted in ascending order",
+          "DESCENDING" : "If results need to be sorted in descending order"
+        }
+      },
+      "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
+    } ]
+  }, "com.linkedin.metadata.query.SortOrder", {
     "type" : "record",
     "name" : "CorpUserSnapshot",
     "namespace" : "com.linkedin.metadata.snapshot",
@@ -337,7 +393,12 @@
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
           "optional" : true
-        } ]
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
+        } ],
+        "pagingSupported" : true
       } ],
       "finders" : [ {
         "name" : "search",
@@ -352,11 +413,60 @@
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.Filter",
           "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
         } ],
         "metadata" : {
           "type" : "com.linkedin.metadata.query.SearchResultMetadata"
         },
         "pagingSupported" : true
+      } ],
+      "actions" : [ {
+        "name" : "autocomplete",
+        "parameters" : [ {
+          "name" : "query",
+          "type" : "string"
+        }, {
+          "name" : "field",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter"
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+      }, {
+        "name" : "backfill",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "getSnapshot",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+      }, {
+        "name" : "ingest",
+        "parameters" : [ {
+          "name" : "snapshot",
+          "type" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+        } ]
       } ],
       "entity" : {
         "path" : "/corpUsers/{corpUser}",
@@ -385,6 +495,9 @@
           "annotations" : {
             "createOnly" : {
               "value" : [ "urn" ]
+            },
+            "deprecated" : {
+              "doc" : "Use corresponding action methods in /corpUsers"
             }
           },
           "name" : "snapshot",

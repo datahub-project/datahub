@@ -13,17 +13,18 @@ import com.linkedin.metadata.query.BrowseResultMetadata;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.parseq.BaseEngineTest;
-import com.linkedin.testing.Aspect;
-import com.linkedin.testing.Document;
-import com.linkedin.testing.Key;
-import com.linkedin.testing.Snapshot;
-import com.linkedin.testing.Value;
+import com.linkedin.testing.EntityAspectUnion;
+import com.linkedin.testing.EntityDocument;
+import com.linkedin.testing.EntityKey;
+import com.linkedin.testing.EntitySnapshot;
+import com.linkedin.testing.EntityValue;
+import java.net.URISyntaxException;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.restli.TestUtils.*;
+import static com.linkedin.testing.TestUtils.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -33,15 +34,17 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
   private BaseBrowseDAO _mockBrowseDAO;
   private TestResource _resource = new TestResource();
 
-  class TestResource extends BaseBrowsableEntityResource<Key, Value, Urn, Snapshot, Aspect, Document> {
+  class TestResource extends BaseBrowsableEntityResource<
+      // format
+      EntityKey, EntityValue, Urn, EntitySnapshot, EntityAspectUnion, EntityDocument> {
 
     public TestResource() {
-      super(Snapshot.class, Aspect.class);
+      super(EntitySnapshot.class, EntityAspectUnion.class);
     }
 
     @Nonnull
     @Override
-    protected BaseLocalDAO<Aspect, Urn> getLocalDAO() {
+    protected BaseLocalDAO<EntityAspectUnion, Urn> getLocalDAO() {
       throw new RuntimeException("Not implemented");
     }
 
@@ -59,25 +62,35 @@ public class BaseBrowsableEntityResourceTest extends BaseEngineTest {
 
     @Nonnull
     @Override
-    protected Urn toUrn(@Nonnull Key key) {
+    protected Urn createUrnFromString(@Nonnull String urnString) {
+      try {
+        return Urn.createFromString(urnString);
+      } catch (URISyntaxException e) {
+        throw RestliUtils.badRequestException("Invalid URN: " + urnString);
+      }
+    }
+
+    @Nonnull
+    @Override
+    protected Urn toUrn(@Nonnull EntityKey key) {
       throw new RuntimeException("Not implemented");
     }
 
     @Nonnull
     @Override
-    protected Key toKey(@Nonnull Urn urn) {
+    protected EntityKey toKey(@Nonnull Urn urn) {
       throw new RuntimeException("Not implemented");
     }
 
     @Nonnull
     @Override
-    protected Value toValue(@Nonnull Snapshot snapshot) {
+    protected EntityValue toValue(@Nonnull EntitySnapshot snapshot) {
       throw new RuntimeException("Not implemented");
     }
 
     @Nonnull
     @Override
-    protected Snapshot toSnapshot(@Nonnull Value value, @Nonnull Urn urn) {
+    protected EntitySnapshot toSnapshot(@Nonnull EntityValue value, @Nonnull Urn urn) {
       throw new RuntimeException("Not implemented");
     }
   }

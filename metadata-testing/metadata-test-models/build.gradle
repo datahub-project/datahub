@@ -1,0 +1,8 @@
+apply plugin: 'pegasus'
+
+dependencies {
+  compile project(':li-utils')
+  dataModel project(':li-utils')
+
+  compile spec.product.pegasus.restliCommon
+}

@@ -9,6 +9,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTaskTemplate;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.restli.RestliConstants.*;
 
@@ -45,12 +46,12 @@ public abstract class BaseAutocompleteResource<DOCUMENT extends RecordTemplate>
   @RestMethod.Get
   @Nonnull
   protected abstract Task<AutoCompleteResult> autoComplete(@QueryParam(PARAM_INPUT) @Nonnull String input,
-      @QueryParam(PARAM_FIELD) @Nonnull String field, @QueryParam(PARAM_FILTER) @Nonnull Filter filter,
+      @QueryParam(PARAM_FIELD) @Nullable String field, @QueryParam(PARAM_FILTER) @Nullable Filter filter,
       @QueryParam(PARAM_LIMIT) int limit);
 
   @Nonnull
   protected Task<AutoCompleteResult> getAutoCompleteResult(@Nonnull String input,
-      @Nonnull String field, @Nonnull Filter filter, int limit) {
+      @Nullable String field, @Nullable Filter filter, int limit) {
     return RestliUtils.toTask(() -> getSearchDAO().autoComplete(input, field, filter, limit));
   }
 }
