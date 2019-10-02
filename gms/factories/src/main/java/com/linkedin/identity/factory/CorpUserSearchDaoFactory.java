@@ -17,7 +17,7 @@ public class CorpUserSearchDaoFactory {
   @Autowired
   ApplicationContext applicationContext;
 
-  @Bean(name = "corpUserSearchDao")
+  @Bean(name = "corpUserSearchDAO")
   @DependsOn({"elasticSearchRestHighLevelClient"})
   @Nonnull
   protected ESSearchDAO createInstance() {
