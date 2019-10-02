@@ -9,6 +9,7 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.mxe.Topics;
 import com.linkedin.restli.client.Client;
 import com.linkedin.util.Configuration;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
@@ -28,7 +29,7 @@ import java.util.Properties;
 @Slf4j
 public class MceStreamTask {
 
-  private static final String DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeEvent";
+  private static final String DEFAULT_KAFKA_TOPIC_NAME = Topics.METADATA_CHANGE_EVENT;
   private static final String DEFAULT_GMS_HOST = "localhost";
   private static final String DEFAULT_GMS_PORT = "8080";
   private static final String DEFAULT_KAFKA_BOOTSTRAP_SERVER = "localhost:9092";
