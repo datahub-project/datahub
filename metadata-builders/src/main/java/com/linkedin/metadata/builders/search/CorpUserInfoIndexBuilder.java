@@ -70,6 +70,7 @@ public class CorpUserInfoIndexBuilder extends BaseIndexBuilder<CorpUserInfoDocum
   }
 
   @Override
+  @Nonnull
   public Class<CorpUserInfoDocument> getDocumentType() {
     return CorpUserInfoDocument.class;
   }

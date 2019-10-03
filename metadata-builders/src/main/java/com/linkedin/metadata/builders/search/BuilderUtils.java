@@ -1,5 +1,7 @@
 package com.linkedin.metadata.builders.search;
 
+import com.linkedin.common.CorpGroupUrnArray;
+import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.MultiLocaleString;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
@@ -7,6 +9,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import java.net.URISyntaxException;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,6 +48,28 @@ public final class BuilderUtils {
     }
 
     return ldap;
+  }
+
+  /**
+   * Given {@link CorpuserUrnArray} return list of corp user names from each of the urns
+   *
+   * @param corpuserUrns {@link CorpuserUrnArray}
+   * @return list of user names extracted from urns
+   */
+  @Nonnull
+  public static StringArray getCorpUsernames(@Nonnull CorpuserUrnArray corpuserUrns) {
+    return corpuserUrns.stream().map(urn -> urn.getUsernameEntity()).collect(Collectors.toCollection(StringArray::new));
+  }
+
+  /**
+   * Given {@link CorpGroupUrnArray} return list of corp group names from each of the urns
+   *
+   * @param corpgroupUrns {@link CorpGroupUrnArray}
+   * @return list of group names extracted from urns
+   */
+  @Nonnull
+  public static StringArray getCorpGroupnames(@Nonnull CorpGroupUrnArray corpgroupUrns) {
+    return corpgroupUrns.stream().map(urn -> urn.getGroupNameEntity()).collect(Collectors.toCollection(StringArray::new));
   }
 
   /**
