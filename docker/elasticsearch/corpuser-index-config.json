@@ -17,6 +17,13 @@
           }
         },
         "analyzer": {
+          "delimit_edgengram": {
+            "filter": [
+              "lowercase",
+              "autocomplete_filter"
+            ],
+            "tokenizer": "whitespace"
+          },
           "delimit": {
             "filter": [
               "lowercase",
@@ -49,16 +56,37 @@
             }
           }
         },
+        "active": {
+          "type": "boolean"
+        },
         "fullName": {
           "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          },
           "analyzer": "delimit"
         },
         "ldap": {
           "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          },
           "analyzer": "lowercase_keyword"
         },
         "managerLdap": {
           "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          },
           "analyzer": "lowercase_keyword"
         },
         "skills": {
@@ -81,12 +109,19 @@
         },
         "title": {
           "type": "text",
+          "fields": {
+            "ngram": {
+              "type": "text",
+              "analyzer": "delimit_edgengram"
+            }
+          },
           "analyzer": "delimit",
           "fielddata": true
         },
         "urn": {
           "type": "text",
-          "analyzer": "lowercase_keyword"
+          "analyzer": "lowercase_keyword",
+          "fielddata": true
         }
       }
     }
