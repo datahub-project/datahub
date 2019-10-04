@@ -57,7 +57,7 @@ public class CorpUsers extends CorpUsersClient {
   public List<CorpUser> getAll()
       throws RemoteInvocationException {
     GetAllRequest<CorpUser> getAllRequest = CORP_USERS_REQUEST_BUILDERS.getAll()
-        .paginate(0, Integer.MAX_VALUE)
+        .paginate(0, 10000)
         .build();
     return _client.sendRequest(getAllRequest).getResponseEntity().getElements();
   }
