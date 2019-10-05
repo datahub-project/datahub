@@ -1,7 +1,7 @@
 # Data Hub Quickstart
 To start all Docker containers at once, please run below command:
 ```
-cd docker/quickstart && docker-compose pull && docker-compose up
+cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 At this point, all containers are ready and Data Hub can be considered up and running. Check specific containers guide
 for details:
