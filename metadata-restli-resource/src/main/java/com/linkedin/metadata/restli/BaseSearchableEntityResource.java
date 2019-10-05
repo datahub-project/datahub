@@ -7,7 +7,6 @@ import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.SearchResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
@@ -57,7 +56,6 @@ public abstract class BaseSearchableEntityResource<
 
   private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
   private static final String MATCH_ALL = "*";
-  private static final String REMOVED_FIELD = "removed";
   private static final String DEFAULT_SORT_CRITERION_FIELD = "urn";
 
   public BaseSearchableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
@@ -72,7 +70,7 @@ public abstract class BaseSearchableEntityResource<
   protected abstract BaseSearchDAO<DOCUMENT> getSearchDAO();
 
   /**
-   * Returns all {@link VALUE} objects from search index which by default are NOT removed. By default the list is sorted in ascending order of urn
+   * Returns all {@link VALUE} objects from search index. By default the list is sorted in ascending order of urn
    *
    * @param pagingContext pagination context
    * @param aspectNames list of aspect names that need to be returned
@@ -88,12 +86,6 @@ public abstract class BaseSearchableEntityResource<
       @QueryParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion) {
 
     final Filter searchFilter = filter != null ? filter : EMPTY_FILTER;
-    if (searchFilter.hasCriteria() && searchFilter.getCriteria()
-        .stream()
-        .noneMatch(t -> t.getField().equals(REMOVED_FIELD))) {
-      searchFilter.getCriteria().add(new Criterion().setField(REMOVED_FIELD).setValue("false"));
-    }
-
     final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
         : new SortCriterion().setField(DEFAULT_SORT_CRITERION_FIELD).setOrder(SortOrder.ASCENDING);
     return RestliUtils.toTask(

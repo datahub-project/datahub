@@ -30,7 +30,7 @@ public class ESUtils {
       BoolQueryBuilder filters = new BoolQueryBuilder();
       // TODO: Remove checking for urn after solving META-10102
       Arrays.stream(Urn.isUrn(entry.getValue()) ? new String[]{entry.getValue()} : entry.getValue().split(","))
-              .forEach(elem -> filters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
+          .forEach(elem -> filters.should(QueryBuilders.matchQuery(entry.getKey(), elem)));
       boolFilter.must(filters);
     }
     return boolFilter;
