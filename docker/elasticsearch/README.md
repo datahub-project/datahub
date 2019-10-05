@@ -8,7 +8,7 @@ any modification.
 Below command will start the Elasticsearch and Kibana containers. `Data Hub` uses Elasticsearch release `5.6.8`. Newer
 versions of Elasticsearch are not tested and you might experience compatibility issues.
 ```
-cd docker/elasticsearch && docker-compose pull && docker-compose up
+cd docker/elasticsearch && docker-compose pull && docker-compose up --build
 ```
 You can connect to Kibana on your web browser to monitor Elasticsearch via below link:
 ```
