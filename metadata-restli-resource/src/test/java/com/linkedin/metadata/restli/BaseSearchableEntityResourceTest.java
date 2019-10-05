@@ -204,7 +204,6 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     AspectKey<Urn, AspectFoo> aspectKey2 = new AspectKey<>(AspectFoo.class, urn2, BaseLocalDAO.LATEST_VERSION);
 
     Filter filter1 = new Filter().setCriteria(new CriterionArray());
-    filter1.getCriteria().add(new Criterion().setField("removed").setValue("false"));
     SortCriterion sortCriterion1 = new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
 
     when(_mockSearchDAO.search("*", filter1, sortCriterion1, 1, 2)).thenReturn(
