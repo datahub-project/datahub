@@ -50,7 +50,7 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
               title: 'name:'
             },
             {
-              description: 'The confirmed owners for the dataset, e.g.: owners:jweiner',
+              description: 'The confirmed owners for the dataset, e.g.: owners:sweaver',
               text: 'owners:',
               title: 'owners:'
             },
@@ -306,7 +306,7 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
               title: 'name:'
             },
             {
-              description: 'The confirmed owners for the dataset, e.g.: owners:jweiner',
+              description: 'The confirmed owners for the dataset, e.g.: owners:sweaver',
               text: 'something owners:',
               title: 'owners:'
             },
