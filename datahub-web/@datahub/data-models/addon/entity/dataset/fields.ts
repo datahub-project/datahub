@@ -42,7 +42,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     displayName: 'owners',
     showInFacets: false,
     desc: 'The confirmed owners for the dataset',
-    example: 'owners:jweiner'
+    example: 'owners:sweaver'
   },
   {
     showInAutoCompletion: true,
