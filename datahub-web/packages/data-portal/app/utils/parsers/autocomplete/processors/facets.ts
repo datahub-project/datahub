@@ -3,12 +3,9 @@ import {
   AutocompleteRuleNames,
   ISuggestionBuilder,
   IState,
-  INodeFacetProcessor,
   ISuggestion
 } from 'wherehows-web/utils/parsers/autocomplete/types';
 import { dataToString } from 'wherehows-web/utils/parsers/autocomplete/utils';
-import { platform } from 'wherehows-web/utils/parsers/autocomplete/processors/facets/platform';
-import { fabric } from 'wherehows-web/utils/parsers/autocomplete/processors/facets/fabric';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { fetchFacetValue } from 'wherehows-web/utils/parsers/helpers';
@@ -50,15 +47,6 @@ const getFacetValueFromStateRule = (state: IState): string => {
   return '';
 };
 
-/**
- * Current facets processors available
- * @type {INodeFacetProcessor}
- */
-export const facetNameProcessor: INodeFacetProcessor = {
-  platform,
-  origin: fabric
-};
-
 export const facetsProcessor: INodeProcessor = {
   /**
    * When 'name' is expected we just return 'name:' as suggestion
@@ -97,14 +85,6 @@ export const facetsProcessor: INodeProcessor = {
   ): Promise<ISuggestionBuilder> => {
     const facetName = getFacetNameFromStateRule(ruleState);
     const facetValue = getFacetValueFromStateRule(ruleState);
-
-    // First lets check if we have a special processing for that property
-    const processor = facetNameProcessor[facetName];
-
-    if (processor) {
-      return await processor(builder, facetValue);
-    }
-
     const suggestions = await fetchFacetValue(facetName, facetValue, builder.entity);
 
     return {
