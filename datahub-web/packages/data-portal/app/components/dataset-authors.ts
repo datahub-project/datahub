@@ -192,7 +192,7 @@ export default class DatasetAuthors extends Component {
     return {
       owner,
       avatar: avatarProperties
-        ? makeAvatar(avatarProperties)({ userName: owner.userName })
+        ? makeAvatar(avatarProperties)(owner)
         : { imageUrl: '', imageUrlFallback: '/assets/images/default_avatar.png' },
       profile: PersonEntity.profileLinkFromUsername(owner.userName)
     };
