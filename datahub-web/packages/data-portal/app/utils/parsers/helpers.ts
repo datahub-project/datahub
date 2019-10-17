@@ -28,9 +28,8 @@ export const fetchFacetValue = async (
 ): Promise<Array<string>> => {
   // otherwise lets invoke api to fetch values
   let suggestions: Array<string> = [];
-  const searchRenderProps = DataModelEntity[entity].renderProps.search;
-  const searchAttributes = searchRenderProps.attributes;
-  const fieldMeta = searchAttributes.find((attr): boolean => attr.fieldName === facetName);
+  const { apiName, attributes } = DataModelEntity[entity].renderProps.search;
+  const fieldMeta = attributes.find((attr): boolean => attr.fieldName === facetName);
   const { minAutocompleteFetchLength } = fieldMeta || { minAutocompleteFetchLength: undefined };
   const cacheKey = `${facetName}:${facetValue}`;
 
@@ -39,7 +38,7 @@ export const fetchFacetValue = async (
   const request: FieldValuesRequestV2<Record<string, string>> = {
     field: facetName,
     input: facetValue,
-    type: searchRenderProps.apiName
+    type: apiName
   };
   const facetValueReturn: IFieldValuesResponseV2 | undefined = await facetValuesApiEntities({
     query: facetValue,

@@ -14,9 +14,10 @@ const fallback = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAA
  * @param {IAppConfig.userEntityProps.aviUrlFallback} aviUrlFallback
  * @return {IAvatar}
  */
-const makeAvatar = ({ aviUrlPrimary, aviUrlFallback = fallback }: IAppConfig['userEntityProps']): AvatarCreatorFunc => (
-  object: Partial<IAvatar>
-): IAvatar => {
+export const makeAvatar = ({
+  aviUrlPrimary,
+  aviUrlFallback = fallback
+}: IAppConfig['userEntityProps']): AvatarCreatorFunc => (object: Partial<IAvatar>): IAvatar => {
   const props = pick(object, ['email', 'userName', 'name', 'imageUrl', 'pictureLink']);
   const { userName, pictureLink } = props;
   const imageUrlFallback = aviUrlFallback || fallback;
@@ -32,5 +33,3 @@ const makeAvatar = ({ aviUrlPrimary, aviUrlFallback = fallback }: IAppConfig['us
     ...props
   };
 };
-
-export { makeAvatar };

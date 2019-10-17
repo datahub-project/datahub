@@ -150,61 +150,24 @@ const createTests = (server: IMirageWherehows): Array<ITestSet> => {
         }
       ]
     },
+    // TODO: update tests with sample api response data for "text: 'platform:'", "text: 'platform:my'", and "text: 'origin:co'"
     {
       entity: DatasetEntity.displayName,
       description: 'Dataset with filter platform',
       text: 'platform:',
-      results: [
-        {
-          groupName: 'Filter By',
-          options: [
-            {
-              text: 'platform:hive ',
-              title: 'platform:hive'
-            },
-            {
-              text: 'platform:mysql ',
-              title: 'platform:mysql'
-            }
-          ]
-        }
-      ]
+      results: []
     },
     {
       entity: DatasetEntity.displayName,
       description: 'Dataset with filter platform my',
       text: 'platform:my',
-      results: [
-        {
-          groupName: 'Filter By',
-          options: [
-            {
-              text: 'platform:mysql ',
-              title: 'platform:mysql'
-            }
-          ]
-        }
-      ]
+      results: []
     },
     {
       entity: DatasetEntity.displayName,
       description: 'Dataset with filter fabric',
       text: 'origin:co',
-      results: [
-        {
-          groupName: 'Filter By',
-          options: [
-            {
-              text: 'dataorigin:corp ',
-              title: 'dataorigin:corp'
-            },
-            {
-              text: 'dataorigin:azurecontrol ',
-              title: 'dataorigin:azurecontrol'
-            }
-          ]
-        }
-      ]
+      results: []
     },
     {
       entity: DatasetEntity.displayName,
