@@ -5,9 +5,8 @@
 ![Data Hub](docs/imgs/datahublogo.png)
 
 ## Introduction
-Data Hub is Linkedin's generalized metadata search & discovery tool. Check out the 
-[Linkedin blog post](https://engineering.linkedin.com/blog/2019/data-hub) about Data Hub. This repository is a monorepo 
-which contains complete source code to be able to build Data Hub's frontend & backend services.
+Data Hub is Linkedin's generalized metadata search & discovery tool. To learn more about Data Hub, check out our 
+[Linkedin blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). This repository contains the complete source code to be able to build Data Hub's frontend & backend services.
 
 ## Quickstart
 1. To get a quick taste of Data Hub, check [Docker Quickstart Guide](docker/quickstart) first.
