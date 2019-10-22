@@ -90,5 +90,5 @@ subprojects {
         restClientCompile spec.product.pegasus.restliClient
       }
     }
-  }  
+  }
 }
