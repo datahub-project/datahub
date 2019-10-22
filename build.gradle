@@ -77,11 +77,18 @@ subprojects {
   apply plugin: 'maven'
 
   afterEvaluate {
+    if (project.plugins.hasPlugin('java')) {
+      sourceCompatibility = 1.8
+      targetCompatibility = 1.8
+    }
+  }
+  
+  afterEvaluate {
     if (project.plugins.hasPlugin('pegasus')) {
       dependencies {
         dataTemplateCompile spec.product.pegasus.data
         restClientCompile spec.product.pegasus.restliClient
       }
     }
-  }
+  }  
 }
