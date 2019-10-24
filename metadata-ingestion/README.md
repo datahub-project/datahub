@@ -100,3 +100,22 @@ The kafka_etl provides you ETL channel to communicate with your kafka.
 ➜  python kafka_etl.py
 ```
 This will bootstrap Data Hub with your metadata in the kafka as a dataset entity.
+
+## Ingest metadata from MySQL to Data Hub
+The mysql_etl provides you ETL channel to communicate with your MySQL.
+```
+➜  Config your MySQL environmental variable in the file.
+    HOST           # Your server host.
+    DATABASE       # Target database.
+    USER           # Your user account.
+    PASSWORD       # Your password.
+    
+➜  Config your kafka broker environmental variable in the file.
+    AVROLOADPATH   # Your model event in avro format.
+    KAFKATOPIC     # Your event topic.
+    BOOTSTRAP      # Kafka bootstrap server.
+    SCHEMAREGISTRY # Kafka schema registry host.
+
+➜  python mysql_etl.py
+```
+This will bootstrap Data Hub with your metadata in the MySQL as a dataset entity.
