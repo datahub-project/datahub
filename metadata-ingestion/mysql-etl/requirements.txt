@@ -1,0 +1,2 @@
+confluent-kafka[avro]==1.1.0
+mysql-connector==2.2.9
