@@ -9,10 +9,17 @@ Data Hub is Linkedin's generalized metadata search & discovery tool. To learn mo
 [Linkedin blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). This repository contains the complete source code to be able to build Data Hub's frontend & backend services.
 
 ## Quickstart
-1. To get a quick taste of Data Hub, check [Docker Quickstart Guide](docker/quickstart) first.
-2. After you have all Docker containers running in your machine, you can ingest sample data by following 
-[Data Hub Ingestion Guide](metadata-ingestion).
-3. Finally, you can start `Data Hub` by typing `http://localhost:9001` in your browser. You can sign in with `datahub`
+1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/).
+2. Clone this repo and make sure you are at the `datahub` branch.
+3. Run below command to download and run all Docker containers in your local:
+```
+cd docker/quickstart && docker-compose pull && docker-compose up --build
+```
+4. After you have all Docker containers running in your machine, run below command to ingest provided sample data to Data Hub:
+```
+./gradlew :metadata-events:mxe-schemas:build && cd metadata-ingestion/mce-cli && python mce_cli.py produce -d bootstrap_mce.dat
+```
+5. Finally, you can start `Data Hub` by typing `http://localhost:9001` in your browser. You can sign in with `datahub`
 as username and password.
 
 ## Quicklinks
