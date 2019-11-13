@@ -16,9 +16,3 @@ RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSI
     && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
 
 EXPOSE 8080
-
-CMD dockerize -wait tcp://$EBEAN_DATASOURCE_HOST \
-            -wait tcp://$KAFKA_BOOTSTRAP_SERVER \
-            -wait http://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT \
-            -timeout 60s \
-            java -jar jetty-runner-9.4.20.v20190813.jar gms.war
