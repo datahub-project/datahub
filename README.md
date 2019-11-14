@@ -17,7 +17,7 @@ cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 4. After you have all Docker containers running in your machine, run below command to ingest provided sample data to Data Hub:
 ```
-./gradlew :metadata-events:mxe-schemas:build && cd metadata-ingestion/mce-cli && sudo pip install -r requirements.txt && python mce_cli.py produce -d bootstrap_mce.dat
+./gradlew :metadata-events:mxe-schemas:build && cd metadata-ingestion/mce-cli && sudo pip install --user -r requirements.txt && python mce_cli.py produce -d bootstrap_mce.dat
 ```
 5. Finally, you can start `Data Hub` by typing `http://localhost:9001` in your browser. You can sign in with `datahub`
 as username and password.

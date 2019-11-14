@@ -10,7 +10,7 @@ way to do that is through [Docker images](../docker).
     This is needed to generate `MetadataChangeEvent.avsc` which is the schema for `MetadataChangeEvent` Kafka topic.
 3. Before launching each ETL ingestion pipeline, you can install/verify the library versions as below.
     ```
-    pip install -r requirements.txt
+    pip install --user -r requirements.txt
     ```
     
 ## MCE Producer/Consumer CLI
