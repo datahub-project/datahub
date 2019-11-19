@@ -6,12 +6,14 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.ClassUtils;
 import org.neo4j.driver.v1.types.Node;
 import org.neo4j.driver.v1.types.Relationship;
@@ -113,13 +115,24 @@ public class Neo4jUtil {
    */
   @Nonnull
   public static String filterToCriteria(@Nonnull Filter filter) {
-    if (!filter.getCriteria().stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
-      throw new RuntimeException("Neo4j query filter only support EQUAL condition " + filter);
+    return criterionToString(filter.getCriteria());
+  }
+
+  /**
+   * Converts {@link CriterionArray} to neo4j query string
+   *
+   * @param criterionArray CriterionArray in a Filter
+   * @return Neo4j criteria string
+   */
+  @Nonnull
+  public static String criterionToString(@Nonnull CriterionArray criterionArray) {
+    if (!criterionArray.stream().allMatch(criterion -> Condition.EQUAL.equals(criterion.getCondition()))) {
+      throw new RuntimeException("Neo4j query filter only support EQUAL condition " + criterionArray);
     }
 
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
-    filter.getCriteria()
+    criterionArray
         .forEach(criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
@@ -219,8 +232,14 @@ public class Neo4jUtil {
 
   // Gets the Node/Edge type from an Entity/Relationship, using the backtick-quoted FQCN
   @Nonnull
-  public static String getType(@Nonnull RecordTemplate record) {
-    return getType(record.getClass());
+  public static String getType(@Nullable RecordTemplate record) {
+    return record == null ? "" : getType(record.getClass());
+  }
+
+  // Gets the Node/Edge type from an Entity/Relationship class, return empty string if null
+  @Nonnull
+  public static String getTypeOrEmptyString(@Nullable Class<? extends RecordTemplate> recordClass) {
+    return recordClass == null ? "" : ":" + getType(recordClass);
   }
 
   // Gets the Node/Edge type from an Entity/Relationship class, using the backtick-quoted FQCN

@@ -39,6 +39,7 @@ project.ext.externalDependency = [
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.7',
     'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.7',
+    "javatuples": "org.javatuples:javatuples:1.2",
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
@@ -76,13 +77,6 @@ allprojects {
 subprojects {
   apply plugin: 'maven'
 
-  afterEvaluate {
-    if (project.plugins.hasPlugin('java')) {
-      sourceCompatibility = 1.8
-      targetCompatibility = 1.8
-    }
-  }
-  
   afterEvaluate {
     if (project.plugins.hasPlugin('pegasus')) {
       dependencies {

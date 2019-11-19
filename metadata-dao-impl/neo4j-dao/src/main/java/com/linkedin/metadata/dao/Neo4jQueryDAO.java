@@ -3,6 +3,8 @@ package com.linkedin.metadata.dao;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.utils.Statement;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.RelationshipFilter;
 import com.linkedin.metadata.validator.EntityValidator;
 import com.linkedin.metadata.validator.RelationshipValidator;
 import java.util.Collections;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.javatuples.Triplet;
 import org.neo4j.driver.v1.Driver;
 import org.neo4j.driver.v1.Record;
 import org.neo4j.driver.v1.Session;
@@ -57,28 +60,94 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
 
   @Nonnull
   @Override
-  public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate> List<DEST_ENTITY> findEntities(
-      @Nonnull Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
-      @Nonnull Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
-      @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull Filter relationshipFilter, int offset, int count) {
+  public <SRC_ENTITY extends RecordTemplate, DEST_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate> List<RecordTemplate> findEntities(
+      @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
+      @Nullable Class<DEST_ENTITY> destinationEntityClass, @Nonnull Filter destinationEntityFilter,
+      @Nonnull Class<RELATIONSHIP> relationshipType, @Nonnull RelationshipFilter relationshipFilter, int minHops,
+      int maxHops, int offset, int count) {
 
-    EntityValidator.validateEntitySchema(sourceEntityClass);
-    EntityValidator.validateEntitySchema(destinationEntityClass);
+    if (sourceEntityClass != null) {
+      EntityValidator.validateEntitySchema(sourceEntityClass);
+    }
+    if (destinationEntityClass != null) {
+      EntityValidator.validateEntitySchema(destinationEntityClass);
+    }
     RelationshipValidator.validateRelationshipSchema(relationshipType);
 
+    final String srcType = getTypeOrEmptyString(sourceEntityClass);
     final String srcCriteria = filterToCriteria(sourceEntityFilter);
-    final String edgeCriteria = filterToCriteria(relationshipFilter);
+    final String destType = getTypeOrEmptyString(destinationEntityClass);
     final String destCriteria = filterToCriteria(destinationEntityFilter);
+    final String edgeType = getType(relationshipType);
+    final String edgeCriteria = criterionToString(relationshipFilter.getCriteria());
 
-    final String matchTemplate =
-        "MATCH (src:%s %s)-[r:%s %s]-(dest:%s %s) RETURN dest";
+    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+
+    String matchTemplate = "MATCH (src%s %s)-[r:%s*%d..%d %s]-(dest%s %s) RETURN dest";
+    if (relationshipDirection == RelationshipDirection.INCOMING) {
+      matchTemplate = "MATCH (src%s %s)<-[r:%s*%d..%d %s]-(dest%s %s) RETURN dest";
+    } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+      matchTemplate = "MATCH (src%s %s)-[r:%s*%d..%d %s]->(dest%s %s) RETURN dest";
+    }
+
     final String statementString =
-        String.format(matchTemplate, getType(sourceEntityClass), srcCriteria, getType(relationshipType), edgeCriteria,
-            getType(destinationEntityClass), destCriteria);
+        String.format(matchTemplate, srcType, srcCriteria, edgeType, minHops, maxHops, edgeCriteria, destType,
+            destCriteria);
 
-    Statement statement = buildStatement(statementString, "src.urn", offset, count); // TODO: make orderBy an input param
+    final Statement statement =
+        buildStatement(statementString, "dest.urn", offset, count); // TODO: make orderBy an input param
 
-    return runQuery(statement).list(record -> nodeRecordToEntity(destinationEntityClass, record));
+    return runQuery(statement).list(this::nodeRecordToEntity);
+  }
+
+  @Nonnull
+  @Override
+  public <SRC_ENTITY extends RecordTemplate, RELATIONSHIP extends RecordTemplate, INTER_ENTITY extends RecordTemplate> List<RecordTemplate> findEntities(
+      @Nullable Class<SRC_ENTITY> sourceEntityClass, @Nonnull Filter sourceEntityFilter,
+      @Nonnull List<Triplet<Class<RELATIONSHIP>, RelationshipFilter, Class<INTER_ENTITY>>> traversePaths, int offset,
+      int count) {
+    if (sourceEntityClass != null) {
+      EntityValidator.validateEntitySchema(sourceEntityClass);
+    }
+
+    final String srcType = getTypeOrEmptyString(sourceEntityClass);
+    final String srcCriteria = filterToCriteria(sourceEntityFilter);
+
+    StringBuilder matchTemplate = new StringBuilder().append("MATCH (src%s %s)");
+    int pathCounter = 0;
+
+    // for each triplet, construct substatement via relationship type + relationship filer + inter entity
+    for (Triplet<Class<RELATIONSHIP>, RelationshipFilter, Class<INTER_ENTITY>> path : traversePaths) {
+
+      pathCounter++; // Cannot use the same relationship variable 'r' or 'dest' for multiple patterns
+
+      final String edgeType = getTypeOrEmptyString(path.getValue0());
+      final String edgeCriteria = path.getValue1() == null ? "" : criterionToString(path.getValue1().getCriteria());
+      final RelationshipDirection relationshipDirection =
+          path.getValue1() == null ? RelationshipDirection.UNDIRECTED : path.getValue1().getDirection();
+      final String destType = getTypeOrEmptyString(path.getValue2());
+
+      String subTemplate = "-[r%d%s %s]-(dest%d%s)";
+      if (relationshipDirection == RelationshipDirection.INCOMING) {
+        subTemplate = "<-[r%d%s %s]-(dest%d%s)";
+      } else if (relationshipDirection == RelationshipDirection.OUTGOING) {
+        subTemplate = "-[r%d%s %s]->(dest%d%s)";
+      }
+      String subStatementString =
+          String.format(subTemplate, pathCounter, edgeType, edgeCriteria, pathCounter, destType);
+
+      matchTemplate.append(subStatementString);
+    }
+
+    // last INTER_ENTITY will be the Destination Entity
+    String lastEntity = String.format("dest%d", pathCounter);
+    matchTemplate.append("RETURN ").append(lastEntity);
+    final String orderBy = lastEntity.concat(".urn");
+
+    final String statementString = String.format(matchTemplate.toString(), srcType, srcCriteria);
+    final Statement statement = buildStatement(statementString, orderBy, offset, count);
+
+    return runQuery(statement).list(this::nodeRecordToEntity);
   }
 
   @Nonnull

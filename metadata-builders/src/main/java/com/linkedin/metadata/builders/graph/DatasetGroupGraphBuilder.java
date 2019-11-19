@@ -3,7 +3,7 @@ package com.linkedin.metadata.builders.graph;
 import com.linkedin.common.urn.DatasetGroupUrn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.builders.graph.relationship.BaseRelationshipBuilder;
-import com.linkedin.metadata.builders.graph.relationship.DatasetGroupMembershipRelationshipBuilder;
+import com.linkedin.metadata.builders.graph.relationship.IsPartOfBuilderFromDatasetGroupMembership;
 import com.linkedin.metadata.entity.DatasetGroupEntity;
 import com.linkedin.metadata.snapshot.DatasetGroupSnapshot;
 import java.util.Collections;
@@ -18,7 +18,7 @@ public class DatasetGroupGraphBuilder extends BaseGraphBuilder<DatasetGroupSnaps
   private static final Set<BaseRelationshipBuilder> RELATIONSHIP_BUILDERS =
       Collections.unmodifiableSet(new HashSet<BaseRelationshipBuilder>() {
         {
-          add(new DatasetGroupMembershipRelationshipBuilder());
+          add(new IsPartOfBuilderFromDatasetGroupMembership());
         }
       });
 

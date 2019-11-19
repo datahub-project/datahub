@@ -23,8 +23,8 @@ public class CorpUserInfoIndexBuilderTest {
     CorpuserUrn corpuserUrn = new CorpuserUrn(testerLdap);
     CorpUserSnapshot corpUserSnapshot =
         new CorpUserSnapshot().setUrn(corpuserUrn).setAspects(new CorpUserAspectArray());
-    CorpUserInfo corpUserInfo = CorpUserInfoMockUtils.corpUserInfo();
-    corpUserSnapshot.getAspects().add(CorpUserInfoMockUtils.corpUserAspect(corpUserInfo));
+    CorpUserInfo corpUserInfo = CorpUserInfoTestUtils.corpUserInfo();
+    corpUserSnapshot.getAspects().add(CorpUserInfoTestUtils.corpUserAspect(corpUserInfo));
     List<CorpUserInfoDocument> actualDocs = new CorpUserInfoIndexBuilder().getDocumentsToUpdate(corpUserSnapshot);
     assertEquals(actualDocs.size(), 1);
     assertEquals(actualDocs.get(0).getUrn(), corpuserUrn);
@@ -33,7 +33,7 @@ public class CorpUserInfoIndexBuilderTest {
 
     CorpUserEditableInfo corpUserEditableInfo1 = new CorpUserEditableInfo().setAboutMe("An Engineer")
         .setSkills(new StringArray(Arrays.asList("skill1", "skill2", "skill3")));
-    corpUserSnapshot.getAspects().add(CorpUserInfoMockUtils.corpUserAspect(corpUserEditableInfo1));
+    corpUserSnapshot.getAspects().add(CorpUserInfoTestUtils.corpUserAspect(corpUserEditableInfo1));
     actualDocs = new CorpUserInfoIndexBuilder().getDocumentsToUpdate(corpUserSnapshot);
     assertEquals(actualDocs.size(), 2);
     assertEquals(actualDocs.get(1).getAboutMe(), "An Engineer");
@@ -42,7 +42,7 @@ public class CorpUserInfoIndexBuilderTest {
 
     CorpUserEditableInfo corpUserEditableInfo2 = new CorpUserEditableInfo()
         .setTeams(new StringArray(Arrays.asList("team1", "team2")));
-    corpUserSnapshot.getAspects().add(CorpUserInfoMockUtils.corpUserAspect(corpUserEditableInfo2));
+    corpUserSnapshot.getAspects().add(CorpUserInfoTestUtils.corpUserAspect(corpUserEditableInfo2));
     actualDocs = new CorpUserInfoIndexBuilder().getDocumentsToUpdate(corpUserSnapshot);
     assertEquals(actualDocs.size(), 3);
     assertEquals(actualDocs.get(2).getAboutMe(), "");

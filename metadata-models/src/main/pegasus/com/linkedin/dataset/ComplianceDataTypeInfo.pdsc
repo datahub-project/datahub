@@ -1,0 +1,52 @@
+{
+  "type": "record",
+  "name": "ComplianceDataTypeInfo",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Additional information about a specific compliance data type, such as whether it's Personally Identifiable Information or not.",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string",
+      "doc": "ID of the compliance data type."
+    },
+    {
+      "name": "title",
+      "type": "string",
+      "doc": "A UI-friendly short description for the data type."
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Full description for the data type."
+    },
+    {
+      "name": "idType",
+      "type": "boolean",
+      "doc": "Whether this data type is a first-party ID, such as Member ID."
+    },
+    {
+      "name": "pii",
+      "type": "boolean",
+      "doc": "Whether this data type is considered Personally Identifiable Information."
+    },
+    {
+      "name": "supportedFieldFormats",
+      "doc": "A list of supported FieldFormat for this data type",
+      "type": {
+        "type": "array",
+        "items": "FieldFormat"
+      }
+    },
+    {
+      "name": "defaultSecurityClassification",
+      "type": "SecurityClassification",
+      "doc": "The default security classification for this data type."
+    },
+    {
+      "name": "defaultUrnClass",
+      "type": "string",
+      "doc": "The Fully Qualified Class Name (FQCN) of the default URN for this data type, e.g. com.linkedin.common.urn.MemberUrn",
+      "optional": true
+    }
+  ]
+}

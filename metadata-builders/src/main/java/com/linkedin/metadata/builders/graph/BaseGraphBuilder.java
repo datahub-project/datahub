@@ -1,15 +1,18 @@
 package com.linkedin.metadata.builders.graph;
 
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.builders.graph.relationship.BaseRelationshipBuilder;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.RecordUtils;
+import com.linkedin.metadata.validator.EntityValidator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -54,4 +57,12 @@ public abstract class BaseGraphBuilder<SNAPSHOT extends RecordTemplate> implemen
 
   @Nonnull
   protected abstract List<? extends RecordTemplate> buildEntities(@Nonnull SNAPSHOT snapshot);
+
+  protected <ENTITY extends RecordTemplate> void setRemovedProperty(@Nonnull SNAPSHOT snapshot, @Nonnull ENTITY entity) {
+    EntityValidator.validateEntitySchema(entity.getClass());
+    final Optional<RecordTemplate> statusAspect = ModelUtils.getAspectFromSnapshot(snapshot, Status.class);
+    if (statusAspect.isPresent()) {
+      RecordUtils.setRecordTemplatePrimitiveField(entity, "removed", ((Status) statusAspect.get()).isRemoved());
+    }
+  }
 }

@@ -2,10 +2,12 @@ package com.linkedin.metadata.builders.search;
 
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
+import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.MultiLocaleString;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import java.net.URISyntaxException;
@@ -92,5 +94,18 @@ public final class BuilderUtils {
   @Nonnull
   public static String getNormalizedBrowseField(@Nonnull String field, @Nonnull String replacement) {
     return field.replace(BROWSE_HIEARCHY_SEPARATOR, replacement);
+  }
+
+  /**
+   * Given {@link DatasetUrnArray} return list of dataset names from each of the urns
+   *
+   * @param datasetUrns {@link DatasetUrnArray}
+   * @return list of dataset names extracted from urns
+   */
+  @Nonnull
+  public static StringArray getDatasetNames(@Nonnull DatasetUrnArray datasetUrns) {
+    return datasetUrns.stream()
+        .map(DatasetUrn::getDatasetNameEntity)
+        .collect(Collectors.toCollection(StringArray::new));
   }
 }

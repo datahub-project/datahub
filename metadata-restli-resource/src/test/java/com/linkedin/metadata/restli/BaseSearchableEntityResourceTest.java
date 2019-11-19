@@ -146,7 +146,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
         .setAggregations(new LongMap(ImmutableMap.of("bucket1", 1L, "bucket2", 2L))));
 
     when(_mockSearchDAO.search("bar", filter, null, 1, 2)).thenReturn(
-        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, searchResultMetadata));
+        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 10, searchResultMetadata));
 
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
     when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2))).thenReturn(
@@ -156,13 +156,11 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
         runAndWait(_resource.search("bar", aspectNames, filter, null, new PagingContext(1, 2)));
 
     List<EntityValue> values = searchResult.getElements();
-    assertEquals(values.size(), 2);
+    assertEquals(values.size(), 1);
     assertEquals(values.get(0).getFoo(), foo);
     assertFalse(values.get(0).hasBar());
-    assertFalse(values.get(1).hasFoo());
-    assertFalse(values.get(1).hasBar());
 
-    assertEquals(searchResult.getTotal().intValue(), 2);
+    assertEquals(searchResult.getTotal().intValue(), 10);
     assertEquals(searchResult.getMetadata(), searchResultMetadata);
   }
 
@@ -211,7 +209,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
 
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
     when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2))).thenReturn(
-        ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.empty()));
+        ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.of(foo)));
 
     // test with null filter and null sort criterion
     List<EntityValue> values =
@@ -219,7 +217,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     assertEquals(values.size(), 2);
     assertEquals(values.get(0).getFoo(), foo);
     assertFalse(values.get(0).hasBar());
-    assertFalse(values.get(1).hasFoo());
+    assertEquals(values.get(1).getFoo(), foo);
     assertFalse(values.get(1).hasBar());
 
     // test with filter that contains removed = true, with non-null sort criterion
@@ -233,8 +231,21 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     assertEquals(values.size(), 2);
     assertEquals(values.get(0).getFoo(), foo);
     assertFalse(values.get(0).hasBar());
-    assertFalse(values.get(1).hasFoo());
+    assertEquals(values.get(1).getFoo(), foo);
     assertFalse(values.get(1).hasBar());
+
+    // test the case when there is more results in the search index
+    Urn urn3 = makeUrn(3);
+    AspectKey<Urn, AspectFoo> aspectKey3 = new AspectKey<>(AspectFoo.class, urn3, BaseLocalDAO.LATEST_VERSION);
+    when(_mockSearchDAO.search("*", filter1, sortCriterion1, 1, 3)).thenReturn(
+        makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2), makeDocument(urn3)), 3, new SearchResultMetadata()));
+    when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2, aspectKey3))).thenReturn(
+        ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.empty()));
+    values =
+        runAndWait(_resource.getAll(new PagingContext(1, 3), aspectNames, filter1, sortCriterion1));
+    assertEquals(values.size(), 1);
+    assertEquals(values.get(0).getFoo(), foo);
+    assertFalse(values.get(0).hasBar());
   }
 
   private AutoCompleteResult makeAutoCompleteResult(String query, List<String> suggestions) {

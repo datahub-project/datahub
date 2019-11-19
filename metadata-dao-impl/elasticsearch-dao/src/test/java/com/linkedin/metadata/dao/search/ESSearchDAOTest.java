@@ -3,6 +3,7 @@ package com.linkedin.metadata.dao.search;
 import com.linkedin.common.UrnArray;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.AggregationMetadataArray;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.testing.EntityDocument;
@@ -26,10 +27,12 @@ import static org.mockito.Mockito.*;
 public class ESSearchDAOTest {
 
   private ESSearchDAO<EntityDocument> _mockSearchDAO;
+  private ESAutoCompleteQueryForHighCardinalityFields _baseESAutoCompleteQuery;
 
   @BeforeMethod
   public void setup() throws Exception {
     _mockSearchDAO = new ESSearchDAO(null, EntityDocument.class, new TestSearchConfig());
+    _baseESAutoCompleteQuery = new ESAutoCompleteQueryForHighCardinalityFields(new TestSearchConfig());
   }
 
   @Test
@@ -68,6 +71,22 @@ public class ESSearchDAOTest {
         .decoupleArrayToGetSubstringMatch(fieldValList, searchInput);
     assertEquals(searchResult.size(), 3);
     assertTrue(searchResult.equals(fieldValList));
+  }
+
+  @Test
+  public void testGetSuggestionList() throws Exception {
+    SearchHits searchHits = mock(SearchHits.class);
+    SearchHit hit1 = makeSearchHit(1);
+    SearchHit hit2 = makeSearchHit(2);
+    SearchHit hit3 = makeSearchHit(3);
+    when(searchHits.getHits()).thenReturn(new SearchHit[]{hit1, hit2, hit3});
+    when(searchHits.getTotalHits()).thenReturn(10L);
+    SearchResponse searchResponse = mock(SearchResponse.class);
+    when(searchResponse.getHits()).thenReturn(searchHits);
+
+    StringArray res  = _baseESAutoCompleteQuery.getSuggestionList(searchResponse, "name", "test", 2);
+
+    assertEquals(res.size(), 2);
   }
 
   @Test
@@ -117,7 +136,9 @@ public class ESSearchDAOTest {
     SearchHit hit = mock(SearchHit.class);
     Map<String, Object> sourceMap = new HashMap<>();
     sourceMap.put("urn", makeUrn(id).toString());
+    sourceMap.put("name", "test" + id);
     when(hit.getSourceAsMap()).thenReturn(sourceMap);
+    when(hit.getSource()).thenReturn(sourceMap);
     return hit;
   }
 

@@ -88,13 +88,23 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   // used in testing
   @Nonnull
   Optional<Map<String, Object>> getNode(@Nonnull Urn urn) throws Exception {
+    List<Map<String, Object>> nodes = getAllNodes(urn);
+    if (nodes.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(nodes.get(0));
+  }
+
+  // used in testing
+  @Nonnull
+  List<Map<String, Object>> getAllNodes(@Nonnull Urn urn) throws Exception {
     final String statement = "MATCH (node {urn: $urn}) RETURN node";
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
 
     final StatementResult result = runQuery(buildStatement(statement, params));
-    return result.list().stream().map(record -> record.values().get(0).asMap()).findFirst();
+    return result.list().stream().map(record -> record.values().get(0).asMap()).collect(Collectors.toList());
   }
 
   // used in testing
@@ -137,7 +147,7 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Urn urn = getUrn(entity, URN_FIELD);
 
     final String mergeTemplate =
-        "MERGE (node:%s {urn: $urn}) ON CREATE SET node = $properties ON MATCH SET node = $properties RETURN node";
+        "MERGE (node {urn: $urn}) ON CREATE SET node = $properties ON MATCH SET node = $properties SET node:%s RETURN node";
     final String statement = String.format(mergeTemplate, getType(entity));
 
     final Map<String, Object> params = new HashMap<>();

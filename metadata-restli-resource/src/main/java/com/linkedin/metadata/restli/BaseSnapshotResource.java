@@ -72,28 +72,31 @@ public abstract class BaseSnapshotResource<
   public static final String BACKFILL_ACTION_NAME = "backfill";
   public static final String ASPECT_NAMES_PARAM_NAME = "aspectNames";
 
+  private static final BaseRestliAuditor DUMMY_AUDITOR = new DummyRestliAuditor(Clock.systemUTC());
+
   private final Class<SNAPSHOT> _snapshotClass;
   private final Class<ASPECT_UNION> _aspectUnionClass;
   private final Set<String> _supportedMetadataClassNames;
-  private final BaseRestliAuditor _auditor;
 
   public BaseSnapshotResource(@Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
-    this(snapshotClass, aspectUnionClass, new DummyRestliAuditor(Clock.systemUTC()));
-  }
-
-  public BaseSnapshotResource(@Nonnull Class<SNAPSHOT> snapshotClass, @Nonnull Class<ASPECT_UNION> aspectUnionClass,
-      @Nonnull BaseRestliAuditor auditor) {
     super();
     ModelUtils.validateSnapshotAspect(snapshotClass, aspectUnionClass);
 
     _snapshotClass = snapshotClass;
     _aspectUnionClass = aspectUnionClass;
-    _auditor = auditor;
 
     _supportedMetadataClassNames = ModelUtils.getValidAspectTypes(_aspectUnionClass)
         .stream()
         .map(Class::getCanonicalName)
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Returns a {@link BaseRestliAuditor} for this resource.
+   */
+  @Nonnull
+  protected BaseRestliAuditor getAuditor() {
+    return DUMMY_AUDITOR;
   }
 
   /**
@@ -117,7 +120,7 @@ public abstract class BaseSnapshotResource<
   public Task<CreateResponse> create(@Nonnull SNAPSHOT snapshot) {
     return RestliUtils.toTask(() -> {
       final URN urn = getUrn(getContext().getPathKeys());
-      final AuditStamp auditStamp = _auditor.requestAuditStamp(getContext().getRawRequestContext());
+      final AuditStamp auditStamp = getAuditor().requestAuditStamp(getContext().getRawRequestContext());
       final List<AspectVersion> aspectVersions = ModelUtils.getAspectsFromSnapshot(snapshot).stream().map(metadata -> {
         getLocalDAO().add(urn, metadata, auditStamp);
         return ModelUtils.newAspectVersion(metadata.getClass(), BaseLocalDAO.LATEST_VERSION);

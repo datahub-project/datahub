@@ -36,7 +36,7 @@ public class QueryUtils {
   @Nonnull
   public static Filter newFilter(@Nullable Map<String, String> params) {
     if (params == null) {
-      return new Filter();
+      return new Filter().setCriteria(new CriterionArray());
     }
 
     CriterionArray criteria = params.entrySet()

@@ -1,0 +1,14 @@
+{
+  "query_string": {
+    "query": "$INPUT",
+    "fields": [
+      "email^2",
+      "admins",
+      "groups",
+      "members"
+    ],
+    "default_operator": "and",
+    "analyzer": "standard",
+    "minimum_should_match": "100%"
+  }
+}

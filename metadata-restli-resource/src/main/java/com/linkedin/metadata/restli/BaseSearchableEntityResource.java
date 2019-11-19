@@ -1,5 +1,6 @@
 package com.linkedin.metadata.restli;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
@@ -70,13 +71,14 @@ public abstract class BaseSearchableEntityResource<
   protected abstract BaseSearchDAO<DOCUMENT> getSearchDAO();
 
   /**
-   * Returns all {@link VALUE} objects from search index. By default the list is sorted in ascending order of urn
+   * Returns all {@link VALUE} objects from DB which are also available in the search index for the corresponding entity.
+   * By default the list is sorted in ascending order of urn
    *
    * @param pagingContext pagination context
    * @param aspectNames list of aspect names that need to be returned
    * @param filter {@link Filter} to filter the search results
    * @param sortCriterion {@link SortCriterion} to sort the search results
-   * @return list of all {@link VALUE} objects obtained from search results
+   * @return list of all {@link VALUE} objects obtained from DB
    */
   @RestMethod.GetAll
   @Nonnull
@@ -125,8 +127,12 @@ public abstract class BaseSearchableEntityResource<
         .stream()
         .map(d -> (URN) ModelUtils.getUrnFromDocument(d))
         .collect(Collectors.toList());
-    final Map<URN, VALUE> urnValueMap = getInternal(matchedUrns, parseAspectsParam(aspectNames));
-    return new CollectionResult<>(matchedUrns.stream().map(urn -> urnValueMap.get(urn)).collect(Collectors.toList()),
-        searchResult.getTotalCount(), searchResult.getSearchResultMetadata());
+    final Map<URN, VALUE> urnValueMap = getInternalNonEmpty(matchedUrns, parseAspectsParam(aspectNames));
+    final List<URN> existingUrns = matchedUrns.stream().filter(urn -> urnValueMap.containsKey(urn)).collect(Collectors.toList());
+    return new CollectionResult<>(
+        existingUrns.stream().map(urn -> urnValueMap.get(urn)).collect(Collectors.toList()),
+        searchResult.getTotalCount(),
+        searchResult.getSearchResultMetadata().setUrns(new UrnArray(existingUrns.stream().map(urn -> (Urn) urn).collect(Collectors.toList())))
+    );
   }
 }

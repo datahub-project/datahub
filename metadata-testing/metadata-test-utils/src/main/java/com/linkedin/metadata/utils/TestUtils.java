@@ -9,6 +9,7 @@ import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipSuggestion;
 import com.linkedin.common.OwnershipType;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetGroupUrn;
@@ -67,6 +68,11 @@ public class TestUtils {
     }
 
     return owner;
+  }
+
+  @Nonnull
+  public static Status makeStatus(@Nonnull boolean removedStatus) {
+    return new Status().setRemoved(removedStatus);
   }
 
   @Nonnull

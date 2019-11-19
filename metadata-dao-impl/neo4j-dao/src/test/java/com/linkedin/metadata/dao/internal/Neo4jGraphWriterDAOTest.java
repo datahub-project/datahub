@@ -52,6 +52,30 @@ public class Neo4jGraphWriterDAOTest {
   }
 
   @Test
+  public void testPartialUpdateEntity() throws Exception {
+    Urn urn = makeUrn(1);
+    EntityFoo entity = new EntityFoo().setUrn(urn);
+
+    _dao.addEntity(entity);
+    Optional<Map<String, Object>> node = _dao.getNode(urn);
+    assertEntityFoo(node.get(), entity);
+
+    // add value for optional field
+    EntityFoo entity2 = new EntityFoo().setUrn(urn).setValue("IamTheSameEntity");
+    _dao.addEntity(entity2);
+    node = _dao.getNode(urn);
+    assertEquals(_dao.getAllNodes(urn).size(), 1);
+    assertEntityFoo(node.get(), entity2);
+
+    // change value for optional field
+    EntityFoo entity3 = new EntityFoo().setUrn(urn).setValue("ChangeValue");
+    _dao.addEntity(entity3);
+    node = _dao.getNode(urn);
+    assertEquals(_dao.getAllNodes(urn).size(), 1);
+    assertEntityFoo(node.get(), entity3);
+  }
+
+  @Test
   public void testAddRemoveEntities() throws Exception {
     EntityFoo entity1 = new EntityFoo().setUrn(makeUrn(1)).setValue("foo");
     EntityFoo entity2 = new EntityFoo().setUrn(makeUrn(2)).setValue("bar");
@@ -80,6 +104,19 @@ public class Neo4jGraphWriterDAOTest {
     assertRelationshipFoo(_dao.getEdges(relationship), 1);
     assertEntityFoo(_dao.getNode(urn1).get(), new EntityFoo().setUrn(urn1));
     assertEntityBar(_dao.getNode(urn2).get(), new EntityBar().setUrn(urn2));
+  }
+
+  @Test
+  public void testPartialUpdateEntityCreatedByRelationship() throws Exception {
+    Urn urn1 = makeUrn(1);
+    Urn urn2 = makeUrn(2);
+    RelationshipFoo relationship = new RelationshipFoo().setSource(urn1).setDestination(urn2);
+
+    _dao.addRelationship(relationship, REMOVE_NONE);
+
+    // Check if adding an entity with same urn and with label creates a new node
+    _dao.addEntity(new EntityFoo().setUrn(urn1));
+    assertEquals(_dao.getAllNodes(urn1).size(), 1);
   }
 
   @Test

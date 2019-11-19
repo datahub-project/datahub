@@ -19,6 +19,7 @@ import com.linkedin.testing.SnapshotUnion;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.testng.annotations.Test;
 import org.testng.collections.Lists;
@@ -133,6 +134,22 @@ public class ModelUtilsTest {
 
     assertEquals(aspects.size(), 1);
     assertEquals(aspects.get(0), foo);
+  }
+
+  @Test
+  public void testGetAspectFromSnapshot() throws IOException {
+    EntitySnapshot snapshot = new EntitySnapshot();
+    snapshot.setAspects(new EntityAspectUnionArray());
+    snapshot.getAspects().add(new EntityAspectUnion());
+    AspectFoo foo = new AspectFoo();
+    snapshot.getAspects().get(0).setAspectFoo(foo);
+
+    Optional<RecordTemplate> aspect = ModelUtils.getAspectFromSnapshot(snapshot, AspectFoo.class);
+    assertTrue(aspect.isPresent());
+    assertEquals(aspect.get(), foo);
+
+    aspect = ModelUtils.getAspectFromSnapshot(snapshot, AspectBar.class);
+    assertFalse(aspect.isPresent());
   }
 
   @Test
