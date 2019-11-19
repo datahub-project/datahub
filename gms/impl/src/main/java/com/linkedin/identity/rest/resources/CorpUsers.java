@@ -54,10 +54,6 @@ public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:on
 
   @Inject
-  @Named("dataVaultRestliAuditor")
-  private BaseRestliAuditor _restliAuditor;
-
-  @Inject
   @Named("corpUserDao")
   private BaseLocalDAO<CorpUserAspect, CorpuserUrn> _localDAO;
 
@@ -67,12 +63,6 @@ public final class CorpUsers extends BaseSearchableEntityResource<
 
   public CorpUsers() {
     super(CorpUserSnapshot.class, CorpUserAspect.class);
-  }
-
-  @Override
-  @Nonnull
-  protected BaseRestliAuditor getAuditor() {
-    return _restliAuditor;
   }
 
   @Override
