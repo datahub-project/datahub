@@ -1,0 +1,16 @@
+{
+  "type": "enum",
+  "name": "HadoopClusterType",
+  "namespace": "com.linkedin.common",
+  "doc": "Denotes a specific Hadoop cluster",
+  "symbols": [
+    "HOLDEM",
+    "WAR",
+    "FARO"
+  ],
+  "symbolDocs": {
+    "HOLDEM": "Holdem hadoop cluster",
+    "WAR": "War hadoop cluster",
+    "FARO": "Faro hadoop cluster"
+  }
+}

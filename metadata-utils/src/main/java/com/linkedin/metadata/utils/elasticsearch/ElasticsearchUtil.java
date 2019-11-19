@@ -61,14 +61,19 @@ public class ElasticsearchUtil {
 
   @Nonnull
   public static String constructPath(@Nonnull String dataOrigin, @Nonnull String platform, @Nonnull String dataset) {
+    String path;
     if (PLATFORM_DELIMITER_MAP.containsKey(platform)) {
       Character delimiter = PLATFORM_DELIMITER_MAP.get(platform);
       if (delimiter.equals('/')) {
-        return "/" + dataOrigin + "/" + platform + dataset;
+        path = "/" + dataOrigin + "/" + platform + dataset;
+      } else {
+        path = ("/" + dataOrigin + "/" + platform + "/" + dataset).replace(delimiter, '/');
       }
-      return ("/" + dataOrigin + "/" + platform + "/" + dataset).replace(delimiter, '/');
+    } else {
+      path = "/" + dataOrigin + "/" + platform + "/" + dataset;
     }
-    return "/" + dataOrigin + "/" + platform + "/" + dataset;
+
+    return path.toLowerCase();
   }
 
   @Nonnull

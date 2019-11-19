@@ -19,6 +19,12 @@
       "name": "destination",
       "type": "com.linkedin.common.Urn",
       "doc": "For unit tests"
+    },
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Attribute for the relationship, for unit tests",
+      "optional": true
     }
   ]
 }

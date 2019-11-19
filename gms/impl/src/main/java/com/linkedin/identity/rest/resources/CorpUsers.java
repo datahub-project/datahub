@@ -14,6 +14,7 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseRestliAuditor;
 import com.linkedin.metadata.restli.BaseSearchableEntityResource;
 import com.linkedin.metadata.search.CorpUserInfoDocument;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -53,6 +54,10 @@ public final class CorpUsers extends BaseSearchableEntityResource<
     // @formatter:on
 
   @Inject
+  @Named("dataVaultRestliAuditor")
+  private BaseRestliAuditor _restliAuditor;
+
+  @Inject
   @Named("corpUserDao")
   private BaseLocalDAO<CorpUserAspect, CorpuserUrn> _localDAO;
 
@@ -62,6 +67,12 @@ public final class CorpUsers extends BaseSearchableEntityResource<
 
   public CorpUsers() {
     super(CorpUserSnapshot.class, CorpUserAspect.class);
+  }
+
+  @Override
+  @Nonnull
+  protected BaseRestliAuditor getAuditor() {
+    return _restliAuditor;
   }
 
   @Override

@@ -23,6 +23,7 @@ import com.linkedin.metadata.validator.ValidationUtils;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 
@@ -178,6 +179,23 @@ public class ModelUtils {
 
     SnapshotValidator.validateSnapshotSchema(snapshot.getClass());
     return getAspects(snapshot);
+  }
+
+  /**
+   * Extracts given aspect from a snapshot.
+   *
+   * @param snapshot the snapshot to extract the aspect from
+   * @param <SNAPSHOT> must be a valid snapshot model defined in com.linkedin.metadata.snapshot
+   * @param aspectClass the aspect class type to extract from snapshot
+   * @return the extracted list of aspects
+   */
+  @Nonnull
+  public static <SNAPSHOT extends RecordTemplate, ASPECT extends DataTemplate> Optional<RecordTemplate> getAspectFromSnapshot(
+      @Nonnull SNAPSHOT snapshot, @Nonnull Class<ASPECT> aspectClass) {
+
+    return getAspectsFromSnapshot(snapshot).stream()
+        .filter(aspect -> aspect.getClass().equals(aspectClass))
+        .findFirst();
   }
 
   /**

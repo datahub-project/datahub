@@ -1,30 +1,43 @@
 package com.linkedin.identity.client;
 
-import com.linkedin.common.client.CorpUsersClient;
+import com.linkedin.avro2pegasus.events.search.PaginationContext;
 import com.linkedin.common.urn.CorpuserUrn;
-import com.linkedin.identity.*;
-import com.linkedin.identity.corpuser.SnapshotRequestBuilders;
-import com.linkedin.metadata.snapshot.CorpUserSnapshot;
-import com.linkedin.metadata.snapshot.SnapshotKey;
+import com.linkedin.identity.CorpUser;
+import com.linkedin.identity.CorpUserEditableInfo;
+import com.linkedin.identity.CorpUserKey;
+import com.linkedin.identity.CorpUsersDoAutocompleteRequestBuilder;
+import com.linkedin.identity.CorpUsersFindBySearchRequestBuilder;
+import com.linkedin.identity.CorpUsersRequestBuilders;
+import com.linkedin.identity.EditableInfoRequestBuilders;
+import com.linkedin.metadata.configs.CorpUserSearchConfig;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.SortCriterion;
+import com.linkedin.metadata.restli.BaseClient;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.restli.client.*;
+import com.linkedin.metadata.restli.SearchableClient;
+import com.linkedin.restli.client.BatchGetEntityRequest;
+import com.linkedin.restli.client.Client;
+import com.linkedin.restli.client.CreateIdRequest;
+import com.linkedin.restli.client.GetAllRequest;
+import com.linkedin.restli.client.GetRequest;
 import com.linkedin.restli.common.CollectionResponse;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
-
-import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.dao.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.dao.utils.QueryUtils.*;
 
-public class CorpUsers extends CorpUsersClient {
+public class CorpUsers extends BaseClient implements SearchableClient<CorpUser> {
 
   private static final CorpUsersRequestBuilders CORP_USERS_REQUEST_BUILDERS = new CorpUsersRequestBuilders();
   private static final EditableInfoRequestBuilders EDITABLE_INFO_REQUEST_BUILDERS = new EditableInfoRequestBuilders();
-  private static final SnapshotRequestBuilders SNAPSHOT_REQUEST_BUILDERS = new SnapshotRequestBuilders();
+  private static final CorpUserSearchConfig CORP_USER_SEARCH_CONFIG = new CorpUserSearchConfig();
 
   public CorpUsers(@Nonnull Client restliClient) {
     super(restliClient);
@@ -45,21 +58,6 @@ public class CorpUsers extends CorpUsersClient {
         .build();
 
     return _client.sendRequest(getRequest).getResponse().getEntity();
-  }
-
-  /**
-   * Get all {@link CorpUser} models of the corp users
-   *
-   * @return {@link CorpUser} models of the corp user
-   * @throws RemoteInvocationException
-   */
-  @Nonnull
-  public List<CorpUser> getAll()
-      throws RemoteInvocationException {
-    GetAllRequest<CorpUser> getAllRequest = CORP_USERS_REQUEST_BUILDERS.getAll()
-        .paginate(0, 10000)
-        .build();
-    return _client.sendRequest(getAllRequest).getResponseEntity().getElements();
   }
 
   /**
@@ -85,23 +83,34 @@ public class CorpUsers extends CorpUsersClient {
   }
 
   /**
-   * Adds {@link CorpUserSnapshot} to {@link CorpuserUrn}
+   * Get all {@link CorpUser} models of the corp users
    *
-   * @param urn corp user urn
-   * @param snapshot {@link CorpUserSnapshot}
-   * @return Snapshot key
+   * @param context pagination param
+   * @return {@link CorpUser} models of the corp user
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SnapshotKey create(@Nonnull CorpuserUrn urn, @Nonnull CorpUserSnapshot snapshot)
+  public List<CorpUser> getAll(@Nonnull PaginationContext context)
       throws RemoteInvocationException {
-    CreateIdRequest<ComplexResourceKey<SnapshotKey, EmptyRecord>, CorpUserSnapshot> createRequest =
-        SNAPSHOT_REQUEST_BUILDERS.create()
-            .corpUserKey(getKeyFromUrn(urn))
-            .input(snapshot)
-            .build();
+    final GetAllRequest<CorpUser> getAllRequest = CORP_USERS_REQUEST_BUILDERS.getAll()
+        .paginate(context.getStart(), context.getNumToReturn())
+        .build();
+    return _client.sendRequest(getAllRequest).getResponseEntity().getElements();
+  }
 
-    return _client.sendRequest(createRequest).getResponseEntity().getId().getKey();
+  /**
+   * Get all {@link CorpUser} models of the corp users
+   *
+   * @return {@link CorpUser} models of the corp user
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public List<CorpUser> getAll()
+      throws RemoteInvocationException {
+    GetAllRequest<CorpUser> getAllRequest = CORP_USERS_REQUEST_BUILDERS.getAll()
+        .paginate(0, 10000)
+        .build();
+    return _client.sendRequest(getAllRequest).getResponseEntity().getElements();
   }
 
   /**
@@ -113,32 +122,59 @@ public class CorpUsers extends CorpUsersClient {
   public void createEditableInfo(@Nonnull CorpuserUrn corpuserUrn,
       @Nonnull CorpUserEditableInfo corpUserEditableInfo) throws RemoteInvocationException {
     CreateIdRequest<Long, CorpUserEditableInfo> request = EDITABLE_INFO_REQUEST_BUILDERS.create()
-        .corpUserKey(getKeyFromUrn(corpuserUrn))
+        .corpUserKey(new ComplexResourceKey<>(toCorpUserKey(corpuserUrn), new EmptyRecord()))
         .input(corpUserEditableInfo)
         .build();
     _client.sendRequest(request).getResponse();
   }
 
-  /**
-   * Searches for datasets matching to a given query and filters
-   *
-   * @param input search query
-   * @param requestFilters search filters
-   * @param start start offset for search results
-   * @param count max number of search results requested
-   * @return Snapshot key
-   * @throws RemoteInvocationException
-   */
   @Nonnull
-  public CollectionResponse<CorpUser> search(@Nonnull String input, @Nonnull Map<String, String> requestFilters,
-      int start, int count) throws RemoteInvocationException {
-
+  public CollectionResponse<CorpUser> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
+      @Nullable SortCriterion sortCriterion, int start, int count) throws RemoteInvocationException {
+    final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
     CorpUsersFindBySearchRequestBuilder requestBuilder = CORP_USERS_REQUEST_BUILDERS
         .findBySearch()
         .inputParam(input)
-        .filterParam(newFilter(requestFilters))
+        .filterParam(filter)
+        .sortParam(sortCriterion)
         .paginate(start, count);
     return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+  }
+
+  @Nonnull
+  public CollectionResponse<CorpUser> search(@Nonnull String input, @Nullable Map<String, String> requestFilters,
+      int start, int count) throws RemoteInvocationException {
+    return search(input, requestFilters, null, start, count);
+  }
+
+  @Nonnull
+  public CollectionResponse<CorpUser> search(@Nonnull String input, int start, int count)
+      throws RemoteInvocationException {
+    return search(input, null, null, start, count);
+  }
+
+  @Nonnull
+  public AutoCompleteResult autocomplete(@Nonnull String query, @Nullable String field,
+      @Nullable Map<String, String> requestFilters, int limit) throws RemoteInvocationException {
+    final String autocompleteField = (field != null) ? field : CORP_USER_SEARCH_CONFIG.getDefaultAutocompleteField();
+    final Filter filter = (requestFilters != null) ? newFilter(requestFilters) : null;
+    CorpUsersDoAutocompleteRequestBuilder requestBuilder = CORP_USERS_REQUEST_BUILDERS
+        .actionAutocomplete()
+        .queryParam(query)
+        .fieldParam(autocompleteField)
+        .filterParam(filter)
+        .limitParam(limit);
+    return _client.sendRequest(requestBuilder.build()).getResponse().getEntity();
+  }
+
+  @Nonnull
+  private CorpUserKey toCorpUserKey(@Nonnull CorpuserUrn urn) {
+    return new CorpUserKey().setName(urn.getUsernameEntity());
+  }
+
+  @Nonnull
+  protected CorpuserUrn toCorpUserUrn(@Nonnull CorpUserKey key) {
+    return new CorpuserUrn(key.getName());
   }
 
   @Nonnull

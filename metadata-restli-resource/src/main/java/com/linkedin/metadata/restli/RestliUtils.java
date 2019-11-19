@@ -65,4 +65,9 @@ public class RestliUtils {
   public static RestLiServiceException badRequestException(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_400_BAD_REQUEST, message);
   }
+
+  @Nonnull
+  public static RestLiServiceException invalidArgumentsException(@Nullable String message) {
+    return new RestLiServiceException(HttpStatus.S_412_PRECONDITION_FAILED, message);
+  }
 }

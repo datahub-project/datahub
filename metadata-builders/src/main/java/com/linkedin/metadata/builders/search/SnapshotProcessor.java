@@ -87,7 +87,7 @@ public final class SnapshotProcessor {
               builderClass.getConstructor().newInstance().getDocumentsToUpdate((RecordTemplate) obj);
           docsList.addAll(records);
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-          log.error("Failed to get documents due to error ", e.getMessage());
+          log.error("Failed to get documents due to error ", e);
         }
       }
     }

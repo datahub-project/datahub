@@ -3,6 +3,7 @@ apply plugin: 'pegasus'
 dependencies {
   compile project(':li-utils')
   compile project(':metadata-validators')
+  compile externalDependency.javatuples
 
   dataModel project(':li-utils')
 

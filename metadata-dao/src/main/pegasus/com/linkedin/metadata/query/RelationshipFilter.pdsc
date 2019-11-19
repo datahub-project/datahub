@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "RelationshipFilter",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The relationship filter to apply in a graph query",
+  "include": [
+    "Filter"
+  ],
+  "fields": [
+    {
+      "name": "direction",
+      "type": "RelationshipDirection",
+      "doc": "The relationship direction between two nodes in a graph query",
+      "default": "UNDIRECTED"
+    }
+  ]
+}

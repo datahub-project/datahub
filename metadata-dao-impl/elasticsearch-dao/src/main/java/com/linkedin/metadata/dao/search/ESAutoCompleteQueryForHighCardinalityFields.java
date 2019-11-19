@@ -69,7 +69,7 @@ public class ESAutoCompleteQueryForHighCardinalityFields extends BaseESAutoCompl
     Integer count = 0;
     for (SearchHit hit : hits) {
       Map<String, Object> source = hit.getSource();
-      if (count > limit) {
+      if (count >= limit) {
         break;
       }
       if (source.containsKey(field)) {

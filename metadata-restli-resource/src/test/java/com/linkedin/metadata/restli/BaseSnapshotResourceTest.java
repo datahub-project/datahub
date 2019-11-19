@@ -43,7 +43,7 @@ public class BaseSnapshotResourceTest extends BaseEngineTest {
   class SnapshotResource extends BaseSnapshotResource<Urn, EntitySnapshot, EntityAspectUnion> {
 
     public SnapshotResource() {
-      super(EntitySnapshot.class, EntityAspectUnion.class, new DummyRestliAuditor(_mockClock));
+      super(EntitySnapshot.class, EntityAspectUnion.class);
     }
 
     @Nonnull
@@ -78,13 +78,12 @@ public class BaseSnapshotResourceTest extends BaseEngineTest {
     EntityAspectUnion aspect = ModelUtils.newAspectUnion(EntityAspectUnion.class, foo);
     EntitySnapshot snapshot = ModelUtils.newSnapshot(EntitySnapshot.class, _urn, Arrays.asList(aspect));
     when(_mockClock.millis()).thenReturn(100L);
-    AuditStamp auditStamp = makeAuditStamp(BaseRestliAuditor.DEFAULT_ACTOR, null, 100);
 
     CreateResponse response = runAndWait(resource.create(snapshot));
 
     assertFalse(response.hasError());
 
-    verify(_mockLocalDAO, times(1)).add(_urn, foo, auditStamp);
+    verify(_mockLocalDAO, times(1)).add(eq(_urn), eq(foo), any(AuditStamp.class));
     verifyNoMoreInteractions(_mockLocalDAO);
   }
 
