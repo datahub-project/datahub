@@ -52,7 +52,7 @@ services:
       - broker
       - schema-registry
     command: "bash -c 'echo Waiting for Kafka to be ready... && \
-                       cub kafka-ready -b broker:29092 1 20 && \
+                       cub kafka-ready -b broker:29092 1 60 && \
                        kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --topic MetadataAuditEvent && \
                        kafka-topics --create --if-not-exists --zookeeper zookeeper:2181 --partitions 1 --replication-factor 1 --topic MetadataChangeEvent'"
     environment:
