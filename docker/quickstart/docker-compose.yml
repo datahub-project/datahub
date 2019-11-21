@@ -110,6 +110,14 @@ services:
     depends_on:
       - elasticsearch
 
+  neo4j:
+    image: neo4j:3.5.7
+    hostname: neo4j
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
   # This "container" is a workaround to pre-create search indices
   elasticsearch-setup:
     build:
