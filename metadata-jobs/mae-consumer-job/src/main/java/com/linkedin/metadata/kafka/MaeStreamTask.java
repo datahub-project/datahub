@@ -27,7 +27,7 @@ import java.net.URLEncoder;
 import java.util.*;
 
 @Slf4j
-public class ElasticSearchStreamTask {
+public class MaeStreamTask {
     private static final String DOC_TYPE = "doc";
 
     private static final String DEFAULT_KAFKA_TOPIC_NAME = Topics.METADATA_AUDIT_EVENT;
