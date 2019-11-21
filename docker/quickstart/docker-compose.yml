@@ -183,7 +183,7 @@ services:
       - kafka-setup
       - elasticsearch
     command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
-              echo kafka-setup done! && ./elasticsearch-index-job/bin/elasticsearch-index-job'"
+              echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
 
   datahub-mce-consumer:
     image: keremsahin/datahub-mce-consumer:latest

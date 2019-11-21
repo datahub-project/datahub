@@ -2,7 +2,7 @@
 MCE Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job. Its main function is to listen
 `MetadataChangeEvent` Kafka topic for messages and process those messages and writes new metadata to `Data Hub GMS`.
 After every successful update of metadata, GMS fires a `MetadataAuditEvent` and this is consumed by 
-[MAE Consumer Job](../elasticsearch-index-job).
+[MAE Consumer Job](../mae-consumer-job).
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 

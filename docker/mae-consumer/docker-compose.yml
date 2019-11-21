@@ -10,7 +10,7 @@ services:
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
-    command: "bash -c './elasticsearch-index-job/bin/elasticsearch-index-job'"
+    command: "bash -c './mae-consumer-job/bin/mae-consumer-job'"
 
 networks:
   default:
