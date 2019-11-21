@@ -42,4 +42,4 @@ clean {
     project.delete("src/main/resources/avro")
 }
 
-mainClassName = 'com.linkedin.metadata.kafka.ElasticSearchStreamTask'
+mainClassName = 'com.linkedin.metadata.kafka.MaeStreamTask'
