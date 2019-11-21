@@ -1,7 +1,7 @@
 # Data Hub MetadataAuditEvent (MAE) Consumer Docker Image
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mae-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mae-consumer/)
 
-Refer to [Data Hub MAE Consumer Job](../../metadata-jobs/elasticsearch-index-job) to have a quick understanding of the architecture and 
+Refer to [Data Hub MAE Consumer Job](../../metadata-jobs/mae-consumer-job) to have a quick understanding of the architecture and 
 responsibility of this service for the Data Hub.
 
 ## Build

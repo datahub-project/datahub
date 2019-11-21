@@ -15,7 +15,7 @@ installed on your machine to be able to build `Data Hub GMS`.
 ```
 However, if you only want to build `MAE Consumer Job` specifically:
 ```
-./gradlew :metadata-jobs:elasticsearch-index-job:build
+./gradlew :metadata-jobs:mae-consumer-job:build
 ```
 
 ## Dependencies
@@ -29,5 +29,5 @@ Quickest way to try out `MAE Consumer Job` is running the [Docker image](../../d
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
 ```
-./gradlew :metadata-jobs:elasticsearch-index-job:run
+./gradlew :metadata-jobs:mae-consumer-job:run
 ```
