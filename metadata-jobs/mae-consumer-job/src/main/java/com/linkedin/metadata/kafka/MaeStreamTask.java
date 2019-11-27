@@ -174,6 +174,7 @@ public class MaeStreamTask {
                 _graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
             }
         } catch (Exception ex) {
+            log.error(ex.toString());
         }
     }
 

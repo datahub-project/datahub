@@ -3,18 +3,22 @@ package com.linkedin.dataset.rest.resources;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.*;
 import com.linkedin.metadata.dao.BaseLocalDAO;
-import com.linkedin.metadata.dao.BaseSearchDAO;
-import com.linkedin.metadata.dao.SearchResult;
-import com.linkedin.metadata.dao.utils.ModelUtils;
+import com.linkedin.metadata.dao.BaseQueryDAO;
 import com.linkedin.metadata.dao.utils.SearchUtils;
+import com.linkedin.metadata.entity.DatasetEntity;
+import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.relationship.DownstreamOf;
 import com.linkedin.metadata.restli.RestliUtils;
-import com.linkedin.metadata.search.DatasetDocument;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.ComplexResourceKey;
 import com.linkedin.restli.common.EmptyRecord;
 import com.linkedin.restli.server.PathKeys;
-import com.linkedin.restli.server.annotations.*;
+import com.linkedin.restli.server.annotations.PathKeysParam;
+import com.linkedin.restli.server.annotations.RestLiCollection;
+import com.linkedin.restli.server.annotations.RestLiSimpleResource;
+import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 
 import javax.annotation.Nonnull;
@@ -22,8 +26,10 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.linkedin.metadata.dao.Neo4jUtil.createFilter;
+import static com.linkedin.metadata.dao.Neo4jUtil.createRelationshipFilter;
 
 
 /**
@@ -33,14 +39,16 @@ import java.util.stream.Collectors;
 public final class DownstreamLineageResource extends SimpleResourceTemplate<DownstreamLineage> {
 
   private static final String DATASET_KEY = Datasets.class.getAnnotation(RestLiCollection.class).keyName();
-
-  @Inject
-  @Named("datasetSearchDao")
-  private BaseSearchDAO _searchDAO;
+  private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
+  private static final Integer MAX_DOWNSTREAM_CNT = 100;
 
   @Inject
   @Named("datasetDao")
   private BaseLocalDAO _localDAO;
+
+  @Inject
+  @Named("datasetQueryDao")
+  private BaseQueryDAO _queryDAO;
 
   public DownstreamLineageResource() {
     super();
@@ -53,11 +61,13 @@ public final class DownstreamLineageResource extends SimpleResourceTemplate<Down
     final Filter filter = SearchUtils.getFilter(Collections.singletonMap("upstreams", datasetUrn.toString()));
 
     return RestliUtils.toTask(() -> {
-      final SearchResult<DatasetDocument> searchResult = _searchDAO.search("*", filter, null, 0, 10000);
-      final Set<DatasetUrn> downstreamDatasets = searchResult.getDocumentList()
-          .stream()
-          .map(d -> (DatasetUrn) ModelUtils.getUrnFromDocument(d))
-          .collect(Collectors.toSet());
+      final List<DatasetUrn> downstreamDatasets = _queryDAO
+              .findEntities(DatasetEntity.class, createFilter("urn", datasetUrn.toString()),
+                      DatasetEntity.class, EMPTY_FILTER,
+                      DownstreamOf.class, createRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
+                      0, MAX_DOWNSTREAM_CNT)
+              .stream().map(entity -> ((DatasetEntity) entity).getUrn()).collect(Collectors.toList());
+
       final DownstreamArray downstreamArray = new DownstreamArray(downstreamDatasets.stream()
           .map(ds -> {
             final UpstreamLineage upstreamLineage = (UpstreamLineage) _localDAO.get(UpstreamLineage.class, ds).get();
