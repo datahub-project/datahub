@@ -5,9 +5,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.CriterionArray;
-import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.*;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -246,5 +245,49 @@ public class Neo4jUtil {
   @Nonnull
   public static String getType(@Nonnull Class<? extends RecordTemplate> recordClass) {
     return new StringBuilder("`").append(recordClass.getCanonicalName()).append("`").toString();
+  }
+
+  /**
+   * Create {@link RelationshipFilter} using filter and relationship direction
+   *
+   * @param filter {@link Filter} filter
+   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @return RelationshipFilter
+   */
+  @Nonnull
+  public static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
+                                                            @Nonnull RelationshipDirection relationshipDirection) {
+    return new RelationshipFilter().setCriteria(filter.getCriteria()).setDirection(relationshipDirection);
+  }
+
+  /**
+   * Create {@link RelationshipFilter} using filter conditions and relationship direction
+   *
+   * @param field field to create a filter on
+   * @param value field value to be filtered
+   * @param relationshipDirection {@link RelationshipDirection} relationship direction
+   * @return RelationshipFilter
+   */
+  @Nonnull
+  public static RelationshipFilter createRelationshipFilter(@Nonnull String field, @Nonnull String value,
+                                                            @Nonnull RelationshipDirection relationshipDirection) {
+    return createRelationshipFilter(createFilter(field, value), relationshipDirection);
+  }
+
+  /**
+   * Create {@link Filter} using field and value
+   *
+   * @param field field to create a filter on
+   * @param value field value to be filtered
+   * @return Filter
+   */
+  @Nonnull
+  public static Filter createFilter(@Nonnull String field, @Nonnull String value) {
+    return new Filter()
+            .setCriteria(
+                    new CriterionArray(Collections.singletonList(
+                            new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL)
+                    ))
+            );
   }
 }

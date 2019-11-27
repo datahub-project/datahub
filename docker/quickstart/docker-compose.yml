@@ -148,11 +148,15 @@ services:
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
     depends_on:
       - elasticsearch
       - broker
       - mysql
       - schema-registry
+      - neo4j
     command: "bash -c 'dockerize -wait tcp://mysql:3306 -wait tcp://broker:29092 -wait http://elasticsearch:9200 \
                                    -timeout 240s \
                                    java -jar jetty-runner-9.4.20.v20190813.jar gms.war'"
