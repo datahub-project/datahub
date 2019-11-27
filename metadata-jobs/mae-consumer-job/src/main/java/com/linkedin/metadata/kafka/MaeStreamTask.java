@@ -4,6 +4,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.builders.search.*;
+import com.linkedin.metadata.neo4j.Neo4jDriverFactory;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.ElasticsearchConnector;
 import com.linkedin.metadata.utils.elasticsearch.ElasticsearchConnectorFactory;
@@ -14,12 +15,18 @@ import com.linkedin.util.Configuration;
 import io.confluent.kafka.streams.serdes.avro.GenericAvroSerde;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericData;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
+
+import com.linkedin.metadata.builders.graph.BaseGraphBuilder;
+import com.linkedin.metadata.builders.graph.GraphBuilder;
+import com.linkedin.metadata.builders.graph.RegisteredGraphBuilders;
+import com.linkedin.metadata.dao.internal.BaseGraphWriterDAO;
+import com.linkedin.metadata.dao.internal.Neo4jGraphWriterDAO;
+import com.linkedin.metadata.dao.utils.RecordUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
@@ -31,22 +38,24 @@ public class MaeStreamTask {
     private static final String DOC_TYPE = "doc";
 
     private static final String DEFAULT_KAFKA_TOPIC_NAME = Topics.METADATA_AUDIT_EVENT;
-    private static final String DEFAULT_ELASTICSEARCH_HOST = "localhost";
-    private static final String DEFAULT_ELASTICSEARCH_PORT = "9200";
     private static final String DEFAULT_KAFKA_BOOTSTRAP_SERVER = "localhost:9092";
     private static final String DEFAULT_KAFKA_SCHEMAREGISTRY_URL = "http://localhost:8081";
+
+    private static final String DEFAULT_ELASTICSEARCH_HOST = "localhost";
+    private static final String DEFAULT_ELASTICSEARCH_PORT = "9200";
+
+    private static final String DEFAULT_NEO4J_URI = "bolt://localhost";
+    private static final String DEFAULT_NEO4J_USERNAME = "neo4j";
+    private static final String DEFAULT_NEO4J_PASSWORD = "datahub";
 
     private static ElasticsearchConnector _elasticSearchConnector;
     private static SnapshotProcessor _snapshotProcessor;
 
+    private static BaseGraphWriterDAO _graphWriterDAO;
+
     public static void main(final String[] args) {
-        // Initialize ElasticSearch connector and Snapshot processor
-        _elasticSearchConnector = ElasticsearchConnectorFactory.createInstance(
-                Configuration.getEnvironmentVariable("ELASTICSEARCH_HOST", DEFAULT_ELASTICSEARCH_HOST),
-                Integer.valueOf(Configuration.getEnvironmentVariable("ELASTICSEARCH_PORT", DEFAULT_ELASTICSEARCH_PORT))
-        );
-        _snapshotProcessor = new SnapshotProcessor(RegisteredIndexBuilders.REGISTERED_INDEX_BUILDERS);
-        log.info("ElasticSearchConnector built successfully");
+        initializateES();
+        initializateNeo4j();
 
         // Configure the Streams application.
         final Properties streamsConfiguration = getStreamsConfiguration();
@@ -64,6 +73,24 @@ public class MaeStreamTask {
 
         // Add shutdown hook to respond to SIGTERM and gracefully close the Streams application.
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+    }
+
+    static void initializateNeo4j() {
+        _graphWriterDAO = new Neo4jGraphWriterDAO(Neo4jDriverFactory.createInstance(
+                Configuration.getEnvironmentVariable("NEO4J_URI", DEFAULT_NEO4J_URI),
+                Configuration.getEnvironmentVariable("NEO4J_USERNAME", DEFAULT_NEO4J_USERNAME),
+                Configuration.getEnvironmentVariable("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD)));
+        log.info("Neo4jDriver built successfully");
+    }
+
+    static void initializateES() {
+        // Initialize ElasticSearch connector and Snapshot processor
+        _elasticSearchConnector = ElasticsearchConnectorFactory.createInstance(
+            Configuration.getEnvironmentVariable("ELASTICSEARCH_HOST", DEFAULT_ELASTICSEARCH_HOST),
+            Integer.valueOf(Configuration.getEnvironmentVariable("ELASTICSEARCH_PORT", DEFAULT_ELASTICSEARCH_PORT))
+        );
+        _snapshotProcessor = new SnapshotProcessor(RegisteredIndexBuilders.REGISTERED_INDEX_BUILDERS);
+        log.info("ElasticSearchConnector built successfully");
     }
 
     /**
@@ -106,26 +133,56 @@ public class MaeStreamTask {
     }
 
     /**
-     * Process MAE and do reindexing in ES
+     * Process MAE and update Elasticsearch & Neo4j
      *
      * @param record single MAE message
      */
     static void processSingleMAE(final GenericData.Record record) {
         log.debug("Got MAE");
 
-        Snapshot snapshot = null;
         try {
             final MetadataAuditEvent event = EventUtils.avroToPegasusMAE(record);
-            snapshot = event.getNewSnapshot();
+            if (event.hasNewSnapshot()) {
+                final Snapshot snapshot = event.getNewSnapshot();
+
+                log.info(snapshot.toString());
+
+                updateElasticsearch(snapshot);
+                updateNeo4j(RecordUtils.getSelectedRecordTemplateFromUnion(snapshot));
+            }
         } catch (Exception e) {
             log.error("Error deserializing message: {}", e.toString());
             log.error("Message: {}", record.toString());
         }
+    }
 
-        if (snapshot == null) {
-            return;
+    /**
+     * Process snapshot and update Neo4j
+     *
+     * @param snapshot Snapshot
+     */
+    static void updateNeo4j(final RecordTemplate snapshot) {
+        try {
+            final BaseGraphBuilder graphBuilder = RegisteredGraphBuilders.getGraphBuilder(snapshot.getClass()).get();
+            final GraphBuilder.GraphUpdates updates = graphBuilder.build(snapshot);
+
+            if (!updates.getEntities().isEmpty()) {
+                _graphWriterDAO.addEntities(updates.getEntities());
+            }
+
+            for (GraphBuilder.RelationshipUpdates update : updates.getRelationshipUpdates()) {
+                _graphWriterDAO.addRelationships(update.getRelationships(), update.getPreUpdateOperation());
+            }
+        } catch (Exception ex) {
         }
-        log.info(snapshot.toString());
+    }
+
+    /**
+     * Process snapshot and update Elasticsearch
+     *
+     * @param snapshot Snapshot
+     */
+    static void updateElasticsearch(final Snapshot snapshot) {
         List<RecordTemplate> docs = new ArrayList<>();
         try {
             docs = _snapshotProcessor.getDocumentsToUpdate(snapshot);

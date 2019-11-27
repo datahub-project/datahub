@@ -18,6 +18,7 @@ how to change your exposed port settings.
 ```
 ports:
   - "7474:7474"
+  - "7687:7687"
 ```
 
 ### Docker Network
@@ -31,4 +32,4 @@ networks:
 
 ## Neo4j Browser
 To be able to debug and run Cypher queries against your Neo4j image, you can open up `Neo4j Browser` which is running at
-[http://localhost:7474/browser/](http://localhost:7474/browser/). Default username and password for it is `neo4j`.
+[http://localhost:7474/browser/](http://localhost:7474/browser/). Default username is `neo4j` and password is `datahub`.
