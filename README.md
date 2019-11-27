@@ -30,6 +30,5 @@ as username and password.
 * [Metadata Ingestion](metadata-ingestion)
 
 ## Roadmap
-1. Add [Neo4J](http://neo4j.com) graph query support 
-2. Add user profile page
-3. Deploy Data Hub to [Azure Cloud](https://azure.microsoft.com/en-us/)
+1. Add user profile page
+2. Deploy Data Hub to [Azure Cloud](https://azure.microsoft.com/en-us/)
