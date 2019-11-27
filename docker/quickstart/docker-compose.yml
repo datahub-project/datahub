@@ -114,6 +114,8 @@ services:
     image: neo4j:3.5.7
     hostname: neo4j
     container_name: neo4j
+    environment:
+      NEO4J_AUTH: 'neo4j/datahub'
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -179,9 +181,13 @@ services:
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
       - ELASTICSEARCH_HOST=elasticsearch
       - ELASTICSEARCH_PORT=9200
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
     depends_on:
       - kafka-setup
       - elasticsearch
+      - neo4j
     command: "bash -c 'while ping -c1 kafka-setup &>/dev/null; do echo waiting for kafka-setup... && sleep 1; done; \
               echo kafka-setup done! && ./mae-consumer-job/bin/mae-consumer-job'"
 

@@ -1,5 +1,6 @@
 apply plugin: 'application'
 apply plugin: 'java'
+apply plugin: 'pegasus'
 
 configurations {
     avro
@@ -15,7 +16,10 @@ dependencies {
     compile project(':metadata-events:mxe-avro-1.7')
     compile project(':metadata-events:mxe-registration')
     compile project(':metadata-events:mxe-utils-avro-1.7')
+    compile project(':metadata-dao')
+    compile project(':metadata-dao-impl:neo4j-dao')
     compile externalDependency.elasticSearchRest
+    compile externalDependency.neo4jJavaDriver
 
     compile externalDependency.kafkaAvroSerde
     compile externalDependency.kafkaStreams
