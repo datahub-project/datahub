@@ -3,7 +3,6 @@ package com.linkedin.metadata.dao.utils;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Ownership;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataset.ComplianceInfo;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
@@ -39,18 +38,6 @@ public class QueryUtilTest {
     Map<String, String> paramsWithNulls = Collections.singletonMap("foo", null);
     filter = QueryUtils.newFilter(paramsWithNulls);
     assertEquals(filter.getCriteria().size(), 0);
-  }
-
-  @Test
-  public void testLatestAspectVersions() {
-    Set<Class<? extends RecordTemplate>> aspects = ImmutableSet.of(Ownership.class, ComplianceInfo.class);
-
-    Set<AspectVersion> aspectVersions = QueryUtils.latestAspectVersions(aspects);
-
-    assertEquals(aspectVersions.size(), 2);
-
-    assertTrue(hasAspectVersion(aspectVersions, Ownership.class.getCanonicalName(), 0));
-    assertTrue(hasAspectVersion(aspectVersions, ComplianceInfo.class.getCanonicalName(), 0));
   }
 
   private boolean hasAspectVersion(Set<AspectVersion> aspectVersions, String aspectName, long version) {
