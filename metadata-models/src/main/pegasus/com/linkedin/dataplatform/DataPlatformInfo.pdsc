@@ -46,14 +46,6 @@
       }
     },
     {
-      "name": "supportedPurgePolicies",
-      "type": {
-        "type": "array",
-        "items": "com.linkedin.dataset.CompliancePurgeType"
-      },
-      "doc": "The purge policies supported by this platform"
-    },
-    {
       "name": "datasetNameDelimiter",
       "type": "string",
       "doc": "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
