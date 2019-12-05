@@ -119,3 +119,25 @@ The mysql_etl provides you ETL channel to communicate with your MySQL.
 ➜  python mysql_etl.py
 ```
 This will bootstrap Data Hub with your metadata in the MySQL as a dataset entity.
+
+## Ingest metadata from RDBMS to Data Hub
+The rdbms_etl provides you ETL channel to communicate with your RDBMS.
+- Currently supports IBM DB2, Firebird, MSSQL Server, MySQL, Oracle,PostgreSQL, SQLite and ODBC connections.
+- Some platform-specific logic are modularized and required to be implemented on your ad-hoc usage.
+```
+➜  Config your MySQL environmental variable in the file.
+    HOST           # Your server host.
+    DATABASE       # Target database.
+    USER           # Your user account.
+    PASSWORD       # Your password.
+    PORT           # Connection port.
+    
+➜  Config your kafka broker environmental variable in the file.
+    AVROLOADPATH   # Your model event in avro format.
+    KAFKATOPIC     # Your event topic.
+    BOOTSTRAP      # Kafka bootstrap server.
+    SCHEMAREGISTRY # Kafka schema registry host.
+
+➜  python rdbms_etl.py
+```
+This will bootstrap Data Hub with your metadata in the RDBMS as a dataset entity.

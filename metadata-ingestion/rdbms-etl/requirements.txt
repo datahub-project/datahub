@@ -1,0 +1,2 @@
+confluent-kafka[avro]==1.1.0
+dbms==1.1.1
