@@ -45,7 +45,7 @@ public class SearchUtils {
   }
 
   /**
-   * Convert a requestMap to a filter
+   * Converts a requestMap to a filter
    *
    * @param requestMap a map of fields and values
    * @return the search filter

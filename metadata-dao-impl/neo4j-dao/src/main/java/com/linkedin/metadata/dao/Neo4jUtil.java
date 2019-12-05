@@ -256,7 +256,7 @@ public class Neo4jUtil {
    */
   @Nonnull
   public static RelationshipFilter createRelationshipFilter(@Nonnull Filter filter,
-                                                            @Nonnull RelationshipDirection relationshipDirection) {
+      @Nonnull RelationshipDirection relationshipDirection) {
     return new RelationshipFilter().setCriteria(filter.getCriteria()).setDirection(relationshipDirection);
   }
 
@@ -270,7 +270,7 @@ public class Neo4jUtil {
    */
   @Nonnull
   public static RelationshipFilter createRelationshipFilter(@Nonnull String field, @Nonnull String value,
-                                                            @Nonnull RelationshipDirection relationshipDirection) {
+      @Nonnull RelationshipDirection relationshipDirection) {
     return createRelationshipFilter(createFilter(field, value), relationshipDirection);
   }
 
@@ -284,10 +284,10 @@ public class Neo4jUtil {
   @Nonnull
   public static Filter createFilter(@Nonnull String field, @Nonnull String value) {
     return new Filter()
-            .setCriteria(
-                    new CriterionArray(Collections.singletonList(
-                            new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL)
-                    ))
-            );
+        .setCriteria(
+            new CriterionArray(Collections.singletonList(
+                new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL)
+            ))
+        );
   }
 }
