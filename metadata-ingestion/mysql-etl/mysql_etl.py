@@ -19,14 +19,20 @@ def build_mysql_dataset_mce(dataset_name, schema, schema_version):
     """
     Create the MetadataChangeEvent via dataset_name and schema.
     """
-    actor, sys_time = "urn:li:corpuser:", long(time.time())
+    actor, fields, sys_time = "urn:li:corpuser:datahub", [], long(time.time())
+
+    owner = {"owners":[{"owner":actor,"type":"DATAOWNER"}],"lastModified":{"time":0,"actor":actor}}
+
+    for columnIdx in range(len(schema)):
+        fields.append({"fieldPath":str(schema[columnIdx][0]),"nativeDataType":str(schema[columnIdx][1]),"type":{"type":{"com.linkedin.pegasus2avro.schema.StringType":{}}}})
+
     schema_name = {"schemaName":dataset_name,"platform":"urn:li:dataPlatform:mysql","version":schema_version,"created":{"time":sys_time,"actor":actor},
-                  "lastModified":{"time":sys_time,"actor":actor},"hash":"","platformSchema":{"tableSchema": schema},
-                   "fields":[{"fieldPath":"","description":"","nativeDataType":"string","type":{"type":{"com.linkedin.pegasus2avro.schema.StringType":{}}}}]}
+               "lastModified":{"time":sys_time,"actor":actor},"hash":"","platformSchema":{"tableSchema":str(schema)},
+               "fields":fields}
 
     mce = {"auditHeader": None,
            "proposedSnapshot":("com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot",
-                               {"urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,"+ dataset_name +",PROD)","aspects": [schema_name]}),
+                               {"urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,"+ dataset_name +",PROD)","aspects": [owner, schema_name]}),
            "proposedDelta": None}
 
     produce_mysql_dataset_mce(mce)
@@ -66,7 +72,7 @@ try:
             schema_version = int(cursor.fetchone()[5])
             dataset_name = str(DATABASE + "." + table[0])
             cursor.execute("desc " + dataset_name)
-            schema = str(cursor.fetchone())
+            schema = cursor.fetchall()
             build_mysql_dataset_mce(dataset_name, schema, schema_version)
 
 except Error as e:
