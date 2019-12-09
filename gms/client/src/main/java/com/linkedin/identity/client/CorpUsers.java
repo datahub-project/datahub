@@ -1,6 +1,5 @@
 package com.linkedin.identity.client;
 
-import com.linkedin.avro2pegasus.events.search.PaginationContext;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.identity.CorpUser;
 import com.linkedin.identity.CorpUserEditableInfo;
@@ -85,15 +84,16 @@ public class CorpUsers extends BaseClient implements SearchableClient<CorpUser> 
   /**
    * Get all {@link CorpUser} models of the corp users
    *
-   * @param context pagination param
+   * @param start offset to start
+   * @param count number of max {@link CorpUser}s to return
    * @return {@link CorpUser} models of the corp user
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public List<CorpUser> getAll(@Nonnull PaginationContext context)
+  public List<CorpUser> getAll(int start, int count)
       throws RemoteInvocationException {
     final GetAllRequest<CorpUser> getAllRequest = CORP_USERS_REQUEST_BUILDERS.getAll()
-        .paginate(context.getStart(), context.getNumToReturn())
+        .paginate(start, count)
         .build();
     return _client.sendRequest(getAllRequest).getResponseEntity().getElements();
   }
