@@ -1,6 +1,6 @@
 package com.linkedin.dataset.factory;
 
-import com.linkedin.metadata.dao.browse.DatasetBrowseConfig;
+import com.linkedin.metadata.configs.DatasetBrowseConfig;
 import com.linkedin.metadata.dao.browse.ESBrowseDAO;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;

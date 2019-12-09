@@ -1,5 +1,6 @@
-package com.linkedin.metadata.dao.browse;
+package com.linkedin.metadata.configs;
 
+import com.linkedin.metadata.dao.browse.BaseBrowseConfig;
 import com.linkedin.metadata.search.DatasetDocument;
 
 public class DatasetBrowseConfig extends BaseBrowseConfig<DatasetDocument> {
