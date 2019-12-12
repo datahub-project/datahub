@@ -19,6 +19,8 @@ cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 ./gradlew :metadata-events:mxe-schemas:build && cd metadata-ingestion/mce-cli && pip install --user -r requirements.txt && python mce_cli.py produce -d bootstrap_mce.dat
 ```
+Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 for build.
+
 5. Finally, you can start `Data Hub` by typing `http://localhost:9001` in your browser. You can sign in with `datahub`
 as username and password.
 
