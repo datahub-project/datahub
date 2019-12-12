@@ -235,7 +235,7 @@ the application directly from command line after a successful [build](#build):
 
 ### Typeahead for datasets
 ```
-➜ curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "field": "name", "limit": 10}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
+➜ curl "http://localhost:8080/datasets?action=autocomplete" -d '{"query": "bar", "field": "name", "limit": 10, "filter": {"criteria": []}}' -X POST -H 'X-RestLi-Protocol-Version: 2.0.0' | jq
 {
   "value": {
     "query": "bar",

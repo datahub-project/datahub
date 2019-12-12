@@ -19,12 +19,6 @@ public class DatasetSearchConfig extends BaseSearchConfig<DatasetDocument> {
     return Collections.unmodifiableSet(new HashSet<>(Arrays.asList("origin", "platform")));
   }
 
-  @Override
-  @Nullable
-  public Set<String> getLowCardinalityFields() {
-    return Collections.unmodifiableSet(new HashSet<>(Arrays.asList("origin", "platform")));
-  }
-
   @Nonnull
   public Class getSearchDocument() {
     return DatasetDocument.class;
