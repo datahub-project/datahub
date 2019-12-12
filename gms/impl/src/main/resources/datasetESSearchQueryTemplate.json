@@ -9,8 +9,7 @@
               "analyzer": "whitespace_lowercase",
               "boost": 0.125,
               "default_field": "name.ngram",
-              "default_operator": "AND",
-              "minimum_should_match": "100%"
+              "default_operator": "AND"
             }
           },
           {
@@ -19,8 +18,7 @@
               "analyzer": "whitespace_lowercase",
               "boost": 8,
               "default_field": "name.dataset_pattern_ngram",
-              "default_operator": "AND",
-              "minimum_should_match": "100%"
+              "default_operator": "AND"
             }
           },
           {
@@ -29,8 +27,7 @@
               "analyzer": "whitespace_lowercase",
               "boost": 1,
               "default_field": "name.delimited",
-              "default_operator": "AND",
-              "minimum_should_match": "100%"
+              "default_operator": "AND"
             }
           },
           {
@@ -39,8 +36,7 @@
               "analyzer": "whitespace_lowercase",
               "boost": 8,
               "default_field": "name.pattern",
-              "default_operator": "AND",
-              "minimum_should_match": "100%"
+              "default_operator": "AND"
             }
           },
           {
@@ -49,8 +45,7 @@
               "analyzer": "custom_keyword",
               "boost": 1000000,
               "default_field": "name",
-              "default_operator": "AND",
-              "minimum_should_match": "100%"
+              "default_operator": "AND"
             }
           }
         ]

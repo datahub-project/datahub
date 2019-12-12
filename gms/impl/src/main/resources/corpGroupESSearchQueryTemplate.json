@@ -8,7 +8,6 @@
       "members"
     ],
     "default_operator": "and",
-    "analyzer": "standard",
-    "minimum_should_match": "100%"
+    "analyzer": "standard"
   }
 }
