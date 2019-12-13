@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.dao.exception.ESQueryException;
+import com.linkedin.metadata.dao.utils.ESUtils;
 import com.linkedin.metadata.dao.utils.SearchUtils;
 import com.linkedin.metadata.query.BrowseResult;
 import com.linkedin.metadata.query.BrowseResultEntity;
@@ -63,14 +64,14 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Override
   @Nonnull
   public BrowseResult browse(@Nonnull String path, @Nullable Filter requestParams, int from, int size) {
-    Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
+    final Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
 
     try {
-      SearchRequest groupsRequest = constructGroupsSearchRequest(path, requestMap);
-      SearchResponse groupsResponse = _client.search(groupsRequest);
-      SearchRequest entitiesRequest = constructEntitiesSearchRequest(path, requestMap, from, size);
-      SearchResponse entitiesResponse = _client.search(entitiesRequest);
-      BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from, size);
+      final SearchResponse groupsResponse =
+          _client.search(constructGroupsSearchRequest(path, requestMap));
+      final SearchResponse entitiesResponse =
+          _client.search(constructEntitiesSearchRequest(path, requestMap, from, size));
+      final BrowseResult result = extractQueryResult(groupsResponse, entitiesResponse, path, from, size);
       result.getMetadata().setPath(path);
       return result;
     } catch (Exception e) {
@@ -87,16 +88,14 @@ public class ESBrowseDAO extends BaseBrowseDAO {
    */
   @Nonnull
   private AggregationBuilder buildAggregations(@Nonnull String path) {
-    String includeFilter = (path + "/.*").replace("/", "\\/");
-    String excludeFilter = (path + "/.*/.*").replace("/", "\\/");
+    final String includeFilter = ESUtils.escapeReservedCharacters(path) + "/.*";
+    final String excludeFilter = ESUtils.escapeReservedCharacters(path) + "/.*/.*";
 
-    AggregationBuilder aggBuilder = AggregationBuilders.terms("groups")
+    return AggregationBuilders.terms("groups")
         .field(_config.getBrowsePathFieldName())
         .size(Integer.MAX_VALUE)
         .order(Terms.Order.term(true)) // Ascending order
         .includeExclude(new IncludeExclude(includeFilter, excludeFilter));
-
-    return aggBuilder;
   }
 
   /**
@@ -107,8 +106,8 @@ public class ESBrowseDAO extends BaseBrowseDAO {
    */
   @Nonnull
   protected SearchRequest constructGroupsSearchRequest(@Nonnull String path, @Nonnull Map<String, String> requestMap) {
-    SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    final SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(buildQueryString(path, requestMap, true));
     searchSourceBuilder.aggregation(buildAggregations(path));
     searchRequest.source(searchSourceBuilder);
@@ -126,11 +125,15 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Nonnull
   private QueryBuilder buildQueryString(@Nonnull String path, @Nonnull Map<String, String> requestMap,
       boolean isGroupQuery) {
-    String browsePathFieldName = _config.getBrowsePathFieldName();
-    String browseDepthFieldName = _config.getBrowseDepthFieldName();
-    int browseDepthVal = getPathDepth(path) + 1;
+    final String browsePathFieldName = _config.getBrowsePathFieldName();
+    final String browseDepthFieldName = _config.getBrowseDepthFieldName();
+    final String removedFieldName = _config.getRemovedField();
+    final int browseDepthVal = getPathDepth(path) + 1;
 
-    BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+    final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+
+    // Filter out documents which are removed
+    queryBuilder.mustNot(QueryBuilders.termQuery(removedFieldName, "true"));
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(browsePathFieldName, path));
@@ -163,8 +166,8 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Nonnull
   SearchRequest constructEntitiesSearchRequest(@Nonnull String path, @Nonnull Map<String, String> requestMap, int from,
       int size) {
-    SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
-    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    final SearchRequest searchRequest = new SearchRequest(_config.getIndexName());
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(size);
     searchSourceBuilder.fetchSource(new String[]{_config.getBrowsePathFieldName(), _config.getUrnFieldName()}, null);
@@ -187,8 +190,8 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Nonnull
   private BrowseResult extractQueryResult(@Nonnull SearchResponse groupsResponse,
       @Nonnull SearchResponse entitiesResponse, @Nonnull String path, int from, int size) {
-    List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
-    BrowseResultMetadata browseResultMetadata = extractGroupsResponse(groupsResponse, path);
+    final List<BrowseResultEntity> browseResultEntityList = extractEntitiesResponse(entitiesResponse, path);
+    final BrowseResultMetadata browseResultMetadata = extractGroupsResponse(groupsResponse, path);
     browseResultMetadata.setTotalNumEntities(
         browseResultMetadata.getTotalNumEntities() + entitiesResponse.getHits().getTotalHits());
     return new BrowseResult().setEntities(new BrowseResultEntityArray(browseResultEntityList))
@@ -207,17 +210,16 @@ public class ESBrowseDAO extends BaseBrowseDAO {
    */
   @Nonnull
   private BrowseResultMetadata extractGroupsResponse(@Nonnull SearchResponse groupsResponse, @Nonnull String path) {
-    ParsedTerms groups = (ParsedTerms) groupsResponse.getAggregations().getAsMap().get("groups");
-    BrowseResultGroupArray groupsAgg = new BrowseResultGroupArray();
+    final ParsedTerms groups = (ParsedTerms) groupsResponse.getAggregations().getAsMap().get("groups");
+    final BrowseResultGroupArray groupsAgg = new BrowseResultGroupArray();
     for (Terms.Bucket group : groups.getBuckets()) {
       groupsAgg.add(
           new BrowseResultGroup().setName(getSimpleName(group.getKeyAsString())).setCount(group.getDocCount()));
     }
-    BrowseResultMetadata browseResultMetadata = new BrowseResultMetadata();
-    browseResultMetadata.setGroups(groupsAgg);
-    browseResultMetadata.setTotalNumEntities(groupsResponse.getHits().getTotalHits());
-    browseResultMetadata.setPath(path);
-    return browseResultMetadata;
+    return new BrowseResultMetadata()
+        .setGroups(groupsAgg)
+        .setTotalNumEntities(groupsResponse.getHits().getTotalHits())
+        .setPath(path);
   }
 
   /**
@@ -230,11 +232,11 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Nonnull
   List<BrowseResultEntity> extractEntitiesResponse(@Nonnull SearchResponse entitiesResponse,
       @Nonnull String currentPath) {
-    List<BrowseResultEntity> entityMetadataArray = new ArrayList<>();
+    final List<BrowseResultEntity> entityMetadataArray = new ArrayList<>();
     Arrays.stream(entitiesResponse.getHits().getHits()).forEach(hit -> {
       try {
-        List<String> allPaths = (List<String>) hit.getSourceAsMap().get(_config.getBrowsePathFieldName());
-        String nextLevelPath = getNextLevelPath(allPaths, currentPath);
+        final List<String> allPaths = (List<String>) hit.getSourceAsMap().get(_config.getBrowsePathFieldName());
+        final String nextLevelPath = getNextLevelPath(allPaths, currentPath);
         if (nextLevelPath != null) {
           entityMetadataArray.add(new BrowseResultEntity().setName(getSimpleName(nextLevelPath))
               .setUrn(Urn.createFromString((String) hit.getSourceAsMap().get(_config.getUrnFieldName()))));
@@ -263,7 +265,7 @@ public class ESBrowseDAO extends BaseBrowseDAO {
   @Nullable
   static String getNextLevelPath(@Nonnull List<String> paths, @Nonnull String currentPath) {
     final String normalizedCurrentPath = currentPath.toLowerCase();
-    int pathDepth = getPathDepth(currentPath);
+    final int pathDepth = getPathDepth(currentPath);
     return paths.stream()
         .filter(x -> x.toLowerCase().startsWith(normalizedCurrentPath) && getPathDepth(x) == (pathDepth + 1))
         .findFirst()

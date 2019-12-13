@@ -4,12 +4,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.internal.Neo4jGraphWriterDAO;
 import com.linkedin.metadata.dao.utils.Statement;
-import com.linkedin.metadata.query.Condition;
-import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.RelationshipDirection;
-import com.linkedin.metadata.query.RelationshipFilter;
+import com.linkedin.metadata.utils.Neo4jTestServerBuilder;
 import com.linkedin.testing.EntityBaz;
 import com.linkedin.testing.RelationshipBar;
 import com.linkedin.testing.RelationshipFoo;
@@ -28,6 +26,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.dao.Neo4jUtil.*;
 import static com.linkedin.testing.TestUtils.*;
 import static org.testng.Assert.*;
 
@@ -55,12 +54,12 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindEntityByUrn() throws Exception {
-    Urn urn = makeUrn(1);
+    Urn urn = makeUrn(1, "entityFoo");
     EntityFoo entity = new EntityFoo().setUrn(urn).setValue("foo");
 
     _writer.addEntity(entity);
 
-    Filter filter = makeFilter("urn", urn.toString());
+    Filter filter = createFilter("urn", urn.toString());
     List<EntityFoo> found = _dao.findEntities(EntityFoo.class, filter, -1, -1);
 
     assertEquals(found.size(), 1);
@@ -69,16 +68,16 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindEntityByAttribute() throws Exception {
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityFoo");
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo");
     _writer.addEntity(entity2);
 
     // find by removed
-    Filter filter1 = makeFilter("value", "foo");
+    Filter filter1 = createFilter("value", "foo");
     List<EntityFoo> found = _dao.findEntities(EntityFoo.class, filter1, -1, -1);
     assertEquals(found, Arrays.asList(entity1, entity2));
 
@@ -115,23 +114,23 @@ public class Neo4jQueryDAOTest {
   @Test
   public void testFindEntityWithOneRelationship() throws Exception {
     // Test interface 1 & 3
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityFoo");
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3);
+    Urn urn3 = makeUrn(3, "entityFoo");
     EntityFoo entity3 = new EntityFoo().setUrn(urn3).setValue("foo3");
     _writer.addEntity(entity3);
 
-    Urn urn4 = makeUrn(4);
+    Urn urn4 = makeUrn(4, "entityBar");
     EntityBar entity4 = new EntityBar().setUrn(urn4).setValue("bar4");
     _writer.addEntity(entity4);
 
-    Urn urn5 = makeUrn(5);
+    Urn urn5 = makeUrn(5, "entityBar");
     EntityBar entity5 = new EntityBar().setUrn(urn5).setValue("bar5");
     _writer.addEntity(entity5);
 
@@ -150,75 +149,75 @@ public class Neo4jQueryDAOTest {
     _writer.addRelationship(relationshipBar1o5);
 
     // test source filter with urn
-    Filter sourceFilter = makeFilter("urn", urn2.toString());
+    Filter sourceFilter = createFilter("urn", urn2.toString());
 
     // use case: the direct reportee to me (urn2)
     List<RecordTemplate> resultIncoming =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 0, 10);
     assertEquals(resultIncoming.size(), 1);
     assertEquals(resultIncoming.get(0), entity1);
 
     // use case: the manager I (urn2) am report to
     List<RecordTemplate> resultOutgoing =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
     assertEquals(resultOutgoing.size(), 1);
     assertEquals(resultOutgoing.get(0), entity3);
 
     // use case: give me my friends at one degree/hop
     List<RecordTemplate> resultUndirected =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED), 0, 10);
     assertEquals(resultUndirected.size(), 2);
     assertEquals(resultUndirected.get(0), entity1);
     assertEquals(resultUndirected.get(1), entity3);
 
     // Test: if dest entity type is not specified, from urn1, it will return a mixed collection of entities like urn2 and urn4
     // urn5 should not be returned because it is based on RelationshipBar.
-    sourceFilter = makeFilter("urn", urn1.toString());
+    sourceFilter = createFilter("urn", urn1.toString());
     List<RecordTemplate> resultNullDest =
         _dao.findEntities(EntityFoo.class, sourceFilter, null, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
     assertEquals(resultNullDest.size(), 2);
     assertEquals(resultNullDest.get(0), entity2);
     assertEquals(resultNullDest.get(1), entity4);
 
     // Test: source filter on other attributes
-    sourceFilter = makeFilter("value", "foo2");
+    sourceFilter = createFilter("value", "foo2");
     List<RecordTemplate> result =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 0, 10);
     assertEquals(result, resultIncoming);
 
     //Test relationship filters on the attributes
-    Filter filter = makeFilter("type", "apa");
+    Filter filter = createFilter("type", "apa");
     List<RecordTemplate> resultWithRelationshipFilter =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(filter, RelationshipDirection.OUTGOING), 0, 10);
+            createRelationshipFilter(filter, RelationshipDirection.OUTGOING), 0, 10);
     assertEquals(resultWithRelationshipFilter.size(), 1);
     assertEquals(resultWithRelationshipFilter.get(0), entity3);
 
     //Test a wrong value for relationship filters
-    Filter relationshipFilterWrongValue = makeFilter("type", "wrongValue");
+    Filter relationshipFilterWrongValue = createFilter("type", "wrongValue");
     List<RecordTemplate> resultWithRelationshipFilter2 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(relationshipFilterWrongValue, RelationshipDirection.OUTGOING), 0, 10);
+            createRelationshipFilter(relationshipFilterWrongValue, RelationshipDirection.OUTGOING), 0, 10);
     assertEquals(resultWithRelationshipFilter2.size(), 0);
   }
 
   @Test
   public void testFindEntitiesMultiHops() throws Exception {
     // Test interface 5
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityFoo");
     EntityFoo entity2 = new EntityFoo().setUrn(urn2).setValue("foo2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3);
+    Urn urn3 = makeUrn(3, "entityFoo");
     EntityFoo entity3 = new EntityFoo().setUrn(urn3).setValue("foo3");
     _writer.addEntity(entity3);
 
@@ -230,17 +229,17 @@ public class Neo4jQueryDAOTest {
     _writer.addRelationship(relationshipFoo2o3);
 
     // From urn1, get result with one hop, such as direct manager
-    Filter sourceFilter = makeFilter("urn", urn1.toString());
+    Filter sourceFilter = createFilter("urn", urn1.toString());
     List<RecordTemplate> result =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 1, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 1, 0, 10);
     assertEquals(result.size(), 1);
     assertEquals(result.get(0), entity2);
 
     // get result with 2 hops, two managers
     List<RecordTemplate> result2 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 2, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 2, 0, 10);
     assertEquals(result2.size(), 2);
     assertEquals(result2.get(0), entity2);
     assertEquals(result2.get(1), entity3);
@@ -248,16 +247,16 @@ public class Neo4jQueryDAOTest {
     // get result with >= 3 hops, until end of the chain
     List<RecordTemplate> result3 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 3, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 3, 0, 10);
     assertEquals(result3.size(), 2);
     assertEquals(result3.get(0), entity2);
     assertEquals(result3.get(1), entity3);
 
     // test dest filter, filter the list of result and only get urn3 back
-    Filter destFilter = makeFilter("urn", urn3.toString());
+    Filter destFilter = createFilter("urn", urn3.toString());
     List<RecordTemplate> result4 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, destFilter, RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 3, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 3, 0, 10);
     assertEquals(result4.size(), 1);
     assertEquals(result4.get(0), entity3);
 
@@ -266,61 +265,61 @@ public class Neo4jQueryDAOTest {
     // corner cases 1: minHops set to 3, get no result because the relationship chain reaches the end
     List<RecordTemplate> result5 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 3, 6, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 3, 6, 0, 10);
     assertEquals(result5.size(), 0);
 
     // corner cases 2: minHops < maxHops, return no result
     List<RecordTemplate> result6 =
         _dao.findEntities(EntityFoo.class, sourceFilter, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 6, 0, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 6, 0, 0, 10);
     assertEquals(result6.size(), 0);
 
     // test the relationship directions
     // From urn2, get result with one hop, such as direct manager.
     // NOTE: without direction specified in the matchTemplate, urn1 could end up in the result too
-    Filter sourceFilter2 = makeFilter("urn", urn2.toString());
+    Filter sourceFilter2 = createFilter("urn", urn2.toString());
     List<RecordTemplate> result21 =
         _dao.findEntities(EntityFoo.class, sourceFilter2, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 1, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 1, 0, 10);
     assertEquals(result21.size(), 1);
     assertEquals(result21.get(0), entity3);
 
     // get result with 2 hops, 1 manager
     List<RecordTemplate> result22 =
         _dao.findEntities(EntityFoo.class, sourceFilter2, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 2, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 1, 2, 0, 10);
     assertEquals(result22.size(), 1);
     assertEquals(result22.get(0), entity3);
 
     // let's see what we get if we use interface 1, it should return urn3 only
     List<RecordTemplate> resultInterface1 =
         _dao.findEntities(EntityFoo.class, sourceFilter2, null, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), 0, 10);
     assertEquals(resultInterface1.size(), 1);
     assertEquals(resultInterface1.get(0), entity3);
 
     // test INCOMING direction, use case such as who report to URN3
-    Filter sourceFilter3 = makeFilter("urn", urn3.toString());
+    Filter sourceFilter3 = createFilter("urn", urn3.toString());
     List<RecordTemplate> resultIncoming =
         _dao.findEntities(EntityFoo.class, sourceFilter3, EntityFoo.class, emptyFilter(), RelationshipFoo.class,
-            makeRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 1, 2, 0, 10);
+            createRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING), 1, 2, 0, 10);
     assertEquals(resultIncoming.size(), 2);
-    assertEquals(resultIncoming.get(0), entity1);
-    assertEquals(resultIncoming.get(1), entity2);
+    assertEquals(resultIncoming.get(0), entity2);
+    assertEquals(resultIncoming.get(1), entity1);
   }
 
   @Test
   public void testFindEntitiesViaTraversePathes() throws Exception {
     // Test interface 4
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("CorpGroup1");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityBar");
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("CorpUser2");
     _writer.addEntity(entity2);
 
-    Urn urn3 = makeUrn(3);
+    Urn urn3 = makeUrn(3, "entityBaz");
     EntityBaz entity3 = new EntityBaz().setUrn(urn3).setValue("Dataset3");
     _writer.addEntity(entity3);
 
@@ -333,34 +332,37 @@ public class Neo4jQueryDAOTest {
     _writer.addRelationship(relationshipFoo2o3);
 
     // test source filter with urn
-    Filter sourceFilter = makeFilter("urn", urn1.toString());
+    Filter sourceFilter = createFilter("urn", urn1.toString());
 
     // use case: return all the datasets owned by corpgroup1
     List paths = new ArrayList();
-    paths.add(Triplet.with(RelationshipFoo.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING),
-        EntityBar.class));
-    paths.add(Triplet.with(RelationshipBar.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING),
-        EntityBaz.class));
+    paths.add(
+        Triplet.with(RelationshipFoo.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING),
+            EntityBar.class));
+    paths.add(
+        Triplet.with(RelationshipBar.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING),
+            EntityBaz.class));
     List<RecordTemplate> result = _dao.findEntities(EntityFoo.class, sourceFilter, paths, 0, 10);
     assertEquals(result.size(), 1);
     assertEquals(result.get(0), entity3);
 
-
     // use case: return all the datasets owned by corpgroup1
     List paths2 = new ArrayList();
-    paths2.add(Triplet.with(RelationshipFoo.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED),
-        EntityBar.class));
-    paths2.add(Triplet.with(RelationshipBar.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED),
-        EntityBaz.class));
+    paths2.add(
+        Triplet.with(RelationshipFoo.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED),
+            EntityBar.class));
+    paths2.add(
+        Triplet.with(RelationshipBar.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.UNDIRECTED),
+            EntityBaz.class));
     List<RecordTemplate> result2 = _dao.findEntities(EntityFoo.class, sourceFilter, paths2, 0, 10);
     assertEquals(result2, result);
 
     // add another user & dataset
-    Urn urn4 = makeUrn(4);
+    Urn urn4 = makeUrn(4, "entityBar");
     EntityBar entity4 = new EntityBar().setUrn(urn4).setValue("CorpUser4");
     _writer.addEntity(entity4);
 
-    Urn urn5 = makeUrn(5);
+    Urn urn5 = makeUrn(5, "entityBaz");
     EntityBaz entity5 = new EntityBaz().setUrn(urn5).setValue("Dataset5");
     _writer.addEntity(entity5);
 
@@ -374,49 +376,49 @@ public class Neo4jQueryDAOTest {
 
     List paths3 = new ArrayList();
     paths3.add(
-        Triplet.with(RelationshipFoo.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING),
+        Triplet.with(RelationshipFoo.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING),
             EntityBar.class));
     paths3.add(
-        Triplet.with(RelationshipBar.class, makeRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING),
+        Triplet.with(RelationshipBar.class, createRelationshipFilter(emptyFilter(), RelationshipDirection.INCOMING),
             EntityBaz.class));
     List<RecordTemplate> result3 = _dao.findEntities(EntityFoo.class, sourceFilter, paths3, 0, 10);
     assertEquals(result3.size(), 2);
-    assertEquals(result3.get(0), entity3);
-    assertEquals(result3.get(1), entity5);
+    assertEquals(result3.get(0), entity5);
+    assertEquals(result3.get(1), entity3);
 
     // test nulls
     List paths4 = new ArrayList();
     paths4.add(Triplet.with(null, null, null));
     List<RecordTemplate> result4 = _dao.findEntities(EntityFoo.class, sourceFilter, paths4, 0, 10);
     assertEquals(result4.size(), 2);
-    assertEquals(result4.get(0), entity2);
-    assertEquals(result4.get(1), entity4);
+    assertEquals(result4.get(0), entity4);
+    assertEquals(result4.get(1), entity2);
 
     // test partial nulls with entity
     List paths5 = new ArrayList();
     paths5.add(
-        Triplet.with(null, makeRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), EntityBar.class));
+        Triplet.with(null, createRelationshipFilter(emptyFilter(), RelationshipDirection.OUTGOING), EntityBar.class));
     List<RecordTemplate> result5 = _dao.findEntities(EntityFoo.class, sourceFilter, paths5, 0, 10);
     assertEquals(result5.size(), 2);
-    assertEquals(result5.get(0), entity2);
-    assertEquals(result5.get(1), entity4);
+    assertEquals(result5.get(0), entity4);
+    assertEquals(result5.get(1), entity2);
 
     // test partial nulls with relationship
     List paths6 = new ArrayList();
     paths6.add(Triplet.with(null, null, EntityBar.class));
     List<RecordTemplate> result6 = _dao.findEntities(EntityFoo.class, sourceFilter, paths6, 0, 10);
     assertEquals(result6.size(), 2);
-    assertEquals(result6.get(0), entity2);
-    assertEquals(result6.get(1), entity4);
+    assertEquals(result6.get(0), entity4);
+    assertEquals(result6.get(1), entity2);
   }
 
   @Test
   public void testFindRelationship() throws Exception {
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityBar");
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _writer.addEntity(entity2);
 
@@ -425,13 +427,13 @@ public class Neo4jQueryDAOTest {
     _writer.addRelationship(relationship);
 
     // find by source
-    Filter filter1 = makeFilter("urn", urn1.toString());
+    Filter filter1 = createFilter("urn", urn1.toString());
     List<RelationshipFoo> found =
         _dao.findRelationshipsFromSource(null, filter1, RelationshipFoo.class, emptyFilter(), -1, -1);
     assertEquals(found, Collections.singletonList(relationship));
 
     // find by destination
-    Filter filter2 = makeFilter("urn", urn2.toString());
+    Filter filter2 = createFilter("urn", urn2.toString());
     found =
         _dao.findRelationshipsFromDestination(EntityBar.class, filter2, RelationshipFoo.class, emptyFilter(), -1, -1);
     assertEquals(found, Collections.singletonList(relationship));
@@ -443,11 +445,11 @@ public class Neo4jQueryDAOTest {
 
   @Test
   public void testFindRelationshipByQuery() throws Exception {
-    Urn urn1 = makeUrn(1);
+    Urn urn1 = makeUrn(1, "entityFoo");
     EntityFoo entity1 = new EntityFoo().setUrn(urn1).setValue("foo");
     _writer.addEntity(entity1);
 
-    Urn urn2 = makeUrn(2);
+    Urn urn2 = makeUrn(2, "entityBar");
     EntityBar entity2 = new EntityBar().setUrn(urn2).setValue("bar");
     _writer.addEntity(entity2);
 
@@ -470,15 +472,5 @@ public class Neo4jQueryDAOTest {
 
   private Filter emptyFilter() {
     return new Filter().setCriteria(new CriterionArray());
-  }
-
-  private Filter makeFilter(String field, String value) {
-    Filter filter = new Filter().setCriteria(new CriterionArray());
-    filter.getCriteria().add(new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL));
-    return filter;
-  }
-
-  private RelationshipFilter makeRelationshipFilter(Filter filter, RelationshipDirection relationshipDirection) {
-    return new RelationshipFilter().setCriteria(filter.getCriteria()).setDirection(relationshipDirection);
   }
 }

@@ -8,7 +8,7 @@ import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.dao.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.GetRequest;
+import com.linkedin.restli.client.Request;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,7 +74,7 @@ public class RestliRemoteDAO<SNAPSHOT extends RecordTemplate, ASPECT_UNION exten
 
     final List<RecordTemplate> aspects = new ArrayList<>(cachedAspects);
     if (uncachedAspectVersions.size() > 0) {
-      final GetRequest<SNAPSHOT> request = RequestBuilders.getBuilder(urn).getRequest(uncachedAspectVersions, urn);
+      final Request<SNAPSHOT> request = RequestBuilders.getBuilder(urn).getRequest(uncachedAspectVersions, urn);
       final List<RecordTemplate> uncachedAspects = ModelUtils.getAspectsFromSnapshot(getSnapshot(request));
       cacheAspects(urn, uncachedAspectVersions, uncachedAspects);
       aspects.addAll(uncachedAspects);
@@ -97,7 +97,7 @@ public class RestliRemoteDAO<SNAPSHOT extends RecordTemplate, ASPECT_UNION exten
     }
 
     final URN urn = aspectKey.getUrn();
-    final GetRequest<SNAPSHOT> request =
+    final Request<SNAPSHOT> request =
         RequestBuilders.getBuilder(urn).getRequest(ModelUtils.getAspectName(aspectClass), urn, aspectKey.getVersion());
 
     final List<RecordTemplate> aspects = ModelUtils.getAspectsFromSnapshot(getSnapshot(request));
@@ -161,7 +161,7 @@ public class RestliRemoteDAO<SNAPSHOT extends RecordTemplate, ASPECT_UNION exten
   }
 
   @Nonnull
-  private SNAPSHOT getSnapshot(@Nonnull GetRequest<SNAPSHOT> request) {
+  private SNAPSHOT getSnapshot(@Nonnull Request<SNAPSHOT> request) {
     try {
       return _restliClient.sendRequest(request).getResponse().getEntity();
     } catch (RemoteInvocationException e) {

@@ -44,10 +44,6 @@ import org.elasticsearch.search.aggregations.bucket.filter.ParsedFilter;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.ScoreSortBuilder;
-import org.elasticsearch.search.sort.SortOrder;
-
 
 /**
  * A search DAO for Elasticsearch backend.
@@ -56,7 +52,6 @@ import org.elasticsearch.search.sort.SortOrder;
 public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<DOCUMENT> {
 
   private static final Integer DEFAULT_TERM_BUCKETS_SIZE_100 = 100;
-  private static final String DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD = "urn";
   private static final String URN_FIELD = "urn";
 
   private RestHighLevelClient _client;
@@ -95,25 +90,41 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     return QueryBuilders.wrapperQuery(query);
   }
 
-  /**
-   * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
-   */
-  @Override
   @Nonnull
-  public SearchResult<DOCUMENT> search(@Nonnull String input, @Nullable Filter requestParams,
-      @Nullable SortCriterion sortCriterion, int from, int size) {
+  private SearchResult<DOCUMENT> executeAndExtract(@Nonnull SearchRequest searchRequest, int from, int size) {
     try {
-      // Step 0: TODO: Add type casting if needed and  add request params validation against the model
-      // Step 1: construct the query
-      SearchRequest req = constructSearchQuery(input, requestParams, sortCriterion, from, size);
-      // Step 2: execute the query
-      SearchResponse searchResponse = _client.search(req);
-      // Step 3: extract results, validated against document model as well
+      final SearchResponse searchResponse = _client.search(searchRequest);
+      // extract results, validated against document model as well
       return extractQueryResult(searchResponse, from, size);
     } catch (Exception e) {
       log.error("Search query failed:" + e.getMessage());
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  /**
+   * TODO: This part will be replaced by searchTemplateAPI when the elastic is upgraded to 6.4 or later
+   */
+  @Override
+  @Nonnull
+  public SearchResult<DOCUMENT> search(@Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, int from, int size) {
+
+    // Step 0: TODO: Add type casting if needed and  add request params validation against the model
+    // Step 1: construct the query
+    final SearchRequest req = constructSearchQuery(input, postFilters, sortCriterion, from, size);
+    // Step 2: execute the query and extract results, validated against document model as well
+    return executeAndExtract(req, from, size);
+  }
+
+  @Override
+  @Nonnull
+  public SearchResult<DOCUMENT> filter(@Nullable Filter filters, @Nullable SortCriterion sortCriterion, int from, int size) {
+
+    final Map<String, String> requestMap = SearchUtils.getRequestMap(filters);
+    final SearchRequest searchRequest = ESUtils.getFilteredSearchQuery(requestMap, sortCriterion, from, size);
+
+    return executeAndExtract(searchRequest, from, size);
   }
 
   /**
@@ -141,7 +152,7 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     searchSourceBuilder.query(buildQueryString(input));
     searchSourceBuilder.postFilter(ESUtils.buildFilterQuery(requestMap));
     buildAggregations(searchSourceBuilder, requestMap);
-    buildSortOrder(searchSourceBuilder, sortCriterion);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
 
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
@@ -344,32 +355,6 @@ public class ESSearchDAO<DOCUMENT extends RecordTemplate> extends BaseSearchDAO<
     }
 
     return parsedFilter;
-  }
-
-  /**
-   * Populates source field of search query with the sort order as per the criterion provided
-   *
-   * <p>
-   * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
-   * Furthermore to resolve conflicts, the results are further sorted by ascending order of urn
-   * If the input sort criterion is urn itself, then no additional sort criterion is applied as there will be no conflicts.
-   * </p>
-   *
-   * @param searchSourceBuilder {@link SearchSourceBuilder} that needs to be populated with sort order
-   * @param sortCriterion {@link SortCriterion} to be applied to the search results
-   */
-  private void buildSortOrder(@Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable SortCriterion sortCriterion) {
-    if (sortCriterion == null) {
-      searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
-    } else {
-      final SortOrder esSortOrder = (sortCriterion.getOrder() == com.linkedin.metadata.query.SortOrder.ASCENDING)
-          ? SortOrder.ASC
-          : SortOrder.DESC;
-      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder));
-    }
-    if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
-      searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
-    }
   }
 
   @Nonnull

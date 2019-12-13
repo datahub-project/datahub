@@ -23,6 +23,15 @@ public class TestUtils {
   }
 
   @Nonnull
+  public static <T> Urn makeUrn(@Nonnull T id, @Nonnull String entityType) {
+    try {
+      return new Urn("urn:li:" + entityType + ":" + id);
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Nonnull
   public static EntityKey makeKey(long id) {
     return new EntityKey().setId(id);
   }

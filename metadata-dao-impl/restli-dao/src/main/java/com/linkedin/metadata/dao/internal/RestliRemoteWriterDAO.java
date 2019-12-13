@@ -7,7 +7,7 @@ import com.linkedin.metadata.dao.RestliClientException;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
-import com.linkedin.restli.client.CreateRequest;
+import com.linkedin.restli.client.Request;
 import javax.annotation.Nonnull;
 
 
@@ -29,7 +29,7 @@ public class RestliRemoteWriterDAO extends BaseRemoteWriterDAO {
       throws IllegalArgumentException, RestliClientException {
     ModelUtils.validateSnapshotUrn(snapshot.getClass(), urn.getClass());
 
-    final CreateRequest request = RequestBuilders.getBuilder(urn).createRequest(urn, snapshot);
+    final Request request = RequestBuilders.getBuilder(urn).createRequest(urn, snapshot);
 
     try {
       _restliClient.sendRequest(request).getResponse();

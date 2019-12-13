@@ -1,5 +1,9 @@
 package com.linkedin.metadata.restli;
 
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+
+
 public final class RestliConstants {
   private RestliConstants() { }
 
@@ -23,4 +27,6 @@ public final class RestliConstants {
   public static final String PARAM_LIMIT = "limit";
   public static final String PARAM_SNAPSHOT = "snapshot";
   public static final String PARAM_URN = "urn";
+
+  public static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
 }

@@ -118,9 +118,14 @@ public abstract class BaseEntityResource<
   @Nonnull
   public Task<VALUE> get(@Nonnull ComplexResourceKey<KEY, EmptyRecord> id,
       @QueryParam(PARAM_ASPECTS) @Optional("[]") @Nonnull String[] aspectNames) {
+
     return RestliUtils.toTask(() -> {
       final URN urn = toUrn(id.getKey());
-      return getInternal(Collections.singleton(urn), parseAspectsParam(aspectNames)).get(urn);
+      final VALUE value = getInternalNonEmpty(Collections.singleton(urn), parseAspectsParam(aspectNames)).get(urn);
+      if (value == null) {
+        throw RestliUtils.resourceNotFoundException();
+      }
+      return value;
     });
   }
 
