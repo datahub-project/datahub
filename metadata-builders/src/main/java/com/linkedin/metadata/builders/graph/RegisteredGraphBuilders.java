@@ -22,7 +22,6 @@ public class RegisteredGraphBuilders {
         {
           add(new CorpUserGraphBuilder());
           add(new DatasetGraphBuilder());
-          add(new DatasetGroupGraphBuilder());
         }
       });
 
