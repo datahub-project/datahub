@@ -94,8 +94,7 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
         String.format(matchTemplate, srcType, srcCriteria, edgeType, minHops, maxHops, edgeCriteria, destType,
             destCriteria);
 
-    final Statement statement =
-        buildStatement(statementString, "dest.urn", offset, count); // TODO: make orderBy an input param
+    final Statement statement = buildStatement(statementString, offset, count);
 
     return runQuery(statement).list(this::nodeRecordToEntity);
   }
@@ -142,10 +141,9 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
     // last INTER_ENTITY will be the Destination Entity
     String lastEntity = String.format("dest%d", pathCounter);
     matchTemplate.append("RETURN ").append(lastEntity);
-    final String orderBy = lastEntity.concat(".urn");
 
     final String statementString = String.format(matchTemplate.toString(), srcType, srcCriteria);
-    final Statement statement = buildStatement(statementString, orderBy, offset, count);
+    final Statement statement = buildStatement(statementString, offset, count);
 
     return runQuery(statement).list(this::nodeRecordToEntity);
   }
@@ -229,12 +227,20 @@ public class Neo4jQueryDAO extends BaseQueryDAO {
   }
 
   @Nonnull
-  private Statement buildStatement(@Nonnull String statement, @Nonnull String orderBy, int offset, int count) {
+  private Statement buildStatement(@Nonnull String statement, int offset, int count) {
+    return buildStatement(statement, null, offset, count);
+  }
+
+  @Nonnull
+  private Statement buildStatement(@Nonnull String statement, @Nullable String orderBy, int offset, int count) {
     if (offset <= 0 && count < 0) {
       return new Statement(statement, Collections.emptyMap());
     }
 
-    String orderStatement = statement + " ORDER BY " + orderBy;
+    String orderStatement = statement;
+    if (orderBy != null) {
+      orderStatement += " ORDER BY " + orderBy;
+    }
 
     final Map<String, Object> params = new HashMap<>();
     if (offset > 0) {

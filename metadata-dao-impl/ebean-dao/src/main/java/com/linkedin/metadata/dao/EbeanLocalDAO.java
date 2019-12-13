@@ -134,6 +134,21 @@ public class EbeanLocalDAO<ASPECT_UNION extends UnionTemplate, URN extends Urn>
   }
 
   @Override
+  protected <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+      @Nullable ASPECT oldValue, @Nullable AuditStamp oldAuditStamp, @Nonnull ASPECT newValue, @Nonnull AuditStamp newAuditStamp) {
+    // Save oldValue as the largest version + 1
+    long largestVersion = 0;
+    if (oldValue != null && oldAuditStamp != null) {
+      largestVersion = getNextVersion(urn, aspectClass);
+      save(urn, oldValue, oldAuditStamp, largestVersion, true);
+    }
+
+    // Save newValue as the latest version (v0)
+    save(urn, newValue, newAuditStamp, LATEST_VERSION, oldValue == null);
+    return largestVersion;
+  }
+
+  @Override
   @Nullable
   protected <ASPECT extends RecordTemplate> AspectEntry getLatest(@Nonnull URN urn,
       @Nonnull Class<ASPECT> aspectClass) {

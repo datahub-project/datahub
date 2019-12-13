@@ -98,7 +98,10 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   // used in testing
   @Nonnull
   List<Map<String, Object>> getAllNodes(@Nonnull Urn urn) throws Exception {
-    final String statement = "MATCH (node {urn: $urn}) RETURN node";
+    final String matchTemplate = "MATCH (node%s {urn: $urn}) RETURN node";
+
+    final String sourceType = getNodeType(urn);
+    final String statement = String.format(matchTemplate, sourceType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
@@ -113,10 +116,14 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
       throws Exception {
     final Urn sourceUrn = getUrn(relationship, SOURCE_FIELD);
     final Urn destinationUrn = getUrn(relationship, DESTINATION_FIELD);
-    final String type = getType(relationship);
+    final String relationshipType = getType(relationship);
 
-    final String getTemplate = "MATCH (source {urn: $sourceUrn})-[r:%s]->(destination {urn: $destinationUrn}) RETURN r";
-    final String statement = String.format(getTemplate, type);
+    final String sourceType = getNodeType(sourceUrn);
+    final String destinationType = getNodeType(destinationUrn);
+
+    final String matchTemplate =
+        "MATCH (source%s {urn: $sourceUrn})-[r:%s]->(destination%s {urn: $destinationUrn}) RETURN r";
+    final String statement = String.format(matchTemplate, sourceType, relationshipType, destinationType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("sourceUrn", sourceUrn.toString());
@@ -130,10 +137,11 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   @Nonnull
   <RELATIONSHIP extends RecordTemplate> List<Map<String, Object>> getEdgesFromSource(@Nonnull Urn sourceUrn,
       @Nonnull Class<RELATIONSHIP> relationshipClass) throws Exception {
-    final String type = getType(relationshipClass);
+    final String relationshipType = getType(relationshipClass);
+    final String sourceType = getNodeType(sourceUrn);
 
-    final String template = "MATCH (source {urn: $sourceUrn})-[r:%s]->() RETURN r";
-    final String statement = String.format(template, type);
+    final String matchTemplate = "MATCH (source%s {urn: $sourceUrn})-[r:%s]->() RETURN r";
+    final String statement = String.format(matchTemplate, sourceType, relationshipType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("sourceUrn", sourceUrn.toString());
@@ -145,10 +153,10 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   @Nonnull
   private <ENTITY extends RecordTemplate> Statement addNode(@Nonnull ENTITY entity) {
     final Urn urn = getUrn(entity, URN_FIELD);
+    final String nodeType = getNodeType(urn);
 
-    final String mergeTemplate =
-        "MERGE (node {urn: $urn}) ON CREATE SET node = $properties ON MATCH SET node = $properties SET node:%s RETURN node";
-    final String statement = String.format(mergeTemplate, getType(entity));
+    final String mergeTemplate = "MERGE (node%s {urn: $urn}) ON CREATE SET node%s SET node = $properties RETURN node";
+    final String statement = String.format(mergeTemplate, nodeType, nodeType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
@@ -160,7 +168,10 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
   @Nonnull
   private <URN extends Urn> Statement removeNode(@Nonnull URN urn) {
     // also delete any relationship going to or from it
-    final String statement = "MATCH (node {urn: $urn}) DETACH DELETE node";
+    final String nodeType = getNodeType(urn);
+
+    final String matchTemplate = "MATCH (node%s {urn: $urn}) DETACH DELETE node";
+    final String statement = String.format(matchTemplate, nodeType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
@@ -173,7 +184,10 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
    */
   @Nonnull
   private Statement getOrInsertNode(@Nonnull Urn urn) {
-    final String statement = "MERGE (node {urn: $urn}) RETURN node";
+    final String nodeType = getNodeType(urn);
+
+    final String mergeTemplate = "MERGE (node%s {urn: $urn}) RETURN node";
+    final String statement = String.format(mergeTemplate, nodeType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("urn", urn.toString());
@@ -196,13 +210,16 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Urn destination0Urn = getUrn(relationships.get(0), DESTINATION_FIELD);
     final String relationType = getType(relationships.get(0));
 
+    final String sourceType = getNodeType(source0Urn);
+    final String destinationType = getNodeType(destination0Urn);
+
     final Map<String, Object> params = new HashMap<>();
 
     if (removalOption == RemovalOption.REMOVE_ALL_EDGES_FROM_SOURCE) {
       checkSameUrn(relationships, SOURCE_FIELD, source0Urn);
 
-      final String removeTemplate = "MATCH (source {urn: $urn})-[relation:%s]->() DELETE relation";
-      final String statement = String.format(removeTemplate, relationType);
+      final String removeTemplate = "MATCH (source%s {urn: $urn})-[relation:%s]->() DELETE relation";
+      final String statement = String.format(removeTemplate, sourceType, relationType);
 
       params.put("urn", source0Urn.toString());
 
@@ -210,8 +227,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     } else if (removalOption == RemovalOption.REMOVE_ALL_EDGES_TO_DESTINATION) {
       checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
 
-      final String removeTemplate = "MATCH ()-[relation:%s]->(destination {urn: $urn}) DELETE relation";
-      final String statement = String.format(removeTemplate, relationType);
+      final String removeTemplate = "MATCH ()-[relation:%s]->(destination%s {urn: $urn}) DELETE relation";
+      final String statement = String.format(removeTemplate, relationType, destinationType);
 
       params.put("urn", destination0Urn.toString());
 
@@ -221,8 +238,8 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
       checkSameUrn(relationships, DESTINATION_FIELD, destination0Urn);
 
       final String removeTemplate =
-          "MATCH (source {urn: $sourceUrn})-[relation:%s]->(destination {urn: $destinationUrn}) DELETE relation";
-      final String statement = String.format(removeTemplate, relationType);
+          "MATCH (source%s {urn: $sourceUrn})-[relation:%s]->(destination%s {urn: $destinationUrn}) DELETE relation";
+      final String statement = String.format(removeTemplate, sourceType, relationType, destinationType);
 
       params.put("sourceUrn", source0Urn.toString());
       params.put("destinationUrn", destination0Urn.toString());
@@ -230,15 +247,21 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
       statements.add(buildStatement(statement, params));
     }
 
-    // create new edges, TODO: check if exact same (all attributes) edge exists
-    final String mergeTemplate =
-        "MERGE (source {urn: $sourceUrn}) MERGE (destination {urn: $destinationUrn}) CREATE (source)-[r:%s]->(destination) SET r = $properties";
-
     relationships.forEach(relationship -> {
       final Urn srcUrn = getUrn(relationship, SOURCE_FIELD);
       final Urn destUrn = getUrn(relationship, DESTINATION_FIELD);
+      final String sourceNodeType = getNodeType(srcUrn);
+      final String destinationNodeType = getNodeType(destUrn);
 
-      final String statement = String.format(mergeTemplate, getType(relationship));
+      // Add/Update source & destination node first
+      statements.add(getOrInsertNode(srcUrn));
+      statements.add(getOrInsertNode(destUrn));
+
+      // Add/Update relationship
+      final String mergeRelationshipTemplate =
+          "MATCH (source%s {urn: $sourceUrn}),(destination%s {urn: $destinationUrn}) MERGE (source)-[r:%s]->(destination) SET r = $properties";
+      final String statement =
+          String.format(mergeRelationshipTemplate, sourceNodeType, destinationNodeType, getType(relationship));
 
       final Map<String, Object> paramsMerge = new HashMap<>();
       paramsMerge.put("sourceUrn", srcUrn.toString());
@@ -264,10 +287,14 @@ public class Neo4jGraphWriterDAO extends BaseGraphWriterDAO {
     final Urn sourceUrn = getUrn(relationship, SOURCE_FIELD);
     final Urn destinationUrn = getUrn(relationship, DESTINATION_FIELD);
 
-    final String remove =
-        "MATCH (source {urn: $sourceUrn})-[relation:%s %s]->(destination {urn: $destinationUrn}) DELETE relation";
+    final String sourceType = getNodeType(sourceUrn);
+    final String destinationType = getNodeType(destinationUrn);
+
+    final String removeMatchTemplate =
+        "MATCH (source%s {urn: $sourceUrn})-[relation:%s %s]->(destination%s {urn: $destinationUrn}) DELETE relation";
     final String criteria = relationshipToCriteria(relationship);
-    final String statement = String.format(remove, getType(relationship), criteria);
+    final String statement =
+        String.format(removeMatchTemplate, sourceType, getType(relationship), criteria, destinationType);
 
     final Map<String, Object> params = new HashMap<>();
     params.put("sourceUrn", sourceUrn.toString());

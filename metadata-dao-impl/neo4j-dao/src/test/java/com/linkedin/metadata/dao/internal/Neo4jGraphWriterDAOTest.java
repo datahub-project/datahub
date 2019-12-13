@@ -1,7 +1,7 @@
 package com.linkedin.metadata.dao.internal;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.dao.Neo4jTestServerBuilder;
+import com.linkedin.metadata.utils.Neo4jTestServerBuilder;
 import com.linkedin.testing.RelationshipFoo;
 import com.linkedin.testing.EntityFoo;
 import com.linkedin.testing.EntityBar;
@@ -39,7 +39,7 @@ public class Neo4jGraphWriterDAOTest {
 
   @Test
   public void testAddRemoveEntity() throws Exception {
-    Urn urn = makeUrn(1);
+    Urn urn = makeUrn(1, "entityFoo");
     EntityFoo entity = new EntityFoo().setUrn(urn).setValue("foo");
 
     _dao.addEntity(entity);
@@ -140,13 +140,13 @@ public class Neo4jGraphWriterDAOTest {
 
     // add relationship1 again
     _dao.addRelationship(relationship1);
-    assertRelationshipFoo(_dao.getEdges(relationship1), 2);
+    assertRelationshipFoo(_dao.getEdges(relationship1), 1);
 
     // add relationship2 (urn1 -> urn3)
     Urn urn3 = makeUrn(3);
     RelationshipFoo relationship2 = new RelationshipFoo().setSource(urn1).setDestination(urn3);
     _dao.addRelationship(relationship2);
-    assertRelationshipFoo(_dao.getEdgesFromSource(urn1, RelationshipFoo.class), 3);
+    assertRelationshipFoo(_dao.getEdgesFromSource(urn1, RelationshipFoo.class), 2);
 
     // remove relationship1
     _dao.removeRelationship(relationship1);
@@ -191,7 +191,7 @@ public class Neo4jGraphWriterDAOTest {
 
     // add relationship3 again without removal
     _dao.addRelationship(relationship3);
-    assertRelationshipFoo(_dao.getEdgesFromSource(urn4, RelationshipFoo.class), 2);
+    assertRelationshipFoo(_dao.getEdgesFromSource(urn4, RelationshipFoo.class), 1);
 
     // add relationship3 again, removeAll from source & destination
     _dao.addRelationship(relationship3, REMOVE_ALL_EDGES_FROM_SOURCE_TO_DESTINATION);

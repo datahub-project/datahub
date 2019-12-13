@@ -204,7 +204,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     Filter filter1 = new Filter().setCriteria(new CriterionArray());
     SortCriterion sortCriterion1 = new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING);
 
-    when(_mockSearchDAO.search("*", filter1, sortCriterion1, 1, 2)).thenReturn(
+    when(_mockSearchDAO.filter(filter1, sortCriterion1, 1, 2)).thenReturn(
         makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, new SearchResultMetadata()));
 
     String[] aspectNames = new String[]{ModelUtils.getAspectName(AspectFoo.class)};
@@ -224,7 +224,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     Filter filter2 = new Filter().setCriteria(new CriterionArray());
     filter2.getCriteria().add(new Criterion().setField("removed").setValue("true"));
     SortCriterion sortCriterion2 = new SortCriterion().setField("urn").setOrder(SortOrder.DESCENDING);
-    when(_mockSearchDAO.search("*", filter2, sortCriterion2, 1, 2)).thenReturn(
+    when(_mockSearchDAO.filter(filter2, sortCriterion2, 1, 2)).thenReturn(
         makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2)), 2, new SearchResultMetadata()));
     values =
         runAndWait(_resource.getAll(new PagingContext(1, 2), aspectNames, filter2, sortCriterion2));
@@ -237,7 +237,7 @@ public class BaseSearchableEntityResourceTest extends BaseEngineTest {
     // test the case when there is more results in the search index
     Urn urn3 = makeUrn(3);
     AspectKey<Urn, AspectFoo> aspectKey3 = new AspectKey<>(AspectFoo.class, urn3, BaseLocalDAO.LATEST_VERSION);
-    when(_mockSearchDAO.search("*", filter1, sortCriterion1, 1, 3)).thenReturn(
+    when(_mockSearchDAO.filter(filter1, sortCriterion1, 1, 3)).thenReturn(
         makeSearchResult(ImmutableList.of(makeDocument(urn1), makeDocument(urn2), makeDocument(urn3)), 3, new SearchResultMetadata()));
     when(_mockLocalDAO.get(ImmutableSet.of(aspectKey1, aspectKey2, aspectKey3))).thenReturn(
         ImmutableMap.of(aspectKey1, Optional.of(foo), aspectKey2, Optional.empty()));

@@ -9,7 +9,7 @@ import com.linkedin.restli.common.EmptyRecord;
 import java.util.List;
 import java.util.Map;
 
-import static junit.framework.Assert.*;
+import static org.testng.Assert.*;
 
 
 public class BaseSnapshotRequestBuilderTest {

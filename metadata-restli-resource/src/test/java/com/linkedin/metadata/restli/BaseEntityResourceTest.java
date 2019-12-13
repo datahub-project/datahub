@@ -135,15 +135,54 @@ public class BaseEntityResourceTest extends BaseEngineTest {
   }
 
   @Test
+  public void testGetNotFound() {
+    Urn urn = makeUrn(1234);
+
+    AspectKey<Urn, AspectFoo> aspect1Key = new AspectKey<>(AspectFoo.class, urn, LATEST_VERSION);
+    AspectKey<Urn, AspectBar> aspect2Key = new AspectKey<>(AspectBar.class, urn, LATEST_VERSION);
+
+    when(_mockLocalDAO.get(new HashSet<>(Arrays.asList(aspect1Key, aspect2Key)))).thenReturn(
+        Collections.emptyMap());
+
+    try {
+      runAndWait(_resource.get(makeResourceKey(urn), new String[0]));
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus(), HttpStatus.S_404_NOT_FOUND);
+      return;
+    }
+
+    fail("No exception thrown");
+  }
+
+  @Test
   public void testGetSpecificAspect() {
     Urn urn = makeUrn(1234);
+    AspectFoo foo = new AspectFoo().setValue("foo");
     AspectKey<Urn, AspectFoo> aspect1Key = new AspectKey<>(AspectFoo.class, urn, LATEST_VERSION);
     String[] aspectNames = {AspectFoo.class.getCanonicalName()};
 
-    runAndWait(_resource.get(makeResourceKey(urn), aspectNames));
+    when(_mockLocalDAO.get(new HashSet<>(Arrays.asList(aspect1Key)))).thenReturn(
+        Collections.singletonMap(aspect1Key, Optional.of(foo)));
 
+    EntityValue value = runAndWait(_resource.get(makeResourceKey(urn), aspectNames));
+    assertEquals(value.getFoo(), foo);
     verify(_mockLocalDAO, times(1)).get(Collections.singleton(aspect1Key));
-    verifyNoMoreInteractions(_mockLocalDAO);
+  }
+
+  @Test
+  public void testGetSpecificAspectNotFound() {
+    Urn urn = makeUrn(1234);
+    AspectKey<Urn, AspectFoo> aspect1Key = new AspectKey<>(AspectFoo.class, urn, LATEST_VERSION);
+    String[] aspectNames = {AspectFoo.class.getCanonicalName()};
+    try {
+      runAndWait(_resource.get(makeResourceKey(urn), aspectNames));
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus(), HttpStatus.S_404_NOT_FOUND);
+      verify(_mockLocalDAO, times(1)).get(Collections.singleton(aspect1Key));
+      verifyNoMoreInteractions(_mockLocalDAO);
+      return;
+    }
+    fail("No exception thrown");
   }
 
   @Test

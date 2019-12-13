@@ -1,12 +1,24 @@
 package com.linkedin.metadata.dao;
 
+import com.linkedin.common.urn.CorpGroupUrn;
+import com.linkedin.common.urn.DatasetGroupUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.dao.exception.ModelConversionException;
 import com.linkedin.metadata.dao.utils.RecordUtils;
-import com.linkedin.metadata.query.*;
-
+import com.linkedin.metadata.entity.CorpGroupEntity;
+import com.linkedin.metadata.entity.CorpUserEntity;
+import com.linkedin.metadata.entity.DatasetEntity;
+import com.linkedin.metadata.entity.DatasetGroupEntity;
+import com.linkedin.metadata.query.Condition;
+import com.linkedin.metadata.query.Criterion;
+import com.linkedin.metadata.query.CriterionArray;
+import com.linkedin.metadata.query.Filter;
+import com.linkedin.metadata.query.RelationshipDirection;
+import com.linkedin.metadata.query.RelationshipFilter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +39,23 @@ public class Neo4jUtil {
   private Neo4jUtil() {
     // Util class
   }
+
+  // TODO: relationship model change or auto generate by scanning all entity models
+  static final Map<String, String> URN_TO_ENTITY_TYPE = Collections.unmodifiableMap(new HashMap<String, String>() {
+
+    {
+      put(CorpuserUrn.ENTITY_TYPE, getType(CorpUserEntity.class));
+      put(CorpGroupUrn.ENTITY_TYPE, getType(CorpGroupEntity.class));
+      put(DatasetUrn.ENTITY_TYPE, getType(DatasetEntity.class));
+      put(DatasetGroupUrn.ENTITY_TYPE, getType(DatasetGroupEntity.class));
+
+      // For unit testing only
+      // TODO: auto generate through models, and make 1-1 mapping for testing urn and entity type
+      put("entityFoo", "`com.linkedin.testing.EntityFoo`");
+      put("entityBar", "`com.linkedin.testing.EntityBar`");
+      put("entityBaz", "`com.linkedin.testing.EntityBaz`");
+    }
+  });
 
   /**
    * Converts ENTITY to node (field:value map)
@@ -131,8 +160,7 @@ public class Neo4jUtil {
 
     final StringJoiner joiner = new StringJoiner(",", "{", "}");
 
-    criterionArray
-        .forEach(criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
+    criterionArray.forEach(criterion -> joiner.add(toCriterionString(criterion.getField(), criterion.getValue())));
 
     return joiner.length() <= 2 ? "" : joiner.toString();
   }
@@ -247,6 +275,12 @@ public class Neo4jUtil {
     return new StringBuilder("`").append(recordClass.getCanonicalName()).append("`").toString();
   }
 
+  // Gets node type from Urn
+  @Nonnull
+  public static String getNodeType(@Nonnull Urn urn) {
+    return ":" + URN_TO_ENTITY_TYPE.getOrDefault(urn.getEntityType(), "UNKNOWN");
+  }
+
   /**
    * Create {@link RelationshipFilter} using filter and relationship direction
    *
@@ -283,11 +317,7 @@ public class Neo4jUtil {
    */
   @Nonnull
   public static Filter createFilter(@Nonnull String field, @Nonnull String value) {
-    return new Filter()
-        .setCriteria(
-            new CriterionArray(Collections.singletonList(
-                new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL)
-            ))
-        );
+    return new Filter().setCriteria(new CriterionArray(
+        Collections.singletonList(new Criterion().setField(field).setValue(value).setCondition(Condition.EQUAL))));
   }
 }

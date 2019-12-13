@@ -166,23 +166,18 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
         return new AddResult(oldValue, oldValue);
       }
 
-      // 3. Save oldValue as the largest version + 1
-      long largestVersion = 0;
-      if (oldValue != null) {
-        largestVersion = getNextVersion(urn, aspectClass);
-        save(urn, oldValue, latest.getExtraInfo().getAudit(), largestVersion, true);
-      }
+      // 3. Save the newValue as the latest version
+      long largestVersion =
+          saveLatest(urn, aspectClass, oldValue, latest == null ? null : latest.getExtraInfo().getAudit(), newValue,
+              auditStamp);
 
-      // 4. Save newValue as the latest version (v0)
-      save(urn, newValue, auditStamp, LATEST_VERSION, oldValue == null);
-
-      // 5. Apply retention policy
+      // 4. Apply retention policy
       applyRetention(urn, aspectClass, getRetention(aspectClass), largestVersion);
 
       return new AddResult(oldValue, newValue);
     }, maxTransactionRetry);
 
-    // 6. Produce MAE after a successful update
+    // 5. Produce MAE after a successful update
     if (result != null) {
       _producer.produceMetadataAuditEvent(urn, result.getOldValue(), result.getNewValue());
     }
@@ -223,6 +218,20 @@ public abstract class BaseLocalDAO<ASPECT_UNION extends UnionTemplate, URN exten
       return;
     }
   }
+
+  /**
+   * Saves the latest aspect
+   *
+   * @param urn the URN for the entity the aspect is attached to
+   * @param aspectClass the aspectClass of the aspect being saved
+   * @param oldEntry {@link RecordTemplate} of the previous latest value of aspect, null if new value is the first version
+   * @param oldAuditStamp the audit stamp of the previous latest aspect, null if new value is the first version
+   * @param newEntry {@link RecordTemplate} of the new latest value of aspect
+   * @param newAuditStamp the audit stamp for the operation
+   * @return the largestVersion
+   */
+  protected abstract <ASPECT extends RecordTemplate> long saveLatest(@Nonnull URN urn, @Nonnull Class<ASPECT> aspectClass,
+      @Nullable ASPECT oldEntry, @Nullable AuditStamp oldAuditStamp, @Nonnull ASPECT newEntry, @Nonnull AuditStamp newAuditStamp);
 
   /**
    * Runs the given lambda expression in a transaction with a limited number of retries.

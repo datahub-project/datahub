@@ -30,7 +30,8 @@ public class DatasetGroupSnapshotRequestBuilderTest extends BaseSnapshotRequestB
     String aspectName = ModelUtils.getAspectName(DatasetGroupMembership.class);
     DatasetGroupUrn urn = new DatasetGroupUrn("foo", "bar");
 
-    GetRequest<DatasetGroupSnapshot> request = builder.getRequest(aspectName, urn, 1);
+    GetRequest<DatasetGroupSnapshot> request =
+        (GetRequest<DatasetGroupSnapshot>) builder.getRequest(aspectName, urn, 1);
 
     Map<String, Object> keyPaths = Collections.singletonMap("key", new ComplexResourceKey<>(
         new DatasetGroupKey().setNamespace(urn.getNamespaceEntity()).setName(urn.getNameEntity()), new EmptyRecord()));

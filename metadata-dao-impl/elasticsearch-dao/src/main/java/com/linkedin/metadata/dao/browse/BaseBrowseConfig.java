@@ -28,6 +28,11 @@ public abstract class BaseBrowseConfig<DOCUMENT extends RecordTemplate> {
     return "urn";
   }
 
+  @Nonnull
+  public String getRemovedField() {
+    return "removed";
+  }
+
   public boolean hasFieldInSchema(@Nonnull String fieldName) {
     return getSearchDocumentSchema().contains(fieldName);
   }

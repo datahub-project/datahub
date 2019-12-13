@@ -8,7 +8,6 @@ import com.linkedin.metadata.dao.BaseSearchDAO;
 import com.linkedin.metadata.dao.SearchResult;
 import com.linkedin.metadata.dao.utils.ModelUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
-import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.metadata.query.SortCriterion;
@@ -55,8 +54,6 @@ public abstract class BaseSearchableEntityResource<
     // @formatter:on
     extends BaseEntityResource<KEY, VALUE, URN, SNAPSHOT, ASPECT_UNION> {
 
-  private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
-  private static final String MATCH_ALL = "*";
   private static final String DEFAULT_SORT_CRITERION_FIELD = "urn";
 
   public BaseSearchableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
@@ -90,9 +87,10 @@ public abstract class BaseSearchableEntityResource<
     final Filter searchFilter = filter != null ? filter : EMPTY_FILTER;
     final SortCriterion searchSortCriterion = sortCriterion != null ? sortCriterion
         : new SortCriterion().setField(DEFAULT_SORT_CRITERION_FIELD).setOrder(SortOrder.ASCENDING);
+    final SearchResult<DOCUMENT> filterResult =
+        getSearchDAO().filter(searchFilter, searchSortCriterion, pagingContext.getStart(), pagingContext.getCount());
     return RestliUtils.toTask(
-        () -> getSearchQueryCollectionResult(MATCH_ALL, aspectNames, searchFilter, searchSortCriterion,
-            pagingContext).getElements());
+        () -> getSearchQueryCollectionResult(filterResult, aspectNames).getElements());
   }
 
   @Finder(FINDER_SEARCH)
@@ -104,8 +102,10 @@ public abstract class BaseSearchableEntityResource<
       @PagingContextParam @Nonnull PagingContext pagingContext) {
 
     final Filter searchFilter = filter != null ? filter : EMPTY_FILTER;
+    final SearchResult<DOCUMENT> searchResult =
+        getSearchDAO().search(input, searchFilter, sortCriterion, pagingContext.getStart(), pagingContext.getCount());
     return RestliUtils.toTask(
-        () -> getSearchQueryCollectionResult(input, aspectNames, searchFilter, sortCriterion, pagingContext));
+        () -> getSearchQueryCollectionResult(searchResult, aspectNames));
   }
 
   @Action(name = ACTION_AUTOCOMPLETE)
@@ -117,12 +117,9 @@ public abstract class BaseSearchableEntityResource<
   }
 
   @Nonnull
-  private CollectionResult<VALUE, SearchResultMetadata> getSearchQueryCollectionResult(@Nonnull String input,
-      @Nonnull String[] aspectNames, @Nullable Filter searchFilter, @Nullable SortCriterion sortCriterion,
-      @Nonnull PagingContext pagingContext) {
+  private CollectionResult<VALUE, SearchResultMetadata> getSearchQueryCollectionResult(@Nonnull SearchResult<DOCUMENT> searchResult,
+      @Nonnull String[] aspectNames) {
 
-    final SearchResult<DOCUMENT> searchResult =
-        getSearchDAO().search(input, searchFilter, sortCriterion, pagingContext.getStart(), pagingContext.getCount());
     final List<URN> matchedUrns = searchResult.getDocumentList()
         .stream()
         .map(d -> (URN) ModelUtils.getUrnFromDocument(d))

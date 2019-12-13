@@ -9,4 +9,5 @@ dependencies {
   compile externalDependency.jacksonCore
   compile externalDependency.jacksonDataBind
   compile externalDependency.lombok
+  compile externalDependency.neo4jHarness
 }

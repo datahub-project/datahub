@@ -19,11 +19,10 @@ public class DatasetGraphBuilderTest {
   public void testBuildEntity() {
     DatasetUrn urn = makeDatasetUrn("foobar");
     DatasetSnapshot snapshot = new DatasetSnapshot().setUrn(urn).setAspects(new DatasetAspectArray());
-    DatasetEntity expected =
-        new DatasetEntity().setUrn(urn)
-            .setName(urn.getDatasetNameEntity())
-            .setPlatform(urn.getPlatformEntity())
-            .setOrigin(urn.getOriginEntity());
+    DatasetEntity expected = new DatasetEntity().setUrn(urn)
+        .setName(urn.getDatasetNameEntity())
+        .setPlatform(urn.getPlatformEntity())
+        .setOrigin(urn.getOriginEntity());
 
     List<? extends RecordTemplate> datasetEntities = new DatasetGraphBuilder().buildEntities(snapshot);
 
@@ -36,14 +35,13 @@ public class DatasetGraphBuilderTest {
     DatasetUrn urn = makeDatasetUrn("foobar");
     DatasetAspect aspect = new DatasetAspect();
     aspect.setStatus(makeStatus(true));
-    DatasetSnapshot snapshot = new DatasetSnapshot().setUrn(urn)
-        .setAspects(new DatasetAspectArray(Collections.singleton(aspect)));
-    DatasetEntity expected =
-        new DatasetEntity().setUrn(urn)
-            .setName(urn.getDatasetNameEntity())
-            .setPlatform(urn.getPlatformEntity())
-            .setOrigin(urn.getOriginEntity())
-            .setRemoved(true);
+    DatasetSnapshot snapshot =
+        new DatasetSnapshot().setUrn(urn).setAspects(new DatasetAspectArray(Collections.singleton(aspect)));
+    DatasetEntity expected = new DatasetEntity().setUrn(urn)
+        .setName(urn.getDatasetNameEntity())
+        .setPlatform(urn.getPlatformEntity())
+        .setOrigin(urn.getOriginEntity())
+        .setRemoved(true);
 
     List<? extends RecordTemplate> datasetEntities = new DatasetGraphBuilder().buildEntities(snapshot);
 

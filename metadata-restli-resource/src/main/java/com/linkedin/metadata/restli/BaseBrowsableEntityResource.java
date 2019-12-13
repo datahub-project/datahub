@@ -6,7 +6,6 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.dao.BaseBrowseDAO;
 import com.linkedin.metadata.query.BrowseResult;
-import com.linkedin.metadata.query.CriterionArray;
 import com.linkedin.metadata.query.Filter;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
@@ -40,8 +39,6 @@ public abstract class BaseBrowsableEntityResource<
     DOCUMENT extends RecordTemplate>
     // @formatter:on
     extends BaseSearchableEntityResource<KEY, VALUE, URN, SNAPSHOT, ASPECT_UNION, DOCUMENT> {
-
-  private static final Filter EMPTY_FILTER = new Filter().setCriteria(new CriterionArray());
 
   public BaseBrowsableEntityResource(@Nonnull Class<SNAPSHOT> snapshotClass,
       @Nonnull Class<ASPECT_UNION> aspectUnionClass) {
