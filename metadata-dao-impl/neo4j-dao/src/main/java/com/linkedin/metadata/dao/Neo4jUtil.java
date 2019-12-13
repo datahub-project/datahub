@@ -1,7 +1,6 @@
 package com.linkedin.metadata.dao;
 
 import com.linkedin.common.urn.CorpGroupUrn;
-import com.linkedin.common.urn.DatasetGroupUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.CorpuserUrn;
@@ -12,7 +11,6 @@ import com.linkedin.metadata.dao.utils.RecordUtils;
 import com.linkedin.metadata.entity.CorpGroupEntity;
 import com.linkedin.metadata.entity.CorpUserEntity;
 import com.linkedin.metadata.entity.DatasetEntity;
-import com.linkedin.metadata.entity.DatasetGroupEntity;
 import com.linkedin.metadata.query.Condition;
 import com.linkedin.metadata.query.Criterion;
 import com.linkedin.metadata.query.CriterionArray;
@@ -47,7 +45,6 @@ public class Neo4jUtil {
       put(CorpuserUrn.ENTITY_TYPE, getType(CorpUserEntity.class));
       put(CorpGroupUrn.ENTITY_TYPE, getType(CorpGroupEntity.class));
       put(DatasetUrn.ENTITY_TYPE, getType(DatasetEntity.class));
-      put(DatasetGroupUrn.ENTITY_TYPE, getType(DatasetGroupEntity.class));
 
       // For unit testing only
       // TODO: auto generate through models, and make 1-1 mapping for testing urn and entity type
