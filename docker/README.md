@@ -15,6 +15,10 @@ on below Docker images to be able to run:
 * [**Elasticsearch**](elasticsearch)
 * [**MySQL**](mysql)
 
+Local-built ingestion image allows you to create on an ad-hoc basis `metadatachangeevent` with Python script.
+The pipeline depends on all the above images composing up.
+* [**Ingestion**](ingestion)
+
 ## Prerequisites
 You need to install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/).
 

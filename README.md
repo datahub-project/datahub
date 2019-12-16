@@ -17,7 +17,7 @@ cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 4. After you have all Docker containers running in your machine, run below command to ingest provided sample data to Data Hub:
 ```
-./gradlew :metadata-events:mxe-schemas:build && cd metadata-ingestion/mce-cli && pip install --user -r requirements.txt && python mce_cli.py produce -d bootstrap_mce.dat
+ docker build -t ingestion -f docker/ingestion/Dockerfile . && docker run --network host ingestion
 ```
 Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 for build.
 
