@@ -2,7 +2,6 @@
 import argparse
 from confluent_kafka import avro
 
-record_schema = avro.load("../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc")
 topic = "MetadataChangeEvent"
 
 class MetadataChangeEvent(object):
@@ -10,14 +9,14 @@ class MetadataChangeEvent(object):
     def __init__(self, avro_event=None):
         self.value = avro_event
 
-def produce(conf, data_file):
+def produce(conf, data_file, schema_record):
     """
         Produce MetadataChangeEvent records
     """
     from confluent_kafka.avro import AvroProducer
     import ast
 
-    producer = AvroProducer(conf, default_value_schema=record_schema)
+    producer = AvroProducer(conf, default_value_schema=avro.load(schema_record))
 
     print("Producing MetadataChangeEvent records to topic {}. ^c to exit.".format(topic))
 
@@ -86,7 +85,7 @@ def main(args):
             'schema.registry.url': args.schema_registry}
 
     if args.mode == "produce":
-        produce(conf, args.data_file)
+        produce(conf, args.data_file, args.schema_record)
     else:
         # Fallback to earliest to ensure all messages are consumed
         conf['group.id'] = topic
@@ -102,6 +101,8 @@ if __name__ == '__main__':
                         default="http://localhost:8081", help="Schema Registry (http(s)://localhost[:port]")
     parser.add_argument('mode', choices=['produce', 'consume'],
                         help="Execution mode (produce | consume)")
+    parser.add_argument('-l', dest="schema_record", default="../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc",
+                        help="Avro schema record; required if running 'producer' mode")
     parser.add_argument('-d', dest="data_file", default="bootstrap_mce.dat",
                         help="MCE data file; required if running 'producer' mode")
     main(parser.parse_args())
