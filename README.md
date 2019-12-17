@@ -17,7 +17,7 @@ cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 4. After you have all Docker containers running in your machine, run below command to ingest provided sample data to Data Hub:
 ```
- docker build -t ingestion -f docker/ingestion/Dockerfile . && docker run --network host ingestion
+docker build -t ingestion -f docker/ingestion/Dockerfile . && cd docker/ingestion && docker-compose up
 ```
 Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 for build.
 

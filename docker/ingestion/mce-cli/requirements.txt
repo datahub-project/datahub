@@ -1,1 +1,0 @@
-confluent-kafka[avro]==1.1.0

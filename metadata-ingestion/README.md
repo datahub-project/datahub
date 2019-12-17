@@ -21,7 +21,7 @@ Every MCE in the data file should be in a single line. It also supports consumin
 ```
 ➜  python mce_cli.py --help
 usage: mce_cli.py [-h] [-b BOOTSTRAP_SERVERS] [-s SCHEMA_REGISTRY]
-                  [-d DATA_FILE]
+                  [-d DATA_FILE] [-l SCHEMA_RECORD]
                   {produce,consume}
 
 Client for producing/consuming MetadataChangeEvent
@@ -33,6 +33,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -b BOOTSTRAP_SERVERS  Kafka broker(s) (localhost[:port])
   -s SCHEMA_REGISTRY    Schema Registry (http(s)://localhost[:port]
+  -l SCHEMA_RECORD      Avro schema record; required if running 'producer' mode
   -d DATA_FILE          MCE data file; required if running 'producer' mode
 ```
 
