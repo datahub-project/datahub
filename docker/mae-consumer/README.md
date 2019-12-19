@@ -1,8 +1,8 @@
-# Data Hub MetadataAuditEvent (MAE) Consumer Docker Image
+# DataHub MetadataAuditEvent (MAE) Consumer Docker Image
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mae-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mae-consumer/)
 
-Refer to [Data Hub MAE Consumer Job](../../metadata-jobs/mae-consumer-job) to have a quick understanding of the architecture and 
-responsibility of this service for the Data Hub.
+Refer to [DataHub MAE Consumer Job](../../metadata-jobs/mae-consumer-job) to have a quick understanding of the architecture and 
+responsibility of this service for the DataHub.
 
 ## Build
 ```
@@ -20,7 +20,7 @@ for the container otherwise it will download the `latest` image from Docker Hub 
 ### Container configuration
 
 #### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:

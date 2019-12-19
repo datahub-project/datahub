@@ -1,8 +1,8 @@
-# Data Hub Frontend Docker Image
+# DataHub Frontend Docker Image
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-frontend)](https://cloud.docker.com/repository/docker/keremsahin/datahub-frontend/)
 
-Refer to [Data Hub Frontend Service](../../datahub-frontend) to have a quick understanding of the architecture and 
-responsibility of this service for the Data Hub.
+Refer to [DataHub Frontend Service](../../datahub-frontend) to have a quick understanding of the architecture and 
+responsibility of this service for the DataHub.
 
 ## Build
 ```
@@ -28,7 +28,7 @@ ports:
 ```
 
 #### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:
@@ -47,7 +47,7 @@ environment:
 ```
 The value of `DATAHUB_GMS_HOST` variable should be set to the host name of the `datahub-gms` container within the Docker network. 
 
-## Checking out Data Hub UI
+## Checking out DataHub UI
 After starting your Docker container, you can connect to it by typing below into your favorite web browser:
 ```
 http://localhost:9001

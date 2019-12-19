@@ -6,7 +6,7 @@ So, this job is providing us a near-realtime search index update.
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `Data Hub GMS`.
+installed on your machine to be able to build `DataHub GMS`.
 
 ## Build
 `MAE Consumer Job` is already built as part of top level build:

@@ -1,20 +1,20 @@
-# Data Hub Quickstart
+# DataHub Quickstart
 To start all Docker containers at once, please run below command:
 ```
 cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
-At this point, all containers are ready and Data Hub can be considered up and running. Check specific containers guide
+At this point, all containers are ready and DataHub can be considered up and running. Check specific containers guide
 for details:
 * [Elasticsearch & Kibana](../elasticsearch)
-* [Data Hub Frontend](../frontend)
-* [Data Hub GMS](../gms)
+* [DataHub Frontend](../frontend)
+* [DataHub GMS](../gms)
 * [Kafka, Schema Registry & Zookeeper](../kafka)
-* [Data Hub MAE Consumer](../mae-consumer)
-* [Data Hub MCE Consumer](../mce-consumer)
+* [DataHub MAE Consumer](../mae-consumer)
+* [DataHub MCE Consumer](../mce-consumer)
 * [MySQL](../mysql) 
 
-From this point on, if you want to be able to sign in to Data Hub and see some sample data, please see 
-[Metadata Ingestion Guide](../../metadata-ingestion) for `bootstrapping Data Hub`.
+From this point on, if you want to be able to sign in to DataHub and see some sample data, please see 
+[Metadata Ingestion Guide](../../metadata-ingestion) for `bootstrapping DataHub`.
 
 ## Debugging Containers
 If you want to debug containers, you can check container logs:

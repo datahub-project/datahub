@@ -1,8 +1,8 @@
-# Data Hub Generalized Metadata Store (GMS) Docker Image
+# DataHub Generalized Metadata Store (GMS) Docker Image
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-gms)](https://cloud.docker.com/repository/docker/keremsahin/datahub-gms/)
 
-Refer to [Data Hub GMS Service](../../gms) to have a quick understanding of the architecture and 
-responsibility of this service for the Data Hub.
+Refer to [DataHub GMS Service](../../gms) to have a quick understanding of the architecture and 
+responsibility of this service for the DataHub.
 
 ## Build
 ```
@@ -28,7 +28,7 @@ ports:
 ```
 
 #### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:

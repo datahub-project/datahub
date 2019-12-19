@@ -1,11 +1,11 @@
 # Elasticsearch & Kibana
 
-Data Hub uses Elasticsearch as a search engine. Elasticsearch powers search, typeahead and browse functions for Data Hub.
+DataHub uses Elasticsearch as a search engine. Elasticsearch powers search, typeahead and browse functions for DataHub.
 [Official Elasticsearch Docker image](https://hub.docker.com/_/elasticsearch) found in Docker Hub is used without 
 any modification.
 
 ## Run Docker container
-Below command will start the Elasticsearch and Kibana containers. `Data Hub` uses Elasticsearch release `5.6.8`. Newer
+Below command will start the Elasticsearch and Kibana containers. `DataHub` uses Elasticsearch release `5.6.8`. Newer
 versions of Elasticsearch are not tested and you might experience compatibility issues.
 ```
 cd docker/elasticsearch && docker-compose pull && docker-compose up --build
@@ -26,7 +26,7 @@ ports:
 ```
 
 ### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:

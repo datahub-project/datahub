@@ -1,8 +1,8 @@
-# Data Hub MetadataChangeEvent (MCE) Consumer Docker Image
+# DataHub MetadataChangeEvent (MCE) Consumer Docker Image
 [![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/keremsahin/datahub-mce-consumer)](https://cloud.docker.com/repository/docker/keremsahin/datahub-mce-consumer/)
 
-Refer to [Data Hub MCE Consumer Job](../../metadata-jobs/mce-consumer-job) to have a quick understanding of the architecture and 
-responsibility of this service for the Data Hub.
+Refer to [DataHub MCE Consumer Job](../../metadata-jobs/mce-consumer-job) to have a quick understanding of the architecture and 
+responsibility of this service for the DataHub.
 
 ## Build
 ```
@@ -20,7 +20,7 @@ for the container otherwise it will download the `latest` image from Docker Hub 
 ### Container configuration
 
 #### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:
@@ -28,7 +28,7 @@ networks:
     name: datahub_network
 ```
 
-#### Kafka and Data Hub GMS Containers
+#### Kafka and DataHub GMS Containers
 Before starting `datahub-mce-consumer` container, `datahub-gms` and `kafka` containers should already be up and running. 
 These connections are configured via environment variables in `docker-compose.yml`:
 ```

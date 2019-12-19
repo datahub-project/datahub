@@ -1,7 +1,7 @@
 # Metadata Ingestion
 
 ## Prerequisites
-1. Before running any metadata ingestion job, you should make sure that Data Hub backend services are all running. Easiest
+1. Before running any metadata ingestion job, you should make sure that DataHub backend services are all running. Easiest
 way to do that is through [Docker images](../docker).
 2. You also need to build the `mxe-schemas` module as below.
     ```
@@ -37,8 +37,8 @@ optional arguments:
   -d DATA_FILE          MCE data file; required if running 'producer' mode
 ```
 
-## Bootstrapping Data Hub
-Leverage the mce-cli to quickly ingest lots of sample data and test Data Hub in action, you can run below command:
+## Bootstrapping DataHub
+Leverage the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
 ```
 ➜  python mce_cli.py produce -d bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
@@ -46,9 +46,9 @@ Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
   MCE2: {"auditHeader": None, "proposedSnapshot": ("com.linkedin.metadata.snapshot.CorpUserSnapshot", {"urn": "urn:li:corpuser:bar", "aspects": [{"active": False,"email": "bar@linkedin.com"}]}), "proposedDelta": None}
 Flushing records...
 ```
-This will bootstrap Data Hub with sample datasets and sample users.
+This will bootstrap DataHub with sample datasets and sample users.
 
-## Ingest metadata from LDAP server to Data Hub
+## Ingest metadata from LDAP server to DataHub
 The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 ➜  Config your LDAP server environmental variable in the file.
@@ -68,9 +68,9 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 
 ➜  python ldap_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the LDAP server as an user entity.
+This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
 
-## Ingest metadata from hive store to Data Hub
+## Ingest metadata from hive store to DataHub
 The hive_etl provides you ETL channel to communicate with your hive store.
 ```
 ➜  Config your hive store environmental variable in the file.
@@ -84,9 +84,9 @@ The hive_etl provides you ETL channel to communicate with your hive store.
 
 ➜  python hive_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the hive store as a dataset entity.
+This will bootstrap DataHub with your metadata in the hive store as a dataset entity.
 
-## Ingest metadata from kafka zookeeper and avro schema registry to Data Hub
+## Ingest metadata from kafka zookeeper and avro schema registry to DataHub
 The kafka_etl provides you ETL channel to communicate with your kafka.
 ```
 ➜  Config your kafka environmental variable in the file.
@@ -100,9 +100,9 @@ The kafka_etl provides you ETL channel to communicate with your kafka.
 
 ➜  python kafka_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the kafka as a dataset entity.
+This will bootstrap DataHub with your metadata in the kafka as a dataset entity.
 
-## Ingest metadata from MySQL to Data Hub
+## Ingest metadata from MySQL to DataHub
 The mysql_etl provides you ETL channel to communicate with your MySQL.
 ```
 ➜  Config your MySQL environmental variable in the file.
@@ -119,9 +119,9 @@ The mysql_etl provides you ETL channel to communicate with your MySQL.
 
 ➜  python mysql_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the MySQL as a dataset entity.
+This will bootstrap DataHub with your metadata in the MySQL as a dataset entity.
 
-## Ingest metadata from RDBMS to Data Hub
+## Ingest metadata from RDBMS to DataHub
 The rdbms_etl provides you ETL channel to communicate with your RDBMS.
 - Currently supports IBM DB2, Firebird, MSSQL Server, MySQL, Oracle,PostgreSQL, SQLite and ODBC connections.
 - Some platform-specific logic are modularized and required to be implemented on your ad-hoc usage.
@@ -141,4 +141,4 @@ The rdbms_etl provides you ETL channel to communicate with your RDBMS.
 
 ➜  python rdbms_etl.py
 ```
-This will bootstrap Data Hub with your metadata in the RDBMS as a dataset entity.
+This will bootstrap DataHub with your metadata in the RDBMS as a dataset entity.

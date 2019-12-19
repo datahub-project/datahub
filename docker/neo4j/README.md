@@ -1,6 +1,6 @@
 # Neo4j
 
-Data Hub uses Neo4j as graph db in the backend to serve graph queries.
+DataHub uses Neo4j as graph db in the backend to serve graph queries.
 [Official Neo4j image](https://hub.docker.com/_/neo4j) found in Docker Hub is used without 
 any modification.
 
@@ -22,7 +22,7 @@ ports:
 ```
 
 ### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change it for all other Docker containers as well.
 ```
 networks:
