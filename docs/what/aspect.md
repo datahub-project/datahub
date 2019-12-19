@@ -1,4 +1,5 @@
-# What is a GMA aspect?
+# What is a metadata aspect?
+
 A metadata aspect is a structured document, or more precisely a `record` in [PDSC](https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates),
  that represents a specific kind of metadata (e.g. ownership, schema, statistics, upstreams). 
  A metadata aspect on its own has no meaning (e.g. ownership for what?) and must be associated with a particular entity (e.g. ownership for PageViewEvent). 

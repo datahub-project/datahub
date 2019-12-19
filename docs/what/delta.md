@@ -1,4 +1,4 @@
-# What is Delta in GMA?
+# What is a metadata delta?
 
 Rest.li supports [partial update](https://linkedin.github.io/rest.li/user_guide/restli_server#partial_update) natively without needing explicitly defined models. 
 However, the granularity of update is always limited to each field in a PDSC model. 
