@@ -1,27 +1,27 @@
-# Data Hub Generalized Metadata Store (GMS)
-Data Hub GMS is a [Rest.li](https://linkedin.github.io/rest.li/) service written in Java. It is following common 
+# DataHub Generalized Metadata Store (GMS)
+DataHub GMS is a [Rest.li](https://linkedin.github.io/rest.li/) service written in Java. It is following common 
 Rest.li server development practices and all data models are Pegasus(.pdsc) models.
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `Data Hub GMS`.
+installed on your machine to be able to build `DataHub GMS`.
 
 ## Build
-`Data Hub GMS` is already built as part of top level build:
+`DataHub GMS` is already built as part of top level build:
 ```
 ./gradlew build
 ```
-However, if you only want to build `Data Hub GMS` specifically:
+However, if you only want to build `DataHub GMS` specifically:
 ```
 ./gradlew :gms:war:build
 ```
 
 ## Dependencies
-Before starting `Data Hub GMS`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka),  
+Before starting `DataHub GMS`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../docker/kafka),  
 [Elasticsearch](../docker/elasticsearch) and [MySQL](../docker/mysql) Docker containers are up and running.
 
 ## Start via Docker image
-Quickest way to try out `Data Hub GMS` is running the [Docker image](../docker/gms).
+Quickest way to try out `DataHub GMS` is running the [Docker image](../docker/gms).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run

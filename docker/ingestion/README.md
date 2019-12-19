@@ -1,7 +1,7 @@
-# Data Hub MetadataChangeEvent (MCE) Ingestion Docker Image
+# DataHub MetadataChangeEvent (MCE) Ingestion Docker Image
 
-Refer to [Data Hub Metadata Ingestion](../../metadata-ingestion/mce-cli) to have a quick understanding of the architecture and 
-responsibility of this service for the Data Hub.
+Refer to [DataHub Metadata Ingestion](../../metadata-ingestion/mce-cli) to have a quick understanding of the architecture and 
+responsibility of this service for the DataHub.
 
 ## Build
 ```
@@ -18,5 +18,5 @@ for the container otherwise it will build the image from local repository and th
 
 ### Container configuration
 
-#### Kafka and Data Hub GMS Containers
+#### Kafka and DataHub GMS Containers
 Before starting `ingestion` container, `datahub-gms`, `kafka` and `datahub-mce-consumer` containers should already be up and running. 

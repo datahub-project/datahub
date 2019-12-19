@@ -1,25 +1,25 @@
-# Data Hub Frontend
-Data Hub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
-between [Data Hub GMS](../gms) which is the backend service and [Data Hub UI](../datahub-web).
+# DataHub Frontend
+DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
+between [DataHub GMS](../gms) which is the backend service and [DataHub UI](../datahub-web).
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
-installed on your machine to be able to build `Data Hub Frontend`.
+installed on your machine to be able to build `DataHub Frontend`.
 * You need to have [Chrome](https://www.google.com/chrome/) web browser 
 installed to be able to build because UI tests have a dependency on `Google Chrome`.
 
 ## Build
-`Data Hub Frontend` is already built as part of top level build:
+`DataHub Frontend` is already built as part of top level build:
 ```
 ./gradlew build
 ```
-However, if you only want to build `Data Hub Frontend` specifically:
+However, if you only want to build `DataHub Frontend` specifically:
 ```
 ./gradlew :datahub-frontend:build
 ```
 
 ## Dependencies
-Before starting `Data Hub Frontend`, you need to make sure that [Data Hub GMS](../gms) and 
+Before starting `DataHub Frontend`, you need to make sure that [DataHub GMS](../gms) and 
 all its dependencies have already started and running.
 
 Also, user information should already be registered into the DB,
@@ -42,7 +42,7 @@ python metadata-ingestion/mce_cli.py produce
 This will create a default user with username `datahub`. You can sign in to the app using `datahub` as your username.
 
 ## Start via Docker image
-Quickest way to try out `Data Hub Frontend` is running the [Docker image](../docker/frontend).
+Quickest way to try out `DataHub Frontend` is running the [Docker image](../docker/frontend).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
@@ -51,7 +51,7 @@ the application directly from command line after a successful [build](#build):
 cd datahub-frontend/run && ./run-local-frontend
 ```
 
-## Checking out Data Hub UI
+## Checking out DataHub UI
 After starting your application in one of the two ways mentioned above, you can connect to it by typing below 
 into your favorite web browser:
 ```

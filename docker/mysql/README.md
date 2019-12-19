@@ -1,6 +1,6 @@
 # MySQL
 
-Data Hub GMS uses MySQL as the storage infrastructure.
+DataHub GMS uses MySQL as the storage infrastructure.
 [Official MySQL Docker image](https://hub.docker.com/_/mysql) found in Docker Hub is used without 
 any modification.
 
@@ -11,7 +11,7 @@ cd docker/mysql && docker-compose pull && docker-compose up
 ```
 
 An initialization script [init.sql](init.sql) is provided to container. This script initializes `metadata-aspect` table
-which is basically the Key-Value store of the Data Hub GMS.
+which is basically the Key-Value store of the DataHub GMS.
 
 To connect to MySQL container, you can type below command:
 ```
@@ -29,7 +29,7 @@ ports:
 ```
 
 ### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:

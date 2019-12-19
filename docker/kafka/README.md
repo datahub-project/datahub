@@ -1,6 +1,6 @@
 # Kafka, Zookeeper and Schema Registry
 
-Data Hub uses Kafka as the pub-sub message queue in the backend.
+DataHub uses Kafka as the pub-sub message queue in the backend.
 [Official Confluent Kafka Docker images](https://hub.docker.com/u/confluentinc) found in Docker Hub is used without 
 any modification.
 
@@ -29,7 +29,7 @@ ports:
 ```
 
 ### Docker Network
-All Docker containers for Data Hub are supposed to be on the same Docker network which is `datahub_network`. 
+All Docker containers for DataHub are supposed to be on the same Docker network which is `datahub_network`. 
 If you change this, you will need to change this for all other Docker containers as well.
 ```
 networks:
