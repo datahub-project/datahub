@@ -114,7 +114,7 @@
     "ember-truth-helpers": "^2.0.0",
     "eslint-plugin-typescript": "^0.12.0",
     "font-awesome": "^4.7.0",
-    "jquery": "^3.3.0",
+    "jquery": "^3.4.0",
     "jquery-jsonview": "^1.2.3",
     "jquery-treegrid": "^0.3.0",
     "json-human": "https://github.com/marianoguerra/json.human.js#0.1.1",
