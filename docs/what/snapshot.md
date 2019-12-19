@@ -1,4 +1,4 @@
-# What is a snapshot in GMA?
+# What is a snapshot?
 
 A metadata snapshot models the current state of one or multiple metadata [aspects](aspect.md) associated with a particular [entity](entity.md). 
 Each entity type is expected to have:

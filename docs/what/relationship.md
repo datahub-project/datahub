@@ -1,4 +1,4 @@
-# What is a GMA relationship?
+# What is a relationship?
 
 A relationship is a named associate between exactly two entities, a source and a destination. 
 
