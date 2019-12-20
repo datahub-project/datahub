@@ -1,4 +1,4 @@
-# What is Generalized Metadata Service (GMS)?
+# What is Generalized Metadata Service (GMS)? [WIP]
 
 
 
