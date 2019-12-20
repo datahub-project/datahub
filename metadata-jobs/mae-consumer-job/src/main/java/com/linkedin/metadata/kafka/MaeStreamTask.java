@@ -102,8 +102,8 @@ public class MaeStreamTask {
         final Properties streamsConfiguration = new Properties();
         // Give the Streams application a unique name.  The name must be unique in the Kafka cluster
         // against which the application is run.
-        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "elasticsearch-indexing-job");
-        streamsConfiguration.put(StreamsConfig.CLIENT_ID_CONFIG, "elasticsearch-indexing-job-client");
+        streamsConfiguration.put(StreamsConfig.APPLICATION_ID_CONFIG, "mae-consumer-job");
+        streamsConfiguration.put(StreamsConfig.CLIENT_ID_CONFIG, "mae-consumer-job-client");
         // Where to find Kafka broker(s).
         streamsConfiguration.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG,
                 Configuration.getEnvironmentVariable("KAFKA_BOOTSTRAP_SERVER", DEFAULT_KAFKA_BOOTSTRAP_SERVER));
