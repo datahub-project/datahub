@@ -5,8 +5,11 @@
 ![DataHub](docs/imgs/datahub-logo.png)
 
 ## Introduction
-DataHub is Linkedin's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
-[Linkedin blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). This repository contains the complete source code to be able to build DataHub's frontend & backend services.
+DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
+[LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). 
+You should also visit [DataHub Architecture](docs/architecture/architecture.md) to get a better understanding of how DataHub is implemented and 
+[DataHub Onboarding Guide](docs/how/entity-onboarding.md) to understand how to extend DataHub for your own use case.
+This repository contains the complete source code to be able to build DataHub's frontend & backend services.
 
 ## Quickstart
 1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/).
@@ -25,9 +28,11 @@ Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 
 as username and password.
 
 ## Quicklinks
+* [DataHub Architecture](docs/architecture/architecture.md)
+* [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
 * [Docker Images](docker)
 * [Frontend App](datahub-frontend)
-* [Generalized Metadata Store](gms)
+* [Generalized Metadata Service](gms)
 * [Metadata Consumer Jobs](metadata-jobs)
 * [Metadata Ingestion](metadata-ingestion)
 
