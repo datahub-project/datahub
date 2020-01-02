@@ -8,9 +8,7 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
-      - GMS_HOST=datahub-gms
-      - GMS_PORT=8080
-    command: "bash -c 'python mce_cli.py produce -d bootstrap_mce.dat -l MetadataChangeEvent.avsc -b broker:29092 -s http://schema-registry:8081'"
+    command: "bash -c 'cd datahub-src/metadata-ingestion/mce-cli && python mce_cli.py produce -d bootstrap_mce.dat -b broker:29092 -s http://schema-registry:8081'"
 
 networks:
   default:

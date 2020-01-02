@@ -18,5 +18,5 @@ for the container otherwise it will build the image from local repository and th
 
 ### Container configuration
 
-#### Kafka and DataHub GMS Containers
-Before starting `ingestion` container, `datahub-gms`, `kafka` and `datahub-mce-consumer` containers should already be up and running. 
+#### Prerequisite Containers
+Before starting `ingestion` container, `kafka`, `datahub-gms`, `mysql` and `datahub-mce-consumer` containers should already be up and running. 
