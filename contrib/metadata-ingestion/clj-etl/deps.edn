@@ -1,0 +1,22 @@
+{
+ :mvn/repos
+  { "maven-repos" {:url "https://repo1.maven.org/maven2/"}
+    ; "maven-repos" {:url "http://10.132.37.56:8081/repository/maven-central/"} 
+    "clojars.org" {:url "http://clojars.org/repo/"}
+    ; "clojars.org" {:url "http://10.132.37.56:8081/repository/clojars.org"} 
+    "confluent" {:url "https://packages.confluent.io/maven"}
+    ; "confluent" {:url "http://10.132.37.56:8081/repository/confluent/"}
+    }
+ :deps
+  { org.clojure/java.jdbc {:mvn/version "0.7.10"}
+    org.postgresql/postgresql {:mvn/version "42.2.9"} 
+    mysql/mysql-connector-java {:mvn/version "8.0.18"}
+    ; libs/oracle {:local/root "libs/ojdbc7.jar"}
+    net.cgrand/xforms {:mvn/version "0.19.2"}
+    org.apache.kafka/kafka_2.12 {:mvn/version "2.3.1"}
+    ; org.apache.kafka/kafka-clients {:mvn/version "2.3.1"}
+    io.confluent/kafka-avro-serializer {:mvn/version "5.3.2"}
+    cheshire {:mvn/version "5.9.0"}
+    }
+}
+

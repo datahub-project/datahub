@@ -1,0 +1,16 @@
+{ :jdbc.ora/edw 
+    { :in { :db { :dbtype "oracle:thin" :dbname "EDWDB" :host "10.129.35.227" :user "comm" :password "comm" } } 
+      :params {:origin "PROD" }
+      :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                    , "schema.registry.url" "http://10.132.37.201:8081" }} }
+  :jdbc.mysql/open-platform
+    { :in { :db {:dbtype "mysql" :dbname "portal" :host "10.132.34.92" :user "portal" :password "mysql" } } 
+      :params {:origin "PROD"}
+      :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                    , "schema.registry.url" "http://10.132.37.201:8081" }} }
+  :jdbc.pg/test 
+    { :in { :db { :dbtype "postgresql" :dbname "monitor" :host "10.132.37.201" :user "monitor" :password "monitor" } } 
+      :params {:origin "PROD"}
+      :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                    , "schema.registry.url" "http://10.132.37.201:8081" }} } }
+

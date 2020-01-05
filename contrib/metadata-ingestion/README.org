@@ -1,0 +1,57 @@
+#+STARTUP: showall                                                                                                                                                
+                                                                                                                                                                  
+* Metadata Ingestion                                                                                                                                              
+                                                                                                                                                                  
+** function list                                                                                                                                                  
+|--------------------------+-----------------------+---------------------------------------------|                                                                
+| script                   | supported data source | extra data source can be implemented easily |                                                                
+|--------------------------+-----------------------+---------------------------------------------|                                                                
+| clj-etl/dataset-jdbc.clj | oracle, mysql         | postgresql, sqlserver, redshift, hsqldb     |                                                                
+|--------------------------+-----------------------+---------------------------------------------|                                                                
+                                                                                                                                                                  
+** Prerequisites                                                                                                                                                  
+
+1. install clojure (for linux and macos)
+  #+BEGIN_SRC bash
+    sh <(curl https://nixos.org/nix/install)
+    nix-env -iA nixpkgs.clojure
+  #+END_SRC
+
+1. download oracle jdbc driver[ojdbc7.jar] to clj-etl/libs, or comment oracle driver in clj-etl/deps.edn.
+  driver url: https://www.oracle.com/database/technologies/jdbc-drivers-12c-downloads.html
+  #+BEGIN_SRC
+    ; libs/oracle {:local/root "libs/ojdbc7.jar"}
+  #+END_SRC
+
+1. build the [mxe-schemas] module to generate MetadataChangeEvent.avsc and copy it to current directory
+  #+BEGIN_SRC bash
+    ./gradlew :metadata-events:mxe-schemas:build
+    cp ./metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeEvent.avsc contrib/metadata-ingestion
+  #+END_SRC
+
+
+**  Ingestion Example
+
+1. configure the jdbc entry under [clj-etl/dataset-jdbc.conf.edn]
+  #+BEGIN_SRC bash
+  {
+    :jdbc.mysql/open-platform
+      { :in { :db {:dbtype "mysql" :dbname "portal" :host "10.132.34.92" :user "portal" :password "mysql" } }
+        :params {:origin "PROD"}
+        :out { :kafka { "bootstrap.servers" "10.132.37.201:9092"
+                      , "schema.registry.url" "http://10.132.37.201:8081" }} }
+  }
+  #+END_SRC
+
+1. run the ingestion jdbc entry
+  -  MySQL
+  #+BEGIN_SRC
+    cd clj-etl && clj dataset-jdbc.clj :jdbc.mysql/open-platform
+  #+END_SRC
+
+  -  Oracle
+  #+BEGIN_SRC
+    cd clj-etl && clj dataset-jdbc.clj :jdbc.ora/edw
+  #+END_SRC
+
+#+END_SRC
