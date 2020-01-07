@@ -29,11 +29,14 @@ public class Search extends Controller {
   private static final String REQUEST_COUNT = "count";
   private static final String REQUEST_LIMIT = "limit";
 
+  private static final String CORP_USER_TYPE = "corpuser";
   private static final String DATASET_TYPE = "dataset";
 
+  private static final Set<String> CORP_USER_FACET_FIELDS = Collections.emptySet();
   private static final Set<String> DATASET_FACET_FIELDS =
       ImmutableSet.of("origin", "platform");
   private static final ImmutableMap<String, Set<String>> FACET_FIELDS = ImmutableMap.of(
+      CORP_USER_TYPE, CORP_USER_FACET_FIELDS,
       DATASET_TYPE, DATASET_FACET_FIELDS
   );
 
@@ -52,7 +55,7 @@ public class Search extends Controller {
 
   public Search() {
     _searchDaoMap = ImmutableMap.<String, DocumentSearchDao>builder()
-        // format
+        .put(CORP_USER_TYPE, DaoFactory.getCorpUserDocumentSearchDao())
         .put(DATASET_TYPE, DaoFactory.getDatasetDocumentSearchDao())
         .build();
   }
