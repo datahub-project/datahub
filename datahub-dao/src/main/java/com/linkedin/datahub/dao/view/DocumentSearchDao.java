@@ -3,6 +3,7 @@ package com.linkedin.datahub.dao.view;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.client.Datasets;
+import com.linkedin.identity.client.CorpUsers;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.common.CollectionResponse;
@@ -27,6 +28,8 @@ public class DocumentSearchDao<CLIENT> {
     CollectionResponse<? extends RecordTemplate> resp = null;
     if (_client instanceof Datasets) {
       resp = ((Datasets) _client).search(input, requestFilters, start, count);
+    } else if (_client instanceof CorpUsers) {
+      resp = ((CorpUsers) _client).search(input, requestFilters, start, count);
     } else {
       throw new IllegalStateException("Unexpected client type: " + _client.getClass().getName());
     }
@@ -40,6 +43,8 @@ public class DocumentSearchDao<CLIENT> {
     AutoCompleteResult autoCompleteResult = null;
     if (_client instanceof Datasets) {
       autoCompleteResult = ((Datasets) _client).autoComplete(input, field, requestFilters, limit);
+    } else if (_client instanceof CorpUsers) {
+      autoCompleteResult = ((CorpUsers) _client).autocomplete(input, field, requestFilters, limit);
     } else {
       throw new IllegalStateException("Unexpected client type: " + _client.getClass().getName());
     }
