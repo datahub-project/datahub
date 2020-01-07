@@ -19,6 +19,8 @@ import utils.ControllerUtil;
 import javax.annotation.Nonnull;
 import java.net.URISyntaxException;
 
+import static com.linkedin.datahub.util.RestliUtil.*;
+
 public class CorpUser extends Controller {
 
     private static final JsonNode EMPTY_RESPONSE = Json.newObject();
@@ -38,7 +40,7 @@ public class CorpUser extends Controller {
     @Nonnull
     public Result getCorpUser(@Nonnull String corpUserUrn) {
         try {
-            return ok(Json.toJson(_corpUserViewDao.get(corpUserUrn)));
+            return ok(toJsonNode(_corpUserViewDao.get(corpUserUrn)));
         } catch (Exception e) {
             if (e.toString().contains("Response status 404")) {
                 return notFound(EMPTY_RESPONSE);
