@@ -17,10 +17,10 @@ Use standard LinkedIn code style in Eclipse/Idea to format the code.
 `Utility functions and constant values`
 
 # Code component dependency
-[[media/code-components.png]]
+![](media/code-components.png)
 
 # Testing
-In the metadata-etl model for local testing, it might have too many steps to set up a database and make all the configurations. So we provide a way to read all configurations from a local file. There is already a template of the configuration file in [local_test.properties](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/local_test.properties.template). You can find detail of properties in each job type's wiki.
+In the metadata-etl model for local testing, it might have too many steps to set up a database and make all the configurations. So we provide a way to read all configurations from a local file. There is already a template of the configuration file in [local_test.properties](../wherehows-etl/src/main/resources/local_test.properties.template). You can find detail of properties in each job type's wiki.
 
 If you are running the test through IDE, make sure the `local_test.properties` file location is correct (default at `~/.wherehows/local_test.properties`)
 

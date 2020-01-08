@@ -35,7 +35,7 @@ The detailed information can be found in the [Wiki][wiki]
 There is a pre-built vmware image (about 11GB) to quickly demonstrate the functionality of WhereHows. Check out the [VM Guide][VM]
 
 ## WhereHows Docker
-Docker can provide configuration free dev/production setup quickly, please check out [Docker Getting Start Guide](https://github.com/linkedin/WhereHows/tree/master/wherehows-docker/README.md)
+Docker can provide configuration free dev/production setup quickly, please check out [Docker Getting Start Guide](wherehows-docker/README.md)
 
 ## Getting Started
 New to Wherehows? Check out the [Getting Started Guide][GS]
@@ -75,14 +75,14 @@ Want to contribute? Check out the [Contributors Guide][CON]
 Want help? Check out the [Gitter chat room][GITTER] and [Google Groups][LIST]
 
 
-[wiki]: https://github.com/LinkedIn/Wherehows/wiki
-[GS]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
-[CON]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/contributing.md
-[USE]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/use-cases.md
-[RM]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/roadmap.md
-[VM]: https://github.com/LinkedIn/Wherehows/wiki/Quick-Start-With-VM
-[EXJAR]: https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs
-[DDL]: https://github.com/linkedin/WhereHows/tree/master/wherehows-data-model/DDL
-[DB]: https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md#database-setup
+[wiki]: wiki/Home.md
+[GS]: wherehows-docs/getting-started.md
+[CON]: wherehows-docs/contributing.md
+[USE]: wherehows-docs/use-cases.md
+[RM]: wherehows-docs/roadmap.md
+[VM]: wiki/Quick-Start-with-VM.md
+[EXJAR]: wherehows-etl/extralibs
+[DDL]: wherehows-data-model/DDL
+[DB]: wherehows-docs/getting-started.md#database-setup
 [LIST]: https://groups.google.com/forum/#!forum/wherehows
 [GITTER]: https://gitter.im/wherehows

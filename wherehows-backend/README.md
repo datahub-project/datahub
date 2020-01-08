@@ -25,9 +25,9 @@ Folder:	/opt/wherehows
 
 ## Key notes
 Please become familiar with these pages:
-- https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/architecture.md (Nice tech overview)
+- [Architecture](../wherehows-docs/architecture.md) (Nice tech overview)
 - https://github.com/linkedin/WhereHows
-- https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
+- [Getting Started](../wherehows-docs/getting-started.md)
 
 ### Build
 ```

@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-etl/README.md) for the latest version.
 
 Collect Azkaban execution information, including Azkaban flows/jobs definitions, DAGs, executions, owners, and schedules.
 
@@ -15,19 +15,19 @@ List of properties required for the ETL process:
 
 
 ## Extract
-Major related file: [AzkabanExtract.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/AzkabanExtract.py)
+Major related file: [AzkabanExtract.py](../wherehows-etl/src/main/resources/jython/AzkabanExtract.py)
 
 Connect to Azkaban MySQL database, collect metadata, and store in local file.
 
 Major source tables from Azkaban database: project_flows, execution_flows, triggers, project_permissions
 
 ## Transform
-Major related file: [AzkabanTransform.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/AzkabanTransform.py), [SchedulerTransform.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/SchedulerTransform.py)
+Major related file: [AzkabanTransform.py](../wherehows-etl/src/main/resources/jython/AzkabanTransform.py), [SchedulerTransform.py](../wherehows-etl/src/main/resources/jython/SchedulerTransform.py)
 
 Transform the JSON output into CSV format.
 
 ## Load
-Major related file: [AzkabanLoad.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/AzkabanLoad.py), [SchedulerLoad.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/SchedulerLoad.py)
+Major related file: [AzkabanLoad.py](../wherehows-etl/src/main/resources/jython/AzkabanLoad.py), [SchedulerLoad.py](../wherehows-etl/src/main/resources/jython/SchedulerLoad.py)
 
 Load into MySQL database.
 Major related tables: flow, flow_job, flow_dag, flow_schedule, flow_owner_permission, flow_execution, job_execution
