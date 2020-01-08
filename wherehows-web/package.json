@@ -118,7 +118,7 @@
     "jquery-jsonview": "^1.2.3",
     "jquery-treegrid": "^0.3.0",
     "json-human": "https://github.com/marianoguerra/json.human.js#0.1.1",
-    "marked": "^0.5.0",
+    "marked": "^0.6.1",
     "medium-editor": "^5.23.3",
     "nearley": "^2.15.1",
     "restliparams": "^1.0.1",
