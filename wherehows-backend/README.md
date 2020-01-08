@@ -96,7 +96,7 @@ Add additional crawlers, for Oracle, Teradata, ETL and schedulers
    > Compilation failed; see the compiler error output for details.
    
    ```
-   You should install extra libs:  [Install extra libs](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs)
+   You should install extra libs:  [Install extra libs](../wherehows-etl/extralibs)
    
 -  Other Running library failure:  
    Ensure these JAR files are present in **wherehows-backend/build/stage/wherehows-backend/lib**

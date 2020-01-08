@@ -204,22 +204,22 @@ In the AZKABAN_LINEAGE_METADATA_ETL job type, we need to use the following APIs 
 * Add filename pattern
   - Example: *(.)/part-m-\d+.avro*
   - Usage: filename’s pattern to abstract from file level to directory level
-  - API: [Add a filename pattern](https://github.com/linkedin/WhereHows/wiki/Backend-API#filename-add)
+  - API: [Add a filename pattern](../wiki/Backend-API.md#filename-pattern-post-api)
 
 * Add dataset partition layout pattern
   - Example: *(.)\/daily\/(\d{4}\/\d{2}\/\d{2}).*
   - Usage: partitions pattern to abstract from partition level to dataset level
-  - API: [Add a dataset partition pattern](https://github.com/linkedin/WhereHows/wiki/Backend-API#dataset-partition-pattern-add)
+  - API: [Add a dataset partition pattern](../wiki/Backend-API.md#dataset-partition-pattern-post-api)
 
 * Add log lineage pattern
   - Example:  *Moving \S to (\/(?!tmp)[\S])*
   - Usage: log lineage pattern to extract lineage from logs
-  - API: [Add a lineage log pattern](https://github.com/linkedin/WhereHows/wiki/Backend-API#log-lineage-pattern-add)
+  - API: [Add a lineage log pattern](../wiki/Backend-API.md#log-lineage-pattern-post-api)
 
 * Add log reference job ID pattern
   - Example : *INFO - Starting Job = (job\d+\d+)*
   - Usage: patterns used to discover the Hadoop map-reduce job ID inside the log
-  - API: [Add a job ID log pattern](https://github.com/linkedin/WhereHows/wiki/Backend-API#log-job-id-pattern-add)
+  - API: [Add a job ID log pattern](../wiki/Backend-API.md#log-job-id-pattern-post-api)
 
 
 ## Appworx Lineage
