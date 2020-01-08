@@ -4,9 +4,9 @@ The module doesn't reply on wherehows-backend or wherehows-frontend, it can run 
 
 ## Key notes
 Please become familiar with these pages:
-- https://github.com/linkedin/WhereHows/wiki/Architecture (Nice tech overview)
+- [Architecture](../wherehows-docs/architecture.md) (Nice tech overview)
 - https://github.com/linkedin/WhereHows
-- https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md
+- [Getting Started](../wherehows-docs/getting-started.md)
 
 
 ## Build

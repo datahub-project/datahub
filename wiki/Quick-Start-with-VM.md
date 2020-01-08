@@ -26,7 +26,7 @@ And we run the WhereHows Service to collect metadata from these systems, so you 
     cd ~/wherehows;
     ./runbackend;
     ```
-2. There are already some jobs set up in VM. You can also add new jobs following the instruction in [Set Up New Metadata ETL Jobs](Set Up New Metadata ETL Jobs).
+2. There are already some jobs set up in VM. You can also add new jobs following the instruction in [Set Up New Metadata ETL Jobs](Set-Up-New-Metadata-ETL-Jobs.md).
 
 3. If you want to start the Teradata metadata ETL job, you need to first set up a Teradata VM.
 
@@ -34,9 +34,9 @@ And we run the WhereHows Service to collect metadata from these systems, so you 
 
   b. Start a VM of Teradata following the Teradata instructions.
 
-  c. Add the Teradata configuration as [Teradata ETL instruction](Teradata-Dataset). (We already have some sample configuration in VM, you need to change to your configuration).
+  c. Add the Teradata configuration as [Teradata ETL instruction](Teradata-Dataset.md). (We already have some sample configuration in VM, you need to change to your configuration).
   
-  d. Schedule the job through [etl-job-schedule API](Backend-API#etl-job-schedule). 
+  d. Schedule the job through [etl-job-schedule API](Backend-API.md#etl-job-schedule-update-put-api). 
   
   e. After the job finished, check the result from UI.
 

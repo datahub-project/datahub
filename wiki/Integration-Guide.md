@@ -8,7 +8,7 @@
 
 WhereHows' most valuable part is that it ingests information from different systems, integrating the data to mine it for insights. The more source systems it can collect, the higher value it brings.
 
-There are several built-in ETL types, which only need configure some connection and running environment information then they are good to go. See the details in [Set Up New Jobs](Set-Up-New-Jobs). A user can also push the data through an API or even create new ETL job types as needed.
+There are several built-in ETL types, which only need configure some connection and running environment information then they are good to go. See the details in [Set Up New Jobs](Set-Up-New-Metadata-ETL-Jobs.md). A user can also push the data through an API or even create new ETL job types as needed.
 
 <a name="push">
 ## Push data through API
@@ -17,8 +17,8 @@ Because the ETL process can be highly customized, a user can do their own ETL pr
 
 We provide Post APIs for Dataset and Lineage:
 
-- Dataset: [Add a dataset record](Backend-API#dataset-post)
-- Lineage: [Add a lineage record](Backend-API##lineage-post)
+- Dataset: [Add a dataset record](Backend-API.md#dataset-post-api)
+- Lineage: [Add a lineage record](Backend-API.md#job-lineage-post-api)
 
 
 # Add a New Metadata ETL Type

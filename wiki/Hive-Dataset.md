@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/README.md) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-etl/README.md) for the latest version.
 
 
 Collect dataset metadata from Hive.
@@ -18,19 +18,19 @@ List of properties in the wh_etl_job_property table that are required for the Hi
 
 
 ## Extract
-Major related file: [HiveExtract.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/HiveExtract.py)
+Major related file: [HiveExtract.py](../wherehows-etl/src/main/resources/jython/HiveExtract.py)
 
 Connect to Hive Metastore to get the Hive table/view information and store it in a local JSON file.
 
 Major source tables: COLUMNS_V2, SERDE_PARAMS
 
 ## Transform
-Major related file: [HiveTransform.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/HiveTransform.py)
+Major related file: [HiveTransform.py](../wherehows-etl/src/main/resources/jython/HiveTransform.py)
 
 Transform the JSON output into CSV format for easy loading.
 
 ## Load
-Major related file: [HiveLoad.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/HiveLoad.py)
+Major related file: [HiveLoad.py](../wherehows-etl/src/main/resources/jython/HiveLoad.py)
 
 Load into MySQL database.
 

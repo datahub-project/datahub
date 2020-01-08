@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/README.md) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-etl/README.md) for the latest version.
 
 WhereHows is listening to several Kafka topics for Gobblin jobs emitted messages. Those message contains instant information about the ETL jobs and the impacted datasets. For example, when a dataset is updated or when a snapshot is published.
 
@@ -43,7 +43,7 @@ WhereHows is currently listening to three GobblinTrackingEvent related topics. E
 
 The name and namespace of the event defines the scope of the event and the content of the event is in the field 'metadata' which is a Map<String, String>. Different Gobblin events may have different Keys in the 'metadata' Map.
 
-The processed information and records are stored in corresponding staging tables first. The table DDL is in [kafka_tracking.sql](https://github.com/linkedin/WhereHows/blob/master/data-model/DDL/ETL_DDL/kafka_tracking.sql)
+The processed information and records are stored in corresponding staging tables first. The table DDL is in [kafka_tracking.sql](../wherehows-data-model/DDL/ETL_DDL/kafka_tracking.sql)
 
 # GobblinTrackingEvent
 
@@ -65,7 +65,7 @@ An example metadata field has following format:
 }
 ```
 
-This events are processed through [GobblinTrackingCompactionProcessor.java](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/java/metadata/etl/kafka/GobblinTrackingCompactionProcessor.java) and the result is a 'GobblinTrackingCompactionRecord' and stored in the 'stg_kafka_gobblin_compaction' table.
+This events are processed through [GobblinTrackingCompactionProcessor.java](../wherehows-etl/src/main/java/metadata/etl/kafka/GobblinTrackingCompactionProcessor.java) and the result is a 'GobblinTrackingCompactionRecord' and stored in the 'stg_kafka_gobblin_compaction' table.
 
 
 # GobblinTrackingEvent_lumos
@@ -97,7 +97,7 @@ An example metadata field has following format:
 }
 ```
 
-This events are processed through [GobblinTrackingLumosProcessor.java](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/java/metadata/etl/kafka/GobblinTrackingLumosProcessor.java) and the result is a 'GobblinTrackingLumosRecord' and stored in the 'stg_kafka_gobblin_lumos' table.
+This events are processed through [GobblinTrackingLumosProcessor.java](../wherehows-etl/src/main/java/metadata/etl/kafka/GobblinTrackingLumosProcessor.java) and the result is a 'GobblinTrackingLumosRecord' and stored in the 'stg_kafka_gobblin_lumos' table.
 
 
 # GobblinTrackingEvent_distcp_ng
@@ -124,4 +124,4 @@ An example metadata field has following format:
 }
 ```
 
-This events are processed through [GobblinTrackingDistcpNgProcessor.java](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/java/metadata/etl/kafka/GobblinTrackingDistcpNgProcessor.java) and the result is a 'GobblinTrackingDistcpNgRecord' and stored in the 'stg_kafka_gobblin_distcp' table.
+This events are processed through [GobblinTrackingDistcpNgProcessor.java](../wherehows-etl/src/main/java/metadata/etl/kafka/GobblinTrackingDistcpNgProcessor.java) and the result is a 'GobblinTrackingDistcpNgRecord' and stored in the 'stg_kafka_gobblin_distcp' table.

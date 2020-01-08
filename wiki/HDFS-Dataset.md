@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-etl/README.md) for the latest version.
 
 Collect dataset metadata from HDFS.
 
@@ -39,12 +39,12 @@ and related metadata from them. The final step is to store this into two result 
 sample data file.
 
 ## Transform
-Major related file: [HdfsTransform.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/HdfsTransform.py)
+Major related file: [HdfsTransform.py](../wherehows-etl/src/main/resources/jython/HdfsTransform.py)
 
 Transform the JSON output into CSV format for easy loading.
 
 ## Load
-Major related file: [HdfsLoad.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/HdfsLoad.py)
+Major related file: [HdfsLoad.py](../wherehows-etl/src/main/resources/jython/HdfsLoad.py)
 
 Load into MySQL database.
 related tables : dict_dataset, dict_dataset_sample, dict_field_detail

@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-etl/README.md) for the latest version.
 
 Collect dataset metadata from Teradata.
 
@@ -21,7 +21,7 @@ List of properties required for the ETL process:
 |teradata.schema_output|place to store schema data file|
 
 ## Extract
-Major related file: [TeradataExtract.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/TeradataExtract.py)
+Major related file: [TeradataExtract.py](../wherehows-etl/src/main/resources/jython/TeradataExtract.py)
 
 Get metadata from Teradata DBC databases and store it in a local JSON file.
 
@@ -30,12 +30,12 @@ Major source tables: DBC.Tables, DBC.Columns, DBC.ColumnStatsV, DBC.TableSize, D
 'Select top 10' to get sample data.
 
 ## Transform
-Major related file: [TeradataTransform.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/TeradataTransform.py)
+Major related file: [TeradataTransform.py](../wherehows-etl/src/main/resources/jython/TeradataTransform.py)
 
 Transform the JSON output into CSV format for easy loading.
 
 ## Load
-Major related file: [TeradataLoad.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/TeradataLoad.py)
+Major related file: [TeradataLoad.py](../wherehows-etl/src/main/resources/jython/TeradataLoad.py)
 
 Load into MySQL database.
 

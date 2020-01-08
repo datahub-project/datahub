@@ -18,7 +18,7 @@ Clone the WhereHows source code
     git clone https://github.com/linkedin/WhereHows.git
 
 ### Download third-party JAR files
-In order to fetch metadata from certain data sources, you need to download their proprietary JDBC drivers separately. These JAR files should be placed in `wherehows-etl/extralibs` folder to be automatically included as dependencies in [build.gralde](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/build.gradle). See [this file](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/extralibs) for more details.
+In order to fetch metadata from certain data sources, you need to download their proprietary JDBC drivers separately. These JAR files should be placed in `wherehows-etl/extralibs` folder to be automatically included as dependencies in [build.gralde](../wherehows-etl/build.gradle). See [this file](../wherehows-etl/extralibs) for more details.
 
 ### Build the source code
   
@@ -28,7 +28,7 @@ In order to fetch metadata from certain data sources, you need to download their
 
 For IntelliJ
 * Run `./gradlew idea`
-* In IntelliJ "File -> Open", choose [WhereHows/build.gradle](https://github.com/linkedin/WhereHows/blob/master/build.gradle). Make sure to use JDK 1.8.
+* In IntelliJ "File -> Open", choose [WhereHows/build.gradle](../build.gradle). Make sure to use JDK 1.8.
 
 For Eclipse
 * Run `./gradlew eclipse`
@@ -54,7 +54,7 @@ Create a new database user "wherehows" with the password set as "wherehows". Gra
     GRANT SELECT ON wherehows.* TO 'wherehows_ro'@'localhost';
     GRANT SELECT ON wherehows.* TO 'wherehows_ro'@'%';
 
-Run [this sql script](https://github.com/linkedin/WhereHows/blob/master/wherehows-data-model/DDL/create_all_tables_wrapper.sql) to create the required database tables.
+Run [this sql script](../wherehows-data-model/DDL/create_all_tables_wrapper.sql) to create the required database tables.
 
 
 ## Elasticsearch Setup
@@ -108,7 +108,7 @@ Run the following command to create `flow_job` nested object mappings.
     }
     '
 
-Elasticsearch index building is configured as an ETL job in WhereHows. It can be manually triggered by running [ElasticSearchIndex.py](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/src/main/resources/jython/ElasticSearchIndex.py) script.
+Elasticsearch index building is configured as an ETL job in WhereHows. It can be manually triggered by running [ElasticSearchIndex.py](../wherehows-etl/src/main/resources/jython/ElasticSearchIndex.py) script.
 
 
 ## Frontend Setup
@@ -117,7 +117,7 @@ WhereHows frontend and backend are independent services and need to be started s
 Frontend is a standard Ember.js web app running on top of a Play server. Please refer to [Ember](https://www.emberjs.com/) & [Play](https://www.playframework.com/documentation) documents for more details on these frameworks.
 
 ### Configuration
-All the frontend-specific configurations are stored in [wherehows-frontend/conf/application.conf](https://github.com/linkedin/WhereHows/blob/master/wherehows-frontend/conf/application.conf). You'll need to change it to match your environment.
+All the frontend-specific configurations are stored in [wherehows-frontend/conf/application.conf](../wherehows-frontend/conf/application.conf). You'll need to change it to match your environment.
 
 ### Development
 Run the following command to launch an instance of frontend service locally for development.
@@ -138,6 +138,6 @@ This generates a zip file in `wherehows-frontend/build/distributions`, which can
 
 
 ## Backend Setup
-The backend service is also built on top of Play, so the setup is very similar to the frontend. You'll need to change the backend's [application.conf](https://github.com/linkedin/WhereHows/blob/master/wherehows-backend/conf/application.conf), and run the same gradle commands in `wherehows-backend` directory for development and deployment.
+The backend service is also built on top of Play, so the setup is very similar to the frontend. You'll need to change the backend's [application.conf](../wherehows-backend/conf/application.conf), and run the same gradle commands in `wherehows-backend` directory for development and deployment.
 
-For configuring ETL jobs, please refer to [Set Up New Metadata ETL Jobs](https://github.com/linkedin/WhereHows/wiki/Set-Up-New-Metadata-ETL-Jobs).
+For configuring ETL jobs, please refer to [Set Up New Metadata ETL Jobs](../wiki/Set-Up-New-Metadata-ETL-Jobs.md).

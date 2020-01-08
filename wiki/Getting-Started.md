@@ -1,4 +1,4 @@
-> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](https://github.com/linkedin/WhereHows/blob/master/wherehows-docs/getting-started.md) for the latest version.
+> This doc is for older versions (v0.2.1 and before) of WhereHows. Please refer to [this](../wherehows-docs/getting-started.md) for the latest version.
 
 
 1. [External Systems](#external-systems)
@@ -68,7 +68,7 @@ Reference the above third-party JAR files in the dependencies section inside **b
 ```bash
 ./gradlew build
 ```
->\* Some tests are disabled as they need extra configurations, such as connection information. Refer to [Coding Guidelines](#Coding-Guidelines) for details about how to set up a local unit test.
+>\* Some tests are disabled as they need extra configurations, such as connection information. Refer to [Coding Guidelines](Coding-Guidelines.md) for details about how to set up a local unit test.
 
 #### Edit the source code in your IDE
 * For IntelliJ
@@ -169,7 +169,7 @@ curl -XPUT '$YOUR_INDEX_URL:9200/wherehows/flow_jobs/_mapping' -d '
 
 Elasticsearch index building configured as an ETL job in WhereHows, it will be automatically built when data loaded into mySQL database.
 
-User can manually run [ElasticSearchIndex.py](https://github.com/linkedin/WhereHows/blob/master/metadata-etl/src/main/resources/jython/ElasticSearchIndex.py) to build the index.
+User can manually run [ElasticSearchIndex.py](../wherehows-etl/src/main/resources/jython/ElasticSearchIndex.py) to build the index.
 
 # Set up UI
 UI and backend services are independent services, so you can start each of them separately.
@@ -229,8 +229,8 @@ Copy the zip file to your target machine. Then run the script in `bin/backend-se
 All backend jobs need to set up the connection/security configurations. Refer to [Set Up New Metadata ETL Jobs](https://github.com/linkedin/WhereHows/wiki/Set-Up-New-Metadata-ETL-Jobs).
 
 
-[Set-Up-A-New-Job]: Set-Up-A-New-Job
-[contributing_guide]: Contributing
+[Set-Up-A-New-Job]: Set-Up-New-Metadata-ETL-Jobs.md
+[contributing_guide]: ../wherehows-docs/contributing.md
 [gradle]: https://gradle.org/gradle-download/
 [play]: https://www.playframework.com/download
-[wherehows DDL]: https://github.com/linkedin/WhereHows/tree/master/data-model/DDL
+[wherehows DDL]: ../wherehows-data-model/DDL

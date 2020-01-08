@@ -22,7 +22,7 @@ job.databases | table1
 job.databases | table2
 job.databases | table3
 
-For pure Jython-based ETL jobs, set `job.class` to [metadata.etl.JythonEtlJob](https://github.com/linkedin/WhereHows/blob/master/wherehows-etl/src/main/java/metadata/etl/JythonEtlJob.java) and simply set the path to your ETL scripts in the [resources](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/src/main/resources) folder.
+For pure Jython-based ETL jobs, set `job.class` to [metadata.etl.JythonEtlJob](../../wherehows-etl/src/main/java/metadata/etl/JythonEtlJob.java) and simply set the path to your ETL scripts in the [resources](https://github.com/linkedin/WhereHows/tree/master/wherehows-etl/src/main/resources) folder.
 
 Configuration Key | Description
 --- | ---
