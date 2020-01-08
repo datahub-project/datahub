@@ -226,7 +226,7 @@ The zip file is generated in `target/universal`.
 Copy the zip file to your target machine. Then run the script in `bin/backend-service`.
 
 ### Add jobs
-All backend jobs need to set up the connection/security configurations. Refer to [Set Up New Metadata ETL Jobs](https://github.com/linkedin/WhereHows/wiki/Set-Up-New-Metadata-ETL-Jobs).
+All backend jobs need to set up the connection/security configurations. Refer to [Set Up New Metadata ETL Jobs](../wiki/Set-Up-New-Metadata-ETL-Jobs.md).
 
 
 [Set-Up-A-New-Job]: Set-Up-New-Metadata-ETL-Jobs.md

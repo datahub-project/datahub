@@ -62,6 +62,6 @@ Note that each Kafka consumer group can have several topics, so the last three p
 
 * Write results to staging table
 
-The processed kafka messages generate java records after retrieving the information from the messages. The format and content of the corresponding records can be found in [wherehows-common schemas](https://github.com/linkedin/WhereHows/tree/master/wherehows-common/src/main/java/wherehows/common/schemas). The records are then stored in corresponding staging tables for later analysis or merge with final tables. The staging table DDL is in [kafka_tracking.sql](../wherehows-data-model/DDL/ETL_DDL/kafka_tracking.sql). 
+The processed kafka messages generate java records after retrieving the information from the messages. The format and content of the corresponding records can be found in [wherehows-common schemas](../wherehows-common/src/main/java/wherehows/common/schemas). The records are then stored in corresponding staging tables for later analysis or merge with final tables. The staging table DDL is in [kafka_tracking.sql](../wherehows-data-model/DDL/ETL_DDL/kafka_tracking.sql). 
 
 
