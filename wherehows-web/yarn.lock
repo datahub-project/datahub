@@ -7402,10 +7402,10 @@ markdown-it@^8.3.0, markdown-it@^8.3.1:
     mdurl "^1.0.1"
     uc.micro "^1.0.5"
 
-marked@^0.5.0:
-  version "0.5.0"
-  resolved "https://registry.yarnpkg.com/marked/-/marked-0.5.0.tgz#9e590bad31584a48ff405b33ab1c0dd25172288e"
-  integrity sha512-UhjmkCWKu1SS/BIePL2a59BMJ7V42EYtTfksodPRXzPEGEph3Inp5dylseqt+KbU9Jglsx8xcMKmlumfJMBXAA==
+marked@^0.6.1:
+  version "0.6.1"
+  resolved "https://registry.yarnpkg.com/marked/-/marked-0.6.1.tgz#a63addde477bca9613028de4b2bc3629e53a0562"
+  integrity sha512-+H0L3ibcWhAZE02SKMqmvYsErLo4EAVJxu5h3bHBBDvvjeWXtl92rGUSBYHL2++5Y+RSNgl8dYOAXcYe7lp1fA==
 
 matcher-collection@^1.0.0, matcher-collection@^1.0.5:
   version "1.0.5"
