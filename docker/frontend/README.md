@@ -52,4 +52,4 @@ After starting your Docker container, you can connect to it by typing below into
 ```
 http://localhost:9001
 ```
-To be able to sign in, you need to provide your user name. You don't need to type any password.
+You can sign in with `datahub` as username and password.
