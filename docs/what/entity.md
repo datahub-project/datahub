@@ -1,6 +1,6 @@
 # What is an entity?
 
-An entity is very similar to the concept of a [resource](https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources) in [rest.li](http://rest.li/). Generally speaking, an entity should have a defined [URN](urn.md) and a corresponding [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) API for the metadata associated with a particular instance of the entity. A particular instance of an entity is essentially a node in the [metadata graph](graph.md). 
+An entity is very similar to the concept of a [resource](https://linkedin.github.io/rest.li/user_guide/restli_server#writing-resources) in [Rest.li](http://rest.li/). Generally speaking, an entity should have a defined [URN](urn.md) and a corresponding [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) API for the metadata associated with a particular instance of the entity. A particular instance of an entity is essentially a node in the [metadata graph](graph.md). 
 
 ![metadata-modeling](../imgs/metadata-modeling.png)
 
