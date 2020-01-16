@@ -17,7 +17,7 @@ There’s no need to explicitly create or destroy entity instances. An entity in
 Each entity has a special boolean attribute `removed`, which is used to mark the entity as "soft deleted", 
 without destroying existing relationships and attached metadata. This is useful for quickly reviving an incorrectly deleted entity instance without losing valuable metadata, e.g. human authored content.
 
-An example schema for the `Dataset` entity is shown below. Note that:
+An example [PDSC](https://linkedin.github.io/rest.li/pdsc_syntax) schema for the `Dataset` entity is shown below. Note that:
 1. Each entity is expected to have a `urn` field with an entity-specific URN type.
 2. The optional `removed` field is captured in BaseEntity, which is expected to be included by all entities.
 3. All other fields are expected to be of primitive types or enum only. 
