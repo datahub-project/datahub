@@ -1,8 +1,5 @@
-# What is Generalized Metadata Service (GMS)? [WIP]
+# What is Generalized Metadata Service (GMS)?
 
+Metadata for entities [onboarded](../how/entity-onboarding.md) to [GMA](gma.md), such as a `dataset` and `user`, is served through microservices known as Generalized Metadata Service (GMS). GMS typically provides a [Rest.li](http://rest.li) API and must access the metadata using GMA [DAOs](../architecture/metadata-serving.md). 
 
-
-## Central vs Distributed
-Any entity such as `datasets` or `users` which are [onboarded](../how/entity-onboarding.md) to GMA can be designed to be served through a separate microservice.
-These microservices are called GMS. Although we've a central GMS ([datahub-gms](../../gms)) which serves all entities, 
-we could easily have multiple GMS, each has responsible for a specific entity such as `dataset-gms`, `user-gms` etc. 
+GMA is designed to support a distributed fleet of GMS, each serving a subset of the [GMA graph](graph.md). However, for simplicity we include a cenetralized GMS ([datahub-gms](../../gms)) that serves all entities.
