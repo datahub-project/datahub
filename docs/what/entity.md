@@ -6,7 +6,7 @@ Generally speaking, an entity should have a defined [URN](urn.md) and a correspo
 
 ![metadata-modeling](../imgs/metadata-modeling.png)
 
-In the above example graph, `Dataset`, `User`, and `Group` are entities. A specific dataset, e.g. `/data/tracking/PageViewEvent`, is an instance of `Dataset` entity, much like how the LDAP group `datahub-dev` is an instance of Group entity.
+In the above example graph, `Dataset`, `User`, and `Group` are entities. A specific dataset, e.g. `/data/tracking/ImportantEvent`, is an instance of `Dataset` entity, much like how the LDAP group `datahub-team` is an instance of Group entity.
 
 Unlike rest.li, there’s no concept of sub-entity ([sub-resource](https://github.com/linkedin/rest.li/wiki/Rest.li-User-Guide#sub-resources) in rest.li). 
 In other words, entities are always top-level and non-nesting. Instead, nestedness is modeled using relationships, 
@@ -14,7 +14,7 @@ e.g. `Contains`, `IsPartOf`, `HasA`, which is covered in the [Relationship](rela
 
 Entities may also contain attributes, which are in the form of key-value pairs. 
 Each attribute is indexed to support fast attribute-based querying, 
-e.g. find all the `User`s that have the job title `Software Engineer`. 
+e.g. find all the `Users` that have the job title "Software Engineer". 
 There may be a size limitation on the value imposed by the underlying indexing system, 
 but it suffices to assume that the values should kept at relatively small in size, say less than 1KB.
 
@@ -22,7 +22,7 @@ The value of each attribute is expected to be derived from either the entity’s
 from the metadata associated with the entity. Another way to understand the attributes of an entity is to treat them as a complex virtual view over the URN and metadata with indexing support on each column of the view. Just like a virtual view where one is not supposed to store data in the view directly, but to derive it from the underlying tables, the value for the attributes should also be derived. How the actual derivation happens is covered in the [Metadata Serving](../architecture/architecture.md#metadata-serving) section.
 
 There’s no need to explicitly create or destroy entity instances. An entity instance will be automatically created in the graph whenever a new relationship involving the instance is formed, or when a new metadata aspect is attached to the instance. 
-Each entity has a special boolean attribute `removed`, which is used to mark the entity as `soft deleted`, 
+Each entity has a special boolean attribute `removed`, which is used to mark the entity as "soft deleted", 
 without destroying existing relationships and attached metadata. This is useful for quickly reviving an incorrectly deleted entity instance without losing valuable metadata, e.g. human authored content.
 
 An example schema for the `Dataset` entity is shown below. Note that:
@@ -32,7 +32,7 @@ An example schema for the `Dataset` entity is shown below. Note that:
 While it may be possible to support other complex types, namely array, union, map, and record, 
 this mostly depends on the underlying indexing system. For simplicity, we only allow numeric or string-like values for now.
 4. The `urn` field is non-optional, while all other fields must be optional. 
-This is to support `partial update` when only a selective number of attributes need to be altered.
+This is to support "partial update" when only a selective number of attributes need to be altered.
 
 ```json
 {
