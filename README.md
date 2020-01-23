@@ -1,7 +1,5 @@
 # WhereHows [![Build Status](https://travis-ci.org/linkedin/WhereHows.svg?branch=master)](https://travis-ci.org/linkedin/WhereHows) [![latest](https://img.shields.io/badge/latest-1.0.0-blue.svg)](https://github.com/linkedin/WhereHows/releases) [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/wherehows) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/LinkedIn/Wherehows/wiki/Contributing)
 
-## :exclamation: If you are looking to checkout recently announced [Data Hub](https://engineering.linkedin.com/blog/2019/data-hub) project, please follow [this link](https://github.com/linkedin/WhereHows/tree/datahub).
-
 WhereHows is a data discovery and lineage tool built at LinkedIn. It integrates with all the major data processing systems and collects both catalog and operational metadata from them.
 
 Within the central metadata repository, WhereHows curates, associates, and surfaces the metadata information through two interfaces:
