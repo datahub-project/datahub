@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ForeignKeySpec",
+  "namespace": "com.linkedin.schema",
+  "doc": "Description of a foreign key in a schema.",
+  "fields": [
+    {
+      "name": "foreignKey",
+      "type": ["DatasetFieldForeignKey", "UrnForeignKey" ],
+      "doc": "Foreign key definition in metadata schema."
+    }
+  ]
+}

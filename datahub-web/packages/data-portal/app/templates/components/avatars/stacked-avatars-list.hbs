@@ -1,0 +1,58 @@
+{{#if hasBlock}}
+
+  {{yield
+    (hash
+      image=(component "avatars/avatar-image")
+      meta=(component "avatars/avatar-metadata")
+      maxAvatars=maxAvatars
+      rollupAvatars=rollupAvatars
+    )
+  }}
+
+{{else}}
+
+  <ul class="avatar-container__list">
+    {{#each maxAvatars as |avatar|}}
+      <li class="avatar-item avatar-item--stacked">
+        {{#nacho/dropdown/hover-dropdown
+          dropDownItems=avatar.avatarOptions
+          selectedDropDown=null
+          wrappedTriggerComponent=true
+          renderInPlace=true
+          onSelect=(action "onAvatarOptionSelected" avatar)
+        as |dd|
+        }}
+
+          {{#dd.trigger class="avatar-item__trigger"}}
+            {{#if avatar.profileLink}}
+              <a href={{avatar.profileLink}} rel="noopener" target="_blank">
+                {{avatars/avatar-image
+                  avatar=avatar
+                  class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")
+                }}
+              </a>
+            {{else}}
+              {{avatars/avatar-image
+                avatar=avatar
+                class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")
+              }}
+            {{/if}}
+          {{/dd.trigger}}
+
+          {{dd.content}}
+        {{/nacho/dropdown/hover-dropdown}}
+
+      </li>
+    {{/each}}
+  </ul>
+
+  {{#if rollupAvatars}}
+    {{#avatars/rollup-avatars
+      avatars=avatars
+      avatarType=@avatarType
+    }}
+      +{{rollupAvatars.length}}
+    {{/avatars/rollup-avatars}}
+  {{/if}}
+
+{{/if}}

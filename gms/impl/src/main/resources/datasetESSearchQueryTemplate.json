@@ -1,0 +1,98 @@
+{
+  "function_score": {
+    "query": {
+      "bool": {
+        "should": [
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 0.125,
+              "default_field": "name.ngram",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 8,
+              "default_field": "name.dataset_pattern_ngram",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 1,
+              "default_field": "name.delimited",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "whitespace_lowercase",
+              "boost": 8,
+              "default_field": "name.pattern",
+              "default_operator": "AND"
+            }
+          },
+          {
+            "query_string": {
+              "query": "$INPUT",
+              "analyzer": "custom_keyword",
+              "boost": 1000000,
+              "default_field": "name",
+              "default_operator": "AND"
+            }
+          }
+        ]
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "hasOwners": true
+          }
+        },
+        "weight": 2
+      },
+      {
+        "filter": {
+          "term": {
+            "deprecated": true
+          }
+        },
+        "weight": 0.5
+      },
+      {
+        "filter": {
+          "match": {
+            "origin": "EI"
+          }
+        },
+        "weight": 0.01
+      },
+      {
+        "filter": {
+          "term": {
+            "num_downstream_datasets": 0
+          }
+        },
+        "weight": 0.5
+      },
+      {
+        "filter": {
+          "term": {
+            "removed": true
+          }
+        },
+        "weight": 0.0001
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

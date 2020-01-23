@@ -1,0 +1,22 @@
+<div class="nacho-toggle__content">
+  {{#let (eq value leftOptionValue) as |leftActive|}}
+
+    <button
+      class="nacho-toggle__button nacho-toggle__button--left {{if leftActive "nacho-toggle__button--active"}}"
+      {{action "onValueChange" leftOptionValue}}
+    >
+      {{leftOptionText}}
+    </button>
+    <button
+      class="nacho-toggle__button nacho-toggle__button--right {{if (not leftActive) "nacho-toggle__button--active"}}"
+      {{action "onValueChange" rightOptionValue}}
+    >
+      {{rightOptionText}}
+    </button>
+    <div
+      class="nacho-toggle__slider nacho-toggle__slider--{{if leftActive "left-active" "right-active"}}"
+    >
+    </div>
+
+  {{/let}}
+</div>

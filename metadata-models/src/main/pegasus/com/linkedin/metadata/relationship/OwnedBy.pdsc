@@ -1,0 +1,22 @@
+{
+  "type": "record",
+  "name": "OwnedBy",
+  "namespace": "com.linkedin.metadata.relationship",
+  "doc": "A generic model for the Owned-By relationship",
+  "include": [
+    "BaseRelationship"
+  ],
+  "pairings": [
+    {
+      "source": "com.linkedin.common.urn.DatasetUrn",
+      "destination": "com.linkedin.common.urn.CorpuserUrn"
+    }
+  ],
+  "fields": [
+    {
+      "name": "type",
+      "type": "com.linkedin.common.OwnershipType",
+      "doc": "The type of the ownership"
+    }
+  ]
+}

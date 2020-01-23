@@ -1,0 +1,38 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "dummy/tests/*": [
+        "tests/*"
+      ],
+      "dummy/*": [
+        "tests/dummy/app/*",
+        "app/*"
+      ],
+      "@datahub/entity-deprecation": [
+        "addon"
+      ],
+      "@datahub/entity-deprecation/*": [
+        "addon/*"
+      ],
+      "@datahub/entity-deprecation/test-support": [
+        "addon-test-support"
+      ],
+      "@datahub/entity-deprecation/test-support/*": [
+        "addon-test-support/*"
+      ],
+      "*": [
+        "types/*"
+      ]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*"
+  ]
+}

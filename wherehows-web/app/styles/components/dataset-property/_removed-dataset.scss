@@ -1,9 +1,0 @@
-.removed-dataset {
-  @include pill(set-color(red, maroonflush), set-color(white, base));
-  line-height: item-spacing(5);
-
-  &--small {
-    font-size: 12px;
-    line-height: 18px;
-  }
-}

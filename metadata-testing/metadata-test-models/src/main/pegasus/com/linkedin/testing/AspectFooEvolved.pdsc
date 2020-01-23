@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "AspectFooEvolved",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "fields": [
+    {
+      "name": "value",
+      "type": "string",
+      "doc": "For unit tests"
+    },
+    {
+      "name": "newValue",
+      "type": "string",
+      "doc": "For unit tests",
+      "optional": true
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "extends": "../../configs/tsconfig-base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "rootDir": "../../",
+    "paths": {
+      "dummy/tests/*": ["tests/*"],
+      "dummy/*": ["tests/dummy/app/*", "app/*"],
+      "@datahub/data-models": ["addon"],
+      "@datahub/data-models/*": ["addon/*"],
+      "@datahub/data-models/test-support": ["addon-test-support"],
+      "@datahub/data-models/test-support/*": ["addon-test-support/*"],
+      "fetch": ["node_modules/ember-fetch"],
+      "@datahub/utils": ["../../@datahub/utils/addon"],
+      "@datahub/utils/*": ["../../@datahub/utils/addon/*"],
+      "@datahub/metadata-types": ["../../@datahub/metadata-types/addon"],
+      "@datahub/metadata-types/*": ["../../@datahub/metadata-types/addon/*"],
+      "*": ["types/*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "addon/**/*",
+    "tests/**/*",
+    "types/**/*",
+    "test-support/**/*",
+    "addon-test-support/**/*",
+    "../../@datahub/metadata-types/addon/**/*",
+    "../../@datahub/metadata-types/types/**/*",
+    "../../@datahub/utils/addon/**/*",
+    "../../@datahub/utils/types/**/*"
+  ]
+}

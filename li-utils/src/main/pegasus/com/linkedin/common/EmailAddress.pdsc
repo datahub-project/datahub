@@ -1,0 +1,6 @@
+{
+  "type" : "typeref",
+  "name" : "EmailAddress",
+  "namespace" : "com.linkedin.common",
+  "ref" : "string"
+}

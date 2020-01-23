@@ -1,0 +1,57 @@
+.schema-property-indicator {
+  @mixin circle-pill($bg, $size) {
+    @include tag($bg, get-color(white));
+    @include round-image($size);
+    @include flex-column-center;
+    display: inline-flex;
+  }
+
+  & + & {
+    margin-left: item-spacing(1);
+  }
+
+  &--nullable {
+    @include circle-pill(get-color(red5), 20px);
+  }
+
+  &--indexed {
+    @include circle-pill(get-color(orange5), 20px);
+  }
+
+  &--partitioned {
+    @include circle-pill(get-color(green5), 20px);
+  }
+
+  &--distributed {
+    @include circle-pill(get-color(blue5), 20px);
+  }
+}
+
+.dataset-detail-table {
+  &__field-name {
+    word-break: break-word;
+  }
+
+  &__comments {
+    word-break: break-word;
+  }
+
+  &__th-field-name {
+    min-width: 400px;
+  }
+
+  &__th-comments {
+    min-width: 150px;
+  }
+
+  &__th-comment-count {
+    min-width: 15px;
+  }
+}
+
+.dataset-schema {
+  &__header {
+    margin-top: item-spacing(2);
+    margin-bottom: item-spacing(2);
+  }
+}

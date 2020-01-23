@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "Deprecation",
+  "namespace": "com.linkedin.common",
+  "doc": "Deprecation status of an entity",
+  "fields": [
+    {
+      "name": "deprecated",
+      "type": "boolean",
+      "doc": "Whether the entity is deprecated."
+    },
+    {
+      "name" : "decommissionTime",
+      "type" : "Time",
+      "doc" : "The time user plan to decommission this entity.",
+      "optional": true
+    },
+    {
+      "name": "note",
+      "type": "string",
+      "doc": "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
+    },
+    {
+      "name" : "actor",
+      "type" : "com.linkedin.common.CorpuserUrn",
+      "doc" : "The corpuser URN which will be credited for modifying this deprecation content."
+    }
+  ]
+}

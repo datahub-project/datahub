@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "KafkaSchema",
+  "namespace": "com.linkedin.schema",
+  "doc": "Schema holder for kafka schema.",
+  "fields": [
+    {
+      "name": "documentSchema",
+      "type": "string",
+      "doc": "The native kafka document schema. This is a human readable avro document schema."
+    }
+   ]
+}

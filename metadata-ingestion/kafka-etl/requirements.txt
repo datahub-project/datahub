@@ -1,0 +1,3 @@
+confluent-kafka[avro]==1.1.0
+python-schema-registry-client==1.2.1
+kazoo==2.5.0

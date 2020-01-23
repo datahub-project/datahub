@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "CorpGroupInfo",
+  "namespace": "com.linkedin.identity",
+  "doc": "group of corpUser, it may contains nested group",
+  "fields": [
+    {
+      "name": "email",
+      "type": "com.linkedin.common.EmailAddress",
+      "doc": "email of this group"
+    },
+    {
+      "name": "admins",
+      "doc": "owners of this group",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.CorpuserUrn"
+      }
+    },
+    {
+      "name": "members",
+      "doc": "List of ldap urn in this group.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.CorpuserUrn"
+      }
+    },
+    {
+      "name": "groups",
+      "doc": "List of groups in this group.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.common.CorpGroupUrn"
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+.wherehows-entity-header {
+  @include wherehows-container;
+  position: relative;
+  display: flex;
+  width: 100%;
+  padding: 0;
+  max-width: 100%;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+
+    .entity-pill {
+      margin-right: item-spacing(2);
+    }
+  }
+}

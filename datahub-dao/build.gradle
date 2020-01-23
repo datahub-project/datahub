@@ -1,0 +1,20 @@
+apply plugin: 'java'
+
+dependencies {
+  compile project(':gms:client')
+  compile project(':metadata-utils')
+  compile externalDependency.elasticSearchRest
+  compile externalDependency.hibernateCore
+  compile externalDependency.guava
+
+  compileOnly externalDependency.lombok
+
+  annotationProcessor externalDependency.lombok
+
+  testCompile externalDependency.testng
+  testCompile externalDependency.mockito
+}
+
+test {
+  useTestNG()
+}

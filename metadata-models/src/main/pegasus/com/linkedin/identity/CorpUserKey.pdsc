@@ -1,0 +1,19 @@
+{
+  "name": "CorpUserKey",
+  "type": "record",
+  "namespace": "com.linkedin.identity",
+  "doc": "Key for CorpUser resource",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "ldap name e.g. hzhang2, ywang5 ",
+      "validate": {
+        "strlen": {
+          "min": 1,
+          "max": 20
+        }
+      }
+    }
+  ]
+}

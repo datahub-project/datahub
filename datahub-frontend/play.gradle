@@ -1,0 +1,71 @@
+apply plugin: 'play'
+
+// Change this to listen on a different port
+project.ext.httpPort = 9001
+project.ext.playBinaryBaseName = "datahub-frontend"
+
+tasks.withType(PlayRun) {
+  httpPort = project.ext.httpPort
+}
+
+configurations {
+  assets
+}
+
+dependencies {
+  assets project(path: ':datahub-web', configuration: 'assets')
+
+  play project(":datahub-dao")
+
+  play externalDependency.jerseyCore
+  play externalDependency.jerseyGuava
+  play externalDependency.mysqlConnector
+  play externalDependency.playJavaJdbc
+  play externalDependency.springJdbc
+
+  playTest externalDependency.mockito
+  playTest externalDependency.playTest
+
+  playRun externalDependency.guice
+  playRun externalDependency.h2
+  playRun externalDependency.playDocs
+  playRun externalDependency.playGuice
+}
+
+model {
+  components {
+    play {
+      platform play: '2.6.18', scala: '2.11', java: '1.8'
+      injectedRoutesGenerator = true
+
+      binaries.all {
+        tasks.withType(PlatformScalaCompile) {
+          scalaCompileOptions.forkOptions.jvmArgs = ['-Xms1G', '-Xmx1G', '-Xss2M']
+        }
+      }
+
+      binaries.all { binary ->
+        binary.assets.addAssetDir moveAssets.destinationDir
+        binary.assets.builtBy moveAssets
+      }
+    }
+  }
+  distributions {
+    playBinary {
+      baseName = project.ext.playBinaryBaseName
+    }
+  }
+}
+
+task unzipAssets(type: Copy, dependsOn: configurations.assets) {
+  into "${buildDir}/assets"
+  from {
+    configurations.assets.collect { zipTree(it) }
+  }
+}
+
+// move assets/assets into assets
+task moveAssets(type: Copy, dependsOn: unzipAssets) {
+  into "${buildDir}/assets"
+  from ("${buildDir}/assets/assets")
+}

@@ -1,0 +1,53 @@
+<ul class="nacho-pagination">
+  <li class="nacho-pagination__previous">
+    {{#if first}}
+      <span
+        class="nacho-pagination__previous-btn nacho-pagination__previous-btn--disabled"
+      >
+        {{fa-icon "chevron-left"}}
+        Previous
+      </span>
+    {{else}}
+      {{#dynamic-link
+        params=prevLink
+        className="nacho-pagination__previous-btn"
+      }}
+        {{fa-icon "chevron-left"}} Previous
+      {{/dynamic-link}}
+    {{/if}}
+  </li>
+  <li class="nacho-pagination__center">
+    {{#each pages as |page|}}
+      {{#if page.isSeparator}}
+        <span class="nacho-pagination__page">
+          ...
+        </span>
+      {{else if page.isCurrent}}
+        <span class="nacho-pagination__page nacho-pagination__page--current">
+          {{page.pageNumber}}
+        </span>
+      {{else}}
+        {{#dynamic-link
+          params=page.link
+          className="nacho-pagination__page-link"
+        }}
+          {{page.pageNumber}}
+        {{/dynamic-link}}
+      {{/if}}
+    {{/each}}
+  </li>
+  <li class="nacho-pagination__next">
+    {{#if last}}
+      <span class="nacho-pagination__next-btn nacho-pagination__next-btn--disabled">
+        Next {{fa-icon "chevron-right"}}
+      </span>
+    {{else}}
+      {{#dynamic-link
+        params=nextLink
+        className="nacho-pagination__next-btn"
+      }}
+        Next {{fa-icon "chevron-right"}}
+      {{/dynamic-link}}
+    {{/if}}
+  </li>
+</ul>

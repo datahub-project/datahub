@@ -1,0 +1,216 @@
+{
+  "took": 98,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 25,
+    "max_score": 23.756298,
+    "hits": [
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Arap-jira",
+        "_score": 23.756298,
+        "_source": {
+          "urn": "urn:li:corpGroup:rap-jira",
+          "members": [],
+          "groups": [
+            "rap-jira"
+          ],
+          "admins": [
+            "youkim"
+          ],
+          "email": "rap-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Asnd+jira",
+        "_score": 23.756298,
+        "_source": {
+          "urn": "urn:li:corpGroup:SND JIRA",
+          "members": [],
+          "groups": [
+            "SND JIRA"
+          ],
+          "admins": [
+            "fpageau"
+          ],
+          "email": "snd-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aabusernr-jira",
+        "_score": 23.756298,
+        "_source": {
+          "urn": "urn:li:corpGroup:abusernr-jira",
+          "members": [
+            "sluo"
+          ],
+          "groups": [
+            "abusernr-jira"
+          ],
+          "admins": [
+            "sluo"
+          ],
+          "email": "abusernr-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Ajira-service-users",
+        "_score": 23.080793,
+        "_source": {
+          "urn": "urn:li:corpGroup:jira-service-users",
+          "members": [
+            "ddegrego"
+          ],
+          "groups": [
+            "jira-service-users"
+          ],
+          "admins": [
+            "ddegrego"
+          ],
+          "email": "jira-service-users@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aspark-jira",
+        "_score": 23.080793,
+        "_source": {
+          "urn": "urn:li:corpGroup:spark-jira",
+          "members": [
+            "chsingh",
+            "minyang",
+            "zolin",
+            "sbeeram",
+            "zezhang",
+            "yezhou",
+            "latang",
+            "mshen"
+          ],
+          "groups": [
+            "spark-jira"
+          ],
+          "admins": [
+            "sbeeram"
+          ],
+          "email": "spark-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Atalent-intelligence-jira",
+        "_score": 23.080793,
+        "_source": {
+          "urn": "urn:li:corpGroup:talent-intelligence-jira",
+          "members": [
+            "nbautist"
+          ],
+          "groups": [
+            "talent-intelligence-jira"
+          ],
+          "admins": [
+            "nbautist"
+          ],
+          "email": "talent-intelligence-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aseek-jira-incident",
+        "_score": 23.080793,
+        "_source": {
+          "urn": "urn:li:corpGroup:seek-jira-incident",
+          "members": [
+            "arkao"
+          ],
+          "groups": [
+            "seek-jira-incident"
+          ],
+          "admins": [
+            "arkao"
+          ],
+          "email": "seek-jira-incident@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aninfra-jira",
+        "_score": 22.341246,
+        "_source": {
+          "urn": "urn:li:corpGroup:ninfra-jira",
+          "members": [],
+          "groups": [
+            "ninfra-jira"
+          ],
+          "admins": [],
+          "email": "ninfra-jira@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aldc+-+jira+users",
+        "_score": 22.341246,
+        "_source": {
+          "urn": "urn:li:corpGroup:LDC - JIRA Users",
+          "members": [
+            "cdragus",
+            "jdow",
+            "nduygun",
+            "njester",
+            "cconley",
+            "dmonie",
+            "rnemhaus",
+            "awolkov",
+            "jalex",
+            "rseddiqi",
+            "gchu"
+          ],
+          "groups": [
+            "LDC - JIRA Users"
+          ],
+          "admins": [
+            "shahn"
+          ],
+          "email": "ldc-jira-users@linkedin.com"
+        }
+      },
+      {
+        "_index": "corpgroupdocument-1570145907",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpgroup%3Aldc+-+jira+admins",
+        "_score": 22.341246,
+        "_source": {
+          "urn": "urn:li:corpGroup:LDC - Jira Admins",
+          "members": [
+            "njester",
+            "dmonie"
+          ],
+          "groups": [
+            "LDC - Jira Admins"
+          ],
+          "admins": [
+            "shahn"
+          ],
+          "email": "ldc-jira-admins@linkedin.com"
+        }
+      }
+    ]
+  }
+}

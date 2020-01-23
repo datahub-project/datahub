@@ -1,0 +1,24 @@
+<ModalDialog
+  @overlayClass={{this.overlayClass}}
+  @containerClassNames={{this.containerClassNames}}
+  @onClose={{action this.onClose}}
+>
+  {{yield
+    (hash
+      header=(component "notifications/dialog/dialog-header"
+        header=@header
+      )
+      content=(component "notifications/dialog/dialog-content"
+        content=this.content
+      )
+      footer=(component "notifications/dialog/dialog-footer"
+        dismissButtonText=@dismissButtonText
+        confirmButtonText=@confirmButtonText
+        toggleText=@toggleText
+        onDialogToggle=(action this.onDialogToggle)
+        onDismiss=(action this.onClose)
+        onConfirm=(action this.onConfirm)
+      )
+    )
+  }}
+</ModalDialog>

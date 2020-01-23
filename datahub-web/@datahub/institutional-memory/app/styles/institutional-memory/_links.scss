@@ -1,0 +1,95 @@
+.institutional-memory-links {
+  $author-column-width: 124px;
+  $date-column-width: 148px;
+  $url-column-width: 256px;
+  $description-column-width: 256px;
+  $action-column-width: 96px;
+  $global-font-size: 14px;
+
+  /// TODO [META-7332] Temporary solution pending [META-7332] to fix nacho table styling
+  .nacho-table th {
+    background-color: get-color(white);
+  }
+
+  &__global {
+    margin-bottom: item-spacing(3);
+    margin-top: item-spacing(3);
+
+    &-button {
+      margin-left: auto;
+      display: block;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: get-color(blue7);
+      font-size: $global-font-size;
+      font-weight: bold;
+    }
+  }
+
+  &__author {
+    width: $author-column-width;
+  }
+
+  &__date {
+    width: $date-column-width;
+  }
+
+  &__actions {
+    width: $action-column-width;
+
+    &-button {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: get-color(slate7);
+    }
+  }
+
+  &-modal {
+    $input-width: 540px;
+
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 12px 18px 1px rgba(0, 0, 0, 0.2);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: 2px;
+    overflow: auto;
+    background-color: set-color(white, base);
+    max-height: calc(100vh - 64px);
+    min-height: 48px;
+    width: 732px;
+
+    &__header {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    &__title {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    &__close-button {
+      border: none;
+      background: transparent;
+    }
+
+    &__form {
+      width: $input-width;
+    }
+
+    &__url {
+      width: $input-width;
+    }
+
+    &__description {
+      width: $input-width;
+      height: 172px;
+    }
+
+    &__description-limit {
+      text-align: right;
+    }
+  }
+}

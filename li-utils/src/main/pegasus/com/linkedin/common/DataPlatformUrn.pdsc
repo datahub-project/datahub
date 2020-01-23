@@ -1,0 +1,30 @@
+{
+  "ref" : "string",
+  "java" : {
+    "class" : "com.linkedin.common.urn.DataPlatformUrn",
+    "coercerClass": "com.linkedin.common.urn.DataPlatformUrnCoercer"
+  },
+  "name" : "DataPlatformUrn",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Standardized data platforms available",
+  "type" : "typeref",
+  "validate" : {
+    "com.linkedin.common.validator.TypedUrnValidator" : {
+      "accessible" : true,
+      "entityType" : "dataPlatform",
+      "owningTeam" : "urn:li:internalTeam:wherehows",
+      "constructable" : true,
+      "name" : "DataPlatform",
+      "namespace" : "li",
+      "doc" : "Standardized data platforms available",
+      "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+      "fields" : [ {
+        "name" : "platformName",
+        "doc" : "data platform name i.e. hdfs, oracle, espresso",
+        "type" : "string",
+        "maxLength" : 25
+      } ],
+      "maxLength" : 45
+    }
+  }
+}

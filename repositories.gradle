@@ -1,0 +1,21 @@
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url "https://packages.confluent.io/maven/"
+    }
+    maven {
+        url "https://dl.bintray.com/radai-rosenblatt/avro-util/"
+    }
+    maven {
+        url "https://plugins.gradle.org/m2/"
+    }
+}
+
+try {
+    subprojects {
+        project.repositories.addAll(rootProject.repositories)
+    }
+} catch (Throwable t) {
+}
+

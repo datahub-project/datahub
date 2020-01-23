@@ -1,0 +1,16 @@
+---
+version: '3.5'
+services:
+  neo4j:
+    image: neo4j:3.5.7
+    hostname: neo4j
+    container_name: neo4j
+    environment:
+      NEO4J_AUTH: 'neo4j/datahub'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+networks:
+  default:
+    name: datahub_network

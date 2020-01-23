@@ -1,0 +1,42 @@
+{
+  "type": "record",
+  "name": "BrowseResultMetadata",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The model for browse result metadata",
+  "fields": [
+    {
+      "name": "path",
+      "type": "string",
+      "doc": "Path that is being browsed"
+    },
+    {
+      "name": "groups",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "BrowseResultGroup",
+          "fields": [
+            {
+              "name": "name",
+              "type": "string",
+              "doc": "Name of the group"
+            },
+            {
+              "name": "count",
+              "type": "long",
+              "doc": "Number of entities that can be reached from this path"
+            }
+          ]
+        }
+      },
+      "default": [],
+      "doc": "A list of groups and total number of entities inside those groups under the queried path"
+    },
+    {
+      "name": "totalNumEntities",
+      "type": "long",
+      "doc": "Total number of entities we can reach from path"
+    }
+  ]
+}

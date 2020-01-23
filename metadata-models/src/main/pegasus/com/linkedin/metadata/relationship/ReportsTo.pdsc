@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "ReportsTo",
+  "namespace": "com.linkedin.metadata.relationship",
+  "doc": "A generic model for the Reports-To relationship",
+  "include": [
+    "BaseRelationship"
+  ],
+  "pairings": [
+    {
+      "source": "com.linkedin.common.urn.CorpuserUrn",
+      "destination": "com.linkedin.common.urn.CorpuserUrn"
+    }
+  ],
+  "fields": [
+  ]
+}

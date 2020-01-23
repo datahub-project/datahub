@@ -1,0 +1,34 @@
+<configuration>
+  <property name="WHZ_LOG_DIR" value="${WHZ_LOG_DIR:- /var/tmp/datahub}"/>
+  <timestamp key="bySecond" datePattern="yyyy-MM-dd'_'HH-mm-ss"/>
+  <timestamp key="byDate" datePattern="yyyy-MM-dd"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <layout class="ch.qos.logback.classic.PatternLayout">
+      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </layout>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${WHZ_LOG_DIR}/datahub-frontend-${bySecond}.log</file>
+    <append>true</append>
+    <encoder>
+      <pattern>%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+      <maxIndex>10</maxIndex>
+      <FileNamePattern>${WHZ_LOG_DIR}/${byDate}.log.%i</FileNamePattern>
+    </rollingPolicy>
+    <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+      <MaxFileSize>20MB</MaxFileSize>
+    </triggeringPolicy>
+  </appender>
+
+  <logger name="com.linkedin.datahub" level="DEBUG" />
+  <logger name="play.core.server.AkkaHttpServer" level="INFO" />
+
+  <root level="warn">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
+  </root>
+</configuration>

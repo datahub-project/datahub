@@ -1,0 +1,86 @@
+
+<h4 class="search-result__title">
+  {{#if (has-block)}}
+    {{yield}}
+  {{else}}
+    {{#analytics/trackable-link-to
+      @meta.entityLink.link.route
+      @meta.entityLink.link.model.firstObject
+      (hash isQueryParams=true values=@meta.entityLink.link.queryParams)
+      contentName=(concat @trackPrefix "@" @meta.resultPosition)
+      contentPiece=@meta.entityLink.link.model.firstObject
+      onClick=(action "onResultClick" @result.urn)
+      class="search-result__title-link"
+    }}
+      {{split-text @result.name 65}}
+    {{/analytics/trackable-link-to}}
+
+    {{!-- TODO: [META-7528] This is temporary, we want to create a component in nacho that can
+          dynamically add tags based on our fieldspecs --}}
+    {{#each @resultFields as |field|}}
+      {{#let (get @result field.fieldName) as |value|}}
+        {{#if (and field.showAsTag field.component)}}
+          {{component field.component.name entity=@meta.instance field=field value=value}}
+        {{else if (and field.showAsTag value)}}
+          {{#if (and field.showAsIcon field.iconName)}}
+            <span class="search-result__title__icon">
+              {{fa-icon field.iconName aria-label=(if field.displayName field.displayName field.iconName)}}
+              {{#if field.hoverText}}
+                {{tooltip-on-element
+                  text=field.hoverText
+                }}
+              {{/if}}
+            </span>
+          {{else}}
+            <span class="nacho-pill nacho-pill--small nacho-pill--link nacho-pill--no-clickable">{{field.displayName}}</span>
+          {{/if}}
+        {{/if}}
+      {{/let}}
+    {{/each}}
+
+    {{#if @secondaryActions.length}}
+      <aside class="search-result__action-bar">
+        {{#each @secondaryActions as |secondaryAction|}}
+          {{component secondaryAction entity=@meta.instance}}
+        {{/each}}
+      </aside>
+    {{/if}}
+  {{/if}}
+</h4>
+{{#if @result.description}}
+  <div class="search-result__description">
+    {{@result.description}}
+  </div>
+{{/if}}
+
+<div class="search-result__fields">
+  {{#each @resultFields as |field|}}
+    {{#let (get @result field.fieldName) as |value|}}
+      {{! TODO: META-8451 check for compute or value not just value}}
+      {{#if (and field.showInResultsPreview value)}}
+        <div class="search-result__field">
+          <div class="search-result__field-name">{{field.displayName}}</div>
+          <div class="search-result__field-value">
+            {{#if field.compute}}
+              {{#if field.isExternalLink}}
+                {{#let (compute field.compute @result) as |externalLink|}}
+                  <a href={{externalLink}} target="_blank"  rel="noopener">{{externalLink}}</a>
+                {{/let}}
+              {{else}}
+                {{compute field.compute @result}}
+              {{/if}}
+            {{else if (is-array value)}}
+              <ul class="search-result__field-value-list">
+                {{#each value as |valueItem|}}
+                  <li class="search-result__field-value-list-item">{{valueItem}}</li>
+                {{/each}}
+              </ul>
+            {{else}}
+              {{value}}
+            {{/if}}
+          </div>
+        </div>
+      {{/if}}
+    {{/let}}
+  {{/each}}
+</div>

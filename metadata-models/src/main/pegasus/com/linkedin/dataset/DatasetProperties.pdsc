@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "DatasetProperties",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Properties associated with a Dataset",
+  "fields": [
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Documentation of the dataset",
+      "optional": true
+    },
+    {
+      "name": "uri",
+      "type": "com.linkedin.common.Uri",
+      "doc": "The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
+      "optional": true
+    },
+    {
+      "name": "tags",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "tags for the dataset",
+      "default": []
+    },
+    {
+      "name": "customProperties",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "doc": "A key-value map to capture any other non-standardized properties for the dataset",
+      "default": {}
+    }
+  ]
+}

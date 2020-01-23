@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "Contains",
+  "namespace": "com.linkedin.metadata.relationship",
+  "doc": "A generic model for the Has-A relationship",
+  "include": [
+    "BaseRelationship"
+  ],
+  "pairings": [
+    {
+      "source": "com.linkedin.common.urn.InchartsChartUrn",
+      "destination": "com.linkedin.common.urn.InchartsChartInstanceUrn"
+    }
+  ],
+  "fields": [
+  ]
+}

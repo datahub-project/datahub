@@ -1,0 +1,30 @@
+{
+  "function_score": {
+    "query": {
+      "query_string": {
+        "query": "$INPUT",
+        "fields": [
+          "fullName^4",
+          "ldap^2",
+          "managerLdap",
+          "skills",
+          "teams",
+          "title"
+        ],
+        "default_operator": "and",
+        "analyzer": "standard"
+      }
+    },
+    "functions": [
+      {
+        "filter": {
+          "term": {
+            "active": true
+          }
+        },
+        "weight": 2
+      }
+    ],
+    "score_mode": "multiply"
+  }
+}

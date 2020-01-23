@@ -1,0 +1,33 @@
+{{#if hasBlock}}
+  {{yield
+    (hash
+      title=title
+      lastSaved=lastSaved
+      actor=actor
+    )
+  }}
+{{else}}
+  <span class="last-saved-by__title">
+    {{title}}
+  </span>
+
+  {{#if time}}
+    <strong>
+      {{lastSaved}}
+    </strong>
+
+    <span class="last-saved-by__conjunction">
+      by
+    </span>
+
+    <span>
+      {{tooltip-on-element text=actor}}
+
+      <strong>
+        {{split-text actor maxCharLength}}
+      </strong>
+    </span>
+  {{else}}
+    {{lastSaved}}
+  {{/if}}
+{{/if}}

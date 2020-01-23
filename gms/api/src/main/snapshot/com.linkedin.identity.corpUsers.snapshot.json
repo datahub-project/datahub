@@ -1,0 +1,528 @@
+{
+  "models" : [ {
+    "type" : "typeref",
+    "name" : "CorpuserUrn",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Corporate user's AD/LDAP login",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.CorpuserUrnCoercer",
+      "class" : "com.linkedin.common.urn.CorpuserUrn"
+    },
+    "validate" : {
+      "com.linkedin.common.validator.TypedUrnValidator" : {
+        "accessible" : true,
+        "entityType" : "corpuser",
+        "owningTeam" : "urn:li:internalTeam:security",
+        "constructable" : true,
+        "name" : "Corpuser",
+        "namespace" : "li",
+        "doc" : "Corporate user's AD/LDAP login",
+        "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+        "fields" : [ {
+          "name" : "username",
+          "doc" : "The name of the AD/LDAP user.",
+          "type" : "string",
+          "maxLength" : 20
+        } ],
+        "maxLength" : 36
+      }
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "EmailAddress",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string"
+  }, {
+    "type" : "typeref",
+    "name" : "Url",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.url.UrlCoercer",
+      "class" : "com.linkedin.common.url.Url"
+    }
+  }, {
+    "type" : "typeref",
+    "name" : "Urn",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "coercerClass" : "com.linkedin.common.urn.UrnCoercer",
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "type" : "record",
+    "name" : "CorpUser",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Metadata for a corp user",
+    "fields" : [ {
+      "name" : "username",
+      "type" : "string",
+      "doc" : "Username of the corp user"
+    }, {
+      "name" : "info",
+      "type" : {
+        "type" : "record",
+        "name" : "CorpUserInfo",
+        "doc" : "Linkedin corp user information",
+        "fields" : [ {
+          "name" : "active",
+          "type" : "boolean",
+          "doc" : "Whether the corpUser is active, ref: https://iwww.corp.linkedin.com/wiki/cf/display/GTSD/Accessing+Active+Directory+via+LDAP+tools"
+        }, {
+          "name" : "displayName",
+          "type" : "string",
+          "doc" : "displayName of this user ,  e.g.  Hang Zhang(DataHQ)",
+          "optional" : true
+        }, {
+          "name" : "email",
+          "type" : "com.linkedin.common.EmailAddress",
+          "doc" : "email address of this user"
+        }, {
+          "name" : "title",
+          "type" : "string",
+          "doc" : "title of this user",
+          "optional" : true
+        }, {
+          "name" : "managerUrn",
+          "type" : "com.linkedin.common.CorpuserUrn",
+          "doc" : "direct manager of this user",
+          "optional" : true
+        }, {
+          "name" : "departmentId",
+          "type" : "long",
+          "doc" : "department id this user belong to",
+          "optional" : true
+        }, {
+          "name" : "departmentName",
+          "type" : "string",
+          "doc" : "department name this user belong to",
+          "optional" : true
+        }, {
+          "name" : "firstName",
+          "type" : "string",
+          "doc" : "first name of this user",
+          "optional" : true
+        }, {
+          "name" : "lastName",
+          "type" : "string",
+          "doc" : "last name of this user",
+          "optional" : true
+        }, {
+          "name" : "fullName",
+          "type" : "string",
+          "doc" : "Common name of this user, format is firstName + lastName (split by a whitespace)",
+          "optional" : true
+        }, {
+          "name" : "countryCode",
+          "type" : "string",
+          "doc" : "two uppercase letters country code. e.g.  US",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Information of the corp user",
+      "optional" : true
+    }, {
+      "name" : "editableInfo",
+      "type" : {
+        "type" : "record",
+        "name" : "CorpUserEditableInfo",
+        "doc" : "Linkedin corp user information that can be edited from UI",
+        "fields" : [ {
+          "name" : "aboutMe",
+          "type" : "string",
+          "doc" : "About me section of the user",
+          "optional" : true
+        }, {
+          "name" : "teams",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Teams that the user belongs to e.g. Metadata",
+          "default" : [ ]
+        }, {
+          "name" : "skills",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Skills that the user possesses e.g. Machine Learning",
+          "default" : [ ]
+        }, {
+          "name" : "pictureLink",
+          "type" : "com.linkedin.common.Url",
+          "doc" : "A URL which points to a picture which user wants to set as a profile photo",
+          "default" : "https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png"
+        } ]
+      },
+      "doc" : "Editable information of the corp user",
+      "optional" : true
+    } ]
+  }, "com.linkedin.identity.CorpUserEditableInfo", "com.linkedin.identity.CorpUserInfo", {
+    "type" : "record",
+    "name" : "CorpUserKey",
+    "namespace" : "com.linkedin.identity",
+    "doc" : "Key for CorpUser resource",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "ldap name e.g. hzhang2, ywang5 ",
+      "validate" : {
+        "strlen" : {
+          "min" : 1,
+          "max" : 20
+        }
+      }
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AspectVersion",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A tuple of a specific metadata aspect and its version.",
+    "fields" : [ {
+      "name" : "aspect",
+      "type" : "string",
+      "doc" : "The FQCN of the metadata aspect, e.g. com.linkedin.common.Ownership"
+    }, {
+      "name" : "version",
+      "type" : "long",
+      "doc" : "The version of the metadata aspect"
+    } ]
+  }, {
+    "type" : "typeref",
+    "name" : "CorpUserAspect",
+    "namespace" : "com.linkedin.metadata.aspect",
+    "doc" : "A union of all supported metadata aspects for a CorpUser",
+    "ref" : [ "com.linkedin.identity.CorpUserInfo", "com.linkedin.identity.CorpUserEditableInfo" ]
+  }, {
+    "type" : "record",
+    "name" : "AggregationMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "The name of the aggregation, e.g, platform, origin"
+    }, {
+      "name" : "aggregations",
+      "type" : {
+        "type" : "map",
+        "values" : "long"
+      },
+      "doc" : "List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "AutoCompleteResult",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the auto complete result",
+    "fields" : [ {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "The original chars typed by user"
+    }, {
+      "name" : "suggestions",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "A list of typeahead suggestions"
+    } ]
+  }, {
+    "type" : "enum",
+    "name" : "Condition",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The matching condition in a filter criterion",
+    "symbols" : [ "EQUAL", "START_WITH", "END_WITH", "CONTAIN" ],
+    "symbolDocs" : {
+      "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
+      "START_WITH" : "Represent the relation: String field starts with value, e.g. name starts with PageView",
+      "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
+      "CONTAIN" : "Represent the relation: String field contains value, e.g. name contains Profile"
+    }
+  }, {
+    "type" : "record",
+    "name" : "Criterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "A criterion for matching a field with given value",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that the criterion refers to"
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "The value of the intended field"
+    }, {
+      "name" : "condition",
+      "type" : "Condition",
+      "doc" : "The condition for the criterion, e.g. EQUAL, START_WITH",
+      "default" : "EQUAL"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "Filter",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The filter for finding an record or a collection of records",
+    "fields" : [ {
+      "name" : "criteria",
+      "type" : {
+        "type" : "array",
+        "items" : "Criterion"
+      },
+      "doc" : "A list of criteria the filter applies to the query"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SearchResultMetadata",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "The model for the search result",
+    "fields" : [ {
+      "name" : "searchResultMetadatas",
+      "type" : {
+        "type" : "array",
+        "items" : "AggregationMetadata"
+      },
+      "doc" : "A list of search result metadata such as aggregations"
+    }, {
+      "name" : "urns",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "A list of urns corresponding to search documents (in order) as returned by the search index"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SortCriterion",
+    "namespace" : "com.linkedin.metadata.query",
+    "doc" : "Sort order along with the field to sort it on, to be applied to the results.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The name of the field that sorting has to be applied to"
+    }, {
+      "name" : "order",
+      "type" : {
+        "type" : "enum",
+        "name" : "SortOrder",
+        "doc" : "The order used to sort the results",
+        "symbols" : [ "ASCENDING", "DESCENDING" ],
+        "symbolDocs" : {
+          "ASCENDING" : "If results need to be sorted in ascending order",
+          "DESCENDING" : "If results need to be sorted in descending order"
+        }
+      },
+      "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
+    } ]
+  }, "com.linkedin.metadata.query.SortOrder", {
+    "type" : "record",
+    "name" : "CorpUserSnapshot",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "A metadata snapshot for a specific CorpUser entity.",
+    "fields" : [ {
+      "name" : "urn",
+      "type" : "com.linkedin.common.CorpuserUrn",
+      "doc" : "URN for the entity the metadata snapshot is associated with."
+    }, {
+      "name" : "aspects",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.CorpUserAspect"
+      },
+      "doc" : "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects."
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "SnapshotKey",
+    "namespace" : "com.linkedin.metadata.snapshot",
+    "doc" : "The Key for a metadata Snapshot.",
+    "fields" : [ {
+      "name" : "aspectVersions",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.metadata.aspect.AspectVersion"
+      },
+      "doc" : "A list of metadata aspects in the Snapshot and their versions"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "EmptyRecord",
+    "namespace" : "com.linkedin.restli.common",
+    "doc" : "An literally empty record.  Intended as a marker to indicate the absence of content where a record type is required.  If used the underlying DataMap *must* be empty, EmptyRecordValidator is provided to help enforce this.  For example,  CreateRequest extends Request<EmptyRecord> to indicate it has no response body.   Also, a ComplexKeyResource implementation that has no ParamKey should have a signature like XyzResource implements ComplexKeyResource<XyzKey, EmptyRecord, Xyz>.",
+    "fields" : [ ],
+    "validate" : {
+      "com.linkedin.restli.common.EmptyRecordValidator" : { }
+    }
+  } ],
+  "schema" : {
+    "name" : "corpUsers",
+    "namespace" : "com.linkedin.identity",
+    "path" : "/corpUsers",
+    "schema" : "com.linkedin.identity.CorpUser",
+    "doc" : "generated from: com.linkedin.identity.rest.resources.CorpUsers",
+    "collection" : {
+      "identifier" : {
+        "name" : "corpUser",
+        "type" : "com.linkedin.identity.CorpUserKey",
+        "params" : "com.linkedin.restli.common.EmptyRecord"
+      },
+      "supports" : [ "batch_get", "get", "get_all" ],
+      "methods" : [ {
+        "method" : "get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      }, {
+        "method" : "batch_get",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ]
+      }, {
+        "method" : "get_all",
+        "parameters" : [ {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
+        } ],
+        "pagingSupported" : true
+      } ],
+      "finders" : [ {
+        "name" : "search",
+        "parameters" : [ {
+          "name" : "input",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter",
+          "optional" : true
+        }, {
+          "name" : "sort",
+          "type" : "com.linkedin.metadata.query.SortCriterion",
+          "optional" : true
+        } ],
+        "metadata" : {
+          "type" : "com.linkedin.metadata.query.SearchResultMetadata"
+        },
+        "pagingSupported" : true
+      } ],
+      "actions" : [ {
+        "name" : "autocomplete",
+        "parameters" : [ {
+          "name" : "query",
+          "type" : "string"
+        }, {
+          "name" : "field",
+          "type" : "string"
+        }, {
+          "name" : "filter",
+          "type" : "com.linkedin.metadata.query.Filter"
+        }, {
+          "name" : "limit",
+          "type" : "int"
+        } ],
+        "returns" : "com.linkedin.metadata.query.AutoCompleteResult"
+      }, {
+        "name" : "backfill",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "getSnapshot",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "aspects",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "default" : "[]"
+        } ],
+        "returns" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+      }, {
+        "name" : "ingest",
+        "parameters" : [ {
+          "name" : "snapshot",
+          "type" : "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+        } ]
+      } ],
+      "entity" : {
+        "path" : "/corpUsers/{corpUser}",
+        "subresources" : [ {
+          "name" : "editableInfo",
+          "namespace" : "com.linkedin.identity",
+          "path" : "/corpUsers/{corpUser}/editableInfo",
+          "schema" : "com.linkedin.identity.CorpUserEditableInfo",
+          "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/editableInfo\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersEditableInfoResource",
+          "collection" : {
+            "identifier" : {
+              "name" : "editableInfoId",
+              "type" : "long"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/corpUsers/{corpUser}/editableInfo/{editableInfoId}"
+            }
+          }
+        }, {
+          "annotations" : {
+            "createOnly" : {
+              "value" : [ "urn" ]
+            },
+            "deprecated" : {
+              "doc" : "Use corresponding action methods in /corpUsers"
+            }
+          },
+          "name" : "snapshot",
+          "namespace" : "com.linkedin.identity.corpuser",
+          "path" : "/corpUsers/{corpUser}/snapshot",
+          "schema" : "com.linkedin.metadata.snapshot.CorpUserSnapshot",
+          "doc" : "Rest.li entry point: /corpUsers/{corpUserKey}/snapshot\n\ngenerated from: com.linkedin.identity.rest.resources.CorpUsersSnapshot",
+          "collection" : {
+            "identifier" : {
+              "name" : "snapshotId",
+              "type" : "com.linkedin.metadata.snapshot.SnapshotKey",
+              "params" : "com.linkedin.restli.common.EmptyRecord"
+            },
+            "supports" : [ "create", "get" ],
+            "methods" : [ {
+              "method" : "create"
+            }, {
+              "method" : "get"
+            } ],
+            "entity" : {
+              "path" : "/corpUsers/{corpUser}/snapshot/{snapshotId}"
+            }
+          }
+        } ]
+      }
+    }
+  }
+}

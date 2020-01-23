@@ -1,0 +1,34 @@
+.entity-list-count {
+  display: flex;
+  align-items: center;
+
+  &--dismiss {
+    width: 0;
+    transition: width 0.2s linear 0.3s;
+    .entity-list-count__value {
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    }
+  }
+
+  &--display {
+    width: item-spacing(9) * 1.02;
+    transition: width 0.2s linear;
+
+    .entity-list-count__value {
+      opacity: 1;
+      transition: opacity 0.2s ease-in 0.3s;
+    }
+  }
+
+  &__value {
+    white-space: nowrap;
+
+    a {
+      color: get-color(white);
+      @include on-event() {
+        color: get-color(gray3);
+      }
+    }
+  }
+}

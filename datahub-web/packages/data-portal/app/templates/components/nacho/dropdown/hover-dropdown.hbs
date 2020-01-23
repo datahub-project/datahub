@@ -1,0 +1,39 @@
+{{#basic-dropdown renderInPlace=@renderInPlace as |bd|}}
+  {{#if (not-eq @wrappedTriggerComponent true)}}
+    {{#bd.trigger
+      class="nacho-drop-down__trigger"
+      onMouseDown=(action "prevent")
+      onMouseEnter=(action "showDropDown")
+      onMouseLeave=(action "hideDropDown")
+    }}
+      <strong class="nacho-drop-down__active">
+        {{selectedDropDown.label}}
+      </strong>
+
+      {{#if selectedDropDown}}
+        <span class="nacho-drop-down__active__toggle">
+          {{fa-icon (if isExpanded "caret-up" "caret-down")}}
+        </span>
+      {{/if}}
+    {{/bd.trigger}}
+  {{/if}}
+
+  {{yield
+    (hash
+      trigger=(component bd.trigger
+        onMouseDown=(action "prevent")
+        onMouseEnter=(action "showDropDown")
+        onMouseLeave=(action "hideDropDown")
+      )
+      isExpanded=isExpanded
+      content=(component "nacho/dropdown/dropdown-content"
+        baseComponent=bd.content
+        onMouseEnter=(action "showDropDown")
+        onMouseLeave=(action "hideDropDown")
+        onSelect=(action "onDropDownSelect")
+        selectedOption=selectedDropDown
+        options=dropDownItems
+      )
+    )
+  }}
+{{/basic-dropdown}}

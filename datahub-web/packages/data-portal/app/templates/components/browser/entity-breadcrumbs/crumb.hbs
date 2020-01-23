@@ -1,0 +1,10 @@
+{{#link-to
+  "browse.entity"
+  @entity
+  (query-params page=1 path=@crumb.path)
+  class="nacho-breadcrumbs__crumb-grain"
+}}
+  <span class="nacho-breadcrumbs__crumb-text">
+    {{@crumb.label}}
+  </span>
+{{/link-to}}

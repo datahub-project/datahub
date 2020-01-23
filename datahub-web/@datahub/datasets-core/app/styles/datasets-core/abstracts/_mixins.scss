@@ -1,0 +1,7 @@
+@mixin datasets-core-loading-container() {
+  padding: item-spacing(2 4);
+  display: flex;
+  justify-content: center;
+  width: $max-container-width - item-spacing(4);
+  box-sizing: border-box;
+}

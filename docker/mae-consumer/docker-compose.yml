@@ -1,0 +1,20 @@
+---
+version: '3.5'
+services:
+  datahub-mae-consumer:
+    image: keremsahin/datahub-mae-consumer:latest
+    hostname: datahub-mae-consumer
+    container_name: datahub-mae-consumer
+    environment:
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+    command: "bash -c './mae-consumer-job/bin/mae-consumer-job'"
+
+networks:
+  default:
+    name: datahub_network

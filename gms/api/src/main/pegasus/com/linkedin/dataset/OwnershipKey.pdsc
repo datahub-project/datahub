@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "OwnershipKey",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Key for dataset ownership resource",
+  "fields": [
+    {
+      "name": "dataset",
+      "type": "com.linkedin.common.DatasetUrn",
+      "doc": "Dataset this ownership metadata is associated with."
+    },
+    {
+      "name": "version",
+      "type": "long",
+      "doc": "Versioning allows to capture evolution of ownership for dataset."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "boolField": true,
+  "stringField": "baz",
+  "longField": 1234,
+  "arrayField": [
+    "1",
+    "2",
+    "3"
+  ],
+  "recordField": {
+    "value": "foo"
+  },
+  "unionField": {
+    "com.linkedin.testing.AspectBar": {
+      "value": "bar"
+    }
+  }
+}

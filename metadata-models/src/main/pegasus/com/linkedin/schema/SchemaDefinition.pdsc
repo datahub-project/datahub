@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "SchemaDefinition",
+  "namespace": "com.linkedin.schema",
+  "doc": "Represents the definition metadata for a schema",
+  "fields": [
+    {
+      "name": "rawSchema",
+      "type": [
+        "AvroSchema",
+        "BinaryJsonSchema",
+        "DDL",
+        "EspressoSchema",
+        "KeyValueSchema",
+        "OrcSchema",
+        "ParquetSchema",
+        "Schemaless"
+      ],
+      "doc": "The dataset schema as observed from the data platform.",
+      "optional": true
+    },
+    {
+      "name": "normalizedSchema",
+      "type": "NormalizedSchema",
+      "doc": "The standardized schema after normalization process.",
+      "optional": true
+    }
+  ]
+}

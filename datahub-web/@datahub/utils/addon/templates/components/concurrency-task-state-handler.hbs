@@ -1,0 +1,39 @@
+{{#if @task.last.isError}}
+
+  {{#let (or @errorHeading "An error occurred. Please try again shortly.") as |errorMessage|}}
+    {{! Show entity lockup if toggled on, otherwise yield error. This allows this component to be used in interfaces
+     where rendering the lockup is not suitable, for example in a button
+      <ConcurrencyTaskStateHandler @task=task @showLockup=false>
+        <button>
+          Click Me!
+        </button>
+      </ConcurrencyTaskStateHandler>
+    }}
+    {{#if this.showLockup}}
+      <EmptyState
+        @heading={{errorMessage}}
+      />
+
+      <div class="concurrency-task-state-handler__button-container">
+        <button
+          class="nacho-button nacho-button--large-inverse"
+          onclick={{action this.performTask this.taskArgs}}
+        >
+          Retry
+        </button>
+      </div>
+    {{else}}
+      {{errorMessage}}
+    {{/if}}
+  {{/let}}
+
+
+{{else}}
+  {{#if @task.isRunning}}
+    <div class="concurrency-task-state-handler">
+      {{pendulum-ellipsis-animation}}
+    </div>
+  {{else}}
+    {{yield}}
+  {{/if}}
+{{/if}}

@@ -1,0 +1,36 @@
+{{#each computedNodes as |level|}}
+  {{#if level.show}}
+    <div
+      class="dataset-relationship-levels__level {{if level.collapsed "dataset-relationship-levels__level--collapsed"}}"
+    >
+      <div  class="dataset-relationship-levels__level-header">
+        <h3 class="dataset-relationship-levels__level-title">{{level.label}}</h3>
+        {{#if (not-eq level.level 0)}}
+          <span class="dataset-relationship-levels__help-msg">{{if level.collapsed "Unselect node to expand level"}}</span>
+        {{/if}}
+      </div>
+      <div class="dataset-relationship-levels__level-content">
+        {{#each level.nodes as |node|}}
+          {{#if (or (and level.collapsed node.selected) (not level.collapsed)) }}
+            {{#search/search-result
+              classNames=(concat "dataset-relationship-levels__node " (if node.selected "dataset-relationship-levels__node--selected"))
+              result=node
+              resultFields=myFields
+            }}
+              <button
+                class="nacho-button nacho-button--tertiary dataset-relationship-levels__button"
+                {{action toggleNode node}}
+              >
+                {{node.payload.dataset.nativeName}}
+              </button>
+
+              {{#link-to "datasets.dataset" node.payload.dataset.uri}}
+                {{fa-icon "link"}}
+              {{/link-to}}
+            {{/search/search-result}}
+          {{/if}}
+        {{/each}}
+      </div>
+    </div>
+  {{/if}}
+{{/each}}

@@ -1,0 +1,70 @@
+.search-facet {
+  padding: item-spacing(4);
+  border-bottom: 1px solid get-color(gray2);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    margin-bottom: item-spacing(2);
+    min-height: item-spacing(5);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  &__checkbox-wrapper {
+    &#{&}#{&} {
+      display: block;
+    }
+  }
+
+  &__label {
+    font-weight: 300;
+  }
+
+  &__count {
+    font-weight: 300;
+
+    &::before {
+      content: '(';
+    }
+
+    &::after {
+      content: ')';
+    }
+  }
+
+  &__option--empty {
+    color: rgba(0, 0, 0, 0.6);
+  }
+}
+
+.search-facets {
+  &.nacho-container {
+    padding: 0;
+    margin: 0;
+  }
+
+  &__header {
+    border-bottom: 1px solid get-color(gray2);
+    padding: item-spacing(4);
+  }
+
+  &__title {
+    margin: 0;
+    font-weight: 400;
+  }
+
+  &__empty {
+    color: get-color(gray2);
+    font-style: italic;
+    padding: item-spacing(2 4);
+  }
+
+  > *:last-child .search-facet {
+    border-bottom: 0;
+  }
+}

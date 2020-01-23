@@ -1,8 +1,0 @@
-{
-  "type": "record",
-  "name": "Schemaless",
-  "doc": "Denotes that the dataset contains no explicitly defined schema, e.g. Couchbase",
-  "namespace": "com.linkedin.events.metadata",
-  "fields": [
-  ]
-}

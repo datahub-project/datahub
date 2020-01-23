@@ -1,0 +1,16 @@
+{
+  "type": "enum",
+  "name": "RelationshipDirection",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The relationship direction in a relationship filter",
+  "symbols": [
+    "INCOMING",
+    "OUTGOING",
+    "UNDIRECTED"
+  ],
+  "symbolDocs": {
+    "INCOMING":"The incoming edge to a source node in the graph",
+    "OUTGOING": "The outgoing edge to a source node in the graph",
+    "UNDIRECTED": "This is used for a query where the direction of the edge does not matter"
+  }
+}
