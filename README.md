@@ -36,6 +36,10 @@ as username and password.
 * [Metadata Consumer Jobs](metadata-jobs)
 * [Metadata Ingestion](metadata-ingestion)
 
+## Releases
+* 2019/09/21: [v0.1.0-alpha](https://github.com/linkedin/datahub/releases/tag/datahub-v0.1.0-alpha)
+* 2019/12/05: [v0.2.0-alpha](https://github.com/linkedin/datahub/releases/tag/datahub-v0.2.0-alpha)
+
 ## Roadmap
 1. Add user profile page
 2. Deploy DataHub to [Azure Cloud](https://azure.microsoft.com/en-us/)
