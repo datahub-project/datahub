@@ -1,0 +1,18 @@
+{
+  "type": "enum",
+  "name": "Condition",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The matching condition in a filter criterion",
+  "symbols": [
+    "EQUAL",
+    "START_WITH",
+    "END_WITH",
+    "CONTAIN"
+  ],
+  "symbolDocs": {
+    "EQUAL": "Represent the relation: field = value, e.g. platform = hdfs",
+    "START_WITH": "Represent the relation: String field starts with value, e.g. name starts with PageView",
+    "END_WITH": "Represent the relation: String field ends with value, e.g. name ends with Event",
+    "CONTAIN": "Represent the relation: String field contains value, e.g. name contains Profile"
+  }
+}

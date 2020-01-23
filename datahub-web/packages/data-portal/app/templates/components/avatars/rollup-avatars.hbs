@@ -1,0 +1,54 @@
+{{yield}}
+
+{{#if isShowingAvatars}}
+  {{#avatars/avatars-detail
+    header=header
+    onClose=(action "dismissAvatars")
+  }}
+
+    <ul class="avatar-detail-container">
+      {{#each avatars as |avatar|}}
+        <li class="avatar-detail">
+
+          <div class="avatar-detail__entity">
+            <img
+              class="avatar"
+              src={{avatar.imageUrl}}
+              alt={{avatar.name}}
+            >
+          </div>
+
+          {{#avatars/avatar-metadata
+            class="avatar-detail__meta"
+            avatar=avatar
+          as |aviMeta|
+          }}
+            <h4>{{aviMeta.name}}</h4>
+
+            {{#if aviMeta.email}}
+              <a
+                href="mailto:{{aviMeta.email}}"
+                class="avatar-meta-action"
+                target="_blank"
+                rel="noopener"
+              >
+                <strong>{{fa-icon "at"}}</strong> {{aviMeta.email}}
+              </a>
+            {{/if}}
+
+            {{#if aviMeta.userName}}
+              <a
+                class="avatar-meta-action"
+                href="slack://user?team={{aviMeta.team}}&id={{aviMeta.userName}}"
+              >
+                {{fa-icon "slack" prefix="fab"}} {{aviMeta.userName}}
+              </a>
+            {{/if}}
+          {{/avatars/avatar-metadata}}
+
+        </li>
+      {{/each}}
+    </ul>
+
+  {{/avatars/avatars-detail}}
+{{/if}}

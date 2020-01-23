@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "InstitutionalMemoryMetadata",
+  "namespace": "com.linkedin.common",
+  "doc": "Metadata corresponding to a record of institutional memory.",
+  "fields": [
+    {
+      "name": "url",
+      "type": "com.linkedin.common.Url",
+      "doc": "Link to an engineering design document or a wiki page."
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Description of the link."
+    },
+    {
+      "name": "createStamp",
+      "type": "com.linkedin.common.AuditStamp",
+      "doc": "Audit stamp associated with creation of this record"
+    }
+  ]
+}

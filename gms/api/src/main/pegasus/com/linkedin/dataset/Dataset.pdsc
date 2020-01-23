@@ -1,0 +1,98 @@
+{
+  "type": "record",
+  "name": "Dataset",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Dataset spec for a data store. A collection of data conforming to a single schema that can evolve over time. This is equivalent to a Table in most data platforms. Espresso dataset: Identity.Profile; oracle dataset: member2.member_profile; hdfs dataset: /data/databases/JOBS/JOB_APPLICATIONS; kafka: PageViewEvent",
+  "include": [
+    "DatasetKey",
+    "com.linkedin.common.ChangeAuditStamps",
+    "com.linkedin.common.VersionTag"
+  ],
+  "fields": [
+    {
+      "name": "id",
+      "type": "long",
+      "doc": "Dataset unique identifier. System assigned value when a new dataset is created.",
+      "default": 0
+    },
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.DatasetUrn",
+      "doc": "Dataset urn"
+    },
+    {
+      "name": "description",
+      "type": "string",
+      "doc": "Description for dataset",
+      "default": ""
+    },
+    {
+      "name": "platformNativeType",
+      "doc": "The native format for the data platform",
+      "type": {
+        "type": "enum",
+        "name": "PlatformNativeType",
+        "symbols": [
+          "TABLE",
+          "VIEW",
+          "DIRECTORY",
+          "STREAM",
+          "BUCKET"
+        ],
+        "symbolDocs": {
+          "TABLE": "Table",
+          "VIEW": "View",
+          "DIRECTORY": "Directory in file system",
+          "STREAM": "Stream",
+          "BUCKET": "Bucket in key value store"
+        }
+      },
+      "optional": true
+    },
+    {
+      "name": "uri",
+      "type": "com.linkedin.common.Uri",
+      "doc": "The abstracted such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).",
+      "optional": true
+    },
+    {
+      "name": "deploymentInfos",
+      "type": {
+        "type": "array",
+        "items": "DeploymentInfo"
+      },
+      "doc": "List of dataset instances for this dataset",
+      "default": []
+    },
+    {
+      "name": "tags",
+      "type": {
+        "type": "array",
+        "items": "string"
+      },
+      "doc": "tags for searching dataset",
+      "default": []
+    },
+    {
+      "name": "properties",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "doc": "A key-value map of platform-specific properties",
+      "optional": true
+    },
+    {
+      "name": "removed",
+      "type": "boolean",
+      "doc": "whether the dataset is removed or not",
+      "default": false
+    },
+    {
+      "name": "deprecation",
+      "type": "DatasetDeprecation",
+      "doc": "The dataset deprecation status",
+      "optional": true
+    }
+  ]
+}

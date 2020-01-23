@@ -1,6 +1,0 @@
-.data-system-count-pill {
-  @include pill(get-color(blue5), get-color(white));
-  font-size: item-spacing(4);
-  line-height: item-spacing(5);
-  white-space: nowrap;
-}

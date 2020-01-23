@@ -1,0 +1,27 @@
+---
+version: '3.5'
+services:
+  datahub-gms:
+    image: keremsahin/datahub-gms:latest
+    hostname: datahub-gms
+    container_name: datahub-gms
+    ports:
+      - "8080:8080"
+    environment:
+      - EBEAN_DATASOURCE_USERNAME=datahub
+      - EBEAN_DATASOURCE_PASSWORD=datahub
+      - EBEAN_DATASOURCE_HOST=mysql:3306
+      - EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub
+      - EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+      - KAFKA_BOOTSTRAP_SERVER=broker:29092
+      - KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - NEO4J_URI=bolt://neo4j
+      - NEO4J_USERNAME=neo4j
+      - NEO4J_PASSWORD=datahub
+    command: "bash -c 'java -jar jetty-runner-9.4.20.v20190813.jar gms.war'"
+
+networks:
+  default:
+    name: datahub_network

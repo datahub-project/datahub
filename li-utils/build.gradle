@@ -1,0 +1,8 @@
+apply plugin: 'java'
+apply plugin: 'pegasus'
+
+dependencies {
+    compile spec.product.pegasus.data
+}
+
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/java/')

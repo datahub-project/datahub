@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "EntityDelta",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "fields": [
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.Urn",
+      "doc": "For unit tests"
+    },
+    {
+      "name": "delta",
+      "doc": "For unit tests",
+      "type": [
+        "AspectFoo"
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,81 @@
+{
+  "took": 26,
+  "timed_out": false,
+  "_shards": {
+    "total": 5,
+    "successful": 5,
+    "skipped": 0,
+    "failed": 0
+  },
+  "hits": {
+    "total": 18893,
+    "max_score": 1.0,
+    "hits": [
+      {
+        "_index": "corpuserinfodocument-1563320415",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpuser%3Abkiefl",
+        "_score": 1.0,
+        "_source": {
+          "urn": "urn:li:corpuser:bkiefl",
+          "ldap": "bkiefl",
+          "managerLdap": "cbrown",
+          "fullName": "Brendan Kiefl",
+          "title": "SMB Account Executive - Talent Solutions, Search & Staffing"
+        }
+      },
+      {
+        "_index": "corpuserinfodocument-1563320415",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpuser%3Afbar",
+        "_score": 1.0,
+        "_source": {
+          "urn": "urn:li:corpuser:foo",
+          "ldap": "fbar",
+          "managerLdap": "mockmanager",
+          "fullName": "FooBar",
+          "title": "MockUser"
+        }
+      },
+      {
+        "_index": "corpuserinfodocument-1563320415",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpuser%3Ajrebelat",
+        "_score": 1.0,
+        "_source": {
+          "urn": "urn:li:corpuser:jrebelat",
+          "ldap": "jrebelat",
+          "managerLdap": "whowe",
+          "fullName": "Jose Rebelato",
+          "title": "Consumer Support Specialist"
+        }
+      },
+      {
+        "_index": "corpuserinfodocument-1563320415",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpuser%3Alwendy",
+        "_score": 1.0,
+        "_source": {
+          "urn": "urn:li:corpuser:lwendy",
+          "ldap": "lwendy",
+          "managerLdap": "msusi",
+          "fullName": "Lo Wendy",
+          "title": "Group Fitness Instructor"
+        }
+      },
+      {
+        "_index": "corpuserinfodocument-1563320415",
+        "_type": "doc",
+        "_id": "urn%3Ali%3Acorpuser%3Adfuckuha",
+        "_score": 1.0,
+        "_source": {
+          "urn": "urn:li:corpuser:dfuckuha",
+          "ldap": "dfuckuha",
+          "managerLdap": "ktyrhys",
+          "fullName": "Dominic Fuckuhara",
+          "title": "Wellness Onsite Instructor"
+        }
+      }
+    ]
+  }
+}

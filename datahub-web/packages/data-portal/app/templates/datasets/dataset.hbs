@@ -1,0 +1,17 @@
+{{#if model.dataset}}
+  {{outlet}}
+{{else if model.isNotFoundApiError}}
+
+  <EmptyState
+    @heading="404 Not Found"
+    @subHead="Looks like the dataset you are looking for is not here"
+  />
+
+{{else}}
+
+  <EmptyState
+    @heading="Error"
+    @subHead="Looks like there was some unexpected error trying to load the dataset, please try again later."
+  />
+
+{{/if}}

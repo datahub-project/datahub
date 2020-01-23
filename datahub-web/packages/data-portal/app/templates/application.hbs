@@ -1,0 +1,44 @@
+{{notifications/banner-alerts}}
+{{#if session.isAuthenticated}}
+  {{#hotkeys/global-hotkeys}}
+    <Navbar
+      @applicationHelpResources={{this.model.helpResources}}
+      @feedbackMail={{this.model.feedbackMail}}
+      @avatar={{this.model.avatar}}
+      @showSearch={{not this.showHero}}
+      @listEntity={{this.listEntity}}
+    />
+    {{!-- banner-alert-offset pushes the app view down to show the banner at the top above the navbar --}}
+    <div
+      class={{with-banner-offset "app-container" "banner-alert-offset"}}
+    >
+      {{#if showHero}}
+        {{#hero-container}}
+          {{#search/containers/search-box as
+          |keyword dataModelEntity onTypeahead onSearch|
+          }}
+            <header class="nacho-hero__header">
+              Connecting you to the data that matters
+            </header>
+            <section class="nacho-hero__content">
+              {{search/search-box
+                selectedEntity=(readonly dataModelEntity.displayName)
+                text=(readonly keyword)
+                onTypeahead=onTypeahead
+                onSearch=(action onSearch)
+              }}
+            </section>
+          {{/search/containers/search-box}}
+        {{/hero-container}}
+      {{/if}}
+      <section class="container-fluid">
+        {{! template-lint-disable no-partial }}
+        {{partial "main"}}
+      </section>
+    </div>
+
+    <Notifications @service={{this.notifications}} />
+  {{/hotkeys/global-hotkeys}}
+{{else}}
+  {{outlet "login"}}
+{{/if}}

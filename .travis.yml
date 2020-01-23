@@ -1,47 +1,17 @@
-dist: trusty
-
-sudo: required
-
 language: java
 
 jdk:
-  - oraclejdk8
+  - openjdk8
 
-env:
-  - DOCKER_COMPOSE_VERSION=1.22.0
+install: skip
 
-services:
-  - docker
-  - elasticsearch
+script:
+  - ./gradlew build
 
-before_install:
-  # elasticsearch
-  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.5/elasticsearch-2.3.5.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.5.deb && sudo service elasticsearch restart
-
-  # extralibs
-  - wget https://github.com/ericsun2/sandbox/raw/master/extralibs/extralibs.zip
-  - mkdir -p wherehows-etl/extralibs; unzip extralibs.zip -d wherehows-etl/extralibs
-
-  # docker-compose
-  - sudo rm /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin
-
-  # permanently increase upper limit for possible watches created per uid, build step exceeds default on travis
-  - echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
-
-
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
 cache:
   directories:
     - $HOME/.gradle/caches/
     - $HOME/.gradle/wrapper/
-
-script:
-- ./gradlew check assemble
-- ./gradlew jacocoFullReport coveralls && ./gradlew emberCoverage
-- (cd wherehows-docker && ./build.sh latest)
-- (cd wherehows-docker && docker-compose config)
-
-after_script:
-  - rm -rf $WHEREHOWS_DIR/coverage

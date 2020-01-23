@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "NormalizedSchema",
+  "namespace": "com.linkedin.schema",
+  "doc": "The standard schema representation after normalization.",
+  "fields": [
+    {
+      "name": "normalizedFields",
+      "type": {
+        "type": "array",
+        "items": "SchemaField"
+      },
+      "doc": "List of normalized schema fields."
+    }
+  ]
+}

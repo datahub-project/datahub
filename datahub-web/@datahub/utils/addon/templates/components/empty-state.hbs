@@ -1,0 +1,15 @@
+{{#if hasBlock}}
+
+  {{yield}}
+
+{{else}}
+
+  <strong class="empty-state__header">{{this.heading}}</strong>
+
+  {{#if this.subHead}}
+    <p class="empty-state__sub-head">
+      {{this.subHead}}
+    </p>
+  {{/if}}
+
+{{/if}}

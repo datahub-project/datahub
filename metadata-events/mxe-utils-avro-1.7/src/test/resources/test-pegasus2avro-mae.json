@@ -1,0 +1,19 @@
+{
+  "newSnapshot": {
+    "com.linkedin.metadata.snapshot.MetricSnapshot": {
+      "urn": "urn:li:metric:(foo,bar)",
+      "aspects": [
+        {
+          "com.linkedin.common.Ownership": {
+            "owners": [
+              {
+                "owner": "urn:li:corpuser:foo",
+                "type": "DEVELOPER"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

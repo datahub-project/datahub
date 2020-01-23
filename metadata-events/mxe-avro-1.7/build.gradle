@@ -1,0 +1,30 @@
+plugins {
+  id 'com.commercehub.gradle.plugin.avro' version '0.8.0'
+}
+
+configurations {
+  avsc
+}
+
+apply plugin: 'com.commercehub.gradle.plugin.avro'
+apply plugin: 'java'
+
+dependencies {
+  compile externalDependency.avro_1_7
+
+  avsc project(':metadata-events:mxe-schemas')
+}
+
+task avroCodeGen(type: com.commercehub.gradle.plugin.avro.GenerateAvroJavaTask, dependsOn: configurations.avsc) {
+  source("$rootDir/metadata-events/mxe-schemas/src/renamed/avro")
+  outputDir = file("src/generated/java")
+}
+
+compileJava.source(avroCodeGen.outputs)
+build.dependsOn avroCodeGen
+
+clean {
+  project.delete('src/generated')
+}
+
+avroCodeGen.dependsOn(':metadata-events:mxe-schemas:renameNamespace')

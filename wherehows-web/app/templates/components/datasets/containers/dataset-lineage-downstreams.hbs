@@ -1,8 +1,0 @@
-{{#if getDatasetDownstreamsTask.isRunning}}
-  {{pendulum-ellipsis-animation}}
-{{else}}
-  {{yield (hash
-            downstreams=downstreams
-            urn=urn
-          )}}
-{{/if}}

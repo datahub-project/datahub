@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "AspectBar",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "fields": [
+    {
+      "name": "value",
+      "type": "string",
+      "doc": "For unit tests"
+    }
+  ]
+}

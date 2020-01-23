@@ -1,0 +1,8 @@
+{{#if lazyRender}}
+  {{#if cached}}
+    {{yield}}
+  {{/if}}
+{{else}}
+  {{yield}}
+{{/if}}
+

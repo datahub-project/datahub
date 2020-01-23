@@ -1,0 +1,109 @@
+{{#browser/containers/entity-categories params=model as |categoriesContainer|}}
+  <section class="browse-category-container {{if (eq model.segments.length 0) "browse-category-container--no-breadcrumbs"}}">
+    {{!-- Dont show breadcrumbs first level since we already have the title and there is real action --}}
+    {{#if (gt model.segments.length 0)}}
+      <Browser::EntityBreadcrumbs
+        class={{with-banner-offset "nacho-breadcrumbs-container"}}
+        @entity={{lowercase model.displayName}}
+        @segments={{model.segments}}
+      />
+    {{/if}}
+    <div class="container">
+
+      <header class="browse-category-container__header">
+        {{#with categoriesContainer.browsePath.title as |title|}}
+          <h3 class="browse-category-container__title">
+            {{!-- Will remove _ and - camelCase and transform it into a title --}}
+            {{nacho-core/titleize title}}
+          </h3>
+        {{/with}}
+
+        {{#if categoriesContainer.isLoadingList}}
+          <div class="browse-category-container__list-loading">
+            {{pendulum-ellipsis-animation}}
+          </div>
+        {{/if}}
+
+        {{#if categoriesContainer.showSearchWithinHierarchy}}
+          <aside class="browse-category-container__header__actions">
+            {{browser/search-within-hierarchy
+              count=categoriesContainer.totalCount
+              entityType=model.displayName
+              segments=model.segments
+            }}
+          </aside>
+        {{/if}}
+      </header>
+
+      {{#if categoriesContainer.showAsTiles}}
+
+        <div class="row">
+          <BigList
+            @list={{categoriesContainer.browsePath.groups}}
+            @onFinished={{action categoriesContainer.onFinishedLoadingTiles}}
+            as |group|>
+            {{!-- TODO META-8863 remove once dataset is migrated and use browse count --}}
+            {{! Show node count if entity metadata specifies a truthy flag}}
+            {{#if (and
+              (not categoriesContainer.useNewBrowseDataset)
+              categoriesContainer.entityType.renderProps.browse.showCount)
+            }}
+              {{#browser/containers/entity-category-count
+                entity=group.entity
+                category=group.link.text
+              as |countContainer|
+              }}
+                {{browser/browse-card
+                  title=group.link.text
+                  description=(pluralize countContainer.count group.entity)
+                  link=group.link
+                  showSpinner=countContainer.getEntityCountTask.isRunning
+                }}
+              {{/browser/containers/entity-category-count}}
+            {{else}}
+              {{browser/browse-card
+                title=group.link.text
+                description=(pluralize group.count group.entity)
+                link=group.link
+              }}
+            {{/if}}
+          </BigList>
+        </div>
+
+      {{else}}
+
+        {{#if (eq browsePath.count 0)}}
+          <EmptyState
+              @heading="No records found"
+              @subHead="We could not retrieve any entities at the specified category"
+            />
+        {{else}}
+
+          <ul class="browse-category-container__ul">
+            <BigList
+              @list={{categoriesContainer.browsePath.groups}}
+              @onFinished={{action categoriesContainer.onFinishedLoadingGroups}}
+              as |group|
+            >
+              {{browser/browse-category
+                node=group
+              }}
+            </BigList>
+
+            <BigList
+              @list={{categoriesContainer.browsePath.entities}}
+              @onFinished={{action categoriesContainer.onFinishedLoadingEntities}}
+              as |entity|
+            >
+              {{browser/browse-category
+                node=entity
+                isForEntityPage=true
+              }}
+            </BigList>
+          </ul>
+        {{/if}}
+
+      {{/if}}
+    </div>
+  </section>
+{{/browser/containers/entity-categories}}

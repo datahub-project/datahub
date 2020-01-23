@@ -1,0 +1,110 @@
+<nav
+  class={{with-banner-offset
+    "navbar navbar-inverse navbar-fixed-top"
+    "navbar-top-offset"
+  }}
+  role="navigation"
+>
+  <div class="container">
+    <div class="navbar-header">
+      <button
+        class="navbar-toggle collapsed"
+        aria-expanded="false"
+        aria-controls="navbar"
+      >
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+
+      {{#link-to
+        "index"
+        (query-params keyword=null platform=null prefix=null)
+        class="navbar-brand"
+      }}
+        {{svg-jar "inbug" width="34px" height="34px"}}
+        <span class="navbar-brand-text">DATA HUB</span>
+      {{/link-to}}
+    </div>
+
+    <div
+      class="collapse navbar-collapse"
+      id="main-navbar"
+    >
+      <ul class="nav navbar-nav navbar-left">
+        {{#if showSearch}}
+          {{#search/containers/search-box
+          as |keyword dataModelEntity onSearchInputTask onSearch|
+          }}
+            {{search/search-box
+              selectedEntity=(readonly dataModelEntity.displayName)
+              text=(readonly keyword)
+              onTypeahead=onSearchInputTask
+              onSearch=(action onSearch)
+            }}
+          {{/search/containers/search-box}}
+        {{/if}}
+      </ul>
+      {{#if @listEntity}}
+        <ListCount @entityType={{@listEntity}} />
+      {{/if}}
+      <ul class="nav navbar-nav navbar-right">
+        <li class="dropdown">
+          <a
+            class="dropdown-toggle"
+            data-toggle="dropdown"
+            role="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <i class="caret"></i>
+            {{avatars/avatar-image
+              avatar=@avatar
+              class="navbar-avatar-image"
+            }}
+          </a>
+
+
+          <ul
+            class="dropdown-menu"
+            role="menu"
+          >
+            {{#each entities as |entity|}}
+              {{#nav-link "user.entity.own" entity.displayName tagName="li"}}
+                {{capitalize entity.displayName}} I Own
+              {{/nav-link}}
+            {{/each}}
+
+            <li role="separator" class="divider"></li>
+
+            <li class="dropdown-header">
+              Help
+              <span
+                class="glyphicon glyphicon-question-sign"
+                aria-hidden="true"
+              >
+              </span>
+            </li>
+            {{#each @applicationHelpResources as |applicationHelpResource|}}
+              <li>
+                <a
+                  href={{applicationHelpResource.link}}
+                  title={{applicationHelpResource.label}}
+                  rel="noopener"
+                  target="_blank"
+                >
+                  {{or applicationHelpResource.label applicationHelpResource.link}}
+                </a>
+              </li>
+            {{/each}}
+
+            <li role="separator" class="divider"></li>
+
+            {{#nav-link "logout" tagName="li"}}Logout{{/nav-link}}
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "Filter",
+  "namespace": "com.linkedin.metadata.query",
+  "doc": "The filter for finding an record or a collection of records",
+  "fields": [
+    {
+      "name": "criteria",
+      "type": {
+        "type": "array",
+        "items": "Criterion"
+      },
+      "doc": "A list of criteria the filter applies to the query"
+    }
+  ]
+}

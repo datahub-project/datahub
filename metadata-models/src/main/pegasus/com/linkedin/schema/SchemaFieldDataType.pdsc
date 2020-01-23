@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "SchemaFieldDataType",
+  "namespace": "com.linkedin.schema",
+  "doc": "Schema field data types",
+  "fields": [
+    {
+      "name": "type",
+      "doc": "Data platform specific types",
+      "type": ["BooleanType", "FixedType", "StringType", "BytesType", "NumberType", "EnumType", "NullType", "MapType",
+                "ArrayType", "UnionType", "RecordType"]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "type" : "record",
+  "name" : "MultiLocaleString",
+  "namespace" : "com.linkedin.common",
+  "doc" : "Represents a textual field with values for multiple locales. Most readers should use the 'localized' field entry keyed by preferredLocale.",
+  "fields" : [
+    {
+      "name" : "localized",
+      "doc" : "Maps a locale to a localized version of the string. Each key is a Locale record converted to string format, with the language, country and variant separated by underscores. Examples: 'en', 'de_DE', 'en_US_WIN', 'de__POSIX', 'fr__MAC'.",
+      "type" : { "type" : "map", "values" : "string" }
+    },
+    {
+      "name" : "preferredLocale",
+      "doc" : "The preferred locale to use, based on standard rules",
+      "type" : "Locale",
+      "optional" : true,
+      "derived" : true
+    }
+  ]
+}

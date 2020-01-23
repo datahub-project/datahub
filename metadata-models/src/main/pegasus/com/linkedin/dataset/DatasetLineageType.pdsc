@@ -1,0 +1,16 @@
+{
+  "type": "enum",
+  "name": "DatasetLineageType",
+  "namespace": "com.linkedin.dataset",
+  "doc": "The various types of supported dataset lineage",
+  "symbols": [
+    "COPY",
+    "TRANSFORMED",
+    "VIEW"
+  ],
+  "symbolDocs": {
+    "COPY": "Direct copy without modification",
+    "TRANSFORMED": "Transformed data with modification (format or content change)",
+    "VIEW": "Represents a view defined on the sources e.g. Hive view defined on underlying hive tables or a Hive table pointing to a HDFS dataset or DALI view defined on multiple sources"
+  }
+}

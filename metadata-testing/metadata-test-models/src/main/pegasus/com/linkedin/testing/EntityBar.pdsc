@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "EntityBar",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "fields": [
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.Urn",
+      "doc": "For unit tests"
+    },
+    {
+      "name": "value",
+      "type": "string",
+      "doc": "For unit tests",
+      "optional": true
+    }
+  ]
+}

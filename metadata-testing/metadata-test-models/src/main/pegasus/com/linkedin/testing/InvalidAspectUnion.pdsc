@@ -1,0 +1,9 @@
+{
+  "type": "typeref",
+  "name": "InvalidAspectUnion",
+  "namespace": "com.linkedin.testing",
+  "doc": "For unit tests",
+  "ref": [
+    "AspectInvalid"
+  ]
+}

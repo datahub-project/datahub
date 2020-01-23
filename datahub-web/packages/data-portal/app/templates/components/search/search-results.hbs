@@ -1,0 +1,38 @@
+{{#if @showNoResult}}
+  <EmptyState
+    @heading={{if @noResultMsg @noResultMsg "No results found for search query"}}
+  />
+{{else}}
+  <section class="search-results__header">
+    <h3 class="search-results__title">{{@title}}</h3>
+    <p class="search-results__header-description">Showing {{showingMin}} - {{showingMax}} of {{result.count}} results</p>
+  </section>
+
+
+  <section class="search-results__content">
+    {{#each result.data as |props|}}
+      {{search/search-result
+        trackPrefix=@trackPrefix
+        result=props.data
+        meta=props.meta
+        secondaryActions=@secondaryActions
+        resultFields=@fields
+      }}
+    {{/each}}
+  </section>
+
+  <section class="search-results__pagination">
+    {{nacho/nacho-pagination
+      currentPage=result.page
+      totalPages=result.totalPages
+      linkTo=(hash
+        route=@route
+        queryParams=(hash
+          category=category
+          source=source
+        )
+      )
+    }}
+  </section>
+
+{{/if}}

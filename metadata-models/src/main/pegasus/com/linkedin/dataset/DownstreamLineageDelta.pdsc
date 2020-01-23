@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "DownstreamLineageDelta",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Describes a delta change to a dataset downstream lineage",
+  "fields": [
+    {
+      "name": "downstreamsToUpdate",
+      "type": {
+        "type": "array",
+        "items": "Downstream"
+      },
+      "doc": "The list of downstream lineages to be updated for a dataset"
+    }
+  ]
+}

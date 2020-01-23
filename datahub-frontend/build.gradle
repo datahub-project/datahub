@@ -1,0 +1,29 @@
+apply plugin: 'java'
+apply from: './play.gradle'
+
+model {
+  // Must specify the dependency here as "stage" is added by rule based model.
+  tasks.myTar {
+    dependsOn stage
+  }
+}
+
+task myTar(type: Tar) {
+  extension = "tgz"
+  compression = Compression.GZIP
+
+  from("${buildDir}/stage")
+
+  into("bin") {
+    from("bin")
+  }
+
+  into("conf") {
+    from("conf")
+    fileMode = 0600
+  }
+}
+
+artifacts {
+  archives myTar
+}

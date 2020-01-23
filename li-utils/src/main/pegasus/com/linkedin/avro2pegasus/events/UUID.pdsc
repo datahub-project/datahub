@@ -1,0 +1,6 @@
+{
+  "size": 16,
+  "name": "UUID",
+  "namespace": "com.linkedin.avro2pegasus.events",
+  "type": "fixed"
+}

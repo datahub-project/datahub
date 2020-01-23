@@ -1,0 +1,29 @@
+{
+  "type": "record",
+  "name": "Owner",
+  "namespace": "com.linkedin.dataset",
+  "doc": "Information of a dataset owner",
+  "fields": [
+    {
+      "name": "owner",
+      "type": "com.linkedin.common.Urn",
+      "doc": "Dataset owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:abc, and urn:li:multiProduct:mp_name"
+    },
+    {
+      "name": "ownerCategory",
+      "type": "OwnerCategory",
+      "doc": "The category of the owner role"
+    },
+    {
+      "name": "ownershipProvider",
+      "type": "OwnershipProvider",
+      "doc": "From where the owner info is extracted"
+    },
+    {
+      "name": "sourceUrl",
+      "type": "string",
+      "doc": "A URL indicating the source of this suggested ownership information",
+      "optional": true
+    }
+  ]
+}

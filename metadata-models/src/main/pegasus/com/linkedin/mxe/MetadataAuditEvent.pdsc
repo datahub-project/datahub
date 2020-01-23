@@ -1,0 +1,25 @@
+{
+  "type": "record",
+  "name": "MetadataAuditEvent",
+  "namespace": "com.linkedin.mxe",
+  "doc": "Kafka event for capturing update made to an entity's metadata.",
+  "fields": [
+    {
+      "name": "auditHeader",
+      "doc": "Kafka audit header. See go/kafkaauditheader for more info.",
+      "type": "com.linkedin.avro2pegasus.events.KafkaAuditHeader",
+      "optional": true
+    },
+    {
+      "name": "oldSnapshot",
+      "doc": "Snapshot of the metadata before the update. Set to null for newly created metadata. Only the metadata aspects affected by the update are included in the snapshot.",
+      "type": "com.linkedin.metadata.snapshot.Snapshot",
+      "optional": true
+    },
+    {
+      "name": "newSnapshot",
+      "doc": "Snapshot of the metadata after the update. Only the metadata aspects affected by the update are included in the snapshot.",
+      "type": "com.linkedin.metadata.snapshot.Snapshot"
+    }
+  ]
+}

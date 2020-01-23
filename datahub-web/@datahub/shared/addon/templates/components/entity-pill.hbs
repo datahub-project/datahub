@@ -1,0 +1,9 @@
+{{#if @value}}
+  <span
+    class="{{this.baseClass}} nacho-pill nacho-pill--small
+           {{if @field.component.attrs.styleModifier (concat this.baseClass @field.component.attrs.styleModifier)}}
+           {{if @styleModifier (concat this.baseClass @styleModifier)}}"
+  >
+    {{if @field.component.attrs.titleize (titleize @value) @value}}
+  </span>
+{{/if}}

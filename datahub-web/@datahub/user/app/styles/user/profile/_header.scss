@@ -1,0 +1,136 @@
+.user-entity-header {
+  display: flex;
+  padding: item-spacing(6 0 4);
+
+  &__container {
+    background-color: white;
+  }
+
+  &__img-section {
+    width: 128px;
+    box-sizing: border-box;
+    padding-right: item-spacing(5);
+  }
+
+  &__detail-section {
+    padding-left: item-spacing(5);
+    width: 100%;
+  }
+
+  &__profile-img {
+    $profile-img-dimensions: 104px;
+    height: $profile-img-dimensions;
+    width: $profile-img-dimensions;
+  }
+
+  &__external-link {
+    border: 1px solid get-color(blue5);
+    color: get-color(blue5);
+    padding: item-spacing(2);
+    line-height: 20px;
+    font-size: 16px;
+    font-weight: bold;
+
+    &:hover {
+      border: 1px solid get-color(black);
+    }
+  }
+
+  &__edit-profile {
+    border: 1px solid get-color(blue5);
+    color: get-color(blue5);
+    padding: item-spacing(2);
+    line-height: 20px;
+    font-size: 16px;
+    font-weight: bold;
+
+    &:hover {
+      border: 1px solid get-color(black);
+    }
+  }
+
+  &__name {
+    &-container {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    margin: item-spacing(2 0 0);
+    font-weight: 400;
+  }
+
+  &__job-title {
+    margin: item-spacing(2 0 5);
+    width: 100%;
+  }
+
+  &__user-details {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  &__org {
+    width: 50%;
+    margin-bottom: item-spacing(5);
+    display: flex;
+  }
+
+  &__manager {
+    width: 50%;
+
+    &-name {
+      font-weight: bold;
+    }
+
+    &-img {
+      margin-right: item-spacing(2);
+    }
+  }
+
+  &__team {
+    width: 50%;
+
+    &-name {
+      font-weight: bold;
+    }
+
+    &-tags {
+      display: flex;
+      flex-wrap: wrap;
+    }
+  }
+
+  .nacho-pill {
+    padding: item-spacing(0 2);
+    margin: item-spacing(0 2 2 0);
+    line-height: 16px;
+  }
+
+  &__connections {
+    display: flex;
+    width: 50%;
+  }
+
+  &__connection {
+    font-size: 12px;
+    margin-right: item-spacing(4);
+    cursor: pointer;
+
+    &-icon:hover,
+    &:hover {
+      color: get-color(blue6);
+    }
+
+    &-link {
+      color: get-color(black);
+    }
+
+    &-icon {
+      color: get-color(blue5);
+      margin-right: item-spacing(1);
+      transform: scale(1.25);
+    }
+  }
+}

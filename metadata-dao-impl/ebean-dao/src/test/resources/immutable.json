@@ -1,0 +1,11 @@
+{
+  "urn:li:testing:1": {
+    "value": "1"
+  },
+  "urn:li:testing:2": {
+    "value": "2"
+  },
+  "urn:li:testing:3": {
+    "value": "3"
+  }
+}

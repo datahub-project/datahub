@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "CorpUserSnapshot",
+  "namespace": "com.linkedin.metadata.snapshot",
+  "doc": "A metadata snapshot for a specific CorpUser entity.",
+  "fields": [
+    {
+      "name": "urn",
+      "type": "com.linkedin.common.CorpuserUrn",
+      "doc": "URN for the entity the metadata snapshot is associated with."
+    },
+    {
+      "name": "aspects",
+      "doc": "The list of metadata aspects associated with the CorpUser. Depending on the use case, this can either be all, or a selection, of supported aspects.",
+      "type": {
+        "type": "array",
+        "items": "com.linkedin.metadata.aspect.CorpUserAspect"
+      }
+    }
+  ]
+}
