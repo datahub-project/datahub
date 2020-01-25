@@ -13,7 +13,7 @@ This repository contains the complete source code to be able to build DataHub's 
 
 ## Quickstart
 1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/).
-2. Clone this repo and make sure you are at the `datahub` branch.
+2. Clone this repo.
 3. Run below command to download and run all Docker containers in your local:
 ```
 cd docker/quickstart && docker-compose pull && docker-compose up --build
@@ -26,6 +26,8 @@ Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 
 
 5. Finally, you can start `DataHub` by typing `http://localhost:9001` in your browser. You can sign in with `datahub`
 as username and password.
+
+Refer to [debugging guide](docs/debugging.md) if you have issues in any of the above steps.
 
 ## Quicklinks
 * [DataHub Architecture](docs/architecture/architecture.md)
