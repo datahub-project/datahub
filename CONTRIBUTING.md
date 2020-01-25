@@ -1,6 +1,6 @@
 # Contributing
 
-We always welcome contributions to help make WhereHows better. Take a moment to read this document if you would like to contribute.
+We always welcome contributions to help make DataHub better. Take a moment to read this document if you would like to contribute.
 
 ## Reporting issues
 
@@ -39,7 +39,7 @@ Note: The optional commit -a command-line option will automatically "add" and "r
 
   git push origin my-fix-branch
   
-* In GitHub, send a pull request to `Wherehows:master`
+* In GitHub, send a pull request to `datahub:master`
 * If we suggest changes, then:
   * Make the required updates.
   * Re-run the test suite
