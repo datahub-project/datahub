@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.models.PagedCollection;
 import com.linkedin.metadata.dao.utils.RecordUtils;
@@ -11,6 +13,7 @@ import com.linkedin.metadata.query.SearchResultMetadata;
 import com.linkedin.restli.common.CollectionResponse;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
@@ -64,26 +67,53 @@ public class RestliUtil {
     return arrayNode;
   }
 
+  // Converts a collection to Json ArrayNode. For each element in the collection, it adds the corresponding urn
+  @Nonnull
+  public static <T extends RecordTemplate> ArrayNode collectionToArrayNode(@Nonnull Collection<T> elements, @Nonnull UrnArray urns)
+          throws IOException {
+    if (elements.size() != urns.size()) {
+      throw new RuntimeException("Collection size and urn size should match");
+    }
+    final ArrayNode arrayNode = OM.createArrayNode();
+    final Iterator<Urn> urnIterator = urns.iterator();
+    for (T element : elements) {
+      final ObjectNode node = (ObjectNode) toJsonNode(element);
+      arrayNode.add(node.put("urn", urnIterator.next().toString()));
+    }
+    return arrayNode;
+  }
+
   // Convert restli collection response with metadata to JsonNode
   @Nonnull
   public static <T extends RecordTemplate> JsonNode collectionResponseWithMetadataToJsonNode(
-      @Nonnull CollectionResponse<T> response) throws IOException {
+          @Nonnull CollectionResponse<T> response) throws IOException {
 
-    JsonNode node = collectionResponseToJsonNode(response);
+    final SearchResultMetadata searchResultMetadata = new SearchResultMetadata(response.getMetadataRaw());
+    final ObjectNode objectNode = (ObjectNode) collectionResponseToJsonNodeWithoutElements(response);
+    objectNode.set("elements", collectionToArrayNode(response.getElements(), searchResultMetadata.getUrns()));
 
     if (response.getMetadataRaw() == null) {
-      return node;
+      return objectNode;
     }
 
-    SearchResultMetadata searchResultMetadata = new SearchResultMetadata(response.getMetadataRaw());
     // Use searchResultMetadatas field as a section in the final result json node
-    String name = SearchResultMetadata.fields().searchResultMetadatas().toString();
-    String fieldName = name.startsWith("/") ? name.substring(1) : name;
+    final String name = SearchResultMetadata.fields().searchResultMetadatas().toString();
+    final String fieldName = name.startsWith("/") ? name.substring(1) : name;
 
-    ObjectNode objectNode = (ObjectNode) node;
     objectNode.set(fieldName, toJsonNode(searchResultMetadata).get(fieldName));
 
     return objectNode;
+  }
+
+  // convert restli collection response to JsonNode without populating elements
+  @Nonnull
+  public static <T extends RecordTemplate> JsonNode collectionResponseToJsonNodeWithoutElements(
+          @Nonnull CollectionResponse<T> response) throws IOException {
+    final ObjectNode node = OM.createObjectNode();
+    node.put("start", response.getPaging().getStart());
+    node.put("count", response.getPaging().getCount());
+    node.put("total", response.getPaging().getTotal());
+    return node;
   }
 
   // Convert restli collection response with metadata to JsonNode
