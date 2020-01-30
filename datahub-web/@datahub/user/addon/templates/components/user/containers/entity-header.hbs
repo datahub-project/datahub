@@ -1,0 +1,8 @@
+<ConcurrencyTaskStateHandler @task={{this.getContainerDataTask}}>
+  {{yield
+    (hash
+      entity=entity
+      updateProfileTask=this.updateEditableProfileTask
+    )
+  }}
+</ConcurrencyTaskStateHandler>

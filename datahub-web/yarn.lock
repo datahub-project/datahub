@@ -1018,6 +1018,17 @@
     ember-cli-typescript "^2.0.2"
     node-sass "^4.0.0"
 
+"@nacho-ui/animations@^0.0.34":
+  version "0.0.34"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/animations/-/animations-0.0.34.tgz#5e4eebb639fae8a666e95fb9eb77eb3f1d9b840e"
+  integrity sha512-lw/d5+Ekcv18d6HpTVHbRDt7jko7NLcic7S43ccZ8CEBrR4ZNxbbs4sw5kn4zgytUO9i5wUNJcQhT7qDWqiIHQ==
+  dependencies:
+    "@nacho-ui/core" "^0.0.34"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.0"
+    ember-cli-typescript "^2.0.2"
+    node-sass "^4.0.0"
+
 "@nacho-ui/avatars@^0.0.21":
   version "0.0.21"
   resolved "https://registry.yarnpkg.com/@nacho-ui/avatars/-/avatars-0.0.21.tgz#5bebb6f25fa1bdd2f3e7bb5f84ba7b4e421b7b9f"
@@ -1030,10 +1041,34 @@
     ember-modal-dialog "^3.0.0-beta.0"
     node-sass "^4.0.0"
 
+"@nacho-ui/avatars@^0.0.34":
+  version "0.0.34"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/avatars/-/avatars-0.0.34.tgz#953f2f12af5c31dc3735c9f13c6fe61780b8f8a4"
+  integrity sha512-EPxmflH/mYQ8BajHZ+qygF64oIHEHLYfX1X4OZ5cX6+LY8E+7bSPxo3n9QsgWQ6VgG0IroU/PdYiQxq7gdIk4g==
+  dependencies:
+    "@nacho-ui/core" "^0.0.34"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.0"
+    ember-cli-typescript "^2.0.2"
+    ember-modal-dialog "^3.0.0-beta.0"
+    node-sass "^4.0.0"
+
 "@nacho-ui/core@^0.0.21":
   version "0.0.21"
   resolved "https://registry.yarnpkg.com/@nacho-ui/core/-/core-0.0.21.tgz#56f4744d0e6ea30390cde01e8c758687b4adbf0b"
   integrity sha512-PO9B3MTkbZjWg6WLgWgdduar3NtVU8oFXhq9McxmTsfe+M5j0J1QYHJrtOKB9LZ5FueY6FTKA9wJOBk4BlvL9g==
+  dependencies:
+    "@babel/core" "^7.5.5"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.1"
+    ember-cli-typescript "^2.0.2"
+    ember-decorators "^6.0.0"
+    node-sass "^4.0.0"
+
+"@nacho-ui/core@^0.0.34":
+  version "0.0.34"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/core/-/core-0.0.34.tgz#0d6a0bdd3e1ce92d82a08e60877f7320d7b5717f"
+  integrity sha512-opgSS06DLptSUIzXhNJEm4SOCPrXfSnCp7IUcR4oyBH2lVzt0TFumwStZsZbwKmRKNaRprEZd9pXBWzDdnbi9g==
   dependencies:
     "@babel/core" "^7.5.5"
     ember-cli-babel "^7.8.0"
@@ -1056,6 +1091,20 @@
     ember-power-select-typeahead "^0.7.2"
     node-sass "^4.0.0"
 
+"@nacho-ui/dropdown@^0.0.34":
+  version "0.0.34"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/dropdown/-/dropdown-0.0.34.tgz#9b8e7e44f8ca0787fc4c4602b7df9310ec0f8e4b"
+  integrity sha512-rcOGxr9/+69lLVccjRreDA+H6pfpmYO7ZM+yHXSvGDAdRJRXGYtwPKmMFVJVlG5wPUpAJ+yz8lYwK9ugNE9SOg==
+  dependencies:
+    "@nacho-ui/core" "^0.0.34"
+    ember-basic-dropdown "^1.1.3"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.0"
+    ember-cli-typescript "^2.0.2"
+    ember-power-select "^2.0.9"
+    ember-power-select-typeahead "^0.7.2"
+    node-sass "^4.0.0"
+
 "@nacho-ui/pill@^0.0.21":
   version "0.0.21"
   resolved "https://registry.yarnpkg.com/@nacho-ui/pill/-/pill-0.0.21.tgz#51ad6e5ea19dc75c04cc8d2ba1fb6e9b3df80167"
@@ -1067,12 +1116,39 @@
     ember-cli-typescript "^2.0.2"
     node-sass "^4.0.0"
 
+"@nacho-ui/pill@^0.0.34":
+  version "0.0.34"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/pill/-/pill-0.0.34.tgz#4148a6b0f4cfde1209acb97034eca25313002bd6"
+  integrity sha512-zuRdrU2w1Q/CzYkg/PkfI/0shs1ZpSEMawxVSHGU3//7hhK1eeuIoraWZ6wa2ID6KeqXq4upJL+tLiB3DkZFWA==
+  dependencies:
+    "@fortawesome/ember-fontawesome" "^0.1.13"
+    "@fortawesome/free-brands-svg-icons" "^5.7.2"
+    "@fortawesome/free-regular-svg-icons" "^5.7.2"
+    "@fortawesome/free-solid-svg-icons" "^5.7.2"
+    "@nacho-ui/core" "^0.0.34"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.0"
+    ember-cli-typescript "^2.0.2"
+    node-sass "^4.0.0"
+
 "@nacho-ui/table@^0.0.21":
   version "0.0.21"
   resolved "https://registry.yarnpkg.com/@nacho-ui/table/-/table-0.0.21.tgz#e371692f052b65314649de32eb3c9a02c12cfc21"
   integrity sha512-jVf6h5/spFu8iZS0YXz6DTqpI0Z13tAq+wYUT1uUXEvfto++26Urr5HXx76jtUTCjfDD4A1blN7QY4gi+IDZsw==
   dependencies:
     "@nacho-ui/core" "^0.0.21"
+    ember-cli-babel "^7.8.0"
+    ember-cli-htmlbars "^3.0.0"
+    ember-cli-typescript "^2.0.2"
+    ember-truth-helpers "^2.1.0"
+    node-sass "^4.0.0"
+
+"@nacho-ui/table@^0.0.37":
+  version "0.0.37"
+  resolved "https://registry.yarnpkg.com/@nacho-ui/table/-/table-0.0.37.tgz#55fef311bcaa213f43d1abf7b395660c287776d6"
+  integrity sha512-FQEB9xANRPMWfep2AqUWPx5+DQitSa04aktr1OnahJBrpkKBCxCzdWEBcmAf1McsoVlWVi8EQ3vaXmuCYVx1KA==
+  dependencies:
+    "@nacho-ui/core" "^0.0.34"
     ember-cli-babel "^7.8.0"
     ember-cli-htmlbars "^3.0.0"
     ember-cli-typescript "^2.0.2"
@@ -5672,6 +5748,15 @@ ember-composable-helpers@^2.1.0:
     ember-compatibility-helpers "^1.2.0"
     ember-maybe-import-regenerator "^0.1.5"
 
+ember-concurrency@^1.1.2:
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/ember-concurrency/-/ember-concurrency-1.1.5.tgz#d07421617d14a038a2d29c994335866061a8107c"
+  integrity sha512-2YgvPJKULUmEDLxlXiWwmOXKCd6FSp7V/L9t77y07f99+CU5cejCsUUjkYNTqlgb8gjifcuOjBq1Cyim3hhuPg==
+  dependencies:
+    ember-cli-babel "^7.7.3"
+    ember-compatibility-helpers "^1.2.0"
+    ember-maybe-import-regenerator "^0.1.6"
+
 "ember-cookies@^0.3.0 || ^0.4.0":
   version "0.4.0"
   resolved "https://registry.yarnpkg.com/ember-cookies/-/ember-cookies-0.4.0.tgz#472f405bedd47c7c6f6a4e76ac927b8e7a3605ef"
@@ -5836,6 +5921,15 @@ ember-macro-helpers@^2.1.0:
     ember-cli-test-info "^1.0.0"
     ember-weakmap "^3.0.0"
 
+ember-macro-helpers@^4.2.2:
+  version "4.2.2"
+  resolved "https://registry.yarnpkg.com/ember-macro-helpers/-/ember-macro-helpers-4.2.2.tgz#dfb28b2b21f9fd49ade599f68c99e73ce5692cdc"
+  integrity sha512-E46MnpjMu+ZXRw/5A1tADZKFJADGpSAcsclcaBNfV/B1aRPV3PTTnCpDvYC1wfJ4kwwUh0DRLDH/OpBv+/41pQ==
+  dependencies:
+    ember-cli-babel "^7.7.3"
+    ember-cli-string-utils "^1.1.0"
+    ember-cli-test-info "^1.0.0"
+
 ember-math-helpers@^2.7.1:
   version "2.11.3"
   resolved "https://registry.yarnpkg.com/ember-math-helpers/-/ember-math-helpers-2.11.3.tgz#32a2523c7408787a6029b64c25b6ece88b320142"
@@ -5904,6 +5998,15 @@ ember-moment@^7.8.1:
     ember-cli-babel "^6.7.2"
     ember-getowner-polyfill "^2.2.0"
     ember-macro-helpers "^2.1.0"
+
+ember-moment@^8.0.0:
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/ember-moment/-/ember-moment-8.0.0.tgz#f3993711df0af444558f0f3922dc3f412af72410"
+  integrity sha512-JbwmTiS75EEXFWGR5P8rXykISpDf6EH8L8IpxsF6FaRwJ/4odXV/yf8cKh6gpzxoags9OJ8qxyQqG0Prhgs9Sg==
+  dependencies:
+    ember-cli-babel "^6.7.2"
+    ember-getowner-polyfill "^2.2.0"
+    ember-macro-helpers "^4.2.2"
 
 ember-power-calendar-moment@^0.1.7:
   version "0.1.7"
@@ -6023,7 +6126,7 @@ ember-runtime-enumerable-includes-polyfill@^2.0.0:
     ember-cli-babel "^6.9.0"
     ember-cli-version-checker "^2.1.0"
 
-ember-simple-auth@^1.8.2:
+ember-simple-auth@^1.8.2, ember-simple-auth@^1.9.2:
   version "1.9.2"
   resolved "https://registry.yarnpkg.com/ember-simple-auth/-/ember-simple-auth-1.9.2.tgz#ee8b1b0ec4c5c0e08bc94560cb90552d4ae7fd5d"
   integrity sha512-WTG2uGe8+TIfwsy5eaS7uIszEmyQ/pjKLUMjyq6YYkU9d9erSXVRiuO4h46OxTEbVI3c17mjAu/4kTxc+BOFZw==
@@ -10975,6 +11078,14 @@ qunit-dom@^0.8.0, qunit-dom@^0.8.4, qunit-dom@^0.8.5:
   version "0.8.5"
   resolved "https://registry.yarnpkg.com/qunit-dom/-/qunit-dom-0.8.5.tgz#34b7cffb338e631c39955b21bdbe4d774090124e"
   integrity sha512-I4GSy22ESUkoZYDSYsqFJoMvqhpmgd2iCYlrN7aWLEOdmumUkao3qz24/qVNZd1PAnoOQA78FefzNPRHePFx1A==
+  dependencies:
+    broccoli-funnel "^2.0.2"
+    broccoli-merge-trees "^3.0.1"
+
+qunit-dom@^0.9.1:
+  version "0.9.2"
+  resolved "https://registry.yarnpkg.com/qunit-dom/-/qunit-dom-0.9.2.tgz#cc7bb777e4f5faa749eca843f54e199755df8473"
+  integrity sha512-BPf7OZjhXo9ekgsViNjQVS9BWkm2yQsPvBoy0juvt5nOFlcBVVwHSYsgpsJOunWkI1IgA3eStAC9mQx3Zw734g==
   dependencies:
     broccoli-funnel "^2.0.2"
     broccoli-merge-trees "^3.0.1"

@@ -1,18 +1,24 @@
 import Route from '@ember/routing/route';
 import AuthenticatedRouteMixin from 'ember-simple-auth/mixins/authenticated-route-mixin';
 import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-for-query-params';
-import { action } from '@ember/object';
+import { action, setProperties, set } from '@ember/object';
 import { inject as service } from '@ember/service';
 import SearchService from 'wherehows-web/services/search';
-import { set } from '@ember/object';
 import { ISearchApiParams } from 'wherehows-web/typings/api/search/search';
 import SearchController from 'wherehows-web/controllers/search';
 import Transition from '@ember/routing/-private/transition';
-import { DataModelEntity } from '@datahub/data-models/constants/entity';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import DataModelsService from '@datahub/data-models/services/data-models';
+import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
+import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 
 export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
+  /**
+   * Service to get the right class for the entity type
+   */
+  @service('data-models')
+  dataModels!: DataModelsService;
+
   /**
    * Stores a reference to the application search service
    * @type {SearchService}
@@ -36,10 +42,26 @@ export default class SearchRoute extends Route.extend(AuthenticatedRouteMixin) {
    * @return {void}
    * @memberof SearchRoute
    */
-  model(queryParam: ISearchApiParams): { fields: Array<ISearchEntityRenderProps> } {
-    set(this.search, 'entity', queryParam.entity || DatasetEntity.displayName);
-    set(this.search, 'keyword', queryParam.keyword);
-    return { fields: DataModelEntity[queryParam.entity].renderProps.search.attributes };
+  model(
+    queryParam: ISearchApiParams
+  ): {
+    fields: Array<ISearchEntityRenderProps>;
+    showFacets: boolean;
+    searchConfig: IEntityRenderCommonPropsSearch;
+  } {
+    const { dataModels } = this;
+    const dataModelEntity = dataModels.getModel(queryParam.entity);
+    const searchProps = dataModelEntity.renderProps.search;
+    setProperties(this.search, {
+      entity: queryParam.entity || DatasetEntity.displayName,
+      keyword: queryParam.keyword
+    });
+
+    return {
+      searchConfig: searchProps,
+      fields: searchProps.attributes,
+      showFacets: typeof searchProps.showFacets === 'boolean' ? searchProps.showFacets : true
+    };
   }
 
   /**

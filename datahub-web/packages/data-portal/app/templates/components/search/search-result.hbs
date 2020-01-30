@@ -1,19 +1,34 @@
 
+{{#if this.pictureUrl}}
+  <div class="search-result__image">
+    <NachoAvatarImage
+      class="search-result__entity-img"
+      @img={{this.pictureUrl}}
+      @alt={{this.pictureUrl}}
+    />
+  </div>
+{{/if}}
 <h4 class="search-result__title">
   {{#if (has-block)}}
     {{yield}}
   {{else}}
-    {{#analytics/trackable-link-to
-      @meta.entityLink.link.route
-      @meta.entityLink.link.model.firstObject
-      (hash isQueryParams=true values=@meta.entityLink.link.queryParams)
-      contentName=(concat @trackPrefix "@" @meta.resultPosition)
-      contentPiece=@meta.entityLink.link.model.firstObject
-      onClick=(action "onResultClick" @result.urn)
-      class="search-result__title-link"
-    }}
-      {{split-text @result.name 65}}
-    {{/analytics/trackable-link-to}}
+    {{#with @meta.entityLink.link as |link|}}
+      <Analytics::TrackableLinkTo
+        @route={{link.route}}
+        @models={{link.model}}
+        @queryParams={{link.queryParams}}
+        @contentName={{concat @trackPrefix "@" @meta.resultPosition}}
+        @contentPiece={{link.model.firstObject}}
+        @onClick={{action "onResultClick" @result.urn @meta.resultPosition}}
+        class="search-result__title-link"
+      >
+        {{split-text this.name 65}}
+      </Analytics::TrackableLinkTo>
+    {{else}}
+      <span class="search-result__title-span">
+        {{split-text this.name 65}}
+      </span>
+    {{/with}}
 
     {{!-- TODO: [META-7528] This is temporary, we want to create a component in nacho that can
           dynamically add tags based on our fieldspecs --}}

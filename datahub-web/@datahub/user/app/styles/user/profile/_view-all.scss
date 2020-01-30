@@ -1,0 +1,45 @@
+.view-all {
+  $view-all-width: 744px;
+  $view-all-header-height: 48px;
+  $view-all-content-height: 380px;
+  padding: item-spacing(2 4);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    padding: item-spacing(0 5);
+    height: $view-all-header-height;
+  }
+
+  &__content {
+    padding: item-spacing(5);
+    height: $view-all-content-height;
+    overflow-y: auto;
+  }
+
+  &__modal {
+    width: $view-all-width;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: fw(normal, 4);
+    margin: auto 0;
+  }
+
+  &__close {
+    border: none;
+    background: transparent;
+  }
+
+  &__button {
+    padding: item-spacing(0 2);
+    margin: item-spacing(0 2 2 0);
+  }
+
+  &__tag {
+    padding: item-spacing(0 2);
+    margin: item-spacing(0 2 3 0);
+    cursor: default;
+  }
+}

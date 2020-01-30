@@ -4,9 +4,9 @@ import template from '../templates/components/toggle-on-list';
 import { layout, tagName, classNames, className } from '@ember-decorators/component';
 import { computed } from '@ember/object';
 import { findEntityInList } from '@datahub/lists/utils';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
 import { ListToggleCta } from '@datahub/lists/constants/entity/shared';
 import { noop } from '@datahub/utils/function/noop';
+import { DataModelEntityInstance } from '@datahub/data-models/addon/constants/entity';
 
 export const baseComponentClass = 'entity-list-toggle';
 const buttonClass = 'nacho-button nacho-button--secondary nacho-button--small';

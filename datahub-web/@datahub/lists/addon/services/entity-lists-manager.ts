@@ -1,6 +1,5 @@
 import Service from '@ember/service';
 import StorageArray from 'ember-local-storage/local/array';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
 import { findEntityInList, serializeForStorage } from '@datahub/lists/utils';
 import { storageFor } from 'ember-local-storage';
 import { computed } from '@ember/object';
@@ -8,6 +7,7 @@ import { supportedListEntities, SupportedListEntity } from '@datahub/lists/const
 import { noop } from '@datahub/utils/function/noop';
 import { IStoredEntityAttrs } from '@datahub/lists/types/list';
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { DataModelEntityInstance } from '@datahub/data-models/addon/constants/entity';
 
 // Map of List Entity displayName to list of instances
 type ManagedListEntities = Record<SupportedListEntity['displayName'], ReadonlyArray<IStoredEntityAttrs>>;

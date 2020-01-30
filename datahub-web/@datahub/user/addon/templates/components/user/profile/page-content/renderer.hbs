@@ -1,0 +1,36 @@
+{{#let @tabProperties as |tab|}}
+  {{!-- This is the renderer for if we are dealing with a tablist --}}
+  {{#if @isTablist}}
+
+    {{!-- If the tab has a "tabComponent" property, this means that there is some container
+      component that should be used to render additional tabs, and we will leave it up
+      to that container to handle the process --}}
+    {{#if tab.tablistMenuComponent}}
+      {{#component
+        tab.tablistMenuComponent
+        class="user-profile-tabs__tab-container"
+        title=tab.title
+        entity=@entity
+        tabProperties=tab
+        isCurrentUser=isCurrentUser
+        tablistMenuProperties=(get @tablistMenuProperties tab.id)
+      as |nestedTabsContainer|
+      }}
+        {{yield (hash tablist=nestedTabsContainer.tabs)}}
+      {{/component}}
+    {{else}}
+      {{yield (hash tablist=(array tab))}}
+    {{/if}}
+
+  {{else}}
+    {{!-- Else we are dealing with the page content body items --}}
+
+    {{#if tab.contentComponent}}
+      {{yield (hash tab=tab)}}
+    {{else}}
+      {{#each (get @tablistMenuProperties tab.id) as |subtab|}}
+        {{yield (hash tab=subtab)}}
+      {{/each}}
+    {{/if}}
+  {{/if}}
+{{/let}}

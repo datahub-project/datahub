@@ -1,6 +1,9 @@
+import { AppRoute } from '@datahub/data-models/types/entity/shared';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
-import { Tab, ITabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
-import { EntityRoute } from '@datahub/data-models/types/entity/shared';
+import { ITabProperties, Tab } from '@datahub/data-models/constants/entity/shared/tabs';
+import { BaseEntity } from '@datahub/data-models/entity/base-entity';
+import { DataModelEntityInstance } from '@datahub/data-models/constants/entity';
+import { IEntityRenderPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 
 /**
  * Defines the interface of objects expected to be passed to a nacho table instance
@@ -16,21 +19,29 @@ export interface IAttributeValue {
 }
 
 /**
+ * Render descriptions for search results
+ */
+export interface IEntityRenderPropsEntityPage<E extends DataModelEntityInstance | (BaseEntity<{}>) = never> {
+  // Lists the sub navigation tab ids for the associated entity
+  tabIds: Array<Tab>;
+  // Route for the entity page
+  route: AppRoute;
+  // The URL path segment to the entity's api endpoint
+  apiName?: string;
+  // Lists the tab properties for the tabs on this Entity. A fn is also accepted to dynamically return tabs.
+  tabProperties: Array<ITabProperties> | ((entity: E) => Array<ITabProperties>);
+  // Specifies the default tab from the list of tabIds if a specific tab is not provided on navigation
+  defaultTab: ITabProperties['id'];
+  // Placeholder rendered when attribute are missing for entity metadata
+  attributePlaceholder?: string;
+}
+
+/**
  * Defines a set of properties that guide the rendering of ui elements and features in the host application
  * @interface IEntityRenderProps
  */
 export interface IEntityRenderProps {
-  search: {
-    // Lists a set of render properties that indicate how search attributes for an entity are rendered in the ui
-    attributes: Array<ISearchEntityRenderProps>;
-    // Placeholder text describing call to action for search input
-    placeholder: string;
-    // API use a specific name to refer to an entity. For example, 'features' in api is 'feature'.
-    apiName: string;
-    // Lists the optional search result item secondary action component string references,
-    // actions are rendered in the order they are presented, this may evolve to include options for rendering such as properties e.t.c
-    secondaryActions?: Array<string>;
-  };
+  search: IEntityRenderPropsSearch;
   userEntityOwnership?: {
     // List of fields to render in the `I Own` page if different from search fields.
     attributes: Array<ISearchEntityRenderProps>;
@@ -43,22 +54,14 @@ export interface IEntityRenderProps {
     // This performs an advanced search query with the category fields populated in the query string
     showHierarchySearch: boolean;
     // Route for the entity page
-    entityRoute: EntityRoute;
+    entityRoute: AppRoute;
     // List of field metadata that browse may use. For example, it can send specific params to API to
     // get a custom browse experience.
     attributes?: Array<ISearchEntityRenderProps>;
   };
   // Specifies properties for rendering the 'profile' page of an entity, aka Entity page
-  entityPage: {
-    // Lists the sub navigation tab ids for the associated entity
-    tabIds: Array<Tab>;
-    // Lists the tab properties for the tabs on this Entity
-    tabProperties: Array<ITabProperties>;
-    // Specifies the default tab from the list of tabIds if a specific tab is not provided on navigation
-    defaultTab: Tab;
-    // Placeholder rendered when attribute are missing for entity metadata
-    attributePlaceholder: string;
-  };
+  // if there is not an entity page, this should be undefined
+  entityPage: IEntityRenderPropsEntityPage;
   // Specifies attributes for displaying Entity properties in a list component
   list?: {
     fields: Array<{

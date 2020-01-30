@@ -76,7 +76,9 @@ ApplicationRouter.map(function(): void {
         this.route('own');
       }
     );
-    this.route('profile', { path: '/:user_id' });
+    this.route('profile', { path: '/:user_id' }, function(): void {
+      this.route('tab', { path: '/:tab_selected' });
+    });
   });
 });
 
