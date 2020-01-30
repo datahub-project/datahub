@@ -24,7 +24,7 @@
     "postpublish": "ember ts:clean"
   },
   "dependencies": {
-    "@nacho-ui/core": "^0.0.21",
+    "@nacho-ui/core": "0.0.34",
     "ember-cli-babel": "^7.8.0",
     "ember-cli-htmlbars": "^3.0.1",
     "ember-cli-string-helpers": "^2.0.0",
