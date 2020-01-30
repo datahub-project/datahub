@@ -1,0 +1,57 @@
+.user-info-editor {
+  $user-info-editor-width: item-spacing(9) * 10;
+  $user-info-editor-item-width: item-spacing(9) * 7;
+  padding: item-spacing(2 4);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  &__modal {
+    width: $user-info-editor-width;
+
+    .nacho-pill-input__action {
+      margin-left: item-spacing(3);
+    }
+  }
+
+  &__title {
+    margin: 0;
+  }
+
+  &__label,
+  &__title {
+    font-weight: fw(normal, 4);
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: item-spacing(4);
+    width: $user-info-editor-item-width;
+  }
+
+  &__tag-input {
+    border: 1px solid get-color(black, 0.75);
+    padding: item-spacing(2 3 1 1);
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  &__text-input {
+    padding: item-spacing(1 3 3 3);
+    border: 1px solid get-color(black, 0.75);
+
+    &-count {
+      margin: 0;
+      text-align: right;
+      color: get-color(gray4);
+    }
+  }
+
+  &__pill {
+    margin-left: item-spacing(2);
+    margin-bottom: item-spacing(2);
+  }
+}

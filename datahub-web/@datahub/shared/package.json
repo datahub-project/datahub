@@ -24,10 +24,10 @@
     "@datahub/utils": "0.0.0",
     "ember-cli-babel": "^7.8.0",
     "ember-cli-htmlbars": "^3.0.0",
+    "ember-cli-string-helpers": "^2.0.0",
     "ember-cli-typescript": "^2.0.2",
-    "ember-moment": "^7.8.1",
-    "ember-simple-auth": "^1.8.2",
-    "ember-cli-string-helpers": "^2.0.0"
+    "ember-moment": "^8.0.0",
+    "ember-simple-auth": "^1.8.2"
   },
   "devDependencies": {
     "@babel/core": "^7.4.0",
@@ -47,7 +47,7 @@
     "ember-cli-sri": "^2.1.1",
     "ember-cli-typescript-blueprints": "^2.0.0",
     "ember-cli-uglify": "^2.1.0",
-    "ember-concurrency": "^1.0.0",
+    "ember-concurrency": "^1.1.5",
     "ember-export-application-global": "^2.0.0",
     "ember-load-initializers": "^2.0.0",
     "ember-maybe-import-regenerator": "^0.1.6",

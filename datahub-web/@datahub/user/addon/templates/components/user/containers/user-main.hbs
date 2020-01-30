@@ -1,0 +1,11 @@
+<ConcurrencyTaskStateHandler @task={{getContainerDataTask}} @errorHeading={{getContainerDataTask.last.error}}>
+  {{yield
+    (hash
+      entity=this.entity
+      renderProps=this.renderProps
+      isCurrentUser=this.isCurrentUser
+      defaultTab=this.renderProps.entityPage.defaultTab
+      changeTabSelection=(action this.tabSelectionChanged)
+    )
+  }}
+</ConcurrencyTaskStateHandler>

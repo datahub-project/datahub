@@ -55,7 +55,7 @@ export default class SearchFacetsContainer extends Component {
   /**
    * Fields available. We will read this to see what facets do we have available
    */
-  fields: Array<ISearchEntityRenderProps>;
+  fields: Array<ISearchEntityRenderProps> = [];
 
   /**
    * Gets the available platforms and extracts a list of dataset sources

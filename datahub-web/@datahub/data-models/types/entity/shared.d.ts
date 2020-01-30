@@ -1,37 +1,27 @@
 import { BaseEntity } from '@datahub/data-models/entity/base-entity';
 import { IBaseEntity } from '@datahub/metadata-types/types/entity';
+import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 
 /**
  * String literal of available entity routes
  */
-export type EntityRoute = string;
+export type AppRoute = 'browse.entity' | 'datasets.dataset' | 'user.profile';
 
 /**
  * Properties that enable a dynamic link to the entity or category
- * @export
- * @interface IEntityLinkNode
+ * @template T {T = unknown} by default, queryParams for EntityLinkNode are not specified, however, otherwise an associated type must be provided
  */
-export interface IEntityLinkNode<T = unknown> {
-  // Title of the entity or category
-  title: string;
-  // Display value for the link
-  text: string;
-  // Route to navigate to the entity or category
-  route: EntityRoute;
-  // Segments values used in constructing the link-to route for the EntityRoute
-  model: Array<string>;
-  // Query parameters for the EntityRoute
-  queryParams?: T;
-}
+export type EntityLinkNode<T = unknown> = IDynamicLinkNode<Array<string>, AppRoute, T>;
 
 /**
- * Envelopes the link: IEntityLinkNode with metadata on how the link should be displayed
+ * Envelopes the link: EntityLinkNode with metadata on how the link should be displayed
  * @export
  * @interface IEntityLinkAttrs
+ * @template T {T = unknown} by default, queryParams for IEntityLinkAttrs are not specified, however, otherwise an associated type must be provided
  */
 export interface IEntityLinkAttrs<T = unknown> {
   // Link properties that enable a dynamic link tho the entity or category
-  link: IEntityLinkNode<T>;
+  link: EntityLinkNode<T>;
   // Display name for the concrete entity class
   entity: BaseEntity<IBaseEntity>['displayName'];
 }

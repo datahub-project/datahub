@@ -1,15 +1,16 @@
 .user-entity-header {
   display: flex;
-  padding: item-spacing(6 0 4);
+  padding: item-spacing(6 4 4);
 
   &__container {
     background-color: white;
+    border-bottom: 1px solid get-color(black, 0.15);
   }
 
   &__img-section {
     width: 128px;
     box-sizing: border-box;
-    padding-right: item-spacing(5);
+    padding-right: item-spacing(3);
   }
 
   &__detail-section {
@@ -24,8 +25,8 @@
   }
 
   &__external-link {
-    border: 1px solid get-color(blue5);
-    color: get-color(blue5);
+    border: 1px solid get-color(blue6);
+    color: get-color(blue6);
     padding: item-spacing(2);
     line-height: 20px;
     font-size: 16px;
@@ -36,28 +37,25 @@
     }
   }
 
-  &__edit-profile {
-    border: 1px solid get-color(blue5);
-    color: get-color(blue5);
-    padding: item-spacing(2);
-    line-height: 20px;
-    font-size: 16px;
-    font-weight: bold;
+  &__user-profile {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+  }
 
-    &:hover {
-      border: 1px solid get-color(black);
-    }
+  &__inactive-label {
+    margin: item-spacing(2 0 0 3);
+    padding: item-spacing(0 2);
   }
 
   &__name {
     &-container {
       display: flex;
-      width: 100%;
-      justify-content: space-between;
     }
 
     margin: item-spacing(2 0 0);
     font-weight: 400;
+    height: item-spacing(5) + 3;
   }
 
   &__job-title {
@@ -71,6 +69,32 @@
     flex-wrap: wrap;
   }
 
+  &__focus-area {
+    width: 50%;
+    margin-bottom: item-spacing(5);
+
+    &-title {
+      font-weight: bold;
+    }
+
+    &-icon {
+      margin-left: item-spacing(2);
+      cursor: pointer;
+    }
+
+    &-content {
+      width: 450px;
+      text-align: justify;
+      word-break: break-word;
+    }
+
+    &-skills {
+      margin-bottom: item-spacing(2);
+      display: flex;
+      flex-wrap: wrap;
+    }
+  }
+
   &__org {
     width: 50%;
     margin-bottom: item-spacing(5);
@@ -79,6 +103,7 @@
 
   &__manager {
     width: 50%;
+    padding-left: item-spacing(4);
 
     &-name {
       font-weight: bold;
@@ -102,20 +127,23 @@
     }
   }
 
-  .nacho-pill {
+  &__tag {
     padding: item-spacing(0 2);
     margin: item-spacing(0 2 2 0);
-    line-height: 16px;
+    cursor: default;
   }
 
   &__connections {
     display: flex;
-    width: 50%;
+    width: 100%;
+    padding-top: item-spacing(4);
+    border-top: 1px solid get-color(black, 0.15);
   }
 
   &__connection {
     font-size: 12px;
-    margin-right: item-spacing(4);
+    margin-right: item-spacing(5);
+    color: get-color(black, 0.9);
     cursor: pointer;
 
     &-icon:hover,
@@ -125,10 +153,13 @@
 
     &-link {
       color: get-color(black);
+      &:hover {
+        color: get-color(blue6);
+      }
     }
 
     &-icon {
-      color: get-color(blue5);
+      color: get-color(blue6);
       margin-right: item-spacing(1);
       transform: scale(1.25);
     }

@@ -1,6 +1,6 @@
 import Component from '@ember/component';
 import { classNames, tagName } from '@ember-decorators/component';
-import { IEntityLinkNode } from '@datahub/data-models/types/entity/shared';
+import { EntityLinkNode } from '@datahub/data-models/types/entity/shared';
 
 /**
  * It represents a row in the browsing experience. This row contains a title
@@ -10,5 +10,5 @@ import { IEntityLinkNode } from '@datahub/data-models/types/entity/shared';
 @tagName('li')
 @classNames('browse-category browse-category-container__li')
 export default class BrowseCategory extends Component {
-  node: IEntityLinkNode;
+  node: EntityLinkNode;
 }

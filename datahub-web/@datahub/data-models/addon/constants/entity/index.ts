@@ -27,9 +27,15 @@ export type DataModelName = keyof typeof DataModelEntity;
 
 /**
  * Aliases the DataModelEntity classes found in the DataModelEntity enum, this is a union type of all entity classifiers
- * For example { DatasetEntity | UserEntity | ... }
+ * For example { typeof DatasetEntity | typeof UserEntity | ... }
  */
 export type DataModelEntity = typeof DataModelEntity[DataModelName];
+
+/**
+ * A specific instance of data model entity
+ * For example { DatasetEntity | UserEntity | ... }
+ */
+export type DataModelEntityInstance = InstanceType<DataModelEntity>;
 
 /**
  * Guards on a string entityName if it maps to an entity data model (class inheriting from BaseEntity)
