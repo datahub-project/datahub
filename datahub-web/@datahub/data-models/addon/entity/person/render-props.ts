@@ -1,5 +1,5 @@
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { Tab } from '@datahub/data-models/constants/entity/shared/tabs';
+import { Tab, ITabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
 import { getTabPropertiesFor } from '@datahub/data-models/entity/utils';
 
 /**
@@ -13,6 +13,7 @@ export interface IPersonEntitySpecificConfigs {
       isConnectedToLinkedin?: boolean;
       isConnectedToSlack?: boolean;
     };
+    tablistMenuProperties: Record<string, Array<ITabProperties>>;
   };
 }
 
@@ -27,10 +28,10 @@ export const getRenderProps = (): IEntityRenderProps => {
   return {
     entityPage: {
       tabIds,
+      route: 'user.profile',
       tabProperties: getTabPropertiesFor(tabIds),
-      defaultTab: Tab.Metadata,
-      attributePlaceholder: '–',
-      route: 'user.profile'
+      defaultTab: Tab.UserOwnership,
+      attributePlaceholder: '–'
     },
     // Placeholder information
     search: {
@@ -81,6 +82,7 @@ export const getPersonEntitySpecificRenderProps = (): IPersonEntitySpecificConfi
   userProfilePage: {
     headerProperties: {
       showExternalProfileLink: false
-    }
+    },
+    tablistMenuProperties: {}
   }
 });
