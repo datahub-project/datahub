@@ -1,6 +1,7 @@
 # DataHub
 [![Build Status](https://travis-ci.org/linkedin/datahub.svg)](https://travis-ci.org/linkedin/datahub)
 [![Gitter](https://img.shields.io/gitter/room/nwjs/nw.js.svg)](https://gitter.im/linkedin/datahub)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/linkedin/datahub/blob/master/CONTRIBUTING.md)
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
@@ -43,5 +44,5 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 * 2019/12/05: [v0.2.0-alpha](https://github.com/linkedin/datahub/releases/tag/datahub-v0.2.0-alpha)
 
 ## Roadmap
-1. Add user profile page
+1. [Kubernetes](https://kubernetes.io/) for container orchestration
 2. Deploy DataHub to [Azure Cloud](https://azure.microsoft.com/en-us/)
