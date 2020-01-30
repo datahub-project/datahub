@@ -22,20 +22,47 @@ export interface IPersonEntitySpecificConfigs {
  * Implemented as a getter to ensure that reads are idempotent
  */
 export const getRenderProps = (): IEntityRenderProps => {
-  const tabIds = [Tab.Metadata];
+  const tabIds = [Tab.UserOwnership];
 
   return {
     entityPage: {
       tabIds,
       tabProperties: getTabPropertiesFor(tabIds),
       defaultTab: Tab.Metadata,
-      attributePlaceholder: '–'
+      attributePlaceholder: '–',
+      route: 'user.profile'
     },
     // Placeholder information
     search: {
-      attributes: [],
-      placeholder: '',
-      apiName: ''
+      attributes: [
+        {
+          fieldName: 'teamTags',
+          showInResultsPreview: true,
+          showInAutoCompletion: false,
+          showInFacets: false,
+          displayName: 'Team',
+          desc: '',
+          example: ''
+        },
+        {
+          fieldName: 'skills',
+          showInResultsPreview: true,
+          showInAutoCompletion: false,
+          showInFacets: false,
+          displayName: 'Ask me about',
+          desc: '',
+          example: ''
+        }
+      ],
+      searchResultEntityFields: {
+        description: 'title',
+        pictureUrl: 'editableInfo.pictureLink',
+        name: 'username'
+      },
+      showFacets: false,
+      placeholder: 'Search for People...',
+      apiName: 'corpuser',
+      autocompleteNameField: 'fullName'
     },
     // Placeholder information
     browse: {

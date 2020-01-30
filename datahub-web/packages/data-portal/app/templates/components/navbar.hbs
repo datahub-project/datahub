@@ -34,16 +34,16 @@
     >
       <ul class="nav navbar-nav navbar-left">
         {{#if showSearch}}
-          {{#search/containers/search-box
+          <Search::Containers::SearchBox
           as |keyword dataModelEntity onSearchInputTask onSearch|
-          }}
-            {{search/search-box
-              selectedEntity=(readonly dataModelEntity.displayName)
-              text=(readonly keyword)
-              onTypeahead=onSearchInputTask
-              onSearch=(action onSearch)
-            }}
-          {{/search/containers/search-box}}
+          >
+            <Search::SearchBox
+              @selectedEntity={{readonly dataModelEntity.displayName}}
+              @text={{readonly keyword}}
+              @onTypeahead={{onSearchInputTask}}
+              @onSearch={{action onSearch}}
+            />
+          </Search::Containers::SearchBox>
         {{/if}}
       </ul>
       {{#if @listEntity}}
@@ -58,9 +58,9 @@
             aria-haspopup="true"
             aria-expanded="false"
           >
-            <i class="caret"></i>
+            <i class="caret" />
             {{avatars/avatar-image
-              avatar=@avatar
+              avatar=this.avatar
               class="navbar-avatar-image"
             }}
           </a>
@@ -70,10 +70,18 @@
             class="dropdown-menu"
             role="menu"
           >
+            <NavLink @route="user.profile" @model={{this.userUrn}} @tagName="li" data-profile-link={{this.userUrn}}>
+              My Profile
+            </NavLink>
+
             {{#each entities as |entity|}}
-              {{#nav-link "user.entity.own" entity.displayName tagName="li"}}
-                {{capitalize entity.displayName}} I Own
-              {{/nav-link}}
+              <NavLink
+                @route="user.profile.tab"
+                @models={{array this.userUrn (concat "userownership-" entity.displayName)}}
+                @tagName="li"
+              >
+                {{capitalize (humanize entity.displayName)}} I Own
+              </NavLink>
             {{/each}}
 
             <li role="separator" class="divider"></li>

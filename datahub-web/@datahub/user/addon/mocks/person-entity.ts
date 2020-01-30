@@ -1,4 +1,6 @@
 import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
+import { IPersonEntityEditableProperties } from '@datahub/data-models/types/entity/person/props';
+import { setProperties } from '@ember/object';
 
 // TODO: [META-9851] Temporary home for this function for integrated dev/demo, should be moved to test/dummy folder eventually
 /**
@@ -10,23 +12,32 @@ import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
  */
 export function populateMockPersonEntity(
   entity: PersonEntity,
-  personEntity: typeof PersonEntity = PersonEntity
+  PersonEntityClass: typeof PersonEntity = PersonEntity
 ): PersonEntity {
-  entity.name = 'Ash Ketchum';
-  entity.title = 'Pokemon master in training';
-  entity.profilePictureUrl = 'https://i.imgur.com/vjLcuFJ.jpg';
-  entity.email = 'ashketchumfrompallet@gmail.com';
-  entity.linkedinProfile = 'https://www.linkedin.com/in/ash-ketchum-b212502a/';
-  entity.slackLink = 'aketchum';
-  entity.skills = ['training', 'catching', 'battling'];
+  const managerEntity = Object.assign(
+    {},
+    new PersonEntity(PersonEntityClass.urnFromUsername ? PersonEntityClass.urnFromUsername('pikachu') : 'pikachu'),
+    {
+      name: 'Pikachu',
+      profilePictureUrl: 'https://pokemonletsgo.pokemon.com/assets/img/common/char-pikachu.png'
+    }
+  );
 
-  const managerEntity = new personEntity(personEntity.urnFromUsername('pikachu'));
-  managerEntity.name = 'Pikachu';
-  managerEntity.profilePictureUrl = 'https://pokemonletsgo.pokemon.com/assets/img/common/char-pikachu.png';
+  const newEntity = Object.assign({}, entity, {
+    name: 'Ash Ketchum',
+    title: 'Pokemon master in training',
+    profilePictureUrl: 'https://i.imgur.com/vjLcuFJ.jpg',
+    email: 'ashketchumfrompallet@gmail.com',
+    linkedinProfile: 'https://www.linkedin.com/in/ash-ketchum-b212502a/',
+    slackLink: 'aketchum',
+    skills: ['training', 'catching', 'battling'],
+    teamTags: ['Kanto', 'Nintendo', 'Game Freak', 'Bike Thief'],
+    focusArea: 'Trying to catch all these Pokemon in the world. Also being the very best like no one ever was.',
+    reportsTo: managerEntity,
+    updateEditableProperties: async function(value: IPersonEntityEditableProperties): Promise<void> {
+      await setProperties(newEntity, value);
+    }
+  });
 
-  entity.reportsTo = managerEntity;
-  entity.teamTags = ['Kanta', 'Nintendo', 'Game Freak', 'Bike Thief'];
-  entity.focusArea = 'Trying to catch all these Pokemon in the world. Also being the very best like no one ever was.';
-
-  return entity;
+  return newEntity;
 }

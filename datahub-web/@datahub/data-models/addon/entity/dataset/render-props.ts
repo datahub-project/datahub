@@ -28,6 +28,7 @@ export const getRenderProps = (): IEntityRenderProps => {
     },
     entityPage: {
       tabIds,
+      route: 'datasets.dataset',
       tabProperties: getTabPropertiesFor(tabIds),
       defaultTab: Tab.Schema,
       attributePlaceholder: '-'

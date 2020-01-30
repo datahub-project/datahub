@@ -1,5 +1,4 @@
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
 import { computed } from '@ember/object';
 import { MetadataAspect } from '@datahub/metadata-types/types/metadata/aspect';
@@ -8,14 +7,17 @@ import { IOwner } from '@datahub/metadata-types/types/common/owner';
 import { map } from '@ember/object/computed';
 import {
   IEntityLinkAttrs,
-  IEntityLinkNode,
+  EntityLinkNode,
   IBrowsePath,
-  IEntityLinkAttrsWithCount
+  IEntityLinkAttrsWithCount,
+  AppRoute
 } from '@datahub/data-models/types/entity/shared';
 import { NotImplementedError } from '@datahub/data-models/constants/entity/shared/index';
 import { readBrowse, readBrowsePath } from '@datahub/data-models/api/browse';
 import { getFacetDefaultValueForEntity } from '@datahub/data-models/entity/utils/facets';
 import { InstitutionalMemory } from '@datahub/data-models/models/aspects/institutional-memory';
+import { IBaseEntity } from '@datahub/metadata-types/types/entity';
+import { readEntity } from '@datahub/data-models/api/entity';
 
 /**
  * Interfaces and abstract classes define the "instance side" of a type / class,
@@ -34,27 +36,25 @@ export const statics = <T extends new (...args: Array<unknown>) => void>(): ((c:
  * @interface IBaseEntityStatics
  * @template T constrained by the IBaseEntity interface, the entity interface that BaseEntity subclass will encapsulate
  */
-export interface IBaseEntityStatics<T extends IBaseEntity> {
+export interface IBaseEntityStatics<T> {
   new (urn: string): BaseEntity<T>;
 
   /**
    * Properties that guide the rendering of ui elements and features in the host application
    * @readonly
    * @static
-   * @type {IEntityRenderProps}
    */
   renderProps: IEntityRenderProps;
 
   /**
    * Statically accessible name of the concrete DataModel type
    * @type {string}
-   * @memberof IBaseEntityStatics
    */
   displayName: string;
 
   /**
    * Queries the entity's endpoint to retrieve the list of nodes that are contained in the hierarchy
-   * @param {(...Array<string>)} args list of string values corresponding to the different hierarchical categories for the entity
+   * @param {(Array<string>)} args list of string values corresponding to the different hierarchical categories for the entity
    */
   readCategories(...args: Array<string>): Promise<IBrowsePath>;
 
@@ -76,7 +76,18 @@ export interface IBaseEntityStatics<T extends IBaseEntity> {
    * @memberof IBaseEntityStatics
    */
   getQueryForHierarchySegments(_segments: Array<string>): string;
+
+  /**
+   * Gets the entity link for the current entity
+   */
+  getLinkForEntity(params: { entityUrn: string; displayName: string }): IEntityLinkAttrs | void;
 }
+
+/**
+ * Check if entity extends baseEntity by checking on the urn property
+ */
+export const isBaseEntity = <T extends {}>(entity?: T | IBaseEntity): entity is IBaseEntity =>
+  (entity && entity.hasOwnProperty('urn')) || false;
 
 /**
  * This defines the base attributes and methods for the instance side of an entity data model
@@ -89,7 +100,7 @@ export interface IBaseEntityStatics<T extends IBaseEntity> {
  * @class BaseEntity
  * @template T the entity interface that the entity model (subclass) encapsulates
  */
-export abstract class BaseEntity<T extends IBaseEntity> {
+export abstract class BaseEntity<T extends {} | IBaseEntity> {
   /**
    * A reference to the derived concrete entity instance
    * @type {T}
@@ -99,20 +110,25 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   /**
    * References the Snapshot for the related Entity
    * @type {Snapshot}
-   * @memberof BaseEntity
    */
   snapshot?: Snapshot;
 
   /**
    * References the wiki related documents and objects related to this entity
-   * @memberof BaseEntity
    */
   institutionalMemories?: Array<InstitutionalMemory>;
 
   /**
+   * Hook for custom fetching operations after entity is created
+   */
+  onAfterCreate(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /**
    * A dictionary of host Ember application routes which can be used as route arguments to the link-to helper
    */
-  get hostRoutes(): Record<string, string> {
+  get hostRoutes(): Record<string, AppRoute | void> {
     return { dataSourceRoute: 'datasets.dataset' };
   }
 
@@ -125,7 +141,7 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    */
   @computed('entity')
   get removed(): boolean {
-    return (this.entity && this.entity.removed) || false;
+    return isBaseEntity<T>(this.entity) ? this.entity.removed : false;
   }
 
   /**
@@ -168,7 +184,6 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   /**
    * Statically accessible Base entity kind discriminant
    * @static
-   * @memberof BaseEntity
    */
   static kind = 'BaseEntity';
 
@@ -184,7 +199,6 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   /**
    * Base entity display name
    * @static
-   * @memberof BaseEntity
    */
   static displayName: string;
 
@@ -211,10 +225,11 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    * Will read the current path for an entity
    */
   get readPath(): Promise<Array<string>> {
-    const entityName = this.staticInstance.renderProps.search.apiName;
+    const { urn, staticInstance } = this;
+    const entityName = staticInstance.renderProps.search.apiName;
     return readBrowsePath({
       type: entityName,
-      urn: this.urn
+      urn
     }).then(
       (paths): Array<string> => {
         return paths && paths.length > 0 ? paths[0].split('/').filter(Boolean) : [];
@@ -227,8 +242,12 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    * @readonly
    * @type {Promise<T>}
    */
-  get readEntity(): Promise<T> {
-    // Implemented in concrete class
+  get readEntity(): Promise<T> | Promise<undefined> {
+    const { entityPage } = this.staticInstance.renderProps;
+    if (entityPage && entityPage.apiName) {
+      return readEntity<T>(this.urn, entityPage.apiName);
+    }
+    // Implemented in concrete class, if it exists for the entity
     throw new Error(NotImplementedError);
   }
 
@@ -239,9 +258,28 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    * @readonly
    * @type {Promise<Snapshot>}
    */
-  get readSnapshot(): Promise<Snapshot> {
+  get readSnapshot(): Promise<Snapshot> | Promise<undefined> {
+    // Implemented in concrete class, if it exists for the entity
+    return Promise.resolve(undefined);
+  }
+
+  /**
+   * Every entity should have a way to return the name.
+   * This can be used for search results or entity header
+   */
+  get name(): string {
     // Implemented in concrete class
     throw new Error(NotImplementedError);
+  }
+
+  /**
+   * Returns a link for the entity page for this entity
+   */
+  get entityLink(): IEntityLinkAttrs | void {
+    return this.staticInstance.getLinkForEntity({
+      entityUrn: this.urn,
+      displayName: this.name
+    });
   }
 
   /**
@@ -254,10 +292,8 @@ export abstract class BaseEntity<T extends IBaseEntity> {
   }
 
   /**
-   * Read elements under provided by the browse endpoint for ump-metrics and group those elements by
-   * specific keys on the IMetricsBrowse interface based on the properties returned by parsePrefix
-   * @param {string} category the category the elements reside under in the hierarchy for ump_metrics
-   * @param {string} [prefix] optional prefix string to constrain the browse results
+   * Queries the entity's endpoint to retrieve the list of nodes that are contained in the hierarchy
+   * @param {(Array<string>)} args list of string values corresponding to the different hierarchical categories for the entity
    */
   static async readCategories(...segments: Array<string>): Promise<IBrowsePath> {
     const cleanSegments: Array<string> = segments.filter(Boolean) as Array<string>;
@@ -298,10 +334,14 @@ export abstract class BaseEntity<T extends IBaseEntity> {
 
   /**
    * Will generate a link for an entity based on a displayName and a entityUrn
+   * displayName attribute is used in the anchor tag as a the text representation if provided, is unrelated to BaseEntity['displayName']
+   * optionally, a title attribute can be provided to generate the consuming anchor element title
+   * @static
+   * @param {IGetLinkForEntityParams} params parameters for generating the link object matching the IEntityLinkAttrs interface
    */
   static getLinkForEntity(params: { entityUrn: string; displayName: string }): IEntityLinkAttrs {
     const { displayName, entityUrn } = params;
-    const link: IEntityLinkNode = {
+    const link: EntityLinkNode = {
       title: displayName || '',
       text: displayName || '',
       route: this.renderProps.browse.entityRoute,
@@ -323,7 +363,7 @@ export abstract class BaseEntity<T extends IBaseEntity> {
     count: number;
   }): IEntityLinkAttrsWithCount {
     const { segments, count, displayName } = params;
-    const link: IEntityLinkNode = {
+    const link: EntityLinkNode<{ path: string }> = {
       title: displayName || '',
       text: displayName || segments[0] || '',
       route: 'browse.entity',
@@ -356,7 +396,7 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    * @param {Array<string>} [segments=[]] the list of hierarchy segments to generate the keyword for
    */
   static getQueryForHierarchySegments(segments: Array<string> = []): string {
-    return `path:\\\\/${segments.join('\\\\/').replace(/\s/gi, '\\\\ ')}`;
+    return `browsePaths:\\\\/${segments.join('\\\\/').replace(/\s/gi, '\\\\ ')}`;
   }
 
   /**
@@ -379,5 +419,5 @@ export abstract class BaseEntity<T extends IBaseEntity> {
    * @param {string} urn the urn for the entity being instantiated. urn is a parameter property
    * @memberof BaseEntity
    */
-  constructor(readonly urn: string) {}
+  constructor(readonly urn: string = '') {}
 }

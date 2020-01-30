@@ -2,14 +2,13 @@ import WithEntityLists from '@datahub/lists/components/with-entity-lists';
 // @ts-ignore: Ignore import of compiled template
 import template from '../templates/components/entity-list-container';
 import { layout, tagName } from '@ember-decorators/component';
-import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
+import { DataModelEntity, DataModelName, DataModelEntityInstance } from '@datahub/data-models/constants/entity';
 import { computed, action } from '@ember/object';
 import { findEntityInList } from '@datahub/lists/utils';
 import { alias, map, gt } from '@ember/object/computed';
 import { capitalize } from 'lodash';
 import { IEntityLinkAttrs } from '@datahub/data-models/types/entity/shared';
 import { singularize } from 'ember-inflector';
-import { DataModelEntityInstance } from '@datahub/data-models/entity/entity-factory';
 import { Snapshot } from '@datahub/metadata-types/types/metadata/snapshot';
 import { IStoredEntityAttrs } from '@datahub/lists/types/list';
 import { set } from '@ember/object';
@@ -137,19 +136,14 @@ export default class EntityListContainer extends WithEntityLists {
    * This allows linking the list entity to the entity page
    */
   @map('instances', function(this: EntityListContainer, instance: DataModelEntityInstance): IEntityWithLink {
-    // The underlying entity in the data model
-    const { entity: baseEntity } = instance;
     // The entity class (statics) associated with this container
     const { entity: entityType } = this;
     const entityWithLink: IEntityWithLink = { entity: instance };
 
-    if (entityType && baseEntity && baseEntity.urn) {
-      const linkAttr = entityType.getLinkForEntity({
-        displayName: baseEntity.urn,
-        entityUrn: baseEntity.urn
-      });
+    if (entityType && instance) {
+      const linkAttr = instance.entityLink;
 
-      return { ...entityWithLink, linkAttr };
+      return linkAttr ? { ...entityWithLink, linkAttr } : entityWithLink;
     }
 
     return entityWithLink;
