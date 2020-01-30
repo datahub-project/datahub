@@ -4,9 +4,9 @@
  * @interface ITabProperties
  */
 export interface ITabProperties {
-  id: Tab;
+  id: string;
   title: string;
-  component: string;
+  component?: string;
   contentComponent?: string;
   tablistMenuComponent?: string;
   lazyRender?: boolean;
