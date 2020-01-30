@@ -21,7 +21,7 @@
     "postpublish": "ember ts:clean"
   },
   "dependencies": {
-    "@nacho-ui/core": "^0.0.21",
+    "@nacho-ui/core": "0.0.34",
     "ember-cli-babel": "^7.8.0",
     "ember-cli-htmlbars": "^3.0.0",
     "ember-cli-moment-shim": "^3.7.1",
@@ -29,7 +29,7 @@
     "ember-fetch": "^6.4.0",
     "ember-lodash": "^4.18.0",
     "ember-modal-dialog": "^3.0.0-beta.0",
-    "ember-moment": "^7.8.1",
+    "ember-moment": "^8.0.0",
     "ember-radio-button": "^2.0.0",
     "ember-tooltips": "^2.10.0",
     "ember-truth-helpers": "^2.0.0"
@@ -58,7 +58,7 @@
     "ember-cli-sri": "^2.1.1",
     "ember-cli-typescript-blueprints": "^2.0.0",
     "ember-cli-uglify": "^2.1.0",
-    "ember-concurrency": "^1.0.0",
+    "ember-concurrency": "^1.1.5",
     "ember-decorators": "^6.0.0",
     "ember-export-application-global": "^2.0.0",
     "ember-load-initializers": "^2.0.0",
