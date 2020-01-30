@@ -3,8 +3,8 @@ import { refreshModelForQueryParams } from '@datahub/utils/routes/refresh-model-
 import { IUserEntityRouteModel } from '@datahub/user/routes/user/entity';
 import { inject } from '@ember/service';
 import CurrentUser from '@datahub/shared/services/current-user';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
-import { DataModelEntity } from '@datahub/data-models/constants/entity';
+import DataModelsService from '@datahub/data-models/services/data-models';
+import { IEntityRenderCommonPropsSearch } from '@datahub/data-models/types/search/search-entity-render-prop';
 
 /**
  * Query params required to maintain search state in the url
@@ -23,7 +23,8 @@ interface IUserEntityOwnModel extends IUserEntityRouteModel {
   userName: string;
   page: number;
   facets?: string;
-  fields: Array<ISearchEntityRenderProps>;
+  searchConfig: IEntityRenderCommonPropsSearch;
+  hasBrowse: boolean;
 }
 
 /**
@@ -38,6 +39,9 @@ export default class UserEntityOwn extends Route {
   @inject('current-user')
   sessionUser!: CurrentUser;
 
+  @inject('data-models')
+  dataModels!: DataModelsService;
+
   /**
    * Will expose entity from parent route, search query parameters (facets, page) so
    * search container can use it, current user name to fill ownership query and fields to use.
@@ -45,8 +49,9 @@ export default class UserEntityOwn extends Route {
    * it will try to use `userEntityOwnership` if found, falling back to `search` fields.
    */
   model({ page, facets }: IUserEntityOwnQueryParams): IUserEntityOwnModel {
+    const { dataModels } = this;
     const { entity } = this.modelFor('user.entity') as IUserEntityRouteModel;
-    const { renderProps } = DataModelEntity[entity];
+    const { renderProps } = dataModels.getModel(entity);
     const { userEntityOwnership, search } = renderProps;
     const { currentUser } = this.sessionUser;
 
@@ -55,7 +60,8 @@ export default class UserEntityOwn extends Route {
       userName: currentUser ? currentUser.userName : '',
       page: Number(page || 1),
       facets,
-      fields: userEntityOwnership && userEntityOwnership.attributes ? userEntityOwnership.attributes : search.attributes
+      searchConfig: userEntityOwnership || search,
+      hasBrowse: Boolean(renderProps.browse)
     };
   }
 }

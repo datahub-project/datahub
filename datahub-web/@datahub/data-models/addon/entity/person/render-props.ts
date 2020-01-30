@@ -1,5 +1,5 @@
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
-import { Tab } from '@datahub/data-models/constants/entity/shared/tabs';
+import { Tab, ITabProperties } from '@datahub/data-models/constants/entity/shared/tabs';
 import { getTabPropertiesFor } from '@datahub/data-models/entity/utils';
 
 /**
@@ -13,6 +13,7 @@ export interface IPersonEntitySpecificConfigs {
       isConnectedToLinkedin?: boolean;
       isConnectedToSlack?: boolean;
     };
+    tablistMenuProperties: Record<string, Array<ITabProperties>>;
   };
 }
 
@@ -22,20 +23,47 @@ export interface IPersonEntitySpecificConfigs {
  * Implemented as a getter to ensure that reads are idempotent
  */
 export const getRenderProps = (): IEntityRenderProps => {
-  const tabIds = [Tab.Metadata];
+  const tabIds = [Tab.UserOwnership];
 
   return {
     entityPage: {
       tabIds,
+      route: 'user.profile',
       tabProperties: getTabPropertiesFor(tabIds),
-      defaultTab: Tab.Metadata,
+      defaultTab: Tab.UserOwnership,
       attributePlaceholder: '–'
     },
     // Placeholder information
     search: {
-      attributes: [],
-      placeholder: '',
-      apiName: ''
+      attributes: [
+        {
+          fieldName: 'teamTags',
+          showInResultsPreview: true,
+          showInAutoCompletion: false,
+          showInFacets: false,
+          displayName: 'Team',
+          desc: '',
+          example: ''
+        },
+        {
+          fieldName: 'skills',
+          showInResultsPreview: true,
+          showInAutoCompletion: false,
+          showInFacets: false,
+          displayName: 'Ask me about',
+          desc: '',
+          example: ''
+        }
+      ],
+      searchResultEntityFields: {
+        description: 'title',
+        pictureUrl: 'editableInfo.pictureLink',
+        name: 'username'
+      },
+      showFacets: false,
+      placeholder: 'Search for People...',
+      apiName: 'corpuser',
+      autocompleteNameField: 'fullName'
     },
     // Placeholder information
     browse: {
@@ -54,6 +82,7 @@ export const getPersonEntitySpecificRenderProps = (): IPersonEntitySpecificConfi
   userProfilePage: {
     headerProperties: {
       showExternalProfileLink: false
-    }
+    },
+    tablistMenuProperties: {}
   }
 });

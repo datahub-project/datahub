@@ -1,12 +1,15 @@
 $search-result-label-width: 124px;
 
 .search-results {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+
   &__header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     border-bottom: 1px solid get-color(gray2);
-    padding: item-spacing(2 0);
+    padding: item-spacing(5 4 2);
     margin: 0;
   }
 
@@ -19,8 +22,11 @@ $search-result-label-width: 124px;
     margin: 0;
   }
 
+  &__content {
+    padding: 0 item-spacing(4);
+  }
+
   &__pagination {
-    margin: item-spacing(0 -4 -4 -4);
     border-top: 1px solid get-color(gray2);
   }
 }
@@ -29,11 +35,31 @@ $search-result-label-width: 124px;
   // Spacing value between secondary action components
   $action-item-spacing: item-spacing(4);
 
+  display: flex;
   border-bottom: 1px solid get-color(gray1);
   padding: item-spacing(4 0);
 
   &:last-child {
     border: 0;
+  }
+
+  &__image {
+    flex-shrink: 0;
+  }
+
+  &__main {
+    flex-grow: 1;
+  }
+
+  &__entity-img {
+    width: item-spacing(8) + item-spacing(2);
+    height: item-spacing(8) + item-spacing(2);
+    margin-right: item-spacing(3);
+  }
+
+  &__tag-icon {
+    color: $link-color;
+    margin-right: item-spacing(2);
   }
 
   &__title {
@@ -57,10 +83,12 @@ $search-result-label-width: 124px;
     }
   }
 
-  &__title-link {
+  &__title-link,
+  &__title-span {
     margin-right: item-spacing(2);
     text-overflow: ellipsis;
     overflow: hidden;
+    line-height: 1.3;
   }
 
   &__urn {

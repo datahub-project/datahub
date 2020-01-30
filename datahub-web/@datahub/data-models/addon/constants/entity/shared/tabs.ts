@@ -4,9 +4,11 @@
  * @interface ITabProperties
  */
 export interface ITabProperties {
-  id: Tab;
+  id: string;
   title: string;
-  component: string;
+  component?: string;
+  contentComponent?: string;
+  tablistMenuComponent?: string;
   lazyRender?: boolean;
 }
 
@@ -23,7 +25,9 @@ export enum Tab {
   SampleData = 'sample',
   Relationships = 'relationships',
   Metadata = 'metadata',
-  Wiki = 'wiki'
+  Wiki = 'wiki',
+  UserLists = 'userlists',
+  UserOwnership = 'userownership'
 }
 
 /**
@@ -76,5 +80,19 @@ export const TabProperties: Record<Tab, ITabProperties> = {
     title: 'Docs',
     component: 'institutional-memory/containers/tab',
     lazyRender: true
+  },
+  [Tab.UserLists]: {
+    id: Tab.UserLists,
+    title: 'Lists',
+    component: '',
+    contentComponent: '',
+    tablistMenuComponent: 'user/containers/tablist/entity-lists'
+  },
+  [Tab.UserOwnership]: {
+    id: Tab.UserOwnership,
+    title: 'Ownership',
+    component: '',
+    contentComponent: '',
+    tablistMenuComponent: 'user/containers/tablist/entity-ownership'
   }
 };
