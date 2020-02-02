@@ -1,0 +1,8 @@
+{{#if (and @field.showInResultsPreview this.value)}}
+  <div class="search-result__field">
+    <div class="search-result__field-name">{{field.displayName}}</div>
+    <div class="search-result__field-value">
+      <Properties::ValueRenderer @baseClass="search-result" @value={{this.value}} @component={{@field.component}} />
+    </div>
+  </div>
+{{/if}}

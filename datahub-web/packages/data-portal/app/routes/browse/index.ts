@@ -8,6 +8,7 @@ import { unGuardedEntities } from 'wherehows-web/utils/entity/flag-guard';
 import { IDynamicLinkNode } from '@datahub/utils/types/vendor/dynamic-link';
 import { capitalize } from '@ember/string';
 import { getConfig } from 'wherehows-web/services/configurator';
+import { PersonEntity } from '@datahub/data-models/entity/person/person-entity';
 
 /**
  * Links for browse entity. It needs the name of the string, and also it will
@@ -39,17 +40,19 @@ export default class BrowseIndexRoute extends Route.extend(AuthenticatedRouteMix
   }
 
   model(): IBrowseIndexModel {
-    const entities: IBrowseIndexModel['entities'] = unGuardedEntities(getConfig).map(
-      (entity: DataModelEntity): IBrowseEntityLink => ({
-        title: capitalize(entity.displayName),
-        text: '',
-        route: 'browse.entity',
-        model: [String(entity.displayName).toLowerCase()], // Normalize casing between BaseEntity and entityDefinition type string values
-        queryParams: {
-          path: null
-        }
-      })
-    );
+    const entities: IBrowseIndexModel['entities'] = unGuardedEntities(getConfig)
+      .filter((entity): boolean => entity.displayName !== PersonEntity.displayName)
+      .map(
+        (entity: DataModelEntity): IBrowseEntityLink => ({
+          title: capitalize(entity.displayName),
+          text: '',
+          route: 'browse.entity',
+          model: [String(entity.displayName).toLowerCase()], // Normalize casing between BaseEntity and entityDefinition type string values
+          queryParams: {
+            path: null
+          }
+        })
+      );
 
     return {
       entities
