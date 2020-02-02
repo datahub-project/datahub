@@ -1,0 +1,7 @@
+{{#if (is-empty @value)}}
+  -
+{{else if @component}}
+  {{component @component.name options=@component.options value=@value}}
+{{else}}
+  {{@value}}
+{{/if}}
