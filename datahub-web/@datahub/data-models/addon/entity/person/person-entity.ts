@@ -167,7 +167,11 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   /**
    * A list of skills that this particular person entity has declared to own.
    */
-  skills: Array<string> = [];
+  @computed('entity.editableInfo.skills')
+  get skills(): Array<string> {
+    const { entity } = this;
+    return (entity && entity.editableInfo && entity.editableInfo.skills) || [];
+  }
 
   /**
    * A link to the user's linkedin profile
