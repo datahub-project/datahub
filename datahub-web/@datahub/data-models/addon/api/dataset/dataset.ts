@@ -1,5 +1,5 @@
 import { ApiVersion, getApiRoot } from '@datahub/utils/api/shared';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { getJSON } from '@datahub/utils/api/fetcher';
 import { encodeUrn } from '@datahub/utils/validators/urn';
 
@@ -22,5 +22,5 @@ export const datasetUrlByUrn = (urn: string): string => `${datasetUrlRoot(ApiVer
  * @param {string} urn
  * @returns {Promise<IDatasetApiView>}
  */
-export const readDataset = (urn: string): Promise<IDatasetApiView> =>
-  getJSON({ url: datasetUrlByUrn(encodeUrn(urn)) }).then(({ dataset }) => dataset);
+export const readDataset = (urn: string): Promise<IDatasetEntity> =>
+  getJSON({ url: datasetUrlByUrn(urn) }).then(({ dataset }): IDatasetEntity => dataset);

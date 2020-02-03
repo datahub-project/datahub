@@ -3,15 +3,15 @@ import { task, Task } from 'ember-concurrency';
 import { LineageList, IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
 import { readDownstreamDatasetsByUrn, readUpstreamDatasetsByUrn } from 'wherehows-web/utils/api/datasets/lineage';
 import { containerDataSource } from '@datahub/utils/api/data-source';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import GraphDb, { INode } from 'wherehows-web/utils/graph-db';
 import { action } from '@ember/object';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 
 /**
  * Container component for the lineage graph. Will use upstream and downstream to generate the graph
  */
-@containerDataSource('firstLoadTask', ['dataset'])
+@containerDataSource<DatasetRelationshipLevels>('firstLoadTask', ['dataset'])
 export default class DatasetRelationshipLevels extends Component {
   /**
    * GraphDb will be the one contain the nodes and edges. It will help us to generate the graph
@@ -23,7 +23,7 @@ export default class DatasetRelationshipLevels extends Component {
   /**
    * This is the dataset that we need to show upstream and downstream data
    */
-  dataset!: IDatasetView;
+  dataset!: IDatasetEntity;
 
   /**
    * This task will fetch lineage data for a node. If a node is downtream, it will load children

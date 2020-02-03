@@ -3,8 +3,11 @@ import { classNames } from '@ember-decorators/component';
 import { computed } from '@ember/object';
 import GraphDb, { INode, IEdge } from 'wherehows-web/utils/graph-db';
 import { IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
+import {
+  ISearchEntityRenderProps,
+  IEntityRenderCommonPropsSearch
+} from '@datahub/data-models/types/search/search-entity-render-prop';
 
 /**
  * Interface that adds more fields to a standard node
@@ -92,32 +95,36 @@ export default class DatasetRelationshipLevels extends Component {
    * Also we are going to add a couple of more properties that belongs to the node
    * and lineage relation.
    */
-  myFields: Array<ISearchEntityRenderProps> = [
-    ...DatasetEntity.renderProps.search.attributes.map(field => ({
-      ...field,
-      fieldName: `payload.dataset.${field.fieldName}`
-    })),
-    {
-      ...defaultField,
-      fieldName: 'payload.type',
-      displayName: 'Type'
-    },
-    {
-      ...defaultField,
-      fieldName: 'payload.actor',
-      displayName: 'Actor'
-    },
-    {
-      ...defaultField,
-      fieldName: 'nChildren',
-      displayName: '# Children'
-    },
-    {
-      ...defaultField,
-      fieldName: 'nParents',
-      displayName: '# Parents'
-    }
-  ];
+  searchConfig: IEntityRenderCommonPropsSearch = {
+    attributes: [
+      ...DatasetEntity.renderProps.search.attributes.map(
+        (field): ISearchEntityRenderProps => ({
+          ...field,
+          fieldName: `payload.dataset.${field.fieldName}`
+        })
+      ),
+      {
+        ...defaultField,
+        fieldName: 'payload.type',
+        displayName: 'Type'
+      },
+      {
+        ...defaultField,
+        fieldName: 'payload.actor',
+        displayName: 'Actor'
+      },
+      {
+        ...defaultField,
+        fieldName: 'nChildren',
+        displayName: '# Children'
+      },
+      {
+        ...defaultField,
+        fieldName: 'nParents',
+        displayName: '# Parents'
+      }
+    ]
+  };
 
   /**
    * We are going to transform nodes and edges into a graphDb for
@@ -140,8 +147,8 @@ export default class DatasetRelationshipLevels extends Component {
   getShouldShow(node: INode<IDatasetLineage>): boolean {
     const children = this.graphDb.childrenByNodeId[node.id];
     const parents = this.graphDb.parentsByNodeId[node.id];
-    const parentSelected = parents.any(parent => !!parent.selected);
-    const childSelected = children.any(child => !!child.selected);
+    const parentSelected = parents.any((parent): boolean => !!parent.selected);
+    const childSelected = children.any((child): boolean => !!child.selected);
     const isRootNode = node.level === 0;
     const isDownStreamNodeWithParentSelected = parentSelected && node.level > 0;
     const isUpStreamNodeWithNodeSelected = childSelected && node.level < 0;
@@ -187,11 +194,13 @@ export default class DatasetRelationshipLevels extends Component {
    */
   @computed('graphDb.nodes')
   get decoratedNodes(): Array<IExpandedNode<IDatasetLineage>> {
-    return this.graphDb.nodes.map(node => ({
-      ...node,
-      nChildren: node.loaded || node.level < 0 ? `${this.graphDb.childrenByNodeId[node.id].length}` : '-',
-      nParents: node.loaded || node.level > 0 ? `${this.graphDb.parentsByNodeId[node.id].length}` : '-'
-    }));
+    return this.graphDb.nodes.map(
+      (node): IExpandedNode<IDatasetLineage> => ({
+        ...node,
+        nChildren: node.loaded || node.level < 0 ? `${this.graphDb.childrenByNodeId[node.id].length}` : '-',
+        nParents: node.loaded || node.level > 0 ? `${this.graphDb.parentsByNodeId[node.id].length}` : '-'
+      })
+    );
   }
 
   /**
@@ -200,7 +209,7 @@ export default class DatasetRelationshipLevels extends Component {
    */
   @computed('decoratedNodes')
   get computedNodes(): Array<ILevel> {
-    return this.decoratedNodes.reduce((nodesArr: Array<ILevel>, node) => {
+    return this.decoratedNodes.reduce((nodesArr: Array<ILevel>, node): Array<ILevel> => {
       const positionArray = node.level - this.graphDb.minLevel;
       const newLevel = nodesArr[positionArray] || this.generateLevel(node);
       const result = [...nodesArr];
