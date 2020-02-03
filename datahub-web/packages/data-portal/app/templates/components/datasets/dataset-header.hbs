@@ -2,13 +2,10 @@
   <div class="container">
     <div class="dataset-meta-properties">
       <h3 class="dataset-name">
-        {{compute
-          (get (get-field-spec @fields "name") "compute")
-          @model
-        }}
+        {{@model.nativeName}}
       </h3>
 
-      {{#if model.removed}}
+      {{#if @model.removed}}
         <span class="removed-dataset dataset-pill">
           REMOVED
 
@@ -32,7 +29,7 @@
 
       {{/if}}
 
-      {{#if model.deprecated}}
+      {{#if @model.deprecated}}
 
         <span class="deprecated-dataset dataset-pill">
           {{#link-to "datasets.dataset.tab" encodedUrn "properties"}}
