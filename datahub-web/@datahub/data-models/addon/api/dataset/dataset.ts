@@ -20,7 +20,7 @@ export const datasetUrlByUrn = (urn: string): string => `${datasetUrlRoot(ApiVer
 /**
  * Queries the Feature endpoint with the urn provided to retrieve entity information
  * @param {string} urn
- * @returns {Promise<IDatasetApiView>}
+ * @returns {Promise<IDatasetEntity>}
  */
 export const readDataset = (urn: string): Promise<IDatasetEntity> =>
   getJSON({ url: datasetUrlByUrn(urn) }).then(({ dataset }): IDatasetEntity => dataset);
