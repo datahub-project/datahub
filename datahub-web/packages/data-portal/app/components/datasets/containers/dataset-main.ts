@@ -1,5 +1,4 @@
 import Component from '@ember/component';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { computed, action } from '@ember/object';
 import { or } from '@ember/object/computed';
 import { get } from '@ember/object';
@@ -16,10 +15,10 @@ import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/datase
 import { DatasetEntity, createDatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
 import { encodeUrn } from '@datahub/utils/validators/urn';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { containerDataSource } from '@datahub/utils/api/data-source';
 import { task } from 'ember-concurrency';
 import { ETaskPromise } from '@datahub/utils/types/concurrency';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 
 /**
  * This file is a replacement of the DatasetController. Still there is too much
@@ -41,7 +40,7 @@ export default class DatasetMainContainer extends Component {
    * @type {IDatasetView}
    * @memberof DatasetMainContainer
    */
-  dataset: IDatasetView;
+  dataset: IDatasetEntity;
 
   /**
    * Current metricUrn query parameter
@@ -201,7 +200,7 @@ export default class DatasetMainContainer extends Component {
     const { dataset } = this;
 
     if (dataset) {
-      const entity: DatasetEntity = yield createDatasetEntity(this.dataset.uri, this.dataset as IDatasetApiView);
+      const entity: DatasetEntity = yield createDatasetEntity(this.dataset.uri, this.dataset);
 
       set(this, 'entity', entity);
     }

@@ -12,11 +12,11 @@
       <div class="dataset-relationship-levels__level-content">
         {{#each level.nodes as |node|}}
           {{#if (or (and level.collapsed node.selected) (not level.collapsed)) }}
-            {{#search/search-result
-              classNames=(concat "dataset-relationship-levels__node " (if node.selected "dataset-relationship-levels__node--selected"))
-              result=node
-              resultFields=myFields
-            }}
+            <Search::SearchResult
+              @classNames={{concat "dataset-relationship-levels__node " (if node.selected "dataset-relationship-levels__node--selected")}}
+              @result={{node}}
+              @searchConfig={{this.searchConfig}}
+            >
               <button
                 class="nacho-button nacho-button--tertiary dataset-relationship-levels__button"
                 {{action toggleNode node}}
@@ -27,7 +27,7 @@
               {{#link-to "datasets.dataset" node.payload.dataset.uri}}
                 {{fa-icon "link"}}
               {{/link-to}}
-            {{/search/search-result}}
+            </Search::SearchResult>
           {{/if}}
         {{/each}}
       </div>

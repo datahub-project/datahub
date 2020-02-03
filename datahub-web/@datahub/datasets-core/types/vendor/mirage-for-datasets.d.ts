@@ -1,5 +1,5 @@
 import { IDatasetSchemaColumn } from '@datahub/metadata-types/types/entity/dataset/scehma';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { IDataPlatform } from '@datahub/metadata-types/types/entity/dataset/platform';
 
 type SchemaDb<T> = Array<T> & {
@@ -17,7 +17,7 @@ type SchemaDb<T> = Array<T> & {
 export interface IMirageDatasetCoreSchema {
   db: {
     datasetSchemaColumns: SchemaDb<IDatasetSchemaColumn>;
-    datasetViews: SchemaDb<IDatasetApiView>;
+    datasetViews: SchemaDb<IDatasetEntity>;
     platforms: SchemaDb<IDataPlatform>;
   };
 }
