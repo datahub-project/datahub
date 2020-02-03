@@ -1,5 +1,5 @@
 import { BaseEntity, IBaseEntityStatics, statics } from '@datahub/data-models/entity/base-entity';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { readDataset } from '@datahub/data-models/api/dataset/dataset';
 import { readDatasetSchema } from '@datahub/data-models/api/dataset/schema';
 import DatasetSchema from '@datahub/data-models/entity/dataset/modules/schema';
@@ -41,8 +41,8 @@ const returnValueIfNotFound = <T>(value: T): ((e: Error) => T) => (e: Error): T 
 /**
  * Defines the data model for the Dataset entity.
  */
-@statics<IBaseEntityStatics<IDatasetApiView>>()
-export class DatasetEntity extends BaseEntity<IDatasetApiView> {
+@statics<IBaseEntityStatics<IDatasetEntity>>()
+export class DatasetEntity extends BaseEntity<IDatasetEntity> {
   /**
    * The human friendly alias for Dataset entities
    */
@@ -125,7 +125,7 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
   /**
    * Retrieves the value of the Dataset entity identified by this.urn
    */
-  get readEntity(): Promise<IDatasetApiView> {
+  get readEntity(): Promise<IDatasetEntity> {
     return readDataset(this.urn);
   }
 
@@ -251,7 +251,7 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
     return await readDatasetsCount({ platform: category || '', prefix });
   }
 
-  constructor(readonly urn: string, entityData?: IDatasetApiView) {
+  constructor(readonly urn: string, entityData?: IDatasetEntity) {
     super(urn);
     // Sometimes we do not need readEntity to get this information as it was already provided by another entity
     // and we can just instantiate the class with it
@@ -267,7 +267,7 @@ export class DatasetEntity extends BaseEntity<IDatasetApiView> {
  * expected dataset behavior, we may find a use case to rely on that function rather than use of this custom one
  * @param {string} urn - provides the context for what dataset entity to create by its urn identifier
  */
-export const createDatasetEntity = async (urn: string, fetchedEntity?: IDatasetApiView): Promise<DatasetEntity> => {
+export const createDatasetEntity = async (urn: string, fetchedEntity?: IDatasetEntity): Promise<DatasetEntity> => {
   const dataset = new DatasetEntity(urn);
   const entity = fetchedEntity || (await dataset.readEntity);
 

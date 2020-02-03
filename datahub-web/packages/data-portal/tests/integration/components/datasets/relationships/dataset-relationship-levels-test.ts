@@ -6,9 +6,9 @@ import { createGraph } from 'wherehows-web/tests/helpers/graph-db';
 import { setProperties } from '@ember/object';
 import { TestContext } from 'ember-test-helpers';
 import { IDatasetLineage } from 'wherehows-web/typings/api/datasets/relationships';
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { getTextNoSpaces } from '@datahub/utils/test-helpers/dom-helpers';
 import { IEdge, INode } from 'wherehows-web/utils/graph-db';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 
 type MyTest = TestContext & {
   nodes: Array<INode<IDatasetLineage>>;
@@ -16,17 +16,17 @@ type MyTest = TestContext & {
   toggleNode: () => void;
 };
 
-module('Integration | Component | datasets/relationships/dataset-relationship-levels', function(hooks) {
+module('Integration | Component | datasets/relationships/dataset-relationship-levels', function(hooks): void {
   setupRenderingTest(hooks);
 
-  test('it renders', async function(this: MyTest, assert) {
+  test('it renders', async function(this: MyTest, assert): Promise<void> {
     const { graphDb, node0 } = createGraph<IDatasetLineage>((id: number) => ({
       actor: `actor ${id}`,
       // For testing purposes assuming the incorrect type assertion
       // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
       dataset: {
         nativeName: `dataset ${id}`
-      } as IDatasetView,
+      } as IDatasetEntity,
       type: `type ${id}`
     }));
     graphDb.nodes.forEach(node =>
@@ -41,7 +41,7 @@ module('Integration | Component | datasets/relationships/dataset-relationship-le
     setProperties(this, {
       nodes: graphDb.nodes,
       edges: graphDb.edges,
-      toggleNode: () => undefined
+      toggleNode: (): undefined => undefined
     });
 
     await render(hbs`{{datasets/relationships/dataset-relationship-levels

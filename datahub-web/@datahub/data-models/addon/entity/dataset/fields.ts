@@ -1,6 +1,4 @@
-import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
-import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { ISearchEntityRenderProps } from '@datahub/data-models/types/search/search-entity-render-prop';
 
 /**
  * Fields for dataset
@@ -22,18 +20,7 @@ export const fields: Array<ISearchEntityRenderProps> = [
     displayName: 'name',
     showInFacets: false,
     desc: 'The name of the dataset',
-    example: 'name:TRACKING.PageViewEvent',
-    compute(dataset: IDatasetApiView): string {
-      const name = dataset.nativeName;
-      const platform: DatasetPlatform = dataset.platform;
-      // UMP datasets have been defined as <bucket>.<datasetName> format, so we want to extract out only
-      // the name part to display
-      if (platform === DatasetPlatform.UMP) {
-        return name.split('.')[1] || name;
-      }
-
-      return name;
-    }
+    example: 'name:TRACKING.PageViewEvent'
   },
   {
     showInAutoCompletion: true,

@@ -1,8 +1,7 @@
 import { FabricType } from '@datahub/metadata-types/constants/common/fabric-type';
 import { DatasetPlatform } from '@datahub/metadata-types/constants/entity/dataset/platform';
-import { IBaseEntity } from '@datahub/metadata-types/types/entity';
 
-export interface IDatasetApiView extends IBaseEntity {
+export interface IDatasetEntity {
   createdTime: number;
   decommissionTime: number | null;
   // Whether or not the dataset has been deprecated (slightly different from removed)

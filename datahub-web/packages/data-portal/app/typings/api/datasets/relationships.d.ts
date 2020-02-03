@@ -1,5 +1,5 @@
-import { IDatasetView } from 'wherehows-web/typings/api/datasets/dataset';
 import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 
 // TODO: [META-8686] These lineage API items are still in place here as there is some difference
 // in the typings and the actual handling that make the two currently incompatible with a simple
@@ -7,7 +7,7 @@ import { INachoDropdownOption } from '@nacho-ui/dropdown/types/nacho-dropdown';
 // that these should be migrated to
 
 /**
- * Alias for a drop-down option based on an IDatasetView nativeType
+ * Alias for a drop-down option based on an IDatasetEntity nativeType
  * @alias
  * @type RelationshipType
  */
@@ -18,7 +18,7 @@ export type RelationshipType = INachoDropdownOption<string>;
  * the type of dataset, type of lineage, and actor urn that modified that relationship
  */
 export interface IDatasetLineage {
-  dataset: IDatasetView;
+  dataset: IDatasetEntity;
   type: string;
   actor: string;
 }
