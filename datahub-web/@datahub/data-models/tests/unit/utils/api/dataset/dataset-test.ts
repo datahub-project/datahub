@@ -3,7 +3,7 @@ import { module } from 'qunit';
 import test from 'ember-sinon-qunit/test-support/test';
 import { setupSinonTest } from 'dummy/tests/helpers/setup-sinon-test';
 import { readDataset } from '@datahub/data-models/api/dataset/dataset';
-import { IDatasetApiView } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
+import { IDatasetEntity } from '@datahub/metadata-types/types/entity/dataset/dataset-entity';
 import { mockDatasetEntity } from 'dummy/constants/mocks/dataset';
 
 module('Unit | Utility | api/dataset/dataset', function(hooks) {
@@ -11,7 +11,7 @@ module('Unit | Utility | api/dataset/dataset', function(hooks) {
 
   test('readDataset() is a thennable', async function(this: SinonTestContext, assert) {
     assert.expect(2);
-    const testDataset: IDatasetApiView = mockDatasetEntity();
+    const testDataset: IDatasetEntity = mockDatasetEntity();
     const setupValue = setupSinonTest(this);
 
     const response = readDataset('urn');
