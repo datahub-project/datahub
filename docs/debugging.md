@@ -1,6 +1,6 @@
 # Frequently Asked Questions (FAQ)
 
-1. How can I check if [MXE](what/mxe.md) Kafka topics are created?
+## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
 You can use a utility like [kafkacat](https://github.com/edenhill/kafkacat) to list all topics. 
 You can run below command to see the Kafka topics created in your Kafka broker.
@@ -77,7 +77,7 @@ Metadata for all topics (from broker 1: localhost:9092/1):
     partition 0, leader 1, replicas: 1, isrs: 1
 ```
 
-2. How can I check if search indices are created in Elasticsearch?
+## How can I check if search indices are created in Elasticsearch?
 
 You can run below command to see the search indices created in your Elasticsearch.
 
@@ -98,3 +98,8 @@ yellow open .monitoring-alerts-6            qEAoSNpTRRyqO7fqAzwpeg 1 1     1  0 
 yellow open .triggered_watches              7g7_MGXFR7mBx0FwQzxpUg 1 1     0  0  48.1kb  48.1kb
 yellow open .kibana                         HEQj4GnTQauN3HkwM8CPng 1 1     1  0   3.2kb   3.2kb
 ```
+
+## Getting `cannot start service {X}` error while starting Docker containers.
+There can be different reasons why a container fails during initialization. Below are the most common reasons:
+### bind: address already in use
+This error means that the network port (which is supposed to be used by the failed container) is already in use by your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If, for some reason, you don't want to kill the process which is using that port, another option is to change the port number for Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
