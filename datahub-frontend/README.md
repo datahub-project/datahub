@@ -1,6 +1,6 @@
 # DataHub Frontend
 DataHub frontend is a [Play](https://www.playframework.com/) service written in Java. It is served as a mid-tier
-between [DataHub GMS](../gms) which is the backend service and [DataHub UI](../datahub-web).
+between [DataHub GMS](../gms) which is the backend service and [DataHub Web](../datahub-web).
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) 
