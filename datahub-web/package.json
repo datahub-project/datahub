@@ -7,7 +7,8 @@
     "lint:js": "eslint . --ext .js --ext .ts --quiet",
     "lint:jsfix": "eslint . --ext .js --ext .ts --quiet --fix",
     "test": "wsrun --serial test",
-    "commit-test": "lint-staged"
+    "commit-test": "lint-staged",
+    "dev": "./node_modules/.bin/ember s --proxy http://localhost:9001"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^1.13.0",
