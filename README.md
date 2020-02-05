@@ -39,8 +39,7 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 * [Metadata Ingestion](metadata-ingestion)
 
 ## Releases
-* 2019/09/21: [v0.1.0-alpha](https://github.com/linkedin/datahub/releases/tag/datahub-v0.1.0-alpha)
-* 2019/12/05: [v0.2.0-alpha](https://github.com/linkedin/datahub/releases/tag/datahub-v0.2.0-alpha)
+See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
 ## Roadmap
 1. [Kubernetes](https://kubernetes.io/) for container orchestration
