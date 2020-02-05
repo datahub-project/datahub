@@ -1,4 +1,4 @@
-# Frequently Asked Questions (FAQ)
+# Debugging Guide
 
 ## How can I check if [MXE](what/mxe.md) Kafka topics are created?
 
