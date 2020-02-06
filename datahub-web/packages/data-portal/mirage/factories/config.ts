@@ -47,9 +47,9 @@ export default Factory.extend({
   userEntityProps() {
     return {
       aviUrlPrimary:
-        'https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png',
+        'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png',
       aviUrlFallback:
-        'https://raw.githubusercontent.com/linkedin/WhereHows/datahub/datahub-web/packages/data-portal/public/assets/images/default_avatar.png'
+        'https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web/packages/data-portal/public/assets/images/default_avatar.png'
     };
   }
 });
