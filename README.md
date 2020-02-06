@@ -15,16 +15,17 @@ This repository contains the complete source code to be able to build DataHub's 
 ## Quickstart
 1. Install [docker](https://docs.docker.com/install/) and [docker-compose](https://docs.docker.com/compose/install/).
 2. Clone this repo.
-3. Run below command to download and run all Docker containers in your local:
+3. Open Docker either from the command line or the Desktop app and ensure it is up and running then `cd` into the cloned`datahub` repo.
+4. Run below command to download and run all Docker containers in your local:
 ```
 cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
-4. After you have all Docker containers running in your machine, run below command to ingest provided sample data to DataHub:
+5. After you have all Docker containers running in your machine, run below command to ingest provided sample data to DataHub:
 ```
 docker build -t ingestion -f docker/ingestion/Dockerfile . && cd docker/ingestion && docker-compose up
 ```
 
-5. Finally, you can start `DataHub` by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password.
+6. Finally, you can start `DataHub` by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password.
 
 Refer to [debugging guide](docs/debugging.md) if you have issues in any of the above steps.
 
