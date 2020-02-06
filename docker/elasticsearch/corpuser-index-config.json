@@ -43,8 +43,7 @@
           },
           "lowercase_keyword": {
             "filter": [
-              "lowercase",
-              "autocomplete_filter"
+              "lowercase"
             ],
             "type": "custom",
             "tokenizer": "keyword"
