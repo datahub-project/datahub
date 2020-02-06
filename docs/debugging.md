@@ -104,7 +104,8 @@ There can be different reasons why a container fails during initialization. Belo
 ### bind: address already in use
 This error means that the network port (which is supposed to be used by the failed container) is already in use by your system. You need to find and kill the process which is using this specific port before starting the corresponding Docker container. If, for some reason, you don't want to kill the process which is using that port, another option is to change the port number for Docker container. You need to find and change the [ports](https://docs.docker.com/compose/compose-file/#ports) parameter for the specific Docker container in the `docker-compose.yml` configuration file.
 
-```Example : On MacOs
+```
+Example : On MacOs
 
 ERROR: for mysql  Cannot start service mysql: driver failed programming external connectivity on endpoint mysql (5abc99513affe527299514cea433503c6ead9e2423eeb09f127f87e2045db2ca): Error starting userland proxy: listen tcp 0.0.0.0:3306: bind: address already in use
 
