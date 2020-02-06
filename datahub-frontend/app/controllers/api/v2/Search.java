@@ -12,6 +12,7 @@ import play.mvc.Controller;
 import play.mvc.Result;
 import play.mvc.Security;
 import utils.ControllerUtil;
+import utils.SearchUtil;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -69,7 +70,11 @@ public class Search extends Controller {
         return badRequest("Bad Request. type parameter can not be null or empty");
       }
 
-      String input = request().getQueryString(REQUEST_INPUT);
+      // escape forward slash since it is a reserved character in Elasticsearch
+      // TODO: Once apis for exact or advanced(with support for field specific/regex) search are exposed,
+      //  update to call appropriate api based on indication from user.
+      final String input = SearchUtil
+              .escapeForwardSlash(Strings.nullToEmpty(request().getQueryString(REQUEST_INPUT)));
       if (isBlank(input)) {
         return badRequest("Bad Request. input parameter can not be null or empty");
       }
@@ -101,12 +106,16 @@ public class Search extends Controller {
         return badRequest("Bad Request. type parameter can not be null or empty");
       }
 
-      String input = Strings.nullToEmpty(request().getQueryString(REQUEST_INPUT));
-
       String field = request().getQueryString(REQUEST_FIELD);
       if (isBlank(field)) {
         return badRequest("Bad Request. field parameter can not be null or empty");
       }
+
+      // escape forward slash since it is a reserved character in Elasticsearch
+      // TODO: Once apis for exact or advanced(with support for field specific/regex) search are exposed,
+      //  update to call appropriate api based on indication from user.
+      final String input = SearchUtil
+              .escapeForwardSlash(Strings.nullToEmpty(request().getQueryString(REQUEST_INPUT)));
 
       int limit = NumberUtils.toInt(request().getQueryString(REQUEST_LIMIT), _DEFAULT_LIMIT_VALUE);
 
