@@ -23,7 +23,6 @@ cd docker/quickstart && docker-compose pull && docker-compose up --build
 ```
 docker build -t ingestion -f docker/ingestion/Dockerfile . && cd docker/ingestion && docker-compose up
 ```
-Note: Make sure that you're using Java 8, we have a strict dependency to Java 8 for build.
 
 5. Finally, you can start `DataHub` by opening [http://localhost:9001](http://localhost:9001) in your browser. You can sign in using `datahub` as both username and password.
 
