@@ -31,7 +31,7 @@ datahub> ./gradlew emberBuild
 ```
 or
 
-```shell script
+```sh
 datahub> ./gradlew :datahub-web:build
 ```
 
@@ -39,13 +39,13 @@ Building will run the monorepo test suite and transpile the TypeScript applicati
 
 ## Developing & Running the web application
 Once [DataHub GMS](../gms) and the [DataHub Frontend](../datahub-frontend) are running you can start [DataHub Web](./) by running:
-```shell script
+```sh
 datahub> ./gradew emberServe
 ```
 
 or
 
-```shell script
+```sh
 datahub-web> yarn # To install dependencies, if you skipped the build step above
 datahub-web> yarn run dev # serve the ember application
 ```
@@ -55,23 +55,23 @@ NOTE: If you are running [DataHub Frontend](../datahub-frontend) on a port other
 ## Testing
 
 To run all tests
-```shell script
+```sh
 datahub> ./gradlew emberTest
 ```
 
 or
 
-```shell script
+```sh
 datahub> yarn test
 ```
 
 To run test for a specific package / workspace in the [DataHub Web](./) monorepo, you can execute
-```shell script
+```sh
 datahub> yarn workspace <WORKSPACE_NAME> test # where WORKSPACE_NAME is a yarn workspace in @datathub/
 ```
 
 For example:
-```shell script
+```sh
 datahub> yarn workspace @datahub/data-models test
 ```
 
