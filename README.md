@@ -35,6 +35,7 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 * [DataHub Onboarding Guide](docs/how/entity-onboarding.md)
 * [Docker Images](docker)
 * [Frontend App](datahub-frontend)
+* [Web Client App](datahub-web)
 * [Generalized Metadata Service](gms)
 * [Metadata Consumer Jobs](metadata-jobs)
 * [Metadata Ingestion](metadata-ingestion)
