@@ -24,7 +24,7 @@ Also you can check individual Docker container logs by running `docker logs <<co
 2020-02-06 09:20:54.870:INFO:oejs.Server:main: Started @18807ms
 ```
 
-For `datahub-frontend`, you should a log similar to this at the end of the initialization:
+For `datahub-frontend`, you should see a log similar to this at the end of the initialization:
 ```
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9001
 ```
@@ -139,5 +139,5 @@ Example : On MacOs
 ERROR: for mysql  Cannot start service mysql: driver failed programming external connectivity on endpoint mysql (5abc99513affe527299514cea433503c6ead9e2423eeb09f127f87e2045db2ca): Error starting userland proxy: listen tcp 0.0.0.0:3306: bind: address already in use
 
    1) sudo lsof -i :3306
-   2) kill -15 <PID found in step1> 
+   2) kill -15 <PID found in step1>
 ``` 
