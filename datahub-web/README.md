@@ -18,7 +18,7 @@ datahub-web
 ```
 
 ## Prerequisites
-* https://github.com/linkedin/datahub/blob/master/datahub-frontend/README.md#pre-requisites
+* [Also see Frontend](https://github.com/linkedin/datahub/blob/master/datahub-frontend/README.md#pre-requisites)
 * Other dependencies are installed as part of the build step
 
 ## Build
