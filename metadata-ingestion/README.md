@@ -38,7 +38,7 @@ optional arguments:
 ```
 
 ## Bootstrapping DataHub
-Leverage the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
+Run the mce-cli to quickly ingest lots of sample data and test DataHub in action, you can run below command:
 ```
 ➜  python mce_cli.py produce -d bootstrap_mce.dat
 Producing MetadataChangeEvent records to topic MetadataChangeEvent. ^c to exit.
@@ -48,7 +48,7 @@ Flushing records...
 ```
 This will bootstrap DataHub with sample datasets and sample users.
 
-## Ingest metadata from LDAP server to DataHub
+## Ingest metadata from LDAP to DataHub
 The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 ➜  Config your LDAP server environmental variable in the file.
@@ -70,7 +70,7 @@ The ldap_etl provides you ETL channel to communicate with your LDAP server.
 ```
 This will bootstrap DataHub with your metadata in the LDAP server as an user entity.
 
-## Ingest metadata from hive store to DataHub
+## Ingest metadata from Hive to DataHub
 The hive_etl provides you ETL channel to communicate with your hive store.
 ```
 ➜  Config your hive store environmental variable in the file.
@@ -86,7 +86,7 @@ The hive_etl provides you ETL channel to communicate with your hive store.
 ```
 This will bootstrap DataHub with your metadata in the hive store as a dataset entity.
 
-## Ingest metadata from kafka zookeeper and avro schema registry to DataHub
+## Ingest metadata from Kafka to DataHub
 The kafka_etl provides you ETL channel to communicate with your kafka.
 ```
 ➜  Config your kafka environmental variable in the file.
