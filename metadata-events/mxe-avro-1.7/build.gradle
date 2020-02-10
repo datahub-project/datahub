@@ -1,7 +1,3 @@
-plugins {
-  id 'com.commercehub.gradle.plugin.avro' version '0.8.0'
-}
-
 configurations {
   avsc
 }
