@@ -12,6 +12,8 @@ dependencies {
   compile externalDependency.jacksonCore
   compile externalDependency.jacksonDataBind
 
+  annotationProcessor externalDependency.lombok
+
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile project(':metadata-testing:metadata-test-models')
   testCompile externalDependency.testng

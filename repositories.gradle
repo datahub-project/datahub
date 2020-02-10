@@ -1,11 +1,13 @@
 repositories {
+    gradlePluginPortal()
+    jcenter()
     mavenLocal()
     mavenCentral()
     maven {
         url "https://packages.confluent.io/maven/"
     }
     maven {
-        url "https://dl.bintray.com/radai-rosenblatt/avro-util/"
+        url "https://dl.bintray.com/gradle/gradle-plugins"
     }
     maven {
         url "https://plugins.gradle.org/m2/"

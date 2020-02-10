@@ -7,5 +7,7 @@ dependencies {
 
   compileOnly externalDependency.lombok
 
+  annotationProcessor externalDependency.lombok
+
   testCompile externalDependency.guava
 }
