@@ -44,6 +44,9 @@ Refer to [debugging guide](docs/debugging.md) if you have issues in any of the a
 ## Releases
 See [Releases](https://github.com/linkedin/datahub/releases) page for more details.
 
+## Contributing
+We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
+
 ## Roadmap
 1. [Kubernetes](https://kubernetes.io/) for container orchestration
 2. Deploy DataHub to [Azure Cloud](https://azure.microsoft.com/en-us/)
