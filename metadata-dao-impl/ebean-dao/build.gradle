@@ -13,6 +13,8 @@ dependencies {
   compileOnly externalDependency.ebeanAgent
   compileOnly externalDependency.lombok
 
+  annotationProcessor externalDependency.lombok
+
   testCompile project(':metadata-testing:metadata-test-models')
   testCompile project(':metadata-testing:metadata-test-utils')
   testCompile externalDependency.h2
@@ -26,7 +28,7 @@ project.compileJava {
   doLast {
     ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
         classpath: project.configurations.enhance.asPath)
-    ant.ebean(classSource: project.sourceSets.main.output.classesDir, packages: 'com.linkedin.metadata.dao',
+    ant.ebean(classSource: "${project.buildDir}/classes/java/main", packages: 'com.linkedin.metadata.dao',
         transformArgs: 'debug=1')
   }
 }
