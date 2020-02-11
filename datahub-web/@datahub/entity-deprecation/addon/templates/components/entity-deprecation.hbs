@@ -80,27 +80,13 @@
         {{if decommissionTime (concat 'Will be decommissioned on ' (moment-format decommissionTime 'MMMM DD YYYY')) ''}}
       </strong>
     </p>
-
-    <span>
-      {{input
-        type="checkbox"
-        name="deprecated.acknowledge"
-        id="acknowledge-deprecation"
-        checked=(readonly isDeprecationAcknowledged)
-        change=(action "onAcknowledgeDeprecationNotice")}}
-
-      <label for="acknowledge-deprecation">
-        {{partial deprecationAcknowledgementTemplate}}
-      </label>
-    </span>
-
   {{/if}}
 
   <div class="entity-deprecation__actions">
     <button
       type="submit"
       class="nacho-button--large nacho-button--secondary"
-      disabled={{and isDeprecatedAlias (or (not decommissionTime) (not isDeprecationAcknowledged))}}>
+      disabled={{and isDeprecatedAlias (not decommissionTime)}}>
       Update Deprecation Status
     </button>
   </div>

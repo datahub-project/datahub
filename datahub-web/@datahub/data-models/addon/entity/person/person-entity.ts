@@ -11,7 +11,7 @@ import { BaseEntity, statics, IBaseEntityStatics } from '@datahub/data-models/en
 import { IEntityRenderProps } from '@datahub/data-models/types/entity/rendering/entity-render-props';
 import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { IPersonEntityEditableProperties } from '@datahub/data-models/types/entity/person/props';
-import { ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
+import { ICorpUserEditableInfo, ICorpUserInfo } from '@datahub/metadata-types/types/entity/person/person-entity';
 import { readPerson, saveEditablePersonalInfo } from '@datahub/data-models/api/person/entity';
 import { alias, not } from '@ember/object/computed';
 
@@ -165,6 +165,11 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
   email!: string;
 
   /**
+   * References the pictureLink on the editableInfo for the Person Entity
+   */
+  @alias('entity.editableInfo.pictureLink')
+  pictureLink!: ICorpUserEditableInfo['pictureLink'];
+  /**
    * A list of skills that this particular person entity has declared to own.
    */
   @computed('entity.editableInfo.skills')
@@ -287,7 +292,8 @@ export class PersonEntity extends BaseEntity<ICorpUserInfo> {
     return saveEditablePersonalInfo(this.urn, {
       teams: props.teamTags,
       aboutMe: props.focusArea,
-      skills: props.skills
+      skills: props.skills,
+      pictureLink: this.pictureLink
     });
   }
 }

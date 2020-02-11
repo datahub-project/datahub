@@ -7,7 +7,6 @@ import {
 } from 'wherehows-web/utils/parsers/autocomplete/types';
 import { dataToString } from 'wherehows-web/utils/parsers/autocomplete/utils';
 import { ISearchEntityRenderProps } from '@datahub/data-models/types/entity/rendering/search-entity-render-prop';
-import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { fetchFacetValue } from 'wherehows-web/utils/parsers/helpers';
 
 /**
@@ -52,7 +51,7 @@ export const facetsProcessor: INodeProcessor = {
    * When 'name' is expected we just return 'name:' as suggestion
    */
   [AutocompleteRuleNames.FacetName]: (builder: ISuggestionBuilder, ruleState: IState): Promise<ISuggestionBuilder> => {
-    const allFields: Array<ISearchEntityRenderProps> = DataModelEntity[builder.entity].renderProps.search.attributes;
+    const allFields: Array<ISearchEntityRenderProps> = builder.entity.renderProps.search.attributes;
     const facetName = getFacetNameFromStateRule(ruleState);
     const fields = allFields.filter(
       (field): boolean => field.fieldName.indexOf(facetName) >= 0 && field.showInAutoCompletion

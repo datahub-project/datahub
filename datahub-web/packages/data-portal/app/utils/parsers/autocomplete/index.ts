@@ -13,7 +13,7 @@ import { generateGroups } from 'wherehows-web/utils/parsers/autocomplete/steps/g
 import { arrayReduce } from 'wherehows-web/utils/array';
 import { createSuggestionsFromError } from 'wherehows-web/utils/parsers/helpers';
 import { DatasetEntity } from '@datahub/data-models/entity/dataset/dataset-entity';
-import { DataModelName } from '@datahub/data-models/constants/entity';
+import { DataModelEntity } from '@datahub/data-models/constants/entity';
 
 /**
  * Steps of the grammar process
@@ -40,7 +40,7 @@ export const grammarProcessingSteps: Array<IGrammarProcessFn> = [
  */
 export const typeaheadQueryProcessor = async (
   query: string,
-  entity: DataModelName = DatasetEntity.displayName,
+  entity: DataModelEntity = DatasetEntity,
   steps: Array<IGrammarProcessFn>
 ): Promise<Array<ISuggestionGroup>> => {
   const initArgs: Pick<ISuggestionBuilder, 'text' | 'entity'> = { text: query, entity };
