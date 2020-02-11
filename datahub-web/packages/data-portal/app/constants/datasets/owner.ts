@@ -177,5 +177,5 @@ export const avatarWithDropDownOption = (avatar: IAvatar): IAvatar & Required<Pi
  */
 export const avatarWithProfileLink = (avatar: IAvatar): IAvatar => ({
   ...avatar,
-  profileLink: PersonEntity.profileLinkFromUsername(avatar.userName || '')
+  profileLink: `#/user/${PersonEntity.urnFromUsername(avatar.userName || '')}`
 });
