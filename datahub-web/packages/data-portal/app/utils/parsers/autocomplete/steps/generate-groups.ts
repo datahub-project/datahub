@@ -14,7 +14,8 @@ export const generateGroups = (builder: ISuggestionBuilder): ISuggestionBuilder 
   const isEntityNamesEmpty = builder.datasets.length === 0;
   const expectedEntityName = !!builder.wantedRulesMap[AutocompleteRuleNames.EntityName];
   const lastWordLength = typeof builder.textLastWord === 'string' ? builder.textLastWord.trim().length : -1;
-  const entityDisplayName = capitalize(builder.entity);
+  const entityModel = builder.entity;
+  const entityDisplayName = capitalize(entityModel.displayName);
 
   if (isEntityNamesEmpty && expectedEntityName && lastWordLength < 3) {
     groups.push({

@@ -1,5 +1,5 @@
 import { ISuggestionGroup } from 'wherehows-web/utils/parsers/autocomplete/types';
-import { DataModelEntity, DataModelName } from '@datahub/data-models/constants/entity';
+import { DataModelEntity } from '@datahub/data-models/constants/entity';
 import { IFieldValuesResponseV2, FieldValuesRequestV2 } from 'wherehows-web/typings/app/search/fields-v2';
 import { facetValuesApiEntities } from 'wherehows-web/utils/parsers/autocomplete/utils';
 
@@ -24,12 +24,13 @@ export const createSuggestionsFromError = (error: string): Array<ISuggestionGrou
 export const fetchFacetValue = async (
   facetName: string,
   facetValue: string,
-  entity: DataModelName
+  entity: DataModelEntity
 ): Promise<Array<string>> => {
   // otherwise lets invoke api to fetch values
   let suggestions: Array<string> = [];
-  const { apiName, attributes } = DataModelEntity[entity].renderProps.search;
-  const fieldMeta = attributes.find((attr): boolean => attr.fieldName === facetName);
+  const searchRenderProps = entity.renderProps.search;
+  const searchAttributes = searchRenderProps.attributes;
+  const fieldMeta = searchAttributes.find((attr): boolean => attr.fieldName === facetName);
   const { minAutocompleteFetchLength } = fieldMeta || { minAutocompleteFetchLength: undefined };
   const cacheKey = `${facetName}:${facetValue}`;
 
@@ -38,7 +39,7 @@ export const fetchFacetValue = async (
   const request: FieldValuesRequestV2<Record<string, string>> = {
     field: facetName,
     input: facetValue,
-    type: apiName
+    type: searchRenderProps.apiName
   };
   const facetValueReturn: IFieldValuesResponseV2 | undefined = await facetValuesApiEntities({
     query: facetValue,
