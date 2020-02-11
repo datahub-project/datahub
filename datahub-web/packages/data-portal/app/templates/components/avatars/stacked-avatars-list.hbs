@@ -25,7 +25,7 @@
 
           {{#dd.trigger class="avatar-item__trigger"}}
             {{#if avatar.profileLink}}
-              <a href={{avatar.profileLink}} rel="noopener" target="_blank">
+              <a href={{avatar.profileLink}}>
                 {{avatars/avatar-image
                   avatar=avatar
                   class=(if dd.isExpanded "avatar--stacked avatar--focused" "avatar--stacked")
