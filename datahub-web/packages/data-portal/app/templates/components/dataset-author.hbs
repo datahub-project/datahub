@@ -4,9 +4,9 @@
       {{avatars/avatar-image avatar=@owner.avatar}}
     {{/unless}}
 
-    <a href={{@owner.profile}} rel="noopener" target="blank">
+    <LinkTo @route="user.profile" @model={{@owner.profile}}>
       {{ownerRecord.userName}}
-    </a>
+    </LinkTo>
 
     {{#if isOwnerInActive}}
 

@@ -1,7 +1,8 @@
 import {
   INodeProcessor,
   AutocompleteRuleNames,
-  ISuggestionBuilder
+  ISuggestionBuilder,
+  ISuggestion
 } from 'wherehows-web/utils/parsers/autocomplete/types';
 import { fetchFacetValue } from 'wherehows-web/utils/parsers/helpers';
 
@@ -12,17 +13,20 @@ import { fetchFacetValue } from 'wherehows-web/utils/parsers/helpers';
 export const entityProcessor: INodeProcessor = {
   [AutocompleteRuleNames.EntityName]: async (builder: ISuggestionBuilder): Promise<ISuggestionBuilder> => {
     const input = builder.textLastWord || '';
-    const suggestions = await fetchFacetValue('name', input, builder.entity);
+    const nameField = builder.entity.renderProps.search.autocompleteNameField || 'name';
+    const suggestions = await fetchFacetValue(nameField, input, builder.entity);
 
     return {
       ...builder,
       datasets: [
         ...builder.datasets,
-        ...(suggestions || []).map(entityName => ({
-          title: entityName,
-          text: `${builder.textPrevious}${entityName} `,
-          description: ''
-        }))
+        ...(suggestions || []).map(
+          (entityName): ISuggestion => ({
+            title: entityName,
+            text: `${builder.textPrevious}${entityName} `,
+            description: ''
+          })
+        )
       ]
     };
   }

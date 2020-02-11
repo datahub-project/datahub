@@ -58,7 +58,7 @@ export const getRenderProps = (): IEntityRenderProps => {
       searchResultEntityFields: {
         description: 'title',
         pictureUrl: 'editableInfo.pictureLink',
-        name: 'username'
+        name: 'info.fullName'
       },
       showFacets: false,
       placeholder: 'Search for People...',

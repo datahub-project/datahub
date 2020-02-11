@@ -36,26 +36,38 @@ export default class SearchResult extends Component {
   /**
    * Result used in template
    */
-  result?: DataModelEntityInstance;
+  result!: DataModelEntityInstance;
 
   /**
    * Config for search for this entity
    */
-  searchConfig?: IEntityRenderCommonPropsSearch;
+  searchConfig!: IEntityRenderCommonPropsSearch;
   /**
    * Will return the name of the entity. By default it will use
    * 'name' as field to fetch the name, otherwise it should be
    * specified in 'entityNameField'
    */
   @computed('searchConfig.entityNameField', 'entity')
-  get name(): string | void {
-    const { result, searchConfig = { searchResultEntityFields: { name: 'name' } } } = this;
-    if (result) {
-      const { searchResultEntityFields = { name: 'name' } } = searchConfig;
-      const { name = 'name' } = searchResultEntityFields;
+  get name(): string | undefined {
+    const { result, searchConfig } = this;
+    const { searchResultEntityFields = {} } = searchConfig;
+    const { name = 'name' } = searchResultEntityFields || {};
 
-      return result[name as CompatibleKeysThatReturnString];
-    }
+    return get(result, name as CompatibleKeysThatReturnString);
+  }
+
+  /**
+   * Will return the description of the entity. By default it will use
+   * 'description' as field to fetch the description, otherwise it should be
+   * specified in 'entityDescriptionField'
+   */
+  @computed('searchConfig.descriptionField', 'entity')
+  get description(): string | undefined {
+    const { result, searchConfig } = this;
+    const { searchResultEntityFields = {} } = searchConfig;
+    const { description = 'description' } = searchResultEntityFields || {};
+
+    return result[description as CompatibleKeysThatReturnString];
   }
 
   /**

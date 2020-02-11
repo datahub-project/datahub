@@ -43,7 +43,7 @@ export type INodeFacetProcessor = Record<
  * The structure is not intented to be mutated, redux like approach
  */
 export interface ISuggestionBuilder {
-  entity: DataModelEntity['displayName'];
+  entity: DataModelEntity;
   logicalOperators: Array<ISuggestion>;
   facetNames: Array<ISuggestion>;
   datasets: Array<ISuggestion>;

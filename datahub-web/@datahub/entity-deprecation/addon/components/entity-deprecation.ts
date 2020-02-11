@@ -71,26 +71,11 @@ export default class EntityDeprecation extends Component {
   centeredDate: Date = this.selectedDate;
 
   /**
-   * Before a user can update the deprecation status to deprecated, they must acknowledge that even if the
-   * entity is deprecated they must still keep it compliant.
-   * @type {boolean}
-   */
-  isDeprecationAcknowledged: boolean = false;
-
-  /**
    * Expected to be passed in if we plan on using the default entity deprecation acknowledgement template,
    * leads to a more info link for the user about deprecation of such entity
    * @type {string | undefined}
    */
   entityDecommissionWikiLink?: string;
-
-  /**
-   * Optionally passed in if the entity should have an acknowledgement message/structure that differs from
-   * our default provided partial. If not passed in, constructor will automatically populate this with the
-   * default acknowledgement
-   * @type {string}
-   */
-  deprecationAcknowledgementTemplate!: string;
 
   /**
    * The earliest date a user can select as a decommission date
@@ -115,13 +100,6 @@ export default class EntityDeprecation extends Component {
    */
   @reads('deprecationNote')
   deprecationNoteAlias!: EntityDeprecation['deprecationNote'];
-
-  didInsertElement(): void {
-    super.didInsertElement();
-
-    typeof this.deprecationAcknowledgementTemplate === 'string' ||
-      set(this, 'deprecationAcknowledgementTemplate', 'partials/entity-deprecation/default-acknowledgement');
-  }
 
   /**
    * Invokes the save action with the updated values for deprecated status, decommission time, and
@@ -154,14 +132,5 @@ export default class EntityDeprecation extends Component {
   @action
   onDecommissionDateChange(decommissionTime: Date): void {
     set(this, 'decommissionTime', new Date(decommissionTime).getTime());
-  }
-
-  /**
-   * When a user clicks the checkbox to acknolwedge or cancel the acknolwedgement of the notice for
-   * deprecating an entity
-   */
-  @action
-  onAcknowledgeDeprecationNotice(): void {
-    this.toggleProperty('isDeprecationAcknowledged');
   }
 }
