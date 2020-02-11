@@ -10,7 +10,7 @@ Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker
 ### Azure deployment
 Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide a how-to guide for Azure deployment.
 
-## Long term (6+ months)
+## Medium term (6+ months)
 ### Fine grain lineage
 ### Social features
 Users will be able to like and follow entities.
