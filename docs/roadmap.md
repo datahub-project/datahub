@@ -1,6 +1,6 @@
-# DataHub 2020 Roadmap
+# DataHub Roadmap
 
-Below is DataHub's charter for 2020.
+Below is DataHub's roadmap for the short and medium term. We'll revise this on a regular basis and welcome suggestions from the communities.
 
 ## Short term (3-6 months)
 ### Schemas as an Entity
