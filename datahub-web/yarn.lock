@@ -5136,7 +5136,7 @@ duplexify@^3.4.2, duplexify@^3.6.0:
     readable-stream "^2.0.0"
     stream-shift "^1.0.0"
 
-dynamic-link@^0.2.3:
+dynamic-link@^0.2.3, dynamic-link@^0.2.5:
   version "0.2.5"
   resolved "https://registry.yarnpkg.com/dynamic-link/-/dynamic-link-0.2.5.tgz#3b6406e5fbe4d5f3ff806d978226ae276f2321ff"
   integrity sha512-KWE0yzony5Q1X4aTgNuzBL/rlw5jWhcATMMWnTLpROPDmCv5F0cTRMkpfsdmijLE3nrzP9wDQ4hJrMJ0hQEFRw==

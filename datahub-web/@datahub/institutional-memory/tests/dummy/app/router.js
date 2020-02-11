@@ -9,6 +9,12 @@ const Router = EmberRouter.extend({
 Router.map(function() {
   this.route('wiki');
   this.route('testcomponents');
+
+  this.route('user', function() {
+    this.route('profile', { path: '/:user_id' }, function() {
+      this.route('tab', { path: '/:tab_selected' });
+    });
+  });
 });
 
 export default Router;
