@@ -6,6 +6,8 @@
 
 ![DataHub](docs/imgs/datahub-logo.png)
 
+> :sparkles: Feb 2020 Update: *DataHub v0.3.0* just [released](https://github.com/linkedin/datahub/releases/tag/datahub-v0.3.0)!
+
 ## Introduction
 DataHub is LinkedIn's generalized metadata search & discovery tool. To learn more about DataHub, check out our 
 [LinkedIn blog post](https://engineering.linkedin.com/blog/2019/data-hub) and [Strata presentation](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019). 
