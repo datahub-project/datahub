@@ -41,6 +41,7 @@
     "@datahub/metadata-types": "0.0.0",
     "@ember/optional-features": "^0.6.3",
     "broccoli-asset-rev": "^2.7.0",
+    "dynamic-link": "^0.2.5",
     "ember-cli": "~3.11.0",
     "ember-cli-dependency-checker": "^3.1.0",
     "ember-cli-htmlbars-inline-precompile": "^2.1.0",
