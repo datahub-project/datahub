@@ -51,4 +51,4 @@ See [Releases](https://github.com/linkedin/datahub/releases) page for more detai
 We welcome contributions from the community. Please refer to [the guidelines](CONTRIBUTING.md) for more details. We also have a [contrib](contrib) directory for incubation. 
 
 ## Roadmap
-Check DataHub's [roadmap](docs/roadmap.md).
+Check out DataHub's [roadmap](docs/roadmap.md).
