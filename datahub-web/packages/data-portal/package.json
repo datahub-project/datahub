@@ -97,7 +97,7 @@
     "@nacho-ui/dropdown": "^0.0.37",
     "@nacho-ui/table": "^0.0.37",
     "@types/vis": "^4.21.11",
-    "bootstrap": "3.3.7",
+    "bootstrap": "4.4.1",
     "bootstrap-sass": "^3.3.7",
     "dynamic-link": "^0.2.3",
     "ember-ace": "^2.0.1",
