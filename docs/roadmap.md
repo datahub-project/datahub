@@ -14,6 +14,9 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Simple tag-based compliance metadata
 ### Gremlin-based Query DAO
 - Support majority of gremlin-compatible graph DBs
+### Templatized UI
+- Config-driven UI
+- Generate TypeScript types from Pegasus 
 ### Kubernetes migration
 - Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
 ### Azure deployment
@@ -28,8 +31,10 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Micro-services as an entity
 ### Kundera-based Local DAO
 - Support a wide range of document stores
+### Adtopt Redux
+- Use Redux exclusively for UI state management
 ### Integration tests
-- Add docker-based integration tests.
+- Add docker-based integration tests
 ### AWS deployment
 - Run DataHub in [AWS](https://aws.amazon.com/) and provide a how-to guide for AWS deployment
 ### Apache incubation
