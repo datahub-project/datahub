@@ -41,4 +41,5 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 
 ## Long term (1+ year)
 ### Rewrite midtier in Node
+### gRPC + protobuf
 
