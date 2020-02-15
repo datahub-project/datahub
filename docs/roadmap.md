@@ -20,7 +20,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Kubernetes migration
 - Migration from docker-compose to [Kubernetes](https://kubernetes.io/) for Docker container orchestration
 ### Azure deployment
-- Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide a how-to guide for Azure deployment
+- Run DataHub in [Azure](https://azure.microsoft.com/en-us/) and provide how-to guides
 
 ## Medium term (6 months - 1 year)
 ### Fine grain lineage
@@ -35,8 +35,8 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Use Redux exclusively for UI state management
 ### Integration tests
 - Add docker-based integration tests
-### AWS deployment
-- Run DataHub in [AWS](https://aws.amazon.com/) and provide a how-to guide for AWS deployment
+### AWS & GCP deployment
+- Run DataHub in [AWS](https://aws.amazon.com/) & [GCP](https://cloud.google.com/gcp) and provide how-to guides
 ### Apache incubation
 
 ## Long term (1+ year)
