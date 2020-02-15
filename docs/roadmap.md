@@ -32,6 +32,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Add docker-based integration tests.
 ### AWS deployment
 - Run DataHub in [AWS](https://aws.amazon.com/) and provide a how-to guide for AWS deployment
+### Apache incubation
 
 ## Long term (1+ year)
 ### Rewrite midtier in Node
