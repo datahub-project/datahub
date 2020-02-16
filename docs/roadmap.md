@@ -34,8 +34,8 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Social features
 - Users will be able to like and follow entities
 - Dataset & field-level commenting
-### Micro-services as an entity
-- Focus in rest.li services & GraphQL integration
+### Microservices as an entity
+- Initially focus on rest.li services & GraphQL integration
 ### Kundera-based Local DAO
 - Support a wide range of document stores
 ### Adtopt Redux
