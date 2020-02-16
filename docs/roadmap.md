@@ -6,12 +6,14 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Replace PDSC with PDL
 - Simplified syntax + annotations
 ### Entity-specific MCE & MAE
-- Spilt up unified event for scalability & modularity 
+- Spilt up unified event for scalability & modularity
 ### Schemas as an entity
 - Make schemas searchable
 - Support GraphQL shcmeas
 ### Compliance management for datasets
 - Simple tag-based compliance metadata
+### Strongly consistent local index
+- Add query-after-write capability to local DAO 
 ### Gremlin-based Query DAO
 - Support majority of gremlin-compatible graph DBs
 ### Templatized UI
