@@ -38,7 +38,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Initially focus on rest.li services & GraphQL integration
 ### Kundera-based Local DAO
 - Support a wide range of document stores
-### Adtopt Redux
+### Adopt Redux
 - Use Redux exclusively for UI state management
 ### Integration tests
 - Add docker-based integration tests
