@@ -30,7 +30,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Fine grain lineage
 - Models + impact analysis
 ### Operational metadata
-- Indexing in OLAP store (Pinot) with TTL
+- Indexing in OLAP store ([Pinot](https://github.com/apache/incubator-pinot)) with TTL
 ### Social features
 - Users will be able to like and follow entities
 - Dataset & field-level commenting
