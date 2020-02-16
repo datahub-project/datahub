@@ -7,7 +7,7 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 - Simplified syntax + annotations
 ### Entity-specific MCE & MAE
 - Spilt up unified events to improve scalability & modularity
-### Jobs & Flows as an entity
+### Jobs & Flows as entities
 - Link datasets to jobs & flows
 ### Schemas as an entity
 - Make schemas searchable
