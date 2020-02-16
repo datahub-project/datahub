@@ -6,7 +6,9 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 ### Replace PDSC with PDL
 - Simplified syntax + annotations
 ### Entity-specific MCE & MAE
-- Spilt up unified event for scalability & modularity
+- Spilt up unified events to improve scalability & modularity
+### Jobs & Flows as an entity
+- Link datasets to jobs & flows
 ### Schemas as an entity
 - Make schemas searchable
 - Support GraphQL shcmeas
@@ -26,11 +28,14 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 
 ## Medium term (6 months - 1 year)
 ### Fine grain lineage
+- Models + impact analysis
 ### Operational metadata
 - Indexing in OLAP store (Pinot) with TTL
 ### Social features
 - Users will be able to like and follow entities
+- Dataset & field-level commenting
 ### Micro-services as an entity
+- Focus in rest.li services & GraphQL integration
 ### Kundera-based Local DAO
 - Support a wide range of document stores
 ### Adtopt Redux
@@ -43,5 +48,6 @@ Below is DataHub's roadmap for the short and medium term. We'll revise this on a
 
 ## Long term (1+ year)
 ### Rewrite midtier in Node
+- TypeScript-only frontend development
 ### gRPC + protobuf
-
+- Modeling in protobuf + serveing in gRPC
